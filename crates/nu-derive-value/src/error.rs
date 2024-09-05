@@ -28,6 +28,19 @@ pub enum DeriveError<M> {
         value_span: Span,
         value: Box<dyn Debug>,
     },
+
+    /// Two keys or variants are called the same name breaking bidirectionality.
+    NonUniqueName {
+        name: String,
+        first: Span,
+        second: Span,
+    },
+}
+
+impl<M> From<syn::parse::Error> for DeriveError<M> {
+    fn from(value: syn::parse::Error) -> Self {
+        Self::Syn(value)
+    }
 }
 
 impl<M> From<DeriveError<M>> for Diagnostic {
@@ -77,6 +90,15 @@ impl<M> From<DeriveError<M>> for Diagnostic {
                         "check documentation for `{derive_name}` for valid attribute values"
                     ))
             }
+
+            DeriveError::NonUniqueName {
+                name,
+                first,
+                second,
+            } => Diagnostic::new(Level::Error, format!("non-unique name {name:?} found"))
+                .span_error(first, "first occurrence found here".to_string())
+                .span_error(second, "second occurrence found here".to_string())
+                .help("use `#[nu_value(rename = \"...\")]` to ensure unique names".to_string()),
         }
     }
 }
