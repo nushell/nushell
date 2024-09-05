@@ -131,6 +131,40 @@ impl PipelineData {
         }
     }
 
+    /// Converts any `Value` variant that can be represented as a stream into its stream variant.
+    ///
+    /// This means that lists and ranges are converted into list streams, and strings and binary are
+    /// converted into byte streams.
+    ///
+    /// Returns an `Err` with the original stream if the variant couldn't be converted to a stream
+    /// variant. If the variant is already a stream variant, it is returned as-is.
+    pub fn try_into_stream(self, engine_state: &EngineState) -> Result<PipelineData, PipelineData> {
+        let span = self.span().unwrap_or(Span::unknown());
+        match self {
+            PipelineData::ListStream(..) | PipelineData::ByteStream(..) => Ok(self),
+            PipelineData::Value(Value::List { .. } | Value::Range { .. }, ref metadata) => {
+                let metadata = metadata.clone();
+                Ok(PipelineData::ListStream(
+                    ListStream::new(self.into_iter(), span, engine_state.signals().clone()),
+                    metadata,
+                ))
+            }
+            PipelineData::Value(Value::String { val, .. }, metadata) => {
+                Ok(PipelineData::ByteStream(
+                    ByteStream::read_string(val, span, engine_state.signals().clone()),
+                    metadata,
+                ))
+            }
+            PipelineData::Value(Value::Binary { val, .. }, metadata) => {
+                Ok(PipelineData::ByteStream(
+                    ByteStream::read_binary(val, span, engine_state.signals().clone()),
+                    metadata,
+                ))
+            }
+            _ => Err(self),
+        }
+    }
+
     /// Writes all values or redirects all output to the current [`OutDest`]s in `stack`.
     ///
     /// For [`OutDest::Pipe`] and [`OutDest::Capture`], this will return the `PipelineData` as is

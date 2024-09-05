@@ -377,7 +377,7 @@ fn file_completions_with_mixed_separators() {
         file(dir.join("lib-dir1").join("baz.nu")),
         file(dir.join("lib-dir1").join("xyzzy.nu")),
     ];
-    let expecetd_slash_paths: Vec<String> = expected_paths
+    let expected_slash_paths: Vec<String> = expected_paths
         .iter()
         .map(|s| s.replace(MAIN_SEPARATOR, "/"))
         .collect();
@@ -385,22 +385,22 @@ fn file_completions_with_mixed_separators() {
     let target_dir = format!("ls {dir_str}/lib-dir1/");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
-    match_suggestions(&expecetd_slash_paths, &suggestions);
+    match_suggestions(&expected_slash_paths, &suggestions);
 
     let target_dir = format!("cp {dir_str}\\lib-dir1/");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
-    match_suggestions(&expecetd_slash_paths, &suggestions);
+    match_suggestions(&expected_slash_paths, &suggestions);
 
     let target_dir = format!("ls {dir_str}/lib-dir1\\/");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
-    match_suggestions(&expecetd_slash_paths, &suggestions);
+    match_suggestions(&expected_slash_paths, &suggestions);
 
     let target_dir = format!("ls {dir_str}\\lib-dir1\\/");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
-    match_suggestions(&expecetd_slash_paths, &suggestions);
+    match_suggestions(&expected_slash_paths, &suggestions);
 
     let target_dir = format!("ls {dir_str}\\lib-dir1\\");
     let suggestions = completer.complete(&target_dir, target_dir.len());
