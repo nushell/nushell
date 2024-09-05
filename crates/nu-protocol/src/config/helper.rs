@@ -1,9 +1,5 @@
-use crate::{Record, ShellError, Span, Value};
+use crate::{IntoValue, Record, ShellError, Span, Value};
 use std::{collections::HashMap, fmt::Display, str::FromStr};
-
-pub(super) trait ReconstructVal {
-    fn reconstruct_value(&self, span: Span) -> Value;
-}
 
 pub(super) fn process_string_enum<T, E>(
     config_point: &mut T,
@@ -11,7 +7,7 @@ pub(super) fn process_string_enum<T, E>(
     value: &mut Value,
     errors: &mut Vec<ShellError>,
 ) where
-    T: FromStr<Err = E> + ReconstructVal,
+    T: FromStr<Err = E> + Clone + IntoValue,
     E: Display,
 {
     let span = value.span();
@@ -32,7 +28,7 @@ pub(super) fn process_string_enum<T, E>(
                     inner: vec![],
                 });
                 // Reconstruct
-                *value = config_point.reconstruct_value(span);
+                *value = config_point.clone().into_value(span);
             }
         }
     } else {
@@ -44,7 +40,7 @@ pub(super) fn process_string_enum<T, E>(
             inner: vec![],
         });
         // Reconstruct
-        *value = config_point.reconstruct_value(span);
+        *value = config_point.clone().into_value(span);
     }
 }
 

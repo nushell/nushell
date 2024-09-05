@@ -51,7 +51,9 @@ impl CommandCompletion {
                             if working_set
                                 .permanent_state
                                 .config
-                                .max_external_completion_results
+                                .completions
+                                .external
+                                .max_results
                                 > executables.len() as i64
                                 && !executables.contains(
                                     &item
@@ -211,7 +213,7 @@ impl Completer for CommandCompletion {
                 working_set,
                 span,
                 offset,
-                config.enable_external_completion,
+                config.completions.external.enable,
                 options.match_algorithm,
             )
         } else {

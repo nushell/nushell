@@ -72,11 +72,11 @@ pub fn evaluate_repl(
     let mut entry_num = 0;
 
     // Let's grab the shell_integration configs
-    let shell_integration_osc2 = config.shell_integration_osc2;
-    let shell_integration_osc7 = config.shell_integration_osc7;
-    let shell_integration_osc9_9 = config.shell_integration_osc9_9;
-    let shell_integration_osc133 = config.shell_integration_osc133;
-    let shell_integration_osc633 = config.shell_integration_osc633;
+    let shell_integration_osc2 = config.shell_integration.osc2;
+    let shell_integration_osc7 = config.shell_integration.osc7;
+    let shell_integration_osc9_9 = config.shell_integration.osc9_9;
+    let shell_integration_osc133 = config.shell_integration.osc133;
+    let shell_integration_osc633 = config.shell_integration.osc633;
 
     let nu_prompt = NushellPrompt::new(
         shell_integration_osc133,
@@ -322,9 +322,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     start_time = std::time::Instant::now();
     // Find the configured cursor shapes for each mode
     let cursor_config = CursorConfig {
-        vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_insert),
-        vi_normal: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_normal),
-        emacs: map_nucursorshape_to_cursorshape(config.cursor_shape_emacs),
+        vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_insert),
+        vi_normal: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_normal),
+        emacs: map_nucursorshape_to_cursorshape(config.cursor_shape.emacs),
     };
     perf!("get config/cursor config", start_time, use_color);
 
@@ -352,8 +352,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             // STACK-REFERENCE 2
             stack_arc.clone(),
         )))
-        .with_quick_completions(config.quick_completions)
-        .with_partial_completions(config.partial_completions)
+        .with_quick_completions(config.completions.quick)
+        .with_partial_completions(config.completions.partial)
         .with_ansi_colors(config.use_ansi_coloring)
         .with_cwd(Some(
             engine_state
@@ -457,12 +457,12 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_completer(Box::<DefaultCompleter>::default());
 
     // Let's grab the shell_integration configs
-    let shell_integration_osc2 = config.shell_integration_osc2;
-    let shell_integration_osc7 = config.shell_integration_osc7;
-    let shell_integration_osc9_9 = config.shell_integration_osc9_9;
-    let shell_integration_osc133 = config.shell_integration_osc133;
-    let shell_integration_osc633 = config.shell_integration_osc633;
-    let shell_integration_reset_application_mode = config.shell_integration_reset_application_mode;
+    let shell_integration_osc2 = config.shell_integration.osc2;
+    let shell_integration_osc7 = config.shell_integration.osc7;
+    let shell_integration_osc9_9 = config.shell_integration.osc9_9;
+    let shell_integration_osc133 = config.shell_integration.osc133;
+    let shell_integration_osc633 = config.shell_integration.osc633;
+    let shell_integration_reset_application_mode = config.shell_integration.reset_application_mode;
 
     // TODO: we may clone the stack, this can lead to major performance issues
     // so we should avoid it or making stack cheaper to clone.
@@ -1173,7 +1173,7 @@ fn update_line_editor_history(
     history_session_id: Option<HistorySessionId>,
 ) -> Result<Reedline, ErrReport> {
     let history: Box<dyn reedline::History> = match history.file_format {
-        HistoryFileFormat::PlainText => Box::new(
+        HistoryFileFormat::Plaintext => Box::new(
             FileBackedHistory::with_file(history.max_size as usize, history_path)
                 .into_diagnostic()?,
         ),
@@ -1211,10 +1211,10 @@ fn confirm_stdin_is_terminal() -> Result<()> {
 fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> Option<SetCursorStyle> {
     match shape {
         NuCursorShape::Block => Some(SetCursorStyle::SteadyBlock),
-        NuCursorShape::UnderScore => Some(SetCursorStyle::SteadyUnderScore),
+        NuCursorShape::Underscore => Some(SetCursorStyle::SteadyUnderScore),
         NuCursorShape::Line => Some(SetCursorStyle::SteadyBar),
         NuCursorShape::BlinkBlock => Some(SetCursorStyle::BlinkingBlock),
-        NuCursorShape::BlinkUnderScore => Some(SetCursorStyle::BlinkingUnderScore),
+        NuCursorShape::BlinkUnderscore => Some(SetCursorStyle::BlinkingUnderScore),
         NuCursorShape::BlinkLine => Some(SetCursorStyle::BlinkingBar),
         NuCursorShape::Inherit => None,
     }

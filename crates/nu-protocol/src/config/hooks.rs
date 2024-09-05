@@ -1,8 +1,9 @@
-use crate::{Config, Record, ShellError, Span, Value};
-use serde::{Deserialize, Serialize};
+use super::prelude::*;
+use crate as nu_protocol;
+use crate::ShellError;
 
 /// Definition of a parsed hook from the config object
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Debug, IntoValue, PartialEq, Serialize, Deserialize)]
 pub struct Hooks {
     pub pre_prompt: Option<Value>,
     pub pre_execution: Option<Value>,
@@ -64,25 +65,4 @@ pub(super) fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
             span,
         }),
     }
-}
-
-pub(super) fn reconstruct_hooks(config: &Config, span: Span) -> Value {
-    let mut hook = Record::new();
-    if let Some(ref value) = config.hooks.pre_prompt {
-        hook.push("pre_prompt", value.clone());
-    }
-    if let Some(ref value) = config.hooks.pre_execution {
-        hook.push("pre_execution", value.clone());
-    }
-    if let Some(ref value) = config.hooks.env_change {
-        hook.push("env_change", value.clone());
-    }
-    if let Some(ref value) = config.hooks.display_output {
-        hook.push("display_output", value.clone());
-    }
-    if let Some(ref value) = config.hooks.command_not_found {
-        hook.push("command_not_found", value.clone());
-    }
-
-    Value::record(hook, span)
 }

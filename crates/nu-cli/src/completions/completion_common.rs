@@ -167,7 +167,7 @@ pub fn complete_item(
         .rfind(|c: &char| is_separator(*c))
         .unwrap_or(SEP);
     let cwd_pathbuf = Path::new(cwd).to_path_buf();
-    let ls_colors = (engine_state.config.use_ls_colors_completions
+    let ls_colors = (engine_state.config.completions.use_ls_colors
         && engine_state.config.use_ansi_coloring)
         .then(|| {
             let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {

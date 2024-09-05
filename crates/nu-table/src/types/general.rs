@@ -26,8 +26,8 @@ impl JustTable {
 fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, ShellError> {
     match table(input, &opts)? {
         Some(mut out) => {
-            let left = opts.config.table_indent.left;
-            let right = opts.config.table_indent.right;
+            let left = opts.config.table.padding.left;
+            let right = opts.config.table.padding.right;
             out.table.set_indent(left, right);
 
             colorize_space(out.table.get_records_mut(), opts.style_computer);
@@ -59,8 +59,8 @@ fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
 
     let mut out = TableOutput::new(table, false, true);
 
-    let left = opts.config.table_indent.left;
-    let right = opts.config.table_indent.right;
+    let left = opts.config.table.padding.left;
+    let right = opts.config.table.padding.right;
     out.table.set_indent(left, right);
 
     let table_config =

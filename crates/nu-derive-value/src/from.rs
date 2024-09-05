@@ -126,7 +126,7 @@ fn derive_struct_from_value(
 ///                 .remove("favorite_toy")
 ///                 .map(|v| <#ty as nu_protocol::FromValue>::from_value(v))
 ///                 .transpose()?
-///                 .flatten(),         
+///                 .flatten(),
 ///         })
 ///     }
 /// }
@@ -491,7 +491,7 @@ fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result {
 }
 
 /// Implements `FromValue::expected_type` for enums.
-///  
+///
 /// Since it's difficult to name the type of an enum in the current type system, we want to use the
 /// default implementation if `#[nu_value(type_name = "...")]` was *not* given.
 /// For that, a `None` value is returned, for a passed type name we return something like this:
