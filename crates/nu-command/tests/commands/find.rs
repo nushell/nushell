@@ -139,8 +139,6 @@ fn find_in_table_keeps_row_with_multiple_matched_and_keeps_other_columns() {
     assert!(actual.out.contains("60"));
 }
 
-// let data = [[d]; ["a?b"] ["a*b"] ["a{1}b"] ["a[]b"]]
-// let terms = ["?" "*" "{1}" "[]"]
 #[test]
 fn find_with_string_search_with_special_char_1() {
     let actual = nu!("[[d]; [a?b] [a*b] [a{1}b] ] | find '?' | to json -r");
