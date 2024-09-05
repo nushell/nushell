@@ -863,8 +863,8 @@ fn command_stat_with_dot_expansion_completion() {
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let target_dir = "stat .../";
-    let suggestions = completer.complete(target_dir, target_dir.len());
+    let target_dir = format!("stat {}", folder("..."));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
 
     #[cfg(windows)]
     let expected_paths: Vec<String> = vec![
