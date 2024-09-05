@@ -22,6 +22,7 @@ pub use nu_protocol::parser_path::*;
 pub use parse_keywords::*;
 
 pub use parser::{
-    is_math_expression_like, parse, parse_block, parse_expression, parse_external_call,
-    parse_unit_value, trim_quotes, trim_quotes_str, unescape_unquote_string, DURATION_UNIT_GROUPS,
+    find_longest_command, is_math_expression_like, parse, parse_block, parse_expression,
+    parse_external_call, parse_internal_call, parse_unit_value, trim_quotes, trim_quotes_str,
+    unescape_unquote_string, DURATION_UNIT_GROUPS,
 };
