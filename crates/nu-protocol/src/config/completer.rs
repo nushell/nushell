@@ -1,12 +1,8 @@
-use std::str::FromStr;
+use super::prelude::*;
+use crate as nu_protocol;
+use crate::engine::Closure;
 
-use serde::{Deserialize, Serialize};
-
-use crate::{record, Config, Span, Value};
-
-use super::helper::ReconstructVal;
-
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CompletionAlgorithm {
     #[default]
     Prefix,
@@ -25,17 +21,7 @@ impl FromStr for CompletionAlgorithm {
     }
 }
 
-impl ReconstructVal for CompletionAlgorithm {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        let str = match self {
-            CompletionAlgorithm::Prefix => "prefix",
-            CompletionAlgorithm::Fuzzy => "fuzzy",
-        };
-        Value::string(str, span)
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CompletionSort {
     #[default]
     Smart,
@@ -54,31 +40,44 @@ impl FromStr for CompletionSort {
     }
 }
 
-impl ReconstructVal for CompletionSort {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        let str = match self {
-            Self::Smart => "smart",
-            Self::Alphabetical => "alphabetical",
-        };
-        Value::string(str, span)
+#[derive(Clone, Debug, IntoValue, Serialize, Deserialize)]
+pub struct ExternalCompleterConfig {
+    pub enable: bool,
+    pub max_results: i64,
+    pub completer: Option<Closure>,
+}
+
+impl Default for ExternalCompleterConfig {
+    fn default() -> Self {
+        Self {
+            enable: true,
+            max_results: 100,
+            completer: None,
+        }
     }
 }
 
-pub(super) fn reconstruct_external_completer(config: &Config, span: Span) -> Value {
-    if let Some(closure) = config.external_completer.as_ref() {
-        Value::closure(closure.clone(), span)
-    } else {
-        Value::nothing(span)
-    }
+#[derive(Clone, Debug, IntoValue, Serialize, Deserialize)]
+pub struct CompleterConfig {
+    pub sort: CompletionSort,
+    pub case_sensitive: bool,
+    pub quick: bool,
+    pub partial: bool,
+    pub algorithm: CompletionAlgorithm,
+    pub external: ExternalCompleterConfig,
+    pub use_ls_colors: bool,
 }
 
-pub(super) fn reconstruct_external(config: &Config, span: Span) -> Value {
-    Value::record(
-        record! {
-            "max_results" => Value::int(config.max_external_completion_results, span),
-            "completer" => reconstruct_external_completer(config, span),
-            "enable" => Value::bool(config.enable_external_completion, span),
-        },
-        span,
-    )
+impl Default for CompleterConfig {
+    fn default() -> Self {
+        Self {
+            sort: CompletionSort::default(),
+            case_sensitive: false,
+            quick: true,
+            partial: true,
+            algorithm: CompletionAlgorithm::default(),
+            external: ExternalCompleterConfig::default(),
+            use_ls_colors: true,
+        }
+    }
 }

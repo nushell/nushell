@@ -159,8 +159,8 @@ fn add_menu(
     stack: &Stack,
     config: Arc<Config>,
 ) -> Result<Reedline, ShellError> {
-    let span = menu.menu_type.span();
-    if let Value::Record { val, .. } = &menu.menu_type {
+    let span = menu.r#type.span();
+    if let Value::Record { val, .. } = &menu.r#type {
         let layout = extract_value("layout", val, span)?.to_expanded_string("", &config);
 
         match layout.as_str() {
@@ -170,15 +170,15 @@ fn add_menu(
             "description" => add_description_menu(line_editor, menu, engine_state, stack, config),
             _ => Err(ShellError::UnsupportedConfigValue {
                 expected: "columnar, list, ide or description".to_string(),
-                value: menu.menu_type.to_abbreviated_string(&config),
-                span: menu.menu_type.span(),
+                value: menu.r#type.to_abbreviated_string(&config),
+                span: menu.r#type.span(),
             }),
         }
     } else {
         Err(ShellError::UnsupportedConfigValue {
             expected: "only record type".to_string(),
-            value: menu.menu_type.to_abbreviated_string(&config),
-            span: menu.menu_type.span(),
+            value: menu.r#type.to_abbreviated_string(&config),
+            span: menu.r#type.span(),
         })
     }
 }
@@ -224,11 +224,11 @@ pub(crate) fn add_columnar_menu(
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
-    let span = menu.menu_type.span();
+    let span = menu.r#type.span();
     let name = menu.name.to_expanded_string("", config);
     let mut columnar_menu = ColumnarMenu::default().with_name(&name);
 
-    if let Value::Record { val, .. } = &menu.menu_type {
+    if let Value::Record { val, .. } = &menu.r#type {
         columnar_menu = match extract_value("columns", val, span) {
             Ok(columns) => {
                 let columns = columns.as_int()?;
@@ -299,8 +299,8 @@ pub(crate) fn add_list_menu(
     let name = menu.name.to_expanded_string("", &config);
     let mut list_menu = ListMenu::default().with_name(&name);
 
-    let span = menu.menu_type.span();
-    if let Value::Record { val, .. } = &menu.menu_type {
+    let span = menu.r#type.span();
+    if let Value::Record { val, .. } = &menu.r#type {
         list_menu = match extract_value("page_size", val, span) {
             Ok(page_size) => {
                 let page_size = page_size.as_int()?;
@@ -352,11 +352,11 @@ pub(crate) fn add_ide_menu(
     stack: &Stack,
     config: Arc<Config>,
 ) -> Result<Reedline, ShellError> {
-    let span = menu.menu_type.span();
+    let span = menu.r#type.span();
     let name = menu.name.to_expanded_string("", &config);
     let mut ide_menu = IdeMenu::default().with_name(&name);
 
-    if let Value::Record { val, .. } = &menu.menu_type {
+    if let Value::Record { val, .. } = &menu.r#type {
         ide_menu = match extract_value("min_completion_width", val, span) {
             Ok(min_completion_width) => {
                 let min_completion_width = min_completion_width.as_int()?;
@@ -536,8 +536,8 @@ pub(crate) fn add_description_menu(
     let name = menu.name.to_expanded_string("", &config);
     let mut description_menu = DescriptionMenu::default().with_name(&name);
 
-    let span = menu.menu_type.span();
-    if let Value::Record { val, .. } = &menu.menu_type {
+    let span = menu.r#type.span();
+    if let Value::Record { val, .. } = &menu.r#type {
         description_menu = match extract_value("columns", val, span) {
             Ok(columns) => {
                 let columns = columns.as_int()?;
