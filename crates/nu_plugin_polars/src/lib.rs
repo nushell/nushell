@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 
 use aggregation::aggregation_commands;
+use boolean::boolean_commands;
 use cache::cache_commands;
 pub use cache::{Cache, Cacheable};
 use dataframe::{stub::PolarsCmd, values::CustomValueType};
@@ -64,6 +65,7 @@ impl Plugin for PolarsPlugin {
         let mut commands: Vec<Box<dyn PluginCommand<Plugin = Self>>> = vec![Box::new(PolarsCmd)];
 
         commands.append(&mut aggregation_commands());
+        commands.append(&mut boolean_commands());
 
         commands.append(&mut eager_commands());
         commands.append(&mut lazy_commands());
