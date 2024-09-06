@@ -8,7 +8,7 @@ pub use cache::{Cache, Cacheable};
 use data::data_commands;
 use dataframe::{stub::PolarsCmd, values::CustomValueType};
 use datetime::datetime_commands;
-use indexes::index_commands;
+use index::index_commands;
 use log::debug;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
