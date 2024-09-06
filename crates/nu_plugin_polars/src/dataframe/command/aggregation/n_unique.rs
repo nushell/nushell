@@ -3,7 +3,7 @@ use crate::{
     PolarsPlugin,
 };
 
-use super::super::values::{Column, NuDataFrame, NuExpression};
+use crate::values::{Column, NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,

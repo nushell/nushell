@@ -1,7 +1,10 @@
 mod aggregate;
+mod cumulative;
 mod expressions_macro;
 pub mod groupby;
 mod median;
+mod n_null;
+mod n_unique;
 mod quantile;
 mod rolling;
 mod value_counts;
@@ -10,12 +13,16 @@ use crate::PolarsPlugin;
 use nu_plugin::PluginCommand;
 
 pub use aggregate::LazyAggregate;
+pub use cumulative::Cumulative;
 pub use expressions_macro::*;
+pub use n_null::NNull;
+pub use n_unique::NUnique;
 pub use rolling::Rolling;
 pub use value_counts::ValueCount;
 
 pub(crate) fn aggregation_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
     vec![
+        Box::new(Cumulative),
         Box::new(ExprAggGroups),
         Box::new(ExprCount),
         Box::new(ExprList),
@@ -32,5 +39,7 @@ pub(crate) fn aggregation_commands() -> Vec<Box<dyn PluginCommand<Plugin = Polar
         Box::new(groupby::ToLazyGroupBy),
         Box::new(Rolling),
         Box::new(ValueCount),
+        Box::new(NNull),
+        Box::new(NUnique),
     ]
 }

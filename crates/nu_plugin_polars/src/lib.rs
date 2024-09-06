@@ -16,7 +16,7 @@ pub use dataframe::*;
 use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Span, Spanned, Value};
 use values::CustomValueType;
 
-use crate::{series::series_commands, values::PolarsPluginCustomValue};
+use crate::values::PolarsPluginCustomValue;
 
 pub trait EngineWrapper {
     fn get_env_var(&self, key: &str) -> Option<String>;
@@ -73,7 +73,6 @@ impl Plugin for PolarsPlugin {
         commands.append(&mut integer_commands());
         commands.append(&mut string_commands());
 
-        commands.append(&mut series_commands());
         commands.append(&mut cache_commands());
         commands
     }
