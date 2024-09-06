@@ -60,7 +60,7 @@ pub(crate) fn command_eager(
 
 #[cfg(test)]
 pub mod test {
-    use crate::eager::save::test::{test_eager_save, test_lazy_save};
+    use crate::core::save::test::{test_eager_save, test_lazy_save};
 
     #[test]
     pub fn test_avro_eager_save() -> Result<(), Box<dyn std::error::Error>> {

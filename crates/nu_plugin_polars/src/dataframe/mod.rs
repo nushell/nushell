@@ -2,9 +2,11 @@ use nu_protocol::{ShellError, Span};
 
 pub mod aggregation;
 pub mod boolean;
+pub mod core;
 pub mod eager;
 pub mod expressions;
 pub mod lazy;
+pub mod macro_commands;
 pub mod series;
 pub mod stub;
 mod utils;

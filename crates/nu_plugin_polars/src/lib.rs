@@ -1,3 +1,4 @@
+use crate::core::core_commands;
 use std::cmp::Ordering;
 
 use aggregation::aggregation_commands;
@@ -66,6 +67,7 @@ impl Plugin for PolarsPlugin {
 
         commands.append(&mut aggregation_commands());
         commands.append(&mut boolean_commands());
+        commands.append(&mut core_commands());
 
         commands.append(&mut eager_commands());
         commands.append(&mut lazy_commands());
