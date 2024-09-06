@@ -7,6 +7,7 @@ use cache::cache_commands;
 pub use cache::{Cache, Cacheable};
 use data::data_commands;
 use dataframe::{stub::PolarsCmd, values::CustomValueType};
+use datetime::datetime_commands;
 use log::debug;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
@@ -67,8 +68,8 @@ impl Plugin for PolarsPlugin {
         commands.append(&mut boolean_commands());
         commands.append(&mut core_commands());
         commands.append(&mut data_commands());
+        commands.append(&mut datetime_commands());
 
-        commands.append(&mut expr_commands());
         commands.append(&mut expr_commands());
         commands.append(&mut series_commands());
         commands.append(&mut cache_commands());

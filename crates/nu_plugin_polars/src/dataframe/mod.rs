@@ -4,6 +4,7 @@ pub mod aggregation;
 pub mod boolean;
 pub mod core;
 pub mod data;
+pub mod datetime;
 pub mod expressions;
 pub mod macro_commands;
 pub mod series;

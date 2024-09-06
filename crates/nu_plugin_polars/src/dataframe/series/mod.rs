@@ -1,6 +1,3 @@
-mod date;
-pub use date::*;
-
 mod string;
 pub use string::*;
 
@@ -28,20 +25,8 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         Box::new(ArgMin),
         Box::new(ArgSort),
         Box::new(ArgUnique),
-        Box::new(AsDate),
-        Box::new(AsDateTime),
         Box::new(Contains),
         Box::new(Cumulative),
-        Box::new(GetDay),
-        Box::new(GetHour),
-        Box::new(GetMinute),
-        Box::new(GetMonth),
-        Box::new(GetNanosecond),
-        Box::new(GetOrdinal),
-        Box::new(GetSecond),
-        Box::new(GetWeek),
-        Box::new(GetWeekDay),
-        Box::new(GetYear),
         Box::new(NNull),
         Box::new(NUnique),
         Box::new(Replace),
@@ -50,7 +35,6 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         Box::new(StrJoin),
         Box::new(StrLengths),
         Box::new(StrSlice),
-        Box::new(StrFTime),
         Box::new(ToDecimal),
         Box::new(ToInteger),
         Box::new(ToLowerCase),
