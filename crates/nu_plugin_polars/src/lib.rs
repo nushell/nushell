@@ -1,15 +1,12 @@
-use crate::core::core_commands;
 use std::cmp::Ordering;
 
-use aggregation::aggregation_commands;
-use boolean::boolean_commands;
 use cache::cache_commands;
 pub use cache::{Cache, Cacheable};
-use data::data_commands;
-use dataframe::{stub::PolarsCmd, values::CustomValueType};
-use datetime::datetime_commands;
-use index::index_commands;
-use integer::integer_commands;
+use command::{
+    aggregation::aggregation_commands, boolean::boolean_commands, core::core_commands,
+    data::data_commands, datetime::datetime_commands, index::index_commands,
+    integer::integer_commands, stub::PolarsCmd,
+};
 use log::debug;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
@@ -17,6 +14,7 @@ mod cache;
 pub mod dataframe;
 pub use dataframe::*;
 use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Span, Spanned, Value};
+use values::CustomValueType;
 
 use crate::{expressions::expr_commands, series::series_commands, values::PolarsPluginCustomValue};
 

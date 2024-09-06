@@ -1,16 +1,8 @@
 use nu_protocol::{ShellError, Span};
 
-pub mod aggregation;
-pub mod boolean;
-pub mod core;
-pub mod data;
-pub mod datetime;
+pub mod command;
 pub mod expressions;
-pub mod index;
-pub mod integer;
-pub mod macro_commands;
 pub mod series;
-pub mod stub;
 mod utils;
 pub mod values;
 
