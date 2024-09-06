@@ -271,7 +271,8 @@ impl NuCompleter {
                                         pos,
                                     );
                                 } else {
-                                    let mut completer = OperatorCompletion::new(pipeline_element.expr.clone());
+                                    let mut completer =
+                                        OperatorCompletion::new(pipeline_element.expr.clone());
 
                                     return self.process_completion(
                                         &mut completer,
