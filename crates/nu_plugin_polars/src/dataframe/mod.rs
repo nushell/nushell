@@ -1,7 +1,6 @@
 use nu_protocol::{ShellError, Span};
 
 pub mod command;
-pub mod expressions;
 pub mod series;
 mod utils;
 pub mod values;

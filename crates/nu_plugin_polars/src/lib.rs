@@ -5,7 +5,7 @@ pub use cache::{Cache, Cacheable};
 use command::{
     aggregation::aggregation_commands, boolean::boolean_commands, core::core_commands,
     data::data_commands, datetime::datetime_commands, index::index_commands,
-    integer::integer_commands, stub::PolarsCmd,
+    integer::integer_commands, string::string_commands, stub::PolarsCmd,
 };
 use log::debug;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
@@ -16,7 +16,7 @@ pub use dataframe::*;
 use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Span, Spanned, Value};
 use values::CustomValueType;
 
-use crate::{expressions::expr_commands, series::series_commands, values::PolarsPluginCustomValue};
+use crate::{series::series_commands, values::PolarsPluginCustomValue};
 
 pub trait EngineWrapper {
     fn get_env_var(&self, key: &str) -> Option<String>;
@@ -71,8 +71,8 @@ impl Plugin for PolarsPlugin {
         commands.append(&mut datetime_commands());
         commands.append(&mut index_commands());
         commands.append(&mut integer_commands());
+        commands.append(&mut string_commands());
 
-        commands.append(&mut expr_commands());
         commands.append(&mut series_commands());
         commands.append(&mut cache_commands());
         commands
