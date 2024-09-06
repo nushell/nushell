@@ -1,4 +1,5 @@
 mod cache;
+mod columns;
 mod fetch;
 mod open;
 mod save;
@@ -23,6 +24,7 @@ pub use to_nu::ToNu;
 
 pub(crate) fn core_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
     vec![
+        Box::new(columns::ColumnsDF),
         Box::new(cache::LazyCache),
         Box::new(LazyFetch),
         Box::new(OpenDataFrame),

@@ -12,8 +12,6 @@ mod arg_min;
 mod cumulative;
 mod n_null;
 mod n_unique;
-mod shift;
-mod unique;
 
 use nu_plugin::PluginCommand;
 
@@ -23,8 +21,6 @@ pub use arg_min::ArgMin;
 pub use cumulative::Cumulative;
 pub use n_null::NNull;
 pub use n_unique::NUnique;
-pub use shift::Shift;
-pub use unique::Unique;
 
 pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
     vec![
@@ -51,7 +47,6 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         Box::new(Replace),
         Box::new(ReplaceAll),
         Box::new(SetWithIndex),
-        Box::new(Shift),
         Box::new(StrJoin),
         Box::new(StrLengths),
         Box::new(StrSlice),
@@ -60,6 +55,5 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         Box::new(ToInteger),
         Box::new(ToLowerCase),
         Box::new(ToUpperCase),
-        Box::new(Unique),
     ]
 }

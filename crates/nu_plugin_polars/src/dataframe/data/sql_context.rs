@@ -1,4 +1,4 @@
-use crate::dataframe::eager::sql_expr::parse_sql_expr;
+use crate::dataframe::data::sql_expr::parse_sql_expr;
 use polars::error::{ErrString, PolarsError};
 use polars::prelude::{col, DataFrame, DataType, IntoLazy, LazyFrame};
 use sqlparser::ast::{

@@ -1,6 +1,7 @@
 use super::super::values::NuDataFrame;
+use super::sql_context::SQLContext;
 use crate::dataframe::values::Column;
-use crate::dataframe::{eager::SQLContext, values::NuLazyFrame};
+use crate::dataframe::values::NuLazyFrame;
 use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
