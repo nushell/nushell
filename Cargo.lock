@@ -2941,7 +2941,7 @@ name = "nu"
 version = "0.97.2"
 dependencies = [
  "assert_cmd",
- "crossterm 0.27.0",
+ "crossterm 0.28.1",
  "ctrlc",
  "dirs",
  "log",
@@ -2996,7 +2996,7 @@ name = "nu-cli"
 version = "0.97.2"
 dependencies = [
  "chrono",
- "crossterm 0.27.0",
+ "crossterm 0.28.1",
  "fancy-regex",
  "fuzzy-matcher",
  "is_executable",
@@ -3113,7 +3113,7 @@ dependencies = [
  "chrono",
  "chrono-humanize",
  "chrono-tz 0.8.6",
- "crossterm 0.27.0",
+ "crossterm 0.28.1",
  "csv",
  "data-encoding",
  "dialoguer",
@@ -3237,7 +3237,7 @@ version = "0.97.2"
 dependencies = [
  "ansi-str",
  "anyhow",
- "crossterm 0.27.0",
+ "crossterm 0.28.1",
  "log",
  "lscolors",
  "nu-ansi-term",
