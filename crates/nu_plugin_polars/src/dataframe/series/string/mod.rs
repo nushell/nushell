@@ -4,8 +4,6 @@ mod replace_all;
 mod str_join;
 mod str_lengths;
 mod str_slice;
-mod to_decimal;
-mod to_integer;
 mod to_lowercase;
 mod to_uppercase;
 
@@ -15,7 +13,5 @@ pub use replace_all::ReplaceAll;
 pub use str_join::StrJoin;
 pub use str_lengths::StrLengths;
 pub use str_slice::StrSlice;
-pub use to_decimal::ToDecimal;
-pub use to_integer::ToInteger;
 pub use to_lowercase::ToLowerCase;
 pub use to_uppercase::ToUpperCase;

@@ -9,6 +9,7 @@ use data::data_commands;
 use dataframe::{stub::PolarsCmd, values::CustomValueType};
 use datetime::datetime_commands;
 use index::index_commands;
+use integer::integer_commands;
 use log::debug;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
@@ -71,6 +72,7 @@ impl Plugin for PolarsPlugin {
         commands.append(&mut data_commands());
         commands.append(&mut datetime_commands());
         commands.append(&mut index_commands());
+        commands.append(&mut integer_commands());
 
         commands.append(&mut expr_commands());
         commands.append(&mut series_commands());
