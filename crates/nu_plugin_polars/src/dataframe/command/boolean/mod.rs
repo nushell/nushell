@@ -1,6 +1,7 @@
 mod all_false;
 mod all_true;
 mod arg_true;
+mod expr_not;
 mod is_duplicated;
 mod is_in;
 mod is_not_null;
@@ -34,6 +35,7 @@ pub(crate) fn boolean_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlu
         Box::new(ExprIsIn),
         Box::new(ExprOtherwise),
         Box::new(ExprWhen),
+        Box::new(expr_not::ExprNot),
         Box::new(IsDuplicated),
         Box::new(IsNotNull),
         Box::new(IsNull),
