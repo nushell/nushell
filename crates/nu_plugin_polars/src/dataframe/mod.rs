@@ -6,6 +6,7 @@ pub mod core;
 pub mod data;
 pub mod datetime;
 pub mod expressions;
+pub mod indexes;
 pub mod macro_commands;
 pub mod series;
 pub mod stub;
