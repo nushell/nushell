@@ -524,6 +524,14 @@ impl Value {
                         *value = config.color_config.clone().into_value(span);
                     }
                 }
+                "use_grid_icons" => {
+                    // TODO: delete it after 0.99
+                    report_invalid_value(
+                        "`use_grid_icons` is deleted, you should delete the key, and use `grid -i` in such case.",
+                        span,
+                        &mut errors
+                    );
+                }
                 "footer_mode" => {
                     process_string_enum(
                         &mut config.footer_mode,
