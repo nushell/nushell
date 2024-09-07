@@ -159,6 +159,7 @@ pub fn complete_item(
     let cleaned_partial = surround_remove(partial);
     let isdir = cleaned_partial.ends_with(is_separator);
     let expanded_partial = expand_ndots(Path::new(&cleaned_partial));
+    let should_collapse_dots = expanded_partial != Path::new(&cleaned_partial);
     let mut partial = expanded_partial.to_string_lossy().to_string();
 
     #[cfg(unix)]
@@ -229,7 +230,10 @@ pub fn complete_item(
         isdir,
     )
     .into_iter()
-    .map(|p| {
+    .map(|mut p| {
+        if should_collapse_dots {
+            p = collapse_ndots(p);
+        }
         let path = original_cwd.apply(p, path_separator);
         let style = ls_colors.as_ref().map(|lsc| {
             lsc.style_for_path_with_metadata(
@@ -341,4 +345,38 @@ pub fn sort_completions<T>(
     }
 
     items
+}
+
+/// Collapse multiple ".." components into n-dots.
+///
+/// It performs the reverse operation of `expand_ndots`, collapsing sequences of ".." into n-dots,
+/// such as "..." and "....".
+///
+/// The resulting path will use platform-specific path separators, regardless of what path separators were used in the input.
+fn collapse_ndots(path: PathBuiltFromString) -> PathBuiltFromString {
+    let mut result = PathBuiltFromString {
+        parts: Vec::with_capacity(path.parts.len()),
+        isdir: path.isdir,
+    };
+
+    let mut dot_count = 0;
+
+    for part in path.parts {
+        if part == ".." {
+            dot_count += 1;
+        } else {
+            if dot_count > 0 {
+                result.parts.push(".".repeat(dot_count + 1));
+                dot_count = 0;
+            }
+            result.parts.push(part);
+        }
+    }
+
+    // Add any remaining dots
+    if dot_count > 0 {
+        result.parts.push(".".repeat(dot_count + 1));
+    }
+
+    result
 }
