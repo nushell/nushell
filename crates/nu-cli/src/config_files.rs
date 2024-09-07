@@ -246,7 +246,7 @@ pub(crate) fn get_history_path(storage_path: &str, mode: HistoryFileFormat) -> O
     nu_path::config_dir().map(|mut history_path| {
         history_path.push(storage_path);
         history_path.push(match mode {
-            HistoryFileFormat::PlainText => HISTORY_FILE_TXT,
+            HistoryFileFormat::Plaintext => HISTORY_FILE_TXT,
             HistoryFileFormat::Sqlite => HISTORY_FILE_SQLITE,
         });
         history_path.into()

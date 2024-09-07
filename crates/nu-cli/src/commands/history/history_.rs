@@ -55,7 +55,7 @@ impl Command for History {
                 HistoryFileFormat::Sqlite => {
                     history_path.push("history.sqlite3");
                 }
-                HistoryFileFormat::PlainText => {
+                HistoryFileFormat::Plaintext => {
                     history_path.push("history.txt");
                 }
             }
@@ -75,7 +75,7 @@ impl Command for History {
                             .ok()
                     }
 
-                    HistoryFileFormat::PlainText => FileBackedHistory::with_file(
+                    HistoryFileFormat::Plaintext => FileBackedHistory::with_file(
                         history.max_size as usize,
                         history_path.clone().into(),
                     )
@@ -87,7 +87,7 @@ impl Command for History {
                 };
 
                 match history.file_format {
-                    HistoryFileFormat::PlainText => Ok(history_reader
+                    HistoryFileFormat::Plaintext => Ok(history_reader
                         .and_then(|h| {
                             h.search(SearchQuery::everything(SearchDirection::Forward, None))
                                 .ok()

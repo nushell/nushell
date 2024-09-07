@@ -95,7 +95,7 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
                     HistoryFileFormat::Sqlite => {
                         path.push("history.sqlite3");
                     }
-                    HistoryFileFormat::PlainText => {
+                    HistoryFileFormat::Plaintext => {
                         path.push("history.txt");
                     }
                 }

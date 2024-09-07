@@ -118,13 +118,13 @@ pub(crate) fn update_prompt(
 
     // Now that we have the prompt string lets ansify it.
     // <133 A><prompt><133 B><command><133 C><command output>
-    let left_prompt_string = if config.shell_integration_osc633 {
+    let left_prompt_string = if config.shell_integration.osc633 {
         if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
             // We're in vscode and we have osc633 enabled
             Some(format!(
                 "{VSCODE_PRE_PROMPT_MARKER}{configured_left_prompt_string}{VSCODE_POST_PROMPT_MARKER}"
             ))
-        } else if config.shell_integration_osc133 {
+        } else if config.shell_integration.osc133 {
             // If we're in VSCode but we don't find the env var, but we have osc133 set, then use it
             Some(format!(
                 "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
@@ -132,7 +132,7 @@ pub(crate) fn update_prompt(
         } else {
             configured_left_prompt_string.into()
         }
-    } else if config.shell_integration_osc133 {
+    } else if config.shell_integration.osc133 {
         Some(format!(
             "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
         ))
