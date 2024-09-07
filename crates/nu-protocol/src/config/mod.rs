@@ -154,10 +154,15 @@ impl UpdateFromValue for Config {
                 "color_config" => self.color_config.update(val, path, errors),
                 "use_grid_icons" => {
                     // TODO: delete it after 0.99
-                    report_invalid_value(
-                        "`use_grid_icons` is deleted, you should delete the key, and use `grid -i` in such case.",
-                        span,
-                        &mut errors
+                    errors.error(
+                        path,
+                        ShellError::GenericError {
+                            error: format!("the {} option has been removed", **path),
+                            msg: "remove this".into(),
+                            span: Some(val.span()),
+                            help: Some("use `grid -i` instead".into()),
+                            inner: Vec::new(),
+                        },
                     );
                 }
                 "footer_mode" => self.footer_mode.update(val, path, errors),
