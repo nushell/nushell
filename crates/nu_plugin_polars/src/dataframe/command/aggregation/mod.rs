@@ -2,6 +2,7 @@ mod aggregate;
 mod aggregation_commands;
 mod cumulative;
 pub mod groupby;
+mod implode;
 mod median;
 mod n_null;
 mod n_unique;
