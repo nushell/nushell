@@ -682,15 +682,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// An unsupported body input was used for the respective application body type in 'http' command
-    ///
-    /// ## Resolution
-    ///
-    /// This error is fairly generic. Refer to the specific error message for further details.
-    #[error("Unsupported body for current content type")]
-    #[diagnostic(code(nu::shell::unsupported_body), help("{msg}"))]
-    UnsupportedHttpBody { msg: String },
-
     /// An operation was attempted with an input unsupported for some reason.
     ///
     /// ## Resolution
