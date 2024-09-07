@@ -1138,7 +1138,7 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Make sure the value has the required column.
-    #[error("Value is mising a required '{column}' column")]
+    #[error("Value is missing a required '{column}' column")]
     #[diagnostic(code(nu::shell::missing_required_column))]
     MissingRequiredColumn {
         column: &'static str,
