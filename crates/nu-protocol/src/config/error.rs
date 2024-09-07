@@ -19,6 +19,10 @@ impl<'a> ConfigErrors<'a> {
         self.errors.is_empty()
     }
 
+    pub fn error_raw(&mut self, error: ShellError) {
+        self.errors.push(error);
+    }
+
     pub fn error(&mut self, path: &ConfigPath, error: ShellError) {
         self.errors.push(ShellError::InvalidConfigValue {
             path: path.to_string(),

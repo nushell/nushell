@@ -154,16 +154,13 @@ impl UpdateFromValue for Config {
                 "color_config" => self.color_config.update(val, path, errors),
                 "use_grid_icons" => {
                     // TODO: delete it after 0.99
-                    errors.error(
-                        path,
-                        ShellError::GenericError {
-                            error: format!("the {} option has been removed", **path),
-                            msg: "remove this".into(),
-                            span: Some(val.span()),
-                            help: Some("use `grid -i` instead".into()),
-                            inner: Vec::new(),
-                        },
-                    );
+                    errors.error_raw(ShellError::GenericError {
+                        error: format!("the {} option has been removed", **path),
+                        msg: "remove this".into(),
+                        span: Some(val.span()),
+                        help: Some("use `grid -i` instead".into()),
+                        inner: Vec::new(),
+                    });
                 }
                 "footer_mode" => self.footer_mode.update(val, path, errors),
                 "float_precision" => self.float_precision.update(val, path, errors),
