@@ -45,7 +45,7 @@ impl UpdateFromValue for DisplayErrors {
             match col.as_str() {
                 "exit_code" => self.exit_code.update(val, path, errors),
                 "termination_signal" => self.termination_signal.update(val, path, errors),
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }

@@ -32,7 +32,7 @@ impl UpdateFromValue for DatetimeFormatConfig {
                     Value::String { val, .. } => self.table = Some(val.clone()),
                     _ => errors.type_mismatch(path, Type::custom("string or nothing"), val),
                 },
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }

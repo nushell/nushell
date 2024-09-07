@@ -32,7 +32,7 @@ impl<'a> ConfigErrors<'a> {
         });
     }
 
-    pub fn incorrect_value(
+    pub fn invalid_value(
         &mut self,
         path: &ConfigPath,
         expected: impl Into<String>,
@@ -50,7 +50,7 @@ impl<'a> ConfigErrors<'a> {
         });
     }
 
-    pub fn missing_value(&mut self, path: &ConfigPath, column: &'static str, span: Span) {
+    pub fn missing_column(&mut self, path: &ConfigPath, column: &'static str, span: Span) {
         self.error(ConfigError::MissingRequiredColumn {
             path: path.to_string(),
             column,
@@ -58,7 +58,7 @@ impl<'a> ConfigErrors<'a> {
         })
     }
 
-    pub fn unknown_value(&mut self, path: &ConfigPath, value: &Value) {
+    pub fn unknown_option(&mut self, path: &ConfigPath, value: &Value) {
         self.error(ConfigError::UnknownOption {
             path: path.to_string(),
             span: value.span(),

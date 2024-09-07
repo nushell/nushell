@@ -83,7 +83,7 @@ impl UpdateFromValue for CursorShapeConfig {
                 "vi_insert" => self.vi_insert.update(val, path, errors),
                 "vi_normal" => self.vi_normal.update(val, path, errors),
                 "emacs" => self.emacs.update(val, path, errors),
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }

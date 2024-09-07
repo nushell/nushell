@@ -209,7 +209,7 @@ impl UpdateFromValue for TrimStrategy {
         };
 
         let Some(methodology) = record.get("methodology") else {
-            errors.missing_value(path, "methodology", value.span());
+            errors.missing_column(path, "methodology", value.span());
             return;
         };
 
@@ -225,7 +225,7 @@ impl UpdateFromValue for TrimStrategy {
                     match col.as_str() {
                         "wrapping_try_keep_words" => try_to_keep_words.update(val, path, errors),
                         "methodology" | "truncating_suffix" => (),
-                        _ => errors.unknown_value(path, val),
+                        _ => errors.unknown_option(path, val),
                     }
                 }
                 *self = Self::Wrap { try_to_keep_words };
@@ -245,12 +245,12 @@ impl UpdateFromValue for TrimStrategy {
                             _ => errors.type_mismatch(path, Type::String, val),
                         },
                         "methodology" | "wrapping_try_keep_words" => (),
-                        _ => errors.unknown_value(path, val),
+                        _ => errors.unknown_option(path, val),
                     }
                 }
                 *self = Self::Truncate { suffix };
             }
-            Ok(_) => errors.incorrect_value(
+            Ok(_) => errors.invalid_value(
                 &path.push("methodology"),
                 "'wrapping' or 'truncating'",
                 methodology,
@@ -295,7 +295,7 @@ impl UpdateFromValue for TableIndent {
                     self.left = val;
                     self.right = val;
                 } else {
-                    errors.incorrect_value(path, "a non-negative integer", value);
+                    errors.invalid_value(path, "a non-negative integer", value);
                 }
             }
             Value::Record { val: record, .. } => {
@@ -304,7 +304,7 @@ impl UpdateFromValue for TableIndent {
                     match col.as_str() {
                         "left" => self.left.update(val, path, errors),
                         "right" => self.right.update(val, path, errors),
-                        _ => errors.unknown_value(path, val),
+                        _ => errors.unknown_option(path, val),
                     }
                 }
             }
@@ -385,12 +385,12 @@ impl UpdateFromValue for TableConfig {
                         if let Ok(count) = count.try_into() {
                             self.abbreviated_row_count = Some(count);
                         } else {
-                            errors.incorrect_value(path, "a non-negative integer", val);
+                            errors.invalid_value(path, "a non-negative integer", val);
                         }
                     }
                     _ => errors.type_mismatch(path, Type::custom("int or nothing"), val),
                 },
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }

@@ -49,7 +49,7 @@ impl UpdateFromValue for ShellIntegrationConfig {
                 "osc133" => self.osc133.update(val, path, errors),
                 "osc633" => self.osc633.update(val, path, errors),
                 "reset_application_mode" => self.reset_application_mode.update(val, path, errors),
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }

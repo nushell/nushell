@@ -91,7 +91,7 @@ impl UpdateFromValue for ExternalCompleterConfig {
                 },
                 "max_results" => self.max_results.update(val, path, errors),
                 "enable" => self.enable.update(val, path, errors),
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }
@@ -144,7 +144,7 @@ impl UpdateFromValue for CompletionConfig {
                 "case_sensitive" => self.case_sensitive.update(val, path, errors),
                 "external" => self.external.update(val, path, errors),
                 "use_ls_colors" => self.use_ls_colors.update(val, path, errors),
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }

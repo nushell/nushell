@@ -31,7 +31,7 @@ impl UpdateFromValue for RmConfig {
             let path = &mut path.push(col);
             match col.as_str() {
                 "always_trash" => self.always_trash.update(val, path, errors),
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }

@@ -36,7 +36,7 @@ impl UpdateFromValue for PluginGcConfigs {
             match col.as_str() {
                 "default" => self.default.update(val, path, errors),
                 "plugins" => self.plugins.update(val, path, errors),
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }
@@ -91,13 +91,13 @@ impl UpdateFromValue for PluginGcConfig {
                         if duration >= 0 {
                             self.stop_after = duration;
                         } else {
-                            errors.incorrect_value(path, "a non-negative duration", val);
+                            errors.invalid_value(path, "a non-negative duration", val);
                         }
                     } else {
                         errors.type_mismatch(path, Type::Duration, val);
                     }
                 }
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }

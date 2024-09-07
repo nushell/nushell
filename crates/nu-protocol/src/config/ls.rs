@@ -33,7 +33,7 @@ impl UpdateFromValue for LsConfig {
             match col.as_str() {
                 "use_ls_colors" => self.use_ls_colors.update(val, path, errors),
                 "clickable_links" => self.clickable_links.update(val, path, errors),
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }

@@ -65,7 +65,7 @@ impl UpdateFromValue for HistoryConfig {
                 "sync_on_enter" => self.sync_on_enter.update(val, path, errors),
                 "max_size" => self.max_size.update(val, path, errors),
                 "file_format" => self.file_format.update(val, path, errors),
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }

@@ -33,7 +33,7 @@ impl UpdateFromValue for FilesizeConfig {
             match col.as_str() {
                 "metric" => self.metric.update(val, path, errors),
                 "format" => self.format.update(val, path, errors),
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }

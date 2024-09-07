@@ -97,7 +97,7 @@ impl UpdateFromValue for usize {
             if let Ok(val) = val.try_into() {
                 *self = val;
             } else {
-                errors.incorrect_value(path, "a non-negative integer", value);
+                errors.invalid_value(path, "a non-negative integer", value);
             }
         } else {
             errors.type_mismatch(path, Type::Int, value);
@@ -151,7 +151,7 @@ pub(super) fn config_update_string_enum<T>(
     if let Ok(str) = value.as_str() {
         match str.parse() {
             Ok(val) => *choice = val,
-            Err(err) => errors.incorrect_value(path, err.to_string(), value),
+            Err(err) => errors.invalid_value(path, err.to_string(), value),
         }
     } else {
         errors.type_mismatch(path, Type::String, value);

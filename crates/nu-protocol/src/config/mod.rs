@@ -217,13 +217,13 @@ impl UpdateFromValue for Config {
                         if limit > 1 {
                             self.recursion_limit = limit;
                         } else {
-                            errors.incorrect_value(path, "an int greater than 1", val);
+                            errors.invalid_value(path, "an int greater than 1", val);
                         }
                     } else {
                         errors.type_mismatch(path, Type::Int, val);
                     }
                 }
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }

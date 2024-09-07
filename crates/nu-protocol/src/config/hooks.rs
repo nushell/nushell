@@ -60,7 +60,7 @@ impl UpdateFromValue for Hooks {
                 "env_change" => update_option(&mut self.env_change, val),
                 "display_output" => update_option(&mut self.display_output, val),
                 "command_not_found" => update_option(&mut self.command_not_found, val),
-                _ => errors.unknown_value(path, val),
+                _ => errors.unknown_option(path, val),
             }
         }
     }
