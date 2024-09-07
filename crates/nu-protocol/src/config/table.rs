@@ -75,20 +75,31 @@ impl FromStr for FooterMode {
             "always" => Ok(FooterMode::Always),
             "never" => Ok(FooterMode::Never),
             "auto" => Ok(FooterMode::Auto),
-            x => {
-                if let Ok(count) = x.parse() {
-                    Ok(FooterMode::RowCount(count))
-                } else {
-                    Err("'never', 'always', 'auto' or a row count")
-                }
-            }
+            _ => Err("'never', 'always', 'auto', or int"),
         }
     }
 }
 
 impl UpdateFromValue for FooterMode {
     fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
-        config_update_string_enum(self, value, path, errors)
+        match value {
+            Value::String { val, .. } => match val.parse() {
+                Ok(val) => *self = val,
+                Err(err) => errors.invalid_value(path, err.to_string(), value),
+            },
+            &Value::Int { val, .. } => {
+                if val >= 0 {
+                    *self = Self::RowCount(val as u64);
+                } else {
+                    errors.invalid_value(path, "a non-negative integer", value);
+                }
+            }
+            _ => errors.type_mismatch(
+                path,
+                Type::custom("'never', 'always', 'auto', or int"),
+                value,
+            ),
+        }
     }
 }
 
@@ -98,7 +109,7 @@ impl IntoValue for FooterMode {
             FooterMode::Always => "always".into_value(span),
             FooterMode::Never => "never".into_value(span),
             FooterMode::Auto => "auto".into_value(span),
-            FooterMode::RowCount(c) => c.to_string().into_value(span),
+            FooterMode::RowCount(c) => (c as i64).into_value(span),
         }
     }
 }
