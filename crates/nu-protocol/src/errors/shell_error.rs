@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use crate::{
     ast::Operator, engine::StateWorkingSet, format_error, LabeledError, ParseError, Span, Spanned,
-    Value,
+    Type, Value,
 };
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
@@ -105,6 +105,34 @@ pub enum ShellError {
     TypeMismatch {
         err_message: String,
         #[label = "{err_message}"]
+        span: Span,
+    },
+
+    /// The type of a value was different from the expected type.
+    ///
+    /// ## Resolution
+    ///
+    /// Convert the value to correct type or pass a value of the correct type.
+    #[error("Type mismatch.")]
+    #[diagnostic(code(nu::shell::type_mismatch))]
+    RuntimeTypeMismatch {
+        expected: Type,
+        actual: Type,
+        #[label = "expected {expected}, but got {actual}"]
+        span: Span,
+    },
+
+    /// A value had the correct type but does not satisfy some condition.
+    ///
+    /// ## Resolution
+    ///
+    /// Ensure the value is valid based off the reason in the error message.
+    #[error("Invalid value.")]
+    #[diagnostic(code(nu::shell::invalid_value))]
+    InvalidValue {
+        valid: String,
+        actual: String,
+        #[label = "expected {valid}, but got {actual}"]
         span: Span,
     },
 
@@ -1066,30 +1094,54 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// The value given for this configuration is not supported.
+    /// One or more config value are invalid.
     ///
     /// ## Resolution
     ///
-    /// Refer to the specific error message for details and convert values as needed.
-    #[error("Unsupported config value")]
-    #[diagnostic(code(nu::shell::unsupported_config_value))]
-    UnsupportedConfigValue {
-        expected: String,
-        value: String,
-        #[label("expected {expected}, got {value}")]
+    /// Refer to the error messages for specific details.
+    #[error("One or more config value are invalid")]
+    #[diagnostic(code(nu::shell::invalid_config))]
+    InvalidConfig {
+        #[related]
+        errors: Vec<ShellError>,
+    },
+
+    /// A config value was invalid.
+    ///
+    /// ## Resolution
+    ///
+    /// Refer to the error message for specific details.
+    #[error("Could not apply changes to {path}")]
+    #[diagnostic(code(nu::shell::invalid_config_value))]
+    InvalidConfigValue {
+        path: String,
+        #[related]
+        error: Vec<ShellError>,
+    },
+
+    /// Tried to set an unknown config value.
+    ///
+    /// ## Resolution
+    ///
+    /// Do not set this config value.
+    #[error("Unknown config value {path}")]
+    #[diagnostic(code(nu::shell::unknown_config_value))]
+    UnknownConfigValue {
+        path: String,
+        #[label("encountered here")]
         span: Span,
     },
 
-    /// An expected configuration value is not present.
+    /// An expected column was not present.
     ///
     /// ## Resolution
     ///
-    /// Refer to the specific error message and add the configuration value to your config file as needed.
-    #[error("Missing config value")]
-    #[diagnostic(code(nu::shell::missing_config_value))]
-    MissingConfigValue {
-        missing_value: String,
-        #[label("missing {missing_value}")]
+    /// Refer to the specific error message and add the expected column to the value.
+    #[error("Missing column")]
+    #[diagnostic(code(nu::shell::missing_column))]
+    MissingColumn {
+        column: &'static str,
+        #[label("expected to have a {column} column")]
         span: Span,
     },
 

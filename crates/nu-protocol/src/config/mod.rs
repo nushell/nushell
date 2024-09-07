@@ -24,6 +24,7 @@ pub use table::{FooterMode, TableConfig, TableIndexMode, TableMode, TrimStrategy
 
 mod completions;
 mod datetime_format;
+mod error;
 mod filesize;
 mod helper;
 mod history;
@@ -132,17 +133,15 @@ impl UpdateFromValue for Config {
         &mut self,
         value: &'a Value,
         path: &mut ConfigPath<'a>,
-        errors: &mut Vec<ShellError>,
+        errors: &mut ConfigErrors,
     ) {
-        let span = value.span();
         let Value::Record { val: record, .. } = value else {
-            report_invalid_config_value("should be a record", span, path, errors);
+            errors.type_mismatch(path, Type::record(), value);
             return;
         };
 
         for (col, val) in record.iter() {
             let path = &mut path.push(col);
-            let span = val.span();
             match col.as_str() {
                 "ls" => self.ls.update(val, path, errors),
                 "rm" => self.rm.update(val, path, errors),
@@ -175,14 +174,11 @@ impl UpdateFromValue for Config {
                     {
                         self.buffer_editor = val.clone();
                     }
-                    _ => {
-                        report_invalid_config_value(
-                            "should be a string, list<string>, or null",
-                            span,
-                            path,
-                            errors,
-                        );
-                    }
+                    _ => errors.type_mismatch(
+                        path,
+                        Type::custom("string, list<string, or nothing"),
+                        val,
+                    ),
                 },
                 "show_banner" => self.show_banner.update(val, path, errors),
                 "render_right_prompt_on_last_line" => self
@@ -197,79 +193,42 @@ impl UpdateFromValue for Config {
                 "plugin_gc" => self.plugin_gc.update(val, path, errors),
                 "menus" => match Vec::from_value(val.clone()) {
                     Ok(menus) => self.menus = menus,
-                    Err(e) => {
-                        report_invalid_config_value(
-                            "should be a valid list of menus",
-                            span,
-                            path,
-                            errors,
-                        );
-                        errors.push(e);
-                    }
+                    Err(err) => errors.error(path, err),
                 },
                 "keybindings" => match Vec::from_value(val.clone()) {
                     Ok(keybindings) => self.keybindings = keybindings,
-                    Err(e) => {
-                        report_invalid_config_value(
-                            "should be a valid keybindings list",
-                            span,
-                            path,
-                            errors,
-                        );
-                        errors.push(e);
-                    }
+                    Err(err) => errors.error(path, err),
                 },
                 "hooks" => self.hooks.update(val, path, errors),
                 "datetime_format" => self.datetime_format.update(val, path, errors),
                 "error_style" => self.error_style.update(val, path, errors),
                 "recursion_limit" => {
-                    if let &Value::Int { val, .. } = val {
-                        if val > 1 {
-                            self.recursion_limit = val;
+                    if let Ok(limit) = val.as_int() {
+                        if limit > 1 {
+                            self.recursion_limit = limit;
                         } else {
-                            report_invalid_config_value(
-                                "should be an integer greater than 1",
-                                span,
-                                path,
-                                errors,
-                            );
+                            errors.incorrect_value(path, "an int greater than 1", val);
                         }
                     } else {
-                        report_invalid_config_value(
-                            "should be an integer greater than 1",
-                            span,
-                            path,
-                            errors,
-                        );
+                        errors.type_mismatch(path, Type::Int, val);
                     }
                 }
-                _ => report_invalid_config_key(span, path, errors),
+                _ => errors.unknown_value(path, val),
             }
         }
     }
 }
 
 impl Config {
-    pub fn update_from_value(&mut self, value: &Value) -> Option<ShellError> {
-        // Vec for storing errors. Current Nushell behaviour (Dec 2022) is that having some typo
-        // like `"always_trash": tru` in your config.nu's `$env.config` record shouldn't abort all
-        // config parsing there and then. Thus, errors are simply collected one-by-one and wrapped
-        // in a GenericError at the end.
-        let mut errors = Vec::new();
+    pub fn update_from_value(&mut self, old: &Config, value: &Value) -> Option<ShellError> {
+        // Current behaviour is that config errors are displayed, but do not prevent the rest
+        // of the config from being updated (fields with errors are skipped/not updated).
+        // Errors are simply collected one-by-one and wrapped into a ShellError variant at the end.
+        let mut errors = ConfigErrors::new(old);
         let mut path = ConfigPath::new();
 
         self.update(value, &mut path, &mut errors);
 
-        if !errors.is_empty() {
-            Some(ShellError::GenericError {
-                error: "Config record contains invalid values or unknown settings".into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: errors,
-            })
-        } else {
-            None
-        }
+        errors.into_shell_error()
     }
 }

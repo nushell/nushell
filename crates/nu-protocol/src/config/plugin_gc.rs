@@ -1,4 +1,4 @@
-use super::{prelude::*, report_invalid_config_key, report_invalid_config_value};
+use super::prelude::*;
 use crate as nu_protocol;
 use std::collections::HashMap;
 
@@ -24,21 +24,19 @@ impl UpdateFromValue for PluginGcConfigs {
         &mut self,
         value: &'a Value,
         path: &mut ConfigPath<'a>,
-        errors: &mut Vec<ShellError>,
+        errors: &mut ConfigErrors,
     ) {
-        let span = value.span();
         let Value::Record { val: record, .. } = value else {
-            report_invalid_config_value("should be a record", span, path, errors);
+            errors.type_mismatch(path, Type::record(), value);
             return;
         };
 
         for (col, val) in record.iter() {
             let path = &mut path.push(col);
-            let span = val.span();
             match col.as_str() {
                 "default" => self.default.update(val, path, errors),
                 "plugins" => self.plugins.update(val, path, errors),
-                _ => report_invalid_config_key(span, path, errors),
+                _ => errors.unknown_value(path, val),
             }
         }
     }
@@ -77,41 +75,29 @@ impl UpdateFromValue for PluginGcConfig {
         &mut self,
         value: &'a Value,
         path: &mut ConfigPath<'a>,
-        errors: &mut Vec<ShellError>,
+        errors: &mut ConfigErrors,
     ) {
-        let span = value.span();
         let Value::Record { val: record, .. } = value else {
-            report_invalid_config_value("should be a record", span, path, errors);
+            errors.type_mismatch(path, Type::record(), value);
             return;
         };
 
         for (col, val) in record.iter() {
             let path = &mut path.push(col);
-            let span = val.span();
             match col.as_str() {
                 "enabled" => self.enabled.update(val, path, errors),
                 "stop_after" => {
-                    if let Ok(val) = val.as_duration() {
-                        if val >= 0 {
-                            self.stop_after = val;
+                    if let Ok(duration) = val.as_duration() {
+                        if duration >= 0 {
+                            self.stop_after = duration;
                         } else {
-                            report_invalid_config_value(
-                                "should be a non-negative duration",
-                                span,
-                                path,
-                                errors,
-                            );
+                            errors.incorrect_value(path, "a non-negative duration", val);
                         }
                     } else {
-                        report_invalid_config_value(
-                            "should be a non-negative duration",
-                            span,
-                            path,
-                            errors,
-                        );
+                        errors.type_mismatch(path, Type::Duration, val);
                     }
                 }
-                _ => report_invalid_config_key(span, path, errors),
+                _ => errors.unknown_value(path, val),
             }
         }
     }
@@ -120,7 +106,7 @@ impl UpdateFromValue for PluginGcConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::{record, Span};
+    use crate::{record, Config, Span};
 
     fn test_pair() -> (PluginGcConfigs, Value) {
         (
@@ -157,7 +143,8 @@ mod tests {
     #[test]
     fn update() {
         let (expected, input) = test_pair();
-        let mut errors = vec![];
+        let config = Config::default();
+        let mut errors = ConfigErrors::new(&config);
         let mut result = PluginGcConfigs::default();
         result.update(&input, &mut ConfigPath::new(), &mut errors);
         assert!(errors.is_empty(), "errors: {errors:#?}");

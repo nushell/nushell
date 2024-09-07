@@ -1,6 +1,4 @@
-use super::{
-    config_update_string_enum, prelude::*, report_invalid_config_key, report_invalid_config_value,
-};
+use super::{config_update_string_enum, prelude::*};
 use crate as nu_protocol;
 use crate::engine::Closure;
 
@@ -18,13 +16,13 @@ impl FromStr for CompletionAlgorithm {
         match s.to_ascii_lowercase().as_str() {
             "prefix" => Ok(Self::Prefix),
             "fuzzy" => Ok(Self::Fuzzy),
-            _ => Err("expected either 'prefix' or 'fuzzy'"),
+            _ => Err("'prefix' or 'fuzzy'"),
         }
     }
 }
 
 impl UpdateFromValue for CompletionAlgorithm {
-    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut Vec<ShellError>) {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
         config_update_string_enum(self, value, path, errors)
     }
 }
@@ -43,13 +41,13 @@ impl FromStr for CompletionSort {
         match s.to_ascii_lowercase().as_str() {
             "smart" => Ok(Self::Smart),
             "alphabetical" => Ok(Self::Alphabetical),
-            _ => Err("expected either 'smart' or 'alphabetical'"),
+            _ => Err("'smart' or 'alphabetical'"),
         }
     }
 }
 
 impl UpdateFromValue for CompletionSort {
-    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut Vec<ShellError>) {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
         config_update_string_enum(self, value, path, errors)
     }
 }
@@ -76,31 +74,24 @@ impl UpdateFromValue for ExternalCompleterConfig {
         &mut self,
         value: &'a Value,
         path: &mut ConfigPath<'a>,
-        errors: &mut Vec<ShellError>,
+        errors: &mut ConfigErrors,
     ) {
-        let span = value.span();
         let Value::Record { val: record, .. } = value else {
-            report_invalid_config_value("should be a record", span, path, errors);
+            errors.type_mismatch(path, Type::record(), value);
             return;
         };
 
         for (col, val) in record.iter() {
             let path = &mut path.push(col);
-            let span = val.span();
             match col.as_str() {
                 "completer" => match val {
                     Value::Nothing { .. } => self.completer = None,
                     Value::Closure { val, .. } => self.completer = Some(val.as_ref().clone()),
-                    _ => report_invalid_config_value(
-                        "should be a closure or null",
-                        span,
-                        path,
-                        errors,
-                    ),
+                    _ => errors.type_mismatch(path, Type::custom("closure or nothing"), val),
                 },
                 "max_results" => self.max_results.update(val, path, errors),
                 "enable" => self.enable.update(val, path, errors),
-                _ => report_invalid_config_key(span, path, errors),
+                _ => errors.unknown_value(path, val),
             }
         }
     }
@@ -136,17 +127,15 @@ impl UpdateFromValue for CompletionConfig {
         &mut self,
         value: &'a Value,
         path: &mut ConfigPath<'a>,
-        errors: &mut Vec<ShellError>,
+        errors: &mut ConfigErrors,
     ) {
-        let span = value.span();
         let Value::Record { val: record, .. } = value else {
-            report_invalid_config_value("should be a record", span, path, errors);
+            errors.type_mismatch(path, Type::record(), value);
             return;
         };
 
         for (col, val) in record.iter() {
             let path = &mut path.push(col);
-            let span = val.span();
             match col.as_str() {
                 "sort" => self.sort.update(val, path, errors),
                 "quick" => self.quick.update(val, path, errors),
@@ -155,7 +144,7 @@ impl UpdateFromValue for CompletionConfig {
                 "case_sensitive" => self.case_sensitive.update(val, path, errors),
                 "external" => self.external.update(val, path, errors),
                 "use_ls_colors" => self.use_ls_colors.update(val, path, errors),
-                _ => report_invalid_config_key(span, path, errors),
+                _ => errors.unknown_value(path, val),
             }
         }
     }

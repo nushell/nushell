@@ -1,6 +1,4 @@
-use super::{
-    config_update_string_enum, prelude::*, report_invalid_config_key, report_invalid_config_value,
-};
+use super::{config_update_string_enum, prelude::*};
 use crate as nu_protocol;
 use crate::{engine::Closure, FromValue};
 
@@ -49,13 +47,13 @@ impl FromStr for NuCursorShape {
         "blink_block" => Ok(NuCursorShape::BlinkBlock),
         "blink_underscore" => Ok(NuCursorShape::BlinkUnderscore),
         "inherit" => Ok(NuCursorShape::Inherit),
-        _ => Err("expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"),
+        _ => Err("'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"),
         }
     }
 }
 
 impl UpdateFromValue for NuCursorShape {
-    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut Vec<ShellError>) {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
         config_update_string_enum(self, value, path, errors)
     }
 }
@@ -72,22 +70,20 @@ impl UpdateFromValue for CursorShapeConfig {
         &mut self,
         value: &'a Value,
         path: &mut ConfigPath<'a>,
-        errors: &mut Vec<ShellError>,
+        errors: &mut ConfigErrors,
     ) {
-        let span = value.span();
         let Value::Record { val: record, .. } = value else {
-            report_invalid_config_value("should be a record", span, path, errors);
+            errors.type_mismatch(path, Type::record(), value);
             return;
         };
 
         for (col, val) in record.iter() {
             let path = &mut path.push(col);
-            let span = val.span();
             match col.as_str() {
                 "vi_insert" => self.vi_insert.update(val, path, errors),
                 "vi_normal" => self.vi_normal.update(val, path, errors),
                 "emacs" => self.emacs.update(val, path, errors),
-                _ => report_invalid_config_key(span, path, errors),
+                _ => errors.unknown_value(path, val),
             }
         }
     }
@@ -107,13 +103,13 @@ impl FromStr for EditBindings {
         match s.to_ascii_lowercase().as_str() {
             "vi" => Ok(Self::Vi),
             "emacs" => Ok(Self::Emacs),
-            _ => Err("expected either 'emacs' or 'vi'"),
+            _ => Err("'emacs' or 'vi'"),
         }
     }
 }
 
 impl UpdateFromValue for EditBindings {
-    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut Vec<ShellError>) {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
         config_update_string_enum(self, value, path, errors)
     }
 }

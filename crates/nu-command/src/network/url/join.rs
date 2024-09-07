@@ -300,14 +300,14 @@ impl UrlComponents {
             return Ok(true);
         }
         match key {
-            "host" => Err(ShellError::UnsupportedConfigValue {
-                expected: "non-empty string".into(),
-                value: "empty string".into(),
+            "host" => Err(ShellError::InvalidValue {
+                valid: "a non-empty string".into(),
+                actual: format!("'{s}'"),
                 span: value_span,
             }),
-            "scheme" => Err(ShellError::UnsupportedConfigValue {
-                expected: "non-empty string".into(),
-                value: "empty string".into(),
+            "scheme" => Err(ShellError::InvalidValue {
+                valid: "a non-empty string".into(),
+                actual: format!("'{s}'"),
                 span: value_span,
             }),
             _ => Ok(false),

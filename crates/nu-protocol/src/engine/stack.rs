@@ -212,8 +212,9 @@ impl Stack {
     /// The config will be updated with successfully parsed values even if an error occurs.
     pub fn update_config(&mut self, engine_state: &EngineState) -> Result<(), ShellError> {
         if let Some(value) = self.get_env_var(engine_state, "config") {
-            let mut config = Arc::unwrap_or_clone(self.get_config(engine_state));
-            let error = config.update_from_value(&value);
+            let old = self.get_config(engine_state);
+            let mut config = (*old).clone();
+            let error = config.update_from_value(&old, &value);
             // The config value is modified by the update, so we should add it again
             self.add_env_var("config".into(), config.clone().into_value(value.span()));
             self.config = Some(config.into());

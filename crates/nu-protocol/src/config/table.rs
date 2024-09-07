@@ -1,7 +1,4 @@
-use super::{
-    config_update_string_enum, prelude::*, report_invalid_config_key, report_invalid_config_value,
-    report_missing_config_key,
-};
+use super::{config_update_string_enum, prelude::*};
 use crate as nu_protocol;
 
 #[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
@@ -47,13 +44,13 @@ impl FromStr for TableMode {
             "restructured" => Ok(Self::Restructured),
             "ascii_rounded" => Ok(Self::AsciiRounded),
             "basic_compact" => Ok(Self::BasicCompact),
-            _ => Err("expected either 'basic', 'thin', 'light', 'compact', 'with_love', 'compact_double', 'rounded', 'reinforced', 'heavy', 'none', 'psql', 'markdown', 'dots', 'restructured', 'ascii_rounded', or 'basic_compact'"),
+            _ => Err("'basic', 'thin', 'light', 'compact', 'with_love', 'compact_double', 'rounded', 'reinforced', 'heavy', 'none', 'psql', 'markdown', 'dots', 'restructured', 'ascii_rounded', or 'basic_compact'"),
         }
     }
 }
 
 impl UpdateFromValue for TableMode {
-    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut Vec<ShellError>) {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
         config_update_string_enum(self, value, path, errors)
     }
 }
@@ -82,7 +79,7 @@ impl FromStr for FooterMode {
                 if let Ok(count) = x.parse() {
                     Ok(FooterMode::RowCount(count))
                 } else {
-                    Err("expected either 'never', 'always', 'auto' or a row count")
+                    Err("'never', 'always', 'auto' or a row count")
                 }
             }
         }
@@ -90,7 +87,7 @@ impl FromStr for FooterMode {
 }
 
 impl UpdateFromValue for FooterMode {
-    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut Vec<ShellError>) {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
         config_update_string_enum(self, value, path, errors)
     }
 }
@@ -124,13 +121,13 @@ impl FromStr for TableIndexMode {
             "always" => Ok(TableIndexMode::Always),
             "never" => Ok(TableIndexMode::Never),
             "auto" => Ok(TableIndexMode::Auto),
-            _ => Err("expected either 'never', 'always' or 'auto'"),
+            _ => Err("'never', 'always' or 'auto'"),
         }
     }
 }
 
 impl UpdateFromValue for TableIndexMode {
-    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut Vec<ShellError>) {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
         config_update_string_enum(self, value, path, errors)
     }
 }
@@ -204,20 +201,19 @@ impl UpdateFromValue for TrimStrategy {
         &mut self,
         value: &'a Value,
         path: &mut ConfigPath<'a>,
-        errors: &mut Vec<ShellError>,
+        errors: &mut ConfigErrors,
     ) {
-        let span = value.span();
         let Value::Record { val: record, .. } = value else {
-            report_invalid_config_value("should be a record", span, path, errors);
+            errors.type_mismatch(path, Type::record(), value);
             return;
         };
 
         let Some(methodology) = record.get("methodology") else {
-            report_missing_config_key("methodology", span, path, errors);
+            errors.missing_value(path, "methodology", value.span());
             return;
         };
 
-        *self = match methodology.as_str() {
+        match methodology.as_str() {
             Ok("wrapping") => {
                 let mut try_to_keep_words = if let &mut Self::Wrap { try_to_keep_words } = self {
                     try_to_keep_words
@@ -226,14 +222,13 @@ impl UpdateFromValue for TrimStrategy {
                 };
                 for (col, val) in record.iter() {
                     let path = &mut path.push(col);
-                    let span = val.span();
                     match col.as_str() {
                         "wrapping_try_keep_words" => try_to_keep_words.update(val, path, errors),
                         "methodology" | "truncating_suffix" => (),
-                        _ => report_invalid_config_key(span, path, errors),
+                        _ => errors.unknown_value(path, val),
                     }
                 }
-                Self::Wrap { try_to_keep_words }
+                *self = Self::Wrap { try_to_keep_words };
             }
             Ok("truncating") => {
                 let mut suffix = if let Self::Truncate { suffix } = self {
@@ -243,36 +238,25 @@ impl UpdateFromValue for TrimStrategy {
                 };
                 for (col, val) in record.iter() {
                     let path = &mut path.push(col);
-                    let span = val.span();
                     match col.as_str() {
-                        "truncating_suffix" => {
-                            if let Ok(str) = val.as_str() {
-                                suffix = Some(str.into());
-                            } else {
-                                report_invalid_config_value(
-                                    "should be a string",
-                                    span,
-                                    path,
-                                    errors,
-                                );
-                            }
-                        }
+                        "truncating_suffix" => match val {
+                            Value::Nothing { .. } => suffix = None,
+                            Value::String { val, .. } => suffix = Some(val.clone()),
+                            _ => errors.type_mismatch(path, Type::String, val),
+                        },
                         "methodology" | "wrapping_try_keep_words" => (),
-                        _ => report_invalid_config_key(span, path, errors),
+                        _ => errors.unknown_value(path, val),
                     }
                 }
-                Self::Truncate { suffix }
+                *self = Self::Truncate { suffix };
             }
-            _ => {
-                report_invalid_config_value(
-                    "should be 'truncating' or 'wrapping'",
-                    methodology.span(),
-                    &path.push("methodology"),
-                    errors,
-                );
-                return;
-            }
-        };
+            Ok(_) => errors.incorrect_value(
+                &path.push("methodology"),
+                "'wrapping' or 'truncating'",
+                methodology,
+            ),
+            Err(_) => errors.type_mismatch(&path.push("methodology"), Type::String, methodology),
+        }
     }
 }
 
@@ -303,40 +287,28 @@ impl UpdateFromValue for TableIndent {
         &mut self,
         value: &'a Value,
         path: &mut ConfigPath<'a>,
-        errors: &mut Vec<ShellError>,
+        errors: &mut ConfigErrors,
     ) {
-        let span = value.span();
         match value {
             &Value::Int { val, .. } => {
                 if let Ok(val) = val.try_into() {
                     self.left = val;
                     self.right = val;
                 } else {
-                    report_invalid_config_value(
-                        "should be a record or non-negative integer",
-                        span,
-                        path,
-                        errors,
-                    );
+                    errors.incorrect_value(path, "a non-negative integer", value);
                 }
             }
             Value::Record { val: record, .. } => {
                 for (col, val) in record.iter() {
                     let path = &mut path.push(col);
-                    let span = val.span();
                     match col.as_str() {
                         "left" => self.left.update(val, path, errors),
                         "right" => self.right.update(val, path, errors),
-                        _ => report_invalid_config_key(span, path, errors),
+                        _ => errors.unknown_value(path, val),
                     }
                 }
             }
-            _ => report_invalid_config_value(
-                "should be a record or a non-negative integer",
-                span,
-                path,
-                errors,
-            ),
+            _ => errors.type_mismatch(path, Type::custom("int or record"), value),
         }
     }
 }
@@ -391,17 +363,15 @@ impl UpdateFromValue for TableConfig {
         &mut self,
         value: &'a Value,
         path: &mut ConfigPath<'a>,
-        errors: &mut Vec<ShellError>,
+        errors: &mut ConfigErrors,
     ) {
-        let span = value.span();
         let Value::Record { val: record, .. } = value else {
-            report_invalid_config_value("should be a record", span, path, errors);
+            errors.type_mismatch(path, Type::record(), value);
             return;
         };
 
         for (col, val) in record.iter() {
             let path = &mut path.push(col);
-            let span = val.span();
             match col.as_str() {
                 "mode" => self.mode.update(val, path, errors),
                 "index_mode" => self.index_mode.update(val, path, errors),
@@ -411,26 +381,16 @@ impl UpdateFromValue for TableConfig {
                 "padding" => self.padding.update(val, path, errors),
                 "abbreviated_row_count" => match val {
                     Value::Nothing { .. } => self.abbreviated_row_count = None,
-                    &Value::Int { val, .. } => {
-                        if let Ok(val) = val.try_into() {
-                            self.abbreviated_row_count = Some(val);
+                    &Value::Int { val: count, .. } => {
+                        if let Ok(count) = count.try_into() {
+                            self.abbreviated_row_count = Some(count);
                         } else {
-                            report_invalid_config_value(
-                                "should be null or a non-negative integer",
-                                span,
-                                path,
-                                errors,
-                            );
+                            errors.incorrect_value(path, "a non-negative integer", val);
                         }
                     }
-                    _ => report_invalid_config_value(
-                        "should be null or a non-negative integer",
-                        span,
-                        path,
-                        errors,
-                    ),
+                    _ => errors.type_mismatch(path, Type::custom("int or nothing"), val),
                 },
-                _ => report_invalid_config_key(span, path, errors),
+                _ => errors.unknown_value(path, val),
             }
         }
     }
