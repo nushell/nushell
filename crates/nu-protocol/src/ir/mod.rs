@@ -252,9 +252,6 @@ pub enum Instruction {
     /// Pop an error handler. This is not necessary when control flow is directed to the error
     /// handler due to an error.
     PopErrorHandler,
-    /// Check if an external command failed. Boolean value into `dst`. `src` is preserved, but it
-    /// does require waiting for the command to exit.
-    CheckExternalFailed { dst: RegId, src: RegId },
     /// Return early from the block, raising a `ShellError::Return` instead.
     ///
     /// Collecting the value is unavoidable.
@@ -330,7 +327,6 @@ impl Instruction {
             Instruction::OnError { .. } => None,
             Instruction::OnErrorInto { .. } => None,
             Instruction::PopErrorHandler => None,
-            Instruction::CheckExternalFailed { dst, .. } => Some(dst),
             Instruction::ReturnEarly { .. } => None,
             Instruction::Return { .. } => None,
         }

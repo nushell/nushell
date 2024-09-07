@@ -6,9 +6,9 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    record, ByteStreamSource, DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned,
-    ListStream, OutDest, PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId,
-    ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    ByteStreamSource, DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream,
+    OutDest, PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError,
+    Signals, Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
@@ -207,18 +207,6 @@ fn eval_ir_block_impl<D: DebugContext>(
             Ok(InstructionResult::Return(reg_id)) => {
                 return Ok(ctx.take_reg(reg_id));
             }
-            Ok(InstructionResult::ExitCode(exit_code)) => {
-                if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
-                    // If an error handler is set, branch there
-                    prepare_error_handler(ctx, error_handler, None);
-                    pc = error_handler.handler_index;
-                } else {
-                    // If not, exit the block with the exit code
-                    return Ok(PipelineData::new_external_stream_with_only_exit_code(
-                        exit_code,
-                    ));
-                }
-            }
             Err(
                 err @ (ShellError::Return { .. }
                 | ShellError::Continue { .. }
@@ -259,15 +247,10 @@ fn prepare_error_handler(
     if let Some(reg_id) = error_handler.error_register {
         if let Some(error) = error {
             // Create the error value and put it in the register
-            let value = Value::record(
-                record! {
-                    "msg" => Value::string(format!("{}", error.item), error.span),
-                    "debug" => Value::string(format!("{:?}", error.item), error.span),
-                    "raw" => Value::error(error.item, error.span),
-                },
-                error.span,
+            ctx.put_reg(
+                reg_id,
+                error.item.into_value(error.span).into_pipeline_data(),
             );
-            ctx.put_reg(reg_id, PipelineData::Value(value, None));
         } else {
             // Set the register to empty
             ctx.put_reg(reg_id, PipelineData::Empty);
@@ -281,7 +264,6 @@ enum InstructionResult {
     Continue,
     Branch(usize),
     Return(RegId),
-    ExitCode(i32),
 }
 
 /// Perform an instruction
@@ -786,13 +768,6 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::PopErrorHandler => {
             ctx.stack.error_handlers.pop(ctx.error_handler_base);
-            Ok(Continue)
-        }
-        Instruction::CheckExternalFailed { dst, src } => {
-            let data = ctx.take_reg(*src);
-            let (data, failed) = data.check_external_failed()?;
-            ctx.put_reg(*src, data);
-            ctx.put_reg(*dst, Value::bool(failed, *span).into_pipeline_data());
             Ok(Continue)
         }
         Instruction::ReturnEarly { src } => {
@@ -1362,23 +1337,23 @@ fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, Shel
     Ok(PipelineData::Value(value, metadata))
 }
 
-/// Helper for drain behavior. Returns `Ok(ExitCode)` on failed external.
+/// Helper for drain behavior.
 fn drain(ctx: &mut EvalContext<'_>, data: PipelineData) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
-    let span = data.span().unwrap_or(Span::unknown());
-    if let Some(exit_status) = data.drain()? {
-        ctx.stack.add_env_var(
-            "LAST_EXIT_CODE".into(),
-            Value::int(exit_status.code() as i64, span),
-        );
-        if exit_status.code() == 0 {
-            Ok(Continue)
-        } else {
-            Ok(ExitCode(exit_status.code()))
+    match data {
+        PipelineData::ByteStream(stream, ..) => {
+            let span = stream.span();
+            if let Err(err) = stream.drain() {
+                ctx.stack.set_last_error(&err);
+                return Err(err);
+            } else {
+                ctx.stack.set_last_exit_code(0, span);
+            }
         }
-    } else {
-        Ok(Continue)
+        PipelineData::ListStream(stream, ..) => stream.drain()?,
+        PipelineData::Value(..) | PipelineData::Empty => {}
     }
+    Ok(Continue)
 }
 
 enum RedirectionStream {

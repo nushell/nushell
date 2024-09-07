@@ -12,6 +12,7 @@ pub use self::completer::{
     CompleterConfig, CompletionAlgorithm, CompletionSort, ExternalCompleterConfig,
 };
 pub use self::datetime_format::DatetimeFormatConfig;
+pub use self::display_errors::DisplayErrors;
 pub use self::filesize::FilesizeConfig;
 pub use self::helper::extract_value;
 pub use self::history::{HistoryConfig, HistoryFileFormat};
@@ -28,6 +29,7 @@ pub use self::table::{FooterMode, TableConfig, TableIndexMode, TableMode, TrimSt
 
 mod completer;
 mod datetime_format;
+mod display_errors;
 mod filesize;
 mod helper;
 mod history;
@@ -67,6 +69,7 @@ pub struct Config {
     pub cursor_shape: CursorShapeConfig,
     pub datetime_format: DatetimeFormatConfig,
     pub error_style: ErrorStyle,
+    pub display_errors: DisplayErrors,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
     /// Configuration for plugins.
@@ -121,6 +124,7 @@ impl Default for Config {
             keybindings: Vec::new(),
 
             error_style: ErrorStyle::Fancy,
+            display_errors: DisplayErrors::default(),
 
             use_kitty_protocol: false,
             highlight_resolved_externals: false,
@@ -608,6 +612,29 @@ impl Value {
                 },
                 "show_banner" => {
                     process_bool_config(value, &mut errors, &mut config.show_banner);
+                }
+                "display_errors" => {
+                    if let Value::Record { val, .. } = value {
+                        val.to_mut().retain_mut(|key2, value| {
+                            let span = value.span();
+                            match key2 {
+                                "exit_code" => {
+                                    process_bool_config(value, &mut errors, &mut config.display_errors.exit_code);
+                                }
+                                "termination_signal" => {
+                                    process_bool_config(value, &mut errors, &mut config.display_errors.termination_signal);
+                                }
+                                _ => {
+                                    report_invalid_key(&[key, key2], span, &mut errors);
+                                    return false;
+                                }
+                            };
+                            true
+                        });
+                    } else {
+                        report_invalid_value("should be a record", span, &mut errors);
+                        *value = config.display_errors.into_value(span);
+                    }
                 }
                 "render_right_prompt_on_last_line" => {
                     process_bool_config(value, &mut errors, &mut config.render_right_prompt_on_last_line);
