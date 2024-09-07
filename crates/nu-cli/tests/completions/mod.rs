@@ -544,32 +544,28 @@ fn partial_completion_with_dot_expansions() {
     let expected_paths: Vec<String> = vec![
         file(
             dir.join("partial")
-                .join("..")
-                .join("..")
+                .join("...")
                 .join("partial_completions")
                 .join("final_partial")
                 .join("somefile"),
         ),
         file(
             dir.join("partial-a")
-                .join("..")
-                .join("..")
+                .join("...")
                 .join("partial_completions")
                 .join("final_partial")
                 .join("somefile"),
         ),
         file(
             dir.join("partial-b")
-                .join("..")
-                .join("..")
+                .join("...")
                 .join("partial_completions")
                 .join("final_partial")
                 .join("somefile"),
         ),
         file(
             dir.join("partial-c")
-                .join("..")
-                .join("..")
+                .join("...")
                 .join("partial_completions")
                 .join("final_partial")
                 .join("somefile"),
@@ -1035,36 +1031,31 @@ fn folder_with_directorycompletions_with_three_trailing_dots() {
         folder(
             dir.join("directory_completion")
                 .join("folder_inside_folder")
-                .join("..")
-                .join("..")
+                .join("...")
                 .join("another"),
         ),
         folder(
             dir.join("directory_completion")
                 .join("folder_inside_folder")
-                .join("..")
-                .join("..")
+                .join("...")
                 .join("directory_completion"),
         ),
         folder(
             dir.join("directory_completion")
                 .join("folder_inside_folder")
-                .join("..")
-                .join("..")
+                .join("...")
                 .join("test_a"),
         ),
         folder(
             dir.join("directory_completion")
                 .join("folder_inside_folder")
-                .join("..")
-                .join("..")
+                .join("...")
                 .join("test_b"),
         ),
         folder(
             dir.join("directory_completion")
                 .join("folder_inside_folder")
-                .join("..")
-                .join("..")
+                .join("...")
                 .join(".hidden_folder"),
         ),
     ];
