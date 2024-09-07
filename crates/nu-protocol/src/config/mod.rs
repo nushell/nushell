@@ -158,13 +158,16 @@ impl UpdateFromValue for Config {
                 "color_config" => self.color_config.update(val, path, errors),
                 "use_grid_icons" => {
                     // TODO: delete it after 0.99
-                    errors.error_raw(ShellError::GenericError {
-                        error: format!("the {} option has been removed", **path),
-                        msg: "remove this".into(),
-                        span: Some(val.span()),
-                        help: Some("use `grid -i` instead".into()),
-                        inner: Vec::new(),
-                    });
+                    errors.error(
+                        ShellError::GenericError {
+                            error: format!("{} is deprecated", **path),
+                            msg: "remove this".into(),
+                            span: Some(val.span()),
+                            help: Some("use `grid -i` instead".into()),
+                            inner: Vec::new(),
+                        }
+                        .into(),
+                    );
                 }
                 "footer_mode" => self.footer_mode.update(val, path, errors),
                 "float_precision" => self.float_precision.update(val, path, errors),
@@ -182,7 +185,7 @@ impl UpdateFromValue for Config {
                     }
                     _ => errors.type_mismatch(
                         path,
-                        Type::custom("string, list<string, or nothing"),
+                        Type::custom("string, list<string>, or nothing"),
                         val,
                     ),
                 },
@@ -200,11 +203,11 @@ impl UpdateFromValue for Config {
                 "plugin_gc" => self.plugin_gc.update(val, path, errors),
                 "menus" => match Vec::from_value(val.clone()) {
                     Ok(menus) => self.menus = menus,
-                    Err(err) => errors.error(path, err),
+                    Err(err) => errors.error(err.into()),
                 },
                 "keybindings" => match Vec::from_value(val.clone()) {
                     Ok(keybindings) => self.keybindings = keybindings,
-                    Err(err) => errors.error(path, err),
+                    Err(err) => errors.error(err.into()),
                 },
                 "hooks" => self.hooks.update(val, path, errors),
                 "datetime_format" => self.datetime_format.update(val, path, errors),

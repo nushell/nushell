@@ -165,5 +165,5 @@ pub fn extract_value<'record>(
 ) -> Result<&'record Value, ShellError> {
     record
         .get(column)
-        .ok_or_else(|| ShellError::MissingColumn { column, span })
+        .ok_or_else(|| ShellError::MissingRequiredColumn { column, span })
 }

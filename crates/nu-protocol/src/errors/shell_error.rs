@@ -1,12 +1,11 @@
+use crate::{
+    ast::Operator, engine::StateWorkingSet, format_shell_error, record, ConfigError, LabeledError,
+    ParseError, Span, Spanned, Type, Value,
+};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use std::{io, num::NonZeroI32};
 use thiserror::Error;
-
-use crate::{
-    ast::Operator, engine::StateWorkingSet, format_shell_error, record, LabeledError, ParseError,
-    Span, Spanned, Type, Value,
-};
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -108,12 +107,12 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// The type of a value was different from the expected type.
+    /// A value's type did not match the expected type.
     ///
     /// ## Resolution
     ///
-    /// Convert the value to correct type or pass a value of the correct type.
-    #[error("Type mismatch.")]
+    /// Convert the value to the correct type or provide a value of the correct type.
+    #[error("Type mismatch")]
     #[diagnostic(code(nu::shell::type_mismatch))]
     RuntimeTypeMismatch {
         expected: Type,
@@ -122,12 +121,12 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// A value had the correct type but does not satisfy some condition.
+    /// A value had the correct type but is otherwise invalid.
     ///
     /// ## Resolution
     ///
-    /// Ensure the value is valid based off the reason in the error message.
-    #[error("Invalid value.")]
+    /// Ensure the value meets the criteria in the error message.
+    #[error("Invalid value")]
     #[diagnostic(code(nu::shell::invalid_value))]
     InvalidValue {
         valid: String,
@@ -1122,54 +1121,28 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// One or more config value are invalid.
+    /// Failed to update the config due to one or more errors.
     ///
     /// ## Resolution
     ///
     /// Refer to the error messages for specific details.
-    #[error("One or more config value are invalid")]
+    #[error("Encountered {} error(s) when updating config", errors.len())]
     #[diagnostic(code(nu::shell::invalid_config))]
     InvalidConfig {
         #[related]
-        errors: Vec<ShellError>,
+        errors: Vec<ConfigError>,
     },
 
-    /// A config value was invalid.
+    /// A value was missing a required column.
     ///
     /// ## Resolution
     ///
-    /// Refer to the error message for specific details.
-    #[error("Could not apply changes to {path}")]
-    #[diagnostic(code(nu::shell::invalid_config_value))]
-    InvalidConfigValue {
-        path: String,
-        #[related]
-        error: Vec<ShellError>,
-    },
-
-    /// Tried to set an unknown config value.
-    ///
-    /// ## Resolution
-    ///
-    /// Do not set this config value.
-    #[error("Unknown config value {path}")]
-    #[diagnostic(code(nu::shell::unknown_config_value))]
-    UnknownConfigValue {
-        path: String,
-        #[label("encountered here")]
-        span: Span,
-    },
-
-    /// An expected column was not present.
-    ///
-    /// ## Resolution
-    ///
-    /// Refer to the specific error message and add the expected column to the value.
-    #[error("Missing column")]
-    #[diagnostic(code(nu::shell::missing_column))]
-    MissingColumn {
+    /// Make sure the value has the required column.
+    #[error("Value is mising a required '{column}' column")]
+    #[diagnostic(code(nu::shell::missing_required_column))]
+    MissingRequiredColumn {
         column: &'static str,
-        #[label("expected to have a {column} column")]
+        #[label("has no '{column}' column")]
         span: Span,
     },
 

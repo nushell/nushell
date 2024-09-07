@@ -843,7 +843,7 @@ impl<'config> EventType<'config> {
             .map(Self::Send)
             .or_else(|_| extract_value("edit", record, span).map(Self::Edit))
             .or_else(|_| extract_value("until", record, span).map(Self::Until))
-            .map_err(|_| ShellError::MissingColumn {
+            .map_err(|_| ShellError::MissingRequiredColumn {
                 column: "'send', 'edit', or 'until'",
                 span,
             })
@@ -1326,7 +1326,7 @@ mod test {
 
         let span = Span::test_data();
         let b = EventType::try_from_record(&event, span);
-        assert!(matches!(b, Err(ShellError::MissingColumn { .. })));
+        assert!(matches!(b, Err(ShellError::MissingRequiredColumn { .. })));
     }
 
     #[test]
