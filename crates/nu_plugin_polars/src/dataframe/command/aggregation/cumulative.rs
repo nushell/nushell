@@ -54,7 +54,7 @@ impl PluginCommand for Cumulative {
     }
 
     fn description(&self) -> &str {
-        "Cumulative calculation for a series."
+        "Cumulative calculation for a column or series."
     }
 
     fn signature(&self) -> Signature {
