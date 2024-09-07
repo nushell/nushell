@@ -1,6 +1,6 @@
 use super::base64::{operate, ActionType, Base64CommandArguments, CHARACTER_SET_DESC};
 use nu_engine::command_prelude::*;
-use nu_protocol::{report_warning_new, ParseWarning};
+use nu_protocol::report_shell_warning;
 
 #[derive(Clone)]
 pub struct DecodeBase64Old;
@@ -78,9 +78,9 @@ impl Command for DecodeBase64Old {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        report_warning_new(
+        report_shell_warning(
             engine_state,
-            &ParseWarning::DeprecatedWarning {
+            &ShellError::Deprecated {
                 old_command: "decode base64".into(),
                 new_suggestion: "the new `decode new-base64` version".into(),
                 span: call.head,

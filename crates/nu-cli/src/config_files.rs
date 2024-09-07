@@ -2,10 +2,10 @@ use crate::util::eval_source;
 #[cfg(feature = "plugin")]
 use nu_path::canonicalize_with;
 #[cfg(feature = "plugin")]
-use nu_protocol::{engine::StateWorkingSet, report_error, ParseError, PluginRegistryFile, Spanned};
+use nu_protocol::{engine::StateWorkingSet, ParseError, PluginRegistryFile, Spanned};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    report_error_new, HistoryFileFormat, PipelineData,
+    report_shell_error, HistoryFileFormat, PipelineData,
 };
 #[cfg(feature = "plugin")]
 use nu_utils::perf;
@@ -36,7 +36,7 @@ pub fn read_plugin_file(
         .and_then(|p| Path::new(&p.item).extension())
         .is_some_and(|ext| ext == "nu")
     {
-        report_error_new(
+        report_shell_error(
             engine_state,
             &ShellError::GenericError {
                 error: "Wrong plugin file format".into(),
@@ -81,7 +81,7 @@ pub fn read_plugin_file(
                         return;
                     }
                 } else {
-                    report_error_new(
+                    report_shell_error(
                         engine_state,
                         &ShellError::GenericError {
                             error: format!(
@@ -113,7 +113,7 @@ pub fn read_plugin_file(
             Ok(contents) => contents,
             Err(err) => {
                 log::warn!("Failed to read plugin registry file: {err:?}");
-                report_error_new(
+                report_shell_error(
                     engine_state,
                     &ShellError::GenericError {
                         error: format!(
@@ -146,7 +146,7 @@ pub fn read_plugin_file(
         nu_plugin_engine::load_plugin_file(&mut working_set, &contents, span);
 
         if let Err(err) = engine_state.merge_delta(working_set.render()) {
-            report_error_new(engine_state, &err);
+            report_shell_error(engine_state, &err);
             return;
         }
 
@@ -166,7 +166,7 @@ pub fn add_plugin_file(
 ) {
     use std::path::Path;
 
-    let working_set = StateWorkingSet::new(engine_state);
+    use nu_protocol::report_parse_error;
 
     if let Ok(cwd) = engine_state.cwd_as_string(None) {
         if let Some(plugin_file) = plugin_file {
@@ -181,8 +181,8 @@ pub fn add_plugin_file(
                 engine_state.plugin_path = Some(path)
             } else {
                 // It's an error if the directory for the plugin file doesn't exist.
-                report_error(
-                    &working_set,
+                report_parse_error(
+                    &StateWorkingSet::new(engine_state),
                     &ParseError::FileNotFound(
                         path_dir.to_string_lossy().into_owned(),
                         plugin_file.span,
@@ -214,7 +214,8 @@ pub fn eval_config_contents(
             let prev_file = engine_state.file.take();
             engine_state.file = Some(config_path.clone());
 
-            eval_source(
+            // TODO: ignore this error?
+            let _ = eval_source(
                 engine_state,
                 stack,
                 &contents,
@@ -230,11 +231,11 @@ pub fn eval_config_contents(
             match engine_state.cwd(Some(stack)) {
                 Ok(cwd) => {
                     if let Err(e) = engine_state.merge_env(stack, cwd) {
-                        report_error_new(engine_state, &e);
+                        report_shell_error(engine_state, &e);
                     }
                 }
                 Err(e) => {
-                    report_error_new(engine_state, &e);
+                    report_shell_error(engine_state, &e);
                 }
             }
         }
@@ -280,7 +281,7 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
     let old_contents = match std::fs::read(&old_plugin_file_path) {
         Ok(old_contents) => old_contents,
         Err(err) => {
-            report_error_new(
+            report_shell_error(
                 engine_state,
                 &ShellError::GenericError {
                     error: "Can't read old plugin file to migrate".into(),
@@ -349,7 +350,7 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
         .map_err(|e| e.into())
         .and_then(|file| contents.write_to(file, None))
     {
-        report_error_new(
+        report_shell_error(
             &engine_state,
             &ShellError::GenericError {
                 error: "Failed to save migrated plugin file".into(),

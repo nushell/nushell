@@ -3,7 +3,7 @@ use log::trace;
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    report_error_new, Config, PipelineData, Value,
+    report_shell_error, Config, PipelineData, Value,
 };
 use reedline::Prompt;
 
@@ -80,7 +80,7 @@ fn get_prompt_string(
 
                 result
                     .map_err(|err| {
-                        report_error_new(engine_state, &err);
+                        report_shell_error(engine_state, &err);
                     })
                     .ok()
             }

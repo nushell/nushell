@@ -1,12 +1,11 @@
 use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
-    process::{ChildPipe, ChildProcess, ExitStatus},
-    ByteStream, ByteStreamType, Config, ErrSpan, ListStream, OutDest, PipelineMetadata, Range,
-    ShellError, Signals, Span, Type, Value,
+    ByteStream, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError,
+    Signals, Span, Type, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
-use std::io::{Cursor, Read, Write};
+use std::io::Write;
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -50,16 +49,6 @@ pub enum PipelineData {
 impl PipelineData {
     pub fn empty() -> PipelineData {
         PipelineData::Empty
-    }
-
-    /// create a `PipelineData::ByteStream` with proper exit_code
-    ///
-    /// It's useful to break running without raising error at user level.
-    pub fn new_external_stream_with_only_exit_code(exit_code: i32) -> PipelineData {
-        let span = Span::unknown();
-        let mut child = ChildProcess::from_raw(None, None, None, span);
-        child.set_exit_code(exit_code);
-        PipelineData::ByteStream(ByteStream::child(child, span), None)
     }
 
     pub fn metadata(&self) -> Option<PipelineMetadata> {
@@ -182,22 +171,17 @@ impl PipelineData {
     /// without consuming input and without writing anything.
     ///
     /// For the other [`OutDest`]s, the given `PipelineData` will be completely consumed
-    /// and `PipelineData::Empty` will be returned, unless the data is from an external stream,
-    /// in which case an external stream containing only that exit code will be returned.
+    /// and `PipelineData::Empty` will be returned (assuming no errors).
     pub fn write_to_out_dests(
         self,
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<PipelineData, ShellError> {
         match (self, stack.stdout()) {
-            (PipelineData::ByteStream(stream, ..), stdout) => {
-                if let Some(exit_status) = stream.write_to_out_dests(stdout, stack.stderr())? {
-                    return Ok(PipelineData::new_external_stream_with_only_exit_code(
-                        exit_status.code(),
-                    ));
-                }
-            }
             (data, OutDest::Pipe | OutDest::Capture) => return Ok(data),
+            (PipelineData::ByteStream(stream, ..), stdout) => {
+                stream.write_to_out_dests(stdout, stack.stderr())?;
+            }
             (PipelineData::Empty, ..) => {}
             (PipelineData::Value(..), OutDest::Null) => {}
             (PipelineData::ListStream(stream, ..), OutDest::Null) => {
@@ -227,15 +211,12 @@ impl PipelineData {
         Ok(PipelineData::Empty)
     }
 
-    pub fn drain(self) -> Result<Option<ExitStatus>, ShellError> {
+    pub fn drain(self) -> Result<(), ShellError> {
         match self {
-            PipelineData::Empty => Ok(None),
+            PipelineData::Empty => Ok(()),
             PipelineData::Value(Value::Error { error, .. }, ..) => Err(*error),
-            PipelineData::Value(..) => Ok(None),
-            PipelineData::ListStream(stream, ..) => {
-                stream.drain()?;
-                Ok(None)
-            }
+            PipelineData::Value(..) => Ok(()),
+            PipelineData::ListStream(stream, ..) => stream.drain(),
             PipelineData::ByteStream(stream, ..) => stream.drain(),
         }
     }
@@ -496,68 +477,6 @@ impl PipelineData {
         }
     }
 
-    /// Try to catch the external command exit status and detect if it failed.
-    ///
-    /// This is useful for external commands with semicolon, we can detect errors early to avoid
-    /// commands after the semicolon running.
-    ///
-    /// Returns `self` and a flag that indicates if the external command run failed. If `self` is
-    /// not [`PipelineData::ByteStream`], the flag will be `false`.
-    ///
-    /// Currently this will consume an external command to completion.
-    pub fn check_external_failed(self) -> Result<(Self, bool), ShellError> {
-        if let PipelineData::ByteStream(stream, metadata) = self {
-            // Preserve stream attributes
-            let span = stream.span();
-            let type_ = stream.type_();
-            let known_size = stream.known_size();
-            match stream.into_child() {
-                Ok(mut child) => {
-                    // Only check children without stdout. This means that nothing
-                    // later in the pipeline can possibly consume output from this external command.
-                    if child.stdout.is_none() {
-                        // Note:
-                        // In run-external's implementation detail, the result sender thread
-                        // send out stderr message first, then stdout message, then exit_code.
-                        //
-                        // In this clause, we already make sure that `stdout` is None
-                        // But not the case of `stderr`, so if `stderr` is not None
-                        // We need to consume stderr message before reading external commands' exit code.
-                        //
-                        // Or we'll never have a chance to read exit_code if stderr producer produce too much stderr message.
-                        // So we consume stderr stream and rebuild it.
-                        let stderr = child
-                            .stderr
-                            .take()
-                            .map(|mut stderr| {
-                                let mut buf = Vec::new();
-                                stderr.read_to_end(&mut buf).err_span(span)?;
-                                Ok::<_, ShellError>(buf)
-                            })
-                            .transpose()?;
-
-                        let code = child.wait()?.code();
-                        let mut child = ChildProcess::from_raw(None, None, None, span);
-                        if let Some(stderr) = stderr {
-                            child.stderr = Some(ChildPipe::Tee(Box::new(Cursor::new(stderr))));
-                        }
-                        child.set_exit_code(code);
-                        let stream = ByteStream::child(child, span).with_type(type_);
-                        Ok((PipelineData::ByteStream(stream, metadata), code != 0))
-                    } else {
-                        let stream = ByteStream::child(child, span)
-                            .with_type(type_)
-                            .with_known_size(known_size);
-                        Ok((PipelineData::ByteStream(stream, metadata), false))
-                    }
-                }
-                Err(stream) => Ok((PipelineData::ByteStream(stream, metadata), false)),
-            }
-        } else {
-            Ok((self, false))
-        }
-    }
-
     /// Try to convert Value from Value::Range to Value::List.
     /// This is useful to expand Value::Range into array notation, specifically when
     /// converting `to json` or `to nuon`.
@@ -613,7 +532,7 @@ impl PipelineData {
         stack: &mut Stack,
         no_newline: bool,
         to_stderr: bool,
-    ) -> Result<Option<ExitStatus>, ShellError> {
+    ) -> Result<(), ShellError> {
         match self {
             // Print byte streams directly as long as they aren't binary.
             PipelineData::ByteStream(stream, ..) if stream.type_() != ByteStreamType::Binary => {
@@ -650,14 +569,14 @@ impl PipelineData {
         engine_state: &EngineState,
         no_newline: bool,
         to_stderr: bool,
-    ) -> Result<Option<ExitStatus>, ShellError> {
+    ) -> Result<(), ShellError> {
         if let PipelineData::Value(Value::Binary { val: bytes, .. }, _) = self {
             if to_stderr {
                 stderr_write_all_and_flush(bytes)?;
             } else {
                 stdout_write_all_and_flush(bytes)?;
             }
-            Ok(None)
+            Ok(())
         } else {
             self.write_all_and_flush(engine_state, no_newline, to_stderr)
         }
@@ -668,7 +587,7 @@ impl PipelineData {
         engine_state: &EngineState,
         no_newline: bool,
         to_stderr: bool,
-    ) -> Result<Option<ExitStatus>, ShellError> {
+    ) -> Result<(), ShellError> {
         if let PipelineData::ByteStream(stream, ..) = self {
             // Copy ByteStreams directly
             stream.print(to_stderr)
@@ -692,7 +611,7 @@ impl PipelineData {
                 }
             }
 
-            Ok(None)
+            Ok(())
         }
     }
 

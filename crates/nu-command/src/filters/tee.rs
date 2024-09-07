@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_protocol::{
-    byte_stream::copy_with_signals, engine::Closure, process::ChildPipe, report_error_new,
+    byte_stream::copy_with_signals, engine::Closure, process::ChildPipe, report_shell_error,
     ByteStream, ByteStreamSource, OutDest, PipelineMetadata, Signals,
 };
 use std::{
@@ -353,7 +353,7 @@ fn tee_once(
 ) -> Result<JoinHandle<()>, std::io::Error> {
     thread::Builder::new().name("tee".into()).spawn(move || {
         if let Err(err) = on_thread() {
-            report_error_new(&engine_state, &err);
+            report_shell_error(&engine_state, &err);
         }
     })
 }

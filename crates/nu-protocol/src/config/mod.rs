@@ -10,6 +10,7 @@ pub use completions::{
     CompletionAlgorithm, CompletionConfig, CompletionSort, ExternalCompleterConfig,
 };
 pub use datetime_format::DatetimeFormatConfig;
+pub use display_errors::DisplayErrors;
 pub use filesize::FilesizeConfig;
 pub use helper::extract_value;
 pub use history::{HistoryConfig, HistoryFileFormat};
@@ -24,6 +25,7 @@ pub use table::{FooterMode, TableConfig, TableIndexMode, TableMode, TrimStrategy
 
 mod completions;
 mod datetime_format;
+mod display_errors;
 mod error;
 mod filesize;
 mod helper;
@@ -64,6 +66,7 @@ pub struct Config {
     pub cursor_shape: CursorShapeConfig,
     pub datetime_format: DatetimeFormatConfig,
     pub error_style: ErrorStyle,
+    pub display_errors: DisplayErrors,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
     /// Configuration for plugins.
@@ -118,6 +121,7 @@ impl Default for Config {
             keybindings: Vec::new(),
 
             error_style: ErrorStyle::Fancy,
+            display_errors: DisplayErrors::default(),
 
             use_kitty_protocol: false,
             highlight_resolved_externals: false,
@@ -183,6 +187,7 @@ impl UpdateFromValue for Config {
                     ),
                 },
                 "show_banner" => self.show_banner.update(val, path, errors),
+                "display_errors" => self.display_errors.update(val, path, errors),
                 "render_right_prompt_on_last_line" => self
                     .render_right_prompt_on_last_line
                     .update(val, path, errors),

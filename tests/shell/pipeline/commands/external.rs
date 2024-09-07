@@ -183,13 +183,6 @@ fn basic_outerr_pipe_works(#[case] redirection: &str) {
 }
 
 #[test]
-fn err_pipe_with_failed_external_works() {
-    let actual =
-        nu!(r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr_fail FOO e>| str length }"#);
-    assert_eq!(actual.out, "3");
-}
-
-#[test]
 fn dont_run_glob_if_pass_variable_to_external() {
     Playground::setup("dont_run_glob", |dirs, sandbox| {
         sandbox.with_files(&[
@@ -625,4 +618,25 @@ mod external_command_arguments {
         let actual = nu!(r#"nu --testbin cococo expression='-r\" -w'"#);
         assert_eq!(actual.out, r#"expression=-r\" -w"#);
     }
+}
+
+#[test]
+fn exit_code_stops_execution_closure() {
+    let actual = nu!("[1 2] | each {|x| nu -c $'exit ($x)'; print $x }");
+    assert!(actual.out.is_empty());
+    assert!(actual.err.contains("exited with code 1"));
+}
+
+#[test]
+fn exit_code_stops_execution_custom_command() {
+    let actual = nu!("def cmd [] { nu -c 'exit 42'; 'ok1' }; cmd; print 'ok2'");
+    assert!(actual.out.is_empty());
+    assert!(actual.err.contains("exited with code 42"));
+}
+
+#[test]
+fn exit_code_stops_execution_for_loop() {
+    let actual = nu!("for x in [0 1] { nu -c 'exit 42'; print $x }");
+    assert!(actual.out.is_empty());
+    assert!(actual.err.contains("exited with code 42"));
 }
