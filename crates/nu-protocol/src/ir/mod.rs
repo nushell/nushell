@@ -123,6 +123,9 @@ pub enum Instruction {
     /// code, and invokes any available error handler with Empty, or if not available, returns an
     /// exit-code-only stream, leaving the block.
     Drain { src: RegId },
+    /// Write to the output destinations in the stack
+    // TODO: see if it's possible to remove this
+    WriteToOutDests { src: RegId },
     /// Load the value of a variable into the `dst` register
     LoadVariable { dst: RegId, var_id: VarId },
     /// Store the value of a variable from the `src` register
@@ -287,6 +290,7 @@ impl Instruction {
             Instruction::Span { src_dst } => Some(src_dst),
             Instruction::Drop { .. } => None,
             Instruction::Drain { .. } => None,
+            Instruction::WriteToOutDests { .. } => None,
             Instruction::LoadVariable { dst, .. } => Some(dst),
             Instruction::StoreVariable { .. } => None,
             Instruction::DropVariable { .. } => None,

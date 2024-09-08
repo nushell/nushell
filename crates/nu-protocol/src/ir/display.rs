@@ -94,6 +94,9 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::Drain { src } => {
                 write!(f, "{:WIDTH$} {src}", "drain")
             }
+            Instruction::WriteToOutDests { src } => {
+                write!(f, "{:WIDTH$} {src}", "write-to-out-dests")
+            }
             Instruction::LoadVariable { dst, var_id } => {
                 let var = FmtVar::new(self.engine_state, *var_id);
                 write!(f, "{:WIDTH$} {dst}, {var}", "load-variable")
