@@ -16,6 +16,7 @@ use nu_plugin::PluginCommand;
 pub use aggregate::LazyAggregate;
 pub use aggregation_commands::*;
 pub use cumulative::Cumulative;
+use implode::ExprList;
 pub use n_null::NNull;
 pub use n_unique::NUnique;
 pub use rolling::Rolling;

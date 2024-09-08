@@ -5,21 +5,6 @@ use crate::{expr_command, lazy_expr_command};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
 
-// ExprList command
-// Expands to a command definition for a list expression
-expr_command!(
-    ExprList,
-    "polars implode",
-    "Aggregates a group to a Series.",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    implode,
-    test_implode
-);
-
 // ExprAggGroups command
 // Expands to a command definition for a agg groups expression
 expr_command!(
