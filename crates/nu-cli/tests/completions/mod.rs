@@ -1136,7 +1136,7 @@ fn folder_with_directorycompletions_do_not_collapse_dots() {
 
     #[cfg(windows)]
     {
-        let target_dir = format!("cd {dir_str}/.../");
+        let target_dir = format!("cd {dir_str}/../../");
         let slash_suggestions = completer.complete(&target_dir, target_dir.len());
 
         let expected_slash_paths: Vec<String> = expected_paths
