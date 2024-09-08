@@ -7,7 +7,7 @@ use crate::{
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
-    record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
+    record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId, BlockId
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
@@ -485,7 +485,7 @@ impl Eval for EvalConst {
         span: Span,
     ) -> Result<Value, ShellError> {
         // TODO: Allow debugging const eval
-        let block = working_set.get_block(block_id);
+        let block = working_set.get_block(BlockId::new(block_id));
         eval_const_subexpression(working_set, block, PipelineData::empty(), span)?.into_value(span)
     }
 

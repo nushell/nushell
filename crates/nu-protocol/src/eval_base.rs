@@ -163,7 +163,7 @@ pub trait Eval {
                 Self::eval_collect::<D>(state, mut_state, *var_id, expr)
             }
             Expr::Subexpression(block_id) => {
-                Self::eval_subexpression::<D>(state, mut_state, *block_id, expr_span)
+                Self::eval_subexpression::<D>(state, mut_state, block_id.get(), expr_span)
             }
             Expr::Range(range) => {
                 let from = if let Some(f) = &range.from {
@@ -283,7 +283,7 @@ pub trait Eval {
                 }
             }
             Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
-                Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr_span)
+                Self::eval_row_condition_or_closure(state, mut_state, block_id.get(), expr_span)
             }
             Expr::StringInterpolation(exprs) => {
                 let config = Self::get_config(state, mut_state);

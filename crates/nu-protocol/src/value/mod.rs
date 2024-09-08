@@ -20,10 +20,7 @@ pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
 use crate::{
-    ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
-    did_you_mean,
-    engine::{Closure, EngineState},
-    Config, ShellError, Signals, Span, Type,
+    ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember}, did_you_mean, engine::{Closure, EngineState}, BlockId, Config, ShellError, Signals, Span, Type
 };
 use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
@@ -863,7 +860,7 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
-            Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
+            Value::Closure { val, .. } => format!("<Closure {}>", val.block_id.get()),
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
@@ -2029,7 +2026,7 @@ impl Value {
             Value::test_record(Record::new()),
             Value::test_list(Vec::new()),
             Value::test_closure(Closure {
-                block_id: 0,
+                block_id: BlockId::new(0),
                 captures: Vec::new(),
             }),
             Value::test_nothing(),

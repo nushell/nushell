@@ -275,7 +275,7 @@ impl<'a> FmtDecl<'a> {
 
 impl fmt::Display for FmtDecl<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "decl {} {:?}", self.0, self.1)
+        write!(f, "decl {} {:?}", self.0.get(), self.1)
     }
 }
 
@@ -289,16 +289,16 @@ impl<'a> FmtVar<'a> {
             .flat_map(|overlay| overlay.vars.iter())
             .find(|(_, v)| **v == var_id)
             .map(|(k, _)| std::str::from_utf8(k).unwrap_or("<utf-8 error>"));
-        FmtVar(var_id, name)
+        FmtVar(var_id.cast(), name)
     }
 }
 
 impl fmt::Display for FmtVar<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(name) = self.1 {
-            write!(f, "var {} {:?}", self.0, name)
+            write!(f, "var {} {:?}", self.0.get(), name)
         } else {
-            write!(f, "var {}", self.0)
+            write!(f, "var {}", self.0.get())
         }
     }
 }
@@ -344,9 +344,9 @@ impl<'a> fmt::Display for FmtLiteral<'a> {
             Literal::Filesize(q) => write!(f, "filesize({q}b)"),
             Literal::Duration(q) => write!(f, "duration({q}ns)"),
             Literal::Binary(b) => write!(f, "binary({})", FmtData(self.data, *b)),
-            Literal::Block(id) => write!(f, "block({id})"),
-            Literal::Closure(id) => write!(f, "closure({id})"),
-            Literal::RowCondition(id) => write!(f, "row_condition({id})"),
+            Literal::Block(id) => write!(f, "block({})", id.get()),
+            Literal::Closure(id) => write!(f, "closure({})", id.get()),
+            Literal::RowCondition(id) => write!(f, "row_condition({})", id.get()),
             Literal::Range {
                 start,
                 step,

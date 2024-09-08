@@ -1,6 +1,7 @@
 use std::any;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Error, Formatter};
+use std::hash::{Hasher, Hash};
 use std::marker::PhantomData;
 
 use serde::{Deserialize, Serialize};
@@ -15,18 +16,29 @@ impl<T> Id<T> {
     ///
     /// Using a distinct type like `Id` instead of `usize` helps us avoid mixing plain integers
     /// with identifiers.
-    pub fn new(inner: usize) -> Self {
+    pub const fn new(inner: usize) -> Self {
         Self {
             inner,
-            _phantom: PhantomData::default(),
+            _phantom: PhantomData,
         }
     }
 
     /// Returns the inner `usize` value.
     ///
     /// This requires an explicit call, ensuring we only use the raw value when intended.
-    pub fn get(self) -> usize {
+    pub const fn get(self) -> usize {
         self.inner
+    }
+
+    /// Casts the `Id<T>` into `Id<U>` without changing the inner value.
+    ///
+    /// # Attention
+    /// Ensure the type cast is correct. If the wrong type is used, it may indicate a typing mistake elsewhere.
+    pub const fn cast<U>(self) -> Id<U> {
+        Id {
+            inner: self.inner,
+            _phantom: PhantomData
+        }
     }
 }
 
@@ -49,7 +61,7 @@ impl<T> Clone for Id<T> {
 impl<T> Copy for Id<T> {}
 
 impl<T> PartialEq for Id<T> {
-    fn eq(&self, other: &self) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
@@ -77,7 +89,7 @@ impl<T> Serialize for Id<T> {
     }
 }
 
-impl<'de, T> Deserialize for Id<T> {
+impl<'de, T> Deserialize<'de> for Id<T> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -85,8 +97,14 @@ impl<'de, T> Deserialize for Id<T> {
         let inner = usize::deserialize(deserializer)?;
         Ok(Self {
             inner,
-            _phantom: PhantomData::default(),
+            _phantom: PhantomData,
         })
+    }
+}
+
+impl<T> Hash for Id<T> {
+    fn hash<H>(&self, state: &mut H) where H: Hasher {
+        self.inner.hash(state)
     }
 }
 
