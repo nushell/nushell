@@ -62,7 +62,8 @@ lazy_expr_command!(
             example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | polars into-df
     | polars group-by a
-    | polars agg (polars col b | polars max)"#,
+    | polars agg (polars col b | polars max)
+    | polasr collect"#,
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -95,7 +96,7 @@ lazy_expr_command!(
     vec![
         Example {
             description: "Min value from columns in a dataframe",
-            example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars min",
+            example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars min | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -113,7 +114,8 @@ lazy_expr_command!(
             example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | polars into-df
     | polars group-by a
-    | polars agg (polars col b | polars min)"#,
+    | polars agg (polars col b | polars min)
+    | polars collect"#,
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -146,7 +148,7 @@ lazy_expr_command!(
     vec![
         Example {
             description: "Sums all columns in a dataframe",
-            example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars sum",
+            example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars sum | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -164,7 +166,8 @@ lazy_expr_command!(
             example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | polars into-df
     | polars group-by a
-    | polars agg (polars col b | polars sum)"#,
+    | polars agg (polars col b | polars sum)
+    | polars collect"#,
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -197,7 +200,7 @@ lazy_expr_command!(
     vec![
         Example {
             description: "Mean value from columns in a dataframe",
-            example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars mean",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars mean | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -215,7 +218,8 @@ lazy_expr_command!(
             example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | polars into-df
     | polars group-by a
-    | polars agg (polars col b | polars mean)"#,
+    | polars agg (polars col b | polars mean)
+    | polars collect"#,
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -248,7 +252,7 @@ lazy_expr_command!(
     vec![
         Example {
             description: "Std value from columns in a dataframe",
-            example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars std",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars std | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -288,58 +292,5 @@ lazy_expr_command!(
     ],
     std,
     test_std,
-    1
-);
-
-// ExprVar command
-// Expands to a command definition for var aggregation
-lazy_expr_command!(
-    ExprVar,
-    "polars var",
-    "Create a var expression for an aggregation.",
-    vec![
-        Example {
-            description:
-                "Var value from columns in a dataframe or aggregates columns to their var value",
-            example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars var",
-            result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![
-                        Column::new("a".to_string(), vec![Value::test_float(4.0)],),
-                        Column::new("b".to_string(), vec![Value::test_float(0.0)],),
-                    ],
-                    None
-                )
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        },
-        Example {
-            description: "Var aggregation for a group-by",
-            example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
-    | polars into-df
-    | polars group-by a
-    | polars agg (polars col b | polars var)"#,
-            result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_string("one"), Value::test_string("two")],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_float(0.0), Value::test_float(0.0)],
-                        ),
-                    ],
-                    None
-                )
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        },
-    ],
-    var,
-    test_var,
     1
 );

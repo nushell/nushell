@@ -9,6 +9,7 @@ mod n_unique;
 mod quantile;
 mod rolling;
 mod value_counts;
+mod var;
 
 use crate::PolarsPlugin;
 use nu_plugin::PluginCommand;
@@ -21,6 +22,7 @@ pub use n_null::NNull;
 pub use n_unique::NUnique;
 pub use rolling::Rolling;
 pub use value_counts::ValueCount;
+use var::ExprVar;
 
 pub(crate) fn aggregation_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
     vec![

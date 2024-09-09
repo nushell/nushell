@@ -50,7 +50,8 @@ impl PluginCommand for LazyAggregate {
         (polars col b | polars min | polars as "b_min")
         (polars col b | polars max | polars as "b_max")
         (polars col b | polars sum | polars as "b_sum")
-     ]"#,
+     ]
+    | polars collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

@@ -1,5 +1,5 @@
 use crate::{
-    dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame, NuLazyGroupBy},
+    dataframe::values::{NuDataFrame, NuExpression, NuLazyFrame, NuLazyGroupBy},
     values::CustomValueSupport,
     PolarsPlugin,
 };
@@ -8,7 +8,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
-use polars::prelude::Expr;
+use polars::{df, prelude::Expr};
 
 #[derive(Clone)]
 pub struct ToLazyGroupBy;
@@ -39,46 +39,9 @@ impl PluginCommand for ToLazyGroupBy {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Group by and perform an aggregation",
-                example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | polars into-df
-    | polars group-by a
-    | polars agg [
-        (polars col b | polars min | polars as "b_min")
-        (polars col b | polars max | polars as "b_max")
-        (polars col b | polars sum | polars as "b_sum")
-     ]"#,
-                result: Some(
-                    NuDataFrame::try_from_columns(
-                        vec![
-                            Column::new(
-                                "a".to_string(),
-                                vec![Value::test_int(1), Value::test_int(2)],
-                            ),
-                            Column::new(
-                                "b_min".to_string(),
-                                vec![Value::test_int(2), Value::test_int(4)],
-                            ),
-                            Column::new(
-                                "b_max".to_string(),
-                                vec![Value::test_int(4), Value::test_int(6)],
-                            ),
-                            Column::new(
-                                "b_sum".to_string(),
-                                vec![Value::test_int(6), Value::test_int(10)],
-                            ),
-                        ],
-                        None,
-                    )
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
-            },
-            Example {
-                description: "Group by and perform an aggregation",
-                example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
+        vec![Example {
+            description: "Group by and perform an aggregation",
+            example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
     | polars into-lazy
     | polars group-by a
     | polars agg [
@@ -87,33 +50,19 @@ impl PluginCommand for ToLazyGroupBy {
         (polars col b | polars sum | polars as "b_sum")
      ]
     | polars collect"#,
-                result: Some(
-                    NuDataFrame::try_from_columns(
-                        vec![
-                            Column::new(
-                                "a".to_string(),
-                                vec![Value::test_int(1), Value::test_int(2)],
-                            ),
-                            Column::new(
-                                "b_min".to_string(),
-                                vec![Value::test_int(2), Value::test_int(4)],
-                            ),
-                            Column::new(
-                                "b_max".to_string(),
-                                vec![Value::test_int(4), Value::test_int(6)],
-                            ),
-                            Column::new(
-                                "b_sum".to_string(),
-                                vec![Value::test_int(6), Value::test_int(10)],
-                            ),
-                        ],
-                        None,
+            result: Some(
+                NuDataFrame::from(
+                    df!(
+                        "a" => &[2i64, 1],
+                        "b_min" => &[4i64, 2],
+                        "b_max" => &[6i64, 4],
+                        "b_sum" => &[10i64, 6],
                     )
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
-            },
-        ]
+                    .expect("should not fail"),
+                )
+                .into_value(Span::test_data()),
+            ),
+        }]
     }
 
     fn run(

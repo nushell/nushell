@@ -76,7 +76,6 @@ fn command_expr(
 mod test {
     use super::*;
     use crate::test::test_polars_plugin_command;
-    use nu_plugin_test_support::PluginTest;
     use nu_protocol::ShellError;
 
     #[test]
