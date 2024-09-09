@@ -1,8 +1,10 @@
 use std::{
     io,
-    process::{Child, Command, ExitStatus},
+    process::{Child, Command},
     sync::{atomic::AtomicU32, Arc},
 };
+
+use crate::ExitStatus;
 
 #[cfg(unix)]
 use std::{io::IsTerminal, sync::atomic::Ordering};
@@ -73,7 +75,7 @@ impl ForegroundChild {
     }
 
     pub fn wait(&mut self) -> io::Result<ExitStatus> {
-        self.as_mut().wait()
+        self.as_mut().wait().map(Into::into)
     }
 }
 

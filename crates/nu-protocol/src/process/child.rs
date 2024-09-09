@@ -179,7 +179,7 @@ impl ChildProcess {
 
         thread::Builder::new()
             .name("exit status waiter".into())
-            .spawn(move || exit_status_sender.send(child.wait().map(Into::into)))
+            .spawn(move || exit_status_sender.send(child.wait()))
             .err_span(span)?;
 
         Ok(Self::from_raw(stdout, stderr, Some(exit_status), span))
