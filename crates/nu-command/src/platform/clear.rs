@@ -24,9 +24,9 @@ impl Command for Clear {
             .category(Category::Platform)
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch(
-                "all",
-                "Clear the terminal and its scroll-back history",
-                Some('a'),
+                "keep-scrollback",
+                "Do not clear the scrollback history",
+                Some('k'),
             )
     }
 
@@ -37,9 +37,9 @@ impl Command for Clear {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let clear_type: ClearType = match call.has_flag(engine_state, stack, "all")? {
-            true => ClearType::Purge,
-            _ => ClearType::All,
+        let clear_type: ClearType = match call.has_flag(engine_state, stack, "keep-scrollback")? {
+            true => ClearType::All,
+            _ => ClearType::Purge,
         };
         std::io::stdout()
             .queue(ClearCommand(clear_type))?
@@ -57,8 +57,8 @@ impl Command for Clear {
                 result: None,
             },
             Example {
-                description: "Clear the terminal and its scroll-back history",
-                example: "clear --all",
+                description: "Clear the terminal without its scroll-back history",
+                example: "clear -k",
                 result: None,
             },
         ]
