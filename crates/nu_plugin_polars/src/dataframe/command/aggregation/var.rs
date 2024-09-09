@@ -1,14 +1,13 @@
 use crate::dataframe::values::NuExpression;
 use crate::values::{
-    cant_convert_err, Column, CustomValueSupport, NuDataFrame, PolarsPluginObject, PolarsPluginType
+    cant_convert_err, CustomValueSupport, NuDataFrame, PolarsPluginObject, PolarsPluginType,
 };
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,
 };
 use polars::df;
-use polars::series::Series;
 
 pub struct ExprVar;
 
@@ -33,50 +32,24 @@ impl PluginCommand for ExprVar {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description:
-                    "Var value from columns in a dataframe or aggregates columns to their var value",
-                example:
-                    "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars var | polars collect",
-                result: Some(
-                    NuDataFrame::try_from_columns(
-                        vec![
-                            Column::new("a".to_string(), vec![Value::test_float(4.0)]),
-                            Column::new("b".to_string(), vec![Value::test_float(0.0)]),
-                        ],
-                        None,
-                    )
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
-            },
-            Example {
-                description: "Var aggregation for a group-by",
-                example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
+        vec![Example {
+            description: "Var aggregation for a group-by",
+            example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
     | polars into-df
     | polars group-by a
     | polars agg (polars col b | polars var)
     | polars collect"#,
-                result: Some(
-                    NuDataFrame::try_from_columns(
-                        vec![
-                            Column::new(
-                                "a".to_string(),
-                                vec![Value::test_string("one"), Value::test_string("two")],
-                            ),
-                            Column::new(
-                                "b".to_string(),
-                                vec![Value::test_float(0.0), Value::test_float(0.0)],
-                            ),
-                        ],
-                        None,
+            result: Some(
+                NuDataFrame::from(
+                    df!(
+                        "a" => &["one", "two"],
+                        "b" => &[0.0, 0.0],
                     )
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
-            },
-        ]
+                    .expect("should not fail"),
+                )
+                .into_value(Span::test_data()),
+            ),
+        }]
     }
 
     fn run(
