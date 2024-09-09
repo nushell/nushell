@@ -81,8 +81,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        // For some reason the comparison on dataframes that have been imploded is cuasing issues
-        // test_polars_plugin_command(&ExprList)
-        Ok(())
+        test_polars_plugin_command(&ExprList)
     }
 }
