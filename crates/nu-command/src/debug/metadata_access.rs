@@ -52,9 +52,14 @@ impl Command for MetadataAccess {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Access metadata of ls command",
-            example: r#"ls | metadata access {|meta| $meta.source }"#,
-            result: Some(Value::test_string("ls")),
+            description: "Access metadata and data from a stream together",
+            example: r#"{foo: bar} | to json --raw | metadata access {|meta| {in: $in, meta: $meta}}"#,
+            result: Some(Value::test_record(record! {
+                "in" => Value::test_string(r#"{"foo":"bar"}"#),
+                "meta" => Value::test_record(record! {
+                    "content_type" => Value::test_string(r#"application/json"#)
+                })
+            })),
         }]
     }
 }
@@ -91,12 +96,14 @@ fn build_metadata_record(metadata: Option<&PipelineMetadata>, head: Span) -> Val
 
 #[cfg(test)]
 mod test {
+    use crate::ToJson;
+
     use super::*;
 
     #[test]
     fn test_examples() {
-        use crate::test_examples;
+        use crate::test_examples_with_commands;
 
-        test_examples(MetadataAccess {})
+        test_examples_with_commands(MetadataAccess {}, &[&ToJson])
     }
 }
