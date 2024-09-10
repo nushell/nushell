@@ -1,7 +1,7 @@
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
+use crate::expr_command;
 use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
-use crate::{expr_command, lazy_expr_command};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
 
