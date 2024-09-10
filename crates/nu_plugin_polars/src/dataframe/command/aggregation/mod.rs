@@ -14,6 +14,7 @@ mod std;
 mod sum;
 mod value_counts;
 mod var;
+mod max;
 
 use std::ExprStd;
 

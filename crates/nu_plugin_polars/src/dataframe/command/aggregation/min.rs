@@ -40,14 +40,14 @@ impl PluginCommand for ExprMin {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Std value from columns in a dataframe",
+                description: "Min value from columns in a dataframe",
                 example:
-                    "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars std | polars collect",
+                    "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars min | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
-                            Column::new("a".to_string(), vec![Value::test_float(2.0)]),
-                            Column::new("b".to_string(), vec![Value::test_float(0.0)]),
+                            Column::new("a".to_string(), vec![Value::test_int(1)]),
+                            Column::new("b".to_string(), vec![Value::test_int(1)]),
                         ],
                         None,
                     )
@@ -56,11 +56,11 @@ impl PluginCommand for ExprMin {
                 ),
             },
             Example {
-                description: "Std aggregation for a group-by",
-                example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
+                description: "Min aggregation for a group-by",
+                example: r#"[[a b]; [one 2] [one 4] [two 1]]
                 | polars into-df
                 | polars group-by a
-                | polars agg (polars col b | polars std)
+                | polars agg (polars col b | polars min)
                 | polars collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
@@ -71,7 +71,7 @@ impl PluginCommand for ExprMin {
                             ),
                             Column::new(
                                 "b".to_string(),
-                                vec![Value::test_float(0.0), Value::test_float(0.0)],
+                                vec![Value::test_int(2), Value::test_int(1)],
                             ),
                         ],
                         None,
