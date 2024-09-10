@@ -8,9 +8,7 @@ pub use operations::Axis;
 
 use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
-use polars::
-    prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series}
-;
+use polars::prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series};
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::{TotalEq, TotalHash};
 use std::{

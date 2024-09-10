@@ -3,18 +3,20 @@ mod aggregation_commands;
 mod cumulative;
 pub mod groupby;
 mod implode;
+mod mean;
 mod median;
 mod n_null;
 mod n_unique;
 mod quantile;
 mod rolling;
+mod std;
 mod value_counts;
 mod var;
-mod std;
 
 use std::ExprStd;
 
 use crate::PolarsPlugin;
+use mean::ExprMean;
 use nu_plugin::PluginCommand;
 
 pub use aggregate::LazyAggregate;
