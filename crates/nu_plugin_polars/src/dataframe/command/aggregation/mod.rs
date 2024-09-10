@@ -1,5 +1,6 @@
 mod aggregate;
 mod aggregation_commands;
+mod count;
 mod cumulative;
 pub mod groupby;
 mod implode;
@@ -21,6 +22,7 @@ use nu_plugin::PluginCommand;
 
 pub use aggregate::LazyAggregate;
 pub use aggregation_commands::*;
+use count::ExprCount;
 pub use cumulative::Cumulative;
 use implode::ExprList;
 use max::ExprMax;

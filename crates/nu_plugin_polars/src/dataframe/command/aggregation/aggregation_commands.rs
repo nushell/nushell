@@ -19,18 +19,3 @@ expr_command!(
     agg_groups,
     test_groups
 );
-
-// ExprCount command
-// Expands to a command definition for a count expression
-expr_command!(
-    ExprCount,
-    "polars count",
-    "Creates a count expression.",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    count,
-    test_count
-);
