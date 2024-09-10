@@ -1,13 +1,12 @@
 use crate::dataframe::values::NuExpression;
 use crate::values::{
-    cant_convert_err, CustomValueSupport, NuDataFrame, PolarsPluginObject, PolarsPluginType,
+    cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType,
 };
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Type,
 };
-use polars::df;
 
 pub struct ExprCount;
 
@@ -32,21 +31,10 @@ impl PluginCommand for ExprCount {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Returns the number of non-null values in column a",
-            example: r#"[[a b c]; [1 3 "foo"] [2 null null] [null null "foo"]]"#,
-            result: Some(
-                NuDataFrame::from(
-                    df!(
-                        "a" => &[Some(1i64), Some(2i64), None as Option<i64>],
-                        "b" => &[Some(3i64), None as Option<i64>, None as Option<i64>],
-                        "c" => &["foo", "bar", "foo"],
-                    )
-                    .expect("should not fail"),
-                )
-                .into_value(Span::test_data()),
-            ),
-        }]
+        // to add an example we will need to be able to 
+        // allow null values to be entered into the dataframe from nushell
+        // and retain the correct dtype. Right now null values cause the dtype to be object
+        vec![]
     }
 
     fn run(
@@ -77,11 +65,12 @@ fn command_expr(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::test_polars_plugin_command;
+    use crate::test::PolarsPluginTest;
     use nu_protocol::ShellError;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&ExprCount)
+        PolarsPluginTest::new("polars count")
+            .test(&ExprCount)
     }
 }

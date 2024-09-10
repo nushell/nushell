@@ -130,11 +130,12 @@ fn command_lazy(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::test_polars_plugin_command;
+    use crate::test::PolarsPluginTest;
     use nu_protocol::ShellError;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&ExprMax)
+        PolarsPluginTest::new("polars max")
+            .test(&ExprMax)
     }
 }

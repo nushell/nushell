@@ -214,7 +214,7 @@ pub mod test {
     use super::*;
     use crate::values::PolarsPluginObject;
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::{engine::Command, ShellError, Span};
+    use nu_protocol::{engine::Command, Example, ShellError, Span};
 
     impl PolarsPlugin {
         /// Creates a new polars plugin in test mode
@@ -250,30 +250,58 @@ pub mod test {
         command: &impl PluginCommand,
         decls: Vec<Box<dyn Command>>,
     ) -> Result<(), ShellError> {
-        let plugin = PolarsPlugin::new_test_mode();
-        let examples = command.examples();
+        PolarsPluginTest::new("polars")
+            .with_decls(decls)
+            .test(command)
+    }
 
-        // we need to cache values in the examples
-        for example in &examples {
-            if let Some(ref result) = example.result {
-                // if it's a polars plugin object, try to cache it
-                if let Ok(obj) = PolarsPluginObject::try_from_value(&plugin, result) {
-                    let id = obj.id();
-                    plugin
-                        .cache
-                        .insert(TestEngineWrapper {}, id, obj, Span::test_data())
-                        .unwrap();
-                }
+    pub struct PolarsPluginTest {
+        name: String,
+        decls: Vec<Box<dyn Command>>,
+    }
+
+    impl PolarsPluginTest {
+        pub fn new(name: impl Into<String>) -> Self {
+            Self {
+                name: name.into(),
+                decls: vec![],
             }
         }
 
-        let mut plugin_test = PluginTest::new("polars", plugin.into())?;
-
-        for decl in decls {
-            let _ = plugin_test.add_decl(decl)?;
+        fn with_decls(self, decls: Vec<Box<dyn Command>>) -> Self {
+            Self { decls, ..self }
         }
-        plugin_test.test_examples(&examples)?;
 
-        Ok(())
+        pub fn add_decl(mut self, decl: impl Command + 'static) -> Self {
+            self.decls.push(Box::new(decl));
+            self
+        }
+
+        pub fn test(self, command: &impl PluginCommand) -> Result<(), ShellError> {
+            let plugin = PolarsPlugin::new_test_mode();
+            let examples = command.examples();
+
+            // we need to cache values in the examples
+            for example in &examples {
+                if let Some(ref result) = example.result {
+                    // if it's a polars plugin object, try to cache it
+                    if let Ok(obj) = PolarsPluginObject::try_from_value(&plugin, result) {
+                        let id = obj.id();
+                        plugin
+                            .cache
+                            .insert(TestEngineWrapper {}, id, obj, Span::test_data())
+                            .unwrap();
+                    }
+                }
+            }
+
+            let mut plugin_test = PluginTest::new(&self.name, plugin.into())?;
+
+            for decl in self.decls {
+                let _ = plugin_test.add_decl(decl)?;
+            }
+            plugin_test.test_examples(&examples)?;
+            Ok(())
+        }
     }
 }
