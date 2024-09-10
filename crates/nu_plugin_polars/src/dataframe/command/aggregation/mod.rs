@@ -19,6 +19,7 @@ use std::ExprStd;
 
 use crate::PolarsPlugin;
 use mean::ExprMean;
+use min::ExprMin;
 use nu_plugin::PluginCommand;
 
 pub use aggregate::LazyAggregate;
