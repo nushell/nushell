@@ -1274,27 +1274,41 @@ fn get_var(ctx: &EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, Sh
 /// Get an environment variable, case-insensitively
 fn get_env_var_case_insensitive<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> Option<&'a Value> {
     // Read scopes in order
-    ctx.stack
+    for overlays in ctx
+        .stack
         .env_vars
         .iter()
         .rev()
         .chain(std::iter::once(&ctx.engine_state.env_vars))
-        .flat_map(|overlays| {
-            // Read overlays in order
-            ctx.stack
-                .active_overlays
-                .iter()
-                .rev()
-                .filter_map(|name| overlays.get(name))
-        })
-        .find_map(|map| {
-            // Use the hashmap first to try to be faster?
-            map.get(key).or_else(|| {
-                // Check to see if it exists at all in the map
-                map.iter()
-                    .find_map(|(k, v)| k.eq_ignore_case(key).then_some(v))
-            })
-        })
+    {
+        // Read overlays in order
+        for overlay_name in ctx.stack.active_overlays.iter().rev() {
+            let Some(map) = overlays.get(overlay_name) else {
+                // Skip if overlay doesn't exist in this scope
+                continue;
+            };
+            let hidden = ctx.stack.env_hidden.get(overlay_name);
+            let is_hidden = |key: &str| hidden.is_some_and(|hidden| hidden.contains(key));
+
+            if let Some(val) = map
+                // Check for exact match
+                .get(key)
+                // Skip when encountering an overlay where the key is hidden
+                .filter(|_| !is_hidden(key))
+                .or_else(|| {
+                    // Check to see if it exists at all in the map, with a different case
+                    map.iter().find_map(|(k, v)| {
+                        // Again, skip something that's hidden
+                        (k.eq_ignore_case(key) && !is_hidden(k)).then_some(v)
+                    })
+                })
+            {
+                return Some(val);
+            }
+        }
+    }
+    // Not found
+    None
 }
 
 /// Get the existing name of an environment variable, case-insensitively. This is used to implement
@@ -1472,4 +1486,7 @@ fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_sta
     for (var, value) in callee_stack.get_stack_env_vars() {
         caller_stack.add_env_var(var, value);
     }
+
+    // set config to callee config, to capture any updates to that
+    caller_stack.config.clone_from(&callee_stack.config);
 }

@@ -244,6 +244,11 @@ pub fn nu_repl() {
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
     engine_state.add_env_var("PATH".into(), Value::test_string(""));
 
+    // Enable IR in tests if set
+    if std::env::var_os("NU_USE_IR").is_some() {
+        Arc::make_mut(&mut top_stack).use_ir = true;
+    }
+
     let mut last_output = String::new();
 
     load_standard_library(&mut engine_state).expect("Could not load the standard library.");
