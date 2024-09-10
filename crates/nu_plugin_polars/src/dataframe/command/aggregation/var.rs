@@ -1,6 +1,7 @@
 use crate::dataframe::values::NuExpression;
 use crate::values::{
-    cant_convert_err, Column, CustomValueSupport, NuDataFrame, PolarsPluginObject, PolarsPluginType,
+    cant_convert_err, Column, CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsPluginObject,
+    PolarsPluginType,
 };
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -78,11 +79,42 @@ impl PluginCommand for ExprVar {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let expr = NuExpression::try_from_pipeline(plugin, input, call.head)?;
-        NuExpression::from(expr.into_polars().var(1))
-            .to_pipeline_data(plugin, engine, call.head)
-            .map_err(LabeledError::from)
+        let value = input.into_value(call.head)?;
+        match PolarsPluginObject::try_from_value(plugin, &value)? {
+            PolarsPluginObject::NuDataFrame(df) => command_lazy(plugin, engine, call, df.lazy()),
+            PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(plugin, engine, call, lazy),
+            PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
+            _ => Err(cant_convert_err(
+                &value,
+                &[
+                    PolarsPluginType::NuDataFrame,
+                    PolarsPluginType::NuLazyFrame,
+                    PolarsPluginType::NuExpression,
+                ],
+            )),
+        }
+        .map_err(LabeledError::from)
     }
+}
+
+fn command_expr(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    expr: NuExpression,
+) -> Result<PipelineData, ShellError> {
+    NuExpression::from(expr.into_polars().var(1)).to_pipeline_data(plugin, engine, call.head)
+}
+
+fn command_lazy(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    lazy: NuLazyFrame,
+) -> Result<PipelineData, ShellError> {
+    let res: NuLazyFrame = lazy.to_polars().var(1).into();
+
+    res.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]
