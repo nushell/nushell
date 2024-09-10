@@ -1,5 +1,5 @@
+mod agg_groups;
 mod aggregate;
-mod aggregation_commands;
 mod count;
 mod cumulative;
 pub mod groupby;
@@ -18,10 +18,10 @@ mod value_counts;
 mod var;
 
 use crate::PolarsPlugin;
+use agg_groups::ExprAggGroups;
 use nu_plugin::PluginCommand;
 
 pub use aggregate::LazyAggregate;
-pub use aggregation_commands::*;
 use count::ExprCount;
 pub use cumulative::Cumulative;
 use implode::ExprList;
