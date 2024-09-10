@@ -5,6 +5,7 @@ pub mod groupby;
 mod implode;
 mod mean;
 mod median;
+mod min;
 mod n_null;
 mod n_unique;
 mod quantile;
@@ -27,7 +28,7 @@ use implode::ExprList;
 pub use n_null::NNull;
 pub use n_unique::NUnique;
 pub use rolling::Rolling;
-use sum::ExprSum;
+pub use sum::ExprSum;
 pub use value_counts::ValueCount;
 use var::ExprVar;
 
