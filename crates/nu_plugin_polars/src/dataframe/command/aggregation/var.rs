@@ -25,10 +25,16 @@ impl PluginCommand for ExprVar {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("expression".into()),
+                    Type::Custom("expression".into()),
+                ),
+                (
+                    Type::Custom("dataframe".into()),
+                    Type::Custom("dataframe".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 
