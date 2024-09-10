@@ -362,6 +362,7 @@ pub(crate) fn compile_try(
     //
     //       on-error-into ERR, %io_reg           // or without
     //       %io_reg <- <...block...> <- %io_reg
+    //       write-to-out-dests %io_reg
     //       pop-error-handler
     //       jump END
     // ERR:  clone %err_reg, %io_reg
@@ -374,6 +375,7 @@ pub(crate) fn compile_try(
     //       %closure_reg <- <catch_expr>
     //       on-error-into ERR, %io_reg
     //       %io_reg <- <...block...> <- %io_reg
+    //       write-to-out-dests %io_reg
     //       pop-error-handler
     //       jump END
     // ERR:  clone %err_reg, %io_reg
@@ -461,7 +463,17 @@ pub(crate) fn compile_try(
         io_reg,
     )?;
 
-    // Successful case: pop the error handler
+    // Successful case:
+    // - write to the current output destinations
+    // - pop the error handler
+    if let Some(mode) = redirect_modes.out {
+        builder.push(mode.map(|mode| Instruction::RedirectOut { mode }))?;
+    }
+
+    if let Some(mode) = redirect_modes.err {
+        builder.push(mode.map(|mode| Instruction::RedirectErr { mode }))?;
+    }
+    builder.push(Instruction::WriteToOutDests { src: io_reg }.into_spanned(call.head))?;
     builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
 
     // Jump over the failure case

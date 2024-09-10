@@ -317,6 +317,17 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src);
             drain(ctx, data)
         }
+        Instruction::WriteToOutDests { src } => {
+            let data = ctx.take_reg(*src);
+            let res = {
+                let stack = &mut ctx
+                    .stack
+                    .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
+                data.write_to_out_dests(ctx.engine_state, stack)?
+            };
+            ctx.put_reg(*src, res);
+            Ok(Continue)
+        }
         Instruction::LoadVariable { dst, var_id } => {
             let value = get_var(ctx, *var_id, *span)?;
             ctx.put_reg(*dst, value.into_pipeline_data());

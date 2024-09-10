@@ -96,12 +96,12 @@ fn can_catch_infinite_recursion() {
 
 #[test]
 fn exit_code_available_in_catch_env() {
-    let actual = nu!("try { nu -c 'exit 42'; null } catch { $env.LAST_EXIT_CODE }");
+    let actual = nu!("try { nu -c 'exit 42' } catch { $env.LAST_EXIT_CODE }");
     assert_eq!(actual.out, "42");
 }
 
 #[test]
 fn exit_code_available_in_catch() {
-    let actual = nu!("try { nu -c 'exit 42'; null } catch { |e| $e.exit_code }");
+    let actual = nu!("try { nu -c 'exit 42' } catch { |e| $e.exit_code }");
     assert_eq!(actual.out, "42");
 }
