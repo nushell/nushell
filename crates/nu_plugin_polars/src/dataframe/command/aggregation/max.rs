@@ -60,7 +60,7 @@ impl PluginCommand for ExprMax {
                 | polars into-df
                 | polars group-by a
                 | polars agg (polars col b | polars max)
-                | polasr collect"#,
+                | polars collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
