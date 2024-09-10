@@ -5,21 +5,21 @@ use crate::values::{
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value,
 };
-use polars::df;
+use nu_protocol::ShellError;
 
-pub struct ExprVar;
+pub struct ExprStd;
 
-impl PluginCommand for ExprVar {
+impl PluginCommand for ExprStd {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars var"
+        "polars std"
     }
 
     fn description(&self) -> &str {
-        "Create a var expression for an aggregation."
+        "Creates a std expression for an aggregation of std value from columns in a dataframe."
     }
 
     fn signature(&self) -> Signature {
@@ -34,14 +34,13 @@ impl PluginCommand for ExprVar {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description:
-                    "Var value from columns in a dataframe or aggregates columns to their var value",
+                description: "Std value from columns in a dataframe",
                 example:
-                    "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars var | polars collect",
+                    "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars std | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
-                            Column::new("a".to_string(), vec![Value::test_float(4.0)]),
+                            Column::new("a".to_string(), vec![Value::test_float(2.0)]),
                             Column::new("b".to_string(), vec![Value::test_float(0.0)]),
                         ],
                         None,
@@ -51,20 +50,26 @@ impl PluginCommand for ExprVar {
                 ),
             },
             Example {
-                description: "Var aggregation for a group-by",
+                description: "Std aggregation for a group-by",
                 example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
-    | polars into-df
-    | polars group-by a
-    | polars agg (polars col b | polars var)
-    | polars collect"#,
+            | polars into-df
+            | polars group-by a
+            | polars agg (polars col b | polars std)"#,
                 result: Some(
-                    NuDataFrame::from(
-                        df!(
-                            "a" => &["one", "two"],
-                            "b" => &[0.0, 0.0],
-                        )
-                        .expect("should not fail"),
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_string("one"), Value::test_string("two")],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_float(0.0), Value::test_float(0.0)],
+                            ),
+                        ],
+                        None,
                     )
+                    .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
             },
@@ -79,7 +84,7 @@ impl PluginCommand for ExprVar {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let expr = NuExpression::try_from_pipeline(plugin, input, call.head)?;
-        NuExpression::from(expr.into_polars().var(1))
+        NuExpression::from(expr.into_polars().std(1))
             .to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
     }
@@ -93,6 +98,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&ExprVar)
+        test_polars_plugin_command(&ExprStd)
     }
 }

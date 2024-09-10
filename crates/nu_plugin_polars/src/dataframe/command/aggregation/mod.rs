@@ -10,6 +10,9 @@ mod quantile;
 mod rolling;
 mod value_counts;
 mod var;
+mod std;
+
+use std::ExprStd;
 
 use crate::PolarsPlugin;
 use nu_plugin::PluginCommand;
