@@ -178,10 +178,10 @@ fn command(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::test_polars_plugin_command;
+    use crate::test::PolarsPluginTest;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&Rolling)
+        PolarsPluginTest::default().test(&Rolling)
     }
 }

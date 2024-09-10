@@ -60,10 +60,11 @@ impl PluginCommand for ExprVar {
             Example {
                 description: "Var aggregation for a group-by",
                 example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
-    | polars into-df
-    | polars group-by a
-    | polars agg (polars col b | polars var)
-    | polars collect"#,
+                    | polars into-df
+                    | polars group-by a
+                    | polars agg (polars col b | polars var)
+                    | polars collect
+                    | polars sort-by a"#,
                 result: Some(
                     NuDataFrame::from(
                         df!(
@@ -125,12 +126,13 @@ fn command_lazy(
 
 #[cfg(test)]
 mod test {
+    use crate::test::PolarsPluginTest;
+
     use super::*;
-    use crate::test::test_polars_plugin_command;
     use nu_protocol::ShellError;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&ExprVar)
+        PolarsPluginTest::default().test(&ExprVar)
     }
 }

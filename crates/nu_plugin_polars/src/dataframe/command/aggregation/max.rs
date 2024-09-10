@@ -60,7 +60,8 @@ impl PluginCommand for ExprMax {
                 | polars into-df
                 | polars group-by a
                 | polars agg (polars col b | polars max)
-                | polars collect"#,
+                | polars collect
+                | polars sort-by a"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -135,7 +136,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        PolarsPluginTest::new("polars max")
-            .test(&ExprMax)
+        PolarsPluginTest::default().test(&ExprMax)
     }
 }

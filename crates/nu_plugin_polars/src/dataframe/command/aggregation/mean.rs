@@ -41,8 +41,7 @@ impl PluginCommand for ExprMean {
         vec![
             Example {
                 description: "Mean value from columns in a dataframe",
-                example:
-                    "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars mean | polars collect",
+                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars mean",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -61,7 +60,8 @@ impl PluginCommand for ExprMean {
                 | polars into-df
                 | polars group-by a
                 | polars agg (polars col b | polars mean)
-                | polars collect"#,
+                | polars collect
+                | polars sort-by a"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -131,11 +131,11 @@ fn command_lazy(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::test_polars_plugin_command;
+    use crate::test::PolarsPluginTest;
     use nu_protocol::ShellError;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&ExprMean)
+        PolarsPluginTest::default().test(&ExprMean)
     }
 }

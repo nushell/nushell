@@ -58,10 +58,11 @@ impl PluginCommand for ExprSum {
             Example {
                 description: "Sum aggregation for a group-by",
                 example: r#"[[a b]; [one 2] [one 4] [two 1]]
-                | polars into-df
-                | polars group-by a
-                | polars agg (polars col b | polars sum)
-                | polars collect"#,
+                    | polars into-df
+                    | polars group-by a
+                    | polars agg (polars col b | polars sum)
+                    | polars collect
+                    | polars sort-by a"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -131,11 +132,11 @@ fn command_lazy(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::test_polars_plugin_command;
+    use crate::test::PolarsPluginTest;
     use nu_protocol::ShellError;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&ExprSum)
+        PolarsPluginTest::default().test(&ExprSum)
     }
 }

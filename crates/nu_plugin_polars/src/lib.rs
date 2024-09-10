@@ -214,7 +214,7 @@ pub mod test {
     use super::*;
     use crate::values::PolarsPluginObject;
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::{engine::Command, Example, ShellError, Span};
+    use nu_protocol::{engine::Command, ShellError, Span};
 
     impl PolarsPlugin {
         /// Creates a new polars plugin in test mode
@@ -250,24 +250,15 @@ pub mod test {
         command: &impl PluginCommand,
         decls: Vec<Box<dyn Command>>,
     ) -> Result<(), ShellError> {
-        PolarsPluginTest::new("polars")
-            .with_decls(decls)
-            .test(command)
+        PolarsPluginTest::default().with_decls(decls).test(command)
     }
 
+    #[derive(Default)]
     pub struct PolarsPluginTest {
-        name: String,
         decls: Vec<Box<dyn Command>>,
     }
 
     impl PolarsPluginTest {
-        pub fn new(name: impl Into<String>) -> Self {
-            Self {
-                name: name.into(),
-                decls: vec![],
-            }
-        }
-
         fn with_decls(self, decls: Vec<Box<dyn Command>>) -> Self {
             Self { decls, ..self }
         }
@@ -295,7 +286,7 @@ pub mod test {
                 }
             }
 
-            let mut plugin_test = PluginTest::new(&self.name, plugin.into())?;
+            let mut plugin_test = PluginTest::new(command.name(), plugin.into())?;
 
             for decl in self.decls {
                 let _ = plugin_test.add_decl(decl)?;

@@ -49,14 +49,15 @@ impl PluginCommand for ToLazyGroupBy {
         (polars col b | polars max | polars as "b_max")
         (polars col b | polars sum | polars as "b_sum")
      ]
-    | polars collect"#,
+    | polars collect
+    | polars sort-by a"#,
             result: Some(
                 NuDataFrame::from(
                     df!(
-                        "a" => &[2i64, 1],
-                        "b_min" => &[4i64, 2],
-                        "b_max" => &[6i64, 4],
-                        "b_sum" => &[10i64, 6],
+                        "a" => &[1i64, 2],
+                        "b_min" => &[2i64, 4],
+                        "b_max" => &[4i64, 6],
+                        "b_sum" => &[6i64, 10],
                     )
                     .expect("should not fail"),
                 )
@@ -108,10 +109,10 @@ fn command(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::test_polars_plugin_command;
+    use crate::test::PolarsPluginTest;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&ToLazyGroupBy)
+        PolarsPluginTest::default().test(&ToLazyGroupBy)
     }
 }

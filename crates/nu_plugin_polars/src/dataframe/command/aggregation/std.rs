@@ -61,7 +61,8 @@ impl PluginCommand for ExprStd {
             | polars into-df
             | polars group-by a
             | polars agg (polars col b | polars std)
-            | polars collect"#,
+            | polars collect
+            | polars sort-by a"#,
                 result: Some(
                     NuDataFrame::from(
                         df!(

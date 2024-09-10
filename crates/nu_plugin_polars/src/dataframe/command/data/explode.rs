@@ -46,7 +46,11 @@ impl PluginCommand for LazyExplode {
         vec![
             Example {
                 description: "Explode the specified dataframe",
-                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | polars into-df | polars explode hobbies | polars collect",
+                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] 
+                    | polars into-df 
+                    | polars explode hobbies 
+                    | polars collect
+                    | polars sort-by [id, name]",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -166,10 +170,10 @@ pub(crate) fn explode_expr(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::test_polars_plugin_command;
+    use crate::test::PolarsPluginTest;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&LazyExplode)
+        PolarsPluginTest::default().test(&LazyExplode)
     }
 }

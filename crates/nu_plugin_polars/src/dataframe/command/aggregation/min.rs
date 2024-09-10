@@ -41,8 +41,7 @@ impl PluginCommand for ExprMin {
         vec![
             Example {
                 description: "Min value from columns in a dataframe",
-                example:
-                    "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars min | polars collect",
+                example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars min",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -61,7 +60,8 @@ impl PluginCommand for ExprMin {
                 | polars into-df
                 | polars group-by a
                 | polars agg (polars col b | polars min)
-                | polars collect"#,
+                | polars collect
+                | polars sort-by a"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -136,7 +136,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        PolarsPluginTest::new("polars min")
-            .test(&ExprMin)
+        PolarsPluginTest::default().test(&ExprMin)
     }
 }

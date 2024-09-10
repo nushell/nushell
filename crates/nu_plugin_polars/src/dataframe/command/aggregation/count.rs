@@ -1,12 +1,8 @@
 use crate::dataframe::values::NuExpression;
-use crate::values::{
-    cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType,
-};
+use crate::values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType};
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Type,
-};
+use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature, Type};
 
 pub struct ExprCount;
 
@@ -31,7 +27,7 @@ impl PluginCommand for ExprCount {
     }
 
     fn examples(&self) -> Vec<Example> {
-        // to add an example we will need to be able to 
+        // to add an example we will need to be able to
         // allow null values to be entered into the dataframe from nushell
         // and retain the correct dtype. Right now null values cause the dtype to be object
         vec![]
@@ -70,7 +66,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        PolarsPluginTest::new("polars count")
-            .test(&ExprCount)
+        PolarsPluginTest::default().test(&ExprCount)
     }
 }

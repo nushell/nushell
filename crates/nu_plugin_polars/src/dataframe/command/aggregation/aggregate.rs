@@ -43,14 +43,15 @@ impl PluginCommand for LazyAggregate {
         vec![Example {
             description: "Group by and perform an aggregation",
             example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | polars into-lazy
-    | polars group-by a
-    | polars agg [
-        (polars col b | polars min | polars as "b_min")
-        (polars col b | polars max | polars as "b_max")
-        (polars col b | polars sum | polars as "b_sum")
-     ]
-    | polars collect"#,
+                | polars into-lazy
+                | polars group-by a
+                | polars agg [
+                    (polars col b | polars min | polars as "b_min")
+                    (polars col b | polars max | polars as "b_max")
+                    (polars col b | polars sum | polars as "b_sum")
+                 ]
+                | polars collect
+                | polars sort-by a"#,
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -170,6 +171,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        PolarsPluginTest::new("polars agg").test(&LazyAggregate)
+        PolarsPluginTest::default().test(&LazyAggregate)
     }
 }
