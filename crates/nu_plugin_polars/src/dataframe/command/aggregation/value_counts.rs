@@ -1,10 +1,9 @@
-use crate::values::{Column, CustomValueSupport, NuDataFrame};
+use crate::values::{CustomValueSupport, NuDataFrame};
 use crate::PolarsPlugin;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
 };
 
 use polars::df;
