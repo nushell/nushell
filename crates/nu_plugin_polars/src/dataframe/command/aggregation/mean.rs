@@ -131,11 +131,11 @@ fn command_lazy(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::PolarsPluginTest;
+    use crate::test::test_polars_plugin_command;
     use nu_protocol::ShellError;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        PolarsPluginTest::default().test(&ExprMean)
+        test_polars_plugin_command(&ExprMean)
     }
 }

@@ -170,10 +170,10 @@ pub(crate) fn explode_expr(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::PolarsPluginTest;
+    use crate::test::test_polars_plugin_command;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        PolarsPluginTest::default().test(&LazyExplode)
+        test_polars_plugin_command(&LazyExplode)
     }
 }

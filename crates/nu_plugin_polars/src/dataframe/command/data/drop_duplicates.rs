@@ -118,12 +118,12 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use crate::test::PolarsPluginTest;
+    use crate::test::test_polars_plugin_command;
 
     use super::*;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        PolarsPluginTest::default().test(&DropDuplicates)
+        test_polars_plugin_command(&DropDuplicates)
     }
 }

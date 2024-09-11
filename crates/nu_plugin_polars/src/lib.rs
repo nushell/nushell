@@ -250,49 +250,28 @@ pub mod test {
         command: &impl PluginCommand,
         decls: Vec<Box<dyn Command>>,
     ) -> Result<(), ShellError> {
-        PolarsPluginTest::default().with_decls(decls).test(command)
-    }
+        let plugin = PolarsPlugin::new_test_mode();
+        let examples = command.examples();
 
-    #[derive(Default)]
-    pub struct PolarsPluginTest {
-        decls: Vec<Box<dyn Command>>,
-    }
-
-    impl PolarsPluginTest {
-        fn with_decls(self, decls: Vec<Box<dyn Command>>) -> Self {
-            Self { decls, ..self }
-        }
-
-        pub fn add_decl(mut self, decl: impl Command + 'static) -> Self {
-            self.decls.push(Box::new(decl));
-            self
-        }
-
-        pub fn test(self, command: &impl PluginCommand) -> Result<(), ShellError> {
-            let plugin = PolarsPlugin::new_test_mode();
-            let examples = command.examples();
-
-            // we need to cache values in the examples
-            for example in &examples {
-                if let Some(ref result) = example.result {
-                    // if it's a polars plugin object, try to cache it
-                    if let Ok(obj) = PolarsPluginObject::try_from_value(&plugin, result) {
-                        let id = obj.id();
-                        plugin
-                            .cache
-                            .insert(TestEngineWrapper {}, id, obj, Span::test_data())
-                            .unwrap();
-                    }
+        // we need to cache values in the examples
+        for example in &examples {
+            if let Some(ref result) = example.result {
+                // if it's a polars plugin object, try to cache it
+                if let Ok(obj) = PolarsPluginObject::try_from_value(&plugin, result) {
+                    let id = obj.id();
+                    plugin
+                        .cache
+                        .insert(TestEngineWrapper {}, id, obj, Span::test_data())
+                        .unwrap();
                 }
             }
-
-            let mut plugin_test = PluginTest::new(command.name(), plugin.into())?;
-
-            for decl in self.decls {
-                let _ = plugin_test.add_decl(decl)?;
-            }
-            plugin_test.test_examples(&examples)?;
-            Ok(())
         }
+
+        let mut plugin_test = PluginTest::new(command.name(), plugin.into())?;
+
+        for decl in decls {
+            let _ = plugin_test.add_decl(decl)?;
+        }
+        plugin_test.test_examples(&examples)
     }
 }

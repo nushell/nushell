@@ -167,10 +167,10 @@ fn get_col_name(expr: &Expr) -> Option<String> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::PolarsPluginTest;
+    use crate::test::test_polars_plugin_command;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        PolarsPluginTest::default().test(&LazyAggregate)
+        test_polars_plugin_command(&LazyAggregate)
     }
 }
