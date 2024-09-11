@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::{BlockId, DeclId};
 
 #[derive(Clone)]
 pub struct ViewIr;
@@ -86,7 +87,8 @@ the declaration may not be in scope.
                 let decl_id = val
                     .try_into()
                     .ok()
-                    .filter(|id| *id < engine_state.num_decls())
+                    .map(DeclId::new)
+                    .filter(|id| id.get() < engine_state.num_decls())
                     .ok_or_else(|| ShellError::IncorrectValue {
                         msg: "not a valid decl id".into(),
                         val_span: target.span(),
@@ -102,7 +104,7 @@ the declaration may not be in scope.
                 })?
             }
             // Block by ID - often shows up in IR
-            Value::Int { val, .. } => val.try_into().map_err(|_| ShellError::IncorrectValue {
+            Value::Int { val, .. } => val.try_into().map(BlockId::new).map_err(|_| ShellError::IncorrectValue {
                 msg: "not a valid block id".into(),
                 val_span: target.span(),
                 call_span: call.head,
@@ -119,7 +121,7 @@ the declaration may not be in scope.
 
         let Some(block) = engine_state.try_get_block(block_id) else {
             return Err(ShellError::GenericError {
-                error: format!("Unknown block ID: {block_id}"),
+                error: format!("Unknown block ID: {}", block_id.get()),
                 msg: "ensure the block ID is correct and try again".into(),
                 span: Some(target.span()),
                 help: None,

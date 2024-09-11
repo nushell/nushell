@@ -11,9 +11,7 @@ use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DidYouMean, Flag,
-    ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId, ENV_VARIABLE_ID,
-    IN_VARIABLE_ID,
+    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -939,9 +937,9 @@ pub fn parse_internal_call(
     working_set: &mut StateWorkingSet,
     command_span: Span,
     spans: &[Span],
-    decl_id: usize,
+    decl_id: DeclId,
 ) -> ParsedInternalCall {
-    trace!("parsing: internal call (decl id: {})", decl_id);
+    trace!("parsing: internal call (decl id: {})", decl_id.get());
 
     let mut call = Call::new(command_span);
     call.decl_id = decl_id;
@@ -6588,6 +6586,7 @@ pub fn parse(
     let mut errors = vec![];
     for (block_idx, block) in working_set.delta.blocks.iter().enumerate() {
         let block_id = block_idx + working_set.permanent_state.num_blocks();
+        let block_id = BlockId::new(block_id);
 
         if !seen_blocks.contains_key(&block_id) {
             let mut captures = vec![];
@@ -6630,7 +6629,7 @@ pub fn parse(
         // already saved in permanent state
         if !captures.is_empty()
             && block_captures_empty
-            && block_id >= working_set.permanent_state.num_blocks()
+            && block_id.get() >= working_set.permanent_state.num_blocks()
         {
             let block = working_set.get_block_mut(block_id);
             block.captures = captures.into_iter().map(|(var_id, _)| var_id).collect();

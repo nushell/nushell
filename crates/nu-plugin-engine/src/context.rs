@@ -177,7 +177,7 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
                 error: "Plugin misbehaving".into(),
                 msg: format!(
                     "Tried to evaluate unknown block id: {}",
-                    closure.item.block_id
+                    closure.item.block_id.get()
                 ),
                 span: Some(closure.span),
                 help: None,
@@ -226,10 +226,10 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
         redirect_stdout: bool,
         redirect_stderr: bool,
     ) -> Result<PipelineData, ShellError> {
-        if decl_id >= self.engine_state.num_decls() {
+        if decl_id.get() >= self.engine_state.num_decls() {
             return Err(ShellError::GenericError {
                 error: "Plugin misbehaving".into(),
-                msg: format!("Tried to call unknown decl id: {}", decl_id),
+                msg: format!("Tried to call unknown decl id: {}", decl_id.get()),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],

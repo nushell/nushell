@@ -118,7 +118,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
             .map(|(x, y)| format!("{}: {}", x, local_into_string(y, ", ", config)))
             .collect::<Vec<_>>()
             .join(separator),
-        Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
+        Value::Closure { val, .. } => format!("<Closure {}>", val.block_id.get()),
         Value::Nothing { .. } => String::new(),
         Value::Error { error, .. } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),

@@ -4,10 +4,7 @@ use crate::completions::{
 };
 use nu_engine::eval_call;
 use nu_protocol::{
-    ast::{Argument, Call, Expr, Expression},
-    debugger::WithoutDebug,
-    engine::{Stack, StateWorkingSet},
-    CompletionSort, PipelineData, Span, Type, Value,
+    ast::{Argument, Call, Expr, Expression}, debugger::WithoutDebug, engine::{Stack, StateWorkingSet}, CompletionSort, DeclId, PipelineData, Span, Type, Value
 };
 use nu_utils::IgnoreCaseExt;
 use std::collections::HashMap;
@@ -16,12 +13,12 @@ use super::completion_common::sort_suggestions;
 
 pub struct CustomCompletion {
     stack: Stack,
-    decl_id: usize,
+    decl_id: DeclId,
     line: String,
 }
 
 impl CustomCompletion {
-    pub fn new(stack: Stack, decl_id: usize, line: String) -> Self {
+    pub fn new(stack: Stack, decl_id: DeclId, line: String) -> Self {
         Self {
             stack,
             decl_id,
