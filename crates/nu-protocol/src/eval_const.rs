@@ -481,11 +481,11 @@ impl Eval for EvalConst {
     fn eval_subexpression<D: DebugContext>(
         working_set: &StateWorkingSet,
         _: &mut (),
-        block_id: usize,
+        block_id: BlockId,
         span: Span,
     ) -> Result<Value, ShellError> {
         // TODO: Allow debugging const eval
-        let block = working_set.get_block(BlockId::new(block_id));
+        let block = working_set.get_block(block_id);
         eval_const_subexpression(working_set, block, PipelineData::empty(), span)?.into_value(span)
     }
 
@@ -516,7 +516,7 @@ impl Eval for EvalConst {
     fn eval_row_condition_or_closure(
         _: &StateWorkingSet,
         _: &mut (),
-        _: usize,
+        _: BlockId,
         span: Span,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span })

@@ -93,7 +93,7 @@ pub struct EngineState {
     pub config: Arc<Config>,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
-    pub table_decl_id: Option<usize>,
+    pub table_decl_id: Option<DeclId>,
     #[cfg(feature = "plugin")]
     pub plugin_path: Option<PathBuf>,
     #[cfg(feature = "plugin")]

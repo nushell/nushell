@@ -3,9 +3,7 @@ use crate::{
     ast::{
         eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
         ExternalArgument, ListItem, Math, Operator, RecordItem,
-    },
-    debugger::DebugContext,
-    Config, GetSpan, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
+    }, debugger::DebugContext, BlockId, Config, GetSpan, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -163,7 +161,7 @@ pub trait Eval {
                 Self::eval_collect::<D>(state, mut_state, *var_id, expr)
             }
             Expr::Subexpression(block_id) => {
-                Self::eval_subexpression::<D>(state, mut_state, block_id.get(), expr_span)
+                Self::eval_subexpression::<D>(state, mut_state, *block_id, expr_span)
             }
             Expr::Range(range) => {
                 let from = if let Some(f) = &range.from {
@@ -283,7 +281,7 @@ pub trait Eval {
                 }
             }
             Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
-                Self::eval_row_condition_or_closure(state, mut_state, block_id.get(), expr_span)
+                Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr_span)
             }
             Expr::StringInterpolation(exprs) => {
                 let config = Self::get_config(state, mut_state);
@@ -369,7 +367,7 @@ pub trait Eval {
     fn eval_subexpression<D: DebugContext>(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
-        block_id: usize,
+        block_id: BlockId,
         span: Span,
     ) -> Result<Value, ShellError>;
 
@@ -396,7 +394,7 @@ pub trait Eval {
     fn eval_row_condition_or_closure(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
-        block_id: usize,
+        block_id: BlockId,
         span: Span,
     ) -> Result<Value, ShellError>;
 

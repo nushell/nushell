@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Call, PathMember}, engine::{EngineState, Stack}, ByteStream, ByteStreamType, Config, DeclId, ListStream, OutDest, PipelineMetadata, Range, ShellError, Signals, Span, Type, Value
+    ast::{Call, PathMember}, engine::{EngineState, Stack}, ByteStream, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError, Signals, Span, Type, Value
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::io::Write;
@@ -539,7 +539,6 @@ impl PipelineData {
                 // If the table function is in the declarations, then we can use it
                 // to create the table value that will be printed in the terminal
                 if let Some(decl_id) = engine_state.table_decl_id {
-                    let decl_id = DeclId::new(decl_id);
                     let command = engine_state.get_decl(decl_id);
                     if command.block_id().is_some() {
                         self.write_all_and_flush(engine_state, no_newline, to_stderr)
