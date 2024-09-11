@@ -19,6 +19,10 @@ impl Command for Clear {
         "Clear the terminal."
     }
 
+    fn extra_description(&self) -> &str {
+        "By default clears the current screen and the off-screen scrollback buffer."
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("clear")
             .category(Category::Platform)
@@ -57,7 +61,7 @@ impl Command for Clear {
                 result: None,
             },
             Example {
-                description: "Clear the terminal but not its scroll-back history",
+                description: "Clear the terminal but not its scrollback history",
                 example: "clear -k",
                 result: None,
             },
