@@ -62,7 +62,7 @@ impl Command for Clear {
             },
             Example {
                 description: "Clear the terminal but not its scrollback history",
-                example: "clear -k",
+                example: "clear --keep-scrollback",
                 result: None,
             },
         ]
