@@ -24,7 +24,7 @@ use nu_plugin::PluginCommand;
 pub use aggregate::LazyAggregate;
 use count::ExprCount;
 pub use cumulative::Cumulative;
-use implode::ExprList;
+use implode::ExprImplode;
 use max::ExprMax;
 use mean::ExprMean;
 use min::ExprMin;
@@ -41,7 +41,7 @@ pub(crate) fn aggregation_commands() -> Vec<Box<dyn PluginCommand<Plugin = Polar
         Box::new(Cumulative),
         Box::new(ExprAggGroups),
         Box::new(ExprCount),
-        Box::new(ExprList),
+        Box::new(ExprImplode),
         Box::new(ExprMax),
         Box::new(ExprMin),
         Box::new(ExprSum),

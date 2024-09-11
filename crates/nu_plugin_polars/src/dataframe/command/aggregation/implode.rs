@@ -10,9 +10,9 @@ use nu_protocol::{
 use polars::df;
 use polars::series::Series;
 
-pub struct ExprList;
+pub struct ExprImplode;
 
-impl PluginCommand for ExprList {
+impl PluginCommand for ExprImplode {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
@@ -80,6 +80,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&ExprList)
+        test_polars_plugin_command(&ExprImplode)
     }
 }
