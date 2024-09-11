@@ -1072,7 +1072,7 @@ mod engine_state_tests {
         let mut engine_state = StateWorkingSet::new(&engine_state);
         let id = engine_state.add_file("test.nu".into(), &[]);
 
-        assert_eq!(id, 0);
+        assert_eq!(id, FileId::new(0));
     }
 
     #[test]
@@ -1083,8 +1083,8 @@ mod engine_state_tests {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let working_set_id = working_set.add_file("child.nu".into(), &[]);
 
-        assert_eq!(parent_id, 0);
-        assert_eq!(working_set_id, 1);
+        assert_eq!(parent_id, FileId::new(0));
+        assert_eq!(working_set_id, FileId::new(1));
     }
 
     #[test]
