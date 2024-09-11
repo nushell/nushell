@@ -1,8 +1,13 @@
 use crate::dataframe::values::NuExpression;
-use crate::values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType};
+use crate::values::{
+    cant_convert_err, CustomValueSupport, NuDataFrame, PolarsPluginObject, PolarsPluginType,
+};
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature, Type};
+use nu_protocol::{
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,
+};
+use polars::df;
 
 pub struct ExprNot;
 
@@ -27,11 +32,32 @@ impl PluginCommand for ExprNot {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Creates a not expression",
-            example: "(polars col a) > 2) | polars expr-not",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Creates a not expression",
+                example: "(polars col a) > 2) | polars expr-not",
+                result: None,
+            },
+            Example {
+                description: "Adds a column showing which values of col a are not greater than 2",
+                example: "[[a]; [1] [2] [3] [4] [5]] | polars into-df 
+                    | polars with-column [(((polars col a) > 2)
+                    | polars expr-not
+                    | polars as a_expr_not)]
+                    | polars collect
+                    | polars sort-by a",
+                result: Some(
+                    NuDataFrame::from(
+                        df!(
+                            "a" => [1, 2, 3, 4, 5],
+                            "b" => [true, true, false, false, false]
+                        )
+                        .expect("should not fail"),
+                    )
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn run(
