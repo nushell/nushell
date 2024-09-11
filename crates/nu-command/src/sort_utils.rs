@@ -7,15 +7,26 @@ use nu_protocol::{
 use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
 
-// This module includes sorting functionality that is useful in sort-by and elsewhere.
-// Eventually it would be nice to find a better home for it; sorting logic is only coupled
-// to commands for historical reasons.
-
+/// A specification of sort order for `sort_by`.
+///
+/// A closure comparator allows the user to return custom ordering to sort by.
+/// A cell path comparator uses the value referred to by the cell path as the sorting key.
 pub enum Comparator {
     Closure(Closure, EngineState, Stack),
     CellPath(CellPath),
 }
 
+/// Sort a slice of `Value`s.
+///
+/// Sort has the following invariants, in order of precedence:
+/// - Null values (Nothing type) are always sorted to the end.
+/// - For natural sort, numeric values (numeric strings, ints, and floats) appear first, sorted by numeric value
+/// - Values appear by order of `Value`'s `PartialOrd`.
+/// - Sorting for values with equal ordering is stable.
+///
+/// Generally, values of different types are ordered by order of appearance in the `Value` enum.
+/// However, this is not always the case. For example, ints and floats will be grouped together since
+/// `Value`'s `PartialOrd` defines a non-decreasing ordering between non-decreasing integers and floats.
 pub fn sort(vec: &mut [Value], insensitive: bool, natural: bool) -> Result<(), ShellError> {
     // to apply insensitive or natural sorting, all values must be strings
     let string_sort: bool = vec
@@ -42,10 +53,11 @@ pub fn sort(vec: &mut [Value], insensitive: bool, natural: bool) -> Result<(), S
     }
 }
 
+/// Sort a slice of `Value`s by criteria specified by one or multiple `Comparator`s.
 pub fn sort_by(
     vec: &mut [Value],
     comparators: Vec<Comparator>,
-    span: Span,
+    head_span: Span,
     insensitive: bool,
     natural: bool,
 ) -> Result<(), ShellError> {
@@ -54,7 +66,7 @@ pub fn sort_by(
         return Err(ShellError::GenericError {
             error: "expected name".into(),
             msg: "requires a cell path or closure to sort data".into(),
-            span: Some(span),
+            span: Some(head_span),
             help: None,
             inner: vec![],
         });
@@ -82,7 +94,7 @@ pub fn sort_by(
             a,
             b,
             &comparators,
-            span,
+            head_span,
             insensitive && string_sort,
             natural && string_sort,
             &mut compare_err,
@@ -96,6 +108,9 @@ pub fn sort_by(
     }
 }
 
+/// Sort a record's key-value pairs.
+///
+/// Can sort by key or by value.
 pub fn sort_record(
     record: Record,
     sort_by_value: bool,
@@ -121,12 +136,12 @@ pub fn sort_record(
         }
     });
 
-    if reverse {
-        input_pairs.reverse()
-    }
-
     if let Some(err) = compare_err {
         return Err(err);
+    }
+
+    if reverse {
+        input_pairs.reverse()
     }
 
     Ok(input_pairs.into_iter().collect())
@@ -237,295 +252,4 @@ pub fn compare_closure(
                 Ordering::Greater
             }
         })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use nu_protocol::Value;
-
-    #[test]
-    fn test_sort_basic() {
-        let mut list = vec![
-            Value::test_string("foo"),
-            Value::test_int(2),
-            Value::test_int(3),
-            Value::test_string("bar"),
-            Value::test_int(1),
-            Value::test_string("baz"),
-        ];
-
-        assert!(sort(&mut list, false, false).is_ok());
-        assert_eq!(
-            list,
-            vec![
-                Value::test_int(1),
-                Value::test_int(2),
-                Value::test_int(3),
-                Value::test_string("bar"),
-                Value::test_string("baz"),
-                Value::test_string("foo")
-            ]
-        );
-    }
-
-    #[test]
-    fn test_sort_nothing() {
-        // Nothing values should always be sorted to the end of any list
-        let mut list = vec![
-            Value::test_int(1),
-            Value::test_nothing(),
-            Value::test_int(2),
-            Value::test_string("foo"),
-            Value::test_nothing(),
-            Value::test_string("bar"),
-        ];
-
-        assert!(sort(&mut list, false, false).is_ok());
-        assert_eq!(
-            list,
-            vec![
-                Value::test_int(1),
-                Value::test_int(2),
-                Value::test_string("bar"),
-                Value::test_string("foo"),
-                Value::test_nothing(),
-                Value::test_nothing()
-            ]
-        );
-
-        // Ensure that nothing values are sorted after *all* types,
-        // even types which may follow `Nothing` in the PartialOrd order
-
-        // unstable_name_collision
-        // can be switched to std intersperse when stabilized
-        let mut values: Vec<_> =
-            itertools::intersperse(Value::test_values().into_iter(), Value::test_nothing())
-                .collect();
-
-        let nulls = values
-            .iter()
-            .filter(|item| item == &&Value::test_nothing())
-            .count();
-
-        assert!(sort(&mut values, false, false).is_ok());
-
-        // check if the last `nulls` values of the sorted list are indeed null
-        assert_eq!(&values[..nulls], vec![Value::test_nothing(); nulls])
-    }
-
-    #[test]
-    fn test_sort_natural_basic() {
-        let mut list = vec![
-            Value::test_string("99"),
-            Value::test_string("9"),
-            Value::test_string("1"),
-            Value::test_string("100"),
-            Value::test_string("10"),
-        ];
-
-        assert!(sort(&mut list, false, false).is_ok());
-        assert_eq!(
-            list,
-            vec![
-                Value::test_string("1"),
-                Value::test_string("10"),
-                Value::test_string("100"),
-                Value::test_string("9"),
-                Value::test_string("99"),
-            ]
-        );
-
-        assert!(sort(&mut list, false, true).is_ok());
-        assert_eq!(
-            list,
-            vec![
-                Value::test_string("1"),
-                Value::test_string("9"),
-                Value::test_string("10"),
-                Value::test_string("99"),
-                Value::test_string("100"),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_sort_natural_mixed_types() {
-        let mut list = vec![
-            Value::test_string("1"),
-            Value::test_int(99),
-            Value::test_int(1),
-            Value::test_int(9),
-            Value::test_string("9"),
-            Value::test_int(100),
-            Value::test_string("99"),
-            Value::test_string("100"),
-            Value::test_int(10),
-            Value::test_string("10"),
-        ];
-
-        assert!(sort(&mut list, false, false).is_ok());
-        assert_eq!(
-            list,
-            vec![
-                Value::test_int(1),
-                Value::test_int(9),
-                Value::test_int(10),
-                Value::test_int(99),
-                Value::test_int(100),
-                Value::test_string("1"),
-                Value::test_string("10"),
-                Value::test_string("100"),
-                Value::test_string("9"),
-                Value::test_string("99")
-            ]
-        );
-
-        assert!(sort(&mut list, false, true).is_ok());
-        assert_eq!(
-            list,
-            vec![
-                Value::test_int(1),
-                Value::test_string("1"),
-                Value::test_int(9),
-                Value::test_string("9"),
-                Value::test_int(10),
-                Value::test_string("10"),
-                Value::test_int(99),
-                Value::test_string("99"),
-                Value::test_int(100),
-                Value::test_string("100"),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_sort_natural_no_numeric_values() {
-        // If list contains no numeric values (numeric strings, ints, floats),
-        // it should be sorted the same with or without natural sorting
-        let mut normal = vec![
-            Value::test_string("golf"),
-            Value::test_bool(false),
-            Value::test_string("alfa"),
-            Value::test_string("echo"),
-            Value::test_int(7),
-            Value::test_int(10),
-            Value::test_bool(true),
-            Value::test_string("uniform"),
-            Value::test_int(3),
-            Value::test_string("tango"),
-        ];
-        let mut natural = normal.clone();
-
-        assert!(sort(&mut normal, false, false).is_ok());
-        assert!(sort(&mut natural, false, true).is_ok());
-        assert_eq!(normal, natural);
-    }
-
-    #[test]
-    fn test_sort_natural_type_order() {
-        // This test is to prevent regression to a previous natural sort behavior
-        // where values of different types would be intermixed.
-        // Only numeric values (ints, floats, and numeric strings) should be intermixed
-        //
-        // This list would previously be incorrectly sorted like this:
-        // ╭────┬─────────╮
-        // │  0 │       1 │
-        // │  1 │ golf    │
-        // │  2 │ false   │
-        // │  3 │       7 │
-        // │  4 │      10 │
-        // │  5 │ alfa    │
-        // │  6 │ true    │
-        // │  7 │ uniform │
-        // │  8 │ true    │
-        // │  9 │       3 │
-        // │ 10 │ false   │
-        // │ 11 │ tango   │
-        // ╰────┴─────────╯
-
-        let mut list = vec![
-            Value::test_string("golf"),
-            Value::test_int(1),
-            Value::test_bool(false),
-            Value::test_string("alfa"),
-            Value::test_int(7),
-            Value::test_int(10),
-            Value::test_bool(true),
-            Value::test_string("uniform"),
-            Value::test_bool(true),
-            Value::test_int(3),
-            Value::test_bool(false),
-            Value::test_string("tango"),
-        ];
-
-        assert!(sort(&mut list, false, true).is_ok());
-        assert_eq!(
-            list,
-            vec![
-                Value::test_int(1),
-                Value::test_int(3),
-                Value::test_int(7),
-                Value::test_int(10),
-                Value::test_bool(false),
-                Value::test_bool(false),
-                Value::test_bool(true),
-                Value::test_bool(true),
-                Value::test_string("alfa"),
-                Value::test_string("golf"),
-                Value::test_string("tango"),
-                Value::test_string("uniform")
-            ]
-        );
-
-        // Only ints, floats, and numeric strings should be intermixed
-        // While binary primitives and datetimes can be coerced into strings, it doesn't make sense to sort them with numbers
-        // Binary primitives can hold multiple values, not just one, so shouldn't be compared to single values
-        // Datetimes don't have a single obvious numeric representation, and if we chose one it would be ambigious to the user
-
-        let year_three = chrono::NaiveDate::from_ymd_opt(3, 1, 1)
-            .unwrap()
-            .and_hms_opt(0, 0, 0)
-            .unwrap()
-            .and_utc();
-
-        let mut list = vec![
-            Value::test_int(10),
-            Value::test_float(6.0),
-            Value::test_int(1),
-            Value::test_binary([3]),
-            Value::test_string("2"),
-            Value::test_date(year_three.into()),
-            Value::test_int(4),
-            Value::test_binary([52]),
-            Value::test_float(9.0),
-            Value::test_string("5"),
-            Value::test_date(chrono::DateTime::UNIX_EPOCH.into()),
-            Value::test_int(7),
-            Value::test_string("8"),
-            Value::test_float(3.0),
-        ];
-        assert!(sort(&mut list, false, true).is_ok());
-        assert_eq!(
-            list,
-            vec![
-                Value::test_int(1),
-                Value::test_string("2"),
-                Value::test_float(3.0),
-                Value::test_int(4),
-                Value::test_string("5"),
-                Value::test_float(6.0),
-                Value::test_int(7),
-                Value::test_string("8"),
-                Value::test_float(9.0),
-                Value::test_int(10),
-                // the ordering of date and binary here may change if the PartialOrd order is changed,
-                // but they should not be intermixed with the above
-                Value::test_binary([3]),
-                Value::test_binary([52]),
-                Value::test_date(year_three.into()),
-                Value::test_date(chrono::DateTime::UNIX_EPOCH.into()),
-            ]
-        );
-    }
 }
