@@ -104,11 +104,15 @@ the declaration may not be in scope.
                 })?
             }
             // Block by ID - often shows up in IR
-            Value::Int { val, .. } => val.try_into().map(BlockId::new).map_err(|_| ShellError::IncorrectValue {
-                msg: "not a valid block id".into(),
-                val_span: target.span(),
-                call_span: call.head,
-            })?,
+            Value::Int { val, .. } => {
+                val.try_into()
+                    .map(BlockId::new)
+                    .map_err(|_| ShellError::IncorrectValue {
+                        msg: "not a valid block id".into(),
+                        val_span: target.span(),
+                        call_span: call.head,
+                    })?
+            }
             // Pass through errors
             Value::Error { error, .. } => return Err(*error),
             _ => {

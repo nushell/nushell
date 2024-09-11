@@ -4,7 +4,10 @@ use crate::completions::{
 };
 use nu_engine::eval_call;
 use nu_protocol::{
-    ast::{Argument, Call, Expr, Expression}, debugger::WithoutDebug, engine::{Stack, StateWorkingSet}, CompletionSort, DeclId, PipelineData, Span, Type, Value
+    ast::{Argument, Call, Expr, Expression},
+    debugger::WithoutDebug,
+    engine::{Stack, StateWorkingSet},
+    CompletionSort, DeclId, PipelineData, Span, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
 use std::collections::HashMap;

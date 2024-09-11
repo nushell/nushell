@@ -36,7 +36,7 @@ impl<T> Id<T> {
     pub const fn cast<U>(self) -> Id<U> {
         Id {
             inner: self.inner,
-            _phantom: PhantomData
+            _phantom: PhantomData,
         }
     }
 }

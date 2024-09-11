@@ -161,7 +161,10 @@ impl ScopeFrame {
     }
 
     pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
-        self.overlays.iter().position(|(n, _)| n == name).map(OverlayId::new)
+        self.overlays
+            .iter()
+            .position(|(n, _)| n == name)
+            .map(OverlayId::new)
     }
 
     pub fn find_active_overlay(&self, name: &[u8]) -> Option<OverlayId> {

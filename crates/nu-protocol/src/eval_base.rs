@@ -3,7 +3,9 @@ use crate::{
     ast::{
         eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
         ExternalArgument, ListItem, Math, Operator, RecordItem,
-    }, debugger::DebugContext, BlockId, Config, GetSpan, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID
+    },
+    debugger::DebugContext,
+    BlockId, Config, GetSpan, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::{collections::HashMap, sync::Arc};
 

@@ -1,4 +1,7 @@
-use crate::{engine::{StateWorkingSet, VirtualPath}, FileId};
+use crate::{
+    engine::{StateWorkingSet, VirtualPath},
+    FileId,
+};
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
@@ -136,7 +139,9 @@ impl ParserPath {
         virtual_path: &VirtualPath,
     ) -> Self {
         match virtual_path {
-            VirtualPath::File(file_id) => ParserPath::VirtualFile(PathBuf::from(name), file_id.get()),
+            VirtualPath::File(file_id) => {
+                ParserPath::VirtualFile(PathBuf::from(name), file_id.get())
+            }
             VirtualPath::Dir(entries) => ParserPath::VirtualDir(
                 PathBuf::from(name),
                 entries

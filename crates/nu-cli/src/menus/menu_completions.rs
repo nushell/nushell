@@ -1,6 +1,8 @@
 use nu_engine::eval_block;
 use nu_protocol::{
-    debugger::WithoutDebug, engine::{EngineState, Stack}, BlockId, IntoPipelineData, Span, Value
+    debugger::WithoutDebug,
+    engine::{EngineState, Stack},
+    BlockId, IntoPipelineData, Span, Value,
 };
 use reedline::{menu_functions::parse_selection_char, Completer, Suggestion};
 use std::sync::Arc;

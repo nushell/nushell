@@ -1,5 +1,8 @@
 use crate::{
-    ast::{Call, PathMember}, engine::{EngineState, Stack}, ByteStream, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError, Signals, Span, Type, Value
+    ast::{Call, PathMember},
+    engine::{EngineState, Stack},
+    ByteStream, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError,
+    Signals, Span, Type, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::io::Write;

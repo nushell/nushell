@@ -20,7 +20,10 @@ pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
 use crate::{
-    ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember}, did_you_mean, engine::{Closure, EngineState}, BlockId, Config, ShellError, Signals, Span, Type
+    ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
+    did_you_mean,
+    engine::{Closure, EngineState},
+    BlockId, Config, ShellError, Signals, Span, Type,
 };
 use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;

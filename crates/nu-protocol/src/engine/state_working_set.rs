@@ -4,8 +4,8 @@ use crate::{
         description::build_desc, CachedFile, Command, CommandType, EngineState, OverlayFrame,
         StateDelta, Variable, VirtualPath, Visibility,
     },
-    BlockId, Category, CompileError, Config, DeclId, FileId, OverlayId, GetSpan, Module, ModuleId, ParseError,
-    ParseWarning, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, OverlayId,
+    ParseError, ParseWarning, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use core::panic;
 use std::{

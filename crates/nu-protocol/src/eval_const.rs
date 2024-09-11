@@ -7,7 +7,8 @@ use crate::{
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
-    record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId, BlockId
+    record, BlockId, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value,
+    VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{

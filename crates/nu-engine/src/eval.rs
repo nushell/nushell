@@ -6,7 +6,12 @@ use nu_protocol::{
     ast::{
         Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember, PipelineElement,
         PipelineRedirection, RedirectionSource, RedirectionTarget,
-    }, debugger::DebugContext, engine::{Closure, EngineState, Redirection, Stack, StateWorkingSet}, eval_base::Eval, BlockId, ByteStreamSource, Config, DataSource, FromValue, IntoPipelineData, OutDest, PipelineData, PipelineMetadata, ShellError, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID
+    },
+    debugger::DebugContext,
+    engine::{Closure, EngineState, Redirection, Stack, StateWorkingSet},
+    eval_base::Eval,
+    BlockId, ByteStreamSource, Config, DataSource, FromValue, IntoPipelineData, OutDest,
+    PipelineData, PipelineMetadata, ShellError, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 use std::{fs::OpenOptions, path::PathBuf, sync::Arc};
