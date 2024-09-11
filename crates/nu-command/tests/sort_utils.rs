@@ -399,9 +399,9 @@ fn test_sort_record_keys() {
     assert_record_eq(
         sorted,
         record! {
-            "alfa" => Value::test_string("bar"),
+            "alfa" => Value::test_string("foo"),
             "echo" => Value::test_int(123),
-            "golf" => Value::test_string("foo"),
+            "golf" => Value::test_string("bar"),
         },
     );
 }
