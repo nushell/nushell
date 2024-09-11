@@ -1,8 +1,13 @@
 use crate::dataframe::values::NuExpression;
-use crate::values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType};
+use crate::values::{
+    cant_convert_err, CustomValueSupport, NuDataFrame, PolarsPluginObject, PolarsPluginType,
+};
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature, Type};
+use nu_protocol::{
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,
+};
+use polars::df;
 
 pub struct ExprCount;
 
@@ -27,10 +32,24 @@ impl PluginCommand for ExprCount {
     }
 
     fn examples(&self) -> Vec<Example> {
-        // to add an example we will need to be able to
+        // to add an example with a result that contains a null we will need to be able to
         // allow null values to be entered into the dataframe from nushell
         // and retain the correct dtype. Right now null values cause the dtype to be object
-        vec![]
+        vec![Example {
+            description: "Count the number of non-null values in a column",
+            example: r#"[[a]; ["foo"] ["bar"]] | polars into-df 
+                    | polars select (polars col a | polars count) 
+                    | polars collect"#,
+            result: Some(
+                NuDataFrame::from(
+                    df!(
+                        "a" => [2]
+                    )
+                    .expect("should not fail"),
+                )
+                .into_value(Span::unknown()),
+            ),
+        }]
     }
 
     fn run(
