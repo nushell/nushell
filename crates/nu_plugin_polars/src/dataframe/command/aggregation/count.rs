@@ -9,17 +9,17 @@ use nu_protocol::{
 };
 use polars::df;
 
-pub struct ExprNot;
+pub struct ExprCount;
 
-impl PluginCommand for ExprNot {
+impl PluginCommand for ExprCount {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars expr-not"
+        "polars count"
     }
 
     fn description(&self) -> &str {
-        "Creates a not expression."
+        "Returns the number of non-null values in the column."
     }
 
     fn signature(&self) -> Signature {
@@ -32,32 +32,24 @@ impl PluginCommand for ExprNot {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Creates a not expression",
-                example: "(polars col a) > 2) | polars expr-not",
-                result: None,
-            },
-            Example {
-                description: "Adds a column showing which values of col a are not greater than 2",
-                example: "[[a]; [1] [2] [3] [4] [5]] | polars into-df 
-                    | polars with-column [(((polars col a) > 2)
-                    | polars expr-not
-                    | polars as a_expr_not)]
-                    | polars collect
-                    | polars sort-by a",
-                result: Some(
-                    NuDataFrame::from(
-                        df!(
-                            "a" => [1, 2, 3, 4, 5],
-                            "b" => [true, true, false, false, false]
-                        )
-                        .expect("should not fail"),
+        // to add an example with a result that contains a null we will need to be able to
+        // allow null values to be entered into the dataframe from nushell
+        // and retain the correct dtype. Right now null values cause the dtype to be object
+        vec![Example {
+            description: "Count the number of non-null values in a column",
+            example: r#"[[a]; ["foo"] ["bar"]] | polars into-df 
+                    | polars select (polars col a | polars count) 
+                    | polars collect"#,
+            result: Some(
+                NuDataFrame::from(
+                    df!(
+                        "a" => [2]
                     )
-                    .into_value(Span::test_data()),
-                ),
-            },
-        ]
+                    .expect("should not fail"),
+                )
+                .into_value(Span::unknown()),
+            ),
+        }]
     }
 
     fn run(
@@ -82,7 +74,7 @@ fn command_expr(
     call: &EvaluatedCall,
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    NuExpression::from(expr.into_polars().not()).to_pipeline_data(plugin, engine, call.head)
+    NuExpression::from(expr.into_polars().count()).to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]
@@ -93,6 +85,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&ExprNot)
+        test_polars_plugin_command(&ExprCount)
     }
 }

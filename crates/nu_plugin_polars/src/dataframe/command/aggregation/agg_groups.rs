@@ -8,18 +8,19 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,
 };
 use polars::df;
+use polars::series::Series;
 
-pub struct ExprNot;
+pub struct ExprAggGroups;
 
-impl PluginCommand for ExprNot {
+impl PluginCommand for ExprAggGroups {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars expr-not"
+        "polars agg-groups"
     }
 
     fn description(&self) -> &str {
-        "Creates a not expression."
+        "Creates an agg_groups expression."
     }
 
     fn signature(&self) -> Signature {
@@ -32,32 +33,25 @@ impl PluginCommand for ExprNot {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Creates a not expression",
-                example: "(polars col a) > 2) | polars expr-not",
-                result: None,
-            },
-            Example {
-                description: "Adds a column showing which values of col a are not greater than 2",
-                example: "[[a]; [1] [2] [3] [4] [5]] | polars into-df 
-                    | polars with-column [(((polars col a) > 2)
-                    | polars expr-not
-                    | polars as a_expr_not)]
-                    | polars collect
-                    | polars sort-by a",
-                result: Some(
-                    NuDataFrame::from(
-                        df!(
-                            "a" => [1, 2, 3, 4, 5],
-                            "b" => [true, true, false, false, false]
-                        )
-                        .expect("should not fail"),
+        vec![Example {
+            description: "Get the groiup index of the group by operations.",
+            example: r#"[[group value]; [one 94] [one 95] [one 96] [two 97] [two 98] [two 99]] 
+                | polars into-df 
+                | polars group-by group
+                | polars agg (polars col value | polars agg-groups)
+                | polars collect
+                | polars sort-by group"#,
+            result: Some(
+                NuDataFrame::from(
+                    df!(
+                        "group"=> ["one", "two"],
+                        "values" => [[0i64, 1, 2].iter().collect::<Series>(), [3i64, 4, 5].iter().collect::<Series>()],
                     )
-                    .into_value(Span::test_data()),
-                ),
-            },
-        ]
+                    .expect("should not fail"),
+                )
+                .into_value(Span::test_data()),
+            ),
+        }]
     }
 
     fn run(
@@ -82,7 +76,7 @@ fn command_expr(
     call: &EvaluatedCall,
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    NuExpression::from(expr.into_polars().not()).to_pipeline_data(plugin, engine, call.head)
+    NuExpression::from(expr.into_polars().agg_groups()).to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]
@@ -93,6 +87,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&ExprNot)
+        test_polars_plugin_command(&ExprAggGroups)
     }
 }

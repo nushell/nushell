@@ -8,10 +8,7 @@ pub use operations::Axis;
 
 use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
-use polars::{
-    chunked_array::ops::SortMultipleOptions,
-    prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series},
-};
+use polars::prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series};
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::{TotalEq, TotalHash};
 use std::{
@@ -429,80 +426,14 @@ impl NuDataFrame {
 
     // Dataframes are considered equal if they have the same shape, column name and values
     pub fn is_equal(&self, other: &Self) -> Option<Ordering> {
-        if self.as_ref().width() == 0 {
-            // checking for empty dataframe
-            return None;
+        let polars_self = self.to_polars();
+        let polars_other = other.to_polars();
+
+        if polars_self == polars_other {
+            Some(Ordering::Equal)
+        } else {
+            None
         }
-
-        if self.as_ref().get_column_names() != other.as_ref().get_column_names() {
-            // checking both dataframes share the same names
-            return None;
-        }
-
-        if self.as_ref().height() != other.as_ref().height() {
-            // checking both dataframes have the same row size
-            return None;
-        }
-
-        // sorting dataframe by the first column
-        let column_names = self.as_ref().get_column_names();
-        let first_col = column_names
-            .first()
-            .expect("already checked that dataframe is different than 0");
-
-        // if unable to sort, then unable to compare
-        let lhs = match self
-            .as_ref()
-            .sort(vec![*first_col], SortMultipleOptions::default())
-        {
-            Ok(df) => df,
-            Err(_) => return None,
-        };
-
-        let rhs = match other
-            .as_ref()
-            .sort(vec![*first_col], SortMultipleOptions::default())
-        {
-            Ok(df) => df,
-            Err(_) => return None,
-        };
-
-        for name in self.as_ref().get_column_names() {
-            let self_series = lhs.column(name).expect("name from dataframe names");
-
-            let other_series = rhs
-                .column(name)
-                .expect("already checked that name in other");
-
-            // Casting needed to compare other numeric types with nushell numeric type.
-            // In nushell we only have i64 integer numeric types and any array created
-            // with nushell untagged primitives will be of type i64
-            let self_series = match self_series.dtype() {
-                DataType::UInt32 | DataType::Int32 if *other_series.dtype() == DataType::Int64 => {
-                    match self_series.cast(&DataType::Int64) {
-                        Ok(series) => series,
-                        Err(_) => return None,
-                    }
-                }
-                _ => self_series.clone(),
-            };
-
-            let other_series = match other_series.dtype() {
-                DataType::UInt32 | DataType::Int32 if *self_series.dtype() == DataType::Int64 => {
-                    match other_series.cast(&DataType::Int64) {
-                        Ok(series) => series,
-                        Err(_) => return None,
-                    }
-                }
-                _ => other_series.clone(),
-            };
-
-            if !self_series.equals(&other_series) {
-                return None;
-            }
-        }
-
-        Some(Ordering::Equal)
     }
 
     pub fn schema(&self) -> NuSchema {
