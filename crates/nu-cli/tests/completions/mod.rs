@@ -339,7 +339,7 @@ fn file_completions() {
     match_suggestions(&expected_paths, &suggestions);
 
     // Test completions for hidden files
-    let target_dir = format!("ls {}{MAIN_SEPARATOR}.", folder(dir.join(".hidden_folder")));
+    let target_dir = format!("ls {}", file(dir.join(".hidden_folder").join(".")));
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     let expected_paths: Vec<String> =
@@ -558,6 +558,58 @@ fn partial_completions() {
     let expected_paths: Vec<String> = vec![
         file(dir.join("partial-a").join("have_ext.exe")),
         file(dir.join("partial-a").join("have_ext.txt")),
+    ];
+
+    // Match the results
+    match_suggestions(&expected_paths, &suggestions);
+}
+
+#[test]
+fn partial_completion_with_dot_expansions() {
+    let (dir, _, engine, stack) = new_partial_engine();
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let dir_str = file(
+        dir.join("par")
+            .join("...")
+            .join("par")
+            .join("fi")
+            .join("so"),
+    );
+    let target_dir = format!("rm {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        file(
+            dir.join("partial")
+                .join("...")
+                .join("partial_completions")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+        file(
+            dir.join("partial-a")
+                .join("...")
+                .join("partial_completions")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+        file(
+            dir.join("partial-b")
+                .join("...")
+                .join("partial_completions")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+        file(
+            dir.join("partial-c")
+                .join("...")
+                .join("partial_completions")
+                .join("final_partial")
+                .join("somefile"),
+        ),
     ];
 
     // Match the results
@@ -939,6 +991,192 @@ fn folder_with_directorycompletions() {
     #[cfg(windows)]
     {
         let target_dir = format!("cd {dir_str}/");
+        let slash_suggestions = completer.complete(&target_dir, target_dir.len());
+
+        let expected_slash_paths: Vec<String> = expected_paths
+            .iter()
+            .map(|s| s.replace('\\', "/"))
+            .collect();
+
+        match_suggestions(&expected_slash_paths, &slash_suggestions);
+    }
+
+    // Match the results
+    match_suggestions(&expected_paths, &suggestions);
+}
+
+#[test]
+fn folder_with_directorycompletions_with_dots() {
+    // Create a new engine
+    let (dir, _, engine, stack) = new_engine();
+    let dir_str = dir
+        .join("directory_completion")
+        .join("folder_inside_folder")
+        .into_os_string()
+        .into_string()
+        .unwrap();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // Test completions for the current folder
+    let target_dir = format!("cd {dir_str}{MAIN_SEPARATOR}..{MAIN_SEPARATOR}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![folder(
+        dir.join("directory_completion")
+            .join("folder_inside_folder")
+            .join("..")
+            .join("folder_inside_folder"),
+    )];
+
+    #[cfg(windows)]
+    {
+        let target_dir = format!("cd {dir_str}/../");
+        let slash_suggestions = completer.complete(&target_dir, target_dir.len());
+
+        let expected_slash_paths: Vec<String> = expected_paths
+            .iter()
+            .map(|s| s.replace('\\', "/"))
+            .collect();
+
+        match_suggestions(&expected_slash_paths, &slash_suggestions);
+    }
+
+    // Match the results
+    match_suggestions(&expected_paths, &suggestions);
+}
+
+#[test]
+fn folder_with_directorycompletions_with_three_trailing_dots() {
+    // Create a new engine
+    let (dir, _, engine, stack) = new_engine();
+    let dir_str = dir
+        .join("directory_completion")
+        .join("folder_inside_folder")
+        .into_os_string()
+        .into_string()
+        .unwrap();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // Test completions for the current folder
+    let target_dir = format!("cd {dir_str}{MAIN_SEPARATOR}...{MAIN_SEPARATOR}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("...")
+                .join("another"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("...")
+                .join("directory_completion"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("...")
+                .join("test_a"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("...")
+                .join("test_b"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("...")
+                .join(".hidden_folder"),
+        ),
+    ];
+
+    #[cfg(windows)]
+    {
+        let target_dir = format!("cd {dir_str}/.../");
+        let slash_suggestions = completer.complete(&target_dir, target_dir.len());
+
+        let expected_slash_paths: Vec<String> = expected_paths
+            .iter()
+            .map(|s| s.replace('\\', "/"))
+            .collect();
+
+        match_suggestions(&expected_slash_paths, &slash_suggestions);
+    }
+
+    // Match the results
+    match_suggestions(&expected_paths, &suggestions);
+}
+
+#[test]
+fn folder_with_directorycompletions_do_not_collapse_dots() {
+    // Create a new engine
+    let (dir, _, engine, stack) = new_engine();
+    let dir_str = dir
+        .join("directory_completion")
+        .join("folder_inside_folder")
+        .into_os_string()
+        .into_string()
+        .unwrap();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // Test completions for the current folder
+    let target_dir = format!("cd {dir_str}{MAIN_SEPARATOR}..{MAIN_SEPARATOR}..{MAIN_SEPARATOR}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join("another"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join("directory_completion"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join("test_a"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join("test_b"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join(".hidden_folder"),
+        ),
+    ];
+
+    #[cfg(windows)]
+    {
+        let target_dir = format!("cd {dir_str}/../../");
         let slash_suggestions = completer.complete(&target_dir, target_dir.len());
 
         let expected_slash_paths: Vec<String> = expected_paths
