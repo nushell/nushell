@@ -15,6 +15,7 @@ use fancy_regex::Regex;
 use lru::LruCache;
 use nu_path::AbsolutePathBuf;
 use reedline::ReedlineEvent;
+use std::sync::mpsc::Sender;
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -110,7 +111,7 @@ pub struct EngineState {
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
-    pub reedline_event_queue: Arc<Mutex<Vec<ReedlineEvent>>>,
+    pub reedline_event_sender: Option<Sender<ReedlineEvent>>,
 }
 
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
@@ -180,7 +181,7 @@ impl EngineState {
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
-            reedline_event_queue: Arc::new(vec![].into()),
+            reedline_event_sender: None,
         }
     }
 

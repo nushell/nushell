@@ -137,7 +137,7 @@ rand = "0.8"
 rand_chacha = "0.3.1"
 ratatui = "0.26"
 rayon = "1.10"
-reedline = { path = "../reedline" }
+reedline = { git = "https://github.com/mrdgo/reedline.git", branch = "main" }
 regex = "1.9.5"
 rmp = "0.8"
 rmp-serde = "1.3"

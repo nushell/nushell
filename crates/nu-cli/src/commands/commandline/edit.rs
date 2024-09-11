@@ -65,8 +65,10 @@ impl Command for SubCommand {
             repl.cursor_pos = repl.buffer.len();
         }
         if call.has_flag(engine_state, stack, "accept")? {
-            if let Ok(mut queue) = engine_state.reedline_event_queue.lock() {
-                queue.push(ReedlineEvent::Enter);
+            if let Some(sender) = &engine_state.reedline_event_sender {
+                if let Err(e) = sender.send(ReedlineEvent::Submit) {
+                    log::warn!("Could not send Sumbit to reedline: {e:?}");
+                }
             }
         }
         Ok(Value::nothing(call.head).into_pipeline_data())

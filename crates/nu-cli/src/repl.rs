@@ -234,8 +234,8 @@ fn get_line_editor(
     use_color: bool,
 ) -> Result<Reedline> {
     let mut start_time = std::time::Instant::now();
-    let mut line_editor =
-        Reedline::create().with_reedline_event_queue(engine_state.reedline_event_queue.clone());
+    let mut line_editor = Reedline::create();
+    engine_state.reedline_event_sender = Some(line_editor.reedline_event_sender.clone());
 
     // Now that reedline is created, get the history session id and store it in engine_state
     store_history_id_in_engine(engine_state, &line_editor);
@@ -388,7 +388,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     line_editor =
         add_menus(line_editor, engine_reference, &stack_arc, config).unwrap_or_else(|e| {
             report_shell_error(engine_state, &e);
-            Reedline::create().with_reedline_event_queue(engine_state.reedline_event_queue.clone())
+            let line_editor = Reedline::create();
+            engine_state.reedline_event_sender = Some(line_editor.reedline_event_sender.clone());
+            line_editor
         });
 
     perf!("reedline adding menus", start_time, use_color);
@@ -1382,6 +1384,7 @@ fn are_session_ids_in_sync() {
     let history_path =
         crate::config_files::get_history_path("nushell", history.file_format).unwrap();
     let line_editor = reedline::Reedline::create();
+    engine_state.reedline_event_sender = Some(line_editor.reedline_event_sender.clone());
     let history_session_id = reedline::Reedline::create_history_session_id();
     let line_editor = update_line_editor_history(
         engine_state,
