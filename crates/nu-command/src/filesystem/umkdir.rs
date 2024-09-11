@@ -28,7 +28,7 @@ impl Command for UMkdir {
         "mkdir"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Create directories, with intermediary directories if required using uutils/coreutils mkdir."
     }
 

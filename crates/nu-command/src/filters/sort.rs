@@ -36,7 +36,7 @@ impl Command for Sort {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Sort in increasing order."
     }
 

@@ -4,6 +4,8 @@ use crate::formats::to::delimited::to_delimited_data;
 use nu_engine::command_prelude::*;
 use nu_protocol::Config;
 
+use super::delimited::ToDelimitedDataArgs;
+
 #[derive(Clone)]
 pub struct ToTsv;
 
@@ -32,7 +34,7 @@ impl Command for ToTsv {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert table into .tsv text."
     }
 
@@ -82,11 +84,26 @@ fn to_tsv(
         item: '\t',
         span: head,
     };
-    to_delimited_data(noheaders, sep, columns, "TSV", input, head, config)
+    to_delimited_data(
+        ToDelimitedDataArgs {
+            noheaders,
+            separator: sep,
+            columns,
+            format_name: "TSV",
+            input,
+            head,
+            content_type: Some(mime::TEXT_TAB_SEPARATED_VALUES.to_string()),
+        },
+        config,
+    )
 }
 
 #[cfg(test)]
 mod test {
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::Metadata;
+
     use super::*;
 
     #[test]
@@ -94,5 +111,37 @@ mod test {
         use crate::test_examples;
 
         test_examples(ToTsv {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            // Base functions that are needed for testing
+            // Try to keep this working set small to keep tests running as fast as possible
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(ToTsv {}));
+            working_set.add_decl(Box::new(Metadata {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = "{a: 1 b: 2} | to tsv | metadata | get content_type";
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(
+                record!("content_type" => Value::test_string("text/tab-separated-values"))
+            ),
+            result.expect("There should be a result")
+        );
     }
 }

@@ -9,6 +9,7 @@ use std::process::ExitStatus;
 // Needs to be reexported for `nu!` macro
 pub use nu_path;
 
+#[derive(Debug)]
 pub struct Outcome {
     pub out: String,
     pub err: String,

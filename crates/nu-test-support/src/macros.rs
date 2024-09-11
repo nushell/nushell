@@ -143,7 +143,7 @@ macro_rules! nu_with_std {
         cwd: $value:expr,
         $($rest:tt)*
     ) => {
-        nu!(@options [ $($options)* cwd => $crate::fs::in_directory($value) ; ] $($rest)*)
+        nu_with_std!(@options [ $($options)* cwd => $crate::fs::in_directory($value) ; ] $($rest)*)
     };
     // For all other options, we call `.into()` on the `$value` and hope for the best. ;)
     (
@@ -151,7 +151,7 @@ macro_rules! nu_with_std {
         $field:ident : $value:expr,
         $($rest:tt)*
     ) => {
-        nu!(@options [ $($options)* $field => $value.into() ; ] $($rest)*)
+        nu_with_std!(@options [ $($options)* $field => $value.into() ; ] $($rest)*)
     };
 
     // When the `$field: $value,` pairs are all parsed, the next tokens are the `$path` and any
@@ -163,11 +163,11 @@ macro_rules! nu_with_std {
         $(,)*
     ) => {{
         // Here we parse the options into a `NuOpts` struct
-        let opts = nu!(@nu_opts $($options)*);
+        let opts = nu_with_std!(@nu_opts $($options)*);
         // and format the `$path` using the `$part`s
-        let path = nu!(@format_path $path, $($part),*);
+        let path = nu_with_std!(@format_path $path, $($part),*);
         // Then finally we go to the `@main` phase, where the actual work is done.
-        nu!(@main opts, path)
+        nu_with_std!(@main opts, path)
     }};
 
     // Create the NuOpts struct from the `field => value ;` pairs
@@ -196,7 +196,7 @@ macro_rules! nu_with_std {
 
     // This is the entrypoint for this macro.
     ($($token:tt)*) => {{
-        nu!(@options [ ] $($token)*)
+        nu_with_std!(@options [ ] $($token)*)
     }};
 }
 

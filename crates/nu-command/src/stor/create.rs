@@ -28,7 +28,7 @@ impl Command for StorCreate {
             .category(Category::Database)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Create a table in the in-memory sqlite database."
     }
 

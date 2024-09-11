@@ -65,6 +65,18 @@ fn const_path_exists() {
 }
 
 #[test]
+fn path_exists_under_a_non_directory() {
+    Playground::setup("path_exists_6", |dirs, _| {
+        let actual = nu!(
+                cwd: dirs.test(),
+                "touch test_file; 'test_file/aaa' | path exists"
+        );
+        assert_eq!(actual.out, "false");
+        assert!(actual.err.is_empty());
+    })
+}
+
+#[test]
 fn test_check_symlink_exists() {
     use nu_test_support::{nu, playground::Playground};
 

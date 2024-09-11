@@ -16,7 +16,7 @@ impl Command for Seq {
             .category(Category::Generators)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Output sequences of numbers."
     }
 

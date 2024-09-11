@@ -23,21 +23,16 @@ impl ExitStatusFuture {
             ExitStatusFuture::Finished(Err(err)) => Err(err.as_ref().clone()),
             ExitStatusFuture::Running(receiver) => {
                 let code = match receiver.recv() {
-                    Ok(Ok(status)) => {
-                        #[cfg(unix)]
-                        if let ExitStatus::Signaled {
-                            signal,
-                            core_dumped: true,
-                        } = status
-                        {
-                            return Err(ShellError::CoredumpErrorSpanned {
-                                msg: format!("coredump detected. received signal: {signal}"),
-                                signal,
-                                span,
-                            });
-                        }
+                    #[cfg(unix)]
+                    Ok(Ok(
+                        status @ ExitStatus::Signaled {
+                            core_dumped: true, ..
+                        },
+                    )) => {
+                        status.check_ok(span)?;
                         Ok(status)
                     }
+                    Ok(Ok(status)) => Ok(status),
                     Ok(Err(err)) => Err(ShellError::IOErrorSpanned {
                         msg: format!("failed to get exit code: {err:?}"),
                         span,
@@ -187,13 +182,12 @@ impl ChildProcess {
             Vec::new()
         };
 
-        // TODO: check exit_status
-        self.exit_status.wait(self.span)?;
+        self.exit_status.wait(self.span)?.check_ok(self.span)?;
 
         Ok(bytes)
     }
 
-    pub fn wait(mut self) -> Result<ExitStatus, ShellError> {
+    pub fn wait(mut self) -> Result<(), ShellError> {
         if let Some(stdout) = self.stdout.take() {
             let stderr = self
                 .stderr
@@ -229,7 +223,7 @@ impl ChildProcess {
             consume_pipe(stderr).err_span(self.span)?;
         }
 
-        self.exit_status.wait(self.span)
+        self.exit_status.wait(self.span)?.check_ok(self.span)
     }
 
     pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, ShellError> {

@@ -4,6 +4,8 @@ use std::sync::{
     Arc,
 };
 
+use serde::{Deserialize, Serialize};
+
 /// Used to check for signals to suspend or terminate the execution of Nushell code.
 ///
 /// For now, this struct only supports interruption (ctrl+c or SIGINT).
@@ -75,9 +77,17 @@ impl Signals {
         self.signals.is_none()
     }
 
-    pub(crate) fn reset(&self) {
+    pub fn reset(&self) {
         if let Some(signals) = &self.signals {
             signals.store(false, Ordering::Relaxed);
         }
     }
+}
+
+/// The types of things that can be signaled. It's anticipated this will change as we learn more
+/// about how we'd like signals to be handled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SignalAction {
+    Interrupt,
+    Reset,
 }

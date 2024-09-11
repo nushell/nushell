@@ -30,7 +30,7 @@ impl Command for FormatDate {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Format a given date using a format string."
     }
 

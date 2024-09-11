@@ -54,7 +54,7 @@ impl Command for SubCommand {
             .category(Category::Math)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns the most frequent element(s) from a list of numbers or tables."
     }
 
@@ -62,10 +62,23 @@ impl Command for SubCommand {
         vec!["common", "often"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        run_with_function(call, input, mode)
+    }
+
+    fn run_const(
+        &self,
+        _working_set: &StateWorkingSet,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {

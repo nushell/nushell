@@ -22,7 +22,7 @@ impl Command for SubCommand {
             .input_output_types(vec![(Type::String, Type::record())])
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Gather word count statistics on the text."
     }
 

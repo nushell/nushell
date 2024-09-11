@@ -5,13 +5,16 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-pretty-hex"
 edition = "2021"
 license = "MIT"
 name = "nu-pretty-hex"
-version = "0.96.2"
+version = "0.97.2"
 
 [lib]
 doctest = false
 name = "nu_pretty_hex"
 path = "src/lib.rs"
 bench = false
+
+[lints]
+workspace = true
 
 [dependencies]
 nu-ansi-term = { workspace = true }

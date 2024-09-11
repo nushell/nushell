@@ -15,7 +15,7 @@ impl Command for ScopeExterns {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Output info on the known externals in the current scope."
     }
 

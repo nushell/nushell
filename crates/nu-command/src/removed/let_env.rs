@@ -21,7 +21,7 @@ impl Command for LetEnv {
             .category(Category::Removed)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "`let-env FOO = ...` has been removed, use `$env.FOO = ...` instead."
     }
 

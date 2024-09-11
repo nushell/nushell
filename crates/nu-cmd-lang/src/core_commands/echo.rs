@@ -8,7 +8,7 @@ impl Command for Echo {
         "echo"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns its arguments, ignoring the piped-in value."
     }
 
@@ -19,7 +19,7 @@ impl Command for Echo {
             .category(Category::Core)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Unlike `print`, which prints unstructured text to stdout, `echo` is like an
 identity function and simply returns its arguments. When given no arguments,
 it returns an empty string. When given one argument, it returns it as a

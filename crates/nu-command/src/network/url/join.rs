@@ -14,7 +14,7 @@ impl Command for SubCommand {
             .category(Category::Network)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts a record to url."
     }
 
@@ -279,7 +279,7 @@ impl UrlComponents {
                 ..self
             }),
             _ => {
-                nu_protocol::report_error_new(
+                nu_protocol::report_shell_error(
                     engine_state,
                     &ShellError::GenericError {
                         error: format!("'{key}' is not a valid URL field"),

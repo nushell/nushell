@@ -54,11 +54,11 @@ impl Command for InputList {
             .category(Category::Platform)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Interactive list selection."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Abort with esc or q."
     }
 

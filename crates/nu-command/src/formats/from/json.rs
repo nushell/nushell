@@ -1,7 +1,7 @@
 use std::io::{BufRead, Cursor};
 
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, PipelineMetadata, Signals};
+use nu_protocol::{ListStream, Signals};
 
 #[derive(Clone)]
 pub struct FromJson;
@@ -11,7 +11,7 @@ impl Command for FromJson {
         "from json"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert from json to structured data."
     }
 
@@ -83,7 +83,7 @@ impl Command for FromJson {
                             strict,
                             engine_state.signals().clone(),
                         ),
-                        update_metadata(metadata),
+                        metadata,
                     ))
                 }
                 PipelineData::ByteStream(stream, metadata)
@@ -92,7 +92,7 @@ impl Command for FromJson {
                     if let Some(reader) = stream.reader() {
                         Ok(PipelineData::ListStream(
                             read_json_lines(reader, span, strict, Signals::empty()),
-                            update_metadata(metadata),
+                            metadata,
                         ))
                     } else {
                         Ok(PipelineData::Empty)
@@ -115,10 +115,10 @@ impl Command for FromJson {
 
             if strict {
                 Ok(convert_string_to_value_strict(&string_input, span)?
-                    .into_pipeline_data_with_metadata(update_metadata(metadata)))
+                    .into_pipeline_data_with_metadata(metadata))
             } else {
                 Ok(convert_string_to_value(&string_input, span)?
-                    .into_pipeline_data_with_metadata(update_metadata(metadata)))
+                    .into_pipeline_data_with_metadata(metadata))
             }
         }
     }
@@ -263,14 +263,6 @@ fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Valu
             }
         }),
     }
-}
-
-fn update_metadata(metadata: Option<PipelineMetadata>) -> Option<PipelineMetadata> {
-    metadata
-        .map(|md| md.with_content_type(Some("application/json".into())))
-        .or_else(|| {
-            Some(PipelineMetadata::default().with_content_type(Some("application/json".into())))
-        })
 }
 
 #[cfg(test)]

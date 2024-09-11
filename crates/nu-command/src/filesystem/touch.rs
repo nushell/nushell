@@ -51,7 +51,7 @@ impl Command for Touch {
             .category(Category::FileSystem)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates one or more files."
     }
 
@@ -177,11 +177,6 @@ impl Command for Touch {
             Example {
                 description: r#"Changes the last modified time of "fixture.json" to today's date"#,
                 example: "touch -m fixture.json",
-                result: None,
-            },
-            Example {
-                description: "Changes the last modified time of files a, b and c to a date",
-                example: r#"touch -m -d "yesterday" a b c"#,
                 result: None,
             },
             Example {

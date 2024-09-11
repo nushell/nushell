@@ -25,7 +25,7 @@ impl Command for FromOds {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse OpenDocument Spreadsheet(.ods) data and create table."
     }
 

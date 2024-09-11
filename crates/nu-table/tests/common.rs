@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use nu_table::{string_width, NuTable, NuTableConfig};
-use tabled::grid::records::vec_records::CellInfo;
+use tabled::grid::records::vec_records::Text;
 
 pub struct TestCase {
     cfg: NuTableConfig,
@@ -19,7 +19,7 @@ impl TestCase {
     }
 }
 
-type Data = Vec<Vec<CellInfo<String>>>;
+type Data = Vec<Vec<Text<String>>>;
 
 pub fn test_table<I: IntoIterator<Item = TestCase>>(data: Data, tests: I) {
     for (i, test) in tests.into_iter().enumerate() {
@@ -42,15 +42,15 @@ pub fn create_table(data: Data, config: NuTableConfig, termwidth: usize) -> Opti
     table.draw(config, termwidth)
 }
 
-pub fn create_row(count_columns: usize) -> Vec<CellInfo<String>> {
+pub fn create_row(count_columns: usize) -> Vec<Text<String>> {
     let mut row = Vec::with_capacity(count_columns);
     for i in 0..count_columns {
-        row.push(CellInfo::new(i.to_string()));
+        row.push(Text::new(i.to_string()));
     }
 
     row
 }
 
-pub fn cell(text: &str) -> CellInfo<String> {
-    CellInfo::new(text.to_string())
+pub fn cell(text: &str) -> Text<String> {
+    Text::new(text.to_string())
 }

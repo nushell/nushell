@@ -35,7 +35,7 @@ impl Command for Reduce {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Aggregate a list (starting from the left) to a single value using an accumulator closure."
     }
 
@@ -120,7 +120,8 @@ impl Command for Reduce {
             engine_state.signals().check(head)?;
             acc = closure
                 .add_arg(value)
-                .run_with_value(acc)?
+                .add_arg(acc.clone())
+                .run_with_input(PipelineData::Value(acc, None))?
                 .into_value(head)?;
         }
 

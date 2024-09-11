@@ -2,7 +2,11 @@ use std::cmp::Ordering;
 
 use cache::cache_commands;
 pub use cache::{Cache, Cacheable};
-use dataframe::{stub::PolarsCmd, values::CustomValueType};
+use command::{
+    aggregation::aggregation_commands, boolean::boolean_commands, core::core_commands,
+    data::data_commands, datetime::datetime_commands, index::index_commands,
+    integer::integer_commands, string::string_commands, stub::PolarsCmd,
+};
 use log::debug;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
@@ -10,11 +14,9 @@ mod cache;
 pub mod dataframe;
 pub use dataframe::*;
 use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Span, Spanned, Value};
+use values::CustomValueType;
 
-use crate::{
-    eager::eager_commands, expressions::expr_commands, lazy::lazy_commands,
-    series::series_commands, values::PolarsPluginCustomValue,
-};
+use crate::values::PolarsPluginCustomValue;
 
 pub trait EngineWrapper {
     fn get_env_var(&self, key: &str) -> Option<String>;
@@ -61,10 +63,16 @@ impl Plugin for PolarsPlugin {
 
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         let mut commands: Vec<Box<dyn PluginCommand<Plugin = Self>>> = vec![Box::new(PolarsCmd)];
-        commands.append(&mut eager_commands());
-        commands.append(&mut lazy_commands());
-        commands.append(&mut expr_commands());
-        commands.append(&mut series_commands());
+
+        commands.append(&mut aggregation_commands());
+        commands.append(&mut boolean_commands());
+        commands.append(&mut core_commands());
+        commands.append(&mut data_commands());
+        commands.append(&mut datetime_commands());
+        commands.append(&mut index_commands());
+        commands.append(&mut integer_commands());
+        commands.append(&mut string_commands());
+
         commands.append(&mut cache_commands());
         commands
     }
@@ -259,13 +267,11 @@ pub mod test {
             }
         }
 
-        let mut plugin_test = PluginTest::new("polars", plugin.into())?;
+        let mut plugin_test = PluginTest::new(command.name(), plugin.into())?;
 
         for decl in decls {
             let _ = plugin_test.add_decl(decl)?;
         }
-        plugin_test.test_examples(&examples)?;
-
-        Ok(())
+        plugin_test.test_examples(&examples)
     }
 }

@@ -6,6 +6,7 @@ pub enum TokenContents {
     Comment,
     Pipe,
     PipePipe,
+    AssignmentOperator,
     ErrGreaterPipe,
     OutErrGreaterPipe,
     Semicolon,
@@ -67,6 +68,12 @@ fn is_item_terminator(
             || c == b';'
             || additional_whitespace.contains(&c)
             || special_tokens.contains(&c))
+}
+
+/// Assignment operators have special handling distinct from math expressions, as they cause the
+/// rest of the pipeline to be consumed.
+pub fn is_assignment_operator(bytes: &[u8]) -> bool {
+    matches!(bytes, b"=" | b"+=" | b"++=" | b"-=" | b"*=" | b"/=")
 }
 
 // A special token is one that is a byte that stands alone as its own token. For example
@@ -297,6 +304,10 @@ pub fn lex_item(
 
     let mut err = None;
     let output = match &input[(span.start - span_offset)..(span.end - span_offset)] {
+        bytes if is_assignment_operator(bytes) => Token {
+            contents: TokenContents::AssignmentOperator,
+            span,
+        },
         b"out>" | b"o>" => Token {
             contents: TokenContents::OutGreaterThan,
             span,
@@ -436,14 +447,61 @@ pub fn lex_signature(
     special_tokens: &[u8],
     skip_comment: bool,
 ) -> (Vec<Token>, Option<ParseError>) {
-    lex_internal(
+    let mut state = LexState {
         input,
+        output: Vec::new(),
+        error: None,
         span_offset,
+    };
+    lex_internal(
+        &mut state,
         additional_whitespace,
         special_tokens,
         skip_comment,
         true,
-    )
+        None,
+    );
+    (state.output, state.error)
+}
+
+#[derive(Debug)]
+pub struct LexState<'a> {
+    pub input: &'a [u8],
+    pub output: Vec<Token>,
+    pub error: Option<ParseError>,
+    pub span_offset: usize,
+}
+
+/// Lex until the output is `max_tokens` longer than before the call, or until the input is exhausted.
+/// The return value indicates how many tokens the call added to / removed from the output.
+///
+/// The behaviour here is non-obvious when `additional_whitespace` doesn't include newline:
+/// If you pass a `state` where the last token in the output is an Eol, this might *remove* tokens.
+pub fn lex_n_tokens(
+    state: &mut LexState,
+    additional_whitespace: &[u8],
+    special_tokens: &[u8],
+    skip_comment: bool,
+    max_tokens: usize,
+) -> isize {
+    let n_tokens = state.output.len();
+    lex_internal(
+        state,
+        additional_whitespace,
+        special_tokens,
+        skip_comment,
+        false,
+        Some(max_tokens),
+    );
+    // If this lex_internal call reached the end of the input, there may now be fewer tokens
+    // in the output than before.
+    let tokens_n_diff = (state.output.len() as isize) - (n_tokens as isize);
+    let next_offset = state.output.last().map(|token| token.span.end);
+    if let Some(next_offset) = next_offset {
+        state.input = &state.input[next_offset - state.span_offset..];
+        state.span_offset = next_offset;
+    }
+    tokens_n_diff
 }
 
 pub fn lex(
@@ -453,33 +511,43 @@ pub fn lex(
     special_tokens: &[u8],
     skip_comment: bool,
 ) -> (Vec<Token>, Option<ParseError>) {
-    lex_internal(
+    let mut state = LexState {
         input,
+        output: Vec::new(),
+        error: None,
         span_offset,
+    };
+    lex_internal(
+        &mut state,
         additional_whitespace,
         special_tokens,
         skip_comment,
         false,
-    )
+        None,
+    );
+    (state.output, state.error)
 }
 
 fn lex_internal(
-    input: &[u8],
-    span_offset: usize,
+    state: &mut LexState,
     additional_whitespace: &[u8],
     special_tokens: &[u8],
     skip_comment: bool,
     // within signatures we want to treat `<` and `>` specially
     in_signature: bool,
-) -> (Vec<Token>, Option<ParseError>) {
-    let mut error = None;
+    max_tokens: Option<usize>,
+) {
+    let initial_output_len = state.output.len();
 
     let mut curr_offset = 0;
 
-    let mut output = vec![];
     let mut is_complete = true;
-
-    while let Some(c) = input.get(curr_offset) {
+    while let Some(c) = state.input.get(curr_offset) {
+        if max_tokens
+            .is_some_and(|max_tokens| state.output.len() >= initial_output_len + max_tokens)
+        {
+            break;
+        }
         let c = *c;
         if c == b'|' {
             // If the next character is `|`, it's either `|` or `||`.
@@ -488,13 +556,13 @@ fn lex_internal(
             curr_offset += 1;
 
             // If the next character is `|`, we're looking at a `||`.
-            if let Some(c) = input.get(curr_offset) {
+            if let Some(c) = state.input.get(curr_offset) {
                 if *c == b'|' {
                     let idx = curr_offset;
                     curr_offset += 1;
-                    output.push(Token::new(
+                    state.output.push(Token::new(
                         TokenContents::PipePipe,
-                        Span::new(span_offset + prev_idx, span_offset + idx + 1),
+                        Span::new(state.span_offset + prev_idx, state.span_offset + idx + 1),
                     ));
                     continue;
                 }
@@ -504,12 +572,12 @@ fn lex_internal(
 
             // Before we push, check to see if the previous character was a newline.
             // If so, then this is a continuation of the previous line
-            if let Some(prev) = output.last_mut() {
+            if let Some(prev) = state.output.last_mut() {
                 match prev.contents {
                     TokenContents::Eol => {
                         *prev = Token::new(
                             TokenContents::Pipe,
-                            Span::new(span_offset + idx, span_offset + idx + 1),
+                            Span::new(state.span_offset + idx, state.span_offset + idx + 1),
                         );
                         // And this is a continuation of the previous line if previous line is a
                         // comment line (combined with EOL + Comment)
@@ -517,12 +585,12 @@ fn lex_internal(
                         // Initially, the last one token is TokenContents::Pipe, we don't need to
                         // check it, so the beginning offset is 2.
                         let mut offset = 2;
-                        while output.len() > offset {
-                            let index = output.len() - offset;
-                            if output[index].contents == TokenContents::Comment
-                                && output[index - 1].contents == TokenContents::Eol
+                        while state.output.len() > offset {
+                            let index = state.output.len() - offset;
+                            if state.output[index].contents == TokenContents::Comment
+                                && state.output[index - 1].contents == TokenContents::Eol
                             {
-                                output.remove(index - 1);
+                                state.output.remove(index - 1);
                                 offset += 1;
                             } else {
                                 break;
@@ -530,16 +598,16 @@ fn lex_internal(
                         }
                     }
                     _ => {
-                        output.push(Token::new(
+                        state.output.push(Token::new(
                             TokenContents::Pipe,
-                            Span::new(span_offset + idx, span_offset + idx + 1),
+                            Span::new(state.span_offset + idx, state.span_offset + idx + 1),
                         ));
                     }
                 }
             } else {
-                output.push(Token::new(
+                state.output.push(Token::new(
                     TokenContents::Pipe,
-                    Span::new(span_offset + idx, span_offset + idx + 1),
+                    Span::new(state.span_offset + idx, state.span_offset + idx + 1),
                 ));
             }
 
@@ -547,17 +615,17 @@ fn lex_internal(
         } else if c == b';' {
             // If the next character is a `;`, we're looking at a semicolon token.
 
-            if !is_complete && error.is_none() {
-                error = Some(ParseError::ExtraTokens(Span::new(
+            if !is_complete && state.error.is_none() {
+                state.error = Some(ParseError::ExtraTokens(Span::new(
                     curr_offset,
                     curr_offset + 1,
                 )));
             }
             let idx = curr_offset;
             curr_offset += 1;
-            output.push(Token::new(
+            state.output.push(Token::new(
                 TokenContents::Semicolon,
-                Span::new(span_offset + idx, span_offset + idx + 1),
+                Span::new(state.span_offset + idx, state.span_offset + idx + 1),
             ));
         } else if c == b'\r' {
             // Ignore a stand-alone carriage return
@@ -567,9 +635,9 @@ fn lex_internal(
             let idx = curr_offset;
             curr_offset += 1;
             if !additional_whitespace.contains(&c) {
-                output.push(Token::new(
+                state.output.push(Token::new(
                     TokenContents::Eol,
-                    Span::new(span_offset + idx, span_offset + idx + 1),
+                    Span::new(state.span_offset + idx, state.span_offset + idx + 1),
                 ));
             }
         } else if c == b'#' {
@@ -577,12 +645,12 @@ fn lex_internal(
             // comment. The comment continues until the next newline.
             let mut start = curr_offset;
 
-            while let Some(input) = input.get(curr_offset) {
+            while let Some(input) = state.input.get(curr_offset) {
                 if *input == b'\n' {
                     if !skip_comment {
-                        output.push(Token::new(
+                        state.output.push(Token::new(
                             TokenContents::Comment,
-                            Span::new(span_offset + start, span_offset + curr_offset),
+                            Span::new(state.span_offset + start, state.span_offset + curr_offset),
                         ));
                     }
                     start = curr_offset;
@@ -593,9 +661,9 @@ fn lex_internal(
                 }
             }
             if start != curr_offset && !skip_comment {
-                output.push(Token::new(
+                state.output.push(Token::new(
                     TokenContents::Comment,
-                    Span::new(span_offset + start, span_offset + curr_offset),
+                    Span::new(state.span_offset + start, state.span_offset + curr_offset),
                 ));
             }
         } else if c == b' ' || c == b'\t' || additional_whitespace.contains(&c) {
@@ -603,21 +671,20 @@ fn lex_internal(
             curr_offset += 1;
         } else {
             let (token, err) = lex_item(
-                input,
+                state.input,
                 &mut curr_offset,
-                span_offset,
+                state.span_offset,
                 additional_whitespace,
                 special_tokens,
                 in_signature,
             );
-            if error.is_none() {
-                error = err;
+            if state.error.is_none() {
+                state.error = err;
             }
             is_complete = true;
-            output.push(token);
+            state.output.push(token);
         }
     }
-    (output, error)
 }
 
 /// True if this the start of a redirection. Does not match `>>` or `>|` forms.

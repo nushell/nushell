@@ -68,7 +68,7 @@ impl Stack {
     /// stdout and stderr will be set to [`OutDest::Inherit`]. So, if the last command is an external command,
     /// then its output will be forwarded to the terminal/stdio streams.
     ///
-    /// Use [`Stack::capture`] afterwards if you need to evaluate an expression to a [`Value`](crate::Value)
+    /// Use [`Stack::capture`] afterwards if you need to evaluate an expression to a [`Value`]
     /// (as opposed to a [`PipelineData`](crate::PipelineData)).
     pub fn new() -> Self {
         Self {
@@ -276,6 +276,16 @@ impl Stack {
         } else {
             // TODO: Remove panic
             panic!("internal error: no active overlay");
+        }
+    }
+
+    pub fn set_last_exit_code(&mut self, code: i32, span: Span) {
+        self.add_env_var("LAST_EXIT_CODE".into(), Value::int(code.into(), span));
+    }
+
+    pub fn set_last_error(&mut self, error: &ShellError) {
+        if let Some(code) = error.external_exit_code() {
+            self.set_last_exit_code(code.item, code.span);
         }
     }
 

@@ -4,6 +4,8 @@ use crate::formats::to::delimited::to_delimited_data;
 use nu_engine::command_prelude::*;
 use nu_protocol::Config;
 
+use super::delimited::ToDelimitedDataArgs;
+
 #[derive(Clone)]
 pub struct ToCsv;
 
@@ -63,7 +65,7 @@ impl Command for ToCsv {
         ]
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert table into .csv text ."
     }
 
@@ -116,17 +118,62 @@ fn to_csv(
         },
     };
 
-    to_delimited_data(noheaders, sep, columns, "CSV", input, head, config)
+    to_delimited_data(
+        ToDelimitedDataArgs {
+            noheaders,
+            separator: sep,
+            columns,
+            format_name: "CSV",
+            input,
+            head,
+            content_type: Some(mime::TEXT_CSV.to_string()),
+        },
+        config,
+    )
 }
 
 #[cfg(test)]
 mod test {
+
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::Metadata;
+
     use super::*;
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
-
         test_examples(ToCsv {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            // Base functions that are needed for testing
+            // Try to keep this working set small to keep tests running as fast as possible
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(ToCsv {}));
+            working_set.add_decl(Box::new(Metadata {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = "{a: 1 b: 2} | to csv  | metadata | get content_type";
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("content_type" => Value::test_string("text/csv"))),
+            result.expect("There should be a result")
+        );
     }
 }

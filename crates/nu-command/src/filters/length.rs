@@ -8,7 +8,7 @@ impl Command for Length {
         "length"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Count the number of items in an input list or rows in a table."
     }
 

@@ -36,7 +36,7 @@ jobs:
           token: ${{ secrets.WORKFLOW_TOKEN }}
 
       - name: Setup Nushell
-        uses: hustcer/setup-nu@v3.12
+        uses: hustcer/setup-nu@v3.13
         if: github.repository == 'nushell/nightly'
         with:
           version: 0.95.0
@@ -78,7 +78,9 @@ jobs:
         - x86_64-unknown-linux-gnu
         - x86_64-unknown-linux-musl
         - aarch64-unknown-linux-gnu
+        - aarch64-unknown-linux-musl
         - armv7-unknown-linux-gnueabihf
+        - armv7-unknown-linux-musleabihf
         - riscv64gc-unknown-linux-gnu
         extra: ['bin']
         include:
@@ -104,7 +106,11 @@ jobs:
           os: ubuntu-22.04
         - target: aarch64-unknown-linux-gnu
           os: ubuntu-22.04
+        - target: aarch64-unknown-linux-musl
+          os: ubuntu-22.04
         - target: armv7-unknown-linux-gnueabihf
+          os: ubuntu-22.04
+        - target: armv7-unknown-linux-musleabihf
           os: ubuntu-22.04
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-latest
@@ -128,7 +134,7 @@ jobs:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3.12
+      uses: hustcer/setup-nu@v3.13
       with:
         version: 0.95.0
 
@@ -186,7 +192,7 @@ jobs:
           ref: main
 
       - name: Setup Nushell
-        uses: hustcer/setup-nu@v3.12
+        uses: hustcer/setup-nu@v3.13
         with:
           version: 0.95.0
 

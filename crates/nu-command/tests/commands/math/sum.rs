@@ -77,3 +77,9 @@ fn sum_of_a_row_containing_a_table_is_an_error() {
         .err
         .contains("Attempted to compute the sum of a value that cannot be summed"));
 }
+
+#[test]
+fn const_sum() {
+    let actual = nu!("const SUM = [1 3] | math sum; $SUM");
+    assert_eq!(actual.out, "4");
+}

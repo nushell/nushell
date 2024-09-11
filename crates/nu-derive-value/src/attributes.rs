@@ -1,79 +1,92 @@
-use convert_case::Case;
-use syn::{spanned::Spanned, Attribute, Fields, LitStr};
+use syn::{meta::ParseNestedMeta, spanned::Spanned, Attribute, Fields, LitStr};
 
-use crate::{error::DeriveError, HELPER_ATTRIBUTE};
+use crate::{case::Case, error::DeriveError, HELPER_ATTRIBUTE};
 
-#[derive(Debug)]
-pub struct ContainerAttributes {
-    pub rename_all: Case,
-}
-
-impl Default for ContainerAttributes {
-    fn default() -> Self {
-        Self {
-            rename_all: Case::Snake,
-        }
-    }
-}
-
-impl ContainerAttributes {
-    pub fn parse_attrs<'a, M>(
-        iter: impl Iterator<Item = &'a Attribute>,
+pub trait ParseAttrs: Default {
+    fn parse_attrs<'a, M>(
+        iter: impl IntoIterator<Item = &'a Attribute>,
     ) -> Result<Self, DeriveError<M>> {
-        let mut container_attrs = ContainerAttributes::default();
-        for attr in filter(iter) {
+        let mut attrs = Self::default();
+        for attr in filter(iter.into_iter()) {
             // This is a container to allow returning derive errors inside the parse_nested_meta fn.
             let mut err = Ok(());
-
-            attr.parse_nested_meta(|meta| {
-                let ident = meta.path.require_ident()?;
-                match ident.to_string().as_str() {
-                    "rename_all" => {
-                        // The matched case are all useful variants from `convert_case` with aliases
-                        // that `serde` uses.
-                        let case: LitStr = meta.value()?.parse()?;
-                        let case = match case.value().as_str() {
-                            "UPPER CASE" | "UPPER WITH SPACES CASE" => Case::Upper,
-                            "lower case" | "lower with spaces case" => Case::Lower,
-                            "Title Case" => Case::Title,
-                            "camelCase" => Case::Camel,
-                            "PascalCase" | "UpperCamelCase" => Case::Pascal,
-                            "snake_case" => Case::Snake,
-                            "UPPER_SNAKE_CASE" | "SCREAMING_SNAKE_CASE" => Case::UpperSnake,
-                            "kebab-case" => Case::Kebab,
-                            "COBOL-CASE" | "UPPER-KEBAB-CASE" | "SCREAMING-KEBAB-CASE" => {
-                                Case::Cobol
-                            }
-                            "Train-Case" => Case::Train,
-                            "flatcase" | "lowercase" => Case::Flat,
-                            "UPPERFLATCASE" | "UPPERCASE" => Case::UpperFlat,
-                            // Although very funny, we don't support `Case::{Toggle, Alternating}`,
-                            // as we see no real benefit.
-                            c => {
-                                err = Err(DeriveError::InvalidAttributeValue {
-                                    value_span: case.span(),
-                                    value: Box::new(c.to_string()),
-                                });
-                                return Ok(()); // We stored the err in `err`.
-                            }
-                        };
-                        container_attrs.rename_all = case;
-                    }
-                    ident => {
-                        err = Err(DeriveError::UnexpectedAttribute {
-                            meta_span: ident.span(),
-                        });
-                    }
-                }
-
-                Ok(())
-            })
-            .map_err(DeriveError::Syn)?;
-
+            let _ = attr.parse_nested_meta(|meta| {
+                attrs.parse_attr(meta).or_else(|e| {
+                    err = Err(e);
+                    Ok(()) // parse_nested_meta requires another error type, so we escape it here
+                })
+            });
             err?; // Shortcircuit here if `err` is holding some error.
         }
 
-        Ok(container_attrs)
+        Ok(attrs)
+    }
+
+    fn parse_attr<M>(&mut self, attr_meta: ParseNestedMeta<'_>) -> Result<(), DeriveError<M>>;
+}
+
+#[derive(Debug, Default)]
+pub struct ContainerAttributes {
+    pub rename_all: Option<Case>,
+    pub type_name: Option<String>,
+}
+
+impl ParseAttrs for ContainerAttributes {
+    fn parse_attr<M>(&mut self, attr_meta: ParseNestedMeta<'_>) -> Result<(), DeriveError<M>> {
+        let ident = attr_meta.path.require_ident()?;
+        match ident.to_string().as_str() {
+            "rename_all" => {
+                let case: LitStr = attr_meta.value()?.parse()?;
+                let value_span = case.span();
+                let case = case.value();
+                match Case::from_str(&case) {
+                    Some(case) => self.rename_all = Some(case),
+                    None => {
+                        return Err(DeriveError::InvalidAttributeValue {
+                            value_span,
+                            value: Box::new(case),
+                        });
+                    }
+                }
+            }
+            "type_name" => {
+                let type_name: LitStr = attr_meta.value()?.parse()?;
+                let type_name = type_name.value();
+                self.type_name = Some(type_name);
+            }
+            ident => {
+                return Err(DeriveError::UnexpectedAttribute {
+                    meta_span: ident.span(),
+                });
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct MemberAttributes {
+    pub rename: Option<String>,
+}
+
+impl ParseAttrs for MemberAttributes {
+    fn parse_attr<M>(&mut self, attr_meta: ParseNestedMeta<'_>) -> Result<(), DeriveError<M>> {
+        let ident = attr_meta.path.require_ident()?;
+        match ident.to_string().as_str() {
+            "rename" => {
+                let rename: LitStr = attr_meta.value()?.parse()?;
+                let rename = rename.value();
+                self.rename = Some(rename);
+            }
+            ident => {
+                return Err(DeriveError::UnexpectedAttribute {
+                    meta_span: ident.span(),
+                });
+            }
+        }
+
+        Ok(())
     }
 }
 

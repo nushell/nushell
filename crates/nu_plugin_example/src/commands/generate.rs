@@ -16,11 +16,11 @@ impl PluginCommand for Generate {
         "example generate"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Example execution of a closure to produce a stream"
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "See the builtin `generate` command"
     }
 

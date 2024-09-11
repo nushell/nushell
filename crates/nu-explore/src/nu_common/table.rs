@@ -36,8 +36,8 @@ fn try_build_map(
         signals,
         Span::unknown(),
         usize::MAX,
-        (config.table_indent.left, config.table_indent.right),
-        config.table_mode,
+        (config.table.padding.left, config.table.padding.right),
+        config.table.mode,
         0,
         false,
     );
@@ -63,8 +63,8 @@ fn try_build_list(
         signals,
         Span::unknown(),
         usize::MAX,
-        (config.table_indent.left, config.table_indent.right),
-        config.table_mode,
+        (config.table.padding.left, config.table.padding.right),
+        config.table.mode,
         0,
         false,
     );

@@ -9,7 +9,7 @@ impl Command for While {
         "while"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Conditionally run a block in a loop."
     }
 
@@ -30,7 +30,7 @@ impl Command for While {
         vec!["loop"]
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
@@ -73,27 +73,10 @@ impl Command for While {
                         let block = engine_state.get_block(block_id);
 
                         match eval_block(engine_state, stack, block, PipelineData::empty()) {
-                            Err(ShellError::Break { .. }) => {
-                                break;
-                            }
-                            Err(ShellError::Continue { .. }) => {
-                                continue;
-                            }
-                            Err(err) => {
-                                return Err(err);
-                            }
-                            Ok(data) => {
-                                if let Some(status) = data.drain()? {
-                                    let code = status.code();
-                                    if code != 0 {
-                                        return Ok(
-                                            PipelineData::new_external_stream_with_only_exit_code(
-                                                code,
-                                            ),
-                                        );
-                                    }
-                                }
-                            }
+                            Err(ShellError::Break { .. }) => break,
+                            Err(ShellError::Continue { .. }) => continue,
+                            Err(err) => return Err(err),
+                            Ok(data) => data.drain()?,
                         }
                     } else {
                         break;

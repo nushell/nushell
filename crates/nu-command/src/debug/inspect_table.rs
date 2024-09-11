@@ -57,7 +57,7 @@ pub fn build_table(value: Value, description: String, termsize: usize) -> String
         Settings::default()
             .with(Style::rounded().corner_top_left('├').corner_top_right('┤'))
             .with(SetWidths(widths))
-            .with(Wrap::new(width).priority::<PriorityMax>())
+            .with(Wrap::new(width).priority(PriorityMax))
             .with(SetHorizontalChar::new('┼', '┴', 11 + 2 + 1)),
     );
 
@@ -308,7 +308,7 @@ mod global_horizontal_char {
         }
     }
 
-    impl<R: Records + ExactRecords> TableOption<R, CompleteDimensionVecRecords<'_>, ColoredConfig>
+    impl<R: Records + ExactRecords> TableOption<R, ColoredConfig, CompleteDimensionVecRecords<'_>>
         for SetHorizontalChar
     {
         fn change(
@@ -377,7 +377,7 @@ mod set_widths {
 
     pub struct SetWidths(pub Vec<usize>);
 
-    impl<R> TableOption<R, CompleteDimensionVecRecords<'_>, ColoredConfig> for SetWidths {
+    impl<R> TableOption<R, ColoredConfig, CompleteDimensionVecRecords<'_>> for SetWidths {
         fn change(
             self,
             _: &mut R,
