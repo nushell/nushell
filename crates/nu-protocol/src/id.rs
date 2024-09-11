@@ -1,11 +1,10 @@
 use std::any;
-use std::cmp::Ordering;
 use std::fmt::{Debug, Error, Formatter};
-use std::hash::{Hasher, Hash};
 use std::marker::PhantomData;
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Id<T> {
     inner: usize,
     _phantom: PhantomData<T>,
@@ -49,37 +48,6 @@ impl<T> Debug for Id<T> {
     }
 }
 
-impl<T> Clone for Id<T> {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-            _phantom: self._phantom.clone(),
-        }
-    }
-}
-
-impl<T> Copy for Id<T> {}
-
-impl<T> PartialEq for Id<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.inner == other.inner
-    }
-}
-
-impl<T> Eq for Id<T> {}
-
-impl<T> Ord for Id<T> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.inner.cmp(&other.inner)
-    }
-}
-
-impl<T> PartialOrd for Id<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
 impl<T> Serialize for Id<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -102,19 +70,20 @@ impl<'de, T> Deserialize<'de> for Id<T> {
     }
 }
 
-impl<T> Hash for Id<T> {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
-        self.inner.hash(state)
-    }
-}
-
 pub mod marker {
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Var;
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Decl;
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Block;
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Module;
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Overlay;
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct File;
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct VirtualPath;
 }
 
