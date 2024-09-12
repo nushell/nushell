@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, compile};
 use nu_protocol::{
     ast::Block,
     debugger::WithoutDebug,
@@ -80,9 +80,16 @@ pub fn eval_pipeline_without_terminal_expression(
     let (mut block, delta) = parse(src, engine_state);
     if block.pipelines.len() == 1 {
         let n_expressions = block.pipelines[0].elements.len();
-        Arc::make_mut(&mut block).pipelines[0]
-            .elements
-            .truncate(&n_expressions - 1);
+        // Modify the block to remove the last element and recompile it
+        {
+            let mut_block = Arc::make_mut(&mut block);
+            mut_block.pipelines[0].elements.truncate(&n_expressions - 1);
+            mut_block.ir_block = Some(
+                compile(&StateWorkingSet::new(engine_state), mut_block).expect(
+                    "failed to compile block modified by eval_pipeline_without_terminal_expression",
+                ),
+            );
+        }
 
         if !block.pipelines[0].elements.is_empty() {
             let empty_input = PipelineData::empty();
