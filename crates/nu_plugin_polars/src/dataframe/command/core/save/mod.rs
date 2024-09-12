@@ -236,7 +236,7 @@ pub fn unknown_file_save_error(span: Span) -> ShellError {
 #[cfg(test)]
 pub(crate) mod test {
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::{PipelineData, Span, Value};
+    use nu_protocol::{Span, Value};
     use uuid::Uuid;
 
     use crate::PolarsPlugin;
