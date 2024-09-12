@@ -15,7 +15,7 @@ use nu_path::expand_path_with;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SyntaxShape, Type,
 };
 use polars::error::PolarsError;
 
@@ -209,12 +209,8 @@ fn command(
             span: spanned_file.span,
         }),
     }?;
-    let file_value = Value::string(format!("saved {:?}", &file_path), file_span);
 
-    Ok(PipelineData::Value(
-        Value::list(vec![file_value], call.head),
-        None,
-    ))
+    Ok(PipelineData::empty())
 }
 
 pub(crate) fn polars_file_save_error(e: PolarsError, span: Span) -> ShellError {
@@ -290,19 +286,4 @@ pub(crate) mod test {
             extension,
         )
     }
-
-    //     #[test]
-    //     pub fn test_to_ipc() -> Result<(), Box<dyn std::error::Error>> {
-    //         test_sink("ipc")
-    //     }
-    //
-    //     #[test]
-    //     pub fn test_to_csv() -> Result<(), Box<dyn std::error::Error>> {
-    //         test_sink("csv")
-    //     }
-    //
-    //     #[test]
-    //     pub fn test_to_json() -> Result<(), Box<dyn std::error::Error>> {
-    //         test_sink("ndjson")
-    //     }
 }
