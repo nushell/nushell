@@ -379,7 +379,6 @@ fn ls_for_one_pattern(
 
     pool.install(|| {
         paths_peek
-            .into_iter()
             .par_bridge()
             .filter_map(move |x| match x {
                 Ok(path) => {

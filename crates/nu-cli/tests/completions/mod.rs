@@ -953,6 +953,7 @@ fn flag_completions() {
         "--long".into(),
         "--mime-type".into(),
         "--short-names".into(),
+        "--threads".into(),
         "-D".into(),
         "-a".into(),
         "-d".into(),
@@ -961,6 +962,7 @@ fn flag_completions() {
         "-l".into(),
         "-m".into(),
         "-s".into(),
+        "-t".into(),
     ];
 
     // Match results
