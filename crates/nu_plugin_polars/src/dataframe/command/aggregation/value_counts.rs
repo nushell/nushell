@@ -1,12 +1,12 @@
-use crate::values::{Column, CustomValueSupport, NuDataFrame};
+use crate::values::{CustomValueSupport, NuDataFrame};
 use crate::PolarsPlugin;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
 };
 
+use polars::df;
 use polars::prelude::SeriesMethods;
 
 #[derive(Clone)]
@@ -53,22 +53,15 @@ impl PluginCommand for ValueCount {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Calculates value counts",
-            example: "[5 5 5 5 6 6] | polars into-df | polars value-counts",
+            example: "[5 5 5 5 6 6] | polars into-df | polars value-counts | polars sort-by count",
             result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![
-                        Column::new(
-                            "0".to_string(),
-                            vec![Value::test_int(5), Value::test_int(6)],
-                        ),
-                        Column::new(
-                            "count".to_string(),
-                            vec![Value::test_int(4), Value::test_int(2)],
-                        ),
-                    ],
-                    None,
+                NuDataFrame::from(
+                    df!(
+                        "0" => &[6i64, 5],
+                        "count" => &[2i64, 4],
+                    )
+                    .expect("should not fail"),
                 )
-                .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
         }]

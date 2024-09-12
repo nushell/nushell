@@ -46,7 +46,11 @@ impl PluginCommand for LazyExplode {
         vec![
             Example {
                 description: "Explode the specified dataframe",
-                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | polars into-df | polars explode hobbies | polars collect",
+                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] 
+                    | polars into-df 
+                    | polars explode hobbies 
+                    | polars collect
+                    | polars sort-by [id, name]",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(

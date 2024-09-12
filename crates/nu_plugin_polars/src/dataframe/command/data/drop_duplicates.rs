@@ -3,13 +3,14 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
+use polars::df;
 use polars::prelude::UniqueKeepStrategy;
 
 use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
 
 use crate::values::utils::convert_columns_string;
-use crate::values::{Column, NuDataFrame};
+use crate::values::NuDataFrame;
 
 #[derive(Clone)]
 pub struct DropDuplicates;
@@ -48,22 +49,17 @@ impl PluginCommand for DropDuplicates {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop duplicates",
-            example: "[[a b]; [1 2] [3 4] [1 2]] | polars into-df | polars drop-duplicates",
+            example: "[[a b]; [1 2] [3 4] [1 2]] | polars into-df 
+                | polars drop-duplicates
+                | polars sort-by a",
             result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(3), Value::test_int(1)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(4), Value::test_int(2)],
-                        ),
-                    ],
-                    None,
+                NuDataFrame::from(
+                    df!(
+                        "a" => &[1i64, 3],
+                        "b" => &[2i64, 4],
+                    )
+                    .expect("should not fail"),
                 )
-                .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
         }]

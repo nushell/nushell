@@ -267,13 +267,11 @@ pub mod test {
             }
         }
 
-        let mut plugin_test = PluginTest::new("polars", plugin.into())?;
+        let mut plugin_test = PluginTest::new(command.name(), plugin.into())?;
 
         for decl in decls {
             let _ = plugin_test.add_decl(decl)?;
         }
-        plugin_test.test_examples(&examples)?;
-
-        Ok(())
+        plugin_test.test_examples(&examples)
     }
 }

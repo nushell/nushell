@@ -1,38 +1,29 @@
-use crate::{
-    dataframe::values::{Column, NuDataFrame, NuLazyFrame},
-    values::{
-        cant_convert_err, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType,
-    },
-    PolarsPlugin,
+use crate::dataframe::values::NuExpression;
+use crate::values::{
+    cant_convert_err, Column, CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsPluginObject,
+    PolarsPluginType,
 };
+use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
 };
-use polars::prelude::{lit, QuantileInterpolOptions};
 
-#[derive(Clone)]
-pub struct LazyQuantile;
+pub struct ExprSum;
 
-impl PluginCommand for LazyQuantile {
+impl PluginCommand for ExprSum {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars quantile"
+        "polars sum"
     }
 
     fn description(&self) -> &str {
-        "Aggregates the columns to the selected quantile."
+        "Creates a sum expression for an aggregation or aggregates columns to their sum value."
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
-                "quantile",
-                SyntaxShape::Number,
-                "quantile value for quantile operation",
-            )
             .input_output_types(vec![
                 (
                     Type::Custom("expression".into()),
@@ -43,19 +34,20 @@ impl PluginCommand for LazyQuantile {
                     Type::Custom("dataframe".into()),
                 ),
             ])
-            .category(Category::Custom("lazyframe".into()))
+            .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "quantile value from columns in a dataframe",
-                example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars quantile 0.5",
+                description: "Sums all columns in a dataframe",
+                example:
+                    "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars sum | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
-                            Column::new("a".to_string(), vec![Value::test_float(4.0)]),
-                            Column::new("b".to_string(), vec![Value::test_float(2.0)]),
+                            Column::new("a".to_string(), vec![Value::test_int(11)]),
+                            Column::new("b".to_string(), vec![Value::test_int(7)]),
                         ],
                         None,
                     )
@@ -64,11 +56,11 @@ impl PluginCommand for LazyQuantile {
                 ),
             },
             Example {
-                description: "Quantile aggregation for a group-by",
+                description: "Sum aggregation for a group-by",
                 example: r#"[[a b]; [one 2] [one 4] [two 1]]
                     | polars into-df
                     | polars group-by a
-                    | polars agg (polars col b | polars quantile 0.5)
+                    | polars agg (polars col b | polars sum)
                     | polars collect
                     | polars sort-by a"#,
                 result: Some(
@@ -80,7 +72,7 @@ impl PluginCommand for LazyQuantile {
                             ),
                             Column::new(
                                 "b".to_string(),
-                                vec![Value::test_float(4.0), Value::test_float(1.0)],
+                                vec![Value::test_int(6), Value::test_int(1)],
                             ),
                         ],
                         None,
@@ -100,19 +92,10 @@ impl PluginCommand for LazyQuantile {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head)?;
-        let quantile: f64 = call.req(0)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
-            PolarsPluginObject::NuDataFrame(df) => {
-                command(plugin, engine, call, df.lazy(), quantile)
-            }
-            PolarsPluginObject::NuLazyFrame(lazy) => command(plugin, engine, call, lazy, quantile),
-            PolarsPluginObject::NuExpression(expr) => {
-                let expr: NuExpression = expr
-                    .into_polars()
-                    .quantile(lit(quantile), QuantileInterpolOptions::default())
-                    .into();
-                expr.to_pipeline_data(plugin, engine, call.head)
-            }
+            PolarsPluginObject::NuDataFrame(df) => command_lazy(plugin, engine, call, df.lazy()),
+            PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(plugin, engine, call, lazy),
+            PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
             _ => Err(cant_convert_err(
                 &value,
                 &[
@@ -126,29 +109,34 @@ impl PluginCommand for LazyQuantile {
     }
 }
 
-fn command(
+fn command_expr(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    expr: NuExpression,
+) -> Result<PipelineData, ShellError> {
+    NuExpression::from(expr.into_polars().sum()).to_pipeline_data(plugin, engine, call.head)
+}
+
+fn command_lazy(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
     lazy: NuLazyFrame,
-    quantile: f64,
 ) -> Result<PipelineData, ShellError> {
-    let lazy = NuLazyFrame::new(
-        lazy.from_eager,
-        lazy.to_polars()
-            .quantile(lit(quantile), QuantileInterpolOptions::default()),
-    );
+    let res: NuLazyFrame = lazy.to_polars().sum().into();
 
-    lazy.to_pipeline_data(plugin, engine, call.head)
+    res.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::test::test_polars_plugin_command;
+    use nu_protocol::ShellError;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&LazyQuantile)
+        test_polars_plugin_command(&ExprSum)
     }
 }
