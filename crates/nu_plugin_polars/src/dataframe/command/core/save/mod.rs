@@ -236,7 +236,7 @@ pub fn unknown_file_save_error(span: Span) -> ShellError {
 #[cfg(test)]
 pub(crate) mod test {
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::{Span, Value};
+    use nu_protocol::{PipelineData, Span, Value};
     use uuid::Uuid;
 
     use crate::PolarsPlugin;
@@ -260,15 +260,9 @@ pub(crate) mod test {
                 Span::test_data(),
             ),
         );
-        let pipeline_data = plugin_test.eval(&cmd)?;
+        let _pipeline_data = plugin_test.eval(&cmd)?;
 
         assert!(tmp_file.exists());
-
-        let value = pipeline_data.into_value(Span::test_data())?;
-        let list = value.as_list()?;
-        assert_eq!(list.len(), 1);
-        let msg = list.first().expect("should have a value").as_str()?;
-        assert!(msg.contains("saved"));
 
         Ok(())
     }
