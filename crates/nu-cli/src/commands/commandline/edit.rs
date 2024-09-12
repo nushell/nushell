@@ -67,7 +67,7 @@ impl Command for SubCommand {
         if call.has_flag(engine_state, stack, "accept")? {
             if let Some(sender) = &engine_state.reedline_event_sender {
                 if let Err(e) = sender.send(ReedlineEvent::Submit) {
-                    log::warn!("Could not send Sumbit to reedline: {e:?}");
+                    log::warn!("Could not send Submit to reedline: {e:?}");
                 }
             }
         }
