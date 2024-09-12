@@ -79,7 +79,7 @@ impl Command for Ls {
                 Some('D'),
             )
             .switch("mime-type", "Show mime-type in type column instead of 'file' (based on filenames only; files' contents are not examined)", Some('m'))
-            .switch("threads", "Use mutliple threads to list contents. Output will be non-deterministic.", Some('t'))
+            .switch("threads", "Use multiple threads to list contents. Output will be non-deterministic.", Some('t'))
             .category(Category::FileSystem)
     }
 
