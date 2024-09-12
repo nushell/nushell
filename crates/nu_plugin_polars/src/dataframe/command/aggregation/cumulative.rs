@@ -82,7 +82,10 @@ impl PluginCommand for Cumulative {
         vec![
             Example {
                 description: "Cumulative sum for a column",
-                example: "[[a]; [1] [2] [3] [4] [5]] | polars into-df | polars select (polars col a | polars cumulative sum | polars as cum_a) | polars collect",
+                example: "[[a]; [1] [2] [3] [4] [5]] 
+                    | polars into-df 
+                    | polars select (polars col a | polars cumulative sum | polars as cum_a) 
+                    | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(

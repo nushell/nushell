@@ -40,81 +40,44 @@ impl PluginCommand for LazyAggregate {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Group by and perform an aggregation",
-                example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | polars into-df
-    | polars group-by a
-    | polars agg [
-        (polars col b | polars min | polars as "b_min")
-        (polars col b | polars max | polars as "b_max")
-        (polars col b | polars sum | polars as "b_sum")
-     ]"#,
-                result: Some(
-                    NuDataFrame::try_from_columns(
-                        vec![
-                            Column::new(
-                                "a".to_string(),
-                                vec![Value::test_int(1), Value::test_int(2)],
-                            ),
-                            Column::new(
-                                "b_min".to_string(),
-                                vec![Value::test_int(2), Value::test_int(4)],
-                            ),
-                            Column::new(
-                                "b_max".to_string(),
-                                vec![Value::test_int(4), Value::test_int(6)],
-                            ),
-                            Column::new(
-                                "b_sum".to_string(),
-                                vec![Value::test_int(6), Value::test_int(10)],
-                            ),
-                        ],
-                        None,
-                    )
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
-            },
-            Example {
-                description: "Group by and perform an aggregation",
-                example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | polars into-lazy
-    | polars group-by a
-    | polars agg [
-        (polars col b | polars min | polars as "b_min")
-        (polars col b | polars max | polars as "b_max")
-        (polars col b | polars sum | polars as "b_sum")
-     ]
-    | polars collect"#,
-                result: Some(
-                    NuDataFrame::try_from_columns(
-                        vec![
-                            Column::new(
-                                "a".to_string(),
-                                vec![Value::test_int(1), Value::test_int(2)],
-                            ),
-                            Column::new(
-                                "b_min".to_string(),
-                                vec![Value::test_int(2), Value::test_int(4)],
-                            ),
-                            Column::new(
-                                "b_max".to_string(),
-                                vec![Value::test_int(4), Value::test_int(6)],
-                            ),
-                            Column::new(
-                                "b_sum".to_string(),
-                                vec![Value::test_int(6), Value::test_int(10)],
-                            ),
-                        ],
-                        None,
-                    )
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
-            },
-        ]
+        vec![Example {
+            description: "Group by and perform an aggregation",
+            example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
+                | polars into-lazy
+                | polars group-by a
+                | polars agg [
+                    (polars col b | polars min | polars as "b_min")
+                    (polars col b | polars max | polars as "b_max")
+                    (polars col b | polars sum | polars as "b_sum")
+                 ]
+                | polars collect
+                | polars sort-by a"#,
+            result: Some(
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_int(1), Value::test_int(2)],
+                        ),
+                        Column::new(
+                            "b_min".to_string(),
+                            vec![Value::test_int(2), Value::test_int(4)],
+                        ),
+                        Column::new(
+                            "b_max".to_string(),
+                            vec![Value::test_int(4), Value::test_int(6)],
+                        ),
+                        Column::new(
+                            "b_sum".to_string(),
+                            vec![Value::test_int(6), Value::test_int(10)],
+                        ),
+                    ],
+                    None,
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
+        }]
     }
 
     fn run(
