@@ -49,7 +49,7 @@ pub fn load_standard_library(
         let std_dir = std_dir.to_string_lossy().to_string();
         let source = r#"
 # Prelude
-use std/core.nu *
+use ([ std core.nu ] | path join) *
 "#;
 
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
