@@ -1,5 +1,4 @@
 use std assert
-use std assert
 use std log
 
 # A couple of nuances to understand when testing module that exports environment:

@@ -9,20 +9,16 @@ use nu_protocol::{
 };
 use std::path::PathBuf;
 
-// Virtual std directory unlikely to appear in user's file system
-const NU_STDLIB_VIRTUAL_DIR: &str = "NU_STDLIB_VIRTUAL_DIR";
-
 pub fn load_standard_library(
     engine_state: &mut nu_protocol::engine::EngineState,
 ) -> Result<(), miette::ErrReport> {
     trace!("load_standard_library");
     let (block, delta) = {
-        // Using full virtual path to avoid potential conflicts with user having 'std' directory
-        // in their working directory.
-        let std_dir = PathBuf::from(NU_STDLIB_VIRTUAL_DIR).join("std");
+        let std_dir = PathBuf::from("std");
 
         let mut std_files = vec![
             ("mod.nu", include_str!("../std/mod.nu")),
+            ("core.nu", include_str!("../std/core.nu")),
             ("dirs.nu", include_str!("../std/dirs.nu")),
             ("dt.nu", include_str!("../std/dt.nu")),
             ("help.nu", include_str!("../std/help.nu")),
@@ -52,26 +48,15 @@ pub fn load_standard_library(
 
         let std_dir = std_dir.to_string_lossy().to_string();
         let source = r#"
-# Define the `std` module
-module std
-
 # Prelude
-use std dirs [
-    enter
-    shells
-    g
-    n
-    p
-    dexit
-]
-use std pwd
+use std/core.nu *
 "#;
 
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
 
         // Add a placeholder file to the stack of files being evaluated.
         // The name of this file doesn't matter; it's only there to set the current working directory to NU_STDLIB_VIRTUAL_DIR.
-        let placeholder = PathBuf::from(NU_STDLIB_VIRTUAL_DIR).join("loading stdlib");
+        let placeholder = PathBuf::from("loading stdlib");
         working_set.files = FileStack::with_file(placeholder);
 
         let block = parse(

@@ -71,11 +71,6 @@ def path_add_expand [] {
 }
 
 #[test]
-def banner [] {
-    std assert ((std banner | lines | length) == 15)
-}
-
-#[test]
 def repeat_things [] {
     std assert error { "foo" | std repeat -1 }
 
