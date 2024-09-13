@@ -397,6 +397,7 @@ fn ls_for_one_pattern(
                     if !all && !hidden_dir_specified && is_hidden_dir(&path) {
                         if path.is_dir() {
                             hidden_dir_mutex.push(path);
+                            drop(hidden_dir_mutex);
                         }
                         return None;
                     }
@@ -479,7 +480,7 @@ fn ls_for_one_pattern(
             })
     })
     .map_err(|err| ShellError::GenericError {
-        error: "Unable to create a rayone pool".into(),
+        error: "Unable to create a rayon pool".into(),
         msg: err.to_string(),
         span: Some(call_span),
         help: None,
