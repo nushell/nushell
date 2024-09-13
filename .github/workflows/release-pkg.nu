@@ -86,15 +86,15 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
         }
         'aarch64-unknown-linux-musl' => {
             aria2c https://musl.cc/aarch64-linux-musl-cross.tgz
-            tar -xf aarch64-linux-musl-cross.tgz
-            $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.PWD)/aarch64-linux-musl-cross/bin')
+            tar -xf aarch64-linux-musl-cross.tgz -C $env.HOME
+            $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.HOME)/aarch64-linux-musl-cross/bin')
             $env.CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER = 'aarch64-linux-musl-gcc'
             cargo-build-nu
         }
         'armv7-unknown-linux-musleabihf' => {
             aria2c https://musl.cc/armv7r-linux-musleabihf-cross.tgz
-            tar -xf armv7r-linux-musleabihf-cross.tgz
-            $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.PWD)/armv7r-linux-musleabihf-cross/bin')
+            tar -xf armv7r-linux-musleabihf-cross.tgz -C $env.HOME
+            $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.HOME)/armv7r-linux-musleabihf-cross/bin')
             $env.CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER = 'armv7r-linux-musleabihf-gcc'
             cargo-build-nu
         }
