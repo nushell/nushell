@@ -246,6 +246,8 @@ fn prepare_error_handler(
 ) {
     if let Some(reg_id) = error_handler.error_register {
         if let Some(error) = error {
+            // Stack state has to be updated for stuff like LAST_EXIT_CODE
+            ctx.stack.set_last_error(&error.item);
             // Create the error value and put it in the register
             ctx.put_reg(
                 reg_id,

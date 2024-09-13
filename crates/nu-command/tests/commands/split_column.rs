@@ -35,6 +35,19 @@ fn to_column() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
+            r#"
+                open sample.txt
+                | lines
+                | str trim
+                | split column -n 3 ","
+                | get column3
+            "#
+        ));
+
+        assert!(actual.out.contains("tariff_item,name,origin"));
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
             r"
                 open sample2.txt
                 | lines
