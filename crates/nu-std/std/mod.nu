@@ -1,19 +1,19 @@
 # std.nu, `used` to load all standard library components
 
-export module core.nu
-export module bench.nu
-export module assert.nu
-export module dirs.nu
-export module dt.nu
-export module formats.nu
-export module help.nu
-export module input.nu
-export module iter.nu
-export module log.nu
-export module math.nu
-export module util.nu
-export module xml.nu
+export module core
+export module bench
+export module assert
+export module dirs
+export module dt
+export module formats
+export module help
+export module input
+export module iter
+export module log
+export module math
+export module util
+export module xml
 export-env {
-    use dirs.nu []
-    use log.nu []
+    use dirs []
+    use log []
 }

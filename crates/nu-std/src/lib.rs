@@ -18,19 +18,19 @@ pub fn load_standard_library(
 
         let mut std_files = vec![
             ("mod.nu", include_str!("../std/mod.nu")),
-            ("core.nu", include_str!("../std/core.nu")),
-            ("assert.nu", include_str!("../std/assert.nu")),
-            ("bench.nu", include_str!("../std/bench.nu")),
-            ("dirs.nu", include_str!("../std/dirs.nu")),
-            ("dt.nu", include_str!("../std/dt.nu")),
-            ("formats.nu", include_str!("../std/formats.nu")),
-            ("help.nu", include_str!("../std/help.nu")),
-            ("input.nu", include_str!("../std/input.nu")),
-            ("iter.nu", include_str!("../std/iter.nu")),
-            ("log.nu", include_str!("../std/log.nu")),
-            ("math.nu", include_str!("../std/math.nu")),
-            ("util.nu", include_str!("../std/util.nu")),
-            ("xml.nu", include_str!("../std/xml.nu")),
+            ("core", include_str!("../std/core/mod.nu")),
+            ("assert", include_str!("../std/assert/mod.nu")),
+            ("bench", include_str!("../std/bench/mod.nu")),
+            ("dirs", include_str!("../std/dirs/mod.nu")),
+            ("dt", include_str!("../std/dt/mod.nu")),
+            ("formats", include_str!("../std/formats/mod.nu")),
+            ("help", include_str!("../std/help/mod.nu")),
+            ("input", include_str!("../std/input/mod.nu")),
+            ("iter", include_str!("../std/iter/mod.nu")),
+            ("log", include_str!("../std/log/mod.nu")),
+            ("math", include_str!("../std/math/mod.nu")),
+            ("util", include_str!("../std/util/mod.nu")),
+            ("xml", include_str!("../std/xml/mod.nu")),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
@@ -51,14 +51,14 @@ pub fn load_standard_library(
         let std_dir = std_dir.to_string_lossy().to_string();
         let source = r#"
 # Prelude
-use ([ std core.nu ] | path join) *
+use ([ std core ] | path join) *
 "#;
 
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
 
         // Add a placeholder file to the stack of files being evaluated.
         // The name of this file doesn't matter; it's only there to set the current working directory to NU_STDLIB_VIRTUAL_DIR.
-        let placeholder = PathBuf::from("loading stdlib");
+        let placeholder = PathBuf::from("load std/core");
         working_set.files = FileStack::with_file(placeholder);
 
         let block = parse(
