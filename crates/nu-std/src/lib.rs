@@ -19,16 +19,18 @@ pub fn load_standard_library(
         let mut std_files = vec![
             ("mod.nu", include_str!("../std/mod.nu")),
             ("core.nu", include_str!("../std/core.nu")),
+            ("assert.nu", include_str!("../std/assert.nu")),
+            ("bench.nu", include_str!("../std/bench.nu")),
             ("dirs.nu", include_str!("../std/dirs.nu")),
             ("dt.nu", include_str!("../std/dt.nu")),
+            ("formats.nu", include_str!("../std/formats.nu")),
             ("help.nu", include_str!("../std/help.nu")),
+            ("input.nu", include_str!("../std/input.nu")),
             ("iter.nu", include_str!("../std/iter.nu")),
             ("log.nu", include_str!("../std/log.nu")),
-            ("assert.nu", include_str!("../std/assert.nu")),
-            ("xml.nu", include_str!("../std/xml.nu")),
-            ("input.nu", include_str!("../std/input.nu")),
             ("math.nu", include_str!("../std/math.nu")),
-            ("formats.nu", include_str!("../std/formats.nu")),
+            ("util.nu", include_str!("../std/util.nu")),
+            ("xml.nu", include_str!("../std/xml.nu")),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
