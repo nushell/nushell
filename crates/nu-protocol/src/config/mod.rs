@@ -72,7 +72,6 @@ pub struct Config {
     pub display_errors: DisplayErrors,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
-    pub immediately_execute_bashisms: bool,
     /// Configuration for plugins.
     ///
     /// Users can provide configuration for a plugin through this entry.  The entry name must
@@ -129,7 +128,6 @@ impl Default for Config {
 
             use_kitty_protocol: false,
             highlight_resolved_externals: false,
-            immediately_execute_bashisms: false,
 
             plugins: HashMap::new(),
             plugin_gc: PluginGcConfigs::default(),
@@ -736,14 +734,6 @@ impl Value {
                     } else {
                         report_invalid_value("should be a integer greater than 1", span, &mut errors);
                         *value = Value::Int { val: 50, internal_span: value.span() };
-                    }
-                }
-                "immediately_execute_bashisms" => {
-                    if let Value::Bool { val, internal_span: _ } = value {
-                        config.immediately_execute_bashisms = *val;
-                    } else {
-                        report_invalid_value("must be bool", span, &mut errors);
-                        *value = Value::Bool { val: false, internal_span: value.span() };
                     }
                 }
                 // Catch all
