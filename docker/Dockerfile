@@ -20,10 +20,9 @@ RUN echo '/usr/bin/nu' >> /etc/shells \
     && cd nu*-musl \
     && mv nu* /usr/bin \
     && cd /home/nushell/.config/nushell \
-    && touch env.nu config.nu \
     && chmod +x /usr/bin/nu \
     && chown -R nushell:nushell /home/nushell/.config/nushell \
-    && nu -c 'config reset -w' \
+    && su -c 'config reset -w' nushell \
     && ls /usr/bin/nu_plugin* \
     | xargs -I{} su -c 'plugin add {}' nushell \
     && rm -rf /tmp/*
