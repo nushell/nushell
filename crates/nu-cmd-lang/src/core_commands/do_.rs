@@ -83,7 +83,7 @@ impl Command for Do {
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         // Applies to all block evaluation once set true
-        callee_stack.use_ir = caller_stack.has_env_var(engine_state, "NU_USE_IR");
+        callee_stack.use_ir = !caller_stack.has_env_var(engine_state, "NU_DISABLE_IR");
 
         let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
 
