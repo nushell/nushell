@@ -12,10 +12,10 @@ RUN echo '/usr/bin/nu' >> /etc/shells \
     && mkdir -p /home/nushell/.config/nushell/ \
     && cd /tmp \
     && wget -qO - https://api.github.com/repos/nushell/nushell/releases/latest \
-    | grep browser_download_url \
-    | grep musl.tar.gz \
-    | cut -f4 -d '"' \
-    | xargs -I{} wget {} \
+        | grep browser_download_url \
+        | grep musl.tar.gz \
+        | cut -f4 -d '"' \
+        | xargs -I{} wget {} \
     && tar -xzf nu* \
     && cd nu*-musl \
     && mv nu* /usr/bin \
