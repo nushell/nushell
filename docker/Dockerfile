@@ -12,10 +12,10 @@ RUN echo '/usr/bin/nu' >> /etc/shells \
     && mkdir -p /home/nushell/.config/nushell/ \
     && cd /tmp \
     && wget -qO - https://api.github.com/repos/nushell/nushell/releases/latest \
-        | grep browser_download_url \
-        | grep musl.tar.gz \
-        | cut -f4 -d '"' \
-        | xargs -I{} wget {} \
+    | grep browser_download_url \
+    | grep musl.tar.gz \
+    | cut -f4 -d '"' \
+    | xargs -I{} wget {} \
     && tar -xzf nu* \
     && cd nu*-musl \
     && mv nu* /usr/bin \
@@ -24,7 +24,7 @@ RUN echo '/usr/bin/nu' >> /etc/shells \
     # Reset Nushell config to default
     && su -c 'config reset -w' nushell \
     && ls /usr/bin/nu_plugin* \
-        | xargs -I{} su -c 'plugin add {}' nushell \
+    | xargs -I{} su -c 'plugin add {}' nushell \
     && rm -rf /tmp/*
 
 USER nushell
