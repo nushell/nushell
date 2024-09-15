@@ -10,8 +10,6 @@ LABEL maintainer=nushell
 RUN echo '/usr/bin/nu' >> /etc/shells \
     && adduser -D -s /usr/bin/nu nushell \
     && mkdir -p /home/nushell/.config/nushell/ \
-    && wget -q https://raw.githubusercontent.com/nushell/nushell/main/crates/nu-utils/src/sample_config/default_config.nu -O /home/nushell/.config/nushell/config.nu \
-    && wget -q https://raw.githubusercontent.com/nushell/nushell/main/crates/nu-utils/src/sample_config/default_env.nu -O /home/nushell/.config/nushell/env.nu \
     && cd /tmp \
     && wget -qO - https://api.github.com/repos/nushell/nushell/releases/latest \
     | grep browser_download_url \
@@ -21,8 +19,11 @@ RUN echo '/usr/bin/nu' >> /etc/shells \
     && tar -xzf nu* \
     && cd nu*-musl \
     && mv nu* /usr/bin \
+    && cd /home/nushell/.config/nushell \
+    && touch env.nu config.nu \
     && chmod +x /usr/bin/nu \
     && chown -R nushell:nushell /home/nushell/.config/nushell \
+    && nu -c 'config reset -w' \
     && ls /usr/bin/nu_plugin* \
     | xargs -I{} su -c 'plugin add {}' nushell \
     && rm -rf /tmp/*
