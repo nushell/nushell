@@ -28,7 +28,7 @@ be loaded in the next release. To continue using the Shells
 feature, and to remove this warning, please add the following
 to your config.nu:
 
-use std/dirs aliases *
+use std/dirs shells-aliases *
 
 Or see the documentation for more options.
 "

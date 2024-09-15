@@ -138,7 +138,7 @@ def --env _fetch [
     }
 }
 
-export module aliases {
+export module shells-aliases {
     export alias shells = main
     export alias enter = add
     export alias dexit = drop
