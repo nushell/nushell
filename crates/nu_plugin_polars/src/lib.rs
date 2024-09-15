@@ -1,4 +1,7 @@
-use std::cmp::Ordering;
+use std::{
+    cmp::Ordering,
+    panic::{catch_unwind, AssertUnwindSafe},
+};
 
 use cache::cache_commands;
 pub use cache::{Cache, Cacheable};
@@ -206,6 +209,22 @@ impl Plugin for PolarsPlugin {
             CustomValueType::NuWhen(cv) => cv.custom_value_partial_cmp(self, engine, other_value),
         };
         Ok(result?)
+    }
+}
+
+pub(crate) fn handle_panic<F, R>(f: F, span: Span) -> Result<R, ShellError>
+where
+    F: FnOnce() -> Result<R, ShellError>,
+{
+    match catch_unwind(AssertUnwindSafe(f)) {
+        Ok(inner_result) => inner_result,
+        Err(_) => Err(ShellError::GenericError {
+            error: "Panic occurred".into(),
+            msg: "".into(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        }),
     }
 }
 
