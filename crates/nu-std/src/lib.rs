@@ -22,6 +22,10 @@ pub fn load_standard_library(
             ("assert", include_str!("../std/assert/mod.nu")),
             ("bench", include_str!("../std/bench/mod.nu")),
             ("dirs", include_str!("../std/dirs/mod.nu")),
+            (
+                "deprecated_dirs",
+                include_str!("../std/deprecated_dirs/mod.nu"),
+            ),
             ("dt", include_str!("../std/dt/mod.nu")),
             ("formats", include_str!("../std/formats/mod.nu")),
             ("help", include_str!("../std/help/mod.nu")),
@@ -52,6 +56,14 @@ pub fn load_standard_library(
         let source = r#"
 # Prelude
 use ([ std core ] | path join) *
+use ([ std deprecated_dirs] | path join) [
+    enter
+    shells
+    g
+    n
+    p
+    dexit
+]
 "#;
 
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));

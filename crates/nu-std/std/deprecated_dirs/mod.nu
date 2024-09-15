@@ -21,52 +21,67 @@ export-env {
     $env.DIRS_LIST = [($env.PWD | path expand)]
 }
 
+def deprecation_warning [ ] {
+print -e $"
+(ansi red)Warning:(ansi reset) The 'std dirs' module will no longer automatically
+be loaded in the next release. To continue using the Shells
+feature, and to remove this warning, please add the following
+to your config.nu:
+
+use std/dirs aliases *
+
+Or see the documentation for more options.
+"
+}
+
 # Add one or more directories to the list.
-# The first directory listed becomes the new
-# active directory.
+# PWD becomes first of the newly added directories.
 export def --env add [
     ...paths: string    # directory or directories to add to working list
-    ] {
-        mut abspaths = []
-        for p in $paths {
-            let exp = ($p | path expand)
-            if ($exp | path type) != 'dir' {
-                let span = (metadata $p).span
-                error make {msg: "not a directory", label: {text: "not a directory", span: $span } }
-            }
-            $abspaths = ($abspaths | append $exp)
-        }
+] {
+    deprecation_warning
 
-        $env.DIRS_LIST = ($env.DIRS_LIST | insert ($env.DIRS_POSITION + 1) $abspaths | flatten)
+    mut abspaths = []
+    for p in $paths {
+        let exp = ($p | path expand)
+        if ($exp | path type) != 'dir' {
+            let span = (metadata $p).span
+            error make {msg: "not a directory", label: {text: "not a directory", span: $span } }
+        }
+        $abspaths = ($abspaths | append $exp)
+    }
+
+    $env.DIRS_LIST = ($env.DIRS_LIST | insert ($env.DIRS_POSITION + 1) $abspaths | flatten)
 
     _fetch 1
 }
 
-# Make the next directory on the list the active directory.
-# If the currenta ctive directory is the last in the list, 
-# then cycle to the top of the list.
+export alias enter = add
+
+# Advance to the next directory in the list or wrap to beginning.
 export def --env next [
     N:int = 1   # number of positions to move.
 ] {
+    deprecation_warning
     _fetch $N
 }
 
-# Make the previous directory on the list the active directory.
-# If the current active directory is the first in the list, 
-# then cycle to the end of the list.
+export alias n = next
+
+# Back up to the previous directory or wrap to the end.
 export def --env prev [
     N:int = 1   # number of positions to move.
 ] {
+    deprecation_warning
     _fetch (-1 * $N)
 }
 
-# Drop the current directory from the list.
-# The previous directory in the list becomes
-# the new active directory.
-#
-# If there is only one directory in the list,
-# then this command has no effect.
+export alias p = prev
+
+# Drop the current directory from the list, if it's not the only one.
+# PWD becomes the next working directory
 export def --env drop [] {
+    deprecation_warning
     if ($env.DIRS_LIST | length) > 1 {
         $env.DIRS_LIST = ($env.DIRS_LIST | reject $env.DIRS_POSITION)
         if ($env.DIRS_POSITION >= ($env.DIRS_LIST | length)) {$env.DIRS_POSITION = 0}
@@ -77,8 +92,11 @@ export def --env drop [] {
 
 }
 
-# Display current working directories
-export def --env main [] {
+export alias dexit = drop
+
+# Display current working directories.
+export def --env show [] {
+    deprecation_warning
     mut out = []
     for $p in ($env.DIRS_LIST | enumerate) {
         let is_act_slot = $p.index == $env.DIRS_POSITION
@@ -93,25 +111,29 @@ export def --env main [] {
     $out
 }
 
-# Jump to directory by index
-export def --env goto [dir_idx?: int] {
-    if $dir_idx == null {
-        return (main)
+export alias shells = show
+
+export def --env goto [shell?: int] {
+    deprecation_warning
+    if $shell == null {
+        return (show)
     }
 
-    if $dir_idx < 0 or $dir_idx >= ($env.DIRS_LIST | length) {
-        let span = (metadata $dir_idx | get span)
+    if $shell < 0 or $shell >= ($env.DIRS_LIST | length) {
+        let span = (metadata $shell | get span)
         error make {
-            msg: $"(ansi red_bold)invalid_dirs_index(ansi reset)"
+            msg: $"(ansi red_bold)invalid_shell_index(ansi reset)"
             label: {
-                text: $"`idx` should be between 0 and (($env.DIRS_LIST | length) - 1)"
+                text: $"`shell` should be between 0 and (($env.DIRS_LIST | length) - 1)"
                 span: $span
             }
         }
     }
 
-    _fetch ($dir_idx - $env.DIRS_POSITION)
+    _fetch ($shell - $env.DIRS_POSITION)
 }
+
+export alias g = goto
 
 # fetch item helper
 def --env _fetch [
@@ -136,13 +158,4 @@ def --env _fetch [
         $env.DIRS_POSITION = $pos
         cd ($env.DIRS_LIST | get $pos )
     }
-}
-
-export module aliases {
-    export alias shells = main
-    export alias enter = add
-    export alias dexit = drop
-    export alias p = prev
-    export alias n = next
-    export alias g = goto
 }

@@ -79,7 +79,7 @@ def dirs_command [] {
     assert length $env.DIRS_LIST 2 "drop removes from list"
     assert equal $env.PWD $c.path_b "drop changes PWD to previous in list (before dropped element)"
 
-    assert equal (dirs show) [[active path]; [false $c.base_path] [true $c.path_b]] "show table contains expected information"
+    assert equal (dirs) [[active path]; [false $c.base_path] [true $c.path_b]] "show table contains expected information"
 
     # Stack becomes: [BASE]
     dirs drop
@@ -173,4 +173,7 @@ def dirs_goto [] {
             assert equal $env.PWD ($exp_dir | get $other_pos) "goto changed working directory correctly"
         }
     }
+
+    # check that 'dirs goto' with no argument maps to `dirs` (main)
+    assert length (dirs goto) 3
 }
