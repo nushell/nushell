@@ -19,12 +19,12 @@ RUN echo '/usr/bin/nu' >> /etc/shells \
     && tar -xzf nu* \
     && cd nu*-musl \
     && mv nu* /usr/bin \
-    && cd /home/nushell/.config/nushell \
     && chmod +x /usr/bin/nu \
     && chown -R nushell:nushell /home/nushell/.config/nushell \
+    # Reset Nushell config to default
     && su -c 'config reset -w' nushell \
     && ls /usr/bin/nu_plugin* \
-    | xargs -I{} su -c 'plugin add {}' nushell \
+        | xargs -I{} su -c 'plugin add {}' nushell \
     && rm -rf /tmp/*
 
 USER nushell
