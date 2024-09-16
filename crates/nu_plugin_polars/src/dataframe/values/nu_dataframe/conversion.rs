@@ -197,9 +197,25 @@ pub fn insert_value(
         Entry::Occupied(entry) => entry.into_mut(),
     };
 
+    // If we have a schema, use that for determining how things should be added to each column
+    if let Some(schema) = maybe_schema {
+        if let Some(field) = schema.schema.get_field(&key) {
+            col_val.column_type = Some(field.data_type().clone());
+            col_val.values.push(value);
+            Ok(())
+        } else {
+            Err(ShellError::GenericError {
+                error: format!("Schema does not contain column: {key}"),
+                msg: "".into(),
+                span: Some(value.span()),
+                help: None,
+                inner: vec![],
+            })
+        }
+    }
     // Checking that the type for the value is the same
     // for the previous value in the column
-    if col_val.values.is_empty() {
+    else if col_val.values.is_empty() {
         if let Some(schema) = maybe_schema {
             if let Some(field) = schema.schema.get_field(&key) {
                 col_val.column_type = Some(field.data_type().clone());
@@ -209,8 +225,8 @@ pub fn insert_value(
         if col_val.column_type.is_none() {
             col_val.column_type = Some(value_to_data_type(&value));
         }
-
         col_val.values.push(value);
+        Ok(())
     } else {
         let prev_value = &col_val.values[col_val.values.len() - 1];
 
@@ -232,9 +248,8 @@ pub fn insert_value(
                 col_val.values.push(value);
             }
         }
+        Ok(())
     }
-
-    Ok(())
 }
 
 fn value_to_data_type(value: &Value) -> DataType {
