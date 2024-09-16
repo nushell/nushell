@@ -3433,6 +3433,7 @@ dependencies = [
  "num-format",
  "os_pipe",
  "pretty_assertions",
+ "reedline",
  "rmp-serde",
  "rstest",
  "serde",
@@ -5136,7 +5137,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.34.0"
-source = "git+https://github.com/nushell/reedline?branch=main#7af89595377fa59d2a6a2333718d60adf61c86b1"
+source = "git+https://github.com/mrdgo/reedline.git?branch=main#e211ff6a296bbd4281c18228617d091e7e8de4fd"
 dependencies = [
  "arboard",
  "chrono",
@@ -7559,3 +7560,8 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "reedline"
+version = "0.34.0"
+source = "git+https://github.com/nushell/reedline?branch=main#7af89595377fa59d2a6a2333718d60adf61c86b1"

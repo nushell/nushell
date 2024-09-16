@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use reedline::ReedlineEvent;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -26,6 +27,7 @@ impl Command for SubCommand {
                 "replaces the current contents of the buffer (default)",
                 Some('r'),
             )
+            .switch("accept", "instantly executes given command", Some('A'))
             .required(
                 "str",
                 SyntaxShape::String,
@@ -58,8 +60,16 @@ impl Command for SubCommand {
             repl.buffer.insert_str(cursor_pos, &str);
             repl.cursor_pos += str.len();
         } else {
+            // default == "replace"
             repl.buffer = str;
             repl.cursor_pos = repl.buffer.len();
+        }
+        if call.has_flag(engine_state, stack, "accept")? {
+            if let Some(sender) = &engine_state.reedline_event_sender {
+                if let Err(e) = sender.send(ReedlineEvent::Submit) {
+                    log::warn!("Could not send Submit to reedline: {e:?}");
+                }
+            }
         }
         Ok(Value::nothing(call.head).into_pipeline_data())
     }
