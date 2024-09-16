@@ -32,12 +32,9 @@ impl PluginCommand for ExprCount {
     }
 
     fn examples(&self) -> Vec<Example> {
-        // to add an example with a result that contains a null we will need to be able to
-        // allow null values to be entered into the dataframe from nushell
-        // and retain the correct dtype. Right now null values cause the dtype to be object
         vec![Example {
             description: "Count the number of non-null values in a column",
-            example: r#"[[a]; ["foo"] ["bar"]] | polars into-df 
+            example: r#"[[a]; ["foo"] ["bar"] [null]] | polars into-df 
                     | polars select (polars col a | polars count) 
                     | polars collect"#,
             result: Some(
