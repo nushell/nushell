@@ -38,7 +38,7 @@ impl Command for BitsOr {
             .category(Category::Bits)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Performs bitwise or for ints or binary values."
     }
 

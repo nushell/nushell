@@ -25,11 +25,11 @@ impl Command for ToMsgpack {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert Nu values into MessagePack."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"
 Not all values are representable as MessagePack.
 
@@ -275,7 +275,7 @@ where
 mod test {
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
-    use crate::Metadata;
+    use crate::{Get, Metadata};
 
     use super::*;
 
@@ -296,6 +296,7 @@ mod test {
 
             working_set.add_decl(Box::new(ToMsgpack {}));
             working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
 
             working_set.render()
         };

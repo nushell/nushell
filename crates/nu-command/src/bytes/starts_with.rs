@@ -39,7 +39,7 @@ impl Command for BytesStartsWith {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Check if bytes starts with a pattern."
     }
 

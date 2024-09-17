@@ -29,7 +29,7 @@ impl Command for Take {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Take only the first n elements of a list, or the first n bytes of a binary value."
     }
 

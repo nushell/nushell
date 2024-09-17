@@ -33,7 +33,7 @@ impl Command for RollRight {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Roll table columns right."
     }
 

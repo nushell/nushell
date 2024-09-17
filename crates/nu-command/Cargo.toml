@@ -5,29 +5,32 @@ edition = "2021"
 license = "MIT"
 name = "nu-command"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-command"
-version = "0.96.2"
+version = "0.97.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 bench = false
 
+[lints]
+workspace = true
+
 [dependencies]
-nu-cmd-base = { path = "../nu-cmd-base", version = "0.96.2" }
-nu-color-config = { path = "../nu-color-config", version = "0.96.2" }
-nu-engine = { path = "../nu-engine", version = "0.96.2" }
-nu-glob = { path = "../nu-glob", version = "0.96.2" }
-nu-json = { path = "../nu-json", version = "0.96.2" }
-nu-parser = { path = "../nu-parser", version = "0.96.2" }
-nu-path = { path = "../nu-path", version = "0.96.2" }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.96.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.96.2" }
-nu-system = { path = "../nu-system", version = "0.96.2" }
-nu-table = { path = "../nu-table", version = "0.96.2" }
-nu-term-grid = { path = "../nu-term-grid", version = "0.96.2" }
-nu-utils = { path = "../nu-utils", version = "0.96.2" }
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.97.2" }
+nu-color-config = { path = "../nu-color-config", version = "0.97.2" }
+nu-engine = { path = "../nu-engine", version = "0.97.2" }
+nu-glob = { path = "../nu-glob", version = "0.97.2" }
+nu-json = { path = "../nu-json", version = "0.97.2" }
+nu-parser = { path = "../nu-parser", version = "0.97.2" }
+nu-path = { path = "../nu-path", version = "0.97.2" }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.97.2" }
+nu-protocol = { path = "../nu-protocol", version = "0.97.2" }
+nu-system = { path = "../nu-system", version = "0.97.2" }
+nu-table = { path = "../nu-table", version = "0.97.2" }
+nu-term-grid = { path = "../nu-term-grid", version = "0.97.2" }
+nu-utils = { path = "../nu-utils", version = "0.97.2" }
 nu-ansi-term = { workspace = true }
-nuon = { path = "../nuon", version = "0.96.2" }
+nuon = { path = "../nuon", version = "0.97.2" }
 
 alphanumeric-sort = { workspace = true }
 base64 = { workspace = true }
@@ -42,7 +45,6 @@ chrono-humanize = { workspace = true }
 chrono-tz = { workspace = true }
 crossterm = { workspace = true }
 csv = { workspace = true }
-deunicode = { workspace = true }
 dialoguer = { workspace = true, default-features = false, features = ["fuzzy-select"] }
 digest = { workspace = true, default-features = false }
 dtparse = { workspace = true }
@@ -77,14 +79,13 @@ regex = { workspace = true }
 roxmltree = { workspace = true }
 rusqlite = { workspace = true, features = ["bundled", "backup", "chrono"], optional = true }
 rmp = { workspace = true }
-same-file = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["preserve_order"] }
 serde_urlencoded = { workspace = true }
 serde_yaml = { workspace = true }
 sha2 = { workspace = true }
 sysinfo = { workspace = true }
-tabled = { workspace = true, features = ["color"], default-features = false }
+tabled = { workspace = true, features = ["ansi"], default-features = false }
 terminal_size = { workspace = true }
 titlecase = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"] }
@@ -102,6 +103,7 @@ v_htmlescape = { workspace = true }
 wax = { workspace = true }
 which = { workspace = true }
 unicode-width = { workspace = true }
+data-encoding = { version = "2.6.0", features = ["alloc"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }
@@ -137,8 +139,8 @@ sqlite = ["rusqlite"]
 trash-support = ["trash"]
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.96.2" }
-nu-test-support = { path = "../nu-test-support", version = "0.96.2" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.97.2" }
+nu-test-support = { path = "../nu-test-support", version = "0.97.2" }
 
 dirs = { workspace = true }
 mockito = { workspace = true, default-features = false }
@@ -147,3 +149,4 @@ quickcheck_macros = { workspace = true }
 rstest = { workspace = true, default-features = false }
 pretty_assertions = { workspace = true }
 tempfile = { workspace = true }
+rand_chacha = { workspace = true }

@@ -6,9 +6,9 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    record, ByteStreamSource, DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned,
-    ListStream, OutDest, PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId,
-    ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    ByteStreamSource, DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream,
+    OutDest, PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError,
+    Signals, Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
@@ -207,18 +207,6 @@ fn eval_ir_block_impl<D: DebugContext>(
             Ok(InstructionResult::Return(reg_id)) => {
                 return Ok(ctx.take_reg(reg_id));
             }
-            Ok(InstructionResult::ExitCode(exit_code)) => {
-                if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
-                    // If an error handler is set, branch there
-                    prepare_error_handler(ctx, error_handler, None);
-                    pc = error_handler.handler_index;
-                } else {
-                    // If not, exit the block with the exit code
-                    return Ok(PipelineData::new_external_stream_with_only_exit_code(
-                        exit_code,
-                    ));
-                }
-            }
             Err(
                 err @ (ShellError::Return { .. }
                 | ShellError::Continue { .. }
@@ -258,16 +246,13 @@ fn prepare_error_handler(
 ) {
     if let Some(reg_id) = error_handler.error_register {
         if let Some(error) = error {
+            // Stack state has to be updated for stuff like LAST_EXIT_CODE
+            ctx.stack.set_last_error(&error.item);
             // Create the error value and put it in the register
-            let value = Value::record(
-                record! {
-                    "msg" => Value::string(format!("{}", error.item), error.span),
-                    "debug" => Value::string(format!("{:?}", error.item), error.span),
-                    "raw" => Value::error(error.item, error.span),
-                },
-                error.span,
+            ctx.put_reg(
+                reg_id,
+                error.item.into_value(error.span).into_pipeline_data(),
             );
-            ctx.put_reg(reg_id, PipelineData::Value(value, None));
         } else {
             // Set the register to empty
             ctx.put_reg(reg_id, PipelineData::Empty);
@@ -281,7 +266,6 @@ enum InstructionResult {
     Continue,
     Branch(usize),
     Return(RegId),
-    ExitCode(i32),
 }
 
 /// Perform an instruction
@@ -334,6 +318,17 @@ fn eval_instruction<D: DebugContext>(
         Instruction::Drain { src } => {
             let data = ctx.take_reg(*src);
             drain(ctx, data)
+        }
+        Instruction::WriteToOutDests { src } => {
+            let data = ctx.take_reg(*src);
+            let res = {
+                let stack = &mut ctx
+                    .stack
+                    .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
+                data.write_to_out_dests(ctx.engine_state, stack)?
+            };
+            ctx.put_reg(*src, res);
+            Ok(Continue)
         }
         Instruction::LoadVariable { dst, var_id } => {
             let value = get_var(ctx, *var_id, *span)?;
@@ -786,13 +781,6 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::PopErrorHandler => {
             ctx.stack.error_handlers.pop(ctx.error_handler_base);
-            Ok(Continue)
-        }
-        Instruction::CheckExternalFailed { dst, src } => {
-            let data = ctx.take_reg(*src);
-            let (data, failed) = data.check_external_failed()?;
-            ctx.put_reg(*src, data);
-            ctx.put_reg(*dst, Value::bool(failed, *span).into_pipeline_data());
             Ok(Continue)
         }
         Instruction::ReturnEarly { src } => {
@@ -1288,27 +1276,41 @@ fn get_var(ctx: &EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, Sh
 /// Get an environment variable, case-insensitively
 fn get_env_var_case_insensitive<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> Option<&'a Value> {
     // Read scopes in order
-    ctx.stack
+    for overlays in ctx
+        .stack
         .env_vars
         .iter()
         .rev()
         .chain(std::iter::once(&ctx.engine_state.env_vars))
-        .flat_map(|overlays| {
-            // Read overlays in order
-            ctx.stack
-                .active_overlays
-                .iter()
-                .rev()
-                .filter_map(|name| overlays.get(name))
-        })
-        .find_map(|map| {
-            // Use the hashmap first to try to be faster?
-            map.get(key).or_else(|| {
-                // Check to see if it exists at all in the map
-                map.iter()
-                    .find_map(|(k, v)| k.eq_ignore_case(key).then_some(v))
-            })
-        })
+    {
+        // Read overlays in order
+        for overlay_name in ctx.stack.active_overlays.iter().rev() {
+            let Some(map) = overlays.get(overlay_name) else {
+                // Skip if overlay doesn't exist in this scope
+                continue;
+            };
+            let hidden = ctx.stack.env_hidden.get(overlay_name);
+            let is_hidden = |key: &str| hidden.is_some_and(|hidden| hidden.contains(key));
+
+            if let Some(val) = map
+                // Check for exact match
+                .get(key)
+                // Skip when encountering an overlay where the key is hidden
+                .filter(|_| !is_hidden(key))
+                .or_else(|| {
+                    // Check to see if it exists at all in the map, with a different case
+                    map.iter().find_map(|(k, v)| {
+                        // Again, skip something that's hidden
+                        (k.eq_ignore_case(key) && !is_hidden(k)).then_some(v)
+                    })
+                })
+            {
+                return Some(val);
+            }
+        }
+    }
+    // Not found
+    None
 }
 
 /// Get the existing name of an environment variable, case-insensitively. This is used to implement
@@ -1362,23 +1364,23 @@ fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, Shel
     Ok(PipelineData::Value(value, metadata))
 }
 
-/// Helper for drain behavior. Returns `Ok(ExitCode)` on failed external.
+/// Helper for drain behavior.
 fn drain(ctx: &mut EvalContext<'_>, data: PipelineData) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
-    let span = data.span().unwrap_or(Span::unknown());
-    if let Some(exit_status) = data.drain()? {
-        ctx.stack.add_env_var(
-            "LAST_EXIT_CODE".into(),
-            Value::int(exit_status.code() as i64, span),
-        );
-        if exit_status.code() == 0 {
-            Ok(Continue)
-        } else {
-            Ok(ExitCode(exit_status.code()))
+    match data {
+        PipelineData::ByteStream(stream, ..) => {
+            let span = stream.span();
+            if let Err(err) = stream.drain() {
+                ctx.stack.set_last_error(&err);
+                return Err(err);
+            } else {
+                ctx.stack.set_last_exit_code(0, span);
+            }
         }
-    } else {
-        Ok(Continue)
+        PipelineData::ListStream(stream, ..) => stream.drain()?,
+        PipelineData::Value(..) | PipelineData::Empty => {}
     }
+    Ok(Continue)
 }
 
 enum RedirectionStream {
@@ -1486,4 +1488,7 @@ fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_sta
     for (var, value) in callee_stack.get_stack_env_vars() {
         caller_stack.add_env_var(var, value);
     }
+
+    // set config to callee config, to capture any updates to that
+    caller_stack.config.clone_from(&callee_stack.config);
 }

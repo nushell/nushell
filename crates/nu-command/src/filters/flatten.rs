@@ -28,7 +28,7 @@ impl Command for Flatten {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Flatten the table."
     }
 

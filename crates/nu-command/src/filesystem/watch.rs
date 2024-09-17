@@ -8,7 +8,7 @@ use notify_debouncer_full::{
 use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::{
     engine::{Closure, StateWorkingSet},
-    format_error,
+    format_shell_error,
 };
 use std::{
     path::PathBuf,
@@ -28,7 +28,7 @@ impl Command for Watch {
         "watch"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Watch for file changes and execute Nu code when they happen."
     }
 
@@ -198,7 +198,7 @@ impl Command for Watch {
                     }
                     Err(err) => {
                         let working_set = StateWorkingSet::new(engine_state);
-                        eprintln!("{}", format_error(&working_set, &err));
+                        eprintln!("{}", format_shell_error(&working_set, &err));
                     }
                 }
             }

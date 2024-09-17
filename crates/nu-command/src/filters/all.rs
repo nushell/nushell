@@ -20,7 +20,7 @@ impl Command for All {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Test if every element of the input fulfills a predicate expression."
     }
 

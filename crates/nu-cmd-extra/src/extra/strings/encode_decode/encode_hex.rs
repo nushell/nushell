@@ -29,7 +29,7 @@ impl Command for EncodeHex {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Encode a binary value using hex."
     }
 

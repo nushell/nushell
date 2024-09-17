@@ -9,7 +9,7 @@ impl Command for Mut {
         "mut"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Create a mutable variable and give it a value."
     }
 
@@ -26,7 +26,7 @@ impl Command for Mut {
             .category(Category::Core)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }

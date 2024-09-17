@@ -25,7 +25,7 @@ impl Command for HideEnv {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Hide environment variables in the current scope."
     }
 

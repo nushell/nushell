@@ -28,7 +28,7 @@ impl ViewCommand for TryCmd {
         Self::NAME
     }
 
-    fn usage(&self) -> &'static str {
+    fn description(&self) -> &'static str {
         ""
     }
 

@@ -50,7 +50,7 @@ impl Command for SubCommand {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Output the length of any strings in the pipeline."
     }
 

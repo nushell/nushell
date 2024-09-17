@@ -26,7 +26,7 @@ impl Command for Default {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Sets a default value if a row's column is missing or null."
     }
 

@@ -8,7 +8,7 @@ impl Command for Debug {
         "debug"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Debug print the value(s) piped in."
     }
 

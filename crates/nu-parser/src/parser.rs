@@ -1,5 +1,5 @@
 use crate::{
-    lex::{is_assignment_operator, lex, lex_signature},
+    lex::{is_assignment_operator, lex, lex_n_tokens, lex_signature, LexState},
     lite_parser::{lite_parse, LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget},
     parse_keywords::*,
     parse_patterns::parse_pattern,
@@ -949,7 +949,7 @@ pub fn parse_internal_call(
     let _ = working_set.add_span(call.head);
 
     let decl = working_set.get_decl(decl_id);
-    let signature = decl.signature();
+    let signature = working_set.get_signature(decl);
     let output = signature.get_output_type();
 
     // storing the var ID for later due to borrowing issues
@@ -1594,6 +1594,7 @@ pub fn parse_number(working_set: &mut StateWorkingSet, span: Span) -> Expression
 
 pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expression> {
     trace!("parsing: range");
+    let starting_error_count = working_set.parse_errors.len();
 
     // Range follows the following syntax: [<from>][<next_operator><next>]<range_operator>[<to>]
     //   where <next_operator> is ".."
@@ -1714,6 +1715,10 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
     } else {
         (None, span)
     };
+
+    if working_set.parse_errors.len() != starting_error_count {
+        return None;
+    }
 
     let operator = RangeOperator {
         inclusion,
@@ -5645,6 +5650,49 @@ pub fn parse_builtin_commands(
     }
 }
 
+fn check_record_key_or_value(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+    position: &str,
+) -> Option<ParseError> {
+    let bareword_error = |string_value: &Expression| {
+        working_set
+            .get_span_contents(string_value.span)
+            .iter()
+            .find_position(|b| **b == b':')
+            .map(|(i, _)| {
+                let colon_position = i + string_value.span.start;
+                ParseError::InvalidLiteral(
+                    "colon".to_string(),
+                    format!("bare word specifying record {}", position),
+                    Span::new(colon_position, colon_position + 1),
+                )
+            })
+    };
+    let value_span = working_set.get_span_contents(expr.span);
+    match expr.expr {
+        Expr::String(_) => {
+            if ![b'"', b'\'', b'`'].contains(&value_span[0]) {
+                bareword_error(expr)
+            } else {
+                None
+            }
+        }
+        Expr::StringInterpolation(ref expressions) => {
+            if value_span[0] != b'$' {
+                expressions
+                    .iter()
+                    .filter(|expr| matches!(expr.expr, Expr::String(_)))
+                    .filter_map(bareword_error)
+                    .next()
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
 pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
 
@@ -5665,9 +5713,32 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
     }
 
     let inner_span = Span::new(start, end);
-    let source = working_set.get_span_contents(inner_span);
 
-    let (tokens, err) = lex(source, start, &[b'\n', b'\r', b','], &[b':'], true);
+    let mut lex_state = LexState {
+        input: working_set.get_span_contents(inner_span),
+        output: Vec::new(),
+        error: None,
+        span_offset: start,
+    };
+    let mut lex_n = |additional_whitespace, special_tokens, max_tokens| {
+        lex_n_tokens(
+            &mut lex_state,
+            additional_whitespace,
+            special_tokens,
+            true,
+            max_tokens,
+        )
+    };
+    loop {
+        if lex_n(&[b'\n', b'\r', b','], &[b':'], 2) < 2 {
+            break;
+        };
+        if lex_n(&[b'\n', b'\r', b','], &[], 1) < 1 {
+            break;
+        };
+    }
+    let (tokens, err) = (lex_state.output, lex_state.error);
+
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -5711,7 +5782,22 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             ));
         } else {
             // Normal key-value pair
-            let field = parse_value(working_set, curr_span, &SyntaxShape::Any);
+            let field_token = &tokens[idx];
+            let field = if field_token.contents != TokenContents::Item {
+                working_set.error(ParseError::Expected(
+                    "item in record key position",
+                    Span::new(field_token.span.start, field_token.span.end),
+                ));
+                garbage(working_set, curr_span)
+            } else {
+                let field = parse_value(working_set, curr_span, &SyntaxShape::Any);
+                if let Some(error) = check_record_key_or_value(working_set, &field, "key") {
+                    working_set.error(error);
+                    garbage(working_set, field.span)
+                } else {
+                    field
+                }
+            };
 
             idx += 1;
             if idx == tokens.len() {
@@ -5756,7 +5842,26 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
                 ));
                 break;
             }
-            let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+
+            let value_token = &tokens[idx];
+            let value = if value_token.contents != TokenContents::Item {
+                working_set.error(ParseError::Expected(
+                    "item in record value position",
+                    Span::new(value_token.span.start, value_token.span.end),
+                ));
+                garbage(
+                    working_set,
+                    Span::new(value_token.span.start, value_token.span.end),
+                )
+            } else {
+                let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+                if let Some(parse_error) = check_record_key_or_value(working_set, &value, "value") {
+                    working_set.error(parse_error);
+                    garbage(working_set, value.span)
+                } else {
+                    value
+                }
+            };
             idx += 1;
 
             if let Some(field) = field.as_string() {

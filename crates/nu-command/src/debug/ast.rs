@@ -10,7 +10,7 @@ impl Command for Ast {
         "ast"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Print the abstract syntax tree (ast) for a pipeline."
     }
 

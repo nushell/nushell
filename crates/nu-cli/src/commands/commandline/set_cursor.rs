@@ -22,7 +22,7 @@ impl Command for SubCommand {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Set the current cursor position."
     }
 

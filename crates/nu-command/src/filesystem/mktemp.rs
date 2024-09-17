@@ -10,7 +10,7 @@ impl Command for Mktemp {
         "mktemp"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Create temporary files or directories using uutils/coreutils mktemp."
     }
 

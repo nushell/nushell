@@ -26,7 +26,7 @@ impl Command for SubCommand {
             .category(Category::Network)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parses a url."
     }
 

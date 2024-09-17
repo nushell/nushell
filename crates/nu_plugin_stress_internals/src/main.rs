@@ -201,8 +201,8 @@ fn signatures() -> Vec<Value> {
     vec![json!({
         "sig": {
             "name": "stress_internals",
-            "usage": "Used to test behavior of plugin protocol",
-            "extra_usage": "",
+            "description": "Used to test behavior of plugin protocol",
+            "extra_description": "",
             "search_terms": [],
             "required_positional": [],
             "optional_positional": [],

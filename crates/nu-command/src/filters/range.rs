@@ -20,7 +20,7 @@ impl Command for Range {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Return only the selected rows."
     }
 

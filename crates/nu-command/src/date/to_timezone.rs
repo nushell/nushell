@@ -19,11 +19,11 @@ impl Command for SubCommand {
             .category(Category::Date)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert a date to a given time zone."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Use 'date list-timezone' to list all supported time zones."
     }
 

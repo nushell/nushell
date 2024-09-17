@@ -11,7 +11,7 @@ impl Command for FromJson {
         "from json"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert from json to structured data."
     }
 

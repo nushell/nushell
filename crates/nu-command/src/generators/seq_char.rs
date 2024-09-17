@@ -8,7 +8,7 @@ impl Command for SeqChar {
         "seq char"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Print a sequence of ASCII characters."
     }
 

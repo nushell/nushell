@@ -29,7 +29,7 @@ impl Command for Last {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Return only the last several rows of the input. Counterpart of `first`. Opposite of `drop`."
     }
 

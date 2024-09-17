@@ -9,7 +9,7 @@ impl Command for EachWhile {
         "each while"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Run a closure on each row of the input list until a null is found, then create a new list with the results."
     }
 

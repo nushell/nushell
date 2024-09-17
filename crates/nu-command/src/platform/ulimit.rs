@@ -502,7 +502,7 @@ impl Command for ULimit {
         "ulimit"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Set or get resource usage limits."
     }
 

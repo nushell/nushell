@@ -22,11 +22,11 @@ impl Command for Generate {
             .category(Category::Generators)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Generate a list of values by successively invoking a closure."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"The generator closure accepts a single argument and returns a record
 containing two optional keys: 'out' and 'next'. Each invocation, the 'out'
 value, if present, is added to the stream. If a 'next' key is present, it is

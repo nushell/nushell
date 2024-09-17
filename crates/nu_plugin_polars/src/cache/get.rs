@@ -21,7 +21,7 @@ impl PluginCommand for CacheGet {
         "polars store-get"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Gets a Dataframe or other object from the plugin cache."
     }
 

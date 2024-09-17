@@ -8,7 +8,7 @@ impl Command for BytesBuild {
         "bytes build"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Create bytes from the arguments."
     }
 

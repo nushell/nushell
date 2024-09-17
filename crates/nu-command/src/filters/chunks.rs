@@ -20,11 +20,11 @@ impl Command for Chunks {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Divide a list or table into chunks of `chunk_size`."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This command will error if `chunk_size` is negative or zero."
     }
 

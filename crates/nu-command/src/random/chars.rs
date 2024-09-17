@@ -28,7 +28,7 @@ impl Command for SubCommand {
             .category(Category::Random)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Generate random chars uniformly distributed over ASCII letters and numbers: a-z, A-Z and 0-9."
     }
 

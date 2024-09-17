@@ -25,7 +25,7 @@ impl Command for BytesReverse {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Reverse the bytes in the pipeline."
     }
 

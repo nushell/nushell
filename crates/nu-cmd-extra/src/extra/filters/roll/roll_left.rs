@@ -33,7 +33,7 @@ impl Command for RollLeft {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Roll record or table columns left."
     }
 

@@ -32,11 +32,11 @@ impl Command for SubCommand {
             .category(Category::Path)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert a path into structured data."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Each path is split into a table with 'parent', 'stem' and 'extension' fields.
 On Windows, an extra 'prefix' column is added."#
     }

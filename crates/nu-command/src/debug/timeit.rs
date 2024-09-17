@@ -9,7 +9,7 @@ impl Command for TimeIt {
         "timeit"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Time the running time of a block."
     }
 
@@ -59,7 +59,7 @@ impl Command for TimeIt {
             } else {
                 let eval_expression_with_input = get_eval_expression_with_input(engine_state);
                 let expression = &command_to_run.clone();
-                eval_expression_with_input(engine_state, stack, expression, input)?.0
+                eval_expression_with_input(engine_state, stack, expression, input)?
             }
         } else {
             PipelineData::empty()

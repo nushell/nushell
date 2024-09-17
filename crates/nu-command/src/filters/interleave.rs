@@ -10,11 +10,11 @@ impl Command for Interleave {
         "interleave"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Read multiple streams in parallel and combine them into one stream."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This combinator is useful for reading output from multiple commands.
 
 If input is provided to `interleave`, the input will be combined with the

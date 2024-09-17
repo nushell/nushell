@@ -14,7 +14,7 @@ impl Command for Move {
         "move"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Move columns before or after other columns."
     }
 

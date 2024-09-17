@@ -29,7 +29,7 @@ impl Command for DecodeHex {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Hex decode a value."
     }
 

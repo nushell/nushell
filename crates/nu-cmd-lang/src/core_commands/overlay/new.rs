@@ -9,7 +9,7 @@ impl Command for OverlayNew {
         "overlay new"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Create an empty overlay."
     }
 
@@ -27,7 +27,7 @@ impl Command for OverlayNew {
             .category(Category::Core)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"The command will first create an empty module, then add it as an overlay.
 
 This command is a parser keyword. For details, check:

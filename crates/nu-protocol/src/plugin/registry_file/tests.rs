@@ -45,9 +45,9 @@ fn bar_plugin() -> PluginRegistryItem {
             },
             commands: vec![PluginSignature {
                 sig: Signature::new("bar")
-                    .usage("overwrites files with random data")
-                    .optional_named_flag_arg("force", "ignore errors", Some('f'))
-                    .required_positional_arg(
+                    .description("overwrites files with random data")
+                    .switch("force", "ignore errors", Some('f'))
+                    .required(
                         "path",
                         SyntaxShape::Filepath,
                         "file to overwrite with random data",

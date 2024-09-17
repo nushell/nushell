@@ -42,11 +42,11 @@ impl Command for RegistryQuery {
             .category(Category::System)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Query the Windows registry."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Currently supported only on Windows systems."
     }
 

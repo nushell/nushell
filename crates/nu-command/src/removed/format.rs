@@ -24,7 +24,7 @@ impl Command for SubCommand {
             .category(Category::Removed)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Removed command: use `format date` instead."
     }
 

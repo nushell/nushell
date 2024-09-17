@@ -40,7 +40,7 @@ impl Command for BytesRemove {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Remove bytes."
     }
 

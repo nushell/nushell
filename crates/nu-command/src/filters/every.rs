@@ -27,7 +27,7 @@ impl Command for Every {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show (or skip) every n-th row, starting from the first one."
     }
 

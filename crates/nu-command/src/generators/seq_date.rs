@@ -11,7 +11,7 @@ impl Command for SeqDate {
         "seq date"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Print sequences of dates."
     }
 

@@ -27,7 +27,7 @@ import sys
 import json
 
 
-NUSHELL_VERSION = "0.96.2"
+NUSHELL_VERSION = "0.97.2"
 PLUGIN_VERSION = "0.1.1"  # bump if you change commands!
 
 
@@ -44,8 +44,8 @@ def signatures():
             {
                 "sig": {
                     "name": "nu-python",
-                    "usage": "Signature test for Python",
-                    "extra_usage": "",
+                    "description": "Signature test for Python",
+                    "extra_description": "",
                     "required_positional": [
                         {
                             "name": "a",

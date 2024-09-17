@@ -51,7 +51,7 @@ impl Command for BitsNot {
             .category(Category::Bits)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Performs logical negation on each bit."
     }
 

@@ -36,7 +36,7 @@ impl Command for Rename {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates a new table with columns renamed."
     }
 

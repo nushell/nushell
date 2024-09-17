@@ -26,7 +26,7 @@ impl Command for StrJoin {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Concatenate multiple strings into a single string, with an optional separator between each."
     }
 

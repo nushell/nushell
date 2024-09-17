@@ -20,7 +20,7 @@ impl Command for BytesCollect {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Concatenate multiple binary into a single binary, with an optional separator between each."
     }
 

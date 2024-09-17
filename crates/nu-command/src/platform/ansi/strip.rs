@@ -40,7 +40,7 @@ impl Command for SubCommand {
             .category(Category::Platform)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Strip ANSI escape sequences from a string."
     }
 

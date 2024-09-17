@@ -65,7 +65,7 @@ impl Command for ToCsv {
         ]
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert table into .csv text ."
     }
 
@@ -137,7 +137,7 @@ mod test {
 
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
-    use crate::Metadata;
+    use crate::{Get, Metadata};
 
     use super::*;
 
@@ -157,6 +157,7 @@ mod test {
 
             working_set.add_decl(Box::new(ToCsv {}));
             working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
 
             working_set.render()
         };

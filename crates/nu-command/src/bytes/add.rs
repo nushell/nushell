@@ -51,7 +51,7 @@ impl Command for BytesAdd {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Add specified bytes to the input."
     }
 

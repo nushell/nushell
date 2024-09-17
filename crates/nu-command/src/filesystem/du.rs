@@ -27,7 +27,7 @@ impl Command for Du {
         "du"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Find disk usage sizes of specified items."
     }
 

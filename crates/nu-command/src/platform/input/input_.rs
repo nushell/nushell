@@ -18,7 +18,7 @@ impl Command for Input {
         "input"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get input from the user."
     }
 

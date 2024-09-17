@@ -29,11 +29,11 @@ impl Command for Reject {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Remove the given columns or rows from the table. Opposite of `select`."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "To remove a quantity of rows or columns, use `skip`, `drop`, or `drop column`."
     }
 

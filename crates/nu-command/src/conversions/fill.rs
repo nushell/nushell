@@ -32,7 +32,7 @@ impl Command for Fill {
         "fill"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Fill and Align."
     }
 

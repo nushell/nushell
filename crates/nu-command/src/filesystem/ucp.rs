@@ -20,7 +20,7 @@ impl Command for UCp {
         "cp"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Copy files using uutils/coreutils cp."
     }
 

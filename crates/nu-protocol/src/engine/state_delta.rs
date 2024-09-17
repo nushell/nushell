@@ -1,8 +1,8 @@
 use crate::{
     ast::Block,
     engine::{
-        usage::Usage, CachedFile, Command, EngineState, OverlayFrame, ScopeFrame, Variable,
-        VirtualPath,
+        description::Doccomments, CachedFile, Command, EngineState, OverlayFrame, ScopeFrame,
+        Variable, VirtualPath,
     },
     Module, Span,
 };
@@ -22,7 +22,7 @@ pub struct StateDelta {
     pub blocks: Vec<Arc<Block>>,             // indexed by BlockId
     pub(super) modules: Vec<Arc<Module>>,    // indexed by ModuleId
     pub spans: Vec<Span>,                    // indexed by SpanId
-    pub(super) usage: Usage,
+    pub(super) doccomments: Doccomments,
     pub scope: Vec<ScopeFrame>,
     #[cfg(feature = "plugin")]
     pub(super) plugins: Vec<Arc<dyn RegisteredPlugin>>,
@@ -48,7 +48,7 @@ impl StateDelta {
             modules: vec![],
             spans: vec![],
             scope: vec![scope_frame],
-            usage: Usage::new(),
+            doccomments: Doccomments::new(),
             #[cfg(feature = "plugin")]
             plugins: vec![],
             #[cfg(feature = "plugin")]

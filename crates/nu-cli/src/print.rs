@@ -30,11 +30,11 @@ impl Command for Print {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Print the given values to stdout."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Unlike `echo`, this command does not return any value (`print | describe` will return "nothing").
 Since this command has no output, there is no point in piping it with other commands.
 

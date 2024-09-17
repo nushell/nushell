@@ -56,7 +56,7 @@ impl Command for SubCommand {
             )
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Split a string's words into separate rows."
     }
 

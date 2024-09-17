@@ -5,7 +5,7 @@ use nu_cli::{eval_config_contents, eval_source};
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, report_error_new, Config, ParseError, PipelineData, Spanned,
+    report_parse_error, report_shell_error, Config, ParseError, PipelineData, Spanned,
 };
 use nu_utils::{get_default_config, get_default_env};
 use std::{
@@ -34,19 +34,17 @@ pub(crate) fn read_config_file(
     );
     // Load config startup file
     if let Some(file) = config_file {
-        let working_set = StateWorkingSet::new(engine_state);
-
         match engine_state.cwd_as_string(Some(stack)) {
             Ok(cwd) => {
                 if let Ok(path) = canonicalize_with(&file.item, cwd) {
                     eval_config_contents(path, engine_state, stack);
                 } else {
                     let e = ParseError::FileNotFound(file.item, file.span);
-                    report_error(&working_set, &e);
+                    report_parse_error(&StateWorkingSet::new(engine_state), &e);
                 }
             }
             Err(e) => {
-                report_error(&working_set, &e);
+                report_shell_error(engine_state, &e);
             }
         }
     } else if let Some(mut config_path) = nu_path::config_dir() {
@@ -168,11 +166,11 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
     match engine_state.cwd(Some(stack)) {
         Ok(cwd) => {
             if let Err(e) = engine_state.merge_env(stack, cwd) {
-                report_error_new(engine_state, &e);
+                report_shell_error(engine_state, &e);
             }
         }
         Err(e) => {
-            report_error_new(engine_state, &e);
+            report_shell_error(engine_state, &e);
         }
     }
 }
@@ -254,11 +252,11 @@ fn eval_default_config(
     match engine_state.cwd(Some(stack)) {
         Ok(cwd) => {
             if let Err(e) = engine_state.merge_env(stack, cwd) {
-                report_error_new(engine_state, &e);
+                report_shell_error(engine_state, &e);
             }
         }
         Err(e) => {
-            report_error_new(engine_state, &e);
+            report_shell_error(engine_state, &e);
         }
     }
 }

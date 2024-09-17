@@ -9,11 +9,11 @@ impl Command for Where {
         "where"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Filter values based on a row condition."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command works similar to 'filter' but allows extra shorthands for working with
 tables, known as "row conditions". On the other hand, reading the condition from a variable is
 not supported."#

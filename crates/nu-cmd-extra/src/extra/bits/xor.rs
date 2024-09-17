@@ -38,7 +38,7 @@ impl Command for BitsXor {
             .category(Category::Bits)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Performs bitwise xor for ints or binary values."
     }
 

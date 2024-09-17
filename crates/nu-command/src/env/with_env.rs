@@ -25,7 +25,7 @@ impl Command for WithEnv {
             .category(Category::Env)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Runs a block with an environment variable set."
     }
 

@@ -42,7 +42,7 @@ impl Command for SubCommand {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Checks if string input contains a substring."
     }
 
@@ -78,7 +78,7 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         if call.has_flag_const(working_set, "not")? {
-            nu_protocol::report_error_new(
+            nu_protocol::report_shell_error(
                 working_set.permanent(),
                 &ShellError::GenericError {
                     error: "Deprecated option".into(),

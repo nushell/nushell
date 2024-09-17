@@ -33,11 +33,11 @@ impl PluginCommand for CallDecl {
             )
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Demonstrates calling other commands from plugins using `call_decl()`."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "
 The arguments will not be typechecked at parse time. This command is for
 demonstration only, and should not be used for anything real.

@@ -259,10 +259,13 @@ macro_rules! generate_tests {
                 ) => {
                     assert_eq!(returned_signature.len(), 1);
                     assert_eq!(signature.sig.name, returned_signature[0].sig.name);
-                    assert_eq!(signature.sig.usage, returned_signature[0].sig.usage);
                     assert_eq!(
-                        signature.sig.extra_usage,
-                        returned_signature[0].sig.extra_usage
+                        signature.sig.description,
+                        returned_signature[0].sig.description
+                    );
+                    assert_eq!(
+                        signature.sig.extra_description,
+                        returned_signature[0].sig.extra_description
                     );
                     assert_eq!(signature.sig.is_filter, returned_signature[0].sig.is_filter);
 

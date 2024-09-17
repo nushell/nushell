@@ -1,6 +1,5 @@
 mod case;
 mod contains;
-mod deunicode;
 mod distance;
 mod ends_with;
 mod expand;
@@ -16,7 +15,6 @@ mod trim;
 
 pub use case::*;
 pub use contains::SubCommand as StrContains;
-pub use deunicode::SubCommand as StrDeunicode;
 pub use distance::SubCommand as StrDistance;
 pub use ends_with::SubCommand as StrEndswith;
 pub use expand::SubCommand as StrExpand;

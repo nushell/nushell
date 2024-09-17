@@ -138,11 +138,11 @@ impl Command for ToHtml {
         ]
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert table into simple HTML."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Screenshots of the themes can be browsed here: https://github.com/mbadolato/iTerm2-Color-Schemes."
     }
 

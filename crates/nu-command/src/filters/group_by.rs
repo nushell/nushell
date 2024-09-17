@@ -34,7 +34,7 @@ impl Command for GroupBy {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Splits a list or table into groups, and returns a record containing those groups."
     }
 

@@ -21,7 +21,7 @@ impl Command for RollDown {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Roll table rows down."
     }
 

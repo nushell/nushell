@@ -9,7 +9,7 @@ impl Command for MetadataSet {
         "metadata set"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Set the metadata for items in the stream."
     }
 

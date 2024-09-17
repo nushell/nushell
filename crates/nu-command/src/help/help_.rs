@@ -23,17 +23,17 @@ impl Command for Help {
             .named_flag_arg(
                 "find",
                 SyntaxShape::String,
-                "string to find in command names, usage, and search terms",
+                "string to find in command names, descriptions, and search terms",
                 Some('f'),
             )
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Display help information about different parts of Nushell."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"`help word` searches for "word" in commands, aliases and modules, in that order."#
     }
 
@@ -118,7 +118,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
                 result: None,
             },
             Example {
-                description: "search for string in command names, usage and search terms",
+                description: "search for string in command names, descriptions, and search terms",
                 example: "help --find char",
                 result: None,
             },
@@ -193,7 +193,8 @@ pub fn highlight_search_string(
     string_style: &Style,
     highlight_style: &Style,
 ) -> Result<String, ShellError> {
-    let regex_string = format!("(?i){needle}");
+    let escaped_needle = regex::escape(needle);
+    let regex_string = format!("(?i){escaped_needle}");
     let regex = match Regex::new(&regex_string) {
         Ok(regex) => regex,
         Err(err) => {
@@ -207,7 +208,7 @@ pub fn highlight_search_string(
         }
     };
     // strip haystack to remove existing ansi style
-    let stripped_haystack = nu_utils::strip_ansi_likely(haystack);
+    let stripped_haystack = nu_utils::strip_ansi_string_unlikely(haystack.to_string());
     let mut last_match_end = 0;
     let mut highlighted = String::new();
 

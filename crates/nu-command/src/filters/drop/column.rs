@@ -24,7 +24,7 @@ impl Command for DropColumn {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Remove N columns at the right-hand end of the input table. To remove columns by name, use `reject`."
     }
 

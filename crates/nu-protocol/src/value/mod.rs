@@ -832,7 +832,7 @@ impl Value {
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
-            Value::Date { val, .. } => match &config.datetime_normal_format {
+            Value::Date { val, .. } => match &config.datetime_format.normal {
                 Some(format) => self.format_datetime(val, format),
                 None => {
                     format!(
@@ -886,7 +886,7 @@ impl Value {
     /// - "[record {n} fields]"
     pub fn to_abbreviated_string(&self, config: &Config) -> String {
         match self {
-            Value::Date { val, .. } => match &config.datetime_table_format {
+            Value::Date { val, .. } => match &config.datetime_format.table {
                 Some(format) => self.format_datetime(val, format),
                 None => HumanTime::from(*val).to_string(),
             },
@@ -3317,7 +3317,18 @@ impl Value {
     pub fn bit_shl(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs << rhs, span))
+                // Currently we disallow negative operands like Rust's `Shl`
+                // Cheap guarding with TryInto<u32>
+                if let Some(val) = (*rhs).try_into().ok().and_then(|rhs| lhs.checked_shl(rhs)) {
+                    Ok(Value::int(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "right operand to bit-shl exceeds available bits in underlying data"
+                            .into(),
+                        span,
+                        help: format!("Limit operand to 0 <= rhs < {}", i64::BITS),
+                    })
+                }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::ShiftLeft), op, rhs)
@@ -3335,7 +3346,18 @@ impl Value {
     pub fn bit_shr(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs >> rhs, span))
+                // Currently we disallow negative operands like Rust's `Shr`
+                // Cheap guarding with TryInto<u32>
+                if let Some(val) = (*rhs).try_into().ok().and_then(|rhs| lhs.checked_shr(rhs)) {
+                    Ok(Value::int(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "right operand to bit-shr exceeds available bits in underlying data"
+                            .into(),
+                        span,
+                        help: format!("Limit operand to 0 <= rhs < {}", i64::BITS),
+                    })
+                }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::ShiftRight), op, rhs)

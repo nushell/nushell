@@ -193,7 +193,7 @@ impl Command for Char {
         true
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Output special characters (e.g., 'newline')."
     }
 

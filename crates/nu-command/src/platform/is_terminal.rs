@@ -18,7 +18,7 @@ impl Command for IsTerminal {
             .category(Category::Platform)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Check if stdin, stdout, or stderr is a terminal."
     }
 

@@ -20,7 +20,7 @@ impl Command for Any {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Tests if any element of the input fulfills a predicate expression."
     }
 

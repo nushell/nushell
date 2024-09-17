@@ -23,7 +23,7 @@ impl Command for StorImport {
             .category(Category::Database)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Import a sqlite database file into the in-memory sqlite database."
     }
 

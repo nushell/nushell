@@ -17,7 +17,7 @@ impl PluginCommand for CacheRemove {
         "polars store-rm"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Removes a stored Dataframe or other object from the plugin cache."
     }
 

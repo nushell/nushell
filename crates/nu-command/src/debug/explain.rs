@@ -12,7 +12,7 @@ impl Command for Explain {
         "explain"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Explain closure contents."
     }
 

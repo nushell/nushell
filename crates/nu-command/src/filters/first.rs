@@ -31,7 +31,7 @@ impl Command for First {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Return only the first several rows of the input. Counterpart of `last`. Opposite of `skip`."
     }
 

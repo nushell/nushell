@@ -10,11 +10,11 @@ impl Command for Filter {
         "filter"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Filter values based on a predicate closure."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command works similar to 'where' but allows reading the predicate closure from
 a variable. On the other hand, the "row condition" syntax is not supported."#
     }

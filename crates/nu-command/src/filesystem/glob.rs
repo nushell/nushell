@@ -44,7 +44,7 @@ impl Command for Glob {
             .category(Category::FileSystem)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates a list of files and/or folders based on the glob pattern provided."
     }
 
@@ -114,7 +114,7 @@ impl Command for Glob {
         ]
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"For more glob pattern help, please refer to https://docs.rs/crate/wax/latest"#
     }
 

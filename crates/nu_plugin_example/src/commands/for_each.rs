@@ -13,11 +13,11 @@ impl PluginCommand for ForEach {
         "example for-each"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Example execution of a closure with a stream"
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Prints each value the closure returns to stderr"
     }
 

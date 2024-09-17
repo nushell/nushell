@@ -10,11 +10,11 @@ impl Command for Each {
         "each"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Run a closure on each row of the input list, creating a new list with the results."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Since tables are lists of records, passing a table into 'each' will
 iterate over each record, not necessarily each cell within it.
 

@@ -45,11 +45,11 @@ impl Command for Table {
         "table"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Render the table."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "If the table contains a column called 'index', this column is used as the table index instead of the usual continuous index."
     }
 
@@ -258,7 +258,7 @@ fn parse_table_config(
     let flatten_separator: Option<String> = call.get_flag(state, stack, "flatten-separator")?;
     let abbrivation: Option<usize> = call
         .get_flag(state, stack, "abbreviated")?
-        .or_else(|| stack.get_config(state).table_abbreviation_threshold);
+        .or_else(|| stack.get_config(state).table.abbreviated_row_count);
     let table_view = match (expand, collapse) {
         (false, false) => TableView::General,
         (_, true) => TableView::Collapsed,
@@ -269,7 +269,7 @@ fn parse_table_config(
         },
     };
     let theme =
-        get_theme_flag(call, state, stack)?.unwrap_or_else(|| stack.get_config(state).table_mode);
+        get_theme_flag(call, state, stack)?.unwrap_or_else(|| stack.get_config(state).table.mode);
     let index = get_index_flag(call, state, stack)?;
 
     let term_width = get_width_param(width_param);
@@ -520,7 +520,7 @@ fn handle_record(
         }
     }
 
-    let indent = (config.table_indent.left, config.table_indent.right);
+    let indent = (config.table.padding.left, config.table.padding.right);
     let opts = TableOpts::new(
         &config,
         styles,
@@ -821,7 +821,7 @@ impl PagingTableCreator {
             self.engine_state.signals(),
             self.head,
             self.cfg.term_width,
-            (cfg.table_indent.left, cfg.table_indent.right),
+            (cfg.table.padding.left, cfg.table.padding.right),
             self.cfg.theme,
             self.cfg.index.unwrap_or(0) + self.row_offset,
             self.cfg.index.is_none(),
@@ -1010,7 +1010,7 @@ fn render_path_name(
     ls_colors: &LsColors,
     span: Span,
 ) -> Option<Value> {
-    if !config.use_ls_colors {
+    if !config.ls.use_ls_colors {
         return None;
     }
 
@@ -1024,10 +1024,10 @@ fn render_path_name(
     // clickable links don't work in remote SSH sessions
     let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
     //TODO: Deprecated show_clickable_links_in_ls in favor of shell_integration_osc8
-    let show_clickable_links = config.show_clickable_links_in_ls
+    let show_clickable_links = config.ls.clickable_links
         && !in_ssh_session
         && has_metadata
-        && config.shell_integration_osc8;
+        && config.shell_integration.osc8;
 
     let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
 
@@ -1074,7 +1074,7 @@ fn create_empty_placeholder(
     stack: &Stack,
 ) -> String {
     let config = stack.get_config(engine_state);
-    if !config.table_show_empty {
+    if !config.table.show_empty {
         return String::new();
     }
 

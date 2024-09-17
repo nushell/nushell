@@ -15,7 +15,7 @@ impl Command for Start {
         "start"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Open a folder, file or website in the default application or viewer."
     }
 

@@ -23,7 +23,7 @@ impl Command for StorExport {
             .category(Category::Database)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Export the in-memory sqlite database to a sqlite database file."
     }
 

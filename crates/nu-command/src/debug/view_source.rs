@@ -11,7 +11,7 @@ impl Command for ViewSource {
         "view source"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "View a block, module, or a definition."
     }
 

@@ -25,7 +25,7 @@ impl Command for ErrorMake {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Create an error."
     }
 

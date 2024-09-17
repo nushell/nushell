@@ -36,11 +36,11 @@ impl Command for SubCommand {
             .category(Category::Conversions)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert value to duration."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Max duration value is i64::MAX nanoseconds; max duration time unit is wk (weeks)."
     }
 

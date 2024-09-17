@@ -8,7 +8,7 @@ impl Command for Encode {
         "encode"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         // Note: "Encode a UTF-8 string into other forms" is semantically incorrect because
         // Nushell strings, as abstract values, have no user-facing encoding.
         // (Remember that "encoding" exclusively means "how the characters are
@@ -32,7 +32,7 @@ impl Command for Encode {
             .category(Category::Strings)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Multiple encodings are supported; here are a few:
 big5, euc-jp, euc-kr, gbk, iso-8859-1, cp1252, latin5
 

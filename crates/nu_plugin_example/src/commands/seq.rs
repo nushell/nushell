@@ -16,7 +16,7 @@ impl PluginCommand for Seq {
         "example seq"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Example stream generator for a list of values"
     }
 

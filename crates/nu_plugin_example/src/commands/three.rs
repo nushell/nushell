@@ -12,7 +12,7 @@ impl SimplePluginCommand for Three {
         "example three"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Plugin test example 3. Returns labeled error"
     }
 

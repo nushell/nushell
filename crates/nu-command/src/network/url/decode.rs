@@ -31,7 +31,7 @@ impl Command for SubCommand {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts a percent-encoded web safe string to a string."
     }
 

@@ -43,11 +43,11 @@ impl Command for InputListen {
             )])
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Listen for user interface event."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"There are 5 different type of events: focus, key, mouse, paste, resize. Each will produce a
 corresponding record, distinguished by type field:
 ```

@@ -89,10 +89,6 @@ impl Inc {
         self.error = Some(message.to_string());
     }
 
-    pub fn usage() -> &'static str {
-        "Usage: inc field [--major|--minor|--patch]"
-    }
-
     pub fn inc(&self, head: Span, value: &Value) -> Result<Value, LabeledError> {
         if let Some(cell_path) = &self.cell_path {
             let working_value = value.clone();

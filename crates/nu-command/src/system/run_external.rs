@@ -23,7 +23,7 @@ impl Command for External {
         "run-external"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Runs external command."
     }
 
@@ -506,7 +506,7 @@ pub fn which(name: impl AsRef<OsStr>, paths: &str, cwd: &Path) -> Option<PathBuf
 }
 
 /// Returns true if `name` is a (somewhat useful) CMD internal command. The full
-/// list can be found at https://ss64.com/nt/syntax-internal.html
+/// list can be found at <https://ss64.com/nt/syntax-internal.html>
 fn is_cmd_internal_command(name: &str) -> bool {
     const COMMANDS: &[&str] = &[
         "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",

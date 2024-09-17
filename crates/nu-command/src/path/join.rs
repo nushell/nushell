@@ -33,11 +33,11 @@ impl Command for SubCommand {
             .category(Category::Path)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Join a structured path or a list of path parts."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Optionally, append an additional path to the result. It is designed to accept
 the output of 'path parse' and 'path split' subcommands."#
     }

@@ -13,7 +13,7 @@ impl PluginCommand for Sum {
         "example sum"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Example stream consumer for a list of values"
     }
 

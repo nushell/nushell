@@ -27,7 +27,7 @@ impl Command for Tutor {
             .category(Category::Misc)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Run the tutorial. To begin, run: tutor."
     }
 

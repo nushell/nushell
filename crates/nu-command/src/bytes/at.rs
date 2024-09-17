@@ -53,7 +53,7 @@ impl Command for BytesAt {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get bytes defined by a range."
     }
 

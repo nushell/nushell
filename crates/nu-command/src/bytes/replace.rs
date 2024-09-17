@@ -41,7 +41,7 @@ impl Command for BytesReplace {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Find and replace binary."
     }
 

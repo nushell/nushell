@@ -15,7 +15,7 @@ impl Command for ScopeEngineStats {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Output stats on the engine in the current state."
     }
 

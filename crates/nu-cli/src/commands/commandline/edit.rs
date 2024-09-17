@@ -34,7 +34,7 @@ impl Command for SubCommand {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Modify the current command line input buffer."
     }
 

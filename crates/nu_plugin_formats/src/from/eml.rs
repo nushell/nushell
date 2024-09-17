@@ -18,7 +18,7 @@ impl SimplePluginCommand for FromEml {
         "from eml"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse text as .eml and create record."
     }
 

@@ -29,7 +29,7 @@ impl Command for SubCommand {
             .category(Category::Random)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Generate a random dice roll."
     }
 

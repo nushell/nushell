@@ -39,11 +39,11 @@ impl SimplePluginCommand for Config {
         "example config"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show plugin configuration"
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "The configuration is set under $env.config.plugins.example"
     }
 

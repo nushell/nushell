@@ -17,7 +17,7 @@ impl Command for SchemaDb {
             .category(Category::Database)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show the schema of a SQLite database."
     }
 

@@ -8,11 +8,11 @@ impl Command for ViewSpan {
         "view span"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "View the contents of a span."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This command is meant for debugging purposes.\nIt allows you to view the contents of nushell spans.\nOne way to get spans is to pipe something into 'debug --raw'.\nThen you can use the Span { start, end } values as the start and end values for this command."
     }
 

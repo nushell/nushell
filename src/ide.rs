@@ -3,7 +3,7 @@ use nu_cli::NuCompleter;
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error_new, DeclId, ShellError, Span, Value, VarId,
+    report_shell_error, DeclId, ShellError, Span, Value, VarId,
 };
 use reedline::Completer;
 use serde_json::{json, Value as JsonValue};
@@ -55,7 +55,7 @@ fn read_in_file<'a>(
     let file = std::fs::read(file_path)
         .into_diagnostic()
         .unwrap_or_else(|e| {
-            report_error_new(
+            report_shell_error(
                 engine_state,
                 &ShellError::FileNotFoundCustom {
                     msg: format!("Could not read file '{}': {:?}", file_path, e.to_string()),
@@ -203,11 +203,11 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
             let mut description = String::new();
 
             // first description
-            description.push_str(&format!("{}\n", decl.usage()));
+            description.push_str(&format!("{}\n", decl.description()));
 
             // additional description
-            if !decl.extra_usage().is_empty() {
-                description.push_str(&format!("\n{}\n", decl.extra_usage()));
+            if !decl.extra_description().is_empty() {
+                description.push_str(&format!("\n{}\n", decl.extra_description()));
             }
 
             // Usage
@@ -642,8 +642,8 @@ pub fn ast(engine_state: &mut EngineState, file_path: &str) {
                 {
                     "type": "ast",
                     "span": {
-                        "start": span.start - offset,
-                        "end": span.end - offset,
+                        "start": span.start.checked_sub(offset),
+                        "end": span.end.checked_sub(offset),
                     },
                     "shape": shape.to_string(),
                     "content": content // may not be necessary, but helpful for debugging

@@ -26,7 +26,7 @@ impl Command for SkipWhile {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Skip elements of the input while a predicate is true."
     }
 

@@ -71,8 +71,11 @@ pub struct Column {
 }
 
 impl Column {
-    pub fn new(name: String, values: Vec<Value>) -> Self {
-        Self { name, values }
+    pub fn new(name: impl Into<String>, values: Vec<Value>) -> Self {
+        Self {
+            name: name.into(),
+            values,
+        }
     }
 
     pub fn new_empty(name: String) -> Self {
@@ -149,7 +152,7 @@ pub fn create_column(
 ) -> Result<Column, ShellError> {
     let size = to_row - from_row;
     let values = series_to_values(series, Some(from_row), Some(size), span)?;
-    Ok(Column::new(series.name().into(), values))
+    Ok(Column::new(series.name(), values))
 }
 
 // Adds a separator to the vector of values using the column names from the
@@ -194,9 +197,25 @@ pub fn insert_value(
         Entry::Occupied(entry) => entry.into_mut(),
     };
 
+    // If we have a schema, use that for determining how things should be added to each column
+    if let Some(schema) = maybe_schema {
+        if let Some(field) = schema.schema.get_field(&key) {
+            col_val.column_type = Some(field.data_type().clone());
+            col_val.values.push(value);
+            Ok(())
+        } else {
+            Err(ShellError::GenericError {
+                error: format!("Schema does not contain column: {key}"),
+                msg: "".into(),
+                span: Some(value.span()),
+                help: None,
+                inner: vec![],
+            })
+        }
+    }
     // Checking that the type for the value is the same
     // for the previous value in the column
-    if col_val.values.is_empty() {
+    else if col_val.values.is_empty() {
         if let Some(schema) = maybe_schema {
             if let Some(field) = schema.schema.get_field(&key) {
                 col_val.column_type = Some(field.data_type().clone());
@@ -206,8 +225,8 @@ pub fn insert_value(
         if col_val.column_type.is_none() {
             col_val.column_type = Some(value_to_data_type(&value));
         }
-
         col_val.values.push(value);
+        Ok(())
     } else {
         let prev_value = &col_val.values[col_val.values.len() - 1];
 
@@ -219,6 +238,7 @@ pub fn insert_value(
             | (Value::Date { .. }, Value::Date { .. })
             | (Value::Filesize { .. }, Value::Filesize { .. })
             | (Value::Duration { .. }, Value::Duration { .. }) => col_val.values.push(value),
+            (_, Value::Nothing { .. }) => col_val.values.push(value),
             (Value::List { .. }, _) => {
                 col_val.column_type = Some(value_to_data_type(&value));
                 col_val.values.push(value);
@@ -228,9 +248,8 @@ pub fn insert_value(
                 col_val.values.push(value);
             }
         }
+        Ok(())
     }
-
-    Ok(())
 }
 
 fn value_to_data_type(value: &Value) -> DataType {
@@ -269,16 +288,18 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| match v {
-                        Value::Float { val, .. } => Ok(*val as f32),
-                        Value::Int { val, .. } => Ok(*val as f32),
-                        x => Err(ShellError::GenericError {
-                            error: "Error converting to f32".into(),
-                            msg: "".into(),
-                            span: None,
-                            help: Some(format!("Unexpected type: {x:?}")),
-                            inner: vec![],
-                        }),
+                    .map(|v| {
+                        value_to_option(v, |v| match v {
+                            Value::Float { val, .. } => Ok(*val as f32),
+                            Value::Int { val, .. } => Ok(*val as f32),
+                            x => Err(ShellError::GenericError {
+                                error: "Error converting to f32".into(),
+                                msg: "".into(),
+                                span: None,
+                                help: Some(format!("Unexpected type: {x:?}")),
+                                inner: vec![],
+                            }),
+                        })
                     })
                     .collect();
                 Ok(Series::new(name, series_values?))
@@ -287,16 +308,18 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| match v {
-                        Value::Float { val, .. } => Ok(*val),
-                        Value::Int { val, .. } => Ok(*val as f64),
-                        x => Err(ShellError::GenericError {
-                            error: "Error converting to f64".into(),
-                            msg: "".into(),
-                            span: None,
-                            help: Some(format!("Unexpected type: {x:?}")),
-                            inner: vec![],
-                        }),
+                    .map(|v| {
+                        value_to_option(v, |v| match v {
+                            Value::Float { val, .. } => Ok(*val),
+                            Value::Int { val, .. } => Ok(*val as f64),
+                            x => Err(ShellError::GenericError {
+                                error: "Error converting to f64".into(),
+                                msg: "".into(),
+                                span: None,
+                                help: Some(format!("Unexpected type: {x:?}")),
+                                inner: vec![],
+                            }),
+                        })
                     })
                     .collect();
                 Ok(Series::new(name, series_values?))
@@ -305,7 +328,7 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| v.as_i64().map(|v| v as u8))
+                    .map(|v| value_to_option(v, |v| v.as_i64().map(|v| v as u8)))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -313,7 +336,7 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| v.as_i64().map(|v| v as u16))
+                    .map(|v| value_to_option(v, |v| v.as_i64().map(|v| v as u16)))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -321,7 +344,7 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| v.as_i64().map(|v| v as u32))
+                    .map(|v| value_to_option(v, |v| v.as_i64().map(|v| v as u32)))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -329,7 +352,7 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| v.as_i64().map(|v| v as u64))
+                    .map(|v| value_to_option(v, |v| v.as_i64().map(|v| v as u64)))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -337,7 +360,7 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| v.as_i64().map(|v| v as i8))
+                    .map(|v| value_to_option(v, |v| v.as_i64().map(|v| v as i8)))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -345,7 +368,7 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| v.as_i64().map(|v| v as i16))
+                    .map(|v| value_to_option(v, |v| v.as_i64().map(|v| v as i16)))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -353,23 +376,32 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| v.as_i64().map(|v| v as i32))
+                    .map(|v| value_to_option(v, |v| v.as_i64().map(|v| v as i32)))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
             DataType::Int64 => {
-                let series_values: Result<Vec<_>, _> =
-                    column.values.iter().map(|v| v.as_i64()).collect();
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| value_to_option(v, |v| v.as_i64()))
+                    .collect();
                 Ok(Series::new(name, series_values?))
             }
             DataType::Boolean => {
-                let series_values: Result<Vec<_>, _> =
-                    column.values.iter().map(|v| v.as_bool()).collect();
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| value_to_option(v, |v| v.as_bool()))
+                    .collect();
                 Ok(Series::new(name, series_values?))
             }
             DataType::String => {
-                let series_values: Result<Vec<_>, _> =
-                    column.values.iter().map(|v| v.coerce_string()).collect();
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| value_to_option(v, |v| v.coerce_string()))
+                    .collect();
                 Ok(Series::new(name, series_values?))
             }
             DataType::Object(_, _) => value_to_series(name, &column.values),
@@ -377,7 +409,11 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| v.as_i64().map(|v| nanos_from_timeunit(v, *time_unit)))
+                    .map(|v| {
+                        value_to_option(v, |v| {
+                            v.as_i64().map(|v| nanos_from_timeunit(v, *time_unit))
+                        })
+                    })
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -1241,6 +1277,17 @@ fn time_from_midnight(nanos: i64, span: Span) -> Result<Value, ShellError> {
         })
 }
 
+fn value_to_option<T, F>(value: &Value, func: F) -> Result<Option<T>, ShellError>
+where
+    F: FnOnce(&Value) -> Result<T, ShellError>,
+{
+    if value.is_nothing() {
+        Ok(None)
+    } else {
+        func(value).map(|v| Some(v))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use indexmap::indexmap;
@@ -1459,6 +1506,189 @@ mod tests {
             comparison_owned_record
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_typed_column_to_series_f32() -> Result<(), Box<dyn std::error::Error>> {
+        let column = TypedColumn {
+            column: Column::new(
+                "foo",
+                vec![
+                    Value::test_float(1.1),
+                    Value::test_int(2),
+                    Value::test_nothing(),
+                ],
+            ),
+            column_type: Some(DataType::Float32),
+        };
+
+        let result = typed_column_to_series("foo", column)?;
+
+        assert_eq!(result, Series::new("name", [Some(1.1f32), Some(2.0), None]));
+        Ok(())
+    }
+
+    #[test]
+    fn test_typed_column_to_series_f64() -> Result<(), Box<dyn std::error::Error>> {
+        let column = TypedColumn {
+            column: Column::new(
+                "foo",
+                vec![
+                    Value::test_float(1.1),
+                    Value::test_int(2),
+                    Value::test_nothing(),
+                ],
+            ),
+            column_type: Some(DataType::Float64),
+        };
+
+        let result = typed_column_to_series("foo", column)?;
+
+        assert_eq!(result, Series::new("name", [Some(1.1f64), Some(2.0), None]));
+        Ok(())
+    }
+
+    #[test]
+    fn test_typed_column_to_series_u8() -> Result<(), Box<dyn std::error::Error>> {
+        let column = TypedColumn {
+            column: Column::new("foo", vec![Value::test_int(1), Value::test_nothing()]),
+            column_type: Some(DataType::UInt8),
+        };
+
+        let result = typed_column_to_series("foo", column)?;
+
+        assert_eq!(result, Series::new("name", [Some(1u8), None]));
+        Ok(())
+    }
+
+    #[test]
+    fn test_typed_column_to_series_u16() -> Result<(), Box<dyn std::error::Error>> {
+        let column = TypedColumn {
+            column: Column::new("foo", vec![Value::test_int(1), Value::test_nothing()]),
+            column_type: Some(DataType::UInt16),
+        };
+
+        let result = typed_column_to_series("foo", column)?;
+
+        assert_eq!(result, Series::new("name", [Some(1u16), None]));
+        Ok(())
+    }
+
+    #[test]
+    fn test_typed_column_to_series_u32() -> Result<(), Box<dyn std::error::Error>> {
+        let column = TypedColumn {
+            column: Column::new("foo", vec![Value::test_int(1), Value::test_nothing()]),
+            column_type: Some(DataType::UInt32),
+        };
+
+        let result = typed_column_to_series("foo", column)?;
+
+        assert_eq!(result, Series::new("name", [Some(1u32), None]));
+        Ok(())
+    }
+
+    #[test]
+    fn test_typed_column_to_series_u64() -> Result<(), Box<dyn std::error::Error>> {
+        let column = TypedColumn {
+            column: Column::new("foo", vec![Value::test_int(1), Value::test_nothing()]),
+            column_type: Some(DataType::UInt64),
+        };
+
+        let result = typed_column_to_series("foo", column)?;
+
+        assert_eq!(result, Series::new("name", [Some(1u64), None]));
+        Ok(())
+    }
+
+    #[test]
+    fn test_typed_column_to_series_i8() -> Result<(), Box<dyn std::error::Error>> {
+        let column = TypedColumn {
+            column: Column::new("foo", vec![Value::test_int(1), Value::test_nothing()]),
+            column_type: Some(DataType::Int8),
+        };
+
+        let result = typed_column_to_series("foo", column)?;
+
+        assert_eq!(result, Series::new("name", [Some(1i8), None]));
+        Ok(())
+    }
+
+    #[test]
+    fn test_typed_column_to_series_i16() -> Result<(), Box<dyn std::error::Error>> {
+        let column = TypedColumn {
+            column: Column::new("foo", vec![Value::test_int(1), Value::test_nothing()]),
+            column_type: Some(DataType::Int16),
+        };
+
+        let result = typed_column_to_series("foo", column)?;
+
+        assert_eq!(result, Series::new("name", [Some(1i16), None]));
+        Ok(())
+    }
+
+    #[test]
+    fn test_typed_column_to_series_i32() -> Result<(), Box<dyn std::error::Error>> {
+        let column = TypedColumn {
+            column: Column::new("foo", vec![Value::test_int(1), Value::test_nothing()]),
+            column_type: Some(DataType::Int32),
+        };
+
+        let result = typed_column_to_series("foo", column)?;
+
+        assert_eq!(result, Series::new("name", [Some(1i32), None]));
+        Ok(())
+    }
+
+    #[test]
+    fn test_typed_column_to_series_i64() -> Result<(), Box<dyn std::error::Error>> {
+        let column = TypedColumn {
+            column: Column::new("foo", vec![Value::test_int(1), Value::test_nothing()]),
+            column_type: Some(DataType::Int64),
+        };
+
+        let result = typed_column_to_series("foo", column)?;
+
+        assert_eq!(result, Series::new("name", [Some(1i64), None]));
+        Ok(())
+    }
+
+    #[test]
+    fn test_typed_column_to_series_bool() -> Result<(), Box<dyn std::error::Error>> {
+        let column = TypedColumn {
+            column: Column::new(
+                "foo",
+                vec![
+                    Value::test_bool(true),
+                    Value::test_bool(false),
+                    Value::test_nothing(),
+                ],
+            ),
+            column_type: Some(DataType::Boolean),
+        };
+
+        let result = typed_column_to_series("foo", column)?;
+
+        assert_eq!(result, Series::new("name", [Some(true), Some(false), None]));
+        Ok(())
+    }
+
+    #[test]
+    fn test_typed_column_to_series_string() -> Result<(), Box<dyn std::error::Error>> {
+        let column = TypedColumn {
+            column: Column::new(
+                "foo",
+                vec![Value::test_string("barbaz"), Value::test_nothing()],
+            ),
+            column_type: Some(DataType::String),
+        };
+
+        let result = typed_column_to_series("foo", column)?;
+
+        assert_eq!(
+            result,
+            Series::new("name", [Some("barbaz".to_string()), None])
+        );
         Ok(())
     }
 }

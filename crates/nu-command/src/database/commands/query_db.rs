@@ -27,7 +27,7 @@ impl Command for QueryDb {
             .category(Category::Database)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Query a database using SQL."
     }
 

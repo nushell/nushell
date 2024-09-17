@@ -21,7 +21,7 @@ impl Command for PluginStop {
             .category(Category::Plugin)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Stop an installed plugin if it was running."
     }
 

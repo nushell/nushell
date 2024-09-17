@@ -20,7 +20,7 @@ impl Command for Which {
             .category(Category::System)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Finds a program file, alias or custom command."
     }
 

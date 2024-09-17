@@ -25,7 +25,7 @@ impl Command for NuCheck {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Validate and parse input content."
     }
 

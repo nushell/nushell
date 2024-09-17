@@ -41,7 +41,7 @@ impl Command for SubCommand {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Compare two strings and return the edit distance/Levenshtein distance."
     }
 

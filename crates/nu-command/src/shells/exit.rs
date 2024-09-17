@@ -19,7 +19,7 @@ impl Command for Exit {
             .category(Category::Shells)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Exit Nu."
     }
 

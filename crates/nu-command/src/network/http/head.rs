@@ -62,11 +62,11 @@ impl Command for SubCommand {
             .category(Category::Network)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get the headers from a URL."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Performs HTTP HEAD operation."
     }
 

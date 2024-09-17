@@ -24,7 +24,7 @@ impl Command for FormatPattern {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Format columns into a string using a simple pattern."
     }
 

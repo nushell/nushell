@@ -9,17 +9,17 @@ fn test_signature() {
     assert_eq!(signature, from_build);
 
     // constructing signature with description
-    let signature = Signature::new("signature").usage("example usage");
-    assert_eq!(signature.usage, "example usage".to_string())
+    let signature = Signature::new("signature").description("example description");
+    assert_eq!(signature.description, "example description".to_string())
 }
 
 #[test]
 fn test_signature_chained() {
     let signature = Signature::new("new_signature")
-        .usage("description")
-        .required_positional_arg("required", SyntaxShape::String, "required description")
-        .optional_positional_arg("optional", SyntaxShape::String, "optional description")
-        .required_named_flag_arg(
+        .description("description")
+        .required("required", SyntaxShape::String, "required description")
+        .optional("optional", SyntaxShape::String, "optional description")
+        .required_named(
             "req-named",
             SyntaxShape::String,
             "required named description",
@@ -129,11 +129,11 @@ fn test_signature_same_name() {
 #[test]
 fn test_signature_round_trip() {
     let signature = Signature::new("new_signature")
-        .usage("description")
-        .required_positional_arg("first", SyntaxShape::String, "first required")
-        .required_positional_arg("second", SyntaxShape::Int, "second required")
-        .optional_positional_arg("optional", SyntaxShape::String, "optional description")
-        .required_named_flag_arg(
+        .description("description")
+        .required("first", SyntaxShape::String, "first required")
+        .required("second", SyntaxShape::Int, "second required")
+        .optional("optional", SyntaxShape::String, "optional description")
+        .required_named(
             "req-named",
             SyntaxShape::String,
             "required named description",
@@ -148,8 +148,8 @@ fn test_signature_round_trip() {
     let returned: Signature = serde_json::from_str(&string).unwrap();
 
     assert_eq!(signature.name, returned.name);
-    assert_eq!(signature.usage, returned.usage);
-    assert_eq!(signature.extra_usage, returned.extra_usage);
+    assert_eq!(signature.description, returned.description);
+    assert_eq!(signature.extra_description, returned.extra_description);
     assert_eq!(signature.is_filter, returned.is_filter);
     assert_eq!(signature.category, returned.category);
 

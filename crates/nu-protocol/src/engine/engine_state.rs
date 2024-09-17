@@ -2,7 +2,7 @@ use crate::{
     ast::Block,
     debugger::{Debugger, NoopDebugger},
     engine::{
-        usage::{build_usage, Usage},
+        description::{build_desc, Doccomments},
         CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
@@ -84,7 +84,7 @@ pub struct EngineState {
     pub(super) blocks: Arc<Vec<Arc<Block>>>,
     pub(super) modules: Arc<Vec<Arc<Module>>>,
     pub spans: Vec<Span>,
-    usage: Usage,
+    doccomments: Doccomments,
     pub scope: ScopeFrame,
     signals: Signals,
     pub signal_handlers: Option<Handlers>,
@@ -140,7 +140,7 @@ impl EngineState {
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
             ))]),
             spans: vec![Span::unknown()],
-            usage: Usage::new(),
+            doccomments: Doccomments::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
@@ -209,7 +209,7 @@ impl EngineState {
         self.virtual_paths.extend(delta.virtual_paths);
         self.vars.extend(delta.vars);
         self.spans.extend(delta.spans);
-        self.usage.merge_with(delta.usage);
+        self.doccomments.merge_with(delta.doccomments);
 
         // Avoid potentially cloning the Arcs if we aren't adding anything
         if !delta.decls.is_empty() {
@@ -644,7 +644,7 @@ impl EngineState {
     }
 
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
-        self.usage.get_module_comments(module_id)
+        self.doccomments.get_module_comments(module_id)
     }
 
     #[cfg(feature = "plugin")]
@@ -715,7 +715,7 @@ impl EngineState {
                     }
                     output.push((
                         decl.0.clone(),
-                        Some(command.usage().to_string()),
+                        Some(command.description().to_string()),
                         command.command_type(),
                     ));
                 }
@@ -897,17 +897,17 @@ impl EngineState {
         self.config_path.get(key)
     }
 
-    pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
+    pub fn build_desc(&self, spans: &[Span]) -> (String, String) {
         let comment_lines: Vec<&[u8]> = spans
             .iter()
             .map(|span| self.get_span_contents(*span))
             .collect();
-        build_usage(&comment_lines)
+        build_desc(&comment_lines)
     }
 
-    pub fn build_module_usage(&self, module_id: ModuleId) -> Option<(String, String)> {
+    pub fn build_module_desc(&self, module_id: ModuleId) -> Option<(String, String)> {
         self.get_module_comments(module_id)
-            .map(|comment_spans| self.build_usage(comment_spans))
+            .map(|comment_spans| self.build_desc(comment_spans))
     }
 
     /// Returns the current working directory, which is guaranteed to be canonicalized.

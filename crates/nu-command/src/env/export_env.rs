@@ -20,11 +20,11 @@ impl Command for ExportEnv {
             .category(Category::Env)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Run a block and preserve its environment in a current scope."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }

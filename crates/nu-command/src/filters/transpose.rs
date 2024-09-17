@@ -57,7 +57,7 @@ impl Command for Transpose {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Transposes the table contents so rows become columns and columns become rows."
     }
 

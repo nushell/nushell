@@ -10,7 +10,7 @@ impl Command for Cd {
         "cd"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Change directory."
     }
 

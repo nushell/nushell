@@ -16,7 +16,7 @@ impl Command for Let {
         "let"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Create a variable and give it a value."
     }
 
@@ -51,7 +51,7 @@ impl Command for Mut {
         "mut"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Mock mut command."
     }
 
@@ -84,7 +84,7 @@ impl Command for ToCustom {
         "to-custom"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Mock converter command."
     }
 
@@ -1831,23 +1831,13 @@ mod range {
     }
 
     #[test]
-    fn vars_read_as_units() {
+    fn vars_not_read_as_units() {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         let _ = parse(&mut working_set, None, b"0..<$day", true);
 
-        assert!(
-            working_set.parse_errors.len() == 1,
-            "Errors: {:?}",
-            working_set.parse_errors
-        );
-        let err = &working_set.parse_errors[0].to_string();
-        assert!(
-            err.contains("Variable not found"),
-            "Expected variable not found error, got {}",
-            err
-        );
+        assert!(working_set.parse_errors.is_empty());
     }
 
     #[rstest]
@@ -1881,6 +1871,26 @@ mod range {
             err
         );
     }
+
+    #[test]
+    fn dont_mess_with_external_calls() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(ToCustom));
+
+        let result = parse(&mut working_set, None, b"../foo", true);
+
+        assert!(
+            working_set.parse_errors.is_empty(),
+            "Errors: {:?}",
+            working_set.parse_errors
+        );
+        let expr = &result.pipelines[0].elements[0].expr.expr;
+        assert!(
+            matches!(expr, Expr::ExternalCall(..)),
+            "Should've been parsed as a call"
+        );
+    }
 }
 
 #[cfg(test)]
@@ -1896,7 +1906,7 @@ mod input_types {
             "ls"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock ls command."
         }
 
@@ -1923,7 +1933,7 @@ mod input_types {
             "def"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock def command."
         }
 
@@ -1959,7 +1969,7 @@ mod input_types {
             "group-by"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock group-by command."
         }
 
@@ -1981,6 +1991,35 @@ mod input_types {
     }
 
     #[derive(Clone)]
+    pub struct ToCustom;
+
+    impl Command for ToCustom {
+        fn name(&self) -> &str {
+            "to-custom"
+        }
+
+        fn description(&self) -> &str {
+            "Mock converter command."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name())
+                .input_output_type(Type::Any, Type::Custom("custom".into()))
+                .category(Category::Custom("custom".into()))
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
     pub struct GroupByCustom;
 
     impl Command for GroupByCustom {
@@ -1988,7 +2027,7 @@ mod input_types {
             "group-by"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom group-by command."
         }
 
@@ -2019,7 +2058,7 @@ mod input_types {
             "agg"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom agg command."
         }
 
@@ -2049,7 +2088,7 @@ mod input_types {
             "min"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom min command."
         }
 
@@ -2076,7 +2115,7 @@ mod input_types {
             "with-column"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom with-column command."
         }
 
@@ -2106,7 +2145,7 @@ mod input_types {
             "collect"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom collect command."
         }
 
@@ -2135,7 +2174,7 @@ mod input_types {
             "if"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock if command."
         }
 
@@ -2444,5 +2483,58 @@ mod operator {
             0,
             "{test_tag}: expected to be parsed successfully, but failed."
         );
+    }
+}
+
+mod record {
+    use super::*;
+
+    use nu_protocol::ast::RecordItem;
+
+    #[rstest]
+    #[case(b"{ :: x }", "Invalid literal")] // Key is bare colon
+    #[case(b"{ a: x:y }", "Invalid literal")] // Value is bare word with colon
+    #[case(b"{ a: x('y'):z }", "Invalid literal")] // Value is bare string interpolation with colon
+    #[case(b"{ ;: x }", "Parse mismatch during operation.")] // Key is a non-item token
+    #[case(b"{ a: || }", "Parse mismatch during operation.")] // Value is a non-item token
+    fn refuse_confusing_record(#[case] expr: &[u8], #[case] error: &str) {
+        dbg!(String::from_utf8_lossy(expr));
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        parse(&mut working_set, None, expr, false);
+        assert_eq!(
+            working_set.parse_errors.first().map(|e| e.to_string()),
+            Some(error.to_string())
+        );
+    }
+
+    #[rstest]
+    #[case(b"{ a: 2024-07-23T22:54:54.532100627+02:00 b:xy }")]
+    fn parse_datetime_in_record(#[case] expr: &[u8]) {
+        dbg!(String::from_utf8_lossy(expr));
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let block = parse(&mut working_set, None, expr, false);
+        assert!(working_set.parse_errors.first().is_none());
+        let pipeline_el_expr = &block
+            .pipelines
+            .first()
+            .unwrap()
+            .elements
+            .first()
+            .unwrap()
+            .expr
+            .expr;
+        dbg!(pipeline_el_expr);
+        match pipeline_el_expr {
+            Expr::FullCellPath(v) => match &v.head.expr {
+                Expr::Record(fields) => assert!(matches!(
+                    fields[0],
+                    RecordItem::Pair(_, Expression { ty: Type::Date, .. })
+                )),
+                _ => panic!("Expected record head"),
+            },
+            _ => panic!("Expected full cell path"),
+        }
     }
 }

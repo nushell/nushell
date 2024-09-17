@@ -371,7 +371,7 @@ pub fn parse_def(
 ) -> (Pipeline, Option<(Vec<u8>, DeclId)>) {
     let spans = &lite_command.parts[..];
 
-    let (usage, extra_usage) = working_set.build_usage(&lite_command.comments);
+    let (desc, extra_desc) = working_set.build_desc(&lite_command.comments);
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -599,8 +599,8 @@ pub fn parse_def(
             if !has_wrapped {
                 *signature = signature.add_help();
             }
-            signature.usage = usage;
-            signature.extra_usage = extra_usage;
+            signature.description = desc;
+            signature.extra_description = extra_desc;
             signature.allows_unknown_args = has_wrapped;
 
             *declaration = signature.clone().into_block_command(block_id);
@@ -654,7 +654,7 @@ pub fn parse_extern(
 ) -> Pipeline {
     let spans = &lite_command.parts;
 
-    let (usage, extra_usage) = working_set.build_usage(&lite_command.comments);
+    let (description, extra_description) = working_set.build_desc(&lite_command.comments);
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -759,8 +759,8 @@ pub fn parse_extern(
                 };
 
                 signature.name.clone_from(&external_name);
-                signature.usage.clone_from(&usage);
-                signature.extra_usage.clone_from(&extra_usage);
+                signature.description.clone_from(&description);
+                signature.extra_description.clone_from(&extra_description);
                 signature.allows_unknown_args = true;
 
                 if let Some(block_id) = body.and_then(|x| x.as_block()) {
@@ -787,8 +787,8 @@ pub fn parse_extern(
 
                     let decl = KnownExternal {
                         name: external_name,
-                        usage,
-                        extra_usage,
+                        description,
+                        extra_description,
                         signature,
                     };
 
@@ -1052,10 +1052,10 @@ pub fn parse_alias(
                 }
             };
 
-            // Tries to build a useful usage string
-            let (usage, extra_usage) = match lite_command.comments.is_empty() {
+            // Tries to build a useful description string
+            let (description, extra_description) = match lite_command.comments.is_empty() {
                 // First from comments, if any are present
-                false => working_set.build_usage(&lite_command.comments),
+                false => working_set.build_desc(&lite_command.comments),
                 // Then from the command itself
                 true => match alias_call.arguments.get(1) {
                     Some(Argument::Positional(Expression {
@@ -1077,8 +1077,8 @@ pub fn parse_alias(
                 name: alias_name,
                 command,
                 wrapped_call,
-                usage,
-                extra_usage,
+                description,
+                extra_description,
             };
 
             working_set.add_decl(Box::new(decl));

@@ -22,11 +22,11 @@ impl Command for Items {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Given a record, iterate on each pair of column name and associated value."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This is a the fusion of `columns`, `values` and `each`."
     }
 
