@@ -1,8 +1,7 @@
 #[cfg(feature = "plugin")]
-use crate::config_files::NUSHELL_FOLDER;
 use crate::{
     command,
-    config_files::{self, setup_config},
+    config_files::{self, setup_config, NUSHELL_FOLDER},
 };
 use log::trace;
 #[cfg(feature = "plugin")]
