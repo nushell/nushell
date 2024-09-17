@@ -26,6 +26,13 @@ pub(crate) fn run_commands(
     let mut stack = Stack::new();
     let start_time = std::time::Instant::now();
 
+    let ask_to_create_config = if let Some(mut config_path) = nu_path::config_dir() {
+        config_path.push(NUSHELL_FOLDER);
+        !config_path.exists()
+    } else {
+        false
+    };
+
     if stack.has_env_var(engine_state, "NU_USE_IR") {
         stack.use_ir = true;
     }
@@ -49,6 +56,7 @@ pub(crate) fn run_commands(
                 &mut stack,
                 parsed_nu_cli_args.env_file,
                 true,
+                ask_to_create_config,
             );
         } else {
             config_files::read_default_env_file(engine_state, &mut stack)
@@ -57,6 +65,13 @@ pub(crate) fn run_commands(
         perf!("read env.nu", start_time, use_color);
 
         let start_time = std::time::Instant::now();
+        let ask_to_create_config = if let Some(mut config_path) = nu_path::config_dir() {
+            config_path.push(NUSHELL_FOLDER);
+            !config_path.exists()
+        } else {
+            false
+        };
+
         // If we have a config file parameter *OR* we have a login shell parameter, read the config file
         if parsed_nu_cli_args.config_file.is_some() || parsed_nu_cli_args.login_shell.is_some() {
             config_files::read_config_file(
@@ -64,6 +79,7 @@ pub(crate) fn run_commands(
                 &mut stack,
                 parsed_nu_cli_args.config_file,
                 false,
+                ask_to_create_config,
             );
         }
 
@@ -126,6 +142,12 @@ pub(crate) fn run_file(
     // if the --no-config-file(-n) flag is passed, do not load plugin, env, or config files
     if parsed_nu_cli_args.no_config_file.is_none() {
         let start_time = std::time::Instant::now();
+        let ask_to_create_config = if let Some(mut config_path) = nu_path::config_dir() {
+            config_path.push(NUSHELL_FOLDER);
+            !config_path.exists()
+        } else {
+            false
+        };
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file, NUSHELL_FOLDER);
         perf!("read plugins", start_time, use_color);
@@ -138,6 +160,7 @@ pub(crate) fn run_file(
                 &mut stack,
                 parsed_nu_cli_args.env_file,
                 true,
+                ask_to_create_config,
             );
         } else {
             config_files::read_default_env_file(engine_state, &mut stack)
@@ -151,6 +174,7 @@ pub(crate) fn run_file(
                 &mut stack,
                 parsed_nu_cli_args.config_file,
                 false,
+                ask_to_create_config,
             );
         }
         perf!("read config.nu", start_time, use_color);

@@ -27,6 +27,7 @@ pub(crate) fn read_config_file(
     stack: &mut Stack,
     config_file: Option<Spanned<String>>,
     is_env_config: bool,
+    ask_to_create: bool,
 ) {
     warn!(
         "read_config_file() config_file_specified: {:?}, is_env_config: {is_env_config}",
@@ -66,17 +67,25 @@ pub(crate) fn read_config_file(
             } else {
                 "config"
             };
-            println!(
-                "No {} file found at {}",
-                file_msg,
-                config_path.to_string_lossy()
-            );
-            println!("Would you like to create one with defaults (Y/n): ");
 
-            let mut answer = String::new();
-            std::io::stdin()
-                .read_line(&mut answer)
-                .expect("Failed to read user input");
+            let will_create_file = match ask_to_create {
+                true => {
+                    println!(
+                        "No {} file found at {}",
+                        file_msg,
+                        config_path.to_string_lossy()
+                    );
+                    println!("Would you like to create one with defaults (Y/n): ");
+
+                    let mut answer = String::new();
+                    std::io::stdin()
+                        .read_line(&mut answer)
+                        .expect("Failed to read user input");
+
+                    matches!(answer.trim(), "y" | "Y" | "")
+                }
+                _ => false,
+            };
 
             let config_file = if is_env_config {
                 get_default_env()
@@ -84,8 +93,8 @@ pub(crate) fn read_config_file(
                 get_default_config()
             };
 
-            match answer.trim() {
-                "y" | "Y" | "" => {
+            match will_create_file {
+                true => {
                     if let Ok(mut output) = File::create(&config_path) {
                         if write!(output, "{config_file}").is_ok() {
                             let config_type = if is_env_config {
@@ -233,7 +242,6 @@ fn eval_default_config(
         "eval_default_config() config_file_specified: {:?}, is_env_config: {}",
         &config_file, is_env_config
     );
-    println!("Continuing without config file");
     // Just use the contents of "default_config.nu" or "default_env.nu"
     eval_source(
         engine_state,
@@ -273,12 +281,26 @@ pub(crate) fn setup_config(
         "setup_config() config_file_specified: {:?}, env_file_specified: {:?}, login: {}",
         &config_file, &env_file, is_login_shell
     );
+
+    let ask_to_create_config = if let Some(mut config_path) = nu_path::config_dir() {
+        config_path.push(NUSHELL_FOLDER);
+        !config_path.exists()
+    } else {
+        false
+    };
+
     let result = catch_unwind(AssertUnwindSafe(|| {
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, plugin_file, NUSHELL_FOLDER);
 
-        read_config_file(engine_state, stack, env_file, true);
-        read_config_file(engine_state, stack, config_file, false);
+        read_config_file(engine_state, stack, env_file, true, ask_to_create_config);
+        read_config_file(
+            engine_state,
+            stack,
+            config_file,
+            false,
+            ask_to_create_config,
+        );
 
         if is_login_shell {
             read_loginshell_file(engine_state, stack);
