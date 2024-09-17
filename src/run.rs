@@ -1,4 +1,3 @@
-#[cfg(feature = "plugin")]
 use crate::{
     command,
     config_files::{self, setup_config, NUSHELL_FOLDER},
@@ -65,7 +64,7 @@ pub(crate) fn run_commands(
 
         let start_time = std::time::Instant::now();
         let ask_to_create_config = if let Some(mut config_path) = nu_path::config_dir() {
-            config_path.push(NUSHELL_FOLDER);
+            config_path.push(config_files::NUSHELL_FOLDER);
             !config_path.exists()
         } else {
             false
@@ -142,7 +141,7 @@ pub(crate) fn run_file(
     if parsed_nu_cli_args.no_config_file.is_none() {
         let start_time = std::time::Instant::now();
         let ask_to_create_config = if let Some(mut config_path) = nu_path::config_dir() {
-            config_path.push(NUSHELL_FOLDER);
+            config_path.push(config_files::NUSHELL_FOLDER);
             !config_path.exists()
         } else {
             false
@@ -231,7 +230,7 @@ pub(crate) fn run_repl(
     let ret_val = evaluate_repl(
         engine_state,
         stack,
-        config_files::NUSHELL_FOLDER,
+        NUSHELL_FOLDER,
         parsed_nu_cli_args.execute,
         parsed_nu_cli_args.no_std_lib,
         entire_start_time,
