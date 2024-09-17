@@ -27,7 +27,6 @@ pub struct ProcessInfo {
     pub interval: Duration,
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> {
     let mut base_procs = Vec::new();
     let mut ret = Vec::new();
@@ -116,7 +115,6 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
     ret
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_arg_max() -> size_t {
     let mut mib: [c_int; 2] = [libc::CTL_KERN, libc::KERN_ARGMAX];
     let mut arg_max = 0i32;
@@ -144,14 +142,12 @@ pub struct PathInfo {
     pub cwd: PathBuf,
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
     let len = (cp as usize).saturating_sub(start as usize);
     let part = std::slice::from_raw_parts(start, len);
     String::from_utf8_unchecked(part.to_vec())
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
     let mut proc_args = Vec::with_capacity(size);
     let ptr: *mut u8 = proc_args.as_mut_slice().as_mut_ptr();
@@ -252,7 +248,6 @@ fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
     }
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn clone_task_all_info(src: &TaskAllInfo) -> TaskAllInfo {
     let pbsd = BSDInfo {
         pbi_flags: src.pbsd.pbi_flags,

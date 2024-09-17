@@ -13,6 +13,9 @@ name = "nu_pretty_hex"
 path = "src/lib.rs"
 bench = false
 
+[lints]
+workspace = true
+
 [dependencies]
 nu-ansi-term = { workspace = true }
 

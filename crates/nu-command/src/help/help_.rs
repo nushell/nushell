@@ -193,7 +193,8 @@ pub fn highlight_search_string(
     string_style: &Style,
     highlight_style: &Style,
 ) -> Result<String, ShellError> {
-    let regex_string = format!("(?i){needle}");
+    let escaped_needle = regex::escape(needle);
+    let regex_string = format!("(?i){escaped_needle}");
     let regex = match Regex::new(&regex_string) {
         Ok(regex) => regex,
         Err(err) => {
@@ -207,7 +208,7 @@ pub fn highlight_search_string(
         }
     };
     // strip haystack to remove existing ansi style
-    let stripped_haystack = nu_utils::strip_ansi_likely(haystack);
+    let stripped_haystack = nu_utils::strip_ansi_string_unlikely(haystack.to_string());
     let mut last_match_end = 0;
     let mut highlighted = String::new();
 

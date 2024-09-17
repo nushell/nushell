@@ -25,7 +25,7 @@ use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, report_error_new, ByteStream, PipelineData, ShellError, Span, Spanned,
+    engine::EngineState, report_shell_error, ByteStream, PipelineData, ShellError, Span, Spanned,
     Value,
 };
 use nu_std::load_standard_library;
@@ -67,7 +67,7 @@ fn main() -> Result<()> {
     };
 
     if let Err(err) = engine_state.merge_delta(delta) {
-        report_error_new(&engine_state, &err);
+        report_shell_error(&engine_state, &err);
     }
 
     // TODO: make this conditional in the future
@@ -92,7 +92,7 @@ fn main() -> Result<()> {
                     .unwrap_or(PathBuf::from(&xdg_config_home))
                     .join("nushell")
             {
-                report_error_new(
+                report_shell_error(
                     &engine_state,
                     &ShellError::InvalidXdgConfig {
                         xdg: xdg_config_home,
@@ -164,7 +164,7 @@ fn main() -> Result<()> {
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
         .unwrap_or_else(|err| {
-            report_error_new(&engine_state, &err);
+            report_shell_error(&engine_state, &err);
             std::process::exit(1)
         });
 

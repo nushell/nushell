@@ -177,8 +177,8 @@ impl ExploreConfig {
     pub fn from_nu_config(config: &Config) -> Self {
         let mut ret = Self::default();
 
-        ret.table.column_padding_left = config.table_indent.left;
-        ret.table.column_padding_right = config.table_indent.right;
+        ret.table.column_padding_left = config.table.padding.left;
+        ret.table.column_padding_right = config.table.padding.right;
 
         let explore_cfg_hash_map = config.explore.clone();
         let colors = get_color_map(&explore_cfg_hash_map);

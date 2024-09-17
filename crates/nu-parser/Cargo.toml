@@ -11,6 +11,9 @@ exclude = ["/fuzz"]
 [lib]
 bench = false
 
+[lints]
+workspace = true
+
 [dependencies]
 nu-engine = { path = "../nu-engine", version = "0.97.2" }
 nu-path = { path = "../nu-path", version = "0.97.2" }

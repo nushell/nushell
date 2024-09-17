@@ -15,3 +15,6 @@ bench = false
 
 [dev-dependencies]
 doc-comment = "0.3"
+
+[lints]
+workspace = true

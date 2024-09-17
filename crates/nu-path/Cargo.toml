@@ -19,3 +19,6 @@ omnipath = { workspace = true }
 
 [target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))'.dependencies]
 pwd = { workspace = true }
+
+[lints]
+workspace = true

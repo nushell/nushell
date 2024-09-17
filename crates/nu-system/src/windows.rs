@@ -109,7 +109,6 @@ pub struct CpuInfo {
     pub curr_user: u64,
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> {
     let mut base_procs = Vec::new();
     let mut ret = Vec::new();
@@ -257,7 +256,6 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
     ret
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn set_privilege() -> bool {
     unsafe {
         let handle = GetCurrentProcess();
@@ -284,7 +282,6 @@ fn set_privilege() -> bool {
     }
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_pids() -> Vec<i32> {
     let dword_size = size_of::<u32>();
     let mut pids: Vec<u32> = Vec::with_capacity(10192);
@@ -307,7 +304,6 @@ fn get_pids() -> Vec<i32> {
     pids.iter().map(|x| *x as i32).collect()
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_ppid_threads() -> (HashMap<i32, i32>, HashMap<i32, i32>) {
     let mut ppids = HashMap::new();
     let mut threads = HashMap::new();
@@ -332,7 +328,6 @@ fn get_ppid_threads() -> (HashMap<i32, i32>, HashMap<i32, i32>) {
     (ppids, threads)
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_handle(pid: i32) -> Option<HANDLE> {
     if pid == 0 {
         return None;
@@ -353,7 +348,6 @@ fn get_handle(pid: i32) -> Option<HANDLE> {
     }
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_times(handle: HANDLE) -> Option<(u64, u64, u64, u64)> {
     unsafe {
         let mut start: FILETIME = zeroed();
@@ -382,7 +376,6 @@ fn get_times(handle: HANDLE) -> Option<(u64, u64, u64, u64)> {
     }
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_memory_info(handle: HANDLE) -> Option<MemoryInfo> {
     unsafe {
         let mut pmc: PROCESS_MEMORY_COUNTERS_EX = zeroed();
@@ -413,7 +406,6 @@ fn get_memory_info(handle: HANDLE) -> Option<MemoryInfo> {
     }
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_command(handle: HANDLE) -> Option<String> {
     unsafe {
         let mut exe_buf = [0u16; MAX_PATH as usize + 1];
@@ -780,7 +772,6 @@ fn get_cwd<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> PathBuf {
     }
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_io(handle: HANDLE) -> Option<(u64, u64)> {
     unsafe {
         let mut io: IO_COUNTERS = zeroed();
@@ -801,7 +792,6 @@ pub struct SidName {
     pub domainname: Option<String>,
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_user(handle: HANDLE) -> Option<SidName> {
     unsafe {
         let mut token: HANDLE = zeroed();
@@ -854,7 +844,6 @@ fn get_user(handle: HANDLE) -> Option<SidName> {
     }
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_groups(handle: HANDLE) -> Option<Vec<SidName>> {
     unsafe {
         let mut token: HANDLE = zeroed();
@@ -914,7 +903,6 @@ fn get_groups(handle: HANDLE) -> Option<Vec<SidName>> {
     }
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_sid(psid: PSID) -> Vec<u64> {
     unsafe {
         let mut ret = Vec::new();
@@ -945,7 +933,6 @@ thread_local!(
         RefCell::new(HashMap::new());
 );
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_name_cached(psid: PSID) -> Option<(String, String)> {
     NAME_CACHE.with(|c| {
         let mut c = c.borrow_mut();
@@ -959,7 +946,6 @@ fn get_name_cached(psid: PSID) -> Option<(String, String)> {
     })
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_name(psid: PSID) -> Option<(String, String)> {
     unsafe {
         let mut cc_name = 0;
@@ -1003,11 +989,10 @@ fn get_name(psid: PSID) -> Option<(String, String)> {
     }
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn from_wide_ptr(ptr: *const u16) -> String {
     unsafe {
         assert!(!ptr.is_null());
-        let len = (0..std::isize::MAX)
+        let len = (0..isize::MAX)
             .position(|i| *ptr.offset(i) == 0)
             .unwrap_or_default();
         let slice = std::slice::from_raw_parts(ptr, len);
@@ -1015,7 +1000,6 @@ fn from_wide_ptr(ptr: *const u16) -> String {
     }
 }
 
-#[cfg_attr(tarpaulin, ignore)]
 fn get_priority(handle: HANDLE) -> u32 {
     unsafe { GetPriorityClass(handle) }
 }

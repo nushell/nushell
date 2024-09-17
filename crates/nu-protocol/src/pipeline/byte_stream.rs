@@ -1,6 +1,6 @@
 //! Module managing the streaming of raw bytes between pipeline elements
 use crate::{
-    process::{ChildPipe, ChildProcess, ExitStatus},
+    process::{ChildPipe, ChildProcess},
     ErrSpan, IntoSpanned, OutDest, PipelineData, ShellError, Signals, Span, Type, Value,
 };
 use serde::{Deserialize, Serialize};
@@ -548,25 +548,19 @@ impl ByteStream {
     }
 
     /// Consume and drop all bytes of the [`ByteStream`].
-    ///
-    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`],
-    /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
-    pub fn drain(self) -> Result<Option<ExitStatus>, ShellError> {
+    pub fn drain(self) -> Result<(), ShellError> {
         match self.stream {
             ByteStreamSource::Read(read) => {
                 copy_with_signals(read, io::sink(), self.span, &self.signals)?;
-                Ok(None)
+                Ok(())
             }
-            ByteStreamSource::File(_) => Ok(None),
-            ByteStreamSource::Child(child) => Ok(Some(child.wait()?)),
+            ByteStreamSource::File(_) => Ok(()),
+            ByteStreamSource::Child(child) => child.wait(),
         }
     }
 
     /// Print all bytes of the [`ByteStream`] to stdout or stderr.
-    ///
-    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`],
-    /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
-    pub fn print(self, to_stderr: bool) -> Result<Option<ExitStatus>, ShellError> {
+    pub fn print(self, to_stderr: bool) -> Result<(), ShellError> {
         if to_stderr {
             self.write_to(&mut io::stderr())
         } else {
@@ -575,20 +569,15 @@ impl ByteStream {
     }
 
     /// Write all bytes of the [`ByteStream`] to `dest`.
-    ///
-    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`],
-    /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
-    pub fn write_to(self, dest: impl Write) -> Result<Option<ExitStatus>, ShellError> {
+    pub fn write_to(self, dest: impl Write) -> Result<(), ShellError> {
         let span = self.span;
         let signals = &self.signals;
         match self.stream {
             ByteStreamSource::Read(read) => {
                 copy_with_signals(read, dest, span, signals)?;
-                Ok(None)
             }
             ByteStreamSource::File(file) => {
                 copy_with_signals(file, dest, span, signals)?;
-                Ok(None)
             }
             ByteStreamSource::Child(mut child) => {
                 // All `OutDest`s except `OutDest::Capture` will cause `stderr` to be `None`.
@@ -606,36 +595,33 @@ impl ByteStream {
                         }
                     }
                 }
-                Ok(Some(child.wait()?))
+                child.wait()?;
             }
         }
+        Ok(())
     }
 
     pub(crate) fn write_to_out_dests(
         self,
         stdout: &OutDest,
         stderr: &OutDest,
-    ) -> Result<Option<ExitStatus>, ShellError> {
+    ) -> Result<(), ShellError> {
         let span = self.span;
         let signals = &self.signals;
 
         match self.stream {
             ByteStreamSource::Read(read) => {
                 write_to_out_dest(read, stdout, true, span, signals)?;
-                Ok(None)
             }
-            ByteStreamSource::File(file) => {
-                match stdout {
-                    OutDest::Pipe | OutDest::Capture | OutDest::Null => {}
-                    OutDest::Inherit => {
-                        copy_with_signals(file, io::stdout(), span, signals)?;
-                    }
-                    OutDest::File(f) => {
-                        copy_with_signals(file, f.as_ref(), span, signals)?;
-                    }
+            ByteStreamSource::File(file) => match stdout {
+                OutDest::Pipe | OutDest::Capture | OutDest::Null => {}
+                OutDest::Inherit => {
+                    copy_with_signals(file, io::stdout(), span, signals)?;
                 }
-                Ok(None)
-            }
+                OutDest::File(f) => {
+                    copy_with_signals(file, f.as_ref(), span, signals)?;
+                }
+            },
             ByteStreamSource::Child(mut child) => {
                 match (child.stdout.take(), child.stderr.take()) {
                     (Some(out), Some(err)) => {
@@ -682,9 +668,11 @@ impl ByteStream {
                     }
                     (None, None) => {}
                 }
-                Ok(Some(child.wait()?))
+                child.wait()?;
             }
         }
+
+        Ok(())
     }
 }
 

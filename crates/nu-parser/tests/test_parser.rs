@@ -2478,3 +2478,56 @@ mod operator {
         );
     }
 }
+
+mod record {
+    use super::*;
+
+    use nu_protocol::ast::RecordItem;
+
+    #[rstest]
+    #[case(b"{ :: x }", "Invalid literal")] // Key is bare colon
+    #[case(b"{ a: x:y }", "Invalid literal")] // Value is bare word with colon
+    #[case(b"{ a: x('y'):z }", "Invalid literal")] // Value is bare string interpolation with colon
+    #[case(b"{ ;: x }", "Parse mismatch during operation.")] // Key is a non-item token
+    #[case(b"{ a: || }", "Parse mismatch during operation.")] // Value is a non-item token
+    fn refuse_confusing_record(#[case] expr: &[u8], #[case] error: &str) {
+        dbg!(String::from_utf8_lossy(expr));
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        parse(&mut working_set, None, expr, false);
+        assert_eq!(
+            working_set.parse_errors.first().map(|e| e.to_string()),
+            Some(error.to_string())
+        );
+    }
+
+    #[rstest]
+    #[case(b"{ a: 2024-07-23T22:54:54.532100627+02:00 b:xy }")]
+    fn parse_datetime_in_record(#[case] expr: &[u8]) {
+        dbg!(String::from_utf8_lossy(expr));
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let block = parse(&mut working_set, None, expr, false);
+        assert!(working_set.parse_errors.first().is_none());
+        let pipeline_el_expr = &block
+            .pipelines
+            .first()
+            .unwrap()
+            .elements
+            .first()
+            .unwrap()
+            .expr
+            .expr;
+        dbg!(pipeline_el_expr);
+        match pipeline_el_expr {
+            Expr::FullCellPath(v) => match &v.head.expr {
+                Expr::Record(fields) => assert!(matches!(
+                    fields[0],
+                    RecordItem::Pair(_, Expression { ty: Type::Date, .. })
+                )),
+                _ => panic!("Expected record head"),
+            },
+            _ => panic!("Expected full cell path"),
+        }
+    }
+}

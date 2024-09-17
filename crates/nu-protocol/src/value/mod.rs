@@ -832,7 +832,7 @@ impl Value {
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
-            Value::Date { val, .. } => match &config.datetime_normal_format {
+            Value::Date { val, .. } => match &config.datetime_format.normal {
                 Some(format) => self.format_datetime(val, format),
                 None => {
                     format!(
@@ -886,7 +886,7 @@ impl Value {
     /// - "[record {n} fields]"
     pub fn to_abbreviated_string(&self, config: &Config) -> String {
         match self {
-            Value::Date { val, .. } => match &config.datetime_table_format {
+            Value::Date { val, .. } => match &config.datetime_format.table {
                 Some(format) => self.format_datetime(val, format),
                 None => HumanTime::from(*val).to_string(),
             },

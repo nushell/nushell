@@ -10,7 +10,7 @@ use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl, EvaluateCommandsOpts};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    report_error_new, PipelineData, Spanned,
+    report_shell_error, PipelineData, Spanned,
 };
 use nu_utils::perf;
 
@@ -26,8 +26,8 @@ pub(crate) fn run_commands(
     let mut stack = Stack::new();
     let start_time = std::time::Instant::now();
 
-    if stack.has_env_var(engine_state, "NU_USE_IR") {
-        stack.use_ir = true;
+    if stack.has_env_var(engine_state, "NU_DISABLE_IR") {
+        stack.use_ir = false;
     }
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
@@ -85,7 +85,7 @@ pub(crate) fn run_commands(
     engine_state.generate_nu_constant();
 
     let start_time = std::time::Instant::now();
-    if let Err(err) = evaluate_commands(
+    let result = evaluate_commands(
         commands,
         engine_state,
         &mut stack,
@@ -95,11 +95,13 @@ pub(crate) fn run_commands(
             error_style: parsed_nu_cli_args.error_style,
             no_newline: parsed_nu_cli_args.no_newline.is_some(),
         },
-    ) {
-        report_error_new(engine_state, &err);
-        std::process::exit(1);
-    }
+    );
     perf!("evaluate_commands", start_time, use_color);
+
+    if let Err(err) = result {
+        report_shell_error(engine_state, &err);
+        std::process::exit(err.exit_code());
+    }
 }
 
 pub(crate) fn run_file(
@@ -113,8 +115,8 @@ pub(crate) fn run_file(
     trace!("run_file");
     let mut stack = Stack::new();
 
-    if stack.has_env_var(engine_state, "NU_USE_IR") {
-        stack.use_ir = true;
+    if stack.has_env_var(engine_state, "NU_DISABLE_IR") {
+        stack.use_ir = false;
     }
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
@@ -158,29 +160,19 @@ pub(crate) fn run_file(
     engine_state.generate_nu_constant();
 
     let start_time = std::time::Instant::now();
-    if let Err(err) = evaluate_file(
+    let result = evaluate_file(
         script_name,
         &args_to_script,
         engine_state,
         &mut stack,
         input,
-    ) {
-        report_error_new(engine_state, &err);
-        std::process::exit(1);
-    }
+    );
     perf!("evaluate_file", start_time, use_color);
 
-    let start_time = std::time::Instant::now();
-    let last_exit_code = stack.get_env_var(&*engine_state, "LAST_EXIT_CODE");
-    if let Some(last_exit_code) = last_exit_code {
-        let value = last_exit_code.as_int();
-        if let Ok(value) = value {
-            if value != 0 {
-                std::process::exit(value as i32);
-            }
-        }
+    if let Err(err) = result {
+        report_shell_error(engine_state, &err);
+        std::process::exit(err.exit_code());
     }
-    perf!("get exit code", start_time, use_color);
 }
 
 pub(crate) fn run_repl(
@@ -192,8 +184,8 @@ pub(crate) fn run_repl(
     let mut stack = Stack::new();
     let start_time = std::time::Instant::now();
 
-    if stack.has_env_var(engine_state, "NU_USE_IR") {
-        stack.use_ir = true;
+    if stack.has_env_var(engine_state, "NU_DISABLE_IR") {
+        stack.use_ir = false;
     }
 
     if parsed_nu_cli_args.no_config_file.is_none() {

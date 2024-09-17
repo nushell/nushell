@@ -39,7 +39,8 @@ impl Command for SubCommand {
 
     fn extra_description(&self) -> &str {
         r#"This only checks if it is possible to either `open` or `cd` to the given path.
-If you need to distinguish dirs and files, please use `path type`."#
+If you need to distinguish dirs and files, please use `path type`.
+Also note that if you don't have a permission to a directory of a path, false will be returned"#
     }
 
     fn is_const(&self) -> bool {
@@ -147,7 +148,7 @@ fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
             |_| Ok(true),
         )
     } else {
-        path.try_exists()
+        Ok(path.exists())
     };
     Value::bool(
         match exists {

@@ -26,7 +26,7 @@ nu-utils = { path = "../nu-utils", version = "0.97.2" }
 chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
 chrono-tz = "0.9"
 fancy-regex = { workspace = true }
-indexmap = { version = "2.4" }
+indexmap = { version = "2.5" }
 mimalloc = { version = "0.1.42" }
 num = {version = "0.4"}
 serde = { version = "1.0", features = ["derive"] }
@@ -53,6 +53,7 @@ features = [
 	"dtype-categorical",
 	"dtype-datetime",
 	"dtype-struct",
+	"dtype-decimal",
 	"dtype-i8",
 	"dtype-i16",
 	"dtype-u8",
@@ -70,7 +71,9 @@ features = [
 	"serde",
 	"serde-lazy",
 	"strings",
-    "streaming",
+	"string_to_integer",
+	"streaming",
+	"temporal",
 	"to_dummies",
 ]
 optional = false
