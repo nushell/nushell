@@ -9,7 +9,7 @@ provide interactive utilities and building blocks for users writing casual scrip
 To see what's here:
 ```text
 > use std
-> scope commands | select name description | where name =~ "std "
+> scope commands | where name =~ "std " | select name usage
 #┬───────────name────────────┬───────────────────description───────────────────
 0│std assert                 │Universal assert command
 1│std assert equal           │Assert $left == $right
