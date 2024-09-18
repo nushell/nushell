@@ -176,15 +176,15 @@ impl Command for Char {
     fn signature(&self) -> Signature {
         Signature::build("char")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .optional(
+            .optional_positional_arg(
                 "character",
                 SyntaxShape::Any,
                 "The name of the character to output.",
             )
-            .rest("rest", SyntaxShape::Any, "Multiple Unicode bytes.")
-            .switch("list", "List all supported character names", Some('l'))
-            .switch("unicode", "Unicode string i.e. 1f378", Some('u'))
-            .switch("integer", "Create a codepoint from an integer", Some('i'))
+            .rest_positional_arg("rest", SyntaxShape::Any, "Multiple Unicode bytes.")
+            .optional_named_flag_arg("list", "List all supported character names", Some('l'))
+            .optional_named_flag_arg("unicode", "Unicode string i.e. 1f378", Some('u'))
+            .optional_named_flag_arg("integer", "Create a codepoint from an integer", Some('i'))
             .allow_variants_without_examples(true)
             .category(Category::Strings)
     }

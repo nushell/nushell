@@ -120,7 +120,7 @@ pub fn eval_call<D: DebugContext>(
             )
         }
 
-        for named in decl.signature().named {
+        for named in decl.signature().named_flag {
             if let Some(var_id) = named.var_id {
                 let mut found = false;
                 for call_named in call.named_iter() {

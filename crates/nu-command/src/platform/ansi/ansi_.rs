@@ -504,22 +504,22 @@ impl Command for AnsiCommand {
     fn signature(&self) -> Signature {
         Signature::build("ansi")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .optional(
+            .optional_positional_arg(
                 "code",
                 SyntaxShape::Any,
                 "The name of the code to use (from `ansi -l`).",
             )
-            .switch(
+            .optional_named_flag_arg(
                 "escape", // \x1b[
                 r"escape sequence without the escape character(s) ('\x1b[' is not required)",
                 Some('e'),
             )
-            .switch(
+            .optional_named_flag_arg(
                 "osc", // \x1b]
                 r"operating system command (osc) escape sequence without the escape character(s) ('\x1b]' is not required)",
                 Some('o'),
             )
-            .switch("list", "list available ansi code names", Some('l'))
+            .optional_named_flag_arg("list", "list available ansi code names", Some('l'))
             .allow_variants_without_examples(true)
             .category(Category::Platform)
     }

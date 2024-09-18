@@ -17,8 +17,8 @@ impl Command for Const {
         Signature::build("const")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("const_name", SyntaxShape::VarWithOptType, "Constant name.")
-            .required(
+            .required_positional_arg("const_name", SyntaxShape::VarWithOptType, "Constant name.")
+            .required_positional_arg(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
                 "Equals sign followed by constant value.",

@@ -27,7 +27,7 @@ impl PluginCommand for LazyFlatten {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .rest(
+            .rest_positional_arg(
                 "columns",
                 SyntaxShape::String,
                 "columns to flatten, only applicable for dataframes",

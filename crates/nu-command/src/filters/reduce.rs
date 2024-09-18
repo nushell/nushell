@@ -16,13 +16,13 @@ impl Command for Reduce {
                 (Type::table(), Type::Any),
                 (Type::Range, Type::Any),
             ])
-            .named(
+            .named_flag_arg(
                 "fold",
                 SyntaxShape::Any,
                 "reduce with initial value",
                 Some('f'),
             )
-            .required(
+            .required_positional_arg(
                 "closure",
                 SyntaxShape::Closure(Some(vec![
                     SyntaxShape::Any,

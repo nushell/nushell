@@ -115,7 +115,7 @@ pub struct Signature {
     pub required_positional: Vec<PositionalArg>,
     pub optional_positional: Vec<PositionalArg>,
     pub rest_positional: Option<PositionalArg>,
-    pub named: Vec<Flag>,
+    pub named_flag: Vec<Flag>,
     pub input_output_types: Vec<(Type, Type)>,
     pub allow_variants_without_examples: bool,
     pub is_filter: bool,
@@ -150,7 +150,7 @@ impl Signature {
             rest_positional: None,
             input_output_types: vec![],
             allow_variants_without_examples: false,
-            named: vec![],
+            named_flag: vec![],
             is_filter: false,
             creates_scope: false,
             category: Category::Default,
@@ -210,7 +210,7 @@ impl Signature {
             var_id: None,
             default_value: None,
         };
-        self.named.push(flag);
+        self.named_flag.push(flag);
         self
     }
 
@@ -261,7 +261,7 @@ impl Signature {
     }
 
     /// Add a required positional argument to the signature
-    pub fn required(
+    pub fn required_positional_arg(
         mut self,
         name: impl Into<String>,
         shape: impl Into<SyntaxShape>,
@@ -279,7 +279,7 @@ impl Signature {
     }
 
     /// Add an optional positional argument to the signature
-    pub fn optional(
+    pub fn optional_positional_arg(
         mut self,
         name: impl Into<String>,
         shape: impl Into<SyntaxShape>,
@@ -296,7 +296,7 @@ impl Signature {
         self
     }
 
-    pub fn rest(
+    pub fn rest_positional_arg(
         mut self,
         name: &str,
         shape: impl Into<SyntaxShape>,
@@ -330,16 +330,16 @@ impl Signature {
     }
 
     /// Add an optional named flag argument to the signature
-    pub fn named(
+    pub fn named_flag_arg(
         mut self,
         name: impl Into<String>,
         shape: impl Into<SyntaxShape>,
         desc: impl Into<String>,
         short: Option<char>,
     ) -> Signature {
-        let (name, s) = self.check_names(name, short);
+        let (name, s) = self.check_flag_names(name, short);
 
-        self.named.push(Flag {
+        self.named_flag.push(Flag {
             long: name,
             short: s,
             arg: Some(shape.into()),
@@ -353,16 +353,16 @@ impl Signature {
     }
 
     /// Add a required named flag argument to the signature
-    pub fn required_named(
+    pub fn required_named_flag_arg(
         mut self,
         name: impl Into<String>,
         shape: impl Into<SyntaxShape>,
         desc: impl Into<String>,
         short: Option<char>,
     ) -> Signature {
-        let (name, s) = self.check_names(name, short);
+        let (name, s) = self.check_flag_names(name, short);
 
-        self.named.push(Flag {
+        self.named_flag.push(Flag {
             long: name,
             short: s,
             arg: Some(shape.into()),
@@ -376,15 +376,15 @@ impl Signature {
     }
 
     /// Add a switch to the signature
-    pub fn switch(
+    pub fn optional_named_flag_arg(
         mut self,
         name: impl Into<String>,
         desc: impl Into<String>,
         short: Option<char>,
     ) -> Signature {
-        let (name, s) = self.check_names(name, short);
+        let (name, s) = self.check_flag_names(name, short);
 
-        self.named.push(Flag {
+        self.named_flag.push(Flag {
             long: name,
             short: s,
             arg: None,
@@ -437,7 +437,7 @@ impl Signature {
         // flags will precede the script file name. Flags for internal commands can come
         // either before or after (or around) positional parameters, so there isn't a strong
         // preference, so we default to the more constrained example.
-        if self.named.len() > 1 {
+        if self.named_flag.len() > 1 {
             one_liner.push_str("{flags} ");
         }
 
@@ -460,21 +460,25 @@ impl Signature {
     }
 
     /// Get list of the short-hand flags
-    pub fn get_shorts(&self) -> Vec<char> {
-        self.named.iter().filter_map(|f| f.short).collect()
+    pub fn get_short_named_flags(&self) -> Vec<char> {
+        self.named_flag.iter().filter_map(|f| f.short).collect()
     }
 
     /// Get list of the long-hand flags
-    pub fn get_names(&self) -> Vec<&str> {
-        self.named.iter().map(|f| f.long.as_str()).collect()
+    pub fn get_long_named_flags(&self) -> Vec<&str> {
+        self.named_flag.iter().map(|f| f.long.as_str()).collect()
     }
 
     /// Checks if short or long are already present
     /// Panics if one of them is found
-    fn check_names(&self, name: impl Into<String>, short: Option<char>) -> (String, Option<char>) {
+    fn check_flag_names(
+        &self,
+        name: impl Into<String>,
+        short: Option<char>,
+    ) -> (String, Option<char>) {
         let s = short.inspect(|c| {
             assert!(
-                !self.get_shorts().contains(c),
+                !self.get_short_named_flags().contains(c),
                 "There may be duplicate short flags for '-{}'",
                 c
             );
@@ -483,7 +487,7 @@ impl Signature {
         let name = {
             let name: String = name.into();
             assert!(
-                !self.get_names().contains(&name.as_str()),
+                !self.get_long_named_flags().contains(&name.as_str()),
                 "There may be duplicate name flags for '--{}'",
                 name
             );
@@ -493,7 +497,7 @@ impl Signature {
         (name, s)
     }
 
-    pub fn get_positional(&self, position: usize) -> Option<&PositionalArg> {
+    pub fn get_positional_arg(&self, position: usize) -> Option<&PositionalArg> {
         if position < self.required_positional.len() {
             self.required_positional.get(position)
         } else if position < (self.required_positional.len() + self.optional_positional.len()) {
@@ -504,7 +508,7 @@ impl Signature {
         }
     }
 
-    pub fn num_positionals(&self) -> usize {
+    pub fn get_positional_arg_count(&self) -> usize {
         let mut total = self.required_positional.len() + self.optional_positional.len();
 
         for positional in &self.required_positional {
@@ -522,7 +526,7 @@ impl Signature {
         total
     }
 
-    pub fn num_positionals_after(&self, idx: usize) -> usize {
+    pub fn get_positional_args_after(&self, idx: usize) -> usize {
         let mut total = 0;
 
         for (curr, positional) in self.required_positional.iter().enumerate() {
@@ -545,7 +549,7 @@ impl Signature {
 
     /// Find the matching long flag
     pub fn get_long_flag(&self, name: &str) -> Option<Flag> {
-        for flag in &self.named {
+        for flag in &self.named_flag {
             if flag.long == name {
                 return Some(flag.clone());
             }
@@ -553,9 +557,9 @@ impl Signature {
         None
     }
 
-    /// Find the matching long flag
+    /// Find the matching short flag
     pub fn get_short_flag(&self, short: char) -> Option<Flag> {
-        for flag in &self.named {
+        for flag in &self.named_flag {
             if let Some(short_flag) = &flag.short {
                 if *short_flag == short {
                     return Some(flag.clone());
@@ -587,9 +591,9 @@ impl Signature {
     }
 
     pub fn formatted_flags(self) -> String {
-        if self.named.len() < 11 {
+        if self.named_flag.len() < 11 {
             let mut s = "Available flags:".to_string();
-            for flag in self.named {
+            for flag in self.named_flag {
                 if let Some(short) = flag.short {
                     let _ = write!(s, " --{}(-{}),", flag.long, short);
                 } else {
@@ -601,7 +605,7 @@ impl Signature {
             s
         } else {
             let mut s = "Some available flags:".to_string();
-            for flag in self.named {
+            for flag in self.named_flag {
                 if let Some(short) = flag.short {
                     let _ = write!(s, " --{}(-{}),", flag.long, short);
                 } else {

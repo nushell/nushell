@@ -23,7 +23,7 @@ impl PluginCommand for ExprOtherwise {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "otherwise expression",
                 SyntaxShape::Any,
                 "expression to apply when no when predicate matches",

@@ -22,7 +22,7 @@ impl SimplePluginCommand for HandleUpdate {
                 Type::Custom("HandleCustomValue".into()),
                 Type::Custom("HandleCustomValue".into()),
             )
-            .required(
+            .required_positional_arg(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "the closure to run on the value",

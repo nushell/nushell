@@ -37,7 +37,7 @@ impl Completer for FlagCompletion {
 
             let mut output = vec![];
 
-            for named in &sig.named {
+            for named in &sig.named_flag {
                 let flag_desc = &named.desc;
                 if let Some(short) = named.short {
                     let mut named = vec![0; short.len_utf8()];

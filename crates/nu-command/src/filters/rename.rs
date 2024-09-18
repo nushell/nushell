@@ -16,19 +16,19 @@ impl Command for Rename {
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
             ])
-            .named(
+            .named_flag_arg(
                 "column",
                 SyntaxShape::Record(vec![]),
                 "column name to be changed",
                 Some('c'),
             )
-            .named(
+            .named_flag_arg(
                 "block",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "A closure to apply changes on each column",
                 Some('b'),
             )
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::String,
                 "The new names for the columns.",

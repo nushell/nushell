@@ -23,7 +23,7 @@ impl PluginCommand for ExprAlias {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "Alias name",
                 SyntaxShape::String,
                 "Alias name for the expression",

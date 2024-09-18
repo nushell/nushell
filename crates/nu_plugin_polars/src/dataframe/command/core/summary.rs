@@ -36,7 +36,7 @@ impl PluginCommand for Summary {
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
             )
-            .named(
+            .named_flag_arg(
                 "quantiles",
                 SyntaxShape::List(Box::new(SyntaxShape::Float)),
                 "provide optional quantiles",

@@ -55,17 +55,17 @@ impl Command for UMv {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("mv")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .switch("force", "do not prompt before overwriting", Some('f'))
-            .switch("verbose", "explain what is being done.", Some('v'))
-            .switch("progress", "display a progress bar", Some('p'))
-            .switch("interactive", "prompt before overwriting", Some('i'))
-            .switch(
+            .optional_named_flag_arg("force", "do not prompt before overwriting", Some('f'))
+            .optional_named_flag_arg("verbose", "explain what is being done.", Some('v'))
+            .optional_named_flag_arg("progress", "display a progress bar", Some('p'))
+            .optional_named_flag_arg("interactive", "prompt before overwriting", Some('i'))
+            .optional_named_flag_arg(
                 "update",
                 "move and overwrite only when the SOURCE file is newer than the destination file or when the destination file is missing",
                 Some('u')
             )
-            .switch("no-clobber", "do not overwrite an existing file", Some('n'))
-            .rest(
+            .optional_named_flag_arg("no-clobber", "do not overwrite an existing file", Some('n'))
+            .rest_positional_arg(
                 "paths",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
                 "Rename SRC to DST, or move SRC to DIR.",

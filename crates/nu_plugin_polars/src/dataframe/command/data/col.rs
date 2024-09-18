@@ -26,7 +26,7 @@ impl PluginCommand for ExprCol {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "column name",
                 SyntaxShape::String,
                 "Name of column to be used. '*' can be used for all columns.",

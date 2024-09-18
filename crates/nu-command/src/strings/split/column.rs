@@ -20,7 +20,7 @@ impl Command for SubCommand {
                     Type::table(),
                 ),
             ])
-            .required(
+            .required_positional_arg(
                 "separator",
                 SyntaxShape::String,
                 "The character or string that denotes what separates columns.",

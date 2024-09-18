@@ -25,7 +25,7 @@ impl PluginCommand for LazyFillNA {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "fill",
                 SyntaxShape::Any,
                 "Expression to use to fill the NAN values",

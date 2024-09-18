@@ -26,7 +26,7 @@ impl PluginCommand for ExprIsIn {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("list", SyntaxShape::Any, "List to check if values are in")
+            .required_positional_arg("list", SyntaxShape::Any, "List to check if values are in")
             .input_output_types(vec![
                 (
                     Type::Custom("expression".into()),

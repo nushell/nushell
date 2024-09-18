@@ -46,12 +46,12 @@ impl Command for SubCommand {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, convert data at the given cell paths.",
             )
-            .named(
+            .named_flag_arg(
                 "decimals",
                 SyntaxShape::Int,
                 "decimal digits to which to round",

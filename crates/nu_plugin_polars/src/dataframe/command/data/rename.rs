@@ -28,12 +28,12 @@ impl PluginCommand for RenameDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "columns",
                 SyntaxShape::Any,
                 "Column(s) to be renamed. A string or list of strings",
             )
-            .required(
+            .required_positional_arg(
                 "new names",
                 SyntaxShape::Any,
                 "New names for the selected column(s). A string or list of strings",

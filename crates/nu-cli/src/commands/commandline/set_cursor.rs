@@ -13,12 +13,12 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .switch(
+            .optional_named_flag_arg(
                 "end",
                 "set the current cursor position to the end of the buffer",
                 Some('e'),
             )
-            .optional("pos", SyntaxShape::Int, "Cursor position to be set")
+            .optional_positional_arg("pos", SyntaxShape::Int, "Cursor position to be set")
             .category(Category::Core)
     }
 

@@ -58,7 +58,7 @@ const SIGNATURES = [
         desc: "rest value string",
         shape: String
       },
-      named: [
+      named_flag: [
         [
           long,
           short,

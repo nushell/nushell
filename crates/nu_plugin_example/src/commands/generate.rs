@@ -27,12 +27,12 @@ impl PluginCommand for Generate {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_type(Type::Nothing, Type::ListStream)
-            .required(
+            .required_positional_arg(
                 "initial",
                 SyntaxShape::Any,
                 "The initial value to pass to the closure",
             )
-            .required(
+            .required_positional_arg(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run to generate values",

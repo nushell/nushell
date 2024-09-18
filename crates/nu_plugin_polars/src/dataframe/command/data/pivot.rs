@@ -30,36 +30,36 @@ impl PluginCommand for PivotDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required_named(
+            .required_named_flag_arg(
                 "on",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "column names for pivoting",
                 Some('o'),
             )
-            .required_named(
+            .required_named_flag_arg(
                 "index",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "column names for indexes",
                 Some('i'),
             )
-            .required_named(
+            .required_named_flag_arg(
                 "values",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "column names used as value columns",
                 Some('v'),
             )
-            .named(
+            .named_flag_arg(
                 "aggregate",
                 SyntaxShape::String,
                 "Aggregation to apply when pivoting. The following are supported: first, sum, min, max, mean, median, count, last",
                 Some('a'),
             )
-            .switch(
+            .optional_named_flag_arg(
                 "sort",
                 "Sort columns",
                 Some('s'),
             )
-            .switch(
+            .optional_named_flag_arg(
                 "streamable",
                 "Whether or not to use the polars streaming engine. Only valid for lazy dataframes",
                 Some('t'),

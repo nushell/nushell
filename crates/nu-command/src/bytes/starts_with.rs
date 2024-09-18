@@ -30,8 +30,8 @@ impl Command for BytesStartsWith {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .required("pattern", SyntaxShape::Binary, "The pattern to match.")
-            .rest(
+            .required_positional_arg("pattern", SyntaxShape::Binary, "The pattern to match.")
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, check if bytes at the given cell paths start with the pattern.",

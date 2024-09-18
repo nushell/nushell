@@ -21,7 +21,7 @@ impl Command for EncodeHex {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, encode data at the given cell paths",

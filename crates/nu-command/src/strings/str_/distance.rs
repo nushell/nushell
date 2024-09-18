@@ -28,12 +28,12 @@ impl Command for SubCommand {
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
-            .required(
+            .required_positional_arg(
                 "compare-string",
                 SyntaxShape::String,
                 "The first string to compare.",
             )
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, check strings at the given cell paths, and replace with result.",

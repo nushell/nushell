@@ -23,7 +23,7 @@ impl Command for SubCommand {
                 (Type::String, Type::record()),
                 (Type::List(Box::new(Type::String)), Type::table()),
             ])
-            .named(
+            .named_flag_arg(
                 "extension",
                 SyntaxShape::String,
                 "Manually supply the extension (without the dot)",

@@ -13,7 +13,7 @@ impl Command for Source {
     fn signature(&self) -> Signature {
         Signature::build("source")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required(
+            .required_positional_arg(
                 "filename",
                 SyntaxShape::Filepath,
                 "The filepath to the script file to source.",

@@ -28,13 +28,13 @@ impl PluginCommand for DropDuplicates {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .optional(
+            .optional_positional_arg(
                 "subset",
                 SyntaxShape::Table(vec![]),
                 "subset of columns to drop duplicates",
             )
-            .switch("maintain", "maintain order", Some('m'))
-            .switch(
+            .optional_named_flag_arg("maintain", "maintain order", Some('m'))
+            .optional_named_flag_arg(
                 "last",
                 "keeps last duplicate value (by default keeps first)",
                 Some('l'),

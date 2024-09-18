@@ -17,7 +17,7 @@ impl Command for OverlayNew {
         Signature::build("overlay new")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("name", SyntaxShape::String, "Name of the overlay.")
+            .required_positional_arg("name", SyntaxShape::String, "Name of the overlay.")
             // TODO:
             // .switch(
             //     "prefix",

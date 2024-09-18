@@ -26,7 +26,7 @@ repeating this process with row 1, and so on."#
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
             ])
-            .required(
+            .required_positional_arg(
                 "value",
                 // Both this and `update` should have a shape more like <record> | <table> than just <any>. -Leon 2022-10-27
                 SyntaxShape::Any,

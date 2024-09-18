@@ -17,8 +17,8 @@ impl Command for While {
         Signature::build("while")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("cond", SyntaxShape::MathExpression, "Condition to check.")
-            .required(
+            .required_positional_arg("cond", SyntaxShape::MathExpression, "Condition to check.")
+            .required_positional_arg(
                 "block",
                 SyntaxShape::Block,
                 "Block to loop if check succeeds.",

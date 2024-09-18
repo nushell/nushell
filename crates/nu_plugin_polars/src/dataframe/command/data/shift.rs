@@ -30,8 +30,8 @@ impl PluginCommand for Shift {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("period", SyntaxShape::Int, "shift period")
-            .named(
+            .required_positional_arg("period", SyntaxShape::Int, "shift period")
+            .named_flag_arg(
                 "fill",
                 SyntaxShape::Any,
                 "Expression used to fill the null values (lazy df)",

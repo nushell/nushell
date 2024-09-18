@@ -23,34 +23,34 @@ impl Command for Do {
 
     fn signature(&self) -> Signature {
         Signature::build("do")
-            .required("closure", SyntaxShape::Closure(None), "The closure to run.")
+            .required_positional_arg("closure", SyntaxShape::Closure(None), "The closure to run.")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .switch(
+            .optional_named_flag_arg(
                 "ignore-errors",
                 "ignore errors as the closure runs",
                 Some('i'),
             )
-            .switch(
+            .optional_named_flag_arg(
                 "ignore-shell-errors",
                 "ignore shell errors as the closure runs",
                 Some('s'),
             )
-            .switch(
+            .optional_named_flag_arg(
                 "ignore-program-errors",
                 "ignore external program errors as the closure runs",
                 Some('p'),
             )
-            .switch(
+            .optional_named_flag_arg(
                 "capture-errors",
                 "catch errors as the closure runs, and return them",
                 Some('c'),
             )
-            .switch(
+            .optional_named_flag_arg(
                 "env",
                 "keep the environment defined inside the command",
                 None,
             )
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::Any,
                 "The parameter(s) for the closure.",

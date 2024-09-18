@@ -17,17 +17,17 @@ impl Command for For {
         Signature::build("for")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required(
+            .required_positional_arg(
                 "var_name",
                 SyntaxShape::VarWithOptType,
                 "Name of the looping variable.",
             )
-            .required(
+            .required_positional_arg(
                 "range",
                 SyntaxShape::Keyword(b"in".to_vec(), Box::new(SyntaxShape::Any)),
                 "Range of the loop.",
             )
-            .required("block", SyntaxShape::Block, "The block to run.")
+            .required_positional_arg("block", SyntaxShape::Block, "The block to run.")
             .creates_scope()
             .category(Category::Core)
     }

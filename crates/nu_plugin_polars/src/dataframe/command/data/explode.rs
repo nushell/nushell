@@ -24,7 +24,7 @@ impl PluginCommand for LazyExplode {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .rest(
+            .rest_positional_arg(
                 "columns",
                 SyntaxShape::String,
                 "columns to explode, only applicable for dataframes",

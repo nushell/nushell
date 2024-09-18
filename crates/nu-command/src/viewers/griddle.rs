@@ -26,7 +26,7 @@ impl Command for Griddle {
                 (Type::List(Box::new(Type::Any)), Type::String),
                 (Type::record(), Type::String),
             ])
-            .named(
+            .named_flag_arg(
                 "width",
                 SyntaxShape::Int,
                 "number of terminal columns wide (not output columns)",

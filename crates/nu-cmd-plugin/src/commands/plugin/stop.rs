@@ -13,7 +13,7 @@ impl Command for PluginStop {
     fn signature(&self) -> Signature {
         Signature::build("plugin stop")
             .input_output_type(Type::Nothing, Type::Nothing)
-            .required(
+            .required_positional_arg(
                 "name",
                 SyntaxShape::String,
                 "The name, or filename, of the plugin to stop",

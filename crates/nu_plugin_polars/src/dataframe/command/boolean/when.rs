@@ -25,12 +25,12 @@ impl PluginCommand for ExprWhen {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "when expression",
                 SyntaxShape::Any,
                 "when expression used for matching",
             )
-            .required(
+            .required_positional_arg(
                 "then expression",
                 SyntaxShape::Any,
                 "expression that will be applied when predicate is true",

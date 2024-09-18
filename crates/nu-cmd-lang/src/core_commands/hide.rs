@@ -12,8 +12,8 @@ impl Command for Hide {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("hide")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("module", SyntaxShape::String, "Module or module file.")
-            .optional(
+            .required_positional_arg("module", SyntaxShape::String, "Module or module file.")
+            .optional_positional_arg(
                 "members",
                 SyntaxShape::Any,
                 "Which members of the module to import.",

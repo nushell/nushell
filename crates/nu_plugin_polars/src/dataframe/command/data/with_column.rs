@@ -26,8 +26,8 @@ impl PluginCommand for WithColumn {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .named("name", SyntaxShape::String, "new column name", Some('n'))
-            .rest(
+            .named_flag_arg("name", SyntaxShape::String, "new column name", Some('n'))
+            .rest_positional_arg(
                 "series or expressions",
                 SyntaxShape::Any,
                 "series to be added or expressions used to define the new columns",

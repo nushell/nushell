@@ -32,12 +32,12 @@ impl Command for FormatDuration {
                 (Type::table(), Type::table()),
             ])
             .allow_variants_without_examples(true)
-            .required(
+            .required_positional_arg(
                 "format value",
                 SyntaxShape::String,
                 "The unit in which to display the duration.",
             )
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, format duration at the given cell paths.",

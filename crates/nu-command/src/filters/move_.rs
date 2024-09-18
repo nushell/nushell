@@ -24,14 +24,14 @@ impl Command for Move {
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
             ])
-            .rest("columns", SyntaxShape::String, "The columns to move.")
-            .named(
+            .rest_positional_arg("columns", SyntaxShape::String, "The columns to move.")
+            .named_flag_arg(
                 "after",
                 SyntaxShape::String,
                 "the column that will precede the columns moved",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "before",
                 SyntaxShape::String,
                 "the column that will be the next after the columns moved",

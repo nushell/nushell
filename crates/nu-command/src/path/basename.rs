@@ -26,7 +26,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
             ])
-            .named(
+            .named_flag_arg(
                 "replace",
                 SyntaxShape::String,
                 "Return original path with basename replaced by this string",

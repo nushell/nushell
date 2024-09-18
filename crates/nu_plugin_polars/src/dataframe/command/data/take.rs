@@ -25,7 +25,7 @@ impl PluginCommand for TakeDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "indices",
                 SyntaxShape::Any,
                 "list of indices used to take data",

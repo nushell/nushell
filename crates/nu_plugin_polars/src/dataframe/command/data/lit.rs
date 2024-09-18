@@ -20,7 +20,7 @@ impl PluginCommand for ExprLit {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "literal",
                 SyntaxShape::Any,
                 "literal to construct the expression",

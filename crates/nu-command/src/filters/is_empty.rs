@@ -12,7 +12,7 @@ impl Command for IsEmpty {
     fn signature(&self) -> Signature {
         Signature::build("is-empty")
             .input_output_types(vec![(Type::Any, Type::Bool)])
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "The names of the columns to check emptiness.",

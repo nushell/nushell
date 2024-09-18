@@ -259,7 +259,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         }
 
         // named flags
-        for named in &signature.named {
+        for named in &signature.named_flag {
             let flag_type;
 
             // Skip the help flag

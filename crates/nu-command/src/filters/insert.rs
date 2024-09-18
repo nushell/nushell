@@ -19,12 +19,12 @@ impl Command for Insert {
                     Type::List(Box::new(Type::Any)),
                 ),
             ])
-            .required(
+            .required_positional_arg(
                 "field",
                 SyntaxShape::CellPath,
                 "The name of the column to insert.",
             )
-            .required(
+            .required_positional_arg(
                 "new value",
                 SyntaxShape::Any,
                 "The new value to give the cell(s).",

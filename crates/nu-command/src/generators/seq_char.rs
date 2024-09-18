@@ -15,12 +15,12 @@ impl Command for SeqChar {
     fn signature(&self) -> Signature {
         Signature::build("seq char")
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
-            .required(
+            .required_positional_arg(
                 "start",
                 SyntaxShape::String,
                 "Start of character sequence (inclusive).",
             )
-            .required(
+            .required_positional_arg(
                 "end",
                 SyntaxShape::String,
                 "End of character sequence (inclusive).",

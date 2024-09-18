@@ -44,8 +44,8 @@ impl Command for BytesAt {
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
-            .required("range", SyntaxShape::Range, "The range to get bytes.")
-            .rest(
+            .required_positional_arg("range", SyntaxShape::Range, "The range to get bytes.")
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, get bytes from data at the given cell paths.",

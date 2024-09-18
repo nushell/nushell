@@ -24,7 +24,7 @@ impl PluginCommand for ForEach {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_type(Type::ListStream, Type::Nothing)
-            .required(
+            .required_positional_arg(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run for each input value",

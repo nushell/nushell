@@ -19,14 +19,14 @@ impl Command for SubCommand {
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
-            .named(
+            .named_flag_arg(
                 "text",
                 SyntaxShape::String,
                 "Link text. Uses uri as text if absent. In case of
                 tables, records and lists applies this text to all elements",
                 Some('t'),
             )
-            .rest(
+            .rest_positional_arg(
                 "cell path",
                 SyntaxShape::CellPath,
                 "For a data structure input, add links to all strings at the given cell paths.",

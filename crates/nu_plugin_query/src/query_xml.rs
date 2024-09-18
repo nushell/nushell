@@ -21,7 +21,7 @@ impl SimplePluginCommand for QueryXml {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("query", SyntaxShape::String, "xpath query")
+            .required_positional_arg("query", SyntaxShape::String, "xpath query")
             .category(Category::Filters)
     }
 

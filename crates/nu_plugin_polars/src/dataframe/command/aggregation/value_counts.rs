@@ -25,19 +25,19 @@ impl PluginCommand for ValueCount {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .named(
+            .named_flag_arg(
                 "column",
                 SyntaxShape::String,
                 "Provide a custom name for the coutn column",
                 Some('c'),
             )
-            .switch("sort", "Whether or not values should be sorted", Some('s'))
-            .switch(
+            .optional_named_flag_arg("sort", "Whether or not values should be sorted", Some('s'))
+            .optional_named_flag_arg(
                 "parallel",
                 "Use multiple threads when processing",
                 Some('p'),
             )
-            .named(
+            .named_flag_arg(
                 "normalize",
                 SyntaxShape::String,
                 "Normalize the counts",
