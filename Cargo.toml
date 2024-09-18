@@ -161,7 +161,7 @@ titlecase = "2.0"
 toml = "0.8"
 trash = "3.3"
 umask = "2.1"
-unicode-segmentation = "1.11"
+unicode-segmentation = "1.12"
 unicode-width = "0.1"
 ureq = { version = "2.10", default-features = false }
 url = "2.2"
