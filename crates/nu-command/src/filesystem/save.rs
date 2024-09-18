@@ -101,7 +101,7 @@ impl Command for Save {
                     ByteStreamSource::File(source) => {
                         stream_to_file(source, size, signals, file, span, progress)?;
                     }
-                    ByteStreamSource::Child(mut child) => {
+                    ByteStreamSource::Child(mut child, _) => {
                         fn write_or_consume_stderr(
                             stderr: ChildPipe,
                             file: Option<File>,
