@@ -2938,7 +2938,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "assert_cmd",
  "crossterm 0.28.1",
@@ -2993,7 +2993,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "chrono",
  "crossterm 0.28.1",
@@ -3028,7 +3028,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-base"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "indexmap",
  "miette",
@@ -3040,7 +3040,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-extra"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "fancy-regex",
  "heck",
@@ -3065,7 +3065,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-lang"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "itertools 0.13.0",
  "nu-engine",
@@ -3077,7 +3077,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-plugin"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "itertools 0.13.0",
  "nu-engine",
@@ -3088,7 +3088,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
@@ -3100,7 +3100,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "alphanumeric-sort",
  "base64 0.22.1",
@@ -3210,7 +3210,7 @@ dependencies = [
 
 [[package]]
 name = "nu-derive-value"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "heck",
  "proc-macro-error",
@@ -3221,7 +3221,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "log",
  "nu-glob",
@@ -3233,7 +3233,7 @@ dependencies = [
 
 [[package]]
 name = "nu-explore"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "ansi-str",
  "anyhow",
@@ -3258,14 +3258,14 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "doc-comment",
 ]
 
 [[package]]
 name = "nu-json"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "fancy-regex",
  "linked-hash-map",
@@ -3278,7 +3278,7 @@ dependencies = [
 
 [[package]]
 name = "nu-lsp"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
@@ -3299,7 +3299,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "bytesize",
  "chrono",
@@ -3315,7 +3315,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "dirs",
  "omnipath",
@@ -3324,7 +3324,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "log",
  "nix 0.29.0",
@@ -3340,7 +3340,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-core"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "interprocess",
  "log",
@@ -3354,7 +3354,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-engine"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "log",
  "nu-engine",
@@ -3370,7 +3370,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-protocol"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "nu-protocol",
  "nu-utils",
@@ -3382,7 +3382,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-test-support"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "nu-ansi-term",
  "nu-cmd-lang",
@@ -3400,7 +3400,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -3409,7 +3409,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "brotli",
  "byte-unit",
@@ -3447,7 +3447,7 @@ dependencies = [
 
 [[package]]
 name = "nu-std"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "log",
  "miette",
@@ -3458,7 +3458,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "chrono",
  "itertools 0.13.0",
@@ -3476,7 +3476,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "fancy-regex",
  "nu-ansi-term",
@@ -3490,7 +3490,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "nu-utils",
  "unicode-width",
@@ -3498,7 +3498,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "nu-glob",
  "nu-path",
@@ -3510,7 +3510,7 @@ dependencies = [
 
 [[package]]
 name = "nu-utils"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "crossterm_winapi",
  "log",
@@ -3536,7 +3536,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "nu-cmd-lang",
  "nu-plugin",
@@ -3546,7 +3546,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_formats"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "chrono",
  "eml-parser",
@@ -3561,7 +3561,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "git2",
  "nu-plugin",
@@ -3570,7 +3570,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -3579,7 +3579,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_polars"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "chrono",
  "chrono-tz 0.9.0",
@@ -3613,7 +3613,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "gjson",
  "nu-plugin",
@@ -3628,7 +3628,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_stress_internals"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "interprocess",
  "serde",
@@ -3742,7 +3742,7 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "nuon"
-version = "0.97.2"
+version = "0.98.0"
 dependencies = [
  "chrono",
  "fancy-regex",
@@ -5135,8 +5135,9 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.34.0"
-source = "git+https://github.com/nushell/reedline?branch=main#7af89595377fa59d2a6a2333718d60adf61c86b1"
+version = "0.35.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5289de810296f8f2ff58d35544d92ae98d0a631453388bc3e608086be0fa596"
 dependencies = [
  "arboard",
  "chrono",
