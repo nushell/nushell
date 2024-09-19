@@ -896,9 +896,11 @@ mod windows_helper {
 fn read_dir(
     f: &Path,
 ) -> Result<Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send>, ShellError> {
-    let iter = f.read_dir()?.map(|d| {
+    let mut items = f.read_dir()?.map(|d| {
         d.map(|r| r.path())
             .map_err(|e| ShellError::IOError { msg: e.to_string() })
-    });
-    Ok(Box::new(iter))
+    }).collect::<Vec<_>>();
+    items.sort_by(|a, b| a.as_ref().unwrap().cmp(b.as_ref().unwrap()));
+
+    Ok(Box::new(items.into_iter()))
 }
