@@ -32,6 +32,7 @@ pub mod sql_expr;
 mod take;
 mod unpivot;
 mod with_column;
+mod concat;
 use filter::LazyFilter;
 mod shift;
 mod unique;
@@ -74,6 +75,7 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(AppendDF),
         Box::new(CastDF),
         Box::new(DropDF),
+        Box::new(concat::ConcatDF),
         Box::new(DropDuplicates),
         Box::new(DropNulls),
         Box::new(Dummies),
