@@ -1,9 +1,8 @@
+use crate::util::{get_plugin_dirs, modify_plugin_file};
 use nu_engine::command_prelude::*;
 use nu_plugin_engine::{GetPlugin, PersistentPlugin};
 use nu_protocol::{PluginGcConfig, PluginIdentity, PluginRegistryItem, RegisteredPlugin};
 use std::sync::Arc;
-
-use crate::util::{get_plugin_dirs, modify_plugin_file};
 
 #[derive(Clone)]
 pub struct PluginAdd;
@@ -81,14 +80,16 @@ apparent the next time `nu` is next launched with that plugin registry file.
     ) -> Result<PipelineData, ShellError> {
         let filename: Spanned<String> = call.req(engine_state, stack, 0)?;
         let shell: Option<Spanned<String>> = call.get_flag(engine_state, stack, "shell")?;
-
         let cwd = engine_state.cwd(Some(stack))?;
+        let just_the_fn = match std::path::PathBuf::from(&filename.item).file_name() {
+            Some(f) => f.to_string_lossy().to_string(),
+            None => filename.item.clone(),
+        };
 
         // Check the current directory, or fall back to NU_PLUGIN_DIRS
-        let filename_expanded = nu_path::locate_in_dirs(&filename.item, &cwd, || {
-            get_plugin_dirs(engine_state, stack)
-        })
-        .err_span(filename.span)?;
+        let filename_expanded =
+            nu_path::locate_in_dirs(just_the_fn, &cwd, || get_plugin_dirs(engine_state, stack))
+                .err_span(filename.span)?;
 
         let shell_expanded = shell
             .as_ref()
