@@ -249,31 +249,31 @@ fn recursive_parse() -> TestResult {
 }
 
 #[test]
-fn commands_have_usage() -> TestResult {
+fn commands_have_description() -> TestResult {
     run_test_contains(
         r#"
     # This is a test
     #
-    # To see if I have cool usage
+    # To see if I have cool description
     def foo [] {}
     help foo"#,
-        "cool usage",
+        "cool description",
     )
 }
 
 #[test]
-fn commands_from_crlf_source_have_short_usage() -> TestResult {
+fn commands_from_crlf_source_have_short_description() -> TestResult {
     run_test_contains(
-        "# This is a test\r\n#\r\n# To see if I have cool usage\r\ndef foo [] {}\r\nscope commands | where name == foo | get usage.0",
+        "# This is a test\r\n#\r\n# To see if I have cool description\r\ndef foo [] {}\r\nscope commands | where name == foo | get description.0",
         "This is a test",
     )
 }
 
 #[test]
-fn commands_from_crlf_source_have_extra_usage() -> TestResult {
+fn commands_from_crlf_source_have_extra_description() -> TestResult {
     run_test_contains(
-        "# This is a test\r\n#\r\n# To see if I have cool usage\r\ndef foo [] {}\r\nscope commands | where name == foo | get extra_usage.0",
-        "To see if I have cool usage",
+        "# This is a test\r\n#\r\n# To see if I have cool description\r\ndef foo [] {}\r\nscope commands | where name == foo | get extra_description.0",
+        "To see if I have cool description",
     )
 }
 
@@ -293,6 +293,48 @@ fn assign_expressions() -> TestResult {
         "Foobar",
         &env,
     )
+}
+
+#[test]
+fn assign_takes_pipeline() -> TestResult {
+    run_test(
+        r#"mut foo = 'bar'; $foo = $foo | str upcase | str reverse; $foo"#,
+        "RAB",
+    )
+}
+
+#[test]
+fn append_assign_takes_pipeline() -> TestResult {
+    run_test(
+        r#"mut foo = 'bar'; $foo ++= $foo | str upcase; $foo"#,
+        "barBAR",
+    )
+}
+
+#[test]
+fn assign_bare_external_fails() {
+    let result = nu!("$env.FOO = nu --testbin cococo");
+    assert!(!result.status.success());
+    assert!(result.err.contains("must be explicit"));
+}
+
+#[test]
+fn assign_bare_external_with_caret() {
+    let result = nu!("$env.FOO = ^nu --testbin cococo");
+    assert!(result.status.success());
+}
+
+#[test]
+fn assign_backtick_quoted_external_fails() {
+    let result = nu!("$env.FOO = `nu` --testbin cococo");
+    assert!(!result.status.success());
+    assert!(result.err.contains("must be explicit"));
+}
+
+#[test]
+fn assign_backtick_quoted_external_with_caret() {
+    let result = nu!("$env.FOO = ^`nu` --testbin cococo");
+    assert!(result.status.success());
 }
 
 #[test]

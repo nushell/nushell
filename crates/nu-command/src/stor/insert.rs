@@ -33,7 +33,7 @@ impl Command for StorInsert {
             .category(Category::Database)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Insert information into a specified table in the in-memory sqlite database."
     }
 

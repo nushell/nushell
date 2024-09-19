@@ -56,7 +56,7 @@ impl Command for SubCommand {
             )
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Split a string's words into separate rows."
     }
 
@@ -187,7 +187,7 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
     // [^[:alpha:]\'] = do not match any uppercase or lowercase letters or apostrophes
     // [^\p{L}\'] = do not match any unicode uppercase or lowercase letters or apostrophes
     // Let's go with the unicode one in hopes that it works on more than just ascii characters
-    let regex_replace = Regex::new(r"[^\p{L}\']").expect("regular expression error");
+    let regex_replace = Regex::new(r"[^\p{L}\p{N}\']").expect("regular expression error");
     let v_span = v.span();
 
     match v {
@@ -421,5 +421,10 @@ mod test {
         use crate::test_examples;
 
         test_examples(SubCommand {})
+    }
+    #[test]
+    fn mixed_letter_number() {
+        let actual = nu!(r#"echo "a1 b2 c3" | split words | str join ','"#);
+        assert_eq!(actual.out, "a1,b2,c3");
     }
 }

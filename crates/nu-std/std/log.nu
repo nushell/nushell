@@ -36,8 +36,8 @@ export def log-short-prefix [] {
     }
 }
 export-env {
-    $env.NU_LOG_FORMAT = $"%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
-    $env.NU_LOG_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S%.3f"
+    $env.NU_LOG_FORMAT = $env.NU_LOG_FORMAT? | default "%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
+    $env.NU_LOG_DATE_FORMAT = $env.NU_LOG_DATE_FORMAT? | default "%Y-%m-%dT%H:%M:%S%.3f"
 }
 
 def log-types [] {
@@ -282,7 +282,10 @@ export def custom [
         $level_prefix
     }
 
-    let ansi = if ($ansi | is-empty) {
+    let use_color = ($env | get config? | get use_ansi_coloring? | $in != false)
+    let ansi = if not $use_color {
+        ""
+    } else if ($ansi | is-empty) {
         if ($log_level not-in $valid_levels_for_defaulting) {
             log-level-deduction-error "ansi" (metadata $log_level).span $log_level
         }

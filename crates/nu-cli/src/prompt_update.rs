@@ -3,7 +3,7 @@ use log::trace;
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    report_error_new, Config, PipelineData, Value,
+    report_shell_error, Config, PipelineData, Value,
 };
 use reedline::Prompt;
 
@@ -46,7 +46,10 @@ pub(crate) const VSCODE_POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]633;D;";
 #[allow(dead_code)]
 pub(crate) const VSCODE_POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
 #[allow(dead_code)]
-pub(crate) const VSCODE_COMMANDLINE_MARKER: &str = "\x1b]633;E\x1b\\";
+//"\x1b]633;E;{}\x1b\\"
+pub(crate) const VSCODE_COMMANDLINE_MARKER_PREFIX: &str = "\x1b]633;E;";
+#[allow(dead_code)]
+pub(crate) const VSCODE_COMMANDLINE_MARKER_SUFFIX: &str = "\x1b\\";
 #[allow(dead_code)]
 // "\x1b]633;P;Cwd={}\x1b\\"
 pub(crate) const VSCODE_CWD_PROPERTY_MARKER_PREFIX: &str = "\x1b]633;P;Cwd=";
@@ -77,7 +80,7 @@ fn get_prompt_string(
 
                 result
                     .map_err(|err| {
-                        report_error_new(engine_state, &err);
+                        report_shell_error(engine_state, &err);
                     })
                     .ok()
             }
@@ -115,13 +118,13 @@ pub(crate) fn update_prompt(
 
     // Now that we have the prompt string lets ansify it.
     // <133 A><prompt><133 B><command><133 C><command output>
-    let left_prompt_string = if config.shell_integration_osc633 {
+    let left_prompt_string = if config.shell_integration.osc633 {
         if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
             // We're in vscode and we have osc633 enabled
             Some(format!(
                 "{VSCODE_PRE_PROMPT_MARKER}{configured_left_prompt_string}{VSCODE_POST_PROMPT_MARKER}"
             ))
-        } else if config.shell_integration_osc133 {
+        } else if config.shell_integration.osc133 {
             // If we're in VSCode but we don't find the env var, but we have osc133 set, then use it
             Some(format!(
                 "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
@@ -129,7 +132,7 @@ pub(crate) fn update_prompt(
         } else {
             configured_left_prompt_string.into()
         }
-    } else if config.shell_integration_osc133 {
+    } else if config.shell_integration.osc133 {
         Some(format!(
             "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
         ))

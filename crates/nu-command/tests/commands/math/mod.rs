@@ -1,8 +1,18 @@
+mod abs;
 mod avg;
+mod ceil;
+mod floor;
+mod log;
+mod max;
 mod median;
+mod min;
+mod mode;
+mod product;
 mod round;
 mod sqrt;
+mod stddev;
 mod sum;
+mod variance;
 
 use nu_test_support::{nu, pipeline};
 

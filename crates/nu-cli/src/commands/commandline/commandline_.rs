@@ -14,7 +14,7 @@ impl Command for Commandline {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "View the current command line input buffer."
     }
 

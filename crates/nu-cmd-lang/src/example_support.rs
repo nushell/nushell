@@ -1,10 +1,7 @@
 use itertools::Itertools;
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, compile};
 use nu_protocol::{
-    ast::Block,
-    debugger::WithoutDebug,
-    engine::{StateDelta, StateWorkingSet},
-    report_error_new, Range,
+    ast::Block, debugger::WithoutDebug, engine::StateWorkingSet, report_shell_error, Range,
 };
 use std::{
     sync::Arc,
@@ -72,21 +69,30 @@ pub fn check_example_input_and_output_types_match_command_signature(
     witnessed_type_transformations
 }
 
-fn eval_pipeline_without_terminal_expression(
+pub fn eval_pipeline_without_terminal_expression(
     src: &str,
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
 ) -> Option<Value> {
-    let (mut block, delta) = parse(src, engine_state);
+    let (mut block, mut working_set) = parse(src, engine_state);
     if block.pipelines.len() == 1 {
         let n_expressions = block.pipelines[0].elements.len();
-        Arc::make_mut(&mut block).pipelines[0]
-            .elements
-            .truncate(&n_expressions - 1);
+        // Modify the block to remove the last element and recompile it
+        {
+            let mut_block = Arc::make_mut(&mut block);
+            mut_block.pipelines[0].elements.truncate(n_expressions - 1);
+            mut_block.ir_block = Some(compile(&working_set, mut_block).expect(
+                "failed to compile block modified by eval_pipeline_without_terminal_expression",
+            ));
+        }
+        working_set.add_block(block.clone());
+        engine_state
+            .merge_delta(working_set.render())
+            .expect("failed to merge delta");
 
         if !block.pipelines[0].elements.is_empty() {
             let empty_input = PipelineData::empty();
-            Some(eval_block(block, empty_input, cwd, engine_state, delta))
+            Some(eval_block(block, empty_input, cwd, engine_state))
         } else {
             Some(Value::nothing(Span::test_data()))
         }
@@ -96,28 +102,30 @@ fn eval_pipeline_without_terminal_expression(
     }
 }
 
-pub fn parse(contents: &str, engine_state: &EngineState) -> (Arc<Block>, StateDelta) {
+pub fn parse<'engine>(
+    contents: &str,
+    engine_state: &'engine EngineState,
+) -> (Arc<Block>, StateWorkingSet<'engine>) {
     let mut working_set = StateWorkingSet::new(engine_state);
     let output = nu_parser::parse(&mut working_set, None, contents.as_bytes(), false);
 
     if let Some(err) = working_set.parse_errors.first() {
-        panic!("test parse error in `{contents}`: {err:?}")
+        panic!("test parse error in `{contents}`: {err:?}");
     }
 
-    (output, working_set.render())
+    if let Some(err) = working_set.compile_errors.first() {
+        panic!("test compile error in `{contents}`: {err:?}");
+    }
+
+    (output, working_set)
 }
 
 pub fn eval_block(
     block: Arc<Block>,
     input: PipelineData,
     cwd: &std::path::Path,
-    engine_state: &mut Box<EngineState>,
-    delta: StateDelta,
+    engine_state: &EngineState,
 ) -> Value {
-    engine_state
-        .merge_delta(delta)
-        .expect("Error merging delta");
-
     let mut stack = Stack::new().capture();
 
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
@@ -125,7 +133,7 @@ pub fn eval_block(
     nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input)
         .and_then(|data| data.into_value(Span::test_data()))
         .unwrap_or_else(|err| {
-            report_error_new(engine_state, &err);
+            report_shell_error(engine_state, &err);
             panic!("test eval error in `{}`: {:?}", "TODO", err)
         })
 }
@@ -191,8 +199,11 @@ fn eval(
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
 ) -> Value {
-    let (block, delta) = parse(contents, engine_state);
-    eval_block(block, input, cwd, engine_state, delta)
+    let (block, working_set) = parse(contents, engine_state);
+    engine_state
+        .merge_delta(working_set.render())
+        .expect("failed to merge delta");
+    eval_block(block, input, cwd, engine_state)
 }
 
 pub struct DebuggableValue<'a>(pub &'a Value);

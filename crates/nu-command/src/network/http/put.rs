@@ -78,11 +78,11 @@ impl Command for SubCommand {
             .category(Category::Network)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Put a body to a URL."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Performs HTTP PUT operation."
     }
 
@@ -124,7 +124,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Put JSON content from a pipeline to example.com",
-                example: "open foo.json | http put https://www.example.com",
+                example: "open --raw foo.json | http put https://www.example.com",
                 result: None,
             },
         ]

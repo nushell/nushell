@@ -6,7 +6,8 @@ mod parse_warning;
 mod shell_error;
 
 pub use cli_error::{
-    format_error, report_error, report_error_new, report_warning, report_warning_new,
+    format_shell_error, report_parse_error, report_parse_warning, report_shell_error,
+    report_shell_warning,
 };
 pub use compile_error::CompileError;
 pub use labeled_error::{ErrorLabel, LabeledError};

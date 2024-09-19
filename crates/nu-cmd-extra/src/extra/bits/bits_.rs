@@ -14,11 +14,11 @@ impl Command for Bits {
             .input_output_types(vec![(Type::Nothing, Type::String)])
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Various commands for working with bits."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "You must use one of the following subcommands. Using this command as-is will only produce this help message."
     }
 

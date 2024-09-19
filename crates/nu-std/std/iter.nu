@@ -216,7 +216,7 @@ export def zip-with [ # -> list<any>
 export def zip-into-record [ # -> table<any>
     other: list                     # the values to zip with
 ] {
-    into record
-    | append ($other | into record)
-    | headers
+    zip $other
+    | into record
+    | [$in]
 }

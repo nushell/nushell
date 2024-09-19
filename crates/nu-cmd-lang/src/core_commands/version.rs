@@ -21,7 +21,7 @@ impl Command for Version {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Display Nu version, and its build configuration."
     }
 

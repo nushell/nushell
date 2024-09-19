@@ -17,7 +17,7 @@ impl Command for StorReset {
             .category(Category::Database)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Reset the in-memory database by dropping all tables."
     }
 

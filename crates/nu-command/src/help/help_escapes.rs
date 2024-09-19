@@ -8,7 +8,7 @@ impl Command for HelpEscapes {
         "help escapes"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show help on nushell string escapes."
     }
 

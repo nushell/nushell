@@ -13,7 +13,7 @@ impl PluginCommand for Echo {
         "example echo"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Example stream consumer that outputs the received input"
     }
 

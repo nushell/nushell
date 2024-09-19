@@ -32,38 +32,35 @@ impl UIEvents {
         }
     }
 
-    pub fn next(&self) -> Result<Option<KeyEvent>> {
-        let now = Instant::now();
-        match poll(self.tick_rate) {
-            Ok(true) => {
-                if let Event::Key(event) = read()? {
-                    // We are only interested in Pressed events;
-                    // It's crucial because there are cases where terminal MIGHT produce false events;
-                    // 2 events 1 for release 1 for press.
-                    // Want to react only on 1 of them so we do.
-                    if event.kind == KeyEventKind::Press {
-                        return Ok(Some(event));
-                    }
-                }
-
-                let time_spent = now.elapsed();
-                let rest = self.tick_rate.saturating_sub(time_spent);
-
-                Self { tick_rate: rest }.next()
+    /// Read the next key press event, dropping any other preceding events. Returns None if no
+    /// relevant event is found within the configured tick_rate.
+    pub fn next_key_press(&self) -> Result<Option<KeyEvent>> {
+        let deadline = Instant::now() + self.tick_rate;
+        loop {
+            let timeout = deadline.saturating_duration_since(Instant::now());
+            if !poll(timeout)? {
+                return Ok(None);
             }
-            Ok(false) => Ok(None),
-            Err(err) => Err(err),
+            if let Event::Key(event) = read()? {
+                if event.kind == KeyEventKind::Press {
+                    return Ok(Some(event));
+                }
+            }
         }
     }
 
-    pub fn try_next(&self) -> Result<Option<KeyEvent>> {
-        match poll(Duration::default()) {
-            Ok(true) => match read()? {
-                Event::Key(event) if event.kind == KeyEventKind::Press => Ok(Some(event)),
-                _ => Ok(None),
-            },
-            Ok(false) => Ok(None),
-            Err(err) => Err(err),
+    /// Read the next key press event, dropping any other preceding events. If no key event is
+    /// available, returns immediately.
+    pub fn try_next_key_press(&self) -> Result<Option<KeyEvent>> {
+        loop {
+            if !poll(Duration::ZERO)? {
+                return Ok(None);
+            }
+            if let Event::Key(event) = read()? {
+                if event.kind == KeyEventKind::Press {
+                    return Ok(Some(event));
+                }
+            }
         }
     }
 }

@@ -8,7 +8,7 @@ impl Command for Zip {
         "zip"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Combine a stream with the input."
     }
 

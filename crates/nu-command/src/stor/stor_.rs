@@ -14,11 +14,11 @@ impl Command for Stor {
             .input_output_types(vec![(Type::Nothing, Type::String)])
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Various commands for working with the in-memory sqlite database."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "You must use one of the following subcommands. Using this command as-is will only produce this help message."
     }
 

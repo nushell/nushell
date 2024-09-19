@@ -15,7 +15,7 @@ use nu_plugin_core::{
     ServerCommunicationIo,
 };
 use nu_protocol::{
-    engine::StateWorkingSet, report_error_new, PluginIdentity, PluginRegistryFile,
+    engine::StateWorkingSet, report_shell_error, PluginIdentity, PluginRegistryFile,
     PluginRegistryItem, PluginRegistryItemData, RegisteredPlugin, ShellError, Span,
 };
 
@@ -225,7 +225,7 @@ pub fn load_plugin_file(
     for plugin in &plugin_registry_file.plugins {
         // Any errors encountered should just be logged.
         if let Err(err) = load_plugin_registry_item(working_set, plugin, span) {
-            report_error_new(working_set.permanent_state, &err)
+            report_shell_error(working_set.permanent_state, &err)
         }
     }
 }

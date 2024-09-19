@@ -65,8 +65,8 @@ where
         self.0.name()
     }
 
-    fn usage(&self) -> &'static str {
-        self.0.usage()
+    fn description(&self) -> &'static str {
+        self.0.description()
     }
 
     fn parse(&mut self, args: &str) -> Result<()> {

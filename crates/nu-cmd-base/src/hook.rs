@@ -3,7 +3,7 @@ use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
 use nu_protocol::{
-    cli_error::{report_error, report_error_new},
+    cli_error::{report_parse_error, report_shell_error},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
     PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
@@ -91,7 +91,7 @@ pub fn eval_hook(
                     false,
                 );
                 if let Some(err) = working_set.parse_errors.first() {
-                    report_error(&working_set, err);
+                    report_parse_error(&working_set, err);
 
                     return Err(ShellError::UnsupportedConfigValue {
                         expected: "valid source code".into(),
@@ -123,7 +123,7 @@ pub fn eval_hook(
                     output = pipeline_data;
                 }
                 Err(err) => {
-                    report_error_new(engine_state, &err);
+                    report_shell_error(engine_state, &err);
                 }
             }
 
@@ -223,7 +223,7 @@ pub fn eval_hook(
                                 false,
                             );
                             if let Some(err) = working_set.parse_errors.first() {
-                                report_error(&working_set, err);
+                                report_parse_error(&working_set, err);
 
                                 return Err(ShellError::UnsupportedConfigValue {
                                     expected: "valid source code".into(),
@@ -251,7 +251,7 @@ pub fn eval_hook(
                                 output = pipeline_data;
                             }
                             Err(err) => {
-                                report_error_new(engine_state, &err);
+                                report_shell_error(engine_state, &err);
                             }
                         }
 

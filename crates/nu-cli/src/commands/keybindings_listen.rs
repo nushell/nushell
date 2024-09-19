@@ -12,11 +12,11 @@ impl Command for KeybindingsListen {
         "keybindings listen"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get input from the user."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This is an internal debugging tool. For better output, try `input listen --types [key]`"
     }
 

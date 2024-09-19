@@ -23,8 +23,8 @@ pub fn create_nu_table_config(
         with_index: out.with_index,
         with_header: out.with_header,
         split_color: Some(lookup_separator_color(comp)),
-        trim: config.trim_strategy.clone(),
-        header_on_border: config.table_move_header,
+        trim: config.table.trim.clone(),
+        header_on_border: config.table.header_on_separator,
         expand,
     }
 }
@@ -62,7 +62,8 @@ pub fn error_sign(style_computer: &StyleComputer) -> (String, TextStyle) {
 }
 
 pub fn wrap_text(text: &str, width: usize, config: &Config) -> String {
-    string_wrap(text, width, is_cfg_trim_keep_words(config))
+    let keep_words = config.table.trim == TrimStrategy::wrap(true);
+    string_wrap(text, width, keep_words)
 }
 
 pub fn get_header_style(style_computer: &StyleComputer) -> TextStyle {
@@ -161,15 +162,6 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
         }
     };
     Ok(format!("{val_float:.precision$}"))
-}
-
-fn is_cfg_trim_keep_words(config: &Config) -> bool {
-    matches!(
-        config.trim_strategy,
-        TrimStrategy::Wrap {
-            try_to_keep_words: true
-        }
-    )
 }
 
 pub fn load_theme(mode: TableMode) -> TableTheme {

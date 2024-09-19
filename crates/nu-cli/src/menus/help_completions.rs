@@ -1,4 +1,4 @@
-use nu_engine::documentation::get_flags_section;
+use nu_engine::documentation::{get_flags_section, HelpStyle};
 use nu_protocol::{engine::EngineState, levenshtein_distance, Config};
 use nu_utils::IgnoreCaseExt;
 use reedline::{Completer, Suggestion};
@@ -20,6 +20,9 @@ impl NuHelpCompleter {
     fn completion_helper(&self, line: &str, pos: usize) -> Vec<Suggestion> {
         let folded_line = line.to_folded_case();
 
+        let mut help_style = HelpStyle::default();
+        help_style.update_from_config(&self.engine_state, &self.config);
+
         let mut commands = self
             .engine_state
             .get_decls_sorted(false)
@@ -27,12 +30,15 @@ impl NuHelpCompleter {
             .filter_map(|(_, decl_id)| {
                 let decl = self.engine_state.get_decl(decl_id);
                 (decl.name().to_folded_case().contains(&folded_line)
-                    || decl.usage().to_folded_case().contains(&folded_line)
+                    || decl.description().to_folded_case().contains(&folded_line)
                     || decl
                         .search_terms()
                         .into_iter()
                         .any(|term| term.to_folded_case().contains(&folded_line))
-                    || decl.extra_usage().to_folded_case().contains(&folded_line))
+                    || decl
+                        .extra_description()
+                        .to_folded_case()
+                        .contains(&folded_line))
                 .then_some(decl)
             })
             .collect::<Vec<_>>();
@@ -44,15 +50,15 @@ impl NuHelpCompleter {
             .map(|decl| {
                 let mut long_desc = String::new();
 
-                let usage = decl.usage();
-                if !usage.is_empty() {
-                    long_desc.push_str(usage);
+                let description = decl.description();
+                if !description.is_empty() {
+                    long_desc.push_str(description);
                     long_desc.push_str("\r\n\r\n");
                 }
 
-                let extra_usage = decl.extra_usage();
-                if !extra_usage.is_empty() {
-                    long_desc.push_str(extra_usage);
+                let extra_desc = decl.extra_description();
+                if !extra_desc.is_empty() {
+                    long_desc.push_str(extra_desc);
                     long_desc.push_str("\r\n\r\n");
                 }
 
@@ -60,12 +66,9 @@ impl NuHelpCompleter {
                 let _ = write!(long_desc, "Usage:\r\n  > {}\r\n", sig.call_signature());
 
                 if !sig.named.is_empty() {
-                    long_desc.push_str(&get_flags_section(
-                        Some(&self.engine_state),
-                        Some(&self.config),
-                        &sig,
-                        |v| v.to_parsable_string(", ", &self.config),
-                    ))
+                    long_desc.push_str(&get_flags_section(&sig, &help_style, |v| {
+                        v.to_parsable_string(", ", &self.config)
+                    }))
                 }
 
                 if !sig.required_positional.is_empty()
@@ -110,13 +113,12 @@ impl NuHelpCompleter {
                 Suggestion {
                     value: decl.name().into(),
                     description: Some(long_desc),
-                    style: None,
                     extra: Some(extra),
                     span: reedline::Span {
                         start: pos - line.len(),
                         end: pos,
                     },
-                    append_whitespace: false,
+                    ..Suggestion::default()
                 }
             })
             .collect()

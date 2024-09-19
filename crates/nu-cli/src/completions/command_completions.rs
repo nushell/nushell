@@ -1,5 +1,5 @@
 use crate::{
-    completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy},
+    completions::{Completer, CompletionOptions, MatchAlgorithm},
     SuggestionKind,
 };
 use nu_parser::FlatShape;
@@ -51,7 +51,9 @@ impl CommandCompletion {
                             if working_set
                                 .permanent_state
                                 .config
-                                .max_external_completion_results
+                                .completions
+                                .external
+                                .max_results
                                 > executables.len() as i64
                                 && !executables.contains(
                                     &item
@@ -99,10 +101,9 @@ impl CommandCompletion {
                 suggestion: Suggestion {
                     value: String::from_utf8_lossy(&x.0).to_string(),
                     description: x.1,
-                    style: None,
-                    extra: None,
                     span: reedline::Span::new(span.start - offset, span.end - offset),
                     append_whitespace: true,
+                    ..Suggestion::default()
                 },
                 kind: Some(SuggestionKind::Command(x.2)),
             })
@@ -118,11 +119,9 @@ impl CommandCompletion {
                 .map(move |x| SemanticSuggestion {
                     suggestion: Suggestion {
                         value: x,
-                        description: None,
-                        style: None,
-                        extra: None,
                         span: reedline::Span::new(span.start - offset, span.end - offset),
                         append_whitespace: true,
+                        ..Suggestion::default()
                     },
                     // TODO: is there a way to create a test?
                     kind: None,
@@ -136,11 +135,9 @@ impl CommandCompletion {
                     results.push(SemanticSuggestion {
                         suggestion: Suggestion {
                             value: format!("^{}", external.suggestion.value),
-                            description: None,
-                            style: None,
-                            extra: None,
                             span: external.suggestion.span,
                             append_whitespace: true,
+                            ..Suggestion::default()
                         },
                         kind: external.kind,
                     })
@@ -198,11 +195,7 @@ impl Completer for CommandCompletion {
         };
 
         if !subcommands.is_empty() {
-            return sort_suggestions(
-                &String::from_utf8_lossy(&prefix),
-                subcommands,
-                SortBy::LevenshteinDistance,
-            );
+            return sort_suggestions(&String::from_utf8_lossy(&prefix), subcommands, options);
         }
 
         let config = working_set.get_config();
@@ -220,18 +213,14 @@ impl Completer for CommandCompletion {
                 working_set,
                 span,
                 offset,
-                config.enable_external_completion,
+                config.completions.external.enable,
                 options.match_algorithm,
             )
         } else {
             vec![]
         };
 
-        sort_suggestions(
-            &String::from_utf8_lossy(&prefix),
-            commands,
-            SortBy::LevenshteinDistance,
-        )
+        sort_suggestions(&String::from_utf8_lossy(&prefix), commands, options)
     }
 }
 

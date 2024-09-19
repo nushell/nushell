@@ -23,7 +23,7 @@ impl Command for TakeUntil {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Take elements of the input until a predicate is true."
     }
 

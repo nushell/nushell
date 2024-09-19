@@ -1,11 +1,10 @@
 use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
-use itertools::Itertools;
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
 struct Arguments {
     signed: bool,
-    bits: usize,
+    bits: Spanned<usize>,
     number_size: NumberBytes,
 }
 
@@ -53,7 +52,7 @@ impl Command for BitsRor {
             .category(Category::Bits)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Bitwise rotate right for ints or binary values."
     }
 
@@ -69,7 +68,7 @@ impl Command for BitsRor {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let bits: usize = call.req(engine_state, stack, 0)?;
+        let bits = call.req(engine_state, stack, 0)?;
         let signed = call.has_flag(engine_state, stack, "signed")?;
         let number_bytes: Option<Spanned<usize>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
@@ -123,6 +122,8 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         number_size,
         bits,
     } = *args;
+    let bits_span = bits.span;
+    let bits = bits.item;
 
     match input {
         Value::Int { val, .. } => {
@@ -131,6 +132,19 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let bits = bits as u32;
             let input_num_type = get_input_num_type(val, signed, number_size);
 
+            if bits > input_num_type.num_bits() {
+                return Value::error(
+                    ShellError::IncorrectValue {
+                        msg: format!(
+                            "Trying to rotate by more than the available bits ({})",
+                            input_num_type.num_bits()
+                        ),
+                        val_span: bits_span,
+                        call_span: span,
+                    },
+                    span,
+                );
+            }
             let int = match input_num_type {
                 One => (val as u8).rotate_right(bits) as i64,
                 Two => (val as u16).rotate_right(bits) as i64,
@@ -161,16 +175,28 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             Value::int(int, span)
         }
         Value::Binary { val, .. } => {
+            let len = val.len();
+            if bits > len * 8 {
+                return Value::error(
+                    ShellError::IncorrectValue {
+                        msg: format!(
+                            "Trying to rotate by more than the available bits ({})",
+                            len * 8
+                        ),
+                        val_span: bits_span,
+                        call_span: span,
+                    },
+                    span,
+                );
+            }
             let byte_shift = bits / 8;
             let bit_rotate = bits % 8;
 
-            let mut bytes = val
-                .iter()
-                .copied()
-                .circular_tuple_windows::<(u8, u8)>()
-                .map(|(lhs, rhs)| (lhs >> bit_rotate) | (rhs << (8 - bit_rotate)))
-                .collect::<Vec<u8>>();
-            bytes.rotate_right(byte_shift);
+            let bytes = if bit_rotate == 0 {
+                rotate_bytes_right(val, byte_shift)
+            } else {
+                rotate_bytes_and_bits_right(val, byte_shift, bit_rotate)
+            };
 
             Value::binary(bytes, span)
         }
@@ -188,6 +214,35 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     }
 }
 
+fn rotate_bytes_right(data: &[u8], byte_shift: usize) -> Vec<u8> {
+    let len = data.len();
+    let mut output = vec![0; len];
+    output[byte_shift..].copy_from_slice(&data[..len - byte_shift]);
+    output[..byte_shift].copy_from_slice(&data[len - byte_shift..]);
+    output
+}
+
+fn rotate_bytes_and_bits_right(data: &[u8], byte_shift: usize, bit_shift: usize) -> Vec<u8> {
+    debug_assert!(byte_shift < data.len());
+    debug_assert!(
+        (1..8).contains(&bit_shift),
+        "Bit shifts of 0 can't be handled by this impl and everything else should be part of the byteshift"
+    );
+    let mut bytes = Vec::with_capacity(data.len());
+    let mut previous_index = data.len() - byte_shift - 1;
+    for _ in 0..data.len() {
+        let previous_byte = data[previous_index];
+        previous_index += 1;
+        if previous_index == data.len() {
+            previous_index = 0;
+        }
+        let curr_byte = data[previous_index];
+        let rotated_byte = (curr_byte >> bit_shift) | (previous_byte << (8 - bit_shift));
+        bytes.push(rotated_byte);
+    }
+
+    bytes
+}
 #[cfg(test)]
 mod test {
     use super::*;

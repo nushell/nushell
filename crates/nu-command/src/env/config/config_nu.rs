@@ -23,7 +23,7 @@ impl Command for ConfigNu {
         // TODO: Signature narrower than what run actually supports theoretically
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Edit nu configurations."
     }
 

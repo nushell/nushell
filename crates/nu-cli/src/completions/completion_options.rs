@@ -1,17 +1,10 @@
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use nu_parser::trim_quotes_str;
-use nu_protocol::CompletionAlgorithm;
+use nu_protocol::{CompletionAlgorithm, CompletionSort};
 use std::fmt::Display;
 
-#[derive(Copy, Clone)]
-pub enum SortBy {
-    LevenshteinDistance,
-    Ascending,
-    None,
-}
-
 /// Describes how suggestions should be matched.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MatchAlgorithm {
     /// Only show suggestions which begin with the given input
     ///
@@ -96,6 +89,7 @@ pub struct CompletionOptions {
     pub case_sensitive: bool,
     pub positional: bool,
     pub match_algorithm: MatchAlgorithm,
+    pub sort: CompletionSort,
 }
 
 impl Default for CompletionOptions {
@@ -104,6 +98,7 @@ impl Default for CompletionOptions {
             case_sensitive: true,
             positional: true,
             match_algorithm: MatchAlgorithm::Prefix,
+            sort: Default::default(),
         }
     }
 }

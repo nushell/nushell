@@ -25,7 +25,7 @@ use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, report_error_new, ByteStream, PipelineData, ShellError, Span, Spanned,
+    engine::EngineState, report_shell_error, ByteStream, PipelineData, ShellError, Span, Spanned,
     Value,
 };
 use nu_std::load_standard_library;
@@ -67,7 +67,7 @@ fn main() -> Result<()> {
     };
 
     if let Err(err) = engine_state.merge_delta(delta) {
-        report_error_new(&engine_state, &err);
+        report_shell_error(&engine_state, &err);
     }
 
     // TODO: make this conditional in the future
@@ -79,7 +79,7 @@ fn main() -> Result<()> {
     // there is an error reading it, these values will be used.
     let nushell_config_path = if let Some(mut path) = nu_path::config_dir() {
         path.push("nushell");
-        path
+        path.into()
     } else {
         // Not really sure what to default this to if nu_path::config_dir() returns None
         std::path::PathBuf::new()
@@ -92,15 +92,16 @@ fn main() -> Result<()> {
                     .unwrap_or(PathBuf::from(&xdg_config_home))
                     .join("nushell")
             {
-                report_error_new(
+                report_shell_error(
                     &engine_state,
                     &ShellError::InvalidXdgConfig {
                         xdg: xdg_config_home,
                         default: nushell_config_path.display().to_string(),
                     },
                 );
-            } else if let Some(old_config) =
-                nu_path::get_canonicalized_path(dirs::config_dir()).map(|p| p.join("nushell"))
+            } else if let Some(old_config) = dirs::config_dir()
+                .and_then(|p| p.canonicalize().ok())
+                .map(|p| p.join("nushell"))
             {
                 let xdg_config_empty = nushell_config_path
                     .read_dir()
@@ -125,7 +126,7 @@ fn main() -> Result<()> {
     let default_nushell_completions_path = if let Some(mut path) = nu_path::data_dir() {
         path.push("nushell");
         path.push("completions");
-        path
+        path.into()
     } else {
         std::path::PathBuf::new()
     };
@@ -163,7 +164,7 @@ fn main() -> Result<()> {
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
         .unwrap_or_else(|err| {
-            report_error_new(&engine_state, &err);
+            report_shell_error(&engine_state, &err);
             std::process::exit(1)
         });
 
@@ -220,7 +221,7 @@ fn main() -> Result<()> {
     start_time = std::time::Instant::now();
     set_config_path(
         &mut engine_state,
-        &init_cwd,
+        init_cwd.as_ref(),
         "config.nu",
         "config-path",
         parsed_nu_cli_args.config_file.as_ref(),
@@ -228,7 +229,7 @@ fn main() -> Result<()> {
 
     set_config_path(
         &mut engine_state,
-        &init_cwd,
+        init_cwd.as_ref(),
         "env.nu",
         "env-path",
         parsed_nu_cli_args.env_file.as_ref(),
@@ -257,7 +258,7 @@ fn main() -> Result<()> {
 
     start_time = std::time::Instant::now();
     // First, set up env vars as strings only
-    gather_parent_env_vars(&mut engine_state, &init_cwd);
+    gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
     perf!("gather env vars", start_time, use_color);
 
     engine_state.add_env_var(

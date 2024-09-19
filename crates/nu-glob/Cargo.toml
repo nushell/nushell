@@ -1,6 +1,6 @@
 [package]
 name = "nu-glob"
-version = "0.96.0"
+version = "0.98.0"
 authors = ["The Nushell Project Developers", "The Rust Project Developers"]
 license = "MIT/Apache-2.0"
 description = """
@@ -15,3 +15,6 @@ bench = false
 
 [dev-dependencies]
 doc-comment = "0.3"
+
+[lints]
+workspace = true

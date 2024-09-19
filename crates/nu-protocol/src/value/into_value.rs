@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-
-use crate::{Record, ShellError, Span, Value};
+use crate::{ast::CellPath, engine::Closure, Range, Record, ShellError, Span, Value};
+use chrono::{DateTime, FixedOffset};
+use std::{borrow::Borrow, collections::HashMap};
 
 /// A trait for converting a value into a [`Value`].
 ///
@@ -10,33 +10,81 @@ use crate::{Record, ShellError, Span, Value};
 /// This trait can be used with `#[derive]`.
 /// When derived on structs with named fields, the resulting value representation will use
 /// [`Value::Record`], where each field of the record corresponds to a field of the struct.
+///
+/// By default, field names will be used as-is unless specified otherwise:
+/// - If `#[nu_value(rename = "...")]` is applied to a specific field, that name is used.
+/// - If `#[nu_value(rename_all = "...")]` is applied to the struct, field names will be
+///   case-converted accordingly.
+/// - If neither attribute is used, the original field name will be retained.
+///
 /// For structs with unnamed fields, the value representation will be [`Value::List`], with all
 /// fields inserted into a list.
 /// Unit structs will be represented as [`Value::Nothing`] since they contain no data.
 ///
-/// Only enums with no fields may derive this trait.
-/// The resulting value representation will be the name of the variant as a [`Value::String`].
-/// By default, variant names will be converted to ["snake_case"](convert_case::Case::Snake).
-/// You can customize the case conversion using `#[nu_value(rename_all = "kebab-case")]` on the enum.
-/// All deterministic and useful case conversions provided by [`convert_case::Case`] are supported
-/// by specifying the case name followed by "case".
-/// Also all values for
-/// [`#[serde(rename_all = "...")]`](https://serde.rs/container-attrs.html#rename_all) are valid
-/// here.
+/// For enums, the resulting value representation depends on the variant name:
+/// - If `#[nu_value(rename = "...")]` is applied to a specific variant, that name is used.
+/// - If `#[nu_value(rename_all = "...")]` is applied to the enum, variant names will be
+///   case-converted accordingly.
+/// - If neither attribute is used, variant names will default to snake_case.
 ///
+/// Only enums with no fields may derive this trait.
+/// The resulting value will be the name of the variant as a [`Value::String`].
+///
+/// All case options from [`heck`] are supported, as well as the values allowed by
+/// [`#[serde(rename_all)]`](https://serde.rs/container-attrs.html#rename_all).
+///
+/// # Enum Example
 /// ```
-/// # use nu_protocol::{IntoValue, Value, Span};
+/// # use nu_protocol::{IntoValue, Value, Span, record};
+/// #
+/// # let span = Span::unknown();
+/// #
 /// #[derive(IntoValue)]
 /// #[nu_value(rename_all = "COBOL-CASE")]
 /// enum Bird {
 ///     MountainEagle,
 ///     ForestOwl,
+///     #[nu_value(rename = "RIVER-QUACK")]
 ///     RiverDuck,
 /// }
 ///
 /// assert_eq!(
-///     Bird::RiverDuck.into_value(Span::unknown()),
-///     Value::test_string("RIVER-DUCK")
+///     Bird::ForestOwl.into_value(span),
+///     Value::string("FOREST-OWL", span)
+/// );
+///
+/// assert_eq!(
+///     Bird::RiverDuck.into_value(span),
+///     Value::string("RIVER-QUACK", span)
+/// );
+/// ```
+///
+/// # Struct Example
+/// ```
+/// # use nu_protocol::{IntoValue, Value, Span, record};
+/// #
+/// # let span = Span::unknown();
+/// #
+/// #[derive(IntoValue)]
+/// #[nu_value(rename_all = "kebab-case")]
+/// struct Person {
+///     first_name: String,
+///     last_name: String,
+///     #[nu_value(rename = "age")]
+///     age_years: u32,
+/// }
+///
+/// assert_eq!(
+///     Person {
+///         first_name: "John".into(),
+///         last_name: "Doe".into(),
+///         age_years: 42,
+///     }.into_value(span),
+///     Value::record(record! {
+///         "first-name" => Value::string("John", span),
+///         "last-name" => Value::string("Doe", span),
+///         "age" => Value::int(42, span),
+///     }, span)
 /// );
 /// ```
 pub trait IntoValue: Sized {
@@ -127,6 +175,12 @@ impl IntoValue for String {
     }
 }
 
+impl IntoValue for &str {
+    fn into_value(self, span: Span) -> Value {
+        Value::string(self, span)
+    }
+}
+
 impl<T> IntoValue for Vec<T>
 where
     T: IntoValue,
@@ -148,27 +202,76 @@ where
     }
 }
 
-impl<V> IntoValue for HashMap<String, V>
+impl<K, V> IntoValue for HashMap<K, V>
 where
+    K: Borrow<str> + Into<String>,
     V: IntoValue,
 {
     fn into_value(self, span: Span) -> Value {
-        let mut record = Record::new();
-        for (k, v) in self.into_iter() {
-            // Using `push` is fine as a hashmaps have unique keys.
-            // To ensure this uniqueness, we only allow hashmaps with strings as
-            // keys and not keys which implement `Into<String>` or `ToString`.
-            record.push(k, v.into_value(span));
-        }
-        Value::record(record, span)
+        // The `Borrow<str>` constraint is to ensure uniqueness, as implementations of `Borrow`
+        // must uphold by certain properties (e.g., `(x == y) == (x.borrow() == y.borrow())`.
+        //
+        // The `Into<String>` constraint is necessary for us to convert the key into a `String`.
+        // Most types that implement `Borrow<str>` also implement `Into<String>`.
+        // Implementations of `Into` must also be lossless and value-preserving conversions.
+        // So, when combined with the `Borrow` constraint, this means that the converted
+        // `String` keys should be unique.
+        self.into_iter()
+            .map(|(k, v)| (k.into(), v.into_value(span)))
+            .collect::<Record>()
+            .into_value(span)
     }
 }
 
 // Nu Types
 
+impl IntoValue for Range {
+    fn into_value(self, span: Span) -> Value {
+        Value::range(self, span)
+    }
+}
+
+impl IntoValue for Record {
+    fn into_value(self, span: Span) -> Value {
+        Value::record(self, span)
+    }
+}
+
+impl IntoValue for Closure {
+    fn into_value(self, span: Span) -> Value {
+        Value::closure(self, span)
+    }
+}
+
+impl IntoValue for ShellError {
+    fn into_value(self, span: Span) -> Value {
+        Value::error(self, span)
+    }
+}
+
+impl IntoValue for CellPath {
+    fn into_value(self, span: Span) -> Value {
+        Value::cell_path(self, span)
+    }
+}
+
 impl IntoValue for Value {
     fn into_value(self, span: Span) -> Value {
         self.with_span(span)
+    }
+}
+
+// Foreign Types
+
+impl IntoValue for DateTime<FixedOffset> {
+    fn into_value(self, span: Span) -> Value {
+        Value::date(self, span)
+    }
+}
+
+impl IntoValue for bytes::Bytes {
+    fn into_value(self, span: Span) -> Value {
+        Value::binary(self.to_vec(), span)
     }
 }
 

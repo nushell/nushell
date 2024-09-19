@@ -24,7 +24,7 @@ impl SimplePluginCommand for Hello {
         "hello"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Print a friendly greeting"
     }
 

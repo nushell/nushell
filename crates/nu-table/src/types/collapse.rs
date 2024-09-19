@@ -36,7 +36,7 @@ fn collapsed_table(
         return Ok(None);
     }
 
-    let indent = (config.table_indent.left, config.table_indent.right);
+    let indent = (config.table.padding.left, config.table.padding.right);
     let table = table.draw(style_computer, &theme, indent);
 
     Ok(Some(table))

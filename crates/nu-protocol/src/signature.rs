@@ -109,8 +109,8 @@ impl std::fmt::Display for Category {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Signature {
     pub name: String,
-    pub usage: String,
-    pub extra_usage: String,
+    pub description: String,
+    pub extra_description: String,
     pub search_terms: Vec<String>,
     pub required_positional: Vec<PositionalArg>,
     pub optional_positional: Vec<PositionalArg>,
@@ -128,7 +128,7 @@ pub struct Signature {
 impl PartialEq for Signature {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
-            && self.usage == other.usage
+            && self.description == other.description
             && self.required_positional == other.required_positional
             && self.optional_positional == other.optional_positional
             && self.rest_positional == other.rest_positional
@@ -142,8 +142,8 @@ impl Signature {
     pub fn new(name: impl Into<String>) -> Signature {
         Signature {
             name: name.into(),
-            usage: String::new(),
-            extra_usage: String::new(),
+            description: String::new(),
+            extra_description: String::new(),
             search_terms: vec![],
             required_positional: vec![],
             optional_positional: vec![],
@@ -220,14 +220,19 @@ impl Signature {
     }
 
     /// Add a description to the signature
-    pub fn usage(mut self, msg: impl Into<String>) -> Signature {
-        self.usage = msg.into();
+    ///
+    /// This should be a single sentence as it is the part shown for example in the completion
+    /// menu.
+    pub fn description(mut self, msg: impl Into<String>) -> Signature {
+        self.description = msg.into();
         self
     }
 
-    /// Add an extra description to the signature
-    pub fn extra_usage(mut self, msg: impl Into<String>) -> Signature {
-        self.extra_usage = msg.into();
+    /// Add an extra description to the signature.
+    ///
+    /// Here additional documentation can be added
+    pub fn extra_description(mut self, msg: impl Into<String>) -> Signature {
+        self.extra_description = msg.into();
         self
     }
 
@@ -244,8 +249,8 @@ impl Signature {
             .into_iter()
             .map(|term| term.to_string())
             .collect();
-        self.extra_usage = command.extra_usage().to_string();
-        self.usage = command.usage().to_string();
+        self.extra_description = command.extra_description().to_string();
+        self.description = command.description().to_string();
         self
     }
 
@@ -467,13 +472,12 @@ impl Signature {
     /// Checks if short or long are already present
     /// Panics if one of them is found
     fn check_names(&self, name: impl Into<String>, short: Option<char>) -> (String, Option<char>) {
-        let s = short.map(|c| {
+        let s = short.inspect(|c| {
             assert!(
-                !self.get_shorts().contains(&c),
+                !self.get_shorts().contains(c),
                 "There may be duplicate short flags for '-{}'",
                 c
             );
-            c
         });
 
         let name = {
@@ -628,12 +632,12 @@ impl Command for Predeclaration {
         self.signature.clone()
     }
 
-    fn usage(&self) -> &str {
-        &self.signature.usage
+    fn description(&self) -> &str {
+        &self.signature.description
     }
 
-    fn extra_usage(&self) -> &str {
-        &self.signature.extra_usage
+    fn extra_description(&self) -> &str {
+        &self.signature.extra_description
     }
 
     fn run(
@@ -681,12 +685,12 @@ impl Command for BlockCommand {
         self.signature.clone()
     }
 
-    fn usage(&self) -> &str {
-        &self.signature.usage
+    fn description(&self) -> &str {
+        &self.signature.description
     }
 
-    fn extra_usage(&self) -> &str {
-        &self.signature.extra_usage
+    fn extra_description(&self) -> &str {
+        &self.signature.extra_description
     }
 
     fn run(

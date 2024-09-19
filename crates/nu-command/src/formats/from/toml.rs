@@ -15,7 +15,7 @@ impl Command for FromToml {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse text as .toml and create record."
     }
 
