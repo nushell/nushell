@@ -51,7 +51,7 @@ impl PluginCommand for ConcatDF {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Concanates two dataframes with the dataframe in the pipeline.",
+                description: "Concatenates two dataframes with the dataframe in the pipeline.",
                 example: "[[a b]; [1 2]] | polars into-df 
                     | polars concat ([[a b]; [3 4]] | polars into-df) ([[a b]; [5 6]] | polars into-df) 
                     | polars collect 
