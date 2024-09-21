@@ -96,8 +96,8 @@ fn eval_source2(
     }
 
     let stack = &mut stack.push_redirection(
-        Some(Redirection::Pipe(OutDest::Capture)),
-        Some(Redirection::Pipe(OutDest::Capture)),
+        Some(Redirection::Pipe(OutDest::PipeSeparate)),
+        Some(Redirection::Pipe(OutDest::PipeSeparate)),
     );
     eval_block::<WithoutDebug>(engine_state, stack, &block, input)
 }

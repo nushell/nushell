@@ -446,7 +446,8 @@ pub enum Literal {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum RedirectMode {
     Pipe,
-    Capture,
+    PipeSeparate,
+    Value,
     Null,
     Inherit,
     /// Use the given numbered file.

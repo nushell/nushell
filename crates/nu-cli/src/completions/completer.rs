@@ -25,7 +25,7 @@ impl NuCompleter {
     pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
         Self {
             engine_state,
-            stack: Stack::with_parent(stack).reset_out_dest().capture(),
+            stack: Stack::with_parent(stack).reset_out_dest().collect_value(),
         }
     }
 

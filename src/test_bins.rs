@@ -337,7 +337,7 @@ pub fn nu_repl() {
         let config = engine_state.get_config();
 
         {
-            let stack = &mut stack.start_capture();
+            let stack = &mut stack.start_collect_value();
             match eval_block::<WithoutDebug>(&engine_state, stack, &block, input) {
                 Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
                     Ok(s) => last_output = s,
