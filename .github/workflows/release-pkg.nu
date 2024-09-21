@@ -98,6 +98,13 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
             $env.CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER = 'armv7r-linux-musleabihf-gcc'
             cargo-build-nu
         }
+        'loongarch64-unknown-linux-gnu' => {
+            aria2c https://github.com/sunhaiyong1978/CLFS-for-LoongArch/releases/download/8.1/CLFS-loongarch64-8.1.1-x86_64-cross-tools-gcc-libc.tar.xz
+            tar xf CLFS-loongarch64-8.1.1-x86_64-cross-tools-gcc-libc.tar.xz
+            $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.PWD)/cross-tools/bin')
+            $env.CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_GNU_LINKER = 'loongarch64-unknown-linux-gnu-gcc'
+            cargo-build-nu
+        }
         _ => {
             # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
             # Actually just for x86_64-unknown-linux-musl target
