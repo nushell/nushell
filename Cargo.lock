@@ -6120,9 +6120,9 @@ dependencies = [
 
 [[package]]
 name = "tango-bench"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e79d9e491b718fb52bb2052726a0e66fe89a31cc6979fe58c72c73f058c279e"
+checksum = "257822358c6f206fed78bfe6369cf959063b0644d70f88df6b19f2dadc93423e"
 dependencies = [
  "alloca",
  "anyhow",
