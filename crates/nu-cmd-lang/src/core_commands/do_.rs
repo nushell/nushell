@@ -147,6 +147,7 @@ impl Command for Do {
                             None
                         };
 
+                        child.ignore_error(false);
                         child.wait()?;
 
                         let mut child = ChildProcess::from_raw(None, None, None, span);
@@ -172,7 +173,7 @@ impl Command for Do {
                     ) =>
             {
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
-                    child.ignore_error();
+                    child.ignore_error(true);
                 }
                 Ok(PipelineData::ByteStream(stream, metadata))
             }
