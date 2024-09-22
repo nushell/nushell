@@ -82,6 +82,7 @@ jobs:
         - armv7-unknown-linux-gnueabihf
         - armv7-unknown-linux-musleabihf
         - riscv64gc-unknown-linux-gnu
+        - loongarch64-unknown-linux-gnu
         extra: ['bin']
         include:
         - target: aarch64-apple-darwin
@@ -113,6 +114,8 @@ jobs:
         - target: armv7-unknown-linux-musleabihf
           os: ubuntu-22.04
         - target: riscv64gc-unknown-linux-gnu
+          os: ubuntu-latest
+        - target: loongarch64-unknown-linux-gnu
           os: ubuntu-latest
 
     runs-on: ${{matrix.os}}
