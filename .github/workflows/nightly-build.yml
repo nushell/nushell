@@ -116,7 +116,7 @@ jobs:
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-latest
         - target: loongarch64-unknown-linux-gnu
-          os: ubuntu-latest
+          os: ubuntu-22.04
 
     runs-on: ${{matrix.os}}
 
