@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.98.0"
+# version = "0.98.1"
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
