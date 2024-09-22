@@ -20,10 +20,12 @@ impl ExitStatus {
         }
     }
 
-    pub fn check_ok(self, span: Span) -> Result<(), ShellError> {
+    pub fn check_ok(self, ignore_error: bool, span: Span) -> Result<(), ShellError> {
         match self {
             ExitStatus::Exited(exit_code) => {
-                if let Ok(exit_code) = exit_code.try_into() {
+                if ignore_error {
+                    Ok(())
+                } else if let Ok(exit_code) = exit_code.try_into() {
                     Err(ShellError::NonZeroExitCode { exit_code, span })
                 } else {
                     Ok(())
@@ -38,7 +40,7 @@ impl ExitStatus {
 
                 let sig = Signal::try_from(signal);
 
-                if sig == Ok(Signal::SIGPIPE) {
+                if sig == Ok(Signal::SIGPIPE) || (ignore_error && !core_dumped) {
                     // Processes often exit with SIGPIPE, but this is not an error condition.
                     Ok(())
                 } else {
