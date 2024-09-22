@@ -172,7 +172,7 @@ impl Command for Do {
                     ) =>
             {
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
-                    child.set_exit_code(0)
+                    child.ignore_error();
                 }
                 Ok(PipelineData::ByteStream(stream, metadata))
             }
