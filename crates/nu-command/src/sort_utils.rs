@@ -12,7 +12,8 @@ use std::cmp::Ordering;
 /// A closure comparator allows the user to return custom ordering to sort by.
 /// A cell path comparator uses the value referred to by the cell path as the sorting key.
 pub enum Comparator {
-    Closure(Closure, EngineState, Stack),
+    KeyClosure(Closure, EngineState, Stack),
+    CustomClosure(Closure, EngineState, Stack),
     CellPath(CellPath),
 }
 
@@ -161,9 +162,13 @@ pub fn compare_by(
             Comparator::CellPath(cell_path) => {
                 compare_cell_path(left, right, cell_path, insensitive, natural)
             }
-            Comparator::Closure(closure, engine_state, stack) => {
+            Comparator::KeyClosure(closure, engine_state, stack) => {
                 let closure_eval = ClosureEval::new(engine_state, stack, closure.clone());
-                compare_closure(left, right, closure_eval, span)
+                compare_key_closure(left, right, closure_eval, span, insensitive, natural)
+            }
+            Comparator::CustomClosure(closure, engine_state, stack) => {
+                let closure_eval = ClosureEval::new(engine_state, stack, closure.clone());
+                compare_custom_closure(left, right, closure_eval, span)
             }
         };
         match result {
@@ -228,7 +233,24 @@ pub fn compare_cell_path(
     compare_values(&left, &right, insensitive, natural)
 }
 
-pub fn compare_closure(
+pub fn compare_key_closure(
+    left: &Value,
+    right: &Value,
+    mut closure_eval: ClosureEval,
+    span: Span,
+    insensitive: bool,
+    natural: bool,
+) -> Result<Ordering, ShellError> {
+    let left_key = closure_eval
+        .run_with_value(left.clone())?
+        .into_value(span)?;
+    let right_key = closure_eval
+        .run_with_value(right.clone())?
+        .into_value(span)?;
+    compare_values(&left_key, &right_key, insensitive, natural)
+}
+
+pub fn compare_custom_closure(
     left: &Value,
     right: &Value,
     mut closure_eval: ClosureEval,

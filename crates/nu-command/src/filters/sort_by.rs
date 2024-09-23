@@ -39,12 +39,17 @@ impl Command for SortBy {
                 "Sort alphanumeric string-based data naturally (1, 9, 10, 99, 100, ...)",
                 Some('n'),
             )
+            .switch(
+                "custom",
+                "Use closures to specify a custom sort order, rather than to compute a comparison key",
+                Some('c'),
+            )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 
     fn description(&self) -> &str {
-        "Sort by the given columns, in increasing order."
+        "Sort by the given cell path or closure."
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -92,6 +97,7 @@ impl Command for SortBy {
         let reverse = call.has_flag(engine_state, stack, "reverse")?;
         let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
         let natural = call.has_flag(engine_state, stack, "natural")?;
+        let custom = call.has_flag(engine_state, stack, "custom")?;
         let metadata = input.metadata();
         let mut vec: Vec<_> = input.into_iter_strict(head)?.collect();
 
@@ -104,16 +110,14 @@ impl Command for SortBy {
 
         let mut comparators = vec![];
         for val in comparator_vals.into_iter() {
-            match val {
-                Value::CellPath { val, .. } => {
-                    comparators.push(Comparator::CellPath(val));
-                }
+            let cmp = match val {
+                Value::CellPath { val, .. } => Comparator::CellPath(val),
                 Value::Closure { val, .. } => {
-                    comparators.push(Comparator::Closure(
-                        *val,
-                        engine_state.clone(),
-                        stack.clone(),
-                    ));
+                    if custom {
+                        Comparator::CustomClosure(*val, engine_state.clone(), stack.clone())
+                    } else {
+                        Comparator::KeyClosure(*val, engine_state.clone(), stack.clone())
+                    }
                 }
                 _ => {
                     return Err(ShellError::TypeMismatch {
@@ -122,7 +126,8 @@ impl Command for SortBy {
                         span: val.span(),
                     })
                 }
-            }
+            };
+            comparators.push(cmp);
         }
 
         crate::sort_by(&mut vec, comparators, head, insensitive, natural)?;
