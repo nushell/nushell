@@ -1,4 +1,5 @@
 use std *
+use std/assert
 
 #[test]
 def assert_basic [] {

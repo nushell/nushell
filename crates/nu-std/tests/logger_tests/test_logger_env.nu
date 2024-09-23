@@ -1,5 +1,6 @@
 use std *
-use std log *
+use std/assert
+use std/log *
 
 #[test]
 def env_log-ansi [] {

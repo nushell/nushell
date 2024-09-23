@@ -1,5 +1,6 @@
 use std *
-use std log *
+use std/log *
+use std/assert
 use commons.nu *
 
 def run-command [
@@ -10,9 +11,9 @@ def run-command [
     --short
 ] {
     if $short {
-        ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) --format "($format)" --short "($message)"'
+        ^$nu.current-exe --no-config-file --commands $'use std; use std/log; NU_LOG_LEVEL=($system_level) log ($message_level) --format "($format)" --short "($message)"'
     } else {
-        ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) --format "($format)" "($message)"'
+        ^$nu.current-exe --no-config-file --commands $'use std; use std/log; NU_LOG_LEVEL=($system_level) log ($message_level) --format "($format)" "($message)"'
     }
     | complete | get --ignore-errors stderr
 }

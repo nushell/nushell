@@ -1,7 +1,5 @@
-use std xml xaccess
-use std xml xupdate
-use std xml xinsert
-use std assert
+use std/xml *
+use std/assert
 
 #[before-each]
 def before-each [] {

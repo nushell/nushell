@@ -1,4 +1,5 @@
 use std *
+use std/assert
 
 def run [
     system_level,
@@ -6,9 +7,9 @@ def run [
     --short
 ] {
     if $short {
-        ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) --short "test message"'
+        ^$nu.current-exe --no-config-file --commands $'use std; use std/log; NU_LOG_LEVEL=($system_level) log ($message_level) --short "test message"'
     } else {
-        ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) "test message"'
+        ^$nu.current-exe --no-config-file --commands $'use std; use std/log; NU_LOG_LEVEL=($system_level) log ($message_level) "test message"'
     }
     | complete | get --ignore-errors stderr
 }

@@ -18,23 +18,20 @@ pub fn load_standard_library(
 
         let mut std_files = vec![
             ("mod.nu", include_str!("../std/mod.nu")),
-            ("core", include_str!("../std/core/mod.nu")),
-            ("assert", include_str!("../std/assert/mod.nu")),
-            ("bench", include_str!("../std/bench/mod.nu")),
-            ("dirs", include_str!("../std/dirs/mod.nu")),
-            (
-                "deprecated_dirs",
-                include_str!("../std/deprecated_dirs/mod.nu"),
-            ),
-            ("dt", include_str!("../std/dt/mod.nu")),
-            ("formats", include_str!("../std/formats/mod.nu")),
-            ("help", include_str!("../std/help/mod.nu")),
-            ("input", include_str!("../std/input/mod.nu")),
-            ("iter", include_str!("../std/iter/mod.nu")),
-            ("log", include_str!("../std/log/mod.nu")),
-            ("math", include_str!("../std/math/mod.nu")),
-            ("util", include_str!("../std/util/mod.nu")),
-            ("xml", include_str!("../std/xml/mod.nu")),
+            ("core", include_str!("../std/core.nu")),
+            ("assert", include_str!("../std/assert.nu")),
+            ("bench", include_str!("../std/bench.nu")),
+            ("dirs", include_str!("../std/dirs.nu")),
+            ("deprecated_dirs", include_str!("../std/deprecated_dirs.nu")),
+            ("dt", include_str!("../std/dt.nu")),
+            ("formats", include_str!("../std/formats.nu")),
+            ("help", include_str!("../std/help.nu")),
+            ("input", include_str!("../std/input.nu")),
+            ("iter", include_str!("../std/iter.nu")),
+            ("log", include_str!("../std/log.nu")),
+            ("math", include_str!("../std/math.nu")),
+            ("lib", include_str!("../std/lib.nu")),
+            ("xml", include_str!("../std/xml.nu")),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);

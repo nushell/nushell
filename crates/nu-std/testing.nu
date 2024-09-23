@@ -1,4 +1,4 @@
-use std log
+use std/log
 
 def "nu-complete threads" [] {
     seq 1 (sys cpu | length)
@@ -287,8 +287,6 @@ export def run-tests [
     --list,                               # list the selected tests without running them.
     --threads: int@"nu-complete threads", # Amount of threads to use for parallel execution. Default: All threads are utilized
 ] {
-    use std log
-
     let available_threads = (sys cpu | length)
 
     # Can't use pattern matching here due to https://github.com/nushell/nushell/issues/9198
