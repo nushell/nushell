@@ -4,6 +4,7 @@ mod arg_where;
 mod cast;
 mod col;
 mod collect;
+mod concat;
 mod drop;
 mod drop_duplicates;
 mod drop_nulls;
@@ -74,6 +75,7 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(AppendDF),
         Box::new(CastDF),
         Box::new(DropDF),
+        Box::new(concat::ConcatDF),
         Box::new(DropDuplicates),
         Box::new(DropNulls),
         Box::new(Dummies),
