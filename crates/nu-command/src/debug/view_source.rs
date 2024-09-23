@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::Config;
+use nu_protocol::{Config, DataSource, PipelineMetadata};
 
 use std::fmt::Write;
 
@@ -32,7 +32,7 @@ impl Command for ViewSource {
         let arg: Value = call.req(engine_state, stack, 0)?;
         let arg_span = arg.span();
 
-        match arg {
+        let source = match arg {
             Value::String { val, .. } => {
                 if let Some(decl_id) = engine_state.find_decl(val.as_bytes(), &[]) {
                     // arg is a command
@@ -193,7 +193,13 @@ impl Command for ViewSource {
                     })
                 }
             }
-        }
+        };
+        source.map(|x| {
+            x.set_metadata(Some(PipelineMetadata {
+                data_source: DataSource::None,
+                content_type: Some("application/x-nuscript".into()),
+            }))
+        })
     }
 
     fn examples(&self) -> Vec<Example> {
