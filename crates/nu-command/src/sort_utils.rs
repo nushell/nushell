@@ -201,16 +201,10 @@ pub fn compare_strings(
     insensitive: bool,
     natural: bool,
 ) -> Ordering {
-    // declare these names now to appease compiler
-    // not needed in nightly, but needed as of 1.77.2, so can be removed later
-    let (left_copy, right_copy);
-
     // only allocate new String if necessary for case folding,
     // so callers don't need to pass an owned String
     let (left_str, right_str) = if insensitive {
-        left_copy = left.to_folded_case();
-        right_copy = right.to_folded_case();
-        (&left_copy, &right_copy)
+        (&left.to_folded_case(), &right.to_folded_case())
     } else {
         (left, right)
     };
@@ -243,7 +237,10 @@ pub fn compare_closure(
     closure_eval
         .add_arg(left.clone())
         .add_arg(right.clone())
-        .run_with_input(PipelineData::Empty)
+        .run_with_input(PipelineData::Value(
+            Value::list(vec![left.clone(), right.clone()], span),
+            None,
+        ))
         .and_then(|data| data.into_value(span))
         .map(|val| {
             if val.is_true() {
