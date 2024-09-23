@@ -70,7 +70,7 @@ fn test_sort_nothing() {
     assert!(sort(&mut values, false, false).is_ok());
 
     // check if the last `nulls` values of the sorted list are indeed null
-    assert_eq!(&values[..nulls], vec![Value::test_nothing(); nulls])
+    assert_eq!(&values[(nulls - 1)..], vec![Value::test_nothing(); nulls])
 }
 
 #[test]
