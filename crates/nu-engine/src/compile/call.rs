@@ -108,7 +108,7 @@ pub(crate) fn compile_call(
                     working_set,
                     builder,
                     expr,
-                    RedirectModes::capture_out(arg.span()),
+                    RedirectModes::value(arg.span()),
                     None,
                     arg_reg,
                 )?;
