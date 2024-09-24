@@ -1,4 +1,3 @@
-use std *
 use std/assert
 
 def run [

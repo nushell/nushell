@@ -1,5 +1,5 @@
-use std *
 use std/assert
+use std/log
 use std/log *
 
 #[test]

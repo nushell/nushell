@@ -7,5 +7,8 @@ fn not_loaded() -> TestResult {
 
 #[test]
 fn use_command() -> TestResult {
-    run_test_std("use ([ std, assert ] | path join); assert true; print 'it works'", "it works")
+    run_test_std(
+        "use ([ std, assert ] | path join); assert true; print 'it works'",
+        "it works",
+    )
 }
