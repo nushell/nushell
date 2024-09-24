@@ -224,7 +224,7 @@ fn std_log_env_vars_are_not_overridden() {
             ("NU_LOG_DATE_FORMAT".to_string(), "%Y".to_string()),
         ],
         r#"
-            use std/log
+            use ([ std, log] | path join)
             print -e $env.NU_LOG_FORMAT
             print -e $env.NU_LOG_DATE_FORMAT
             log error "err"
@@ -237,7 +237,7 @@ fn std_log_env_vars_are_not_overridden() {
 fn std_log_env_vars_have_defaults() {
     let actual = nu_with_std!(
         r#"
-            use std/log
+            use ([ std, log] | path join)
             print -e $env.NU_LOG_FORMAT
             print -e $env.NU_LOG_DATE_FORMAT
         "#
