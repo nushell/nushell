@@ -173,8 +173,10 @@ impl Command for Glob {
             depth
         } else if glob_pattern.contains("**") {
             usize::MAX
+        } else if glob_pattern.contains(std::path::MAIN_SEPARATOR) {
+            glob_pattern.split(std::path::MAIN_SEPARATOR).count() + 1
         } else {
-            1usize
+            1
         };
 
         let (prefix, glob) = match WaxGlob::new(&glob_pattern) {
