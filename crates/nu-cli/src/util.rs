@@ -2,9 +2,11 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::{
+    cli_error::report_compile_error,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, report_error_new, PipelineData, ShellError, Span, Value,
+    report_parse_error, report_parse_warning, report_shell_error, PipelineData, ShellError, Span,
+    Value,
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
@@ -39,7 +41,7 @@ fn gather_env_vars(
     init_cwd: &Path,
 ) {
     fn report_capture_error(engine_state: &EngineState, env_str: &str, msg: &str) {
-        report_error_new(
+        report_shell_error(
             engine_state,
             &ShellError::GenericError {
                 error: format!("Environment variable was not captured: {env_str}"),
@@ -70,7 +72,7 @@ fn gather_env_vars(
         }
         None => {
             // Could not capture current working directory
-            report_error_new(
+            report_shell_error(
                 engine_state,
                 &ShellError::GenericError {
                     error: "Current directory is not a valid utf-8 path".into(),
@@ -210,17 +212,18 @@ pub fn eval_source(
     let start_time = std::time::Instant::now();
 
     let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
-        Ok(code) => code.unwrap_or(0),
+        Ok(failed) => {
+            let code = failed.into();
+            stack.set_last_exit_code(code, Span::unknown());
+            code
+        }
         Err(err) => {
-            report_error_new(engine_state, &err);
-            1
+            report_shell_error(engine_state, &err);
+            let code = err.exit_code();
+            stack.set_last_error(&err);
+            code
         }
     };
-
-    stack.add_env_var(
-        "LAST_EXIT_CODE".to_string(),
-        Value::int(exit_code.into(), Span::unknown()),
-    );
 
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
@@ -244,7 +247,7 @@ fn evaluate_source(
     fname: &str,
     input: PipelineData,
     allow_return: bool,
-) -> Result<Option<i32>, ShellError> {
+) -> Result<bool, ShellError> {
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
         let output = parse(
@@ -254,16 +257,16 @@ fn evaluate_source(
             false,
         );
         if let Some(warning) = working_set.parse_warnings.first() {
-            report_error(&working_set, warning);
+            report_parse_warning(&working_set, warning);
         }
 
         if let Some(err) = working_set.parse_errors.first() {
-            report_error(&working_set, err);
-            return Ok(Some(1));
+            report_parse_error(&working_set, err);
+            return Ok(true);
         }
 
         if let Some(err) = working_set.compile_errors.first() {
-            report_error(&working_set, err);
+            report_compile_error(&working_set, err);
             // Not a fatal error, for now
         }
 
@@ -278,25 +281,23 @@ fn evaluate_source(
         eval_block::<WithoutDebug>(engine_state, stack, &block, input)
     }?;
 
-    let status = if let PipelineData::ByteStream(..) = pipeline {
-        pipeline.print(engine_state, stack, false, false)?
+    if let PipelineData::ByteStream(..) = pipeline {
+        pipeline.print(engine_state, stack, false, false)
+    } else if let Some(hook) = engine_state.get_config().hooks.display_output.clone() {
+        let pipeline = eval_hook(
+            engine_state,
+            stack,
+            Some(pipeline),
+            vec![],
+            &hook,
+            "display_output",
+        )?;
+        pipeline.print(engine_state, stack, false, false)
     } else {
-        if let Some(hook) = engine_state.get_config().hooks.display_output.clone() {
-            let pipeline = eval_hook(
-                engine_state,
-                stack,
-                Some(pipeline),
-                vec![],
-                &hook,
-                "display_output",
-            )?;
-            pipeline.print(engine_state, stack, false, false)
-        } else {
-            pipeline.print(engine_state, stack, true, false)
-        }?
-    };
+        pipeline.print(engine_state, stack, true, false)
+    }?;
 
-    Ok(status.map(|status| status.code()))
+    Ok(false)
 }
 
 #[cfg(test)]
@@ -321,16 +322,10 @@ mod test {
 
         let env = engine_state.render_env_vars();
 
-        assert!(
-            matches!(env.get(&"FOO".to_string()), Some(&Value::String { val, .. }) if val == "foo")
-        );
-        assert!(
-            matches!(env.get(&"SYMBOLS".to_string()), Some(&Value::String { val, .. }) if val == symbols)
-        );
-        assert!(
-            matches!(env.get(&symbols.to_string()), Some(&Value::String { val, .. }) if val == "symbols")
-        );
-        assert!(env.get(&"PWD".to_string()).is_some());
+        assert!(matches!(env.get("FOO"), Some(&Value::String { val, .. }) if val == "foo"));
+        assert!(matches!(env.get("SYMBOLS"), Some(&Value::String { val, .. }) if val == symbols));
+        assert!(matches!(env.get(symbols), Some(&Value::String { val, .. }) if val == "symbols"));
+        assert!(env.contains_key("PWD"));
         assert_eq!(env.len(), 4);
     }
 }

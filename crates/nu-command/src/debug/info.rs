@@ -20,11 +20,11 @@ impl Command for DebugInfo {
         "debug info"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "View process memory info."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This command is meant for debugging purposes.\nIt shows you the process information and system memory information."
     }
 

@@ -80,8 +80,8 @@ impl PluginGc {
     ///
     /// The reason the plugin tells the GC rather than just stopping itself via `source` is that
     /// it can't guarantee that the plugin currently pointed to by `source` is itself, but if the
-    /// GC is still running, it hasn't received [`.stop_tracking()`] yet, which means it should be
-    /// the right plugin.
+    /// GC is still running, it hasn't received [`.stop_tracking()`](Self::stop_tracking) yet, which
+    /// means it should be the right plugin.
     pub fn exited(&self) {
         let _ = self.sender.send(PluginGcMsg::Exited);
     }
@@ -244,7 +244,7 @@ mod tests {
         let mut state = test_state();
         state.config.enabled = true;
         state.config.stop_after = Duration::from_secs(1).as_nanos() as i64;
-        state.last_update = Some(now - Duration::from_secs(2));
+        state.last_update = Some(now.checked_sub(Duration::from_secs(2)).unwrap());
 
         assert_eq!(Some(Duration::ZERO), state.next_timeout(now));
     }
@@ -295,7 +295,8 @@ mod tests {
     #[test]
     fn adding_locks_changes_last_update() {
         let mut state = test_state();
-        let original_last_update = Some(Instant::now() - Duration::from_secs(1));
+        let original_last_update =
+            Some(Instant::now().checked_sub(Duration::from_secs(1)).unwrap());
         state.last_update = original_last_update;
         state.handle_message(PluginGcMsg::AddLocks(1));
         assert_ne!(original_last_update, state.last_update, "not updated");

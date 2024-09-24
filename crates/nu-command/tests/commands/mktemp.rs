@@ -1,6 +1,6 @@
+use nu_path::AbsolutePath;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use std::path::PathBuf;
 
 #[test]
 fn creates_temp_file() {
@@ -9,7 +9,7 @@ fn creates_temp_file() {
             cwd: dirs.test(),
             "mktemp"
         );
-        let loc = PathBuf::from(output.out.clone());
+        let loc = AbsolutePath::try_new(&output.out).unwrap();
         println!("{:?}", loc);
         assert!(loc.exists());
     })
@@ -22,7 +22,7 @@ fn creates_temp_file_with_suffix() {
             cwd: dirs.test(),
             "mktemp --suffix .txt tempfileXXX"
         );
-        let loc = PathBuf::from(output.out.clone());
+        let loc = AbsolutePath::try_new(&output.out).unwrap();
         assert!(loc.exists());
         assert!(loc.is_file());
         assert!(output.out.ends_with(".txt"));
@@ -37,8 +37,7 @@ fn creates_temp_directory() {
             cwd: dirs.test(),
             "mktemp -d"
         );
-
-        let loc = PathBuf::from(output.out);
+        let loc = AbsolutePath::try_new(&output.out).unwrap();
         assert!(loc.exists());
         assert!(loc.is_dir());
     })

@@ -1,4 +1,4 @@
-use crate::FromCmds;
+use crate::FormatCmdsPlugin;
 use eml_parser::eml::*;
 use eml_parser::EmlParser;
 use indexmap::IndexMap;
@@ -12,13 +12,13 @@ const DEFAULT_BODY_PREVIEW: usize = 50;
 pub struct FromEml;
 
 impl SimplePluginCommand for FromEml {
-    type Plugin = FromCmds;
+    type Plugin = FormatCmdsPlugin;
 
     fn name(&self) -> &str {
         "from eml"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse text as .eml and create record."
     }
 
@@ -40,7 +40,7 @@ impl SimplePluginCommand for FromEml {
 
     fn run(
         &self,
-        _plugin: &FromCmds,
+        _plugin: &FormatCmdsPlugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
@@ -176,5 +176,5 @@ fn from_eml(input: &Value, body_preview: usize, head: Span) -> Result<Value, Lab
 fn test_examples() -> Result<(), nu_protocol::ShellError> {
     use nu_plugin_test_support::PluginTest;
 
-    PluginTest::new("formats", crate::FromCmds.into())?.test_command_examples(&FromEml)
+    PluginTest::new("formats", crate::FormatCmdsPlugin.into())?.test_command_examples(&FromEml)
 }

@@ -46,8 +46,9 @@ impl NuCompleter {
         let config = self.engine_state.get_config();
 
         let options = CompletionOptions {
-            case_sensitive: config.case_sensitive_completions,
-            match_algorithm: config.completion_algorithm.into(),
+            case_sensitive: config.completions.case_sensitive,
+            match_algorithm: config.completions.algorithm.into(),
+            sort: config.completions.sort,
             ..Default::default()
         };
 
@@ -207,7 +208,7 @@ impl NuCompleter {
 
                             // We got no results for internal completion
                             // now we can check if external completer is set and use it
-                            if let Some(closure) = config.external_completer.as_ref() {
+                            if let Some(closure) = config.completions.external.completer.as_ref() {
                                 if let Some(external_result) =
                                     self.external_completion(closure, &spans, fake_offset, new_span)
                                 {
@@ -337,7 +338,9 @@ impl NuCompleter {
                                 }
 
                                 // Try to complete using an external completer (if set)
-                                if let Some(closure) = config.external_completer.as_ref() {
+                                if let Some(closure) =
+                                    config.completions.external.completer.as_ref()
+                                {
                                     if let Some(external_result) = self.external_completion(
                                         closure,
                                         &spans,
@@ -443,14 +446,11 @@ pub fn map_value_completions<'a>(
             return Some(SemanticSuggestion {
                 suggestion: Suggestion {
                     value: s,
-                    description: None,
-                    style: None,
-                    extra: None,
                     span: reedline::Span {
                         start: span.start - offset,
                         end: span.end - offset,
                     },
-                    append_whitespace: false,
+                    ..Suggestion::default()
                 },
                 kind: Some(SuggestionKind::Type(x.get_type())),
             });
@@ -460,14 +460,11 @@ pub fn map_value_completions<'a>(
         if let Ok(record) = x.as_record() {
             let mut suggestion = Suggestion {
                 value: String::from(""), // Initialize with empty string
-                description: None,
-                style: None,
-                extra: None,
                 span: reedline::Span {
                     start: span.start - offset,
                     end: span.end - offset,
                 },
-                append_whitespace: false,
+                ..Suggestion::default()
             };
 
             // Iterate the cols looking for `value` and `description`

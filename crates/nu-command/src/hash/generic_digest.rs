@@ -10,7 +10,7 @@ pub trait HashDigest: digest::Digest + Clone {
 #[derive(Clone)]
 pub struct GenericDigest<D: HashDigest> {
     name: String,
-    usage: String,
+    description: String,
     phantom: PhantomData<D>,
 }
 
@@ -18,7 +18,7 @@ impl<D: HashDigest> Default for GenericDigest<D> {
     fn default() -> Self {
         Self {
             name: format!("hash {}", D::name()),
-            usage: format!("Hash a value using the {} hash algorithm.", D::name()),
+            description: format!("Hash a value using the {} hash algorithm.", D::name()),
             phantom: PhantomData,
         }
     }
@@ -65,8 +65,8 @@ where
             )
     }
 
-    fn usage(&self) -> &str {
-        &self.usage
+    fn description(&self) -> &str {
+        &self.description
     }
 
     fn examples(&self) -> Vec<Example<'static>> {

@@ -17,7 +17,7 @@ impl Command for Reverse {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Reverses the input list or table."
     }
 

@@ -17,7 +17,7 @@ impl Command for NuHighlight {
             .input_output_types(vec![(Type::String, Type::String)])
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Syntax highlight the input string."
     }
 

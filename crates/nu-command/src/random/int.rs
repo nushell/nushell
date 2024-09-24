@@ -15,11 +15,15 @@ impl Command for SubCommand {
         Signature::build("random int")
             .input_output_types(vec![(Type::Nothing, Type::Int)])
             .allow_variants_without_examples(true)
-            .optional("range", SyntaxShape::Range, "Range of values.")
+            .optional(
+                "range",
+                SyntaxShape::Range,
+                "Range of potential values, inclusive of both start and end values.",
+            )
             .category(Category::Random)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Generate a random integer [min..max]."
     }
 
@@ -40,12 +44,12 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Generate an unconstrained random integer",
+                description: "Generate a non-negative random integer",
                 example: "random int",
                 result: None,
             },
             Example {
-                description: "Generate a random integer less than or equal to 500",
+                description: "Generate a random integer between 0 (inclusive) and 500 (inclusive)",
                 example: "random int ..500",
                 result: None,
             },
@@ -55,8 +59,8 @@ impl Command for SubCommand {
                 result: None,
             },
             Example {
-                description: "Generate a random integer between 1 and 10",
-                example: "random int 1..10",
+                description: "Generate a random integer between -10 (inclusive) and 10 (inclusive)",
+                example: "random int (-10)..10",
                 result: None,
             },
         ]

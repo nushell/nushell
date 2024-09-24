@@ -64,7 +64,7 @@ impl Command for SubCommand {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns start index of first occurrence of string in input, or -1 if no match."
     }
 

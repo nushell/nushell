@@ -17,7 +17,7 @@ impl Command for SysNet {
             .input_output_types(vec![(Type::Nothing, Type::table())])
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "View information about the system network interfaces."
     }
 

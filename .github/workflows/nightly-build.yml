@@ -36,10 +36,10 @@ jobs:
           token: ${{ secrets.WORKFLOW_TOKEN }}
 
       - name: Setup Nushell
-        uses: hustcer/setup-nu@v3.12
+        uses: hustcer/setup-nu@v3.13
         if: github.repository == 'nushell/nightly'
         with:
-          version: 0.95.0
+          version: 0.97.1
 
       # Synchronize the main branch of nightly repo with the main branch of Nushell official repo
       - name: Prepare for Nightly Release
@@ -78,7 +78,9 @@ jobs:
         - x86_64-unknown-linux-gnu
         - x86_64-unknown-linux-musl
         - aarch64-unknown-linux-gnu
+        - aarch64-unknown-linux-musl
         - armv7-unknown-linux-gnueabihf
+        - armv7-unknown-linux-musleabihf
         - riscv64gc-unknown-linux-gnu
         extra: ['bin']
         include:
@@ -104,7 +106,11 @@ jobs:
           os: ubuntu-22.04
         - target: aarch64-unknown-linux-gnu
           os: ubuntu-22.04
+        - target: aarch64-unknown-linux-musl
+          os: ubuntu-22.04
         - target: armv7-unknown-linux-gnueabihf
+          os: ubuntu-22.04
+        - target: armv7-unknown-linux-musleabihf
           os: ubuntu-22.04
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-latest
@@ -128,9 +134,9 @@ jobs:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3.12
+      uses: hustcer/setup-nu@v3.13
       with:
-        version: 0.95.0
+        version: 0.97.1
 
     - name: Release Nu Binary
       id: nu
@@ -186,9 +192,9 @@ jobs:
           ref: main
 
       - name: Setup Nushell
-        uses: hustcer/setup-nu@v3.12
+        uses: hustcer/setup-nu@v3.13
         with:
-          version: 0.95.0
+          version: 0.97.1
 
       # Keep the last a few releases
       - name: Delete Older Releases

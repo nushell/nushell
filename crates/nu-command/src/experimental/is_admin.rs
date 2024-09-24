@@ -8,7 +8,7 @@ impl Command for IsAdmin {
         "is-admin"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Check if nushell is running with administrator or root privileges."
     }
 

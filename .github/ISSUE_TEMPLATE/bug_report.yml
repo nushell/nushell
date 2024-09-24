@@ -13,7 +13,7 @@ body:
     id: repro
     attributes:
       label: How to reproduce
-      description: Steps to reproduce the behavior
+      description: Steps to reproduce the behavior (including succinct code examples or screenshots of the observed behavior)
       placeholder: |
         1.
         2.
@@ -28,13 +28,6 @@ body:
       placeholder: I expected nu to...
     validations:
       required: true
-  - type: textarea
-    id: screenshots
-    attributes:
-      label: Screenshots
-      description: Please add any relevant screenshots here, if any
-    validations:
-      required: false
   - type: textarea
     id: config
     attributes:
@@ -55,10 +48,3 @@ body:
         | installed_plugins  | binaryview, chart bar, chart line, fetch, from bson, from sqlite, inc, match, post, ps, query json, s3, selector, start, sys, textview, to bson, to sqlite, tree, xpath |
     validations:
       required: true
-  - type: textarea
-    id: context
-    attributes:
-      label: Additional context
-      description: Add any other context about the problem here.
-    validations:
-      required: false

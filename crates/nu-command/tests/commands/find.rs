@@ -138,3 +138,63 @@ fn find_in_table_keeps_row_with_multiple_matched_and_keeps_other_columns() {
     assert!(actual.out.contains("bill"));
     assert!(actual.out.contains("60"));
 }
+
+#[test]
+fn find_with_string_search_with_special_char_1() {
+    let actual = nu!("[[d]; [a?b] [a*b] [a{1}b] ] | find '?' | to json -r");
+
+    assert_eq!(
+        actual.out,
+        "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m?\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
+    );
+}
+
+#[test]
+fn find_with_string_search_with_special_char_2() {
+    let actual = nu!("[[d]; [a?b] [a*b] [a{1}b]] | find '*' | to json -r");
+
+    assert_eq!(
+        actual.out,
+        "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m*\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
+    );
+}
+
+#[test]
+fn find_with_string_search_with_special_char_3() {
+    let actual = nu!("[[d]; [a?b] [a*b] [a{1}b] ] | find '{1}' | to json -r");
+
+    assert_eq!(
+        actual.out,
+        "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m{1}\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
+    );
+}
+
+#[test]
+fn find_with_string_search_with_special_char_4() {
+    let actual = nu!("[{d: a?b} {d: a*b} {d: a{1}b} {d: a[]b}] | find '[' | to json -r");
+
+    assert_eq!(
+        actual.out,
+        "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m[\\u001b[0m\\u001b[37m]b\\u001b[0m\"}]"
+    );
+}
+
+#[test]
+fn find_with_string_search_with_special_char_5() {
+    let actual = nu!("[{d: a?b} {d: a*b} {d: a{1}b} {d: a[]b}] | find ']' | to json -r");
+
+    assert_eq!(
+        actual.out,
+        "[{\"d\":\"\\u001b[37ma[\\u001b[0m\\u001b[41;37m]\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
+    );
+}
+
+#[test]
+fn find_with_string_search_with_special_char_6() {
+    let actual = nu!("[{d: a?b} {d: a*b} {d: a{1}b} {d: a[]b}] | find '[]' | to json -r");
+
+    assert_eq!(
+        actual.out,
+        "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m[]\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
+    );
+}

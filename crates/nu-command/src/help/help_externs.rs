@@ -10,7 +10,7 @@ impl Command for HelpExterns {
         "help externs"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show help on nushell externs."
     }
 
@@ -25,7 +25,7 @@ impl Command for HelpExterns {
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in extern names and usage",
+                "string to find in extern names and descriptions",
                 Some('f'),
             )
             .input_output_types(vec![(Type::Nothing, Type::table())])
@@ -45,7 +45,7 @@ impl Command for HelpExterns {
                 result: None,
             },
             Example {
-                description: "search for string in extern names and usages",
+                description: "search for string in extern names and descriptions",
                 example: "help externs --find smth",
                 result: None,
             },
@@ -86,7 +86,7 @@ pub fn help_externs(
         let found_cmds_vec = highlight_search_in_table(
             all_cmds_vec,
             &f.item,
-            &["name", "usage"],
+            &["name", "description"],
             &string_style,
             &highlight_style,
         )?;

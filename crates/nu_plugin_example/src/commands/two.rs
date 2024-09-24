@@ -12,7 +12,7 @@ impl SimplePluginCommand for Two {
         "example two"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Plugin test example 2. Returns list of records"
     }
 

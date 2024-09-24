@@ -1,4 +1,4 @@
-use crate::FromCmds;
+use crate::FormatCmdsPlugin;
 
 use ical::{parser::vcard::component::*, property::Property};
 use indexmap::IndexMap;
@@ -10,13 +10,13 @@ use nu_protocol::{
 pub struct FromVcf;
 
 impl SimplePluginCommand for FromVcf {
-    type Plugin = FromCmds;
+    type Plugin = FormatCmdsPlugin;
 
     fn name(&self) -> &str {
         "from vcf"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse text as .vcf and create table."
     }
 
@@ -32,7 +32,7 @@ impl SimplePluginCommand for FromVcf {
 
     fn run(
         &self,
-        _plugin: &FromCmds,
+        _plugin: &FormatCmdsPlugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
@@ -164,5 +164,5 @@ fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> Value {
 fn test_examples() -> Result<(), nu_protocol::ShellError> {
     use nu_plugin_test_support::PluginTest;
 
-    PluginTest::new("formats", crate::FromCmds.into())?.test_command_examples(&FromVcf)
+    PluginTest::new("formats", crate::FormatCmdsPlugin.into())?.test_command_examples(&FromVcf)
 }

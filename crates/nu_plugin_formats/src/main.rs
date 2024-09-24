@@ -1,6 +1,6 @@
 use nu_plugin::{serve_plugin, MsgPackSerializer};
-use nu_plugin_formats::FromCmds;
+use nu_plugin_formats::FormatCmdsPlugin;
 
 fn main() {
-    serve_plugin(&FromCmds, MsgPackSerializer {})
+    serve_plugin(&FormatCmdsPlugin, MsgPackSerializer {})
 }

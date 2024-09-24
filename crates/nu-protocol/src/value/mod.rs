@@ -832,7 +832,7 @@ impl Value {
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
-            Value::Date { val, .. } => match &config.datetime_normal_format {
+            Value::Date { val, .. } => match &config.datetime_format.normal {
                 Some(format) => self.format_datetime(val, format),
                 None => {
                     format!(
@@ -886,7 +886,7 @@ impl Value {
     /// - "[record {n} fields]"
     pub fn to_abbreviated_string(&self, config: &Config) -> String {
         match self {
-            Value::Date { val, .. } => match &config.datetime_table_format {
+            Value::Date { val, .. } => match &config.datetime_format.table {
                 Some(format) => self.format_datetime(val, format),
                 None => HumanTime::from(*val).to_string(),
             },
@@ -1223,7 +1223,8 @@ impl Value {
                         for val in vals.iter_mut() {
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    if let Some(val) = record.to_mut().get_mut(col_name) {
+                                    let record = record.to_mut();
+                                    if let Some(val) = record.get_mut(col_name) {
                                         val.upsert_data_at_cell_path(path, new_val.clone())?;
                                     } else {
                                         let new_col = if path.is_empty() {
@@ -1235,7 +1236,7 @@ impl Value {
                                                 .upsert_data_at_cell_path(path, new_val.clone())?;
                                             new_col
                                         };
-                                        record.to_mut().push(col_name, new_col);
+                                        record.push(col_name, new_col);
                                     }
                                 }
                                 Value::Error { error, .. } => return Err(*error.clone()),
@@ -1250,7 +1251,8 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        if let Some(val) = record.to_mut().get_mut(col_name) {
+                        let record = record.to_mut();
+                        if let Some(val) = record.get_mut(col_name) {
                             val.upsert_data_at_cell_path(path, new_val)?;
                         } else {
                             let new_col = if path.is_empty() {
@@ -1260,7 +1262,7 @@ impl Value {
                                 new_col.upsert_data_at_cell_path(path, new_val)?;
                                 new_col
                             };
-                            record.to_mut().push(col_name, new_col);
+                            record.push(col_name, new_col);
                         }
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
@@ -1591,7 +1593,8 @@ impl Value {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    if let Some(val) = record.to_mut().get_mut(col_name) {
+                                    let record = record.to_mut();
+                                    if let Some(val) = record.get_mut(col_name) {
                                         if path.is_empty() {
                                             return Err(ShellError::ColumnAlreadyExists {
                                                 col_name: col_name.clone(),
@@ -1618,7 +1621,7 @@ impl Value {
                                             )?;
                                             new_col
                                         };
-                                        record.to_mut().push(col_name, new_col);
+                                        record.push(col_name, new_col);
                                     }
                                 }
                                 Value::Error { error, .. } => return Err(*error.clone()),
@@ -1634,7 +1637,8 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        if let Some(val) = record.to_mut().get_mut(col_name) {
+                        let record = record.to_mut();
+                        if let Some(val) = record.get_mut(col_name) {
                             if path.is_empty() {
                                 return Err(ShellError::ColumnAlreadyExists {
                                     col_name: col_name.clone(),
@@ -1652,7 +1656,7 @@ impl Value {
                                 new_col.insert_data_at_cell_path(path, new_val, head_span)?;
                                 new_col
                             };
-                            record.to_mut().push(col_name, new_col);
+                            record.push(col_name, new_col);
                         }
                     }
                     other => {
@@ -3313,7 +3317,18 @@ impl Value {
     pub fn bit_shl(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs << rhs, span))
+                // Currently we disallow negative operands like Rust's `Shl`
+                // Cheap guarding with TryInto<u32>
+                if let Some(val) = (*rhs).try_into().ok().and_then(|rhs| lhs.checked_shl(rhs)) {
+                    Ok(Value::int(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "right operand to bit-shl exceeds available bits in underlying data"
+                            .into(),
+                        span,
+                        help: format!("Limit operand to 0 <= rhs < {}", i64::BITS),
+                    })
+                }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::ShiftLeft), op, rhs)
@@ -3331,7 +3346,18 @@ impl Value {
     pub fn bit_shr(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs >> rhs, span))
+                // Currently we disallow negative operands like Rust's `Shr`
+                // Cheap guarding with TryInto<u32>
+                if let Some(val) = (*rhs).try_into().ok().and_then(|rhs| lhs.checked_shr(rhs)) {
+                    Ok(Value::int(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "right operand to bit-shr exceeds available bits in underlying data"
+                            .into(),
+                        span,
+                        help: format!("Limit operand to 0 <= rhs < {}", i64::BITS),
+                    })
+                }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::ShiftRight), op, rhs)

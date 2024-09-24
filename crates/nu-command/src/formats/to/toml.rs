@@ -1,6 +1,6 @@
 use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::PathMember;
+use nu_protocol::{ast::PathMember, PipelineMetadata};
 
 #[derive(Clone)]
 pub struct ToToml;
@@ -16,7 +16,7 @@ impl Command for ToToml {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert record into .toml text."
     }
 
@@ -100,9 +100,18 @@ fn toml_into_pipeline_data(
     toml_value: &toml::Value,
     value_type: Type,
     span: Span,
+    metadata: Option<PipelineMetadata>,
 ) -> Result<PipelineData, ShellError> {
+    let new_md = Some(
+        metadata
+            .unwrap_or_default()
+            .with_content_type(Some("text/x-toml".into())),
+    );
+
     match toml::to_string_pretty(&toml_value) {
-        Ok(serde_toml_string) => Ok(Value::string(serde_toml_string, span).into_pipeline_data()),
+        Ok(serde_toml_string) => {
+            Ok(Value::string(serde_toml_string, span).into_pipeline_data_with_metadata(new_md))
+        }
         _ => Ok(Value::error(
             ShellError::CantConvert {
                 to_type: "TOML".into(),
@@ -112,7 +121,7 @@ fn toml_into_pipeline_data(
             },
             span,
         )
-        .into_pipeline_data()),
+        .into_pipeline_data_with_metadata(new_md)),
     }
 }
 
@@ -139,6 +148,7 @@ fn to_toml(
     input: PipelineData,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
+    let metadata = input.metadata();
     let value = input.into_value(span)?;
 
     let toml_value = value_to_toml_value(engine_state, &value, span)?;
@@ -148,10 +158,11 @@ fn to_toml(
                 vec.iter().next().expect("this should never trigger"),
                 value.get_type(),
                 span,
+                metadata,
             ),
-            _ => toml_into_pipeline_data(&toml_value, value.get_type(), span),
+            _ => toml_into_pipeline_data(&toml_value, value.get_type(), span, metadata),
         },
-        _ => toml_into_pipeline_data(&toml_value, value.get_type(), span),
+        _ => toml_into_pipeline_data(&toml_value, value.get_type(), span, metadata),
     }
 }
 

@@ -130,7 +130,7 @@ impl Span {
     }
 
     pub fn contains_span(&self, span: Self) -> bool {
-        self.start <= span.start && span.end <= self.end
+        self.start <= span.start && span.end <= self.end && span.end != 0
     }
 
     /// Point to the space just past this span, useful for missing values

@@ -27,7 +27,7 @@ impl Command for UpdateCells {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Update the table cells."
     }
 

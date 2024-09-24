@@ -51,7 +51,7 @@ pub struct Stack {
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
     pub parent_deletions: Vec<VarId>,
-    /// Locally updated config. Use [`.get_config()`] to access correctly.
+    /// Locally updated config. Use [`.get_config()`](Self::get_config) to access correctly.
     pub config: Option<Arc<Config>>,
     pub(crate) out_dest: StackOutDest,
 }
@@ -68,7 +68,7 @@ impl Stack {
     /// stdout and stderr will be set to [`OutDest::Inherit`]. So, if the last command is an external command,
     /// then its output will be forwarded to the terminal/stdio streams.
     ///
-    /// Use [`Stack::capture`] afterwards if you need to evaluate an expression to a [`Value`](crate::Value)
+    /// Use [`Stack::capture`] afterwards if you need to evaluate an expression to a [`Value`]
     /// (as opposed to a [`PipelineData`](crate::PipelineData)).
     pub fn new() -> Self {
         Self {
@@ -78,7 +78,7 @@ impl Stack {
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            use_ir: false,
+            use_ir: true,
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
@@ -276,6 +276,16 @@ impl Stack {
         } else {
             // TODO: Remove panic
             panic!("internal error: no active overlay");
+        }
+    }
+
+    pub fn set_last_exit_code(&mut self, code: i32, span: Span) {
+        self.add_env_var("LAST_EXIT_CODE".into(), Value::int(code.into(), span));
+    }
+
+    pub fn set_last_error(&mut self, error: &ShellError) {
+        if let Some(code) = error.external_exit_code() {
+            self.set_last_exit_code(code.item, code.span);
         }
     }
 

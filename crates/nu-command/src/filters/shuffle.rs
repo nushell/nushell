@@ -18,7 +18,7 @@ impl Command for Shuffle {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Shuffle rows randomly."
     }
 

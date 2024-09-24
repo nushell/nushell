@@ -15,7 +15,7 @@ impl Command for UName {
             .category(Category::System)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Print certain system information using uutils/coreutils uname."
     }
 

@@ -22,7 +22,7 @@ impl Command for Save {
         "save"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Save a file."
     }
 
@@ -121,9 +121,11 @@ impl Command for Save {
                             } else {
                                 match stderr {
                                     ChildPipe::Pipe(mut pipe) => {
-                                        io::copy(&mut pipe, &mut io::sink())
+                                        io::copy(&mut pipe, &mut io::stderr())
                                     }
-                                    ChildPipe::Tee(mut tee) => io::copy(&mut tee, &mut io::sink()),
+                                    ChildPipe::Tee(mut tee) => {
+                                        io::copy(&mut tee, &mut io::stderr())
+                                    }
                                 }
                                 .err_span(span)?;
                             }

@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{report_warning_new, ParseWarning, ValueIterator};
+use nu_protocol::{report_shell_warning, ValueIterator};
 
 #[derive(Clone)]
 pub struct Group;
@@ -23,7 +23,7 @@ impl Command for Group {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Groups input into groups of `group_size`."
     }
 
@@ -55,9 +55,9 @@ impl Command for Group {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        report_warning_new(
+        report_shell_warning(
             engine_state,
-            &ParseWarning::DeprecatedWarning {
+            &ShellError::Deprecated {
                 old_command: "group".into(),
                 new_suggestion: "the new `chunks` command".into(),
                 span: head,

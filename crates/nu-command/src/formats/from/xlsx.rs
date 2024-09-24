@@ -26,7 +26,7 @@ impl Command for FromXlsx {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse binary Excel(.xlsx) data and create table."
     }
 

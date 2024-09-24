@@ -3,7 +3,7 @@ use super::util::{get_rest_for_glob_pattern, try_interaction};
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
-use nu_protocol::{report_error_new, NuGlob};
+use nu_protocol::{report_shell_error, NuGlob};
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
 use std::{
@@ -25,7 +25,7 @@ impl Command for Rm {
         "rm"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Remove files and directories."
     }
 
@@ -135,12 +135,9 @@ fn rm(
     let home: Option<String> = nu_path::home_dir().map(|path| {
         {
             if path.exists() {
-                match nu_path::canonicalize_with(&path, &currentdir_path) {
-                    Ok(canon_path) => canon_path,
-                    Err(_) => path,
-                }
+                nu_path::canonicalize_with(&path, &currentdir_path).unwrap_or(path.into())
             } else {
-                path
+                path.into()
             }
         }
         .to_string_lossy()
@@ -170,7 +167,7 @@ fn rm(
     }
 
     let span = call.head;
-    let rm_always_trash = stack.get_config(engine_state).rm_always_trash;
+    let rm_always_trash = stack.get_config(engine_state).rm.always_trash;
 
     if !TRASH_SUPPORTED {
         if rm_always_trash {
@@ -455,7 +452,7 @@ fn rm(
         match result {
             Ok(None) => {}
             Ok(Some(msg)) => eprintln!("{msg}"),
-            Err(err) => report_error_new(engine_state, &err),
+            Err(err) => report_shell_error(engine_state, &err),
         }
     }
 
