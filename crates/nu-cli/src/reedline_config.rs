@@ -774,9 +774,11 @@ fn add_parsed_keybinding(
                 "shift" => modifier |= KeyModifiers::SHIFT,
                 "alt" => modifier |= KeyModifiers::ALT,
                 "super" => modifier |= KeyModifiers::SUPER,
+                "hyper" => modifier |= KeyModifiers::HYPER,
+                "meta" => modifier |= KeyModifiers::META,
                 _ => {
                     return Err(ShellError::UnsupportedConfigValue {
-                        expected: "CONTROL, SHIFT, ALT, SUPER or NONE".to_string(),
+                        expected: "CONTROL, SHIFT, ALT, SUPER, HYPER, META or NONE".to_string(),
                         value: keybinding.modifier.to_abbreviated_string(config),
                         span: keybinding.modifier.span(),
                     })
