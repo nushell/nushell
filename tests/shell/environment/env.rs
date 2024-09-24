@@ -237,7 +237,7 @@ fn std_log_env_vars_are_not_overridden() {
 fn std_log_env_vars_have_defaults() {
     let actual = nu_with_std!(
         r#"
-            use std
+            use std/log
             print -e $env.NU_LOG_FORMAT
             print -e $env.NU_LOG_DATE_FORMAT
         "#
