@@ -35,7 +35,7 @@ pub(crate) fn compile_binary_op(
                 working_set,
                 builder,
                 rhs,
-                RedirectModes::capture_out(rhs.span),
+                RedirectModes::value(rhs.span),
                 None,
                 out_reg,
             )?;
@@ -53,7 +53,7 @@ pub(crate) fn compile_binary_op(
             working_set,
             builder,
             lhs,
-            RedirectModes::capture_out(lhs.span),
+            RedirectModes::value(lhs.span),
             None,
             lhs_reg,
         )?;
@@ -73,7 +73,7 @@ pub(crate) fn compile_binary_op(
                     working_set,
                     builder,
                     rhs,
-                    RedirectModes::capture_out(rhs.span),
+                    RedirectModes::value(rhs.span),
                     None,
                     lhs_reg,
                 )?;
@@ -96,7 +96,7 @@ pub(crate) fn compile_binary_op(
                     working_set,
                     builder,
                     rhs,
-                    RedirectModes::capture_out(rhs.span),
+                    RedirectModes::value(rhs.span),
                     None,
                     lhs_reg,
                 )?;
@@ -118,7 +118,7 @@ pub(crate) fn compile_binary_op(
                     working_set,
                     builder,
                     rhs,
-                    RedirectModes::capture_out(rhs.span),
+                    RedirectModes::value(rhs.span),
                     None,
                     rhs_reg,
                 )?;
@@ -277,7 +277,7 @@ pub(crate) fn compile_assignment(
                     working_set,
                     builder,
                     &path.head,
-                    RedirectModes::capture_out(path.head.span),
+                    RedirectModes::value(path.head.span),
                     None,
                     head_reg,
                 )?;

@@ -452,6 +452,14 @@ fn try_catch_with_non_literal_closure() {
 }
 
 #[test]
+fn try_catch_external() {
+    test_eval(
+        r#"try { nu -c 'exit 1' } catch { $env.LAST_EXIT_CODE }"#,
+        Eq("1"),
+    )
+}
+
+#[test]
 fn row_condition() {
     test_eval(
         "[[a b]; [1 2] [3 4]] | where a < 3 | to nuon",

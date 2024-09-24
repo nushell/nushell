@@ -29,7 +29,7 @@ impl ExitStatusFuture {
                             core_dumped: true, ..
                         },
                     )) => {
-                        status.check_ok(span)?;
+                        status.check_ok(false, span)?;
                         Ok(status)
                     }
                     Ok(Ok(status)) => Ok(status),
@@ -109,6 +109,7 @@ pub struct ChildProcess {
     pub stdout: Option<ChildPipe>,
     pub stderr: Option<ChildPipe>,
     exit_status: ExitStatusFuture,
+    ignore_error: bool,
     span: Span,
 }
 
@@ -155,12 +156,14 @@ impl ChildProcess {
             exit_status: exit_status
                 .map(ExitStatusFuture::Running)
                 .unwrap_or(ExitStatusFuture::Finished(Ok(ExitStatus::Exited(0)))),
+            ignore_error: false,
             span,
         }
     }
 
-    pub fn set_exit_code(&mut self, exit_code: i32) {
-        self.exit_status = ExitStatusFuture::Finished(Ok(ExitStatus::Exited(exit_code)));
+    pub fn ignore_error(&mut self) -> &mut Self {
+        self.ignore_error = true;
+        self
     }
 
     pub fn span(&self) -> Span {
@@ -182,7 +185,9 @@ impl ChildProcess {
             Vec::new()
         };
 
-        self.exit_status.wait(self.span)?.check_ok(self.span)?;
+        self.exit_status
+            .wait(self.span)?
+            .check_ok(self.ignore_error, self.span)?;
 
         Ok(bytes)
     }
@@ -223,7 +228,9 @@ impl ChildProcess {
             consume_pipe(stderr).err_span(self.span)?;
         }
 
-        self.exit_status.wait(self.span)?.check_ok(self.span)
+        self.exit_status
+            .wait(self.span)?
+            .check_ok(self.ignore_error, self.span)
     }
 
     pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, ShellError> {

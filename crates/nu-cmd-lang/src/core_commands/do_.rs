@@ -83,7 +83,7 @@ impl Command for Do {
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         // Applies to all block evaluation once set true
-        callee_stack.use_ir = caller_stack.has_env_var(engine_state, "NU_USE_IR");
+        callee_stack.use_ir = !caller_stack.has_env_var(engine_state, "NU_DISABLE_IR");
 
         let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
 
@@ -166,10 +166,13 @@ impl Command for Do {
             }
             Ok(PipelineData::ByteStream(mut stream, metadata))
                 if ignore_program_errors
-                    && !matches!(caller_stack.stdout(), OutDest::Pipe | OutDest::Capture) =>
+                    && !matches!(
+                        caller_stack.stdout(),
+                        OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
+                    ) =>
             {
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
-                    child.set_exit_code(0)
+                    child.ignore_error();
                 }
                 Ok(PipelineData::ByteStream(stream, metadata))
             }

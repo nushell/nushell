@@ -992,7 +992,7 @@ fn get_name(psid: PSID) -> Option<(String, String)> {
 fn from_wide_ptr(ptr: *const u16) -> String {
     unsafe {
         assert!(!ptr.is_null());
-        let len = (0..std::isize::MAX)
+        let len = (0..isize::MAX)
             .position(|i| *ptr.offset(i) == 0)
             .unwrap_or_default();
         let slice = std::slice::from_raw_parts(ptr, len);

@@ -152,6 +152,17 @@ mod test_expand_ndots {
         };
         assert_path_eq!(expand_ndots(path), expected);
     }
+
+    #[test]
+    fn trailing_dots() {
+        let path = Path::new("/foo/bar/..");
+        let expected = if cfg!(windows) {
+            r"\foo\bar\.."
+        } else {
+            "/foo/bar/.."
+        };
+        assert_path_eq!(expand_ndots(path), expected);
+    }
 }
 
 #[cfg(test)]

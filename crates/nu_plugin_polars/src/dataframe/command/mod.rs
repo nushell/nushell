@@ -5,6 +5,5 @@ pub mod data;
 pub mod datetime;
 pub mod index;
 pub mod integer;
-pub mod macro_commands;
 pub mod string;
 pub mod stub;

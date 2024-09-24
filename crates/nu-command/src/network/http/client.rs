@@ -259,7 +259,7 @@ fn send_json_request(
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     match body {
-        Value::Int { .. } | Value::List { .. } | Value::Record { .. } => {
+        Value::Int { .. } | Value::Float { .. } | Value::List { .. } | Value::Record { .. } => {
             let data = value_to_json_value(&body)?;
             send_cancellable_request(request_url, Box::new(|| req.send_json(data)), span, signals)
         }
@@ -284,8 +284,11 @@ fn send_json_request(
             }
         }
         _ => Err(ShellErrorOrRequestError::ShellError(
-            ShellError::UnsupportedHttpBody {
-                msg: format!("Accepted types: [Int, List, String, Record]. Check: {HTTP_DOCS}"),
+            ShellError::TypeMismatch {
+                err_message: format!(
+                    "Accepted types: [int, float, list, string, record]. Check: {HTTP_DOCS}"
+                ),
+                span: body.span(),
             },
         )),
     }
@@ -308,10 +311,12 @@ fn send_form_request(
     };
 
     match body {
-        Value::List { vals, .. } => {
+        Value::List { ref vals, .. } => {
             if vals.len() % 2 != 0 {
-                return Err(ShellErrorOrRequestError::ShellError(ShellError::UnsupportedHttpBody {
-                    msg: "Body type 'List' for form requests requires paired values. E.g.: [value, 10]".into(),
+                return Err(ShellErrorOrRequestError::ShellError(ShellError::IncorrectValue {
+                    msg: "Body type 'list' for form requests requires paired values. E.g.: [foo, 10]".into(), 
+                    val_span: body.span(),
+                    call_span: span,
                 }));
             }
 
@@ -334,8 +339,9 @@ fn send_form_request(
             send_cancellable_request(request_url, request_fn, span, signals)
         }
         _ => Err(ShellErrorOrRequestError::ShellError(
-            ShellError::UnsupportedHttpBody {
-                msg: format!("Accepted types: [List, Record]. Check: {HTTP_DOCS}"),
+            ShellError::TypeMismatch {
+                err_message: format!("Accepted types: [list, record]. Check: {HTTP_DOCS}"),
+                span: body.span(),
             },
         )),
     }
@@ -388,8 +394,9 @@ fn send_multipart_request(
         }
         _ => {
             return Err(ShellErrorOrRequestError::ShellError(
-                ShellError::UnsupportedHttpBody {
-                    msg: format!("Accepted types: [Record]. Check: {HTTP_DOCS}"),
+                ShellError::TypeMismatch {
+                    err_message: format!("Accepted types: [record]. Check: {HTTP_DOCS}"),
+                    span: body.span(),
                 },
             ))
         }
@@ -418,8 +425,9 @@ fn send_default_request(
             signals,
         ),
         _ => Err(ShellErrorOrRequestError::ShellError(
-            ShellError::UnsupportedHttpBody {
-                msg: format!("Accepted types: [Binary, String]. Check: {HTTP_DOCS}"),
+            ShellError::TypeMismatch {
+                err_message: format!("Accepted types: [binary, string]. Check: {HTTP_DOCS}"),
+                span: body.span(),
             },
         )),
     }

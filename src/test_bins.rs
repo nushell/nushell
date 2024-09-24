@@ -236,6 +236,11 @@ pub fn nu_repl() {
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
     engine_state.add_env_var("PATH".into(), Value::test_string(""));
 
+    // Disable IR in tests if set
+    if std::env::var_os("NU_DISABLE_IR").is_some() {
+        Arc::make_mut(&mut top_stack).use_ir = false;
+    }
+
     let mut last_output = String::new();
 
     load_standard_library(&mut engine_state).expect("Could not load the standard library.");
@@ -325,7 +330,7 @@ pub fn nu_repl() {
         let config = engine_state.get_config();
 
         {
-            let stack = &mut stack.start_capture();
+            let stack = &mut stack.start_collect_value();
             match eval_block::<WithoutDebug>(&engine_state, stack, &block, input) {
                 Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
                     Ok(s) => last_output = s,
