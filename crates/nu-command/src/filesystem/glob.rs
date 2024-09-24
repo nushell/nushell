@@ -171,8 +171,10 @@ impl Command for Glob {
 
         let folder_depth = if let Some(depth) = depth {
             depth
-        } else {
+        } else if glob_pattern.contains("**") {
             usize::MAX
+        } else {
+            1usize
         };
 
         let (prefix, glob) = match WaxGlob::new(&glob_pattern) {
