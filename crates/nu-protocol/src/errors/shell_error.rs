@@ -1,8 +1,6 @@
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
-<<<<<<< HEAD
 use std::cmp::Ordering;
-use std::io;
 use std::{io, num::NonZeroI32};
 use thiserror::Error;
 
