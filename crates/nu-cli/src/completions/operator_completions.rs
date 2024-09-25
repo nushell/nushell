@@ -49,7 +49,7 @@ pub fn fetch_int_completions(span: Span, offset: usize, partial: &str) -> Vec<Se
         ("-", "Minus / Subtraction"),
         ("*", "Multiply"),
         ("/", "Divide"),
-        ("=", "Equal"),
+        ("==", "Equal"),
         ("!=", "Not Equal"),
         ("//", "Floor Division"),
         ("<", "Less Than"),
