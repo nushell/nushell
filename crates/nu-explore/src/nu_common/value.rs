@@ -92,8 +92,15 @@ pub fn collect_input(value: Value) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
     let span = value.span();
     match value {
         Value::Record { val: record, .. } => {
-            let (key, val) = record.into_owned().into_iter().unzip();
-            Ok((key, vec![val]))
+            let (key, val): (_, Vec<Value>) = record.into_owned().into_iter().unzip();
+
+            Ok((
+                key,
+                match val.is_empty() {
+                    true => vec![],
+                    false => vec![val],
+                },
+            ))
         }
         Value::List { vals, .. } => {
             let mut columns = get_columns(&vals);
