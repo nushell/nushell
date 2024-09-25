@@ -3,10 +3,12 @@ mod all;
 mod any;
 mod append;
 mod assignment;
+mod base;
 mod break_;
 mod bytes;
 mod cal;
 mod cd;
+mod chunks;
 mod compact;
 mod complete;
 mod config_env_default;
@@ -114,6 +116,7 @@ mod try_;
 mod ucp;
 #[cfg(unix)]
 mod ulimit;
+mod window;
 
 mod debug;
 mod umkdir;
@@ -125,7 +128,6 @@ mod upsert;
 mod url;
 mod use_;
 mod where_;
-#[cfg(feature = "which-support")]
 mod which;
 mod while_;
 mod with_env;

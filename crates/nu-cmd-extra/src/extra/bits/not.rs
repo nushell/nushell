@@ -51,7 +51,7 @@ impl Command for BitsNot {
             .category(Category::Bits)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Performs logical negation on each bit."
     }
 
@@ -82,7 +82,7 @@ impl Command for BitsNot {
             number_size,
         };
 
-        operate(action, args, input, head, engine_state.ctrlc.clone())
+        operate(action, args, input, head, engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -26,8 +26,8 @@ impl JustTable {
 fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, ShellError> {
     match table(input, &opts)? {
         Some(mut out) => {
-            let left = opts.config.table_indent.left;
-            let right = opts.config.table_indent.right;
+            let left = opts.config.table.padding.left;
+            let right = opts.config.table.padding.right;
             out.table.set_indent(left, right);
 
             colorize_space(out.table.get_records_mut(), opts.style_computer);
@@ -43,9 +43,7 @@ fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, 
 fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
     let mut data = vec![Vec::with_capacity(2); record.len()];
     for ((column, value), row) in record.iter().zip(data.iter_mut()) {
-        if nu_utils::ctrl_c::was_pressed(&opts.ctrlc) {
-            return Ok(None);
-        }
+        opts.signals.check(opts.span)?;
 
         let value = nu_value_to_string_colored(value, opts.config, opts.style_computer);
 
@@ -61,8 +59,8 @@ fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
 
     let mut out = TableOutput::new(table, false, true);
 
-    let left = opts.config.table_indent.left;
-    let right = opts.config.table_indent.right;
+    let left = opts.config.table.padding.left;
+    let right = opts.config.table.padding.right;
     out.table.set_indent(left, right);
 
     let table_config =
@@ -123,9 +121,7 @@ fn to_table_with_header(
     }
 
     for (row, item) in input.iter().enumerate() {
-        if nu_utils::ctrl_c::was_pressed(&opts.ctrlc) {
-            return Ok(None);
-        }
+        opts.signals.check(opts.span)?;
 
         if let Value::Error { error, .. } = item {
             return Err(*error.clone());
@@ -158,9 +154,7 @@ fn to_table_with_no_header(
     table.set_index_style(get_index_style(opts.style_computer));
 
     for (row, item) in input.iter().enumerate() {
-        if nu_utils::ctrl_c::was_pressed(&opts.ctrlc) {
-            return Ok(None);
-        }
+        opts.signals.check(opts.span)?;
 
         if let Value::Error { error, .. } = item {
             return Err(*error.clone());

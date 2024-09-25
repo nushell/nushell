@@ -5,6 +5,10 @@ use nu_protocol::{ast::CellPath, LabeledError, Signature, SyntaxShape, Value};
 pub struct IncPlugin;
 
 impl Plugin for IncPlugin {
+    fn version(&self) -> String {
+        env!("CARGO_PKG_VERSION").into()
+    }
+
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         vec![Box::new(Inc::new())]
     }
@@ -17,7 +21,7 @@ impl SimplePluginCommand for Inc {
         "inc"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Increment a value or version. Optionally use the column of a table."
     }
 

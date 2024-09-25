@@ -1,10 +1,11 @@
+#![doc = include_str!("../README.md")]
 use log::trace;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{FileStack, Stack, StateWorkingSet, VirtualPath},
-    report_error, PipelineData,
+    report_parse_error, PipelineData,
 };
 use std::path::PathBuf;
 
@@ -84,7 +85,7 @@ use std pwd
         working_set.files.pop();
 
         if let Some(err) = working_set.parse_errors.first() {
-            report_error(&working_set, err);
+            report_parse_error(&working_set, err);
         }
 
         (block, working_set.render())

@@ -16,13 +16,12 @@ impl Command for SubCommand {
                 (Type::Date, Type::record()),
                 (Type::Duration, Type::record()),
                 (Type::List(Box::new(Type::Any)), Type::record()),
-                (Type::Range, Type::record()),
                 (Type::record(), Type::record()),
             ])
             .category(Category::Conversions)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert value to record."
     }
 
@@ -32,12 +31,12 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        into_record(engine_state, call, input)
+        into_record(call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -50,21 +49,19 @@ impl Command for SubCommand {
                 })),
             },
             Example {
-                description: "Convert from list to record",
-                example: "[1 2 3] | into record",
+                description: "Convert from list of records to record",
+                example: "[{foo: bar} {baz: quux}] | into record",
                 result: Some(Value::test_record(record! {
-                    "0" => Value::test_int(1),
-                    "1" => Value::test_int(2),
-                    "2" => Value::test_int(3),
+                    "foo" => Value::test_string("bar"),
+                    "baz" => Value::test_string("quux"),
                 })),
             },
             Example {
-                description: "Convert from range to record",
-                example: "0..2 | into record",
+                description: "Convert from list of pairs into record",
+                example: "[[foo bar] [baz quux]] | into record",
                 result: Some(Value::test_record(record! {
-                    "0" => Value::test_int(0),
-                    "1" => Value::test_int(1),
-                    "2" => Value::test_int(2),
+                    "foo" => Value::test_string("bar"),
+                    "baz" => Value::test_string("quux"),
                 })),
             },
             Example {
@@ -96,6 +93,9 @@ impl Command for SubCommand {
                     "hour" =>     Value::test_int(22),
                     "minute" =>   Value::test_int(10),
                     "second" =>   Value::test_int(57),
+                    "millisecond" => Value::test_int(0),
+                    "microsecond" => Value::test_int(0),
+                    "nanosecond" => Value::test_int(0),
                     "timezone" => Value::test_string("+02:00"),
                 })),
             },
@@ -103,45 +103,82 @@ impl Command for SubCommand {
     }
 }
 
-fn into_record(
-    engine_state: &EngineState,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let input = input.into_value(call.head)?;
-    let input_type = input.get_type();
-    let span = input.span();
-    let res = match input {
-        Value::Date { val, .. } => parse_date_into_record(val, span),
-        Value::Duration { val, .. } => parse_duration_into_record(val, span),
-        Value::List { mut vals, .. } => match input_type {
-            Type::Table(..) if vals.len() == 1 => vals.pop().expect("already checked 1 item"),
-            _ => Value::record(
-                vals.into_iter()
-                    .enumerate()
-                    .map(|(idx, val)| (format!("{idx}"), val))
-                    .collect(),
-                span,
-            ),
-        },
-        Value::Range { val, .. } => Value::record(
-            val.into_range_iter(span, engine_state.ctrlc.clone())
-                .enumerate()
-                .map(|(idx, val)| (format!("{idx}"), val))
-                .collect(),
+fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
+    let span = input.span().unwrap_or(call.head);
+    match input {
+        PipelineData::Value(Value::Date { val, .. }, _) => {
+            Ok(parse_date_into_record(val, span).into_pipeline_data())
+        }
+        PipelineData::Value(Value::Duration { val, .. }, _) => {
+            Ok(parse_duration_into_record(val, span).into_pipeline_data())
+        }
+        PipelineData::Value(Value::List { .. }, _) | PipelineData::ListStream(..) => {
+            let mut record = Record::new();
+            let metadata = input.metadata();
+
+            enum ExpectedType {
+                Record,
+                Pair,
+            }
+            let mut expected_type = None;
+
+            for item in input.into_iter() {
+                let span = item.span();
+                match item {
+                    Value::Record { val, .. }
+                        if matches!(expected_type, None | Some(ExpectedType::Record)) =>
+                    {
+                        // Don't use .extend() unless that gets changed to check for duplicate keys
+                        for (key, val) in val.into_owned() {
+                            record.insert(key, val);
+                        }
+                        expected_type = Some(ExpectedType::Record);
+                    }
+                    Value::List { mut vals, .. }
+                        if matches!(expected_type, None | Some(ExpectedType::Pair)) =>
+                    {
+                        if vals.len() == 2 {
+                            let (val, key) = vals.pop().zip(vals.pop()).expect("length is < 2");
+                            record.insert(key.coerce_into_string()?, val);
+                        } else {
+                            return Err(ShellError::IncorrectValue {
+                                msg: format!(
+                                    "expected inner list with two elements, but found {} element(s)",
+                                    vals.len()
+                                ),
+                                val_span: span,
+                                call_span: call.head,
+                            });
+                        }
+                        expected_type = Some(ExpectedType::Pair);
+                    }
+                    Value::Nothing { .. } => {}
+                    Value::Error { error, .. } => return Err(*error),
+                    _ => {
+                        return Err(ShellError::TypeMismatch {
+                            err_message: format!(
+                                "expected {}, found {} (while building record from list)",
+                                match expected_type {
+                                    Some(ExpectedType::Record) => "record",
+                                    Some(ExpectedType::Pair) => "list with two elements",
+                                    None => "record or list with two elements",
+                                },
+                                item.get_type(),
+                            ),
+                            span,
+                        })
+                    }
+                }
+            }
+            Ok(Value::record(record, span).into_pipeline_data_with_metadata(metadata))
+        }
+        PipelineData::Value(Value::Record { .. }, _) => Ok(input),
+        PipelineData::Value(Value::Error { error, .. }, _) => Err(*error),
+        other => Err(ShellError::TypeMismatch {
+            err_message: format!("Can't convert {} to record", other.get_type()),
             span,
-        ),
-        Value::Record { .. } => input,
-        Value::Error { .. } => input,
-        other => Value::error(
-            ShellError::TypeMismatch {
-                err_message: format!("Can't convert {} to record", other.get_type()),
-                span: other.span(),
-            },
-            call.head,
-        ),
-    };
-    Ok(res.into_pipeline_data())
+        }),
+    }
 }
 
 fn parse_date_into_record(date: DateTime<FixedOffset>, span: Span) -> Value {
@@ -153,6 +190,9 @@ fn parse_date_into_record(date: DateTime<FixedOffset>, span: Span) -> Value {
             "hour" => Value::int(date.hour() as i64, span),
             "minute" => Value::int(date.minute() as i64, span),
             "second" => Value::int(date.second() as i64, span),
+            "millisecond" => Value::int(date.timestamp_subsec_millis() as i64, span),
+            "microsecond" => Value::int((date.nanosecond() / 1_000 % 1_000) as i64, span),
+            "nanosecond" => Value::int((date.nanosecond() % 1_000) as i64, span),
             "timezone" => Value::string(date.offset().to_string(), span),
         },
         span,

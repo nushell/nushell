@@ -1,11 +1,11 @@
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
-use std::io;
+use std::{io, num::NonZeroI32};
 use thiserror::Error;
 
 use crate::{
-    ast::Operator, engine::StateWorkingSet, format_error, LabeledError, ParseError, Span, Spanned,
-    Value,
+    ast::Operator, engine::StateWorkingSet, format_shell_error, record, LabeledError, ParseError,
+    Span, Spanned, Value,
 };
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
@@ -557,12 +557,12 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check the spelling of your column name. Did you forget to rename a column somewhere?
-    #[error("Cannot find column")]
+    #[error("Cannot find column '{col_name}'")]
     #[diagnostic(code(nu::shell::column_not_found))]
     CantFindColumn {
         col_name: String,
         #[label = "cannot find column '{col_name}'"]
-        span: Span,
+        span: Option<Span>,
         #[label = "value originates here"]
         src_span: Span,
     },
@@ -636,6 +636,49 @@ pub enum ShellError {
         label: String,
         help: String,
         #[label("{label}")]
+        span: Span,
+    },
+
+    /// An external command exited with a non-zero exit code.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the external command's error message.
+    #[error("External command had a non-zero exit code")]
+    #[diagnostic(code(nu::shell::non_zero_exit_code))]
+    NonZeroExitCode {
+        exit_code: NonZeroI32,
+        #[label("exited with code {exit_code}")]
+        span: Span,
+    },
+
+    #[cfg(unix)]
+    /// An external command exited due to a signal.
+    ///
+    /// ## Resolution
+    ///
+    /// Check why the signal was sent or triggered.
+    #[error("External command was terminated by a signal")]
+    #[diagnostic(code(nu::shell::terminated_by_signal))]
+    TerminatedBySignal {
+        signal_name: String,
+        signal: i32,
+        #[label("terminated by {signal_name} ({signal})")]
+        span: Span,
+    },
+
+    #[cfg(unix)]
+    /// An external command core dumped.
+    ///
+    /// ## Resolution
+    ///
+    /// Check why the core dumped was triggered.
+    #[error("External command core dumped")]
+    #[diagnostic(code(nu::shell::core_dumped))]
+    CoreDumped {
+        signal_name: String,
+        signal: i32,
+        #[label("core dumped with {signal_name} ({signal})")]
         span: Span,
     },
 
@@ -1172,6 +1215,13 @@ pub enum ShellError {
         span: Option<Span>,
     },
 
+    /// Operation interrupted
+    #[error("Operation interrupted")]
+    Interrupted {
+        #[label("This operation was interrupted")]
+        span: Span,
+    },
+
     /// Operation interrupted by user
     #[error("Operation interrupted by user")]
     InterruptedByUser {
@@ -1252,6 +1302,16 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     NotAConstHelp {
         #[label("This command cannot run at parse time.")]
         span: Span,
+    },
+
+    #[error("Deprecated: {old_command}")]
+    #[diagnostic(help("for more info see {url}"))]
+    Deprecated {
+        old_command: String,
+        new_suggestion: String,
+        #[label("`{old_command}` is deprecated and will be removed in a future release. Please {new_suggestion} instead.")]
+        span: Span,
+        url: String,
     },
 
     /// Invalid glob pattern
@@ -1354,12 +1414,60 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         help("Set XDG_CONFIG_HOME to an absolute path, or set it to an empty string to ignore it")
     )]
     InvalidXdgConfig { xdg: String, default: String },
+
+    /// An unexpected error occurred during IR evaluation.
+    ///
+    /// ## Resolution
+    ///
+    /// This is most likely a correctness issue with the IR compiler or evaluator. Please file a
+    /// bug with the minimum code needed to reproduce the issue, if possible.
+    #[error("IR evaluation error: {msg}")]
+    #[diagnostic(
+        code(nu::shell::ir_eval_error),
+        help("this is a bug, please report it at https://github.com/nushell/nushell/issues/new along with the code you were running if able")
+    )]
+    IrEvalError {
+        msg: String,
+        #[label = "while running this code"]
+        span: Option<Span>,
+    },
 }
 
-// TODO: Implement as From trait
 impl ShellError {
+    pub fn external_exit_code(&self) -> Option<Spanned<i32>> {
+        let (item, span) = match *self {
+            Self::NonZeroExitCode { exit_code, span } => (exit_code.into(), span),
+            #[cfg(unix)]
+            Self::TerminatedBySignal { signal, span, .. }
+            | Self::CoreDumped { signal, span, .. } => (-signal, span),
+            _ => return None,
+        };
+        Some(Spanned { item, span })
+    }
+
+    pub fn exit_code(&self) -> i32 {
+        self.external_exit_code().map(|e| e.item).unwrap_or(1)
+    }
+
+    pub fn into_value(self, span: Span) -> Value {
+        let exit_code = self.external_exit_code();
+
+        let mut record = record! {
+            "msg" => Value::string(self.to_string(), span),
+            "debug" => Value::string(format!("{self:?}"), span),
+            "raw" => Value::error(self, span),
+        };
+
+        if let Some(code) = exit_code {
+            record.push("exit_code", Value::int(code.item.into(), code.span));
+        }
+
+        Value::record(record, span)
+    }
+
+    // TODO: Implement as From trait
     pub fn wrap(self, working_set: &StateWorkingSet, span: Span) -> ParseError {
-        let msg = format_error(working_set, &self);
+        let msg = format_shell_error(working_set, &self);
         ParseError::LabeledError(
             msg,
             "Encountered error during parse-time evaluation".into(),

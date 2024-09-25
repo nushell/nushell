@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 mod table;
 mod table_theme;
 mod types;

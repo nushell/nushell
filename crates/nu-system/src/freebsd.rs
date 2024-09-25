@@ -1,6 +1,7 @@
 use itertools::{EitherOrBoth, Itertools};
 use libc::{
-    kinfo_proc, sysctl, CTL_HW, CTL_KERN, KERN_PROC, KERN_PROC_ALL, KERN_PROC_ARGS, TDF_IDLETD,
+    c_char, kinfo_proc, sysctl, CTL_HW, CTL_KERN, KERN_PROC, KERN_PROC_ALL, KERN_PROC_ARGS,
+    TDF_IDLETD,
 };
 use std::{
     ffi::CStr,
@@ -16,7 +17,7 @@ pub struct ProcessInfo {
     pub ppid: i32,
     pub name: String,
     pub argv: Vec<u8>,
-    pub stat: i8,
+    pub stat: c_char,
     pub percent_cpu: f64,
     pub mem_resident: u64, // in bytes
     pub mem_virtual: u64,  // in bytes

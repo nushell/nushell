@@ -1,4 +1,3 @@
-use log::info;
 use lscolors::LsColors;
 use std::io::{Result, Write};
 
@@ -8,6 +7,7 @@ pub fn enable_vt_processing() -> Result<()> {
         use crossterm_winapi::{ConsoleMode, Handle};
 
         pub const ENABLE_PROCESSED_OUTPUT: u32 = 0x0001;
+        pub const ENABLE_VIRTUAL_TERMINAL_INPUT: u32 = 0x0200;
         pub const ENABLE_VIRTUAL_TERMINAL_PROCESSING: u32 = 0x0004;
         let mask = ENABLE_VIRTUAL_TERMINAL_PROCESSING;
 
@@ -18,8 +18,12 @@ pub fn enable_vt_processing() -> Result<()> {
         // enable_processed_output and enable_virtual_terminal_processing should be used
 
         if old_mode & mask == 0 {
-            console_mode
-                .set_mode(old_mode | ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING)?
+            console_mode.set_mode(
+                old_mode
+                    | ENABLE_PROCESSED_OUTPUT
+                    | ENABLE_VIRTUAL_TERMINAL_PROCESSING
+                    | ENABLE_VIRTUAL_TERMINAL_INPUT,
+            )?
         }
     }
     Ok(())
@@ -393,31 +397,27 @@ pub fn get_ls_colors(lscolors_env_string: Option<String>) -> LsColors {
 }
 
 // Log some performance metrics (green text with yellow timings)
-pub fn perf(
-    msg: &str,
-    dur: std::time::Instant,
-    file: &str,
-    line: u32,
-    column: u32,
-    use_color: bool,
-) {
-    if use_color {
-        info!(
-            "perf: {}:{}:{} \x1b[32m{}\x1b[0m took \x1b[33m{:?}\x1b[0m",
-            file,
-            line,
-            column,
-            msg,
-            dur.elapsed(),
-        );
-    } else {
-        info!(
-            "perf: {}:{}:{} {} took {:?}",
-            file,
-            line,
-            column,
-            msg,
-            dur.elapsed(),
-        );
-    }
+#[macro_export]
+macro_rules! perf {
+    ($msg:expr, $dur:expr, $use_color:expr) => {
+        if $use_color {
+            log::info!(
+                "perf: {}:{}:{} \x1b[32m{}\x1b[0m took \x1b[33m{:?}\x1b[0m",
+                file!(),
+                line!(),
+                column!(),
+                $msg,
+                $dur.elapsed(),
+            );
+        } else {
+            log::info!(
+                "perf: {}:{}:{} {} took {:?}",
+                file!(),
+                line!(),
+                column!(),
+                $msg,
+                $dur.elapsed(),
+            );
+        }
+    };
 }

@@ -1,4 +1,7 @@
-use crate::{query_json::QueryJson, query_web::QueryWeb, query_xml::QueryXml};
+use crate::{
+    query_json::QueryJson, query_web::QueryWeb, query_webpage_info::QueryWebpageInfo,
+    query_xml::QueryXml,
+};
 use nu_plugin::{EvaluatedCall, Plugin, PluginCommand, SimplePluginCommand};
 use nu_protocol::{Category, LabeledError, Signature, Value};
 
@@ -9,19 +12,20 @@ impl Query {
     pub fn new() -> Self {
         Default::default()
     }
-
-    pub fn usage() -> &'static str {
-        "Usage: query"
-    }
 }
 
 impl Plugin for Query {
+    fn version(&self) -> String {
+        env!("CARGO_PKG_VERSION").into()
+    }
+
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         vec![
             Box::new(QueryCommand),
             Box::new(QueryJson),
             Box::new(QueryXml),
             Box::new(QueryWeb),
+            Box::new(QueryWebpageInfo),
         ]
     }
 }
@@ -36,7 +40,7 @@ impl SimplePluginCommand for QueryCommand {
         "query"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show all the query commands"
     }
 

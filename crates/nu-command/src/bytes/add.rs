@@ -51,7 +51,7 @@ impl Command for BytesAdd {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Add specified bytes to the input."
     }
 
@@ -78,7 +78,7 @@ impl Command for BytesAdd {
             end,
             cell_paths,
         };
-        operate(add, arg, input, call.head, engine_state.ctrlc.clone())
+        operate(add, arg, input, call.head, engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {

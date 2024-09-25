@@ -24,6 +24,10 @@
 //! struct MyCommand;
 //!
 //! impl Plugin for MyPlugin {
+//!     fn version(&self) -> String {
+//!         env!("CARGO_PKG_VERSION").into()
+//!     }
+//!
 //!     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
 //!         vec![Box::new(MyCommand)]
 //!     }
@@ -36,7 +40,7 @@
 //!         "my-command"
 //!     }
 //!
-//!     fn usage(&self) -> &str {
+//!     fn description(&self) -> &str {
 //!         todo!();
 //!     }
 //!

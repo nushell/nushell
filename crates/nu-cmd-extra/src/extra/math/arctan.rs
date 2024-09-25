@@ -22,7 +22,7 @@ impl Command for SubCommand {
             .category(Category::Math)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns the arctangent of the number."
     }
 
@@ -45,7 +45,7 @@ impl Command for SubCommand {
         }
         input.map(
             move |value| operate(value, head, use_degrees),
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
     }
 

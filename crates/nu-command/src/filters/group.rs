@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ValueIterator;
+use nu_protocol::{report_shell_warning, ValueIterator};
 
 #[derive(Clone)]
 pub struct Group;
@@ -23,7 +23,7 @@ impl Command for Group {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Groups input into groups of `group_size`."
     }
 
@@ -54,11 +54,19 @@ impl Command for Group {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let group_size: Spanned<usize> = call.req(engine_state, stack, 0)?;
-        let ctrlc = engine_state.ctrlc.clone();
-        let metadata = input.metadata();
 
-        //FIXME: add in support for external redirection when engine-q supports it generally
+        report_shell_warning(
+            engine_state,
+            &ShellError::Deprecated {
+                old_command: "group".into(),
+                new_suggestion: "the new `chunks` command".into(),
+                span: head,
+                url: "`help chunks`".into(),
+            },
+        );
+
+        let group_size: Spanned<usize> = call.req(engine_state, stack, 0)?;
+        let metadata = input.metadata();
 
         let each_group_iterator = EachGroupIterator {
             group_size: group_size.item,
@@ -66,7 +74,11 @@ impl Command for Group {
             span: head,
         };
 
-        Ok(each_group_iterator.into_pipeline_data_with_metadata(head, ctrlc, metadata))
+        Ok(each_group_iterator.into_pipeline_data_with_metadata(
+            head,
+            engine_state.signals().clone(),
+            metadata,
+        ))
     }
 }
 

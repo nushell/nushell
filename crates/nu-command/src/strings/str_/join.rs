@@ -1,4 +1,6 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
+
 use std::io::Write;
 
 #[derive(Clone)]
@@ -24,12 +26,16 @@ impl Command for StrJoin {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Concatenate multiple strings into a single string, with an optional separator between each."
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["collect", "concatenate"]
+    }
+
+    fn is_const(&self) -> bool {
+        true
     }
 
     fn run(
@@ -40,16 +46,54 @@ impl Command for StrJoin {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let separator: Option<String> = call.opt(engine_state, stack, 0)?;
+        run(engine_state, call, input, separator)
+    }
 
-        let config = engine_state.config.clone();
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let separator: Option<String> = call.opt_const(working_set, 0)?;
+        run(working_set.permanent(), call, input, separator)
+    }
 
-        let span = call.head;
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Create a string from input",
+                example: "['nu', 'shell'] | str join",
+                result: Some(Value::test_string("nushell")),
+            },
+            Example {
+                description: "Create a string from input with a separator",
+                example: "['nu', 'shell'] | str join '-'",
+                result: Some(Value::test_string("nu-shell")),
+            },
+        ]
+    }
+}
 
-        let metadata = input.metadata();
-        let mut iter = input.into_iter();
-        let mut first = true;
+fn run(
+    engine_state: &EngineState,
+    call: &Call,
+    input: PipelineData,
+    separator: Option<String>,
+) -> Result<PipelineData, ShellError> {
+    let config = engine_state.config.clone();
 
-        let output = ByteStream::from_fn(span, None, ByteStreamType::String, move |buffer| {
+    let span = call.head;
+
+    let metadata = input.metadata();
+    let mut iter = input.into_iter();
+    let mut first = true;
+
+    let output = ByteStream::from_fn(
+        span,
+        Signals::empty(),
+        ByteStreamType::String,
+        move |buffer| {
             // Write each input to the buffer
             if let Some(value) = iter.next() {
                 // Write the separator if this is not the first
@@ -72,25 +116,10 @@ impl Command for StrJoin {
             } else {
                 Ok(false)
             }
-        });
+        },
+    );
 
-        Ok(PipelineData::ByteStream(output, metadata))
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Create a string from input",
-                example: "['nu', 'shell'] | str join",
-                result: Some(Value::test_string("nushell")),
-            },
-            Example {
-                description: "Create a string from input with a separator",
-                example: "['nu', 'shell'] | str join '-'",
-                result: Some(Value::test_string("nu-shell")),
-            },
-        ]
-    }
+    Ok(PipelineData::ByteStream(output, metadata))
 }
 
 #[cfg(test)]

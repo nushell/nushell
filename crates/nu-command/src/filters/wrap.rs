@@ -8,7 +8,7 @@ impl Command for Wrap {
         "wrap"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Wrap the value into a column."
     }
 
@@ -42,7 +42,7 @@ impl Command for Wrap {
             | PipelineData::ListStream { .. } => Ok(input
                 .into_iter()
                 .map(move |x| Value::record(record! { name.clone() => x }, span))
-                .into_pipeline_data_with_metadata(span, engine_state.ctrlc.clone(), metadata)),
+                .into_pipeline_data_with_metadata(span, engine_state.signals().clone(), metadata)),
             PipelineData::ByteStream(stream, ..) => Ok(Value::record(
                 record! { name => stream.into_value()? },
                 span,

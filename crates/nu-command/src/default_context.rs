@@ -31,6 +31,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             All,
             Any,
             Append,
+            Chunks,
             Columns,
             Compact,
             Default,
@@ -127,7 +128,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             SysTemp,
             SysUsers,
             UName,
-
+            Which,
         };
 
         // Help
@@ -150,10 +151,12 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Explain,
             Inspect,
             Metadata,
+            MetadataAccess,
             MetadataSet,
             TimeIt,
             View,
             ViewFiles,
+            ViewIr,
             ViewSource,
             ViewSpan,
         };
@@ -172,16 +175,21 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         ))]
         bind_command! { Ps };
 
-        #[cfg(feature = "which-support")]
-        bind_command! { Which };
-
         // Strings
         bind_command! {
             Char,
             Decode,
             Encode,
+            DecodeHex,
+            EncodeHex,
+            DecodeBase32,
+            EncodeBase32,
+            DecodeBase32Hex,
+            EncodeBase32Hex,
             DecodeBase64,
             EncodeBase64,
+            DecodeBase64Old,
+            EncodeBase64Old,
             DetectColumns,
             Parse,
             Split,
@@ -291,7 +299,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ToText,
             ToToml,
             ToTsv,
-            Touch,
             Upsert,
             Where,
             ToXml,
@@ -320,6 +327,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IntoString,
             IntoGlob,
             IntoValue,
+            SplitCellPath,
         };
 
         // Env
@@ -398,6 +406,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             RandomFloat,
             RandomInt,
             RandomUuid,
+            RandomBinary
         };
 
         // Generators

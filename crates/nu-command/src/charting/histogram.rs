@@ -26,7 +26,7 @@ impl Command for Histogram {
             .category(Category::Chart)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates a new table with a histogram based on the column name passed in."
     }
 
@@ -177,11 +177,9 @@ fn run_histogram(
                 match v {
                     // parse record, and fill valid value to actual input.
                     Value::Record { val, .. } => {
-                        for (c, v) in val.iter() {
-                            if c == col_name {
-                                if let Ok(v) = HashableValue::from_value(v.clone(), head_span) {
-                                    inputs.push(v);
-                                }
+                        if let Some(v) = val.get(col_name) {
+                            if let Ok(v) = HashableValue::from_value(v.clone(), head_span) {
+                                inputs.push(v);
                             }
                         }
                     }
@@ -194,7 +192,7 @@ fn run_histogram(
             if inputs.is_empty() {
                 return Err(ShellError::CantFindColumn {
                     col_name: col_name.clone(),
-                    span: head_span,
+                    span: Some(head_span),
                     src_span: list_span,
                 });
             }

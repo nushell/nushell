@@ -81,7 +81,7 @@ pub fn sort(
             if let Some(nonexistent) = nonexistent_column(&sort_columns, record.columns()) {
                 return Err(ShellError::CantFindColumn {
                     col_name: nonexistent,
-                    span,
+                    span: Some(span),
                     src_span: val_span,
                 });
             }

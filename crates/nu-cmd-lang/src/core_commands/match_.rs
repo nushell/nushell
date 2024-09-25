@@ -1,7 +1,7 @@
 use nu_engine::{
     command_prelude::*, get_eval_block, get_eval_expression, get_eval_expression_with_input,
 };
-use nu_protocol::engine::Matcher;
+use nu_protocol::engine::{CommandType, Matcher};
 
 #[derive(Clone)]
 pub struct Match;
@@ -11,7 +11,7 @@ impl Command for Match {
         "match"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Conditionally run a block on a matched value."
     }
 
@@ -27,6 +27,15 @@ impl Command for Match {
             .category(Category::Core)
     }
 
+    fn extra_description(&self) -> &str {
+        r#"This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"#
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -34,6 +43,9 @@ impl Command for Match {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // This is compiled specially by the IR compiler. The code here is never used when
+        // running in IR mode.
+        let call = call.assert_ast_call()?;
         let value: Value = call.req(engine_state, stack, 0)?;
         let matches = call
             .positional_nth(1)
@@ -69,7 +81,7 @@ impl Command for Match {
                         let block = engine_state.get_block(block_id);
                         eval_block(engine_state, stack, block, input)
                     } else {
-                        eval_expression_with_input(engine_state, stack, expr, input).map(|x| x.0)
+                        eval_expression_with_input(engine_state, stack, expr, input)
                     };
                 }
             } else {

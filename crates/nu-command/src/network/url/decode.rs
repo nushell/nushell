@@ -31,7 +31,7 @@ impl Command for SubCommand {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts a percent-encoded web safe string to a string."
     }
 
@@ -48,7 +48,7 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let args = CellPathOnlyArgs::from(cell_paths);
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -9,7 +9,7 @@ impl Command for Const {
         "const"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Create a parse-time constant."
     }
 
@@ -26,7 +26,7 @@ impl Command for Const {
             .category(Category::Core)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
@@ -46,6 +46,9 @@ impl Command for Const {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // This is compiled specially by the IR compiler. The code here is never used when
+        // running in IR mode.
+        let call = call.assert_ast_call()?;
         let var_id = if let Some(id) = call.positional_nth(0).and_then(|pos| pos.as_var()) {
             id
         } else {

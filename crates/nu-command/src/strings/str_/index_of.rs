@@ -1,10 +1,10 @@
-use crate::grapheme_flags;
+use crate::{grapheme_flags, grapheme_flags_const};
 use nu_cmd_base::{
     input_handler::{operate, CmdArgument},
     util,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::Range;
+use nu_protocol::{engine::StateWorkingSet, Range};
 use unicode_segmentation::UnicodeSegmentation;
 
 struct Arguments {
@@ -64,12 +64,16 @@ impl Command for SubCommand {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns start index of first occurrence of string in input, or -1 if no match."
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["match", "find", "search"]
+    }
+
+    fn is_const(&self) -> bool {
+        true
     }
 
     fn run(
@@ -89,7 +93,32 @@ impl Command for SubCommand {
             cell_paths,
             graphemes: grapheme_flags(engine_state, stack, call)?,
         };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, engine_state.signals())
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let substring: Spanned<String> = call.req_const(working_set, 0)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let args = Arguments {
+            substring: substring.item,
+            range: call.get_flag_const(working_set, "range")?,
+            end: call.has_flag_const(working_set, "end")?,
+            cell_paths,
+            graphemes: grapheme_flags_const(working_set, call)?,
+        };
+        operate(
+            action,
+            args,
+            input,
+            call.head,
+            working_set.permanent().signals(),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {

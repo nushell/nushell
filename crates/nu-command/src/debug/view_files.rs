@@ -8,11 +8,11 @@ impl Command for ViewFiles {
         "view files"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "View the files registered in nushell's EngineState memory."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "These are files parsed and loaded at runtime."
     }
 

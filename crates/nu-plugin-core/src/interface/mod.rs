@@ -1,16 +1,19 @@
 //! Implements the stream multiplexing interface for both the plugin side and the engine side.
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
-use nu_protocol::{ByteStream, IntoSpanned, ListStream, PipelineData, Reader, ShellError};
+use nu_protocol::{
+    engine::Sequence, ByteStream, IntoSpanned, ListStream, PipelineData, Reader, ShellError,
+    Signals,
+};
 use std::{
     io::{Read, Write},
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::Mutex,
     thread,
 };
 
 pub mod stream;
 
-use crate::{util::Sequence, Encoder};
+use crate::Encoder;
 
 use self::stream::{StreamManager, StreamManagerHandle, StreamWriter, WriteStreamMessage};
 
@@ -145,7 +148,7 @@ pub trait InterfaceManager {
 
     /// Consume an input message.
     ///
-    /// When implementing, call [`.consume_stream_message()`] for any encapsulated
+    /// When implementing, call [`.consume_stream_message()`](Self::consume_stream_message) for any encapsulated
     /// [`StreamMessage`]s received.
     fn consume(&mut self, input: Self::Input) -> Result<(), ShellError>;
 
@@ -170,20 +173,23 @@ pub trait InterfaceManager {
     fn read_pipeline_data(
         &self,
         header: PipelineDataHeader,
-        ctrlc: Option<&Arc<AtomicBool>>,
+        signals: &Signals,
     ) -> Result<PipelineData, ShellError> {
         self.prepare_pipeline_data(match header {
             PipelineDataHeader::Empty => PipelineData::Empty,
-            PipelineDataHeader::Value(value) => PipelineData::Value(value, None),
+            PipelineDataHeader::Value(value, metadata) => PipelineData::Value(value, metadata),
             PipelineDataHeader::ListStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
-                ListStream::new(reader, info.span, ctrlc.cloned()).into()
+                let ls = ListStream::new(reader, info.span, signals.clone());
+                PipelineData::ListStream(ls, info.metadata)
             }
             PipelineDataHeader::ByteStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
-                ByteStream::from_result_iter(reader, info.span, ctrlc.cloned(), info.type_).into()
+                let bs =
+                    ByteStream::from_result_iter(reader, info.span, signals.clone(), info.type_);
+                PipelineData::ByteStream(bs, info.metadata)
             }
         })
     }
@@ -245,26 +251,33 @@ pub trait Interface: Clone + Send {
             Ok::<_, ShellError>((id, writer))
         };
         match self.prepare_pipeline_data(data, context)? {
-            PipelineData::Value(value, ..) => {
-                Ok((PipelineDataHeader::Value(value), PipelineDataWriter::None))
-            }
+            PipelineData::Value(value, metadata) => Ok((
+                PipelineDataHeader::Value(value, metadata),
+                PipelineDataWriter::None,
+            )),
             PipelineData::Empty => Ok((PipelineDataHeader::Empty, PipelineDataWriter::None)),
-            PipelineData::ListStream(stream, ..) => {
+            PipelineData::ListStream(stream, metadata) => {
                 let (id, writer) = new_stream(LIST_STREAM_HIGH_PRESSURE)?;
                 Ok((
                     PipelineDataHeader::ListStream(ListStreamInfo {
                         id,
                         span: stream.span(),
+                        metadata,
                     }),
                     PipelineDataWriter::ListStream(writer, stream),
                 ))
             }
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineData::ByteStream(stream, metadata) => {
                 let span = stream.span();
                 let type_ = stream.type_();
                 if let Some(reader) = stream.reader() {
                     let (id, writer) = new_stream(RAW_STREAM_HIGH_PRESSURE)?;
-                    let header = PipelineDataHeader::ByteStream(ByteStreamInfo { id, span, type_ });
+                    let header = PipelineDataHeader::ByteStream(ByteStreamInfo {
+                        id,
+                        span,
+                        type_,
+                        metadata,
+                    });
                     Ok((header, PipelineDataWriter::ByteStream(writer, reader)))
                 } else {
                     Ok((PipelineDataHeader::Empty, PipelineDataWriter::None))

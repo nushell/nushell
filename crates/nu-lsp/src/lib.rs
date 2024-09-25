@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_types::{
     request::{Completion, GotoDefinition, HoverRequest, Request},
@@ -17,10 +18,7 @@ use ropey::Rope;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::Arc,
     time::Duration,
 };
 
@@ -57,11 +55,7 @@ impl LanguageServer {
         })
     }
 
-    pub fn serve_requests(
-        mut self,
-        engine_state: EngineState,
-        ctrlc: Arc<AtomicBool>,
-    ) -> Result<()> {
+    pub fn serve_requests(mut self, engine_state: EngineState) -> Result<()> {
         let server_capabilities = serde_json::to_value(ServerCapabilities {
             text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Kind(
                 TextDocumentSyncKind::INCREMENTAL,
@@ -75,10 +69,12 @@ impl LanguageServer {
 
         let _initialization_params = self
             .connection
-            .initialize_while(server_capabilities, || !ctrlc.load(Ordering::SeqCst))
+            .initialize_while(server_capabilities, || {
+                !engine_state.signals().interrupted()
+            })
             .into_diagnostic()?;
 
-        while !ctrlc.load(Ordering::SeqCst) {
+        while !engine_state.signals().interrupted() {
             let msg = match self
                 .connection
                 .receiver
@@ -357,11 +353,11 @@ impl LanguageServer {
                 let mut description = String::new();
 
                 // First description
-                description.push_str(&format!("{}\n", decl.usage().replace('\r', "")));
+                description.push_str(&format!("{}\n", decl.description().replace('\r', "")));
 
                 // Additional description
-                if !decl.extra_usage().is_empty() {
-                    description.push_str(&format!("\n{}\n", decl.extra_usage()));
+                if !decl.extra_description().is_empty() {
+                    description.push_str(&format!("\n{}\n", decl.extra_description()));
                 }
 
                 // Usage
@@ -631,7 +627,7 @@ mod tests {
         std::thread::spawn(move || {
             let engine_state = nu_cmd_lang::create_default_context();
             let engine_state = nu_command::add_shell_command_context(engine_state);
-            send.send(lsp_server.serve_requests(engine_state, Arc::new(AtomicBool::new(false))))
+            send.send(lsp_server.serve_requests(engine_state))
         });
 
         client_connection
@@ -1199,17 +1195,17 @@ mod tests {
         assert_json_include!(
             actual: result,
             expected: serde_json::json!([
-               {
-                  "label": "def",
-                  "textEdit": {
-                     "newText": "def",
-                     "range": {
-                        "start": { "character": 0, "line": 0 },
-                        "end": { "character": 2, "line": 0 }
-                     }
-                  },
-                  "kind": 14
-               }
+                {
+                    "label": "overlay",
+                    "textEdit": {
+                        "newText": "overlay",
+                        "range": {
+                            "start": { "character": 0, "line": 0 },
+                            "end": { "character": 2, "line": 0 }
+                        }
+                    },
+                    "kind": 14
+                },
             ])
         );
     }

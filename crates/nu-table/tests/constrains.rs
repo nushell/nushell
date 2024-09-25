@@ -3,7 +3,7 @@ mod common;
 use common::{create_row, test_table, TestCase};
 use nu_protocol::TrimStrategy;
 use nu_table::{NuTable, NuTableConfig, TableTheme as theme};
-use tabled::grid::records::vec_records::CellInfo;
+use tabled::grid::records::vec_records::Text;
 
 #[test]
 fn data_and_header_has_different_size_doesnt_work() {
@@ -194,7 +194,7 @@ fn width_control_test_0() {
     test_width(data, &tests);
 }
 
-fn test_width(data: Vec<Vec<CellInfo<String>>>, tests: &[(usize, &str)]) {
+fn test_width(data: Vec<Vec<Text<String>>>, tests: &[(usize, &str)]) {
     let config = NuTableConfig {
         theme: theme::heavy(),
         trim: TrimStrategy::truncate(Some(String::from("..."))),

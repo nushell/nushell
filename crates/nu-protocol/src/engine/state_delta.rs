@@ -1,10 +1,10 @@
 use crate::{
     ast::Block,
     engine::{
-        usage::Usage, CachedFile, Command, EngineState, OverlayFrame, ScopeFrame, Variable,
-        VirtualPath,
+        description::Doccomments, CachedFile, Command, EngineState, OverlayFrame, ScopeFrame,
+        Variable, VirtualPath,
     },
-    Module,
+    Module, Span,
 };
 use std::sync::Arc;
 
@@ -21,7 +21,8 @@ pub struct StateDelta {
     pub(super) decls: Vec<Box<dyn Command>>, // indexed by DeclId
     pub blocks: Vec<Arc<Block>>,             // indexed by BlockId
     pub(super) modules: Vec<Arc<Module>>,    // indexed by ModuleId
-    pub(super) usage: Usage,
+    pub spans: Vec<Span>,                    // indexed by SpanId
+    pub(super) doccomments: Doccomments,
     pub scope: Vec<ScopeFrame>,
     #[cfg(feature = "plugin")]
     pub(super) plugins: Vec<Arc<dyn RegisteredPlugin>>,
@@ -45,8 +46,9 @@ impl StateDelta {
             decls: vec![],
             blocks: vec![],
             modules: vec![],
+            spans: vec![],
             scope: vec![scope_frame],
-            usage: Usage::new(),
+            doccomments: Doccomments::new(),
             #[cfg(feature = "plugin")]
             plugins: vec![],
             #[cfg(feature = "plugin")]

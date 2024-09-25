@@ -1,11 +1,11 @@
 use crate::{
     ast::Block,
     engine::{
-        usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
+        description::build_desc, CachedFile, Command, CommandType, EngineState, OverlayFrame,
         StateDelta, Variable, VirtualPath, Visibility,
     },
-    BlockId, Category, Config, DeclId, FileId, Module, ModuleId, ParseError, ParseWarning, Span,
-    Type, Value, VarId, VirtualPathId,
+    BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, ParseError,
+    ParseWarning, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use core::panic;
 use std::{
@@ -25,12 +25,12 @@ use crate::{PluginIdentity, PluginRegistryItem, RegisteredPlugin};
 pub struct StateWorkingSet<'a> {
     pub permanent_state: &'a EngineState,
     pub delta: StateDelta,
-    pub external_commands: Vec<Vec<u8>>,
     pub files: FileStack,
     /// Whether or not predeclarations are searched when looking up a command (used with aliases)
     pub search_predecls: bool,
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
+    pub compile_errors: Vec<CompileError>,
 }
 
 impl<'a> StateWorkingSet<'a> {
@@ -45,11 +45,11 @@ impl<'a> StateWorkingSet<'a> {
         Self {
             delta: StateDelta::new(permanent_state),
             permanent_state,
-            external_commands: vec![],
             files,
             search_predecls: true,
             parse_errors: vec![],
             parse_warnings: vec![],
+            compile_errors: vec![],
         }
     }
 
@@ -260,6 +260,12 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn add_block(&mut self, block: Arc<Block>) -> BlockId {
+        log::trace!(
+            "block id={} added, has IR = {:?}",
+            self.num_blocks(),
+            block.ir_block.is_some()
+        );
+
         self.delta.blocks.push(block);
 
         self.num_blocks() - 1
@@ -272,7 +278,9 @@ impl<'a> StateWorkingSet<'a> {
         let module_id = self.num_modules() - 1;
 
         if !comments.is_empty() {
-            self.delta.usage.add_module_comments(module_id, comments);
+            self.delta
+                .doccomments
+                .add_module_comments(module_id, comments);
         }
 
         self.last_overlay_mut().modules.insert(name, module_id);
@@ -282,7 +290,7 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
         self.delta
-            .usage
+            .doccomments
             .get_module_comments(module_id)
             .or_else(|| self.permanent_state.get_module_comments(module_id))
     }
@@ -619,9 +627,9 @@ impl<'a> StateWorkingSet<'a> {
 
     /// Returns a reference to the config stored at permanent state
     ///
-    /// At runtime, you most likely want to call nu_engine::env::get_config because this method
-    /// does not capture environment updates during runtime.
-    pub fn get_config(&self) -> &Config {
+    /// At runtime, you most likely want to call [`Stack::get_config()`][super::Stack::get_config()]
+    /// because this method does not capture environment updates during runtime.
+    pub fn get_config(&self) -> &Arc<Config> {
         &self.permanent_state.config
     }
 
@@ -702,6 +710,14 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn get_signature(&self, decl: &dyn Command) -> Signature {
+        if let Some(block_id) = decl.block_id() {
+            *self.get_block(block_id).signature.clone()
+        } else {
+            decl.signature()
+        }
+    }
+
     pub fn find_commands_by_predicate(
         &self,
         predicate: impl Fn(&[u8]) -> bool,
@@ -721,7 +737,7 @@ impl<'a> StateWorkingSet<'a> {
                         }
                         output.push((
                             decl.0.clone(),
-                            Some(command.usage().to_string()),
+                            Some(command.description().to_string()),
                             command.command_type(),
                         ));
                     }
@@ -946,12 +962,12 @@ impl<'a> StateWorkingSet<'a> {
         self.delta
     }
 
-    pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
+    pub fn build_desc(&self, spans: &[Span]) -> (String, String) {
         let comment_lines: Vec<&[u8]> = spans
             .iter()
             .map(|span| self.get_span_contents(*span))
             .collect();
-        build_usage(&comment_lines)
+        build_desc(&comment_lines)
     }
 
     pub fn find_block_by_span(&self, span: Span) -> Option<Arc<Block>> {
@@ -1011,6 +1027,27 @@ impl<'a> StateWorkingSet<'a> {
                 .virtual_paths
                 .get(virtual_path_id - num_permanent_virtual_paths)
                 .expect("internal error: missing virtual path")
+        }
+    }
+
+    pub fn add_span(&mut self, span: Span) -> SpanId {
+        let num_permanent_spans = self.permanent_state.spans.len();
+        self.delta.spans.push(span);
+        SpanId(num_permanent_spans + self.delta.spans.len() - 1)
+    }
+}
+
+impl<'a> GetSpan for &'a StateWorkingSet<'a> {
+    fn get_span(&self, span_id: SpanId) -> Span {
+        let num_permanent_spans = self.permanent_state.num_spans();
+        if span_id.0 < num_permanent_spans {
+            self.permanent_state.get_span(span_id)
+        } else {
+            *self
+                .delta
+                .spans
+                .get(span_id.0 - num_permanent_spans)
+                .expect("internal error: missing span")
         }
     }
 }

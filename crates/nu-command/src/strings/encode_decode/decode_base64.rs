@@ -1,10 +1,11 @@
-use super::base64::{operate, ActionType, CHARACTER_SET_DESC};
+use super::base64::{operate, ActionType, Base64CommandArguments, CHARACTER_SET_DESC};
 use nu_engine::command_prelude::*;
+use nu_protocol::report_shell_warning;
 
 #[derive(Clone)]
-pub struct DecodeBase64;
+pub struct DecodeBase64Old;
 
-impl Command for DecodeBase64 {
+impl Command for DecodeBase64Old {
     fn name(&self) -> &str {
         "decode base64"
     }
@@ -40,11 +41,11 @@ impl Command for DecodeBase64 {
             .category(Category::Hash)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Base64 decode a value."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Will attempt to decode binary payload as an UTF-8 string by default. Use the `--binary(-b)` argument to force binary output."#
     }
 
@@ -66,6 +67,10 @@ impl Command for DecodeBase64 {
         ]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -73,7 +78,44 @@ impl Command for DecodeBase64 {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(ActionType::Decode, engine_state, stack, call, input)
+        report_shell_warning(
+            engine_state,
+            &ShellError::Deprecated {
+                old_command: "decode base64".into(),
+                new_suggestion: "the new `decode new-base64` version".into(),
+                span: call.head,
+                url: "`help decode new-base64`".into(),
+            },
+        );
+
+        let character_set: Option<Spanned<String>> =
+            call.get_flag(engine_state, stack, "character-set")?;
+        let binary = call.has_flag(engine_state, stack, "binary")?;
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let args = Base64CommandArguments {
+            action_type: ActionType::Decode,
+            binary,
+            character_set,
+        };
+        operate(engine_state, call, input, cell_paths, args)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let character_set: Option<Spanned<String>> =
+            call.get_flag_const(working_set, "character-set")?;
+        let binary = call.has_flag_const(working_set, "binary")?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+        let args = Base64CommandArguments {
+            action_type: ActionType::Decode,
+            binary,
+            character_set,
+        };
+        operate(working_set.permanent(), call, input, cell_paths, args)
     }
 }
 
@@ -83,6 +125,6 @@ mod tests {
 
     #[test]
     fn test_examples() {
-        crate::test_examples(DecodeBase64)
+        crate::test_examples(DecodeBase64Old)
     }
 }

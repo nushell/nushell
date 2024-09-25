@@ -16,6 +16,7 @@ NU_PLUGINS=(
     'nu_plugin_inc'
     'nu_plugin_query'
     'nu_plugin_custom_values'
+    'nu_plugin_polars'
 )
 
 echo "Building nushell"

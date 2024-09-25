@@ -26,7 +26,7 @@ impl Command for TakeWhile {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Take elements of the input while a predicate is true."
     }
 
@@ -85,7 +85,7 @@ impl Command for TakeWhile {
                     .map(|cond| cond.is_true())
                     .unwrap_or(false)
             })
-            .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
+            .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }
 

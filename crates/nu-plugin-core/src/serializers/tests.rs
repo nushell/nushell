@@ -6,7 +6,8 @@ macro_rules! generate_tests {
             StreamData,
         };
         use nu_protocol::{
-            LabeledError, PluginSignature, Signature, Span, Spanned, SyntaxShape, Value,
+            DataSource, LabeledError, PipelineMetadata, PluginSignature, Signature, Span, Spanned,
+            SyntaxShape, Value,
         };
 
         #[test]
@@ -123,10 +124,15 @@ macro_rules! generate_tests {
                 )],
             };
 
+            let metadata = Some(PipelineMetadata {
+                data_source: DataSource::None,
+                content_type: Some("foobar".into()),
+            });
+
             let plugin_call = PluginCall::Run(CallInfo {
                 name: name.clone(),
                 call: call.clone(),
-                input: PipelineDataHeader::Value(input.clone()),
+                input: PipelineDataHeader::Value(input.clone(), metadata.clone()),
             });
 
             let plugin_input = PluginInput::Call(1, plugin_call);
@@ -144,7 +150,7 @@ macro_rules! generate_tests {
             match returned {
                 PluginInput::Call(1, PluginCall::Run(call_info)) => {
                     assert_eq!(name, call_info.name);
-                    assert_eq!(PipelineDataHeader::Value(input), call_info.input);
+                    assert_eq!(PipelineDataHeader::Value(input, metadata), call_info.input);
                     assert_eq!(call.head, call_info.call.head);
                     assert_eq!(call.positional.len(), call_info.call.positional.len());
 
@@ -248,10 +254,13 @@ macro_rules! generate_tests {
                 ) => {
                     assert_eq!(returned_signature.len(), 1);
                     assert_eq!(signature.sig.name, returned_signature[0].sig.name);
-                    assert_eq!(signature.sig.usage, returned_signature[0].sig.usage);
                     assert_eq!(
-                        signature.sig.extra_usage,
-                        returned_signature[0].sig.extra_usage
+                        signature.sig.description,
+                        returned_signature[0].sig.description
+                    );
+                    assert_eq!(
+                        signature.sig.extra_description,
+                        returned_signature[0].sig.extra_description
                     );
                     assert_eq!(signature.sig.is_filter, returned_signature[0].sig.is_filter);
 
@@ -305,7 +314,7 @@ macro_rules! generate_tests {
             match returned {
                 PluginOutput::CallResponse(
                     4,
-                    PluginCallResponse::PipelineData(PipelineDataHeader::Value(returned_value)),
+                    PluginCallResponse::PipelineData(PipelineDataHeader::Value(returned_value, _)),
                 ) => {
                     assert_eq!(value, returned_value)
                 }
@@ -325,7 +334,7 @@ macro_rules! generate_tests {
                 span,
             );
 
-            let response = PluginCallResponse::PipelineData(PipelineDataHeader::Value(value));
+            let response = PluginCallResponse::PipelineData(PipelineDataHeader::value(value));
             let output = PluginOutput::CallResponse(5, response);
 
             let encoder = $encoder;
@@ -341,7 +350,7 @@ macro_rules! generate_tests {
             match returned {
                 PluginOutput::CallResponse(
                     5,
-                    PluginCallResponse::PipelineData(PipelineDataHeader::Value(returned_value)),
+                    PluginCallResponse::PipelineData(PipelineDataHeader::Value(returned_value, _)),
                 ) => {
                     assert_eq!(span, returned_value.span());
 

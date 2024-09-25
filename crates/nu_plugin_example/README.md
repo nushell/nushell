@@ -7,10 +7,12 @@ in order to create a binary that can be registered into nushell declaration list
 
 This subcommand demonstrates sending configuration from the nushell `$env.config` to a plugin.
 
-To register from after building `nushell` run:
+To make use of the plugin after building `nushell` run:
 
 ```nushell
-register target/debug/nu_plugin_example
+plugin add target/debug/nu_plugin_example
+# or then either restart your current nushell session or run:
+plugin use target/debug/nu_plugin_example
 ```
 
 The configuration for the plugin lives in `$env.config.plugins.example`:

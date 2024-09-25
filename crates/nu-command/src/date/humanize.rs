@@ -21,7 +21,7 @@ impl Command for SubCommand {
             .category(Category::Date)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Print a 'humanized' format for the date, relative to now."
     }
 
@@ -50,7 +50,7 @@ impl Command for SubCommand {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-        input.map(move |value| helper(value, head), engine_state.ctrlc.clone())
+        input.map(move |value| helper(value, head), engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {

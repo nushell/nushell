@@ -1,5 +1,4 @@
 use nu_engine::{command_prelude::*, get_full_help};
-use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct Scope;
@@ -16,12 +15,8 @@ impl Command for Scope {
             .allow_variants_without_examples(true)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Commands for getting info about what is in scope."
-    }
-
-    fn command_type(&self) -> CommandType {
-        CommandType::Keyword
     }
 
     fn run(

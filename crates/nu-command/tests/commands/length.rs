@@ -2,7 +2,7 @@ use nu_test_support::nu;
 
 #[test]
 fn length_columns_in_cal_table() {
-    let actual = nu!("cal | columns | length");
+    let actual = nu!("cal --as-table | columns | length");
 
     assert_eq!(actual.out, "7");
 }

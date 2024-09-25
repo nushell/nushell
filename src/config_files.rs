@@ -5,12 +5,13 @@ use nu_cli::{eval_config_contents, eval_source};
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, report_error_new, Config, ParseError, PipelineData, Spanned,
+    report_parse_error, report_shell_error, Config, ParseError, PipelineData, Spanned,
 };
 use nu_utils::{get_default_config, get_default_env};
 use std::{
+    fs,
     fs::File,
-    io::Write,
+    io::{Result, Write},
     panic::{catch_unwind, AssertUnwindSafe},
     path::Path,
     sync::Arc,
@@ -33,19 +34,17 @@ pub(crate) fn read_config_file(
     );
     // Load config startup file
     if let Some(file) = config_file {
-        let working_set = StateWorkingSet::new(engine_state);
-
         match engine_state.cwd_as_string(Some(stack)) {
             Ok(cwd) => {
                 if let Ok(path) = canonicalize_with(&file.item, cwd) {
                     eval_config_contents(path, engine_state, stack);
                 } else {
                     let e = ParseError::FileNotFound(file.item, file.span);
-                    report_error(&working_set, &e);
+                    report_parse_error(&StateWorkingSet::new(engine_state), &e);
                 }
             }
             Err(e) => {
-                report_error(&working_set, &e);
+                report_shell_error(engine_state, &e);
             }
         }
     } else if let Some(mut config_path) = nu_path::config_dir() {
@@ -120,7 +119,7 @@ pub(crate) fn read_config_file(
             }
         }
 
-        eval_config_contents(config_path, engine_state, stack);
+        eval_config_contents(config_path.into(), engine_state, stack);
     }
 }
 
@@ -140,7 +139,7 @@ pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut S
         warn!("loginshell_file: {}", config_path.display());
 
         if config_path.exists() {
-            eval_config_contents(config_path, engine_state, stack);
+            eval_config_contents(config_path.into(), engine_state, stack);
         }
     }
 }
@@ -165,7 +164,55 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
 
     // Merge the environment in case env vars changed in the config
     if let Err(e) = engine_state.merge_env(stack) {
-        report_error_new(engine_state, &e);
+        report_shell_error(engine_state, &e);
+    }
+}
+
+/// Get files sorted lexicographically
+///
+/// uses `impl Ord for String`
+fn read_and_sort_directory(path: &Path) -> Result<Vec<String>> {
+    let mut entries = Vec::new();
+
+    for entry in fs::read_dir(path)? {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        let file_name_str = file_name.into_string().unwrap_or_default();
+        entries.push(file_name_str);
+    }
+
+    entries.sort();
+
+    Ok(entries)
+}
+
+pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: &mut Stack) {
+    warn!(
+        "read_vendor_autoload_files() {}:{}:{}",
+        file!(),
+        line!(),
+        column!()
+    );
+
+    // The evaluation order is first determined by the semantics of `get_vendor_autoload_dirs`
+    // to determine the order of directories to evaluate
+    for autoload_dir in nu_protocol::eval_const::get_vendor_autoload_dirs(engine_state) {
+        warn!("read_vendor_autoload_files: {}", autoload_dir.display());
+
+        if autoload_dir.exists() {
+            // on a second levels files are lexicographically sorted by the string of the filename
+            let entries = read_and_sort_directory(&autoload_dir);
+            if let Ok(entries) = entries {
+                for entry in entries {
+                    if !entry.ends_with(".nu") {
+                        continue;
+                    }
+                    let path = autoload_dir.join(entry);
+                    warn!("AutoLoading: {:?}", path);
+                    eval_config_contents(path, engine_state, stack);
+                }
+            }
+        }
     }
 }
 
@@ -196,7 +243,7 @@ fn eval_default_config(
 
     // Merge the environment in case env vars changed in the config
     if let Err(e) = engine_state.merge_env(stack) {
-        report_error_new(engine_state, &e);
+        report_shell_error(engine_state, &e);
     }
 }
 
@@ -222,6 +269,8 @@ pub(crate) fn setup_config(
         if is_login_shell {
             read_loginshell_file(engine_state, stack);
         }
+        // read and auto load vendor autoload files
+        read_vendor_autoload_files(engine_state, stack);
     }));
     if result.is_err() {
         eprintln!(
@@ -246,7 +295,7 @@ pub(crate) fn set_config_path(
         Some(s) => canonicalize_with(&s.item, cwd).ok(),
         None => nu_path::config_dir().map(|mut p| {
             p.push(NUSHELL_FOLDER);
-            let mut p = canonicalize_with(&p, cwd).unwrap_or(p);
+            let mut p = canonicalize_with(&p, cwd).unwrap_or(p.into());
             p.push(default_config_name);
             canonicalize_with(&p, cwd).unwrap_or(p)
         }),

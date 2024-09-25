@@ -9,14 +9,14 @@ fn test_signature() {
     assert_eq!(signature, from_build);
 
     // constructing signature with description
-    let signature = Signature::new("signature").usage("example usage");
-    assert_eq!(signature.usage, "example usage".to_string())
+    let signature = Signature::new("signature").description("example description");
+    assert_eq!(signature.description, "example description".to_string())
 }
 
 #[test]
 fn test_signature_chained() {
     let signature = Signature::new("new_signature")
-        .usage("description")
+        .description("description")
         .required("required", SyntaxShape::String, "required description")
         .optional("optional", SyntaxShape::String, "optional description")
         .required_named(
@@ -39,7 +39,7 @@ fn test_signature_chained() {
 
     assert_eq!(
         signature.get_positional(0),
-        Some(PositionalArg {
+        Some(&PositionalArg {
             name: "required".to_string(),
             desc: "required description".to_string(),
             shape: SyntaxShape::String,
@@ -49,7 +49,7 @@ fn test_signature_chained() {
     );
     assert_eq!(
         signature.get_positional(1),
-        Some(PositionalArg {
+        Some(&PositionalArg {
             name: "optional".to_string(),
             desc: "optional description".to_string(),
             shape: SyntaxShape::String,
@@ -59,7 +59,7 @@ fn test_signature_chained() {
     );
     assert_eq!(
         signature.get_positional(2),
-        Some(PositionalArg {
+        Some(&PositionalArg {
             name: "rest".to_string(),
             desc: "rest description".to_string(),
             shape: SyntaxShape::String,
@@ -126,7 +126,7 @@ fn test_signature_same_name() {
 #[test]
 fn test_signature_round_trip() {
     let signature = Signature::new("new_signature")
-        .usage("description")
+        .description("description")
         .required("first", SyntaxShape::String, "first required")
         .required("second", SyntaxShape::Int, "second required")
         .optional("optional", SyntaxShape::String, "optional description")
@@ -145,8 +145,8 @@ fn test_signature_round_trip() {
     let returned: Signature = serde_json::from_str(&string).unwrap();
 
     assert_eq!(signature.name, returned.name);
-    assert_eq!(signature.usage, returned.usage);
-    assert_eq!(signature.extra_usage, returned.extra_usage);
+    assert_eq!(signature.description, returned.description);
+    assert_eq!(signature.extra_description, returned.extra_description);
     assert_eq!(signature.is_filter, returned.is_filter);
     assert_eq!(signature.category, returned.category);
 

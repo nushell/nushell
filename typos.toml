@@ -17,11 +17,13 @@ extend-ignore-re = [
     "--find ba\\b",
     "0x\\[ba be\\]",
     "\\)BaR'",
+    "fo�.txt",
 ]
 
 [type.rust.extend-words]
 nd = "nd"
 numer = "numer"
+styl = "styl"
 
 [default.extend-identifiers]
 ratatui = "ratatui"

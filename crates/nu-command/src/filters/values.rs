@@ -18,11 +18,11 @@ impl Command for Values {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Given a record or table, produce a list of its columns' values."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This is a counterpart to `columns`, which produces a list of columns' names."
     }
 
@@ -134,7 +134,7 @@ fn values(
     head: Span,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let ctrlc = engine_state.ctrlc.clone();
+    let signals = engine_state.signals().clone();
     let metadata = input.metadata();
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
@@ -144,7 +144,7 @@ fn values(
                 Value::List { vals, .. } => match get_values(&vals, head, span) {
                     Ok(cols) => Ok(cols
                         .into_iter()
-                        .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
+                        .into_pipeline_data_with_metadata(head, signals, metadata)),
                     Err(err) => Err(err),
                 },
                 Value::Custom { val, .. } => {
@@ -152,7 +152,7 @@ fn values(
                     match get_values(&[input_as_base_value], head, span) {
                         Ok(cols) => Ok(cols
                             .into_iter()
-                            .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
+                            .into_pipeline_data_with_metadata(head, signals, metadata)),
                         Err(err) => Err(err),
                     }
                 }
@@ -160,7 +160,7 @@ fn values(
                     .values()
                     .cloned()
                     .collect::<Vec<_>>()
-                    .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
+                    .into_pipeline_data_with_metadata(head, signals, metadata)),
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::OnlySupportsThisInputType {
@@ -176,7 +176,7 @@ fn values(
             match get_values(&vals, head, head) {
                 Ok(cols) => Ok(cols
                     .into_iter()
-                    .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
+                    .into_pipeline_data_with_metadata(head, signals, metadata)),
                 Err(err) => Err(err),
             }
         }

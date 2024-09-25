@@ -37,7 +37,7 @@ fn given_fields_can_be_column_paths() {
 }
 
 #[test]
-fn can_use_variables() {
+fn cant_use_variables() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
@@ -46,7 +46,8 @@ fn can_use_variables() {
         "#
     ));
 
-    assert_eq!(actual.out, "nu is a new type of shell");
+    // TODO SPAN: This has been removed during SpanId refactor
+    assert!(actual.err.contains("Removed functionality"));
 }
 
 #[test]
@@ -55,7 +56,7 @@ fn error_unmatched_brace() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
         open cargo_sample.toml
-            | format pattern "{$it.package.name"
+            | format pattern "{package.name"
         "#
     ));
 

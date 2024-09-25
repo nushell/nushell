@@ -15,7 +15,7 @@ use nu_plugin_core::{
     ServerCommunicationIo,
 };
 use nu_protocol::{
-    engine::StateWorkingSet, report_error_new, PluginIdentity, PluginRegistryFile,
+    engine::StateWorkingSet, report_shell_error, PluginIdentity, PluginRegistryFile,
     PluginRegistryItem, PluginRegistryItemData, RegisteredPlugin, ShellError, Span,
 };
 
@@ -225,7 +225,7 @@ pub fn load_plugin_file(
     for plugin in &plugin_registry_file.plugins {
         // Any errors encountered should just be logged.
         if let Err(err) = load_plugin_registry_item(working_set, plugin, span) {
-            report_error_new(working_set.permanent_state, &err)
+            report_shell_error(working_set.permanent_state, &err)
         }
     }
 }
@@ -252,13 +252,16 @@ pub fn load_plugin_registry_item(
         })?;
 
     match &plugin.data {
-        PluginRegistryItemData::Valid { commands } => {
+        PluginRegistryItemData::Valid { metadata, commands } => {
             let plugin = add_plugin_to_working_set(working_set, &identity)?;
 
             // Ensure that the plugin is reset. We're going to load new signatures, so we want to
             // make sure the running plugin reflects those new signatures, and it's possible that it
             // doesn't.
             plugin.reset()?;
+
+            // Set the plugin metadata from the file
+            plugin.set_metadata(Some(metadata.clone()));
 
             // Create the declarations from the commands
             for signature in commands {

@@ -8,10 +8,7 @@ pub use operations::Axis;
 
 use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
-use polars::{
-    chunked_array::ops::SortMultipleOptions,
-    prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series},
-};
+use polars::prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series};
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::{TotalEq, TotalHash};
 use std::{
@@ -326,22 +323,22 @@ impl NuDataFrame {
     }
 
     // Print is made out a head and if the dataframe is too large, then a tail
-    pub fn print(&self, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn print(&self, include_index: bool, span: Span) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
         let size: usize = 20;
 
         if df.height() > size {
             let sample_size = size / 2;
-            let mut values = self.head(Some(sample_size), span)?;
+            let mut values = self.head(Some(sample_size), include_index, span)?;
             conversion::add_separator(&mut values, df, self.has_index(), span);
             let remaining = df.height() - sample_size;
             let tail_size = remaining.min(sample_size);
-            let mut tail_values = self.tail(Some(tail_size), span)?;
+            let mut tail_values = self.tail(Some(tail_size), include_index, span)?;
             values.append(&mut tail_values);
 
             Ok(values)
         } else {
-            Ok(self.head(Some(size), span)?)
+            Ok(self.head(Some(size), include_index, span)?)
         }
     }
 
@@ -349,26 +346,38 @@ impl NuDataFrame {
         self.df.height()
     }
 
-    pub fn head(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn head(
+        &self,
+        rows: Option<usize>,
+        include_index: bool,
+        span: Span,
+    ) -> Result<Vec<Value>, ShellError> {
         let to_row = rows.unwrap_or(5);
-        let values = self.to_rows(0, to_row, span)?;
+        let values = self.to_rows(0, to_row, include_index, span)?;
         Ok(values)
     }
 
-    pub fn tail(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn tail(
+        &self,
+        rows: Option<usize>,
+        include_index: bool,
+        span: Span,
+    ) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
         let to_row = df.height();
         let size = rows.unwrap_or(DEFAULT_ROWS);
         let from_row = to_row.saturating_sub(size);
 
-        let values = self.to_rows(from_row, to_row, span)?;
+        let values = self.to_rows(from_row, to_row, include_index, span)?;
         Ok(values)
     }
 
+    /// Converts the dataframe to a nushell list of values
     pub fn to_rows(
         &self,
         from_row: usize,
         to_row: usize,
+        include_index: bool,
         span: Span,
     ) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
@@ -400,7 +409,7 @@ impl NuDataFrame {
             .map(|i| {
                 let mut record = Record::new();
 
-                if !has_index {
+                if !has_index && include_index {
                     record.push("index", Value::int((i + from_row) as i64, span));
                 }
 
@@ -417,80 +426,14 @@ impl NuDataFrame {
 
     // Dataframes are considered equal if they have the same shape, column name and values
     pub fn is_equal(&self, other: &Self) -> Option<Ordering> {
-        if self.as_ref().width() == 0 {
-            // checking for empty dataframe
-            return None;
+        let polars_self = self.to_polars();
+        let polars_other = other.to_polars();
+
+        if polars_self == polars_other {
+            Some(Ordering::Equal)
+        } else {
+            None
         }
-
-        if self.as_ref().get_column_names() != other.as_ref().get_column_names() {
-            // checking both dataframes share the same names
-            return None;
-        }
-
-        if self.as_ref().height() != other.as_ref().height() {
-            // checking both dataframes have the same row size
-            return None;
-        }
-
-        // sorting dataframe by the first column
-        let column_names = self.as_ref().get_column_names();
-        let first_col = column_names
-            .first()
-            .expect("already checked that dataframe is different than 0");
-
-        // if unable to sort, then unable to compare
-        let lhs = match self
-            .as_ref()
-            .sort(vec![*first_col], SortMultipleOptions::default())
-        {
-            Ok(df) => df,
-            Err(_) => return None,
-        };
-
-        let rhs = match other
-            .as_ref()
-            .sort(vec![*first_col], SortMultipleOptions::default())
-        {
-            Ok(df) => df,
-            Err(_) => return None,
-        };
-
-        for name in self.as_ref().get_column_names() {
-            let self_series = lhs.column(name).expect("name from dataframe names");
-
-            let other_series = rhs
-                .column(name)
-                .expect("already checked that name in other");
-
-            // Casting needed to compare other numeric types with nushell numeric type.
-            // In nushell we only have i64 integer numeric types and any array created
-            // with nushell untagged primitives will be of type i64
-            let self_series = match self_series.dtype() {
-                DataType::UInt32 | DataType::Int32 if *other_series.dtype() == DataType::Int64 => {
-                    match self_series.cast(&DataType::Int64) {
-                        Ok(series) => series,
-                        Err(_) => return None,
-                    }
-                }
-                _ => self_series.clone(),
-            };
-
-            let other_series = match other_series.dtype() {
-                DataType::UInt32 | DataType::Int32 if *self_series.dtype() == DataType::Int64 => {
-                    match other_series.cast(&DataType::Int64) {
-                        Ok(series) => series,
-                        Err(_) => return None,
-                    }
-                }
-                _ => other_series.clone(),
-            };
-
-            if !self_series.equals(&other_series) {
-                return None;
-            }
-        }
-
-        Some(Ordering::Equal)
     }
 
     pub fn schema(&self) -> NuSchema {
@@ -602,7 +545,7 @@ impl CustomValueSupport for NuDataFrame {
     }
 
     fn base_value(self, span: Span) -> Result<Value, ShellError> {
-        let vals = self.print(span)?;
+        let vals = self.print(true, span)?;
         Ok(Value::list(vals, span))
     }
 

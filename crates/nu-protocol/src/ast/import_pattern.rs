@@ -3,10 +3,14 @@ use serde::{Deserialize, Serialize};
 use crate::{ModuleId, Span, VarId};
 use std::collections::HashSet;
 
+/// possible patterns after the first module level in an [`ImportPattern`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ImportPatternMember {
+    /// Wildcard import of items
     Glob { span: Span },
+    /// single specific module or item
     Name { name: Vec<u8>, span: Span },
+    /// list of items
     List { names: Vec<(Vec<u8>, Span)> },
 }
 
@@ -31,6 +35,7 @@ impl ImportPatternMember {
     }
 }
 
+/// The first item of a `use` statement needs to specify an explicit module
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImportPatternHead {
     pub name: Vec<u8>,
@@ -38,6 +43,7 @@ pub struct ImportPatternHead {
     pub span: Span,
 }
 
+/// The pattern specifying modules in a `use` statement
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImportPattern {
     pub head: ImportPatternHead,

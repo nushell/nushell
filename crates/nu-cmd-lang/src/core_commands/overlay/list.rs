@@ -8,7 +8,7 @@ impl Command for OverlayList {
         "overlay list"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "List all active overlays."
     }
 
@@ -18,7 +18,7 @@ impl Command for OverlayList {
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "The overlays are listed in the order they were activated."
     }
 

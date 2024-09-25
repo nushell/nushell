@@ -8,11 +8,11 @@ impl Command for Get {
         "get"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Extract data using a cell path."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This is equivalent to using the cell path access syntax: `$env.OS` is the same as `$env | get OS`.
 
 If multiple cell paths are given, this will produce a list of values."#
@@ -62,7 +62,6 @@ If multiple cell paths are given, this will produce a list of values."#
         let mut rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
         let sensitive = call.has_flag(engine_state, stack, "sensitive")?;
-        let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
 
         if ignore_errors {
@@ -89,7 +88,9 @@ If multiple cell paths are given, this will produce a list of values."#
                 output.push(val?);
             }
 
-            Ok(output.into_iter().into_pipeline_data(span, ctrlc))
+            Ok(output
+                .into_iter()
+                .into_pipeline_data(span, engine_state.signals().clone()))
         }
         .map(|x| x.set_metadata(metadata))
     }

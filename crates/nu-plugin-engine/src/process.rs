@@ -79,7 +79,7 @@ impl PluginProcess {
         }
     }
 
-    /// Move the plugin process out of the foreground. See [`ForegroundGuard::reset`].
+    /// Move the plugin process out of the foreground. See [`ForegroundGuard`].
     ///
     /// This is a no-op if the plugin process was already in the background.
     pub(crate) fn exit_foreground(&self) -> Result<(), ShellError> {

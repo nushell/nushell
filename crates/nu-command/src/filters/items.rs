@@ -22,11 +22,11 @@ impl Command for Items {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Given a record, iterate on each pair of column name and associated value."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This is a the fusion of `columns`, `values` and `each`."
     }
 
@@ -60,14 +60,13 @@ impl Command for Items {
 
                                 match result {
                                     Ok(value) => Some(value),
-                                    Err(ShellError::Break { .. }) => None,
                                     Err(err) => {
                                         let err = chain_error_with_input(err, false, span);
                                         Some(Value::error(err, head))
                                     }
                                 }
                             })
-                            .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                            .into_pipeline_data(head, engine_state.signals().clone()))
                     }
                     Value::Error { error, .. } => Err(*error),
                     other => Err(ShellError::OnlySupportsThisInputType {

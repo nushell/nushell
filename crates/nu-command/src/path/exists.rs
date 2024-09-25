@@ -33,13 +33,14 @@ impl Command for SubCommand {
             .category(Category::Path)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Check whether a path exists."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This only checks if it is possible to either `open` or `cd` to the given path.
-If you need to distinguish dirs and files, please use `path type`."#
+If you need to distinguish dirs and files, please use `path type`.
+Also note that if you don't have a permission to a directory of a path, false will be returned"#
     }
 
     fn is_const(&self) -> bool {
@@ -65,7 +66,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         }
         input.map(
             move |value| super::operate(&exists, &args, value, head),
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
     }
 
@@ -87,7 +88,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         }
         input.map(
             move |value| super::operate(&exists, &args, value, head),
-            working_set.permanent().ctrlc.clone(),
+            working_set.permanent().signals(),
         )
     }
 
@@ -147,7 +148,7 @@ fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
             |_| Ok(true),
         )
     } else {
-        path.try_exists()
+        Ok(path.exists())
     };
     Value::bool(
         match exists {

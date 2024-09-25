@@ -37,7 +37,7 @@ impl Command for Sort {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Sort in increasing order."
     }
 
@@ -173,7 +173,7 @@ impl Command for Sort {
                 let iter = vec.into_iter();
                 Ok(iter.into_pipeline_data_with_metadata(
                     head,
-                    engine_state.ctrlc.clone(),
+                    engine_state.signals().clone(),
                     metadata,
                 ))
             }

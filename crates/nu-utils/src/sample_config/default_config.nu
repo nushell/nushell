@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.93.1"
+# version = "0.98.1"
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -47,7 +47,8 @@ let dark_theme = {
     shape_flag: blue_bold
     shape_float: purple_bold
     # shapes are used to change the cli syntax highlighting
-    shape_garbage: { fg: white bg: red attr: b}
+    shape_garbage: { fg: white bg: red attr: b }
+    shape_glob_interpolation: cyan_bold
     shape_globpattern: cyan_bold
     shape_int: purple_bold
     shape_internalcall: cyan_bold
@@ -113,7 +114,8 @@ let light_theme = {
     shape_flag: blue_bold
     shape_float: purple_bold
     # shapes are used to change the cli syntax highlighting
-    shape_garbage: { fg: white bg: red attr: b}
+    shape_garbage: { fg: white bg: red attr: b }
+    shape_glob_interpolation: cyan_bold
     shape_globpattern: cyan_bold
     shape_int: purple_bold
     shape_internalcall: cyan_bold
@@ -172,6 +174,14 @@ $env.config = {
 
     error_style: "fancy" # "fancy" or "plain" for screen reader-friendly error messages
 
+    # Whether an error message should be printed if an error of a certain kind is triggered.
+    display_errors: {
+        exit_code: false # assume the external command prints an error message
+        # Core dump errors are always printed, and SIGPIPE never triggers an error.
+        # The setting below controls message printing for termination by all other signals.
+        termination_signal: true
+    }
+
     # datetime_format determines what a datetime rendered in the shell would look like.
     # Behavior without this configuration point will be to "humanize" the datetime display,
     # showing something like "a day ago."
@@ -189,12 +199,7 @@ $env.config = {
             warn: {}
             info: {}
         },
-        table: {
-            split_line: { fg: "#404040" },
-            selected_cell: { bg: light_blue },
-            selected_row: {},
-            selected_column: {},
-        },
+        selected_cell: { bg: light_blue },
     }
 
     history: {
@@ -209,6 +214,7 @@ $env.config = {
         quick: true    # set this to false to prevent auto-selecting completions when only one remains
         partial: true    # set this to false to prevent partial filling of the prompt
         algorithm: "prefix"    # prefix or fuzzy
+        sort: "smart" # "smart" (alphabetical for prefix matching, fuzzy score for fuzzy matching) or "alphabetical"
         external: {
             enable: true # set to false to prevent nushell looking into $env.PATH to find more suggestions, `false` recommended for WSL users as this look up may be very slow
             max_results: 100 # setting it lower can improve completion performance at the cost of omitting some options
@@ -229,10 +235,9 @@ $env.config = {
     }
 
     color_config: $dark_theme # if you want a more interesting theme, you can replace the empty record with `$dark_theme`, `$light_theme` or another custom record
-    use_grid_icons: true
-    footer_mode: "25" # always, never, number_of_rows, auto
+    footer_mode: 25 # always, never, number_of_rows, auto
     float_precision: 2 # the precision for displaying floats in tables
-    buffer_editor: "" # command that will be used to edit the current line buffer with ctrl+o, if unset fallback to $env.EDITOR and $env.VISUAL
+    buffer_editor: null # command that will be used to edit the current line buffer with ctrl+o, if unset fallback to $env.EDITOR and $env.VISUAL
     use_ansi_coloring: true
     bracketed_paste: true # enable bracketed paste, currently useless on windows
     edit_mode: emacs # emacs, vi
@@ -257,7 +262,7 @@ $env.config = {
         # 633;B - Mark prompt end
         # 633;C - Mark pre-execution
         # 633;D;exit - Mark execution finished with exit code
-        # 633;E - NOT IMPLEMENTED - Explicitly set the command line with an optional nonce
+        # 633;E - Explicitly set the command line with an optional nonce
         # 633;P;Cwd=<path> - Mark the current working directory and communicate it to the terminal
         # and also helps with the run recent menu in vscode
         osc633: true
@@ -751,7 +756,7 @@ $env.config = {
             modifier: control
             keycode: char_k
             mode: emacs
-            event: { edit: cuttoend }
+            event: { edit: cuttolineend }
         }
         {
             name: cut_line_from_start
@@ -856,8 +861,6 @@ $env.config = {
         }
         # The following bindings with `*system` events require that Nushell has
         # been compiled with the `system-clipboard` feature.
-        # This should be the case for Windows, macOS, and most Linux distributions
-        # Not available for example on Android (termux)
         # If you want to use the system clipboard for visual selection or to
         # paste directly, uncomment the respective lines and replace the version
         # using the internal clipboard.

@@ -9,7 +9,7 @@ impl Command for TermSize {
         "term size"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns a record containing the number of columns (width) and rows (height) of the terminal."
     }
 

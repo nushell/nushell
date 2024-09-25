@@ -53,6 +53,10 @@ struct IntoU32;
 struct IntoIntFromU32;
 
 impl Plugin for CustomU32Plugin {
+    fn version(&self) -> String {
+        "0.0.0".into()
+    }
+
     fn commands(&self) -> Vec<Box<dyn nu_plugin::PluginCommand<Plugin = Self>>> {
         vec![Box::new(IntoU32), Box::new(IntoIntFromU32)]
     }
@@ -65,7 +69,7 @@ impl SimplePluginCommand for IntoU32 {
         "into u32"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert a number to a 32-bit unsigned integer"
     }
 
@@ -104,7 +108,7 @@ impl SimplePluginCommand for IntoIntFromU32 {
         "into int from u32"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Turn a u32 back into a number"
     }
 

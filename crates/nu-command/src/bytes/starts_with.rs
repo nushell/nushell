@@ -39,7 +39,7 @@ impl Command for BytesStartsWith {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Check if bytes starts with a pattern."
     }
 
@@ -79,7 +79,7 @@ impl Command for BytesStartsWith {
                 pattern,
                 cell_paths,
             };
-            operate(starts_with, arg, input, head, engine_state.ctrlc.clone())
+            operate(starts_with, arg, input, head, engine_state.signals())
         }
     }
 

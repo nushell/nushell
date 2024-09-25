@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 mod color_config;
 mod matching_brackets_style;
 mod nu_style;

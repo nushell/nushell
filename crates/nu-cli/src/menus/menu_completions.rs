@@ -28,7 +28,7 @@ impl NuMenuCompleter {
         Self {
             block_id,
             span,
-            stack: stack.reset_out_dest().capture(),
+            stack: stack.reset_out_dest().collect_value(),
             engine_state,
             only_buffer_difference,
         }
@@ -142,10 +142,9 @@ fn convert_to_suggestions(
             vec![Suggestion {
                 value: text,
                 description,
-                style: None,
                 extra,
                 span,
-                append_whitespace: false,
+                ..Suggestion::default()
             }]
         }
         Value::List { vals, .. } => vals
@@ -154,9 +153,6 @@ fn convert_to_suggestions(
             .collect(),
         _ => vec![Suggestion {
             value: format!("Not a record: {value:?}"),
-            description: None,
-            style: None,
-            extra: None,
             span: reedline::Span {
                 start: if only_buffer_difference {
                     pos - line.len()
@@ -169,7 +165,7 @@ fn convert_to_suggestions(
                     line.len()
                 },
             },
-            append_whitespace: false,
+            ..Suggestion::default()
         }],
     }
 }

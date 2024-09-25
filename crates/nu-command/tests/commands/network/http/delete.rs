@@ -21,6 +21,25 @@ fn http_delete_is_success() {
 }
 
 #[test]
+fn http_delete_is_success_pipeline() {
+    let mut server = Server::new();
+
+    let _mock = server.mock("DELETE", "/").create();
+
+    let actual = nu!(pipeline(
+        format!(
+            r#"
+        "foo" | http delete {url}
+        "#,
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert!(actual.out.is_empty())
+}
+
+#[test]
 fn http_delete_failed_due_to_server_error() {
     let mut server = Server::new();
 

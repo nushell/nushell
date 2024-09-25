@@ -12,7 +12,7 @@ use std::sync::Arc;
 /// > **Note**  
 /// > [`Span`] can be passed to [`from_nuon`] if there is context available to the caller, e.g. when
 /// > using this function in a command implementation such as
-/// [`from nuon`](https://www.nushell.sh/commands/docs/from_nuon.html).
+/// > [`from nuon`](https://www.nushell.sh/commands/docs/from_nuon.html).
 ///
 /// also see [`super::to_nuon`] for the inverse operation
 pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
@@ -56,12 +56,12 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
     }
 
     let expr = if block.pipelines.is_empty() {
-        Expression {
-            expr: Expr::Nothing,
-            span: span.unwrap_or(Span::unknown()),
-            custom_completion: None,
-            ty: Type::Nothing,
-        }
+        Expression::new(
+            &mut working_set,
+            Expr::Nothing,
+            span.unwrap_or(Span::unknown()),
+            Type::Nothing,
+        )
     } else {
         let mut pipeline = Arc::make_mut(&mut block).pipelines.remove(0);
 
@@ -81,12 +81,12 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
         }
 
         if pipeline.elements.is_empty() {
-            Expression {
-                expr: Expr::Nothing,
-                span: span.unwrap_or(Span::unknown()),
-                custom_completion: None,
-                ty: Type::Nothing,
-            }
+            Expression::new(
+                &mut working_set,
+                Expr::Nothing,
+                span.unwrap_or(Span::unknown()),
+                Type::Nothing,
+            )
         } else {
             pipeline.elements.remove(0).expr
         }
@@ -321,6 +321,18 @@ fn convert_to_value(
             src: original_text.to_string(),
             error: "Error when loading".into(),
             msg: "string interpolation not supported in nuon".into(),
+            span: expr.span,
+        }),
+        Expr::GlobInterpolation(..) => Err(ShellError::OutsideSpannedLabeledError {
+            src: original_text.to_string(),
+            error: "Error when loading".into(),
+            msg: "glob interpolation not supported in nuon".into(),
+            span: expr.span,
+        }),
+        Expr::Collect(..) => Err(ShellError::OutsideSpannedLabeledError {
+            src: original_text.to_string(),
+            error: "Error when loading".into(),
+            msg: "`$in` not supported in nuon".into(),
             span: expr.span,
         }),
         Expr::Subexpression(..) => Err(ShellError::OutsideSpannedLabeledError {

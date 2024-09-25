@@ -16,7 +16,7 @@ impl Command for SplitBy {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Split a record into groups."
     }
 
@@ -130,7 +130,7 @@ pub fn split(
                     Some(group_key) => Ok(group_key.coerce_string()?),
                     None => Err(ShellError::CantFindColumn {
                         col_name: column_name.item.to_string(),
-                        span: column_name.span,
+                        span: Some(column_name.span),
                         src_span: row.span(),
                     }),
                 }

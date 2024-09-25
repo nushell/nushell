@@ -53,6 +53,39 @@ fn in_and_if_else() -> TestResult {
 }
 
 #[test]
+fn in_with_closure() -> TestResult {
+    // Can use $in twice
+    run_test(r#"3 | do { let x = $in; let y = $in; $x + $y }"#, "6")
+}
+
+#[test]
+fn in_with_custom_command() -> TestResult {
+    // Can use $in twice
+    run_test(
+        r#"def foo [] { let x = $in; let y = $in; $x + $y }; 3 | foo"#,
+        "6",
+    )
+}
+
+#[test]
+fn in_used_twice_and_also_in_pipeline() -> TestResult {
+    run_test(
+        r#"3 | do { let x = $in; let y = $in; $x + $y | $in * 4 }"#,
+        "24",
+    )
+}
+
+// #13441
+#[test]
+fn in_used_in_range_from() -> TestResult {
+    run_test(r#"6 | $in..10 | math sum"#, "40")
+}
+#[test]
+fn in_used_in_range_to() -> TestResult {
+    run_test(r#"6 | 3..$in | math sum"#, "18")
+}
+
+#[test]
 fn help_works_with_missing_requirements() -> TestResult {
     run_test(r#"each --help | lines | length"#, "72")
 }

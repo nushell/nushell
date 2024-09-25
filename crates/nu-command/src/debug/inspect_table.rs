@@ -57,7 +57,7 @@ pub fn build_table(value: Value, description: String, termsize: usize) -> String
         Settings::default()
             .with(Style::rounded().corner_top_left('├').corner_top_right('┤'))
             .with(SetWidths(widths))
-            .with(Wrap::new(width).priority::<PriorityMax>())
+            .with(Wrap::new(width).priority(PriorityMax))
             .with(SetHorizontalChar::new('┼', '┴', 11 + 2 + 1)),
     );
 
@@ -152,7 +152,7 @@ fn truncate_data(
     let left_space = expected_width - width;
     let has_space_for_truncation_column = left_space > PAD;
     if !has_space_for_truncation_column {
-        peak_count -= 1;
+        peak_count = peak_count.saturating_sub(1);
     }
 
     remove_columns(data, peak_count);
@@ -201,11 +201,18 @@ mod util {
             Value::Record { val: record, .. } => {
                 let (cols, vals): (Vec<_>, Vec<_>) = record.into_owned().into_iter().unzip();
                 (
-                    cols,
-                    vec![vals
+                    match cols.is_empty() {
+                        true => vec![String::from("")],
+                        false => cols,
+                    },
+                    match vals
                         .into_iter()
                         .map(|s| debug_string_without_formatting(&s))
-                        .collect()],
+                        .collect::<Vec<String>>()
+                    {
+                        vals if vals.is_empty() => vec![],
+                        vals => vec![vals],
+                    },
                 )
             }
             Value::List { vals, .. } => {
@@ -308,7 +315,7 @@ mod global_horizontal_char {
         }
     }
 
-    impl<R: Records + ExactRecords> TableOption<R, CompleteDimensionVecRecords<'_>, ColoredConfig>
+    impl<R: Records + ExactRecords> TableOption<R, ColoredConfig, CompleteDimensionVecRecords<'_>>
         for SetHorizontalChar
     {
         fn change(
@@ -377,7 +384,7 @@ mod set_widths {
 
     pub struct SetWidths(pub Vec<usize>);
 
-    impl<R> TableOption<R, CompleteDimensionVecRecords<'_>, ColoredConfig> for SetWidths {
+    impl<R> TableOption<R, ColoredConfig, CompleteDimensionVecRecords<'_>> for SetWidths {
         fn change(
             self,
             _: &mut R,

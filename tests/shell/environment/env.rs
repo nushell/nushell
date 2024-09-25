@@ -2,7 +2,7 @@ use super::support::Trusted;
 
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_repl_code};
+use nu_test_support::{nu, nu_repl_code, nu_with_std};
 use pretty_assertions::assert_eq;
 use serial_test::serial;
 
@@ -132,7 +132,7 @@ fn hides_environment_from_child() {
         $env.TEST = 1; ^$nu.current-exe -c "hide-env TEST; ^$nu.current-exe -c '$env.TEST'"
     "#);
     assert!(actual.out.is_empty());
-    assert!(actual.err.contains("cannot find column"));
+    assert!(actual.err.contains("column_not_found") || actual.err.contains("name_not_found"));
 }
 
 #[test]
@@ -214,4 +214,34 @@ fn env_var_case_insensitive() {
     ");
     assert!(actual.out.contains("111"));
     assert!(actual.out.contains("222"));
+}
+
+#[test]
+fn std_log_env_vars_are_not_overridden() {
+    let actual = nu_with_std!(
+        envs: vec![
+            ("NU_LOG_FORMAT".to_string(), "%MSG%".to_string()),
+            ("NU_LOG_DATE_FORMAT".to_string(), "%Y".to_string()),
+        ],
+        r#"
+            use std
+            print -e $env.NU_LOG_FORMAT
+            print -e $env.NU_LOG_DATE_FORMAT
+            std log error "err"
+        "#
+    );
+    assert_eq!(actual.err, "%MSG%\n%Y\nerr\n");
+}
+
+#[test]
+fn std_log_env_vars_have_defaults() {
+    let actual = nu_with_std!(
+        r#"
+            use std
+            print -e $env.NU_LOG_FORMAT
+            print -e $env.NU_LOG_DATE_FORMAT
+        "#
+    );
+    assert!(actual.err.contains("%MSG%"));
+    assert!(actual.err.contains("%Y-"));
 }

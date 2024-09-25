@@ -11,11 +11,11 @@ impl Command for HelpModules {
         "help modules"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show help on nushell modules."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"When requesting help for a single module, its commands and aliases will be highlighted if they
 are also available in the current scope. Commands/aliases that were imported under a different name
 (such as with a prefix after `use some-module`) will be highlighted in parentheses."#
@@ -32,7 +32,7 @@ are also available in the current scope. Commands/aliases that were imported und
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in module names and usage",
+                "string to find in module names and descriptions",
                 Some('f'),
             )
             .input_output_types(vec![(Type::Nothing, Type::table())])
@@ -52,7 +52,7 @@ are also available in the current scope. Commands/aliases that were imported und
                 result: None,
             },
             Example {
-                description: "search for string in module names and usages",
+                description: "search for string in module names and descriptions",
                 example: "help modules --find my-module",
                 result: None,
             },
@@ -93,7 +93,7 @@ pub fn help_modules(
         let found_cmds_vec = highlight_search_in_table(
             all_cmds_vec,
             &f.item,
-            &["name", "usage"],
+            &["name", "description"],
             &string_style,
             &highlight_style,
         )?;
@@ -123,7 +123,7 @@ pub fn help_modules(
 
         let module = engine_state.get_module(module_id);
 
-        let module_usage = engine_state.build_module_usage(module_id);
+        let module_desc = engine_state.build_module_desc(module_id);
 
         // TODO: merge this into documentation.rs at some point
         const G: &str = "\x1b[32m"; // green
@@ -133,12 +133,12 @@ pub fn help_modules(
 
         let mut long_desc = String::new();
 
-        if let Some((usage, extra_usage)) = module_usage {
-            long_desc.push_str(&usage);
+        if let Some((desc, extra_desc)) = module_desc {
+            long_desc.push_str(&desc);
             long_desc.push_str("\n\n");
 
-            if !extra_usage.is_empty() {
-                long_desc.push_str(&extra_usage);
+            if !extra_desc.is_empty() {
+                long_desc.push_str(&extra_desc);
                 long_desc.push_str("\n\n");
             }
         }
@@ -230,7 +230,7 @@ pub fn help_modules(
             ));
         }
 
-        let config = engine_state.get_config();
+        let config = stack.get_config(engine_state);
         if !config.use_ansi_coloring {
             long_desc = nu_utils::strip_ansi_string_likely(long_desc);
         }

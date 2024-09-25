@@ -1,8 +1,9 @@
 use crate::{
-    ast::ImportPatternMember, engine::StateWorkingSet, BlockId, DeclId, ModuleId, ParseError, Span,
-    Value, VarId,
+    ast::ImportPatternMember, engine::StateWorkingSet, BlockId, DeclId, FileId, ModuleId,
+    ParseError, Span, Value, VarId,
 };
 
+use crate::parser_path::ParserPath;
 use indexmap::IndexMap;
 
 pub struct ResolvedImportPattern {
@@ -35,6 +36,8 @@ pub struct Module {
     pub env_block: Option<BlockId>, // `export-env { ... }` block
     pub main: Option<DeclId>,       // `export def main`
     pub span: Option<Span>,
+    pub imported_modules: Vec<ModuleId>, // use other_module.nu
+    pub file: Option<(ParserPath, FileId)>,
 }
 
 impl Module {
@@ -47,6 +50,8 @@ impl Module {
             env_block: None,
             main: None,
             span: None,
+            imported_modules: vec![],
+            file: None,
         }
     }
 
@@ -59,6 +64,8 @@ impl Module {
             env_block: None,
             main: None,
             span: Some(span),
+            imported_modules: vec![],
+            file: None,
         }
     }
 
@@ -82,6 +89,12 @@ impl Module {
         self.env_block = Some(block_id);
     }
 
+    pub fn track_imported_modules(&mut self, module_id: &[ModuleId]) {
+        for m in module_id {
+            self.imported_modules.push(*m)
+        }
+    }
+
     pub fn has_decl(&self, name: &[u8]) -> bool {
         if name == self.name && self.main.is_some() {
             return true;
@@ -90,6 +103,9 @@ impl Module {
         self.decls.contains_key(name)
     }
 
+    /// Resolve `members` from given module, which is indicated by `self_id` to import.
+    ///
+    /// When resolving, all modules are recorded in `imported_modules`.
     pub fn resolve_import_pattern(
         &self,
         working_set: &StateWorkingSet,
@@ -97,7 +113,9 @@ impl Module {
         members: &[ImportPatternMember],
         name_override: Option<&[u8]>, // name under the module was stored (doesn't have to be the same as self.name)
         backup_span: Span,
+        imported_modules: &mut Vec<ModuleId>,
     ) -> (ResolvedImportPattern, Vec<ParseError>) {
+        imported_modules.push(self_id);
         let final_name = name_override.unwrap_or(&self.name).to_vec();
 
         let (head, rest) = if let Some((head, rest)) = members.split_first() {
@@ -112,8 +130,14 @@ impl Module {
                 let submodule = working_set.get_module(*id);
                 let span = submodule.span.or(self.span).unwrap_or(backup_span);
 
-                let (sub_results, sub_errors) =
-                    submodule.resolve_import_pattern(working_set, *id, &[], None, span);
+                let (sub_results, sub_errors) = submodule.resolve_import_pattern(
+                    working_set,
+                    *id,
+                    &[],
+                    None,
+                    span,
+                    imported_modules,
+                );
                 errors.extend(sub_errors);
 
                 for (sub_name, sub_decl_id) in sub_results.decls {
@@ -212,6 +236,7 @@ impl Module {
                         rest,
                         None,
                         self.span.unwrap_or(backup_span),
+                        imported_modules,
                     )
                 } else {
                     (
@@ -234,6 +259,7 @@ impl Module {
                         &[],
                         None,
                         self.span.unwrap_or(backup_span),
+                        imported_modules,
                     );
                     decls.extend(sub_results.decls);
 
@@ -287,6 +313,7 @@ impl Module {
                             rest,
                             None,
                             self.span.unwrap_or(backup_span),
+                            imported_modules,
                         );
 
                         decls.extend(sub_results.decls);

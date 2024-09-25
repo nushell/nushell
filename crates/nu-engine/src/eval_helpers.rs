@@ -1,6 +1,6 @@
 use crate::{
     eval_block, eval_block_with_early_return, eval_expression, eval_expression_with_input,
-    eval_subexpression,
+    eval_ir_block, eval_subexpression,
 };
 use nu_protocol::{
     ast::{Block, Expression},
@@ -13,6 +13,10 @@ use nu_protocol::{
 pub type EvalBlockFn =
     fn(&EngineState, &mut Stack, &Block, PipelineData) -> Result<PipelineData, ShellError>;
 
+/// Type of eval_ir_block() function
+pub type EvalIrBlockFn =
+    fn(&EngineState, &mut Stack, &Block, PipelineData) -> Result<PipelineData, ShellError>;
+
 /// Type of eval_block_with_early_return() function
 pub type EvalBlockWithEarlyReturnFn =
     fn(&EngineState, &mut Stack, &Block, PipelineData) -> Result<PipelineData, ShellError>;
@@ -21,12 +25,8 @@ pub type EvalBlockWithEarlyReturnFn =
 pub type EvalExpressionFn = fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>;
 
 /// Type of eval_expression_with_input() function
-pub type EvalExpressionWithInputFn = fn(
-    &EngineState,
-    &mut Stack,
-    &Expression,
-    PipelineData,
-) -> Result<(PipelineData, bool), ShellError>;
+pub type EvalExpressionWithInputFn =
+    fn(&EngineState, &mut Stack, &Expression, PipelineData) -> Result<PipelineData, ShellError>;
 
 /// Type of eval_subexpression() function
 pub type EvalSubexpressionFn =
@@ -39,6 +39,16 @@ pub fn get_eval_block(engine_state: &EngineState) -> EvalBlockFn {
         eval_block::<WithDebug>
     } else {
         eval_block::<WithoutDebug>
+    }
+}
+
+/// Helper function to fetch `eval_ir_block()` with the correct type parameter based on whether
+/// engine_state is configured with or without a debugger.
+pub fn get_eval_ir_block(engine_state: &EngineState) -> EvalIrBlockFn {
+    if engine_state.is_debugging() {
+        eval_ir_block::<WithDebug>
+    } else {
+        eval_ir_block::<WithoutDebug>
     }
 }
 

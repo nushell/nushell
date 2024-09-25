@@ -27,7 +27,7 @@ impl Command for ToMd {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert table into simple Markdown."
     }
 
@@ -70,8 +70,8 @@ impl Command for ToMd {
         let head = call.head;
         let pretty = call.has_flag(engine_state, stack, "pretty")?;
         let per_element = call.has_flag(engine_state, stack, "per-element")?;
-        let config = engine_state.get_config();
-        to_md(input, pretty, per_element, config, head)
+        let config = stack.get_config(engine_state);
+        to_md(input, pretty, per_element, &config, head)
     }
 }
 
@@ -82,6 +82,12 @@ fn to_md(
     config: &Config,
     head: Span,
 ) -> Result<PipelineData, ShellError> {
+    // text/markdown became a valid mimetype with rfc7763
+    let metadata = input
+        .metadata()
+        .unwrap_or_default()
+        .with_content_type(Some("text/markdown".into()));
+
     let (grouped_input, single_list) = group_by(input, head, config);
     if per_element || single_list {
         return Ok(Value::string(
@@ -95,9 +101,10 @@ fn to_md(
                 .join(""),
             head,
         )
-        .into_pipeline_data());
+        .into_pipeline_data_with_metadata(Some(metadata)));
     }
-    Ok(Value::string(table(grouped_input, pretty, config), head).into_pipeline_data())
+    Ok(Value::string(table(grouped_input, pretty, config), head)
+        .into_pipeline_data_with_metadata(Some(metadata)))
 }
 
 fn fragment(input: Value, pretty: bool, config: &Config) -> String {
@@ -328,7 +335,10 @@ fn get_padded_string(text: String, desired_length: usize, padding_character: cha
 
 #[cfg(test)]
 mod tests {
+    use crate::{Get, Metadata};
+
     use super::*;
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
     use nu_protocol::{record, Config, IntoPipelineData, Value};
 
     fn one(string: &str) -> String {
@@ -451,6 +461,38 @@ mod tests {
             |1|2|
             |3|4|
         "#)
+        );
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let state_delta = {
+            // Base functions that are needed for testing
+            // Try to keep this working set small to keep tests running as fast as possible
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(ToMd {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
+
+            working_set.render()
+        };
+        let delta = state_delta;
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = "{a: 1 b: 2} | to md  | metadata | get content_type";
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("content_type" => Value::test_string("text/markdown"))),
+            result.expect("There should be a result")
         );
     }
 }

@@ -53,7 +53,7 @@ impl Command for SubCommand {
             .category(Category::Platform)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Add a color gradient (using ANSI color codes) to the given string."
     }
 
@@ -140,7 +140,7 @@ fn operate(
                 ret
             }
         },
-        engine_state.ctrlc.clone(),
+        engine_state.signals(),
     )
 }
 

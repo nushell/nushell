@@ -18,7 +18,6 @@ pub fn add_plugin_command_context(mut engine_state: EngineState) -> EngineState 
             PluginRm,
             PluginStop,
             PluginUse,
-            Register,
         );
 
         working_set.render()

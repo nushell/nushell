@@ -8,11 +8,11 @@ impl Command for Merge {
         "merge"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Merge the input with a record or table, overwriting values in matching columns."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"You may provide a column structure to merge
 
 When merging tables, row 0 of the input table is overwritten
@@ -88,7 +88,6 @@ repeating this process with row 1, and so on."#
         let head = call.head;
         let merge_value: Value = call.req(engine_state, stack, 0)?;
         let metadata = input.metadata();
-        let ctrlc = engine_state.ctrlc.clone();
 
         match (&input, merge_value) {
             // table (list of records)
@@ -110,7 +109,11 @@ repeating this process with row 1, and so on."#
                             (Err(error), _) => Value::error(error, head),
                         });
 
-                Ok(res.into_pipeline_data_with_metadata(head, ctrlc, metadata))
+                Ok(res.into_pipeline_data_with_metadata(
+                    head,
+                    engine_state.signals().clone(),
+                    metadata,
+                ))
             }
             // record
             (

@@ -284,7 +284,7 @@ fn from_csv_text_skipping_headers_to_table() {
             r#"
                 open los_tres_amigos.txt
                 | from csv --noheaders
-                | get column3
+                | get column2
                 | length
             "#
         ));

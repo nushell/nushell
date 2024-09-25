@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use sysinfo::Components;
 
 #[derive(Clone)]
 pub struct SysTemp;
@@ -15,11 +16,11 @@ impl Command for SysTemp {
             .input_output_types(vec![(Type::Nothing, Type::table())])
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "View the temperatures of system components."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Some system components do not support temperature readings, so this command may return an empty list if no components support temperature."
     }
 
@@ -30,7 +31,7 @@ impl Command for SysTemp {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(super::temp(call.head).into_pipeline_data())
+        Ok(temp(call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -40,4 +41,25 @@ impl Command for SysTemp {
             result: None,
         }]
     }
+}
+
+fn temp(span: Span) -> Value {
+    let components = Components::new_with_refreshed_list()
+        .iter()
+        .map(|component| {
+            let mut record = record! {
+                "unit" => Value::string(component.label(), span),
+                "temp" => Value::float(component.temperature().into(), span),
+                "high" => Value::float(component.max().into(), span),
+            };
+
+            if let Some(critical) = component.critical() {
+                record.push("critical", Value::float(critical.into(), span));
+            }
+
+            Value::record(record, span)
+        })
+        .collect();
+
+    Value::list(components, span)
 }

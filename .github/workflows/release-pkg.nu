@@ -84,6 +84,27 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
             $env.CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER = 'arm-linux-gnueabihf-gcc'
             cargo-build-nu
         }
+        'aarch64-unknown-linux-musl' => {
+            aria2c https://musl.cc/aarch64-linux-musl-cross.tgz
+            tar -xf aarch64-linux-musl-cross.tgz -C $env.HOME
+            $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.HOME)/aarch64-linux-musl-cross/bin')
+            $env.CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER = 'aarch64-linux-musl-gcc'
+            cargo-build-nu
+        }
+        'armv7-unknown-linux-musleabihf' => {
+            aria2c https://musl.cc/armv7r-linux-musleabihf-cross.tgz
+            tar -xf armv7r-linux-musleabihf-cross.tgz -C $env.HOME
+            $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.HOME)/armv7r-linux-musleabihf-cross/bin')
+            $env.CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER = 'armv7r-linux-musleabihf-gcc'
+            cargo-build-nu
+        }
+        'loongarch64-unknown-linux-gnu' => {
+            aria2c https://github.com/loongson/build-tools/releases/download/2024.08.08/x86_64-cross-tools-loongarch64-binutils_2.43-gcc_14.2.0-glibc_2.40.tar.xz
+            tar xf x86_64-cross-tools-loongarch64-*.tar.xz
+            $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.PWD)/cross-tools/bin')
+            $env.CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_GNU_LINKER = 'loongarch64-unknown-linux-gnu-gcc'
+            cargo-build-nu
+        }
         _ => {
             # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
             # Actually just for x86_64-unknown-linux-musl target
@@ -161,8 +182,12 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
     let releaseStem = $'($bin)-($version)-($target)'
 
     print $'(char nl)Download less related stuffs...'; hr-line
+    # todo: less-v661 is out but is released as a zip file. maybe we should switch to that and extract it?
     aria2c https://github.com/jftuga/less-Windows/releases/download/less-v608/less.exe -o less.exe
-    aria2c https://raw.githubusercontent.com/jftuga/less-Windows/master/LICENSE -o LICENSE-for-less.txt
+    # the below was renamed because it was failing to download for darren. it should work but it wasn't
+    # todo: maybe we should get rid of this aria2c dependency and just use http get?
+    #aria2c https://raw.githubusercontent.com/jftuga/less-Windows/master/LICENSE -o LICENSE-for-less.txt
+    aria2c https://github.com/jftuga/less-Windows/blob/master/LICENSE -o LICENSE-for-less.txt
 
     # Create Windows msi release package
     if (get-env _EXTRA_) == 'msi' {

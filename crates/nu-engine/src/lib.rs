@@ -1,17 +1,21 @@
+#![doc = include_str!("../README.md")]
 mod call_ext;
 mod closure_eval;
 pub mod column;
 pub mod command_prelude;
+mod compile;
 pub mod documentation;
 pub mod env;
 mod eval;
 mod eval_helpers;
+mod eval_ir;
 mod glob_from;
 pub mod scope;
 
 pub use call_ext::CallExt;
 pub use closure_eval::*;
 pub use column::get_columns;
+pub use compile::compile;
 pub use documentation::get_full_help;
 pub use env::*;
 pub use eval::{
@@ -19,4 +23,5 @@ pub use eval::{
     eval_expression_with_input, eval_subexpression, eval_variable, redirect_env,
 };
 pub use eval_helpers::*;
+pub use eval_ir::eval_ir_block;
 pub use glob_from::glob_from;

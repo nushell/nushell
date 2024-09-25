@@ -42,11 +42,11 @@ impl Command for RegistryQuery {
             .category(Category::System)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Query the Windows registry."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Currently supported only on Windows systems."
     }
 
@@ -106,7 +106,7 @@ fn registry_query(
                 *registry_key_span,
             ))
         }
-        Ok(reg_values.into_pipeline_data(call_span, engine_state.ctrlc.clone()))
+        Ok(reg_values.into_pipeline_data(call_span, engine_state.signals().clone()))
     } else {
         match registry_value {
             Some(value) => {

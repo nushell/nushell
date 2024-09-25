@@ -1,5 +1,6 @@
 use fancy_regex::Regex;
 use nu_engine::command_prelude::*;
+
 use std::collections::BTreeMap;
 use std::{fmt, str};
 use unicode_segmentation::UnicodeSegmentation;
@@ -21,12 +22,16 @@ impl Command for SubCommand {
             .input_output_types(vec![(Type::String, Type::record())])
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Gather word count statistics on the text."
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["count", "word", "character", "unicode", "wc"]
+    }
+
+    fn is_const(&self) -> bool {
+        true
     }
 
     fn run(
@@ -37,6 +42,15 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         stats(engine_state, call, input)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        stats(working_set.permanent(), call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -108,7 +122,7 @@ fn stats(
                 ),
             }
         },
-        engine_state.ctrlc.clone(),
+        engine_state.signals(),
     )
 }
 

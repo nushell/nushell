@@ -12,11 +12,11 @@ impl SimplePluginCommand for Main {
         "example"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Example commands for Nushell plugins"
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"
 The `example` plugin demonstrates usage of the Nushell plugin API.
 

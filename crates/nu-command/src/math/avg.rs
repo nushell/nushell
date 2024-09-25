@@ -30,7 +30,7 @@ impl Command for SubCommand {
             .category(Category::Math)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns the average of a list of numbers."
     }
 
@@ -38,10 +38,23 @@ impl Command for SubCommand {
         vec!["average", "mean", "statistics"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        run_with_function(call, input, average)
+    }
+
+    fn run_const(
+        &self,
+        _working_set: &StateWorkingSet,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {

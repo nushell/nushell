@@ -34,3 +34,9 @@ fn fails_with_wrong_input_type() {
 
     assert!(actual.err.contains("command doesn't support"))
 }
+
+#[test]
+fn const_round() {
+    let actual = nu!("const ROUND = 18.345 | math round; $ROUND");
+    assert_eq!(actual.out, "18");
+}

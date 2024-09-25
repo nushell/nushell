@@ -1,3 +1,4 @@
+mod file_type;
 mod nu_dataframe;
 mod nu_expression;
 mod nu_lazyframe;
@@ -8,6 +9,7 @@ pub mod utils;
 
 use std::{cmp::Ordering, fmt};
 
+pub use file_type::PolarsFileType;
 pub use nu_dataframe::{Axis, Column, NuDataFrame, NuDataFrameCustomValue};
 pub use nu_expression::{NuExpression, NuExpressionCustomValue};
 pub use nu_lazyframe::{NuLazyFrame, NuLazyFrameCustomValue};
@@ -27,6 +29,7 @@ pub enum PolarsPluginType {
     NuExpression,
     NuLazyGroupBy,
     NuWhen,
+    NuPolarsTestData,
 }
 
 impl fmt::Display for PolarsPluginType {
@@ -37,6 +40,7 @@ impl fmt::Display for PolarsPluginType {
             Self::NuExpression => write!(f, "NuExpression"),
             Self::NuLazyGroupBy => write!(f, "NuLazyGroupBy"),
             Self::NuWhen => write!(f, "NuWhen"),
+            Self::NuPolarsTestData => write!(f, "NuPolarsTestData"),
         }
     }
 }
@@ -48,6 +52,7 @@ pub enum PolarsPluginObject {
     NuExpression(NuExpression),
     NuLazyGroupBy(NuLazyGroupBy),
     NuWhen(NuWhen),
+    NuPolarsTestData(Uuid, String),
 }
 
 impl PolarsPluginObject {
@@ -95,6 +100,7 @@ impl PolarsPluginObject {
             Self::NuExpression(_) => PolarsPluginType::NuExpression,
             Self::NuLazyGroupBy(_) => PolarsPluginType::NuLazyGroupBy,
             Self::NuWhen(_) => PolarsPluginType::NuWhen,
+            Self::NuPolarsTestData(_, _) => PolarsPluginType::NuPolarsTestData,
         }
     }
 
@@ -105,6 +111,7 @@ impl PolarsPluginObject {
             PolarsPluginObject::NuExpression(e) => e.id,
             PolarsPluginObject::NuLazyGroupBy(lg) => lg.id,
             PolarsPluginObject::NuWhen(w) => w.id,
+            PolarsPluginObject::NuPolarsTestData(id, _) => *id,
         }
     }
 
@@ -115,6 +122,23 @@ impl PolarsPluginObject {
             PolarsPluginObject::NuExpression(e) => e.into_value(span),
             PolarsPluginObject::NuLazyGroupBy(lg) => lg.into_value(span),
             PolarsPluginObject::NuWhen(w) => w.into_value(span),
+            PolarsPluginObject::NuPolarsTestData(id, s) => {
+                Value::string(format!("{id}:{s}"), Span::test_data())
+            }
+        }
+    }
+
+    pub fn dataframe(&self) -> Option<&NuDataFrame> {
+        match self {
+            PolarsPluginObject::NuDataFrame(df) => Some(df),
+            _ => None,
+        }
+    }
+
+    pub fn lazyframe(&self) -> Option<&NuLazyFrame> {
+        match self {
+            PolarsPluginObject::NuLazyFrame(lf) => Some(lf),
+            _ => None,
         }
     }
 }
@@ -161,8 +185,8 @@ impl CustomValueType {
     }
 }
 
-pub fn cant_convert_err(value: &Value, types: &[PolarsPluginType]) -> ShellError {
-    let type_string = types
+pub fn cant_convert_err(value: &Value, expected_types: &[PolarsPluginType]) -> ShellError {
+    let type_string = expected_types
         .iter()
         .map(ToString::to_string)
         .collect::<Vec<String>>()

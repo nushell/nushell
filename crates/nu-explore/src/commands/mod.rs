@@ -1,3 +1,5 @@
+use crate::views::ViewConfig;
+
 use super::pager::{Pager, Transition};
 use anyhow::Result;
 use nu_protocol::{
@@ -22,7 +24,7 @@ pub use table::TableCmd;
 pub trait SimpleCommand {
     fn name(&self) -> &'static str;
 
-    fn usage(&self) -> &'static str;
+    fn description(&self) -> &'static str;
 
     fn parse(&mut self, args: &str) -> Result<()>;
 
@@ -40,7 +42,7 @@ pub trait ViewCommand {
 
     fn name(&self) -> &'static str;
 
-    fn usage(&self) -> &'static str;
+    fn description(&self) -> &'static str;
 
     fn parse(&mut self, args: &str) -> Result<()>;
 
@@ -49,5 +51,6 @@ pub trait ViewCommand {
         engine_state: &EngineState,
         stack: &mut Stack,
         value: Option<Value>,
+        config: &ViewConfig,
     ) -> Result<Self::View>;
 }

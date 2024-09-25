@@ -1,9 +1,8 @@
-use super::helper::ReconstructVal;
-use crate::{record, Config, ShellError, Span, Value};
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
+use super::prelude::*;
+use crate as nu_protocol;
+use crate::ShellError;
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TableMode {
     Basic,
     Thin,
@@ -51,33 +50,7 @@ impl FromStr for TableMode {
     }
 }
 
-impl ReconstructVal for TableMode {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        Value::string(
-            match self {
-                TableMode::Basic => "basic",
-                TableMode::Thin => "thin",
-                TableMode::Light => "light",
-                TableMode::Compact => "compact",
-                TableMode::WithLove => "with_love",
-                TableMode::CompactDouble => "compact_double",
-                TableMode::Rounded => "rounded",
-                TableMode::Reinforced => "reinforced",
-                TableMode::Heavy => "heavy",
-                TableMode::None => "none",
-                TableMode::Psql => "psql",
-                TableMode::Markdown => "markdown",
-                TableMode::Dots => "dots",
-                TableMode::Restructured => "restructured",
-                TableMode::AsciiRounded => "ascii_rounded",
-                TableMode::BasicCompact => "basic_compact",
-            },
-            span,
-        )
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FooterMode {
     /// Never show the footer
     Never,
@@ -108,21 +81,18 @@ impl FromStr for FooterMode {
     }
 }
 
-impl ReconstructVal for FooterMode {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        Value::string(
-            match self {
-                FooterMode::Always => "always".to_string(),
-                FooterMode::Never => "never".to_string(),
-                FooterMode::Auto => "auto".to_string(),
-                FooterMode::RowCount(c) => c.to_string(),
-            },
-            span,
-        )
+impl IntoValue for FooterMode {
+    fn into_value(self, span: Span) -> Value {
+        match self {
+            FooterMode::Always => "always".into_value(span),
+            FooterMode::Never => "never".into_value(span),
+            FooterMode::Auto => "auto".into_value(span),
+            FooterMode::RowCount(c) => c.to_string().into_value(span),
+        }
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TableIndexMode {
     /// Always show indexes
     Always,
@@ -145,22 +115,9 @@ impl FromStr for TableIndexMode {
     }
 }
 
-impl ReconstructVal for TableIndexMode {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        Value::string(
-            match self {
-                TableIndexMode::Always => "always",
-                TableIndexMode::Never => "never",
-                TableIndexMode::Auto => "auto",
-            },
-            span,
-        )
-    }
-}
-
 /// A Table view configuration, for a situation where
 /// we need to limit cell width in order to adjust for a terminal size.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TrimStrategy {
     /// Wrapping strategy.
     ///
@@ -196,7 +153,7 @@ impl TrimStrategy {
 
 impl Default for TrimStrategy {
     fn default() -> Self {
-        TrimStrategy::Wrap {
+        Self::Wrap {
             try_to_keep_words: true,
         }
     }
@@ -289,45 +246,89 @@ fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
     None
 }
 
-pub(super) fn reconstruct_trim_strategy(config: &Config, span: Span) -> Value {
-    match &config.trim_strategy {
-        TrimStrategy::Wrap { try_to_keep_words } => Value::record(
-            record! {
-                "methodology" => Value::string("wrapping", span),
-                "wrapping_try_keep_words" => Value::bool(*try_to_keep_words, span),
-            },
-            span,
-        ),
-        TrimStrategy::Truncate { suffix } => Value::record(
-            match suffix {
-                Some(s) => record! {
-                    "methodology" => Value::string("truncating", span),
-                    "truncating_suffix" => Value::string(s.clone(), span),
-                },
-                None => record! {
-                    "methodology" => Value::string("truncating", span),
-                    "truncating_suffix" => Value::nothing(span),
-                },
-            },
-            span,
-        ),
+impl IntoValue for TrimStrategy {
+    fn into_value(self, span: Span) -> Value {
+        match self {
+            TrimStrategy::Wrap { try_to_keep_words } => {
+                record! {
+                    "methodology" => "wrapping".into_value(span),
+                    "wrapping_try_keep_words" => try_to_keep_words.into_value(span),
+                }
+            }
+            TrimStrategy::Truncate { suffix } => {
+                record! {
+                    "methodology" => "truncating".into_value(span),
+                    "truncating_suffix" => suffix.into_value(span),
+                }
+            }
+        }
+        .into_value(span)
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TableIndent {
     pub left: usize,
     pub right: usize,
 }
 
-pub(super) fn reconstruct_padding(config: &Config, span: Span) -> Value {
-    // For better completions always reconstruct the record version even though unsigned int would
-    // be supported, `as` conversion is sane as it came from an i64 original
-    Value::record(
-        record!(
-            "left" => Value::int(config.table_indent.left as i64, span),
-            "right" => Value::int(config.table_indent.right as i64, span),
-        ),
-        span,
-    )
+impl IntoValue for TableIndent {
+    fn into_value(self, span: Span) -> Value {
+        record! {
+            "left" => (self.left as i64).into_value(span),
+            "right" => (self.right as i64).into_value(span),
+        }
+        .into_value(span)
+    }
+}
+
+impl Default for TableIndent {
+    fn default() -> Self {
+        Self { left: 1, right: 1 }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TableConfig {
+    pub mode: TableMode,
+    pub index_mode: TableIndexMode,
+    pub show_empty: bool,
+    pub padding: TableIndent,
+    pub trim: TrimStrategy,
+    pub header_on_separator: bool,
+    pub abbreviated_row_count: Option<usize>,
+}
+
+impl IntoValue for TableConfig {
+    fn into_value(self, span: Span) -> Value {
+        let abbv_count = self
+            .abbreviated_row_count
+            .map(|t| t as i64)
+            .into_value(span);
+
+        record! {
+            "mode" => self.mode.into_value(span),
+            "index_mode" => self.index_mode.into_value(span),
+            "show_empty" => self.show_empty.into_value(span),
+            "padding" => self.padding.into_value(span),
+            "trim" => self.trim.into_value(span),
+            "header_on_separator" => self.header_on_separator.into_value(span),
+            "abbreviated_row_count" => abbv_count,
+        }
+        .into_value(span)
+    }
+}
+
+impl Default for TableConfig {
+    fn default() -> Self {
+        Self {
+            mode: TableMode::Rounded,
+            index_mode: TableIndexMode::Always,
+            show_empty: true,
+            trim: TrimStrategy::default(),
+            header_on_separator: false,
+            padding: TableIndent::default(),
+            abbreviated_row_count: None,
+        }
+    }
 }

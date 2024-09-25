@@ -20,7 +20,7 @@ impl Command for BytesCollect {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Concatenate multiple binary into a single binary, with an optional separator between each."
     }
 
@@ -60,7 +60,12 @@ impl Command for BytesCollect {
         )
         .flatten();
 
-        let output = ByteStream::from_result_iter(iter, span, None, ByteStreamType::Binary);
+        let output = ByteStream::from_result_iter(
+            iter,
+            span,
+            engine_state.signals().clone(),
+            ByteStreamType::Binary,
+        );
 
         Ok(PipelineData::ByteStream(output, metadata))
     }

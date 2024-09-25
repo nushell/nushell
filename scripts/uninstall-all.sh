@@ -14,6 +14,7 @@ NU_PLUGINS=(
     'nu_plugin_example'
     'nu_plugin_formats'
     'nu_plugin_custom_values'
+    'nu_plugin_polars'
 )
 
 cargo uninstall nu

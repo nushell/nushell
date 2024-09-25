@@ -1,4 +1,3 @@
-#[cfg(not(windows))]
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
@@ -17,7 +16,6 @@ fn better_empty_redirection() {
     assert!(!actual.out.contains('2'));
 }
 
-#[cfg(not(windows))]
 #[test]
 fn explicit_glob() {
     Playground::setup("external with explicit glob", |dirs, sandbox| {
@@ -30,15 +28,15 @@ fn explicit_glob() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^ls | glob '*.txt' | length
+                ^nu --testbin cococo ('*.txt' | into glob)
             "#
         ));
 
-        assert_eq!(actual.out, "2");
+        assert!(actual.out.contains("D&D_volume_1.txt"));
+        assert!(actual.out.contains("D&D_volume_2.txt"));
     })
 }
 
-#[cfg(not(windows))]
 #[test]
 fn bare_word_expand_path_glob() {
     Playground::setup("bare word should do the expansion", |dirs, sandbox| {
@@ -51,7 +49,7 @@ fn bare_word_expand_path_glob() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                ^ls *.txt
+                ^nu --testbin cococo *.txt
             "
         ));
 
@@ -60,7 +58,6 @@ fn bare_word_expand_path_glob() {
     })
 }
 
-#[cfg(not(windows))]
 #[test]
 fn backtick_expand_path_glob() {
     Playground::setup("backtick should do the expansion", |dirs, sandbox| {
@@ -73,7 +70,7 @@ fn backtick_expand_path_glob() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^ls `*.txt`
+                ^nu --testbin cococo `*.txt`
             "#
         ));
 
@@ -82,7 +79,6 @@ fn backtick_expand_path_glob() {
     })
 }
 
-#[cfg(not(windows))]
 #[test]
 fn single_quote_does_not_expand_path_glob() {
     Playground::setup("single quote do not run the expansion", |dirs, sandbox| {
@@ -95,15 +91,14 @@ fn single_quote_does_not_expand_path_glob() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^ls '*.txt'
+                ^nu --testbin cococo '*.txt'
             "#
         ));
 
-        assert!(actual.err.contains("No such file or directory"));
+        assert_eq!(actual.out, "*.txt");
     })
 }
 
-#[cfg(not(windows))]
 #[test]
 fn double_quote_does_not_expand_path_glob() {
     Playground::setup("double quote do not run the expansion", |dirs, sandbox| {
@@ -116,22 +111,21 @@ fn double_quote_does_not_expand_path_glob() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^ls "*.txt"
+                ^nu --testbin cococo "*.txt"
             "#
         ));
 
-        assert!(actual.err.contains("No such file or directory"));
+        assert_eq!(actual.out, "*.txt");
     })
 }
 
-#[cfg(not(windows))]
 #[test]
 fn failed_command_with_semicolon_will_not_execute_following_cmds() {
     Playground::setup("external failed command with semicolon", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                ^ls *.abc; echo done
+                nu --testbin fail; echo done
             "
         ));
 
@@ -155,16 +149,51 @@ fn external_args_with_quoted() {
 
 #[cfg(not(windows))]
 #[test]
-fn external_arg_with_long_flag_value_quoted() {
-    Playground::setup("external failed command with semicolon", |dirs, _| {
+fn external_arg_with_option_like_embedded_quotes() {
+    // TODO: would be nice to make this work with cococo, but arg parsing interferes
+    Playground::setup(
+        "external arg with option like embedded quotes",
+        |dirs, _| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                ^echo --foo='bar' -foo='bar'
+            "#
+            ));
+
+            assert_eq!(actual.out, "--foo=bar -foo=bar");
+        },
+    )
+}
+
+#[test]
+fn external_arg_with_non_option_like_embedded_quotes() {
+    Playground::setup(
+        "external arg with non option like embedded quotes",
+        |dirs, _| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                ^nu --testbin cococo foo='bar' 'foo'=bar
+            "#
+            ));
+
+            assert_eq!(actual.out, "foo=bar foo=bar");
+        },
+    )
+}
+
+#[test]
+fn external_arg_with_string_interpolation() {
+    Playground::setup("external arg with string interpolation", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^echo --foo='bar'
+                ^nu --testbin cococo foo=(2 + 2) $"foo=(2 + 2)" foo=$"(2 + 2)"
             "#
         ));
 
-        assert_eq!(actual.out, "--foo=bar");
+        assert_eq!(actual.out, "foo=4 foo=4 foo=4");
     })
 }
 
@@ -201,6 +230,99 @@ fn external_command_escape_args() {
 }
 
 #[test]
+fn external_command_ndots_args() {
+    let actual = nu!(r#"
+        nu --testbin cococo foo/. foo/.. foo/... foo/./bar foo/../bar foo/.../bar ./bar ../bar .../bar
+    "#);
+
+    assert_eq!(
+        actual.out,
+        if cfg!(windows) {
+            // Windows is a bit weird right now, where if ndots has to fix something it's going to
+            // change everything to backslashes too. Would be good to fix that
+            r"foo/. foo/.. foo\..\.. foo/./bar foo/../bar foo\..\..\bar ./bar ../bar ..\..\bar"
+        } else {
+            r"foo/. foo/.. foo/../.. foo/./bar foo/../bar foo/../../bar ./bar ../bar ../../bar"
+        }
+    );
+}
+
+#[test]
+fn external_command_url_args() {
+    // If ndots is not handled correctly, we can lose the double forward slashes that are needed
+    // here
+    let actual = nu!(r#"
+        nu --testbin cococo http://example.com http://example.com/.../foo //foo
+    "#);
+
+    assert_eq!(
+        actual.out,
+        "http://example.com http://example.com/.../foo //foo"
+    );
+}
+
+#[test]
+#[cfg_attr(
+    not(target_os = "linux"),
+    ignore = "only runs on Linux, where controlling the HOME var is reliable"
+)]
+fn external_command_expand_tilde() {
+    Playground::setup("external command expand tilde", |dirs, _| {
+        // Make a copy of the nu executable that we can use
+        let mut src = std::fs::File::open(nu_test_support::fs::binaries().join("nu"))
+            .expect("failed to open nu");
+        let mut dst = std::fs::File::create_new(dirs.test().join("test_nu"))
+            .expect("failed to create test_nu file");
+        std::io::copy(&mut src, &mut dst).expect("failed to copy data for nu binary");
+
+        // Make test_nu have the same permissions so that it's executable
+        dst.set_permissions(
+            src.metadata()
+                .expect("failed to get nu metadata")
+                .permissions(),
+        )
+        .expect("failed to set permissions on test_nu");
+
+        // Close the files
+        drop(dst);
+        drop(src);
+
+        let actual = nu!(
+            envs: vec![
+                ("HOME".to_string(), dirs.test().to_string_lossy().into_owned()),
+            ],
+            r#"
+                ^~/test_nu --testbin cococo hello
+            "#
+        );
+        assert_eq!(actual.out, "hello");
+    })
+}
+
+#[test]
+fn external_arg_expand_tilde() {
+    Playground::setup("external arg expand tilde", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ^nu --testbin cococo ~/foo ~/(2 + 2)
+            "#
+        ));
+
+        let home = dirs::home_dir().expect("failed to find home dir");
+
+        assert_eq!(
+            actual.out,
+            format!(
+                "{} {}",
+                home.join("foo").display(),
+                home.join("4").display()
+            )
+        );
+    })
+}
+
+#[test]
 fn external_command_not_expand_tilde_with_quotes() {
     Playground::setup(
         "external command not expand tilde with quotes",
@@ -228,21 +350,6 @@ fn external_command_receives_raw_binary_data() {
         let actual =
             nu!(cwd: dirs.test(), pipeline("0x[deadbeef] | nu --testbin input_bytes_length"));
         assert_eq!(actual.out, r#"4"#);
-    })
-}
-
-#[cfg(windows)]
-#[test]
-fn failed_command_with_semicolon_will_not_execute_following_cmds_windows() {
-    Playground::setup("external failed command with semicolon", |dirs, _| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ^cargo asdf; echo done
-            "
-        ));
-
-        assert!(!actual.out.contains("done"));
     })
 }
 

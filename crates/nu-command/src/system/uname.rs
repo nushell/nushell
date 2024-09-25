@@ -1,10 +1,5 @@
-use nu_protocol::record;
-use nu_protocol::Value;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Type,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::{record, Value};
 
 #[derive(Clone)]
 pub struct UName;
@@ -20,7 +15,7 @@ impl Command for UName {
             .category(Category::System)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Print certain system information using uutils/coreutils uname."
     }
 

@@ -29,7 +29,7 @@ impl Command for SubCommand {
             .category(Category::Random)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Generate a random dice roll."
     }
 
@@ -78,7 +78,7 @@ fn dice(
         Value::int(thread_rng.gen_range(1..sides + 1) as i64, span)
     });
 
-    Ok(ListStream::new(iter, span, engine_state.ctrlc.clone()).into())
+    Ok(ListStream::new(iter, span, engine_state.signals().clone()).into())
 }
 
 #[cfg(test)]

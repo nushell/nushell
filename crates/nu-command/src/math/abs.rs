@@ -26,12 +26,16 @@ impl Command for SubCommand {
             .category(Category::Math)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns the absolute value of a number."
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["absolute", "modulus", "positive", "distance"]
+    }
+
+    fn is_const(&self) -> bool {
+        true
     }
 
     fn run(
@@ -42,9 +46,19 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        input.map(move |value| abs_helper(value, head), engine_state.signals())
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         input.map(
             move |value| abs_helper(value, head),
-            engine_state.ctrlc.clone(),
+            working_set.permanent().signals(),
         )
     }
 

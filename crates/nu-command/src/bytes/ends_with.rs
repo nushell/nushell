@@ -41,7 +41,7 @@ impl Command for BytesEndsWith {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Check if bytes ends with a pattern."
     }
 
@@ -102,7 +102,7 @@ impl Command for BytesEndsWith {
                 pattern,
                 cell_paths,
             };
-            operate(ends_with, arg, input, head, engine_state.ctrlc.clone())
+            operate(ends_with, arg, input, head, engine_state.signals())
         }
     }
 

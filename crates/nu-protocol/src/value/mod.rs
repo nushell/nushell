@@ -4,7 +4,10 @@ mod filesize;
 mod from;
 mod from_value;
 mod glob;
+mod into_value;
 mod range;
+#[cfg(test)]
+mod test_derive;
 
 pub mod record;
 pub use custom_value::CustomValue;
@@ -12,6 +15,7 @@ pub use duration::*;
 pub use filesize::*;
 pub use from_value::FromValue;
 pub use glob::*;
+pub use into_value::{IntoValue, TryIntoValue};
 pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
@@ -19,7 +23,7 @@ use crate::{
     ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
     did_you_mean,
     engine::{Closure, EngineState},
-    Config, ShellError, Span, Type,
+    Config, ShellError, Signals, Span, Type,
 };
 use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
@@ -828,7 +832,7 @@ impl Value {
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
-            Value::Date { val, .. } => match &config.datetime_normal_format {
+            Value::Date { val, .. } => match &config.datetime_format.normal {
                 Some(format) => self.format_datetime(val, format),
                 None => {
                     format!(
@@ -882,7 +886,7 @@ impl Value {
     /// - "[record {n} fields]"
     pub fn to_abbreviated_string(&self, config: &Config) -> String {
         match self {
-            Value::Date { val, .. } => match &config.datetime_table_format {
+            Value::Date { val, .. } => match &config.datetime_format.table {
                 Some(format) => self.format_datetime(val, format),
                 None => HumanTime::from(*val).to_string(),
             },
@@ -1013,8 +1017,9 @@ impl Value {
                             }
                         }
                         Value::Range { ref val, .. } => {
-                            if let Some(item) =
-                                val.into_range_iter(current.span(), None).nth(*count)
+                            if let Some(item) = val
+                                .into_range_iter(current.span(), Signals::empty())
+                                .nth(*count)
                             {
                                 current = item;
                             } else if *optional {
@@ -1089,7 +1094,7 @@ impl Value {
                             } else {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: column_name.clone(),
-                                    span: *origin_span,
+                                    span: Some(*origin_span),
                                     src_span: span,
                                 });
                             }
@@ -1126,7 +1131,7 @@ impl Value {
                                             } else {
                                                 Err(ShellError::CantFindColumn {
                                                     col_name: column_name.clone(),
-                                                    span: *origin_span,
+                                                    span: Some(*origin_span),
                                                     src_span: val_span,
                                                 })
                                             }
@@ -1136,7 +1141,7 @@ impl Value {
                                         }
                                         _ => Err(ShellError::CantFindColumn {
                                             col_name: column_name.clone(),
-                                            span: *origin_span,
+                                            span: Some(*origin_span),
                                             src_span: val_span,
                                         }),
                                     }
@@ -1218,7 +1223,8 @@ impl Value {
                         for val in vals.iter_mut() {
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    if let Some(val) = record.to_mut().get_mut(col_name) {
+                                    let record = record.to_mut();
+                                    if let Some(val) = record.get_mut(col_name) {
                                         val.upsert_data_at_cell_path(path, new_val.clone())?;
                                     } else {
                                         let new_col = if path.is_empty() {
@@ -1230,14 +1236,14 @@ impl Value {
                                                 .upsert_data_at_cell_path(path, new_val.clone())?;
                                             new_col
                                         };
-                                        record.to_mut().push(col_name, new_col);
+                                        record.push(col_name, new_col);
                                     }
                                 }
                                 Value::Error { error, .. } => return Err(*error.clone()),
                                 v => {
                                     return Err(ShellError::CantFindColumn {
                                         col_name: col_name.clone(),
-                                        span: *span,
+                                        span: Some(*span),
                                         src_span: v.span(),
                                     });
                                 }
@@ -1245,7 +1251,8 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        if let Some(val) = record.to_mut().get_mut(col_name) {
+                        let record = record.to_mut();
+                        if let Some(val) = record.get_mut(col_name) {
                             val.upsert_data_at_cell_path(path, new_val)?;
                         } else {
                             let new_col = if path.is_empty() {
@@ -1255,14 +1262,14 @@ impl Value {
                                 new_col.upsert_data_at_cell_path(path, new_val)?;
                                 new_col
                             };
-                            record.to_mut().push(col_name, new_col);
+                            record.push(col_name, new_col);
                         }
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
                     v => {
                         return Err(ShellError::CantFindColumn {
                             col_name: col_name.clone(),
-                            span: *span,
+                            span: Some(*span),
                             src_span: v.span(),
                         });
                     }
@@ -1342,7 +1349,7 @@ impl Value {
                                     } else {
                                         return Err(ShellError::CantFindColumn {
                                             col_name: col_name.clone(),
-                                            span: *span,
+                                            span: Some(*span),
                                             src_span: v_span,
                                         });
                                     }
@@ -1351,7 +1358,7 @@ impl Value {
                                 v => {
                                     return Err(ShellError::CantFindColumn {
                                         col_name: col_name.clone(),
-                                        span: *span,
+                                        span: Some(*span),
                                         src_span: v.span(),
                                     });
                                 }
@@ -1364,7 +1371,7 @@ impl Value {
                         } else {
                             return Err(ShellError::CantFindColumn {
                                 col_name: col_name.clone(),
-                                span: *span,
+                                span: Some(*span),
                                 src_span: v_span,
                             });
                         }
@@ -1373,7 +1380,7 @@ impl Value {
                     v => {
                         return Err(ShellError::CantFindColumn {
                             col_name: col_name.clone(),
-                            span: *span,
+                            span: Some(*span),
                             src_span: v.span(),
                         });
                     }
@@ -1427,7 +1434,7 @@ impl Value {
                                         if record.to_mut().remove(col_name).is_none() && !optional {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.clone(),
-                                                span: *span,
+                                                span: Some(*span),
                                                 src_span: v_span,
                                             });
                                         }
@@ -1435,7 +1442,7 @@ impl Value {
                                     v => {
                                         return Err(ShellError::CantFindColumn {
                                             col_name: col_name.clone(),
-                                            span: *span,
+                                            span: Some(*span),
                                             src_span: v.span(),
                                         });
                                     }
@@ -1447,7 +1454,7 @@ impl Value {
                             if record.to_mut().remove(col_name).is_none() && !optional {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.clone(),
-                                    span: *span,
+                                    span: Some(*span),
                                     src_span: v_span,
                                 });
                             }
@@ -1455,7 +1462,7 @@ impl Value {
                         }
                         v => Err(ShellError::CantFindColumn {
                             col_name: col_name.clone(),
-                            span: *span,
+                            span: Some(*span),
                             src_span: v.span(),
                         }),
                     },
@@ -1504,7 +1511,7 @@ impl Value {
                                         } else if !optional {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.clone(),
-                                                span: *span,
+                                                span: Some(*span),
                                                 src_span: v_span,
                                             });
                                         }
@@ -1512,7 +1519,7 @@ impl Value {
                                     v => {
                                         return Err(ShellError::CantFindColumn {
                                             col_name: col_name.clone(),
-                                            span: *span,
+                                            span: Some(*span),
                                             src_span: v.span(),
                                         });
                                     }
@@ -1526,7 +1533,7 @@ impl Value {
                             } else if !optional {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.clone(),
-                                    span: *span,
+                                    span: Some(*span),
                                     src_span: v_span,
                                 });
                             }
@@ -1534,7 +1541,7 @@ impl Value {
                         }
                         v => Err(ShellError::CantFindColumn {
                             col_name: col_name.clone(),
-                            span: *span,
+                            span: Some(*span),
                             src_span: v.span(),
                         }),
                     },
@@ -1586,7 +1593,8 @@ impl Value {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    if let Some(val) = record.to_mut().get_mut(col_name) {
+                                    let record = record.to_mut();
+                                    if let Some(val) = record.get_mut(col_name) {
                                         if path.is_empty() {
                                             return Err(ShellError::ColumnAlreadyExists {
                                                 col_name: col_name.clone(),
@@ -1613,7 +1621,7 @@ impl Value {
                                             )?;
                                             new_col
                                         };
-                                        record.to_mut().push(col_name, new_col);
+                                        record.push(col_name, new_col);
                                     }
                                 }
                                 Value::Error { error, .. } => return Err(*error.clone()),
@@ -1629,7 +1637,8 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        if let Some(val) = record.to_mut().get_mut(col_name) {
+                        let record = record.to_mut();
+                        if let Some(val) = record.get_mut(col_name) {
                             if path.is_empty() {
                                 return Err(ShellError::ColumnAlreadyExists {
                                     col_name: col_name.clone(),
@@ -1647,7 +1656,7 @@ impl Value {
                                 new_col.insert_data_at_cell_path(path, new_val, head_span)?;
                                 new_col
                             };
-                            record.to_mut().push(col_name, new_col);
+                            record.push(col_name, new_col);
                         }
                     }
                     other => {
@@ -3308,7 +3317,18 @@ impl Value {
     pub fn bit_shl(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs << rhs, span))
+                // Currently we disallow negative operands like Rust's `Shl`
+                // Cheap guarding with TryInto<u32>
+                if let Some(val) = (*rhs).try_into().ok().and_then(|rhs| lhs.checked_shl(rhs)) {
+                    Ok(Value::int(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "right operand to bit-shl exceeds available bits in underlying data"
+                            .into(),
+                        span,
+                        help: format!("Limit operand to 0 <= rhs < {}", i64::BITS),
+                    })
+                }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::ShiftLeft), op, rhs)
@@ -3326,7 +3346,18 @@ impl Value {
     pub fn bit_shr(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs >> rhs, span))
+                // Currently we disallow negative operands like Rust's `Shr`
+                // Cheap guarding with TryInto<u32>
+                if let Some(val) = (*rhs).try_into().ok().and_then(|rhs| lhs.checked_shr(rhs)) {
+                    Ok(Value::int(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "right operand to bit-shr exceeds available bits in underlying data"
+                            .into(),
+                        span,
+                        help: format!("Limit operand to 0 <= rhs < {}", i64::BITS),
+                    })
+                }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::ShiftRight), op, rhs)

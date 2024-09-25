@@ -1,4 +1,4 @@
-use crate::completions::{Completer, CompletionOptions};
+use crate::completions::{completion_common::sort_suggestions, Completer, CompletionOptions};
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::{Stack, StateWorkingSet},
@@ -49,13 +49,12 @@ impl Completer for FlagCompletion {
                             suggestion: Suggestion {
                                 value: String::from_utf8_lossy(&named).to_string(),
                                 description: Some(flag_desc.to_string()),
-                                style: None,
-                                extra: None,
                                 span: reedline::Span {
                                     start: span.start - offset,
                                     end: span.end - offset,
                                 },
                                 append_whitespace: true,
+                                ..Suggestion::default()
                             },
                             // TODO????
                             kind: None,
@@ -76,13 +75,12 @@ impl Completer for FlagCompletion {
                         suggestion: Suggestion {
                             value: String::from_utf8_lossy(&named).to_string(),
                             description: Some(flag_desc.to_string()),
-                            style: None,
-                            extra: None,
                             span: reedline::Span {
                                 start: span.start - offset,
                                 end: span.end - offset,
                             },
                             append_whitespace: true,
+                            ..Suggestion::default()
                         },
                         // TODO????
                         kind: None,
@@ -90,7 +88,7 @@ impl Completer for FlagCompletion {
                 }
             }
 
-            return output;
+            return sort_suggestions(&String::from_utf8_lossy(&prefix), output, options);
         }
 
         vec![]

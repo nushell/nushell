@@ -5,6 +5,10 @@ use nu_protocol::{Category, LabeledError, Signature, Spanned, SyntaxShape, Value
 pub struct GStatPlugin;
 
 impl Plugin for GStatPlugin {
+    fn version(&self) -> String {
+        env!("CARGO_PKG_VERSION").into()
+    }
+
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         vec![Box::new(GStat)]
     }
@@ -17,7 +21,7 @@ impl SimplePluginCommand for GStat {
         "gstat"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get the git status of a repo"
     }
 

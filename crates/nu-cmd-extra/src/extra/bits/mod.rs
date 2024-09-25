@@ -44,6 +44,25 @@ enum InputNumType {
     SignedEight,
 }
 
+impl InputNumType {
+    fn num_bits(self) -> u32 {
+        match self {
+            InputNumType::One => 8,
+            InputNumType::Two => 16,
+            InputNumType::Four => 32,
+            InputNumType::Eight => 64,
+            InputNumType::SignedOne => 8,
+            InputNumType::SignedTwo => 16,
+            InputNumType::SignedFour => 32,
+            InputNumType::SignedEight => 64,
+        }
+    }
+
+    fn is_permitted_bit_shift(self, bits: u32) -> bool {
+        bits < self.num_bits()
+    }
+}
+
 fn get_number_bytes(
     number_bytes: Option<Spanned<usize>>,
     head: Span,

@@ -7,7 +7,8 @@ use super::{PluginInterface, PluginSource};
 use nu_plugin_core::CommunicationMode;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError,
+    HandlerGuard, Handlers, PluginGcConfig, PluginIdentity, PluginMetadata, RegisteredPlugin,
+    ShellError,
 };
 use std::{
     collections::HashMap,
@@ -31,10 +32,14 @@ pub struct PersistentPlugin {
 struct MutableState {
     /// Reference to the plugin if running
     running: Option<RunningPlugin>,
+    /// Metadata for the plugin, e.g. version.
+    metadata: Option<PluginMetadata>,
     /// Plugin's preferred communication mode (if known)
     preferred_mode: Option<PreferredCommunicationMode>,
     /// Garbage collector config
     gc_config: PluginGcConfig,
+    /// RAII guard for this plugin's signal handler
+    signal_guard: Option<HandlerGuard>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -59,8 +64,10 @@ impl PersistentPlugin {
             identity,
             mutable: Mutex::new(MutableState {
                 running: None,
+                metadata: None,
                 preferred_mode: None,
                 gc_config,
+                signal_guard: None,
             }),
         }
     }
@@ -268,6 +275,16 @@ impl RegisteredPlugin for PersistentPlugin {
         self.stop_internal(true)
     }
 
+    fn metadata(&self) -> Option<PluginMetadata> {
+        self.mutable.lock().ok().and_then(|m| m.metadata.clone())
+    }
+
+    fn set_metadata(&self, metadata: Option<PluginMetadata>) {
+        if let Ok(mut mutable) = self.mutable.lock() {
+            mutable.metadata = metadata;
+        }
+    }
+
     fn set_gc_config(&self, gc_config: &PluginGcConfig) {
         if let Ok(mut mutable) = self.mutable.lock() {
             // Save the new config for future calls
@@ -285,6 +302,31 @@ impl RegisteredPlugin for PersistentPlugin {
 
     fn as_any(self: Arc<Self>) -> Arc<dyn std::any::Any + Send + Sync> {
         self
+    }
+
+    fn configure_signal_handler(self: Arc<Self>, handlers: &Handlers) -> Result<(), ShellError> {
+        let guard = {
+            // We take a weakref to the plugin so that we don't create a cycle to the
+            // RAII guard that will be stored on the plugin.
+            let plugin = Arc::downgrade(&self);
+            handlers.register(Box::new(move |action| {
+                // write a signal packet through the PluginInterface if the plugin is alive and
+                // running
+                if let Some(plugin) = plugin.upgrade() {
+                    if let Ok(mutable) = plugin.mutable.lock() {
+                        if let Some(ref running) = mutable.running {
+                            let _ = running.interface.signal(action);
+                        }
+                    }
+                }
+            }))?
+        };
+
+        if let Ok(mut mutable) = self.mutable.lock() {
+            mutable.signal_guard = Some(guard);
+        }
+
+        Ok(())
     }
 }
 
@@ -311,7 +353,7 @@ impl GetPlugin for PersistentPlugin {
                     // We need the current environment variables for `python` based plugins. Or
                     // we'll likely have a problem when a plugin is implemented in a virtual Python
                     // environment.
-                    let stack = &mut stack.start_capture();
+                    let stack = &mut stack.start_collect_value();
                     nu_engine::env::env_to_strings(engine_state, stack)
                 })
                 .transpose()?;

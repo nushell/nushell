@@ -6,9 +6,9 @@ fn get_env_by_name() {
         cwd: ".",
         plugin: ("nu_plugin_example"),
         r#"
-            $env.FOO = bar
+            $env.FOO = 'bar'
             example env FOO | print
-            $env.FOO = baz
+            $env.FOO = 'baz'
             example env FOO | print
         "#
     );
@@ -21,7 +21,7 @@ fn get_envs() {
     let result = nu_with_plugins!(
         cwd: ".",
         plugin: ("nu_plugin_example"),
-        "$env.BAZ = foo; example env | get BAZ"
+        "$env.BAZ = 'foo'; example env | get BAZ"
     );
     assert!(result.status.success());
     assert_eq!("foo", result.out);

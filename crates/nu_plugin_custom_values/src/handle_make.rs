@@ -19,7 +19,7 @@ impl SimplePluginCommand for HandleMake {
             .input_output_type(Type::Any, Type::Custom("HandleCustomValue".into()))
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Store a value in plugin memory and return a handle to it"
     }
 

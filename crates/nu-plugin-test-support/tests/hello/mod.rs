@@ -8,6 +8,10 @@ struct HelloPlugin;
 struct Hello;
 
 impl Plugin for HelloPlugin {
+    fn version(&self) -> String {
+        "0.0.0".into()
+    }
+
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         vec![Box::new(Hello)]
     }
@@ -20,7 +24,7 @@ impl SimplePluginCommand for Hello {
         "hello"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Print a friendly greeting"
     }
 
