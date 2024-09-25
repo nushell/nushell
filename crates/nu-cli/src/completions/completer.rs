@@ -272,7 +272,12 @@ impl NuCompleter {
                                     );
                                 } else if matches!(
                                     previous_expr.1,
-                                    FlatShape::Float | FlatShape::Int | FlatShape::String
+                                    FlatShape::Float
+                                        | FlatShape::Int
+                                        | FlatShape::String
+                                        | FlatShape::List
+                                        | FlatShape::Bool
+                                        | FlatShape::Variable(_)
                                 ) {
                                     let mut completer =
                                         OperatorCompletion::new(previous_expr.1.clone());
@@ -548,6 +553,11 @@ mod completer_tests {
 
         let mut completer = NuCompleter::new(engine_state.into(), Arc::new(Stack::new()));
         let dataset = [
+            ("1 bit-sh", true, "b", vec!["bit-shl", "bit-shr"]),
+            ("1.0 bit-sh", false, "b", vec![]),
+            ("1 m", true, "m", vec!["mod"]),
+            ("1.0 m", true, "m", vec!["mod"]),
+            ("\"a\" s", true, "s", vec!["starts-with"]),
             ("sudo", false, "", Vec::new()),
             ("sudo l", true, "l", vec!["ls", "let", "lines", "loop"]),
             (" sudo", false, "", Vec::new()),
