@@ -1003,14 +1003,17 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn find_virtual_path(&self, name: &str) -> Option<&VirtualPath> {
+        // Platform appropriate virtual path (slashes or backslashes)
+        let virtual_path_name = Path::new(name);
+
         for (virtual_name, virtual_path) in self.delta.virtual_paths.iter().rev() {
-            if virtual_name == name {
+            if Path::new(virtual_name) == virtual_path_name {
                 return Some(virtual_path);
             }
         }
 
         for (virtual_name, virtual_path) in self.permanent_state.virtual_paths.iter().rev() {
-            if virtual_name == name {
+            if Path::new(virtual_name) == virtual_path_name {
                 return Some(virtual_path);
             }
         }

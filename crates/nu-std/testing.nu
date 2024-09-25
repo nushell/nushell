@@ -1,7 +1,7 @@
-use (['std', 'log'] | path join)
+use std/log
 export-env {
     # Place NU_FORMAT... environment variables in module-scope
-    export use (['std', 'log'] | path join) *
+    export use std/log *
 }
 
 def "nu-complete threads" [] {

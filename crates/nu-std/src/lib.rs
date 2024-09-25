@@ -52,8 +52,8 @@ pub fn load_standard_library(
         let std_dir = std_dir.to_string_lossy().to_string();
         let source = r#"
 # Prelude
-use ([ std core ] | path join) *
-use ([ std deprecated_dirs] | path join) [
+use std/core *
+use std/deprecated_dirs [
     enter
     shells
     g
