@@ -76,11 +76,16 @@ fn test_sort_nothing() {
 #[test]
 fn test_sort_natural_basic() {
     let mut list = vec![
-        Value::test_string("99"),
-        Value::test_string("9"),
-        Value::test_string("1"),
-        Value::test_string("100"),
-        Value::test_string("10"),
+        Value::test_string("foo99"),
+        Value::test_string("foo9"),
+        Value::test_string("foo1"),
+        Value::test_string("foo100"),
+        Value::test_string("foo10"),
+        Value::test_string("bar99"),
+        Value::test_string("bar9"),
+        Value::test_string("bar1"),
+        Value::test_string("bar100"),
+        Value::test_string("bar10"),
     ];
 
     assert!(sort(&mut list, false, false).is_ok());
@@ -228,14 +233,14 @@ fn test_sort_natural_type_order() {
     assert_eq!(
         list,
         vec![
+            Value::test_bool(false),
+            Value::test_bool(false),
+            Value::test_bool(true),
+            Value::test_bool(true),
             Value::test_int(1),
             Value::test_int(3),
             Value::test_int(7),
             Value::test_int(10),
-            Value::test_bool(false),
-            Value::test_bool(false),
-            Value::test_bool(true),
-            Value::test_bool(true),
             Value::test_string("alfa"),
             Value::test_string("golf"),
             Value::test_string("tango"),
@@ -288,10 +293,10 @@ fn test_sort_natural_type_order() {
             Value::test_string("foobar"),
             // the ordering of date and binary here may change if the PartialOrd order is changed,
             // but they should not be intermixed with the above
-            Value::test_binary([3]),
-            Value::test_binary([52]),
             Value::test_date(year_three.into()),
             Value::test_date(chrono::DateTime::UNIX_EPOCH.into()),
+            Value::test_binary([3]),
+            Value::test_binary([52]),
         ]
     );
 }
@@ -300,8 +305,8 @@ fn test_sort_natural_type_order() {
 fn test_sort_insensitive() {
     // Test permutations between insensitive and natural
     // Ensure that strings with equal insensitive orderings
-    // are sorted stably.
-    let mut list = vec![
+    // are sorted stably. (FOO then foo, bar then BAR)
+    let source = vec![
         Value::test_string("FOO"),
         Value::test_string("foo"),
         Value::test_int(100),
@@ -311,8 +316,10 @@ fn test_sort_insensitive() {
         Value::test_string("baz"),
         Value::test_string("BAR"),
     ];
+    let mut list;
 
     // sensitive + non-natural
+    list = source.clone();
     assert!(sort(&mut list, false, false).is_ok());
     assert_eq!(
         list,
@@ -329,12 +336,13 @@ fn test_sort_insensitive() {
     );
 
     // sensitive + natural
+    list = source.clone();
     assert!(sort(&mut list, false, true).is_ok());
     assert_eq!(
         list,
         vec![
-            Value::test_int(10),
             Value::test_string("9"),
+            Value::test_int(10),
             Value::test_int(100),
             Value::test_string("BAR"),
             Value::test_string("FOO"),
@@ -345,6 +353,7 @@ fn test_sort_insensitive() {
     );
 
     // insensitive + non-natural
+    list = source.clone();
     assert!(sort(&mut list, true, false).is_ok());
     assert_eq!(
         list,
@@ -361,12 +370,13 @@ fn test_sort_insensitive() {
     );
 
     // insensitive + natural
+    list = source.clone();
     assert!(sort(&mut list, true, true).is_ok());
     assert_eq!(
         list,
         vec![
-            Value::test_int(10),
             Value::test_string("9"),
+            Value::test_int(10),
             Value::test_int(100),
             Value::test_string("bar"),
             Value::test_string("BAR"),
@@ -510,7 +520,14 @@ fn test_sort_equivalent() {
     });
 
     assert!(sort(&mut list, false, false).is_ok());
-    assert!(sort_by(&mut table, vec![comparator], Span::test_data(), false, true,).is_ok());
+    assert!(sort_by(
+        &mut table,
+        vec![comparator],
+        Span::test_data(),
+        false,
+        false
+    )
+    .is_ok());
 
     let record_sorted = sort_record(record.clone(), true, false, false, false).unwrap();
     let record_vals: Vec<Value> = record_sorted.into_iter().map(|pair| pair.1).collect();

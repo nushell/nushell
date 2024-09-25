@@ -29,22 +29,16 @@ pub enum Comparator {
 /// However, this is not always the case. For example, ints and floats will be grouped together since
 /// `Value`'s `PartialOrd` defines a non-decreasing ordering between non-decreasing integers and floats.
 pub fn sort(vec: &mut [Value], insensitive: bool, natural: bool) -> Result<(), ShellError> {
-    // to apply insensitive or natural sorting, all values must be strings
-    let string_sort: bool = vec
-        .iter()
-        .all(|value| matches!(value, &Value::String { .. }));
-
     // allow the comparator function to indicate error
     // by mutating this option captured by the closure,
     // since sort_by closure must be infallible
     let mut compare_err: Option<ShellError> = None;
 
     vec.sort_by(|a, b| {
-        crate::compare_values(a, b, insensitive && string_sort, natural && string_sort)
-            .unwrap_or_else(|err| {
-                compare_err.get_or_insert(err);
-                Ordering::Equal
-            })
+        crate::compare_values(a, b, insensitive, natural).unwrap_or_else(|err| {
+            compare_err.get_or_insert(err);
+            Ordering::Equal
+        })
     });
 
     if let Some(err) = compare_err {
@@ -73,18 +67,6 @@ pub fn sort_by(
         });
     }
 
-    // to apply insensitive or natural sorting, all values must be strings
-    let string_sort: bool = comparators.iter().all(|cmp| {
-        let Comparator::CellPath(cell_path) = cmp else {
-            // closures shouldn't affect whether cell paths are sorted naturally/insensitively
-            return true;
-        };
-        vec.iter().all(|value| {
-            let inner = value.clone().follow_cell_path(&cell_path.members, false);
-            matches!(inner, Ok(Value::String { .. }))
-        })
-    });
-
     // allow the comparator function to indicate error
     // by mutating this option captured by the closure,
     // since sort_by closure must be infallible
@@ -96,8 +78,8 @@ pub fn sort_by(
             b,
             &comparators,
             head_span,
-            insensitive && string_sort,
-            natural && string_sort,
+            insensitive,
+            natural,
             &mut compare_err,
         )
     });
@@ -185,13 +167,32 @@ pub fn compare_by(
     Ordering::Equal
 }
 
+/// Determines whether a value should be sorted as a string
+///
+/// If we're natural sorting, we want to sort strings, integers, and floats alphanumerically, so we should string sort.
+/// Otherwise, we only want to string sort if both values are strings (to enable case insensitive comparison)
+fn should_sort_as_string(val: &Value, natural: bool) -> bool {
+    match (val, natural) {
+        (&Value::String { .. }, _) => true,
+        (&Value::Int { .. }, true) => true,
+        (&Value::Float { .. }, true) => true,
+        _ => false,
+    }
+}
+
+/// Simple wrapper around `should_sort_as_string` to determine if two values
+/// should be compared as strings.
+fn should_string_compare(left: &Value, right: &Value, natural: bool) -> bool {
+    should_sort_as_string(left, natural) && should_sort_as_string(right, natural)
+}
+
 pub fn compare_values(
     left: &Value,
     right: &Value,
     insensitive: bool,
     natural: bool,
 ) -> Result<Ordering, ShellError> {
-    if insensitive || natural {
+    if should_string_compare(left, right, natural) {
         let left_str = left.coerce_string()?;
         let right_str = right.coerce_string()?;
         Ok(compare_strings(&left_str, &right_str, insensitive, natural))
