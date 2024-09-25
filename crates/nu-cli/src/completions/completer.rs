@@ -270,13 +270,12 @@ impl NuCompleter {
                                         fake_offset,
                                         pos,
                                     );
-                                } else if let Ok(true) = String::from_utf8(prev_expr_str).map(|x| {
-                                    x.ends_with('\"')
-                                        || x.ends_with('\'')
-                                        || x.parse::<f64>().is_ok()
-                                }) {
+                                } else if matches!(
+                                    previous_expr.1,
+                                    FlatShape::Float | FlatShape::Int | FlatShape::String
+                                ) {
                                     let mut completer =
-                                        OperatorCompletion::new(pipeline_element.expr.clone());
+                                        OperatorCompletion::new(previous_expr.1.clone());
 
                                     return self.process_completion(
                                         &mut completer,

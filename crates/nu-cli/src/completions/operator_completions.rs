@@ -1,8 +1,8 @@
 use crate::completions::{
     Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion, SuggestionKind,
 };
+use nu_parser::FlatShape;
 use nu_protocol::{
-    ast::*,
     engine::{Stack, StateWorkingSet},
     Span,
 };
@@ -10,12 +10,14 @@ use reedline::Suggestion;
 
 #[derive(Clone)]
 pub struct OperatorCompletion {
-    previous_expr: Expression,
+    previous_expr_shape: FlatShape,
 }
 
 impl OperatorCompletion {
-    pub fn new(previous_expr: Expression) -> Self {
-        OperatorCompletion { previous_expr }
+    pub fn new(previous_expr_shape: FlatShape) -> Self {
+        OperatorCompletion {
+            previous_expr_shape,
+        }
     }
 }
 
@@ -32,13 +34,10 @@ impl Completer for OperatorCompletion {
     ) -> Vec<SemanticSuggestion> {
         //Check if int, float, or string
         let partial = std::str::from_utf8(working_set.get_span_contents(span)).unwrap_or("");
-        match &self.previous_expr.expr {
-            Expr::BinaryOp(x, _, _) => match x.expr {
-                Expr::Int(_) => fetch_int_completions(span, offset, partial),
-                Expr::String(_) => fetch_str_completions(span, offset, partial),
-                Expr::Float(_) => fetch_float_completions(span, offset, partial),
-                _ => vec![],
-            },
+        match &self.previous_expr_shape {
+            FlatShape::Int => fetch_int_completions(span, offset, partial),
+            FlatShape::String => fetch_str_completions(span, offset, partial),
+            FlatShape::Float => fetch_float_completions(span, offset, partial),
             _ => vec![],
         }
     }
