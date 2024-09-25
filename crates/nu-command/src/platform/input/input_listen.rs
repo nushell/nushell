@@ -100,6 +100,7 @@ There are 4 `key_type` variants:
             // * [neovim text editor](https://github.com/neovim/neovim/pull/18181)
             // * [kakoune text editor](https://github.com/mawww/kakoune/issues/4103)
             // * [dte text editor](https://gitlab.com/craigbarnes/dte/-/issues/138)
+            //[ghostty terminal](https://github.com/ghostty-org/ghostty/pull/317)
             //
             // Refer to https://sw.kovidgoyal.net/kitty/keyboard-protocol/ if you're curious.
             let _ = execute!(
