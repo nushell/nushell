@@ -17,12 +17,16 @@ pub fn load_standard_library(
         let std_dir = PathBuf::from("std");
 
         let mut std_files = vec![
-            ("mod.nu", include_str!("../std/mod.nu")),
+            // Loaded at startup
             ("core", include_str!("../std/core.nu")),
+            // std module - Loads all commands and submodules
+            ("mod.nu", include_str!("../std/mod.nu")),
+            // Faster - Loads a subset of commands and submodules
+            ("prelude", include_str!("../std/prelude.nu")),
+            // std submodules
             ("assert", include_str!("../std/assert.nu")),
             ("bench", include_str!("../std/bench.nu")),
             ("dirs", include_str!("../std/dirs.nu")),
-            ("deprecated_dirs", include_str!("../std/deprecated_dirs.nu")),
             ("dt", include_str!("../std/dt.nu")),
             ("formats", include_str!("../std/formats.nu")),
             ("help", include_str!("../std/help.nu")),
@@ -32,6 +36,8 @@ pub fn load_standard_library(
             ("math", include_str!("../std/math.nu")),
             ("lib", include_str!("../std/lib.nu")),
             ("xml", include_str!("../std/xml.nu")),
+            // Remove in following release
+            ("deprecated_dirs", include_str!("../std/deprecated_dirs.nu")),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
