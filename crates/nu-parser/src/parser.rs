@@ -1170,7 +1170,7 @@ pub fn parse_internal_call(
                 end
             };
 
-            if spans[..end].is_empty() || spans_idx == end {
+            if spans[..end].is_empty() || spans_idx >= end {
                 working_set.error(ParseError::MissingPositional(
                     positional.name.clone(),
                     Span::new(spans[spans_idx].end, spans[spans_idx].end),
