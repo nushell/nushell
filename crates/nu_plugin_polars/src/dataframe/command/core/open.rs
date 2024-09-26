@@ -97,7 +97,7 @@ impl PluginCommand for OpenDataFrame {
                 r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
                 Some('s')
             )
-            .switch("truncate-ragged-lines", "Truncate ragged lines. CSV file", None)
+            .switch("truncate-ragged-lines", "Truncate lines that are longer than the schema. CSV file", None)
             .input_output_type(Type::Any, Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
