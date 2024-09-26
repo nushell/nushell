@@ -97,6 +97,7 @@ impl PluginCommand for OpenDataFrame {
                 r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
                 Some('s')
             )
+            .switch("truncate-ragged-lines", "Truncate ragged lines. CSV file", None)
             .input_output_type(Type::Any, Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
@@ -466,11 +467,11 @@ fn from_csv(
         .unwrap_or(DEFAULT_INFER_SCHEMA);
     let skip_rows: Option<usize> = call.get_flag("skip-rows")?;
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
-
     let maybe_schema = call
         .get_flag("schema")?
         .map(|schema| NuSchema::try_from(&schema))
         .transpose()?;
+    let truncate_ragged_lines: bool = call.has_flag("truncate-ragged-lines")?;
 
     if !call.has_flag("eager")? {
         let csv_reader = LazyCsvReader::new(file_path);
@@ -496,14 +497,11 @@ fn from_csv(
             }
         };
 
-        let csv_reader = csv_reader.with_has_header(!no_header);
-
-        let csv_reader = match maybe_schema {
-            Some(schema) => csv_reader.with_schema(Some(schema.into())),
-            None => csv_reader,
-        };
-
-        let csv_reader = csv_reader.with_infer_schema_length(Some(infer_schema));
+        let csv_reader = csv_reader
+            .with_has_header(!no_header)
+            .with_infer_schema_length(Some(infer_schema))
+            .with_schema(maybe_schema.map(Into::into))
+            .with_truncate_ragged_lines(truncate_ragged_lines);
 
         let csv_reader = match skip_rows {
             None => csv_reader,
@@ -542,6 +540,7 @@ fn from_csv(
                             .unwrap_or(b','),
                     )
                     .with_encoding(CsvEncoding::LossyUtf8)
+                    .with_truncate_ragged_lines(truncate_ragged_lines)
             })
             .try_into_reader_with_file_path(Some(file_path.to_path_buf()))
             .map_err(|e| ShellError::GenericError {
