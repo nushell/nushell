@@ -290,12 +290,12 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    // Explicitly set NU_USE_IR
+    // Explicitly set NU_DISABLE_IR
     if let Some(use_ir) = opts.use_ir {
-        if use_ir {
-            command.env("NU_USE_IR", "1");
+        if !use_ir {
+            command.env("NU_DISABLE_IR", "1");
         } else {
-            command.env_remove("NU_USE_IR");
+            command.env_remove("NU_DISABLE_IR");
         }
     }
 

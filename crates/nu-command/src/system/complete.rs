@@ -93,6 +93,6 @@ impl Command for Complete {
     }
 
     fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
-        (Some(OutDest::Capture), Some(OutDest::Capture))
+        (Some(OutDest::PipeSeparate), Some(OutDest::PipeSeparate))
     }
 }

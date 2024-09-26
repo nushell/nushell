@@ -26,8 +26,8 @@ pub(crate) fn run_commands(
     let mut stack = Stack::new();
     let start_time = std::time::Instant::now();
 
-    if stack.has_env_var(engine_state, "NU_USE_IR") {
-        stack.use_ir = true;
+    if stack.has_env_var(engine_state, "NU_DISABLE_IR") {
+        stack.use_ir = false;
     }
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
@@ -115,8 +115,8 @@ pub(crate) fn run_file(
     trace!("run_file");
     let mut stack = Stack::new();
 
-    if stack.has_env_var(engine_state, "NU_USE_IR") {
-        stack.use_ir = true;
+    if stack.has_env_var(engine_state, "NU_DISABLE_IR") {
+        stack.use_ir = false;
     }
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
@@ -184,8 +184,8 @@ pub(crate) fn run_repl(
     let mut stack = Stack::new();
     let start_time = std::time::Instant::now();
 
-    if stack.has_env_var(engine_state, "NU_USE_IR") {
-        stack.use_ir = true;
+    if stack.has_env_var(engine_state, "NU_DISABLE_IR") {
+        stack.use_ir = false;
     }
 
     if parsed_nu_cli_args.no_config_file.is_none() {

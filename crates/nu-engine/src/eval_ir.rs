@@ -246,6 +246,8 @@ fn prepare_error_handler(
 ) {
     if let Some(reg_id) = error_handler.error_register {
         if let Some(error) = error {
+            // Stack state has to be updated for stuff like LAST_EXIT_CODE
+            ctx.stack.set_last_error(&error.item);
             // Create the error value and put it in the register
             ctx.put_reg(
                 reg_id,
@@ -1412,7 +1414,8 @@ fn eval_redirection(
 ) -> Result<Option<Redirection>, ShellError> {
     match mode {
         RedirectMode::Pipe => Ok(Some(Redirection::Pipe(OutDest::Pipe))),
-        RedirectMode::Capture => Ok(Some(Redirection::Pipe(OutDest::Capture))),
+        RedirectMode::PipeSeparate => Ok(Some(Redirection::Pipe(OutDest::PipeSeparate))),
+        RedirectMode::Value => Ok(Some(Redirection::Pipe(OutDest::Value))),
         RedirectMode::Null => Ok(Some(Redirection::Pipe(OutDest::Null))),
         RedirectMode::Inherit => Ok(Some(Redirection::Pipe(OutDest::Inherit))),
         RedirectMode::File { file_num } => {

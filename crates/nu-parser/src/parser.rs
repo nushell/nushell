@@ -258,7 +258,6 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                 from: usize,
                 quote_char: u8,
                 escaped: bool,
-                depth: i32,
             },
         }
         // Find the spans of parts of the string that can be parsed as their own strings for
@@ -287,7 +286,6 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                             from: index,
                             quote_char: ch,
                             escaped: false,
-                            depth: 1,
                         };
                     }
                     b'$' => {
@@ -300,7 +298,6 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                                 from: index,
                                 quote_char,
                                 escaped: false,
-                                depth: 1,
                             };
                             // Skip over two chars (the dollar sign and the quote)
                             index += 2;
@@ -314,28 +311,12 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                     from,
                     quote_char,
                     escaped,
-                    depth,
                 } => match ch {
                     ch if ch == *quote_char && !*escaped => {
-                        // Count if there are more than `depth` quotes remaining
-                        if contents[index..]
-                            .iter()
-                            .filter(|b| *b == quote_char)
-                            .count() as i32
-                            > *depth
-                        {
-                            // Increment depth to be greedy
-                            *depth += 1;
-                        } else {
-                            // Decrement depth
-                            *depth -= 1;
-                        }
-                        if *depth == 0 {
-                            // End of string
-                            spans.push(make_span(*from, index + 1));
-                            // go back to Bare state
-                            state = State::Bare { from: index + 1 };
-                        }
+                        // quoted string ended, just make a new span for it.
+                        spans.push(make_span(*from, index + 1));
+                        // go back to Bare state.
+                        state = State::Bare { from: index + 1 };
                     }
                     b'\\' if !*escaped && *quote_char == b'"' => {
                         // The next token is escaped so it doesn't count (only for double quote)

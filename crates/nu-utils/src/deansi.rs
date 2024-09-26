@@ -54,7 +54,7 @@ pub fn strip_ansi_string_unlikely(string: String) -> String {
     if string
         .as_str()
         .bytes()
-        .any(|x| matches!(x, 0..=9 | 11..=31))
+        .any(|x| matches!(x, 0..=8 | 11..=31))
     {
         if let Ok(stripped) = String::from_utf8(strip_ansi_escapes::strip(&string)) {
             return stripped;

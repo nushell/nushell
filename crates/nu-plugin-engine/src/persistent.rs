@@ -353,7 +353,7 @@ impl GetPlugin for PersistentPlugin {
                     // We need the current environment variables for `python` based plugins. Or
                     // we'll likely have a problem when a plugin is implemented in a virtual Python
                     // environment.
-                    let stack = &mut stack.start_capture();
+                    let stack = &mut stack.start_collect_value();
                     nu_engine::env::env_to_strings(engine_state, stack)
                 })
                 .transpose()?;

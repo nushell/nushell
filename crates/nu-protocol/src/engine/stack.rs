@@ -1,7 +1,7 @@
 use crate::{
     engine::{
         ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
-        StackCaptureGuard, StackIoGuard, StackOutDest, DEFAULT_OVERLAY_NAME,
+        StackCollectValueGuard, StackIoGuard, StackOutDest, DEFAULT_OVERLAY_NAME,
     },
     Config, OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
@@ -68,7 +68,7 @@ impl Stack {
     /// stdout and stderr will be set to [`OutDest::Inherit`]. So, if the last command is an external command,
     /// then its output will be forwarded to the terminal/stdio streams.
     ///
-    /// Use [`Stack::capture`] afterwards if you need to evaluate an expression to a [`Value`]
+    /// Use [`Stack::collect_value`] afterwards if you need to evaluate an expression to a [`Value`]
     /// (as opposed to a [`PipelineData`](crate::PipelineData)).
     pub fn new() -> Self {
         Self {
@@ -78,7 +78,7 @@ impl Stack {
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            use_ir: false,
+            use_ir: true,
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
@@ -299,7 +299,8 @@ impl Stack {
     }
 
     pub fn captures_to_stack(&self, captures: Vec<(VarId, Value)>) -> Stack {
-        self.captures_to_stack_preserve_out_dest(captures).capture()
+        self.captures_to_stack_preserve_out_dest(captures)
+            .collect_value()
     }
 
     pub fn captures_to_stack_preserve_out_dest(&self, captures: Vec<(VarId, Value)>) -> Stack {
@@ -589,11 +590,11 @@ impl Stack {
         self.out_dest.pipe_stderr.as_ref()
     }
 
-    /// Temporarily set the pipe stdout redirection to [`OutDest::Capture`].
+    /// Temporarily set the pipe stdout redirection to [`OutDest::Value`].
     ///
     /// This is used before evaluating an expression into a `Value`.
-    pub fn start_capture(&mut self) -> StackCaptureGuard {
-        StackCaptureGuard::new(self)
+    pub fn start_collect_value(&mut self) -> StackCollectValueGuard {
+        StackCollectValueGuard::new(self)
     }
 
     /// Temporarily use the output redirections in the parent scope.
@@ -612,14 +613,14 @@ impl Stack {
         StackIoGuard::new(self, stdout, stderr)
     }
 
-    /// Mark stdout for the last command as [`OutDest::Capture`].
+    /// Mark stdout for the last command as [`OutDest::Value`].
     ///
     /// This will irreversibly alter the output redirections, and so it only makes sense to use this on an owned `Stack`
     /// (which is why this function does not take `&mut self`).
     ///
-    /// See [`Stack::start_capture`] which can temporarily set stdout as [`OutDest::Capture`] for a mutable `Stack` reference.
-    pub fn capture(mut self) -> Self {
-        self.out_dest.pipe_stdout = Some(OutDest::Capture);
+    /// See [`Stack::start_collect_value`] which can temporarily set stdout as [`OutDest::Value`] for a mutable `Stack` reference.
+    pub fn collect_value(mut self) -> Self {
+        self.out_dest.pipe_stdout = Some(OutDest::Value);
         self.out_dest.pipe_stderr = None;
         self
     }

@@ -158,7 +158,7 @@ use it in your pipeline."#
                             let tee_thread = spawn_tee(info.clone(), eval_block)?;
                             let tee = IoTee::new(stderr, tee_thread);
                             match stack.stderr() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stderr = Some(ChildPipe::Tee(Box::new(tee)));
                                     Ok(None)
                                 }
@@ -176,7 +176,7 @@ use it in your pipeline."#
 
                         if let Some(stdout) = child.stdout.take() {
                             match stack.stdout() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stdout = Some(stdout);
                                     Ok(())
                                 }
@@ -191,7 +191,7 @@ use it in your pipeline."#
                         let stderr_thread = if let Some(stderr) = child.stderr.take() {
                             let info = info.clone();
                             match stack.stderr() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stderr = Some(stderr);
                                     Ok(None)
                                 }
@@ -213,7 +213,7 @@ use it in your pipeline."#
                             let tee_thread = spawn_tee(info.clone(), eval_block)?;
                             let tee = IoTee::new(stdout, tee_thread);
                             match stack.stdout() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stdout = Some(ChildPipe::Tee(Box::new(tee)));
                                     Ok(())
                                 }
@@ -280,7 +280,7 @@ use it in your pipeline."#
     }
 
     fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
-        (Some(OutDest::Capture), Some(OutDest::Capture))
+        (Some(OutDest::PipeSeparate), Some(OutDest::PipeSeparate))
     }
 }
 
