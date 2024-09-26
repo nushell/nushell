@@ -1,8 +1,8 @@
 use crate::completions::{
     Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion, SuggestionKind,
 };
-use nu_parser::FlatShape;
 use nu_protocol::{
+    ast::{Expr, Expression},
     engine::{Stack, StateWorkingSet},
     Span,
 };
@@ -10,14 +10,12 @@ use reedline::Suggestion;
 
 #[derive(Clone)]
 pub struct OperatorCompletion {
-    previous_expr_shape: FlatShape,
+    previous_expr: Expression,
 }
 
 impl OperatorCompletion {
-    pub fn new(previous_expr_shape: FlatShape) -> Self {
-        OperatorCompletion {
-            previous_expr_shape,
-        }
+    pub fn new(previous_expr: Expression) -> Self {
+        OperatorCompletion { previous_expr }
     }
 }
 
@@ -34,8 +32,14 @@ impl Completer for OperatorCompletion {
     ) -> Vec<SemanticSuggestion> {
         //Check if int, float, or string
         let partial = std::str::from_utf8(working_set.get_span_contents(span)).unwrap_or("");
-        let possible_operations = match &self.previous_expr_shape {
-            FlatShape::Int => vec![
+        let op = match &self.previous_expr.expr {
+            Expr::BinaryOp(x, _, _) => &x.expr,
+            _ => {
+                return vec![];
+            }
+        };
+        let possible_operations = match op {
+            Expr::Int(_) => vec![
                 ("+", "Plus / Addition"),
                 ("-", "Minus / Subtraction"),
                 ("*", "Multiply"),
@@ -55,7 +59,7 @@ impl Completer for OperatorCompletion {
                 ("bit-shl", "bitwise shift left"),
                 ("bit-shr", "bitwise shift right"),
             ],
-            FlatShape::String => vec![
+            Expr::String(_) => vec![
                 ("=~", "Regex Match / Contains"),
                 ("!~", "Not Regex Match / Not Contains"),
                 ("in", "In / Contains (doesn't use regex)"),
@@ -67,12 +71,12 @@ impl Completer for OperatorCompletion {
                 ("starts-with", "Starts With"),
                 ("ends-with", "Ends With"),
             ],
-            FlatShape::Float => vec![
+            Expr::Float(_) => vec![
                 ("+", "Plus / Addition"),
                 ("-", "Minus / Subtraction"),
                 ("*", "Multiply"),
                 ("/", "Divide"),
-                ("=", "Equal"),
+                ("==", "Equal"),
                 ("!=", "Not Equal"),
                 ("//", "Floor Division"),
                 ("<", "Less Than"),
@@ -82,17 +86,17 @@ impl Completer for OperatorCompletion {
                 ("mod", "Modulo"),
                 ("**", "Pow"),
             ],
-            FlatShape::Bool => vec![
+            Expr::Bool(_) => vec![
                 ("and", "Checks if both values are true."),
                 ("or", "Checks if either value is true."),
                 ("xor", "Checks if one value is true and the other is false."),
                 ("not", "Negates a value or expression."),
             ],
-            FlatShape::List => vec![(
+            Expr::FullCellPath(x) if matches!(x.head.expr, Expr::List(_)) => vec![(
                 "++",
                 "Appends two lists, a list and a value, two strings, or two binary values",
             )],
-            FlatShape::Variable(_) => vec![
+            Expr::Var(_) => vec![
                 ("=", "Assigns a value to a variable."),
                 ("+=", "Adds a value to a variable."),
                 (
@@ -105,6 +109,7 @@ impl Completer for OperatorCompletion {
             ],
             _ => vec![],
         };
+
         let match_algorithm = MatchAlgorithm::Prefix;
         let input_fuzzy_search =
             |(operator, _): &(&str, &str)| match_algorithm.matches_str(operator, partial);

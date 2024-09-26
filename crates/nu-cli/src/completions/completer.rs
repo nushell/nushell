@@ -280,7 +280,7 @@ impl NuCompleter {
                                         | FlatShape::Variable(_)
                                 ) {
                                     let mut completer =
-                                        OperatorCompletion::new(previous_expr.1.clone());
+                                        OperatorCompletion::new(pipeline_element.expr.clone());
 
                                     return self.process_completion(
                                         &mut completer,
