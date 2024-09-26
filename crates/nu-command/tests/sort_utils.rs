@@ -81,11 +81,11 @@ fn test_sort_natural_basic() {
         Value::test_string("foo1"),
         Value::test_string("foo100"),
         Value::test_string("foo10"),
-        Value::test_string("bar99"),
-        Value::test_string("bar9"),
-        Value::test_string("bar1"),
-        Value::test_string("bar100"),
-        Value::test_string("bar10"),
+        Value::test_string("1"),
+        Value::test_string("10"),
+        Value::test_string("100"),
+        Value::test_string("9"),
+        Value::test_string("99"),
     ];
 
     assert!(sort(&mut list, false, false).is_ok());
@@ -97,6 +97,11 @@ fn test_sort_natural_basic() {
             Value::test_string("100"),
             Value::test_string("9"),
             Value::test_string("99"),
+            Value::test_string("foo1"),
+            Value::test_string("foo10"),
+            Value::test_string("foo100"),
+            Value::test_string("foo9"),
+            Value::test_string("foo99"),
         ]
     );
 
@@ -109,6 +114,11 @@ fn test_sort_natural_basic() {
             Value::test_string("10"),
             Value::test_string("99"),
             Value::test_string("100"),
+            Value::test_string("foo1"),
+            Value::test_string("foo9"),
+            Value::test_string("foo10"),
+            Value::test_string("foo99"),
+            Value::test_string("foo100"),
         ]
     );
 }

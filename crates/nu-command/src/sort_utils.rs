@@ -172,12 +172,10 @@ pub fn compare_by(
 /// If we're natural sorting, we want to sort strings, integers, and floats alphanumerically, so we should string sort.
 /// Otherwise, we only want to string sort if both values are strings (to enable case insensitive comparison)
 fn should_sort_as_string(val: &Value, natural: bool) -> bool {
-    match (val, natural) {
-        (&Value::String { .. }, _) => true,
-        (&Value::Int { .. }, true) => true,
-        (&Value::Float { .. }, true) => true,
-        _ => false,
-    }
+    matches!(
+        (val, natural),
+        (&Value::String { .. }, _) | (&Value::Int { .. }, true) | (&Value::Float { .. }, true)
+    )
 }
 
 /// Simple wrapper around `should_sort_as_string` to determine if two values
