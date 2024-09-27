@@ -522,27 +522,6 @@ impl Signature {
         total
     }
 
-    pub fn num_positionals_after(&self, idx: usize) -> usize {
-        let mut total = 0;
-
-        for (curr, positional) in self.required_positional.iter().enumerate() {
-            match positional.shape {
-                SyntaxShape::Keyword(..) => {
-                    // Keywords have a required argument, so account for that
-                    if curr > idx {
-                        total += 2;
-                    }
-                }
-                _ => {
-                    if curr > idx {
-                        total += 1;
-                    }
-                }
-            }
-        }
-        total
-    }
-
     /// Find the matching long flag
     pub fn get_long_flag(&self, name: &str) -> Option<Flag> {
         for flag in &self.named {
