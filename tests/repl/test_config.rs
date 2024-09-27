@@ -151,7 +151,7 @@ fn mutate_nu_config_plugin_gc_default_stop_after_negative() -> TestResult {
             $env.config.plugin_gc.default.stop_after = -1sec
             $env.config.plugin_gc.default.stop_after
         "#,
-        "Invalid value",
+        "expected a non-negative duration",
     )
 }
 
