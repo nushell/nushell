@@ -280,7 +280,7 @@ impl fmt::Display for FmtDecl<'_> {
     }
 }
 
-struct FmtVar<'a>(DeclId, Option<&'a str>);
+struct FmtVar<'a>(VarId, Option<&'a str>);
 
 impl<'a> FmtVar<'a> {
     fn new(engine_state: &'a EngineState, var_id: VarId) -> Self {
@@ -290,7 +290,7 @@ impl<'a> FmtVar<'a> {
             .flat_map(|overlay| overlay.vars.iter())
             .find(|(_, v)| **v == var_id)
             .map(|(k, _)| std::str::from_utf8(k).unwrap_or("<utf-8 error>"));
-        FmtVar(var_id.cast(), name)
+        FmtVar(var_id, name)
     }
 }
 
