@@ -734,22 +734,23 @@ fn calculate_end_span(
             // keywords, they get to set this by being present
 
             let positionals_between = kw_pos - positional_idx - 1;
-            if positionals_between > (kw_idx - spans_idx) {
+            if positionals_between >= (kw_idx - spans_idx) {
                 kw_idx
             } else {
                 kw_idx - positionals_between
             }
         } else {
             // Make space for the remaining require positionals, if we can
-            if signature.num_positionals_after(positional_idx) == 0 {
-                spans.len()
-            } else if positional_idx < signature.required_positional.len()
-                && spans.len() > (signature.required_positional.len() - positional_idx)
-            {
-                spans.len() - (signature.required_positional.len() - positional_idx - 1)
-            } else {
-                spans_idx + 1
-            }
+            // spans_idx < spans.len() is an invariant
+            let remaining_spans = spans.len() - (spans_idx + 1);
+            // positional_idx can be larger than required_positional.len() if we have optional args
+            let remaining_positional = signature
+                .required_positional
+                .len()
+                .saturating_sub(positional_idx + 1);
+            // Saturates to 0 when we have too few args
+            let extra_spans = remaining_spans.saturating_sub(remaining_positional);
+            spans_idx + 1 + extra_spans
         }
     }
 }
@@ -1164,11 +1165,24 @@ pub fn parse_internal_call(
         if let Some(positional) = signature.get_positional(positional_idx) {
             let end = calculate_end_span(working_set, &signature, spans, spans_idx, positional_idx);
 
-            let end = if spans.len() > spans_idx && end == spans_idx {
-                end + 1
-            } else {
-                end
-            };
+            // Missing arguments before next keyword
+            if end == spans_idx {
+                let prev_span = if spans_idx == 0 {
+                    command_span
+                } else {
+                    spans[spans_idx - 1]
+                };
+                let whitespace_span = Span::new(prev_span.end, spans[spans_idx].start);
+                working_set.error(ParseError::MissingPositional(
+                    positional.name.clone(),
+                    whitespace_span,
+                    signature.call_signature(),
+                ));
+                call.add_positional(Expression::garbage(working_set, whitespace_span));
+                positional_idx += 1;
+                continue;
+            }
+            debug_assert!(end <= spans.len());
 
             if spans[..end].is_empty() || spans_idx == end {
                 working_set.error(ParseError::MissingPositional(
