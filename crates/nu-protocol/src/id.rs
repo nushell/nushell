@@ -51,6 +51,7 @@ impl ModuleId {
     /// Reinterprets a `ModuleId` as a `BlockId`.
     ///
     /// The `Expr::Overlay` requires a `BlockId`, but when we call it, we only have the `ModuleId`.
+    #[inline]
     pub const fn into_block_id(self) -> BlockId {
         BlockId {
             inner: self.inner,
