@@ -1,8 +1,6 @@
-use std::fmt;
-
-use crate::{ast::Pattern, engine::EngineState, DeclId, VarId};
-
 use super::{DataSlice, Instruction, IrBlock, Literal, RedirectMode};
+use crate::{ast::Pattern, engine::EngineState, DeclId, VarId};
+use std::fmt::{self};
 
 pub struct FmtIrBlock<'a> {
     pub(super) engine_state: &'a EngineState,
@@ -93,6 +91,9 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             }
             Instruction::Drain { src } => {
                 write!(f, "{:WIDTH$} {src}", "drain")
+            }
+            Instruction::WriteToOutDests { src } => {
+                write!(f, "{:WIDTH$} {src}", "write-to-out-dests")
             }
             Instruction::LoadVariable { dst, var_id } => {
                 let var = FmtVar::new(self.engine_state, *var_id);
@@ -307,7 +308,8 @@ impl fmt::Display for RedirectMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RedirectMode::Pipe => write!(f, "pipe"),
-            RedirectMode::Capture => write!(f, "capture"),
+            RedirectMode::PipeSeparate => write!(f, "pipe separate"),
+            RedirectMode::Value => write!(f, "value"),
             RedirectMode::Null => write!(f, "null"),
             RedirectMode::Inherit => write!(f, "inherit"),
             RedirectMode::File { file_num } => write!(f, "file({file_num})"),

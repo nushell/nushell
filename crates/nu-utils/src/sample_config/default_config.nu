@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.97.2"
+# version = "0.98.1"
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -756,7 +756,7 @@ $env.config = {
             modifier: control
             keycode: char_k
             mode: emacs
-            event: { edit: cuttoend }
+            event: { edit: cuttolineend }
         }
         {
             name: cut_line_from_start

@@ -167,8 +167,8 @@ impl PipelineData {
 
     /// Writes all values or redirects all output to the current [`OutDest`]s in `stack`.
     ///
-    /// For [`OutDest::Pipe`] and [`OutDest::Capture`], this will return the `PipelineData` as is
-    /// without consuming input and without writing anything.
+    /// For [`OutDest::Pipe`] and [`OutDest::PipeSeparate`], this will return the `PipelineData` as
+    /// is without consuming input and without writing anything.
     ///
     /// For the other [`OutDest`]s, the given `PipelineData` will be completely consumed
     /// and `PipelineData::Empty` will be returned (assuming no errors).
@@ -178,11 +178,18 @@ impl PipelineData {
         stack: &mut Stack,
     ) -> Result<PipelineData, ShellError> {
         match (self, stack.stdout()) {
-            (data, OutDest::Pipe | OutDest::Capture) => return Ok(data),
+            (PipelineData::Empty, ..) => {}
+            (data, OutDest::Pipe | OutDest::PipeSeparate) => return Ok(data),
+            (data, OutDest::Value) => {
+                let metadata = data.metadata();
+                let span = data.span().unwrap_or(Span::unknown());
+                return data
+                    .into_value(span)
+                    .map(|val| PipelineData::Value(val, metadata));
+            }
             (PipelineData::ByteStream(stream, ..), stdout) => {
                 stream.write_to_out_dests(stdout, stack.stderr())?;
             }
-            (PipelineData::Empty, ..) => {}
             (PipelineData::Value(..), OutDest::Null) => {}
             (PipelineData::ListStream(stream, ..), OutDest::Null) => {
                 // we need to drain the stream in case there are external commands in the pipeline

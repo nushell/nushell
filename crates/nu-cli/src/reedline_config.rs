@@ -122,7 +122,7 @@ pub(crate) fn add_menus(
 
             engine_state.merge_delta(delta)?;
 
-            let mut temp_stack = Stack::new().capture();
+            let mut temp_stack = Stack::new().collect_value();
             let input = PipelineData::Empty;
             menu_eval_results.push(eval_block::<WithoutDebug>(
                 &engine_state,
@@ -761,28 +761,29 @@ fn add_parsed_keybinding(
     keybinding: &ParsedKeybinding,
     config: &Config,
 ) -> Result<(), ShellError> {
-    let modifier = match keybinding
+    let modifier_string = keybinding
         .modifier
         .to_expanded_string("", config)
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "control" => KeyModifiers::CONTROL,
-        "shift" => KeyModifiers::SHIFT,
-        "alt" => KeyModifiers::ALT,
-        "none" => KeyModifiers::NONE,
-        "shift_alt" | "alt_shift" => KeyModifiers::SHIFT | KeyModifiers::ALT,
-        "control_shift" | "shift_control" => KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-        "control_alt" | "alt_control" => KeyModifiers::CONTROL | KeyModifiers::ALT,
-        "control_alt_shift" | "control_shift_alt" => {
-            KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SHIFT
-        }
-        _ => {
-            return Err(ShellError::UnsupportedConfigValue {
-                expected: "CONTROL, SHIFT, ALT or NONE".to_string(),
-                value: keybinding.modifier.to_abbreviated_string(config),
-                span: keybinding.modifier.span(),
-            })
+        .to_ascii_lowercase();
+
+    let mut modifier = KeyModifiers::NONE;
+    if modifier_string != "none" {
+        for part in modifier_string.split('_') {
+            match part {
+                "control" => modifier |= KeyModifiers::CONTROL,
+                "shift" => modifier |= KeyModifiers::SHIFT,
+                "alt" => modifier |= KeyModifiers::ALT,
+                "super" => modifier |= KeyModifiers::SUPER,
+                "hyper" => modifier |= KeyModifiers::HYPER,
+                "meta" => modifier |= KeyModifiers::META,
+                _ => {
+                    return Err(ShellError::UnsupportedConfigValue {
+                        expected: "CONTROL, SHIFT, ALT, SUPER, HYPER, META or NONE".to_string(),
+                        value: keybinding.modifier.to_abbreviated_string(config),
+                        span: keybinding.modifier.span(),
+                    })
+                }
+            }
         }
     };
 

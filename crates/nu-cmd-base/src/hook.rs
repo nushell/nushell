@@ -1,4 +1,3 @@
-use crate::util::get_guaranteed_cwd;
 use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
@@ -284,8 +283,7 @@ pub fn eval_hook(
         }
     }
 
-    let cwd = get_guaranteed_cwd(engine_state, stack);
-    engine_state.merge_env(stack, cwd)?;
+    engine_state.merge_env(stack)?;
 
     Ok(output)
 }

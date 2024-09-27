@@ -66,9 +66,11 @@ impl PluginCommand for LazyQuantile {
             Example {
                 description: "Quantile aggregation for a group-by",
                 example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | polars into-df
-    | polars group-by a
-    | polars agg (polars col b | polars quantile 0.5)"#,
+                    | polars into-df
+                    | polars group-by a
+                    | polars agg (polars col b | polars quantile 0.5)
+                    | polars collect
+                    | polars sort-by a"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

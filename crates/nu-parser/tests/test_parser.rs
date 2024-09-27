@@ -996,6 +996,31 @@ pub fn test_external_call_head_interpolated_string(
     r"foo\external call",
     "backtick quote with backslash"
 )]
+#[case(
+    r#"^foo --flag="value""#,
+    r#"--flag=value"#,
+    "flag value with double quote"
+)]
+#[case(
+    r#"^foo --flag='value'"#,
+    r#"--flag=value"#,
+    "flag value with single quote"
+)]
+#[case(
+    r#"^foo {a:1,b:'c',c:'d'}"#,
+    r#"{a:1,b:c,c:d}"#,
+    "value with many inner single quotes"
+)]
+#[case(
+    r#"^foo {a:1,b:"c",c:"d"}"#,
+    r#"{a:1,b:c,c:d}"#,
+    "value with many double quotes"
+)]
+#[case(
+    r#"^foo {a:1,b:'c',c:"d"}"#,
+    r#"{a:1,b:c,c:d}"#,
+    "value with single quote and double quote"
+)]
 pub fn test_external_call_arg_glob(#[case] input: &str, #[case] expected: &str, #[case] tag: &str) {
     test_external_call(input, tag, |name, args| {
         match &name.expr {

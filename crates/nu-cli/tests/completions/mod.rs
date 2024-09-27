@@ -18,11 +18,11 @@ use support::{
 #[fixture]
 fn completer() -> NuCompleter {
     // Create a new engine
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Add record value as example
     let record = "def tst [--mod -s] {}";
-    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
@@ -31,11 +31,12 @@ fn completer() -> NuCompleter {
 #[fixture]
 fn completer_strings() -> NuCompleter {
     // Create a new engine
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
+
     // Add record value as example
     let record = r#"def animals [] { ["cat", "dog", "eel" ] }
     def my-command [animal: string@animals] { print $animal }"#;
-    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
@@ -44,7 +45,7 @@ fn completer_strings() -> NuCompleter {
 #[fixture]
 fn extern_completer() -> NuCompleter {
     // Create a new engine
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Add record value as example
     let record = r#"
@@ -55,7 +56,7 @@ fn extern_completer() -> NuCompleter {
             -b: string@animals
         ]
     "#;
-    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
@@ -64,7 +65,7 @@ fn extern_completer() -> NuCompleter {
 #[fixture]
 fn completer_strings_with_options() -> NuCompleter {
     // Create a new engine
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
     // Add record value as example
     let record = r#"
         # To test that the config setting has no effect on the custom completions
@@ -81,7 +82,7 @@ fn completer_strings_with_options() -> NuCompleter {
             }
         }
         def my-command [animal: string@animals] { print $animal }"#;
-    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
@@ -90,7 +91,7 @@ fn completer_strings_with_options() -> NuCompleter {
 #[fixture]
 fn custom_completer() -> NuCompleter {
     // Create a new engine
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Add record value as example
     let record = r#"
@@ -104,7 +105,7 @@ fn custom_completer() -> NuCompleter {
             completer: $external_completer
         }
     "#;
-    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
@@ -113,7 +114,7 @@ fn custom_completer() -> NuCompleter {
 #[fixture]
 fn subcommand_completer() -> NuCompleter {
     // Create a new engine
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     let commands = r#"
             $env.config.completions.algorithm = "fuzzy"
@@ -123,7 +124,7 @@ fn subcommand_completer() -> NuCompleter {
             def "foo aabcrr" [] {}
             def food [] {}
         "#;
-    assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
@@ -133,13 +134,13 @@ fn subcommand_completer() -> NuCompleter {
 #[fixture]
 fn fuzzy_alpha_sort_completer() -> NuCompleter {
     // Create a new engine
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     let config = r#"
         $env.config.completions.algorithm = "fuzzy"
         $env.config.completions.sort = "alphabetical"
     "#;
-    assert!(support::merge_input(config.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(config.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
@@ -339,7 +340,7 @@ fn file_completions() {
     match_suggestions(&expected_paths, &suggestions);
 
     // Test completions for hidden files
-    let target_dir = format!("ls {}{MAIN_SEPARATOR}.", folder(dir.join(".hidden_folder")));
+    let target_dir = format!("ls {}", file(dir.join(".hidden_folder").join(".")));
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     let expected_paths: Vec<String> =
@@ -558,6 +559,58 @@ fn partial_completions() {
     let expected_paths: Vec<String> = vec![
         file(dir.join("partial-a").join("have_ext.exe")),
         file(dir.join("partial-a").join("have_ext.txt")),
+    ];
+
+    // Match the results
+    match_suggestions(&expected_paths, &suggestions);
+}
+
+#[test]
+fn partial_completion_with_dot_expansions() {
+    let (dir, _, engine, stack) = new_partial_engine();
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let dir_str = file(
+        dir.join("par")
+            .join("...")
+            .join("par")
+            .join("fi")
+            .join("so"),
+    );
+    let target_dir = format!("rm {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        file(
+            dir.join("partial")
+                .join("...")
+                .join("partial_completions")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+        file(
+            dir.join("partial-a")
+                .join("...")
+                .join("partial_completions")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+        file(
+            dir.join("partial-b")
+                .join("...")
+                .join("partial_completions")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+        file(
+            dir.join("partial-c")
+                .join("...")
+                .join("partial_completions")
+                .join("final_partial")
+                .join("somefile"),
+        ),
     ];
 
     // Match the results
@@ -890,7 +943,7 @@ fn flag_completions() {
     // Test completions for the 'ls' flags
     let suggestions = completer.complete("ls -", 4);
 
-    assert_eq!(16, suggestions.len());
+    assert_eq!(18, suggestions.len());
 
     let expected: Vec<String> = vec![
         "--all".into(),
@@ -901,6 +954,7 @@ fn flag_completions() {
         "--long".into(),
         "--mime-type".into(),
         "--short-names".into(),
+        "--threads".into(),
         "-D".into(),
         "-a".into(),
         "-d".into(),
@@ -909,6 +963,7 @@ fn flag_completions() {
         "-l".into(),
         "-m".into(),
         "-s".into(),
+        "-t".into(),
     ];
 
     // Match results
@@ -954,13 +1009,199 @@ fn folder_with_directorycompletions() {
 }
 
 #[test]
+fn folder_with_directorycompletions_with_dots() {
+    // Create a new engine
+    let (dir, _, engine, stack) = new_engine();
+    let dir_str = dir
+        .join("directory_completion")
+        .join("folder_inside_folder")
+        .into_os_string()
+        .into_string()
+        .unwrap();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // Test completions for the current folder
+    let target_dir = format!("cd {dir_str}{MAIN_SEPARATOR}..{MAIN_SEPARATOR}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![folder(
+        dir.join("directory_completion")
+            .join("folder_inside_folder")
+            .join("..")
+            .join("folder_inside_folder"),
+    )];
+
+    #[cfg(windows)]
+    {
+        let target_dir = format!("cd {dir_str}/../");
+        let slash_suggestions = completer.complete(&target_dir, target_dir.len());
+
+        let expected_slash_paths: Vec<String> = expected_paths
+            .iter()
+            .map(|s| s.replace('\\', "/"))
+            .collect();
+
+        match_suggestions(&expected_slash_paths, &slash_suggestions);
+    }
+
+    // Match the results
+    match_suggestions(&expected_paths, &suggestions);
+}
+
+#[test]
+fn folder_with_directorycompletions_with_three_trailing_dots() {
+    // Create a new engine
+    let (dir, _, engine, stack) = new_engine();
+    let dir_str = dir
+        .join("directory_completion")
+        .join("folder_inside_folder")
+        .into_os_string()
+        .into_string()
+        .unwrap();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // Test completions for the current folder
+    let target_dir = format!("cd {dir_str}{MAIN_SEPARATOR}...{MAIN_SEPARATOR}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("...")
+                .join("another"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("...")
+                .join("directory_completion"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("...")
+                .join("test_a"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("...")
+                .join("test_b"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("...")
+                .join(".hidden_folder"),
+        ),
+    ];
+
+    #[cfg(windows)]
+    {
+        let target_dir = format!("cd {dir_str}/.../");
+        let slash_suggestions = completer.complete(&target_dir, target_dir.len());
+
+        let expected_slash_paths: Vec<String> = expected_paths
+            .iter()
+            .map(|s| s.replace('\\', "/"))
+            .collect();
+
+        match_suggestions(&expected_slash_paths, &slash_suggestions);
+    }
+
+    // Match the results
+    match_suggestions(&expected_paths, &suggestions);
+}
+
+#[test]
+fn folder_with_directorycompletions_do_not_collapse_dots() {
+    // Create a new engine
+    let (dir, _, engine, stack) = new_engine();
+    let dir_str = dir
+        .join("directory_completion")
+        .join("folder_inside_folder")
+        .into_os_string()
+        .into_string()
+        .unwrap();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // Test completions for the current folder
+    let target_dir = format!("cd {dir_str}{MAIN_SEPARATOR}..{MAIN_SEPARATOR}..{MAIN_SEPARATOR}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join("another"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join("directory_completion"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join("test_a"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join("test_b"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join(".hidden_folder"),
+        ),
+    ];
+
+    #[cfg(windows)]
+    {
+        let target_dir = format!("cd {dir_str}/../../");
+        let slash_suggestions = completer.complete(&target_dir, target_dir.len());
+
+        let expected_slash_paths: Vec<String> = expected_paths
+            .iter()
+            .map(|s| s.replace('\\', "/"))
+            .collect();
+
+        match_suggestions(&expected_slash_paths, &slash_suggestions);
+    }
+
+    // Match the results
+    match_suggestions(&expected_paths, &suggestions);
+}
+
+#[test]
 fn variables_completions() {
     // Create a new engine
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Add record value as example
     let record = "let actor = { name: 'Tom Hardy', age: 44 }";
-    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -1071,11 +1312,11 @@ fn variables_completions() {
 
 #[test]
 fn alias_of_command_and_flags() {
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
     let alias = r#"alias ll = ls -l"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -1090,11 +1331,11 @@ fn alias_of_command_and_flags() {
 
 #[test]
 fn alias_of_basic_command() {
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
     let alias = r#"alias ll = ls "#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -1109,14 +1350,14 @@ fn alias_of_basic_command() {
 
 #[test]
 fn alias_of_another_alias() {
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
     let alias = r#"alias ll = ls -la"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
     // Create the second alias
     let alias = r#"alias lf = ll -f"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -1133,7 +1374,7 @@ fn run_external_completion(completer: &str, input: &str) -> Vec<Suggestion> {
     let completer = format!("$env.config.completions.external.completer = {completer}");
 
     // Create a new engine
-    let (dir, _, mut engine_state, mut stack) = new_engine();
+    let (_, _, mut engine_state, mut stack) = new_engine();
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let block = parse(&mut working_set, None, completer.as_bytes(), false);
@@ -1149,7 +1390,7 @@ fn run_external_completion(completer: &str, input: &str) -> Vec<Suggestion> {
     );
 
     // Merge environment into the permanent state
-    assert!(engine_state.merge_env(&mut stack, &dir).is_ok());
+    assert!(engine_state.merge_env(&mut stack).is_ok());
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine_state), Arc::new(stack));
@@ -1338,11 +1579,11 @@ fn sort_fuzzy_completions_in_alphabetical_order(mut fuzzy_alpha_sort_completer: 
 #[ignore = "was reverted, still needs fixing"]
 #[rstest]
 fn alias_offset_bug_7648() {
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
     let alias = r#"alias ea = ^$env.EDITOR /tmp/test.s"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -1357,11 +1598,11 @@ fn alias_offset_bug_7648() {
 #[ignore = "was reverted, still needs fixing"]
 #[rstest]
 fn alias_offset_bug_7754() {
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
     let alias = r#"alias ll = ls -l"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 

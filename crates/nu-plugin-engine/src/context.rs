@@ -190,8 +190,8 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
             .reset_pipes();
 
         let stack = &mut stack.push_redirection(
-            redirect_stdout.then_some(Redirection::Pipe(OutDest::Capture)),
-            redirect_stderr.then_some(Redirection::Pipe(OutDest::Capture)),
+            redirect_stdout.then_some(Redirection::Pipe(OutDest::PipeSeparate)),
+            redirect_stderr.then_some(Redirection::Pipe(OutDest::PipeSeparate)),
         );
 
         // Set up the positional arguments
@@ -239,8 +239,8 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
         let decl = self.engine_state.get_decl(decl_id);
 
         let stack = &mut self.stack.push_redirection(
-            redirect_stdout.then_some(Redirection::Pipe(OutDest::Capture)),
-            redirect_stderr.then_some(Redirection::Pipe(OutDest::Capture)),
+            redirect_stdout.then_some(Redirection::Pipe(OutDest::PipeSeparate)),
+            redirect_stderr.then_some(Redirection::Pipe(OutDest::PipeSeparate)),
         );
 
         let mut call_builder = ir::Call::build(decl_id, call.head);

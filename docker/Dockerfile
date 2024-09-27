@@ -7,15 +7,25 @@ FROM alpine
 
 LABEL maintainer=nushell
 
-RUN echo '/usr/bin/nu' >> /etc/shells \
+ARG TARGETARCH
+
+RUN set -eux; \
+    if [ "${TARGETARCH}" = "amd64" ] || [ "${TARGETARCH}" = "x86_64" ]; then \
+        echo "Downloading x86_64 binary for ${TARGETARCH}..."; \
+        arch_path="x86_64"; \
+    elif [ "${TARGETARCH}" = "arm64" ] || [ "${TARGETARCH}" = "aarch64"]; then \
+        echo "Downloading aarch64 binary for ${TARGETARCH}..."; \
+        arch_path="aarch64"; \
+    else \
+        arch_path=""; \
+    fi; \
+    echo '/usr/bin/nu' >> /etc/shells \
     && adduser -D -s /usr/bin/nu nushell \
     && mkdir -p /home/nushell/.config/nushell/ \
-    && wget -q https://raw.githubusercontent.com/nushell/nushell/main/crates/nu-utils/src/sample_config/default_config.nu -O /home/nushell/.config/nushell/config.nu \
-    && wget -q https://raw.githubusercontent.com/nushell/nushell/main/crates/nu-utils/src/sample_config/default_env.nu -O /home/nushell/.config/nushell/env.nu \
     && cd /tmp \
     && wget -qO - https://api.github.com/repos/nushell/nushell/releases/latest \
     | grep browser_download_url \
-    | grep musl.tar.gz \
+    | grep "${arch_path}.*.musl.tar.gz" \
     | cut -f4 -d '"' \
     | xargs -I{} wget {} \
     && tar -xzf nu* \
@@ -23,6 +33,8 @@ RUN echo '/usr/bin/nu' >> /etc/shells \
     && mv nu* /usr/bin \
     && chmod +x /usr/bin/nu \
     && chown -R nushell:nushell /home/nushell/.config/nushell \
+    # Reset Nushell config to default
+    && su -c 'config reset -w' nushell \
     && ls /usr/bin/nu_plugin* \
     | xargs -I{} su -c 'plugin add {}' nushell \
     && rm -rf /tmp/*

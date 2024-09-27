@@ -1,4 +1,7 @@
-use std::cmp::Ordering;
+use std::{
+    cmp::Ordering,
+    panic::{catch_unwind, AssertUnwindSafe},
+};
 
 use cache::cache_commands;
 pub use cache::{Cache, Cacheable};
@@ -209,6 +212,22 @@ impl Plugin for PolarsPlugin {
     }
 }
 
+pub(crate) fn handle_panic<F, R>(f: F, span: Span) -> Result<R, ShellError>
+where
+    F: FnOnce() -> Result<R, ShellError>,
+{
+    match catch_unwind(AssertUnwindSafe(f)) {
+        Ok(inner_result) => inner_result,
+        Err(_) => Err(ShellError::GenericError {
+            error: "Panic occurred".into(),
+            msg: "".into(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        }),
+    }
+}
+
 #[cfg(test)]
 pub mod test {
     use super::*;
@@ -267,13 +286,11 @@ pub mod test {
             }
         }
 
-        let mut plugin_test = PluginTest::new("polars", plugin.into())?;
+        let mut plugin_test = PluginTest::new(command.name(), plugin.into())?;
 
         for decl in decls {
             let _ = plugin_test.add_decl(decl)?;
         }
-        plugin_test.test_examples(&examples)?;
-
-        Ok(())
+        plugin_test.test_examples(&examples)
     }
 }

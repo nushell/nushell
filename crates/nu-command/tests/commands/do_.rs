@@ -73,3 +73,10 @@ fn run_closure_with_it_using() {
     assert!(actual.err.is_empty());
     assert_eq!(actual.out, "3");
 }
+
+#[test]
+fn waits_for_external() {
+    let actual = nu!(r#"do -p { nu -c 'sleep 1sec; print before; exit 1'}; print after"#);
+    assert!(actual.err.is_empty());
+    assert_eq!(actual.out, "beforeafter");
+}
