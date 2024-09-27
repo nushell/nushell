@@ -752,7 +752,13 @@ fn add_parsed_keybinding(
                 }
             }
         }
-    }
+    } else {
+        return Err(ShellError::RuntimeTypeMismatch {
+            expected: Type::String,
+            actual: keybinding.modifier.get_type(),
+            span: keybinding.modifier.span(),
+        });
+    };
 
     let keycode = if let Ok(keycode) = keybinding.keycode.as_str() {
         match keycode.to_ascii_lowercase().as_str() {
