@@ -36,7 +36,7 @@ impl<T> Id<T> {
 
 impl BlockId {
     /// Reinterprets a `BlockId` as a `ModuleId`.
-    /// 
+    ///
     /// This conversion is necessary as parsed blocks may be modules.
     #[inline]
     pub const fn into_module_id(self) -> ModuleId {
@@ -49,7 +49,7 @@ impl BlockId {
 
 impl ModuleId {
     /// Reinterprets a `ModuleId` as a `BlockId`.
-    /// 
+    ///
     /// The `Expr::Overlay` requires a `BlockId`, but when we call it, we only have the `ModuleId`.
     pub const fn into_block_id(self) -> BlockId {
         BlockId {
