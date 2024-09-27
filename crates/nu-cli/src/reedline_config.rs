@@ -730,33 +730,29 @@ fn add_parsed_keybinding(
     keybinding: &ParsedKeybinding,
     config: &Config,
 ) -> Result<(), ShellError> {
-    let modifier = if let Ok(modifier) = keybinding.modifier.as_str() {
-        match modifier.to_ascii_lowercase().as_str() {
-            "control" => KeyModifiers::CONTROL,
-            "shift" => KeyModifiers::SHIFT,
-            "alt" => KeyModifiers::ALT,
-            "none" => KeyModifiers::NONE,
-            "shift_alt" | "alt_shift" => KeyModifiers::SHIFT | KeyModifiers::ALT,
-            "control_shift" | "shift_control" => KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-            "control_alt" | "alt_control" => KeyModifiers::CONTROL | KeyModifiers::ALT,
-            "control_alt_shift" | "control_shift_alt" => {
-                KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SHIFT
-            }
-            str => {
-                return Err(ShellError::InvalidValue {
-                    valid: "'control', 'shift', 'alt', or 'none'".into(),
-                    actual: format!("'{str}'"),
-                    span: keybinding.modifier.span(),
-                });
+    let mut modifier = KeyModifiers::NONE;
+    if let Ok(str) = keybinding.modifier.as_str().map(str::to_ascii_lowercase) {
+        if str != "none" {
+            for part in str.split('_') {
+                match part {
+                    "control" => modifier |= KeyModifiers::CONTROL,
+                    "shift" => modifier |= KeyModifiers::SHIFT,
+                    "alt" => modifier |= KeyModifiers::ALT,
+                    "super" => modifier |= KeyModifiers::SUPER,
+                    "hyper" => modifier |= KeyModifiers::HYPER,
+                    "meta" => modifier |= KeyModifiers::META,
+                    str => {
+                        return Err(ShellError::InvalidValue {
+                            valid: "'control', 'shift', 'alt', 'super', 'hyper', 'meta', or 'none'"
+                                .into(),
+                            actual: format!("'{str}'"),
+                            span: keybinding.modifier.span(),
+                        });
+                    }
+                }
             }
         }
-    } else {
-        return Err(ShellError::RuntimeTypeMismatch {
-            expected: Type::String,
-            actual: keybinding.modifier.get_type(),
-            span: keybinding.modifier.span(),
-        });
-    };
+    }
 
     let keycode = if let Ok(keycode) = keybinding.keycode.as_str() {
         match keycode.to_ascii_lowercase().as_str() {

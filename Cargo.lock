@@ -5136,8 +5136,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.35.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5289de810296f8f2ff58d35544d92ae98d0a631453388bc3e608086be0fa596"
+source = "git+https://github.com/nushell/reedline?branch=main#660a5074b2bd432b47e2e0bb7cca11b4509ff3df"
 dependencies = [
  "arboard",
  "chrono",
@@ -5433,9 +5432,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.34"
+version = "0.38.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70dc5ec042f7a43c4a73241207cecc9873a06d45debb38b329f8541d85c2730f"
+checksum = "8acb788b847c24f28525660c4d7758620a7210875711f79e7f663cc152726811"
 dependencies = [
  "bitflags 2.6.0",
  "errno",

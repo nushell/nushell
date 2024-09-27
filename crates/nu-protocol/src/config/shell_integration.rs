@@ -16,13 +16,13 @@ pub struct ShellIntegrationConfig {
 impl Default for ShellIntegrationConfig {
     fn default() -> Self {
         Self {
-            osc2: false,
-            osc7: false,
-            osc8: false,
+            osc2: true,
+            osc7: true,
+            osc8: true,
             osc9_9: false,
-            osc133: false,
-            osc633: false,
-            reset_application_mode: false,
+            osc133: true,
+            osc633: true,
+            reset_application_mode: true,
         }
     }
 }
