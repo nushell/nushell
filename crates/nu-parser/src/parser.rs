@@ -1178,7 +1178,7 @@ pub fn parse_internal_call(
                     whitespace_span,
                     signature.call_signature(),
                 ));
-                call.add_positional(Expression::garbage(whitespace_span));
+                call.add_positional(Expression::garbage(working_set, whitespace_span));
                 positional_idx += 1;
                 continue;
             }
