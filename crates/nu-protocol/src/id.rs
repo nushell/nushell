@@ -15,6 +15,7 @@ impl<T> Id<T> {
     ///
     /// Using a distinct type like `Id` instead of `usize` helps us avoid mixing plain integers
     /// with identifiers.
+    #[inline]
     pub const fn new(inner: usize) -> Self {
         Self {
             inner,
@@ -25,6 +26,7 @@ impl<T> Id<T> {
     /// Returns the inner `usize` value.
     ///
     /// This requires an explicit call, ensuring we only use the raw value when intended.
+    #[inline]
     pub const fn get(self) -> usize {
         self.inner
     }
