@@ -30,13 +30,29 @@ impl<T> Id<T> {
     pub const fn get(self) -> usize {
         self.inner
     }
+}
 
-    /// Casts the `Id<T>` into `Id<U>` without changing the inner value.
-    ///
-    /// # Attention
-    /// Ensure the type cast is correct. If the wrong type is used, it may indicate a typing mistake elsewhere.
-    pub const fn cast<U>(self) -> Id<U> {
-        Id {
+// conversion methods, ensure that these conversions are valid
+
+impl BlockId {
+    /// Reinterprets a `BlockId` as a `ModuleId`.
+    /// 
+    /// This conversion is necessary as parsed blocks may be modules.
+    #[inline]
+    pub const fn into_module_id(self) -> ModuleId {
+        ModuleId {
+            inner: self.inner,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl ModuleId {
+    /// Reinterprets a `ModuleId` as a `BlockId`.
+    /// 
+    /// The `Expr::Overlay` requires a `BlockId`, but when we call it, we only have the `ModuleId`.
+    pub const fn into_block_id(self) -> BlockId {
+        BlockId {
             inner: self.inner,
             _phantom: PhantomData,
         }

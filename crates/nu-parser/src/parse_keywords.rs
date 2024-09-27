@@ -2956,7 +2956,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         Expression::new(
             working_set,
             Expr::Overlay(if is_module_updated {
-                Some(origin_module_id.cast())
+                Some(origin_module_id.into_block_id())
             } else {
                 None
             }),
