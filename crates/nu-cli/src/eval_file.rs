@@ -1,4 +1,4 @@
-use crate::util::eval_source;
+use crate::util::{eval_source, ParseOrShellError};
 use log::{info, trace};
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
@@ -106,7 +106,7 @@ pub fn evaluate_file(
     engine_state.merge_delta(working_set.delta)?;
 
     // Check if the file contains a main command.
-    let exit_code = if engine_state.find_decl(b"main", &[]).is_some() {
+    let result = if engine_state.find_decl(b"main", &[]).is_some() {
         // Evaluate the file, but don't run main yet.
         let pipeline =
             match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty()) {
@@ -136,7 +136,11 @@ pub fn evaluate_file(
         eval_source(engine_state, stack, &file, file_path_str, input, true)
     };
 
-    if exit_code != 0 {
+    if let Err(err) = result {
+        let exit_code = match err {
+            ParseOrShellError::ShellError(err) => err.exit_code(),
+            ParseOrShellError::ParseError(_) => 1,
+        };
         std::process::exit(exit_code);
     }
 

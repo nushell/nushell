@@ -10,7 +10,7 @@ use crate::{
     nu_highlight::NoOpHighlighter,
     prompt_update,
     reedline_config::{add_menus, create_keybindings, KeybindingsMode},
-    util::eval_source,
+    util::{eval_source, ParseOrShellError},
     NuHighlighter, NuValidator, NushellPrompt,
 };
 use crossterm::cursor::SetCursorStyle;
@@ -27,6 +27,7 @@ use nu_protocol::{
     report_shell_error, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
     Value,
 };
+use nu_protocol::{record, IntoValue};
 use nu_utils::{
     filesystem::{have_permission, PermissionResult},
     perf,
@@ -101,7 +102,8 @@ pub fn evaluate_repl(
     let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
 
     if let Some(s) = prerun_command {
-        eval_source(
+        // TODO: ignore this error?
+        let _ = eval_source(
             engine_state,
             &mut unique_stack,
             s.item.as_bytes(),
@@ -156,7 +158,8 @@ pub fn evaluate_repl(
     engine_state.generate_nu_constant();
 
     if load_std_lib.is_none() && engine_state.get_config().show_banner {
-        eval_source(
+        // TODO: ignore this error?
+        let _ = eval_source(
             engine_state,
             &mut unique_stack,
             r#"use std banner; banner"#.as_bytes(),
@@ -906,7 +909,7 @@ fn do_run_cmd(
         run_shell_integration_osc2(Some(s), engine_state, stack, use_color);
     }
 
-    eval_source(
+    let result = eval_source(
         engine_state,
         stack,
         s.as_bytes(),
@@ -914,6 +917,21 @@ fn do_run_cmd(
         PipelineData::empty(),
         false,
     );
+
+    if let Err(err) = result {
+        let span = Span::unknown();
+        let err = match err {
+            ParseOrShellError::ShellError(err) => err.into_value(span),
+            ParseOrShellError::ParseError(err) => record! {
+                "msg" => Value::string(err.to_string(), span),
+                "debug" => Value::string(format!("{err:?}"), span),
+            }
+            .into_value(span),
+        };
+        stack.add_env_var("NU_REPL_PREV_ERROR".into(), err);
+    } else {
+        stack.remove_env_var(engine_state, "NU_REPL_PREV_ERROR");
+    }
 
     line_editor
 }
