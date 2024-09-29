@@ -4,7 +4,7 @@ use crate::completions::{
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::{Stack, StateWorkingSet},
-    Span,
+    Span, Type,
 };
 use reedline::Suggestion;
 
@@ -92,21 +92,14 @@ impl Completer for OperatorCompletion {
                 ("xor", "Checks if one value is true and the other is false."),
                 ("not", "Negates a value or expression."),
             ],
-            Expr::FullCellPath(x) if matches!(x.head.expr, Expr::List(_)) => vec![(
-                "++",
-                "Appends two lists, a list and a value, two strings, or two binary values",
-            )],
-            Expr::Var(_) => vec![
-                ("=", "Assigns a value to a variable."),
-                ("+=", "Adds a value to a variable."),
-                (
-                    "++=",
-                    "Appends a list, a value, a string, or a binary value to a variable.",
-                ),
-                ("-=", "Subtracts a value from a variable."),
-                ("*=", "Multiplies a variable by a value"),
-                ("/=", "Divides a variable by a value."),
-            ],
+            Expr::FullCellPath(path) => match path.head.expr {
+                Expr::List(_) => vec![(
+                    "++",
+                    "Appends two lists, a list and a value, two strings, or two binary values",
+                )],
+                Expr::Var(id) => get_variable_completions(id, working_set),
+                _ => vec![],
+            },
             _ => vec![],
         };
 
@@ -130,5 +123,30 @@ impl Completer for OperatorCompletion {
                 )),
             })
             .collect()
+    }
+}
+
+pub fn get_variable_completions<'a>(
+    id: usize,
+    working_set: &StateWorkingSet,
+) -> Vec<(&'a str, &'a str)> {
+    let var = working_set.get_variable(id);
+    if var.mutable == false {
+        return vec![];
+    }
+
+    match var.ty {
+        Type::List(_) | Type::String | Type::Binary => vec![(
+            "++=",
+            "Appends a list, a value, a string, or a binary value to a variable.",
+        )],
+        Type::Int | Type::Float => vec![
+            ("=", "Assigns a value to a variable."),
+            ("+=", "Adds a value to a variable."),
+            ("-=", "Subtracts a value from a variable."),
+            ("*=", "Multiplies a variable by a value"),
+            ("/=", "Divides a variable by a value."),
+        ],
+        _ => vec![],
     }
 }

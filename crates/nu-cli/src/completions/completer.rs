@@ -176,17 +176,32 @@ impl NuCompleter {
 
                         // Variables completion
                         if prefix.starts_with(b"$") || most_left_var.is_some() {
-                            let mut completer =
+                            let mut variable_names_completer =
                                 VariableCompletion::new(most_left_var.unwrap_or((vec![], vec![])));
 
-                            return self.process_completion(
-                                &mut completer,
+                            let mut variable_completions = self.process_completion(
+                                &mut variable_names_completer,
+                                &working_set,
+                                prefix.clone(),
+                                new_span,
+                                fake_offset,
+                                pos,
+                            );
+
+                            let mut variable_operations_completer =
+                                OperatorCompletion::new(pipeline_element.expr.clone());
+
+                            let mut variable_operations_completions = self.process_completion(
+                                &mut variable_operations_completer,
                                 &working_set,
                                 prefix,
                                 new_span,
                                 fake_offset,
                                 pos,
                             );
+
+                            variable_completions.append(&mut variable_operations_completions);
+                            return variable_completions;
                         }
 
                         // Flags completion
