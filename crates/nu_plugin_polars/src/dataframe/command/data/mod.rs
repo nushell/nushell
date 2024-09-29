@@ -19,6 +19,7 @@ mod flatten;
 mod get;
 mod join;
 mod last;
+mod len;
 mod lit;
 mod pivot;
 mod query_df;
@@ -85,6 +86,7 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(UnpivotDF),
         Box::new(FirstDF),
         Box::new(LastDF),
+        Box::new(len::ExprLen),
         Box::new(RenameDF),
         Box::new(SampleDF),
         Box::new(SliceDF),
