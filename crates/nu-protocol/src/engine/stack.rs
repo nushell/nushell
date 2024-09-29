@@ -286,6 +286,8 @@ impl Stack {
     pub fn set_last_error(&mut self, error: &ShellError) {
         if let Some(code) = error.external_exit_code() {
             self.set_last_exit_code(code.item, code.span);
+        } else {
+            self.set_last_exit_code(1, Span::unknown());
         }
     }
 
