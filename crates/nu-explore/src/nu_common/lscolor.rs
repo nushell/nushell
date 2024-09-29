@@ -1,7 +1,10 @@
+use std::path::Path;
+
 use super::NuText;
 use lscolors::LsColors;
 use nu_ansi_term::{Color, Style};
 use nu_engine::env_to_string;
+use nu_path::{expand_path_with, expand_to_real_path};
 use nu_protocol::engine::{EngineState, Stack};
 use nu_utils::get_ls_colors;
 
@@ -14,7 +17,7 @@ pub fn create_lscolors(engine_state: &EngineState, stack: &Stack) -> LsColors {
 }
 
 /// Colorizes any columns named "name" in the table using LS_COLORS
-pub fn lscolorize(header: &[String], data: &mut [Vec<NuText>], lscolors: &LsColors) {
+pub fn lscolorize(header: &[String], data: &mut [Vec<NuText>], cwd: &str, lscolors: &LsColors) {
     for (col, col_name) in header.iter().enumerate() {
         if col_name != "name" {
             continue;
@@ -23,7 +26,7 @@ pub fn lscolorize(header: &[String], data: &mut [Vec<NuText>], lscolors: &LsColo
         for row in data.iter_mut() {
             let (path, text_style) = &mut row[col];
 
-            let style = get_path_style(path, lscolors);
+            let style = get_path_style(path, cwd, lscolors);
             if let Some(style) = style {
                 *text_style = text_style.style(style);
             }
@@ -31,9 +34,29 @@ pub fn lscolorize(header: &[String], data: &mut [Vec<NuText>], lscolors: &LsColo
     }
 }
 
-fn get_path_style(path: &str, ls_colors: &LsColors) -> Option<Style> {
+fn get_path_style(path: &str, cwd: &str, ls_colors: &LsColors) -> Option<Style> {
     let stripped_path = nu_utils::strip_ansi_unlikely(path);
-    let style = ls_colors.style_for_str(stripped_path.as_ref());
+    let mut style = ls_colors.style_for_str(stripped_path.as_ref());
+
+    let is_likely_dir = style.is_none();
+    if is_likely_dir {
+        let mut meta = std::fs::symlink_metadata(path).ok();
+
+        if meta.is_none() {
+            let mut expanded_path = expand_to_real_path(path);
+            let try_cwd = expanded_path.as_path() == Path::new(path);
+            if try_cwd {
+                let cwd_path = format!("./{}", path);
+                expanded_path = expand_path_with(cwd_path, cwd, false);
+            }
+
+            meta = std::fs::symlink_metadata(expanded_path.as_path()).ok();
+            style = ls_colors.style_for_path_with_metadata(expanded_path.as_path(), meta.as_ref());
+        } else {
+            style = ls_colors.style_for_path_with_metadata(path, meta.as_ref());
+        }
+    }
+
     style.map(lsstyle_to_nu_style)
 }
 

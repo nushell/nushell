@@ -72,6 +72,9 @@ impl Command for Explore {
         explore_config.table.separator_style = lookup_color(&style_computer, "separator");
 
         let lscolors = create_lscolors(engine_state, stack);
+        let cwd = engine_state.cwd(Some(stack)).map_or(String::new(), |path| {
+            path.to_str().unwrap_or("").to_string()
+        });
 
         let config = PagerConfig::new(
             &nu_config,
@@ -80,6 +83,7 @@ impl Command for Explore {
             &lscolors,
             peek_value,
             tail,
+            &cwd,
         );
 
         let result = run_pager(engine_state, &mut stack.clone(), input, config);

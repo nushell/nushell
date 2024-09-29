@@ -143,6 +143,8 @@ pub struct PagerConfig<'a> {
     // If true, when quitting output the value of the cell the cursor was on
     pub peek_value: bool,
     pub tail: bool,
+    // Just a cached dir we are working in used for color manipulations
+    pub cwd: String,
 }
 
 impl<'a> PagerConfig<'a> {
@@ -153,6 +155,7 @@ impl<'a> PagerConfig<'a> {
         lscolors: &'a LsColors,
         peek_value: bool,
         tail: bool,
+        cwd: &str,
     ) -> Self {
         Self {
             nu_config,
@@ -161,6 +164,7 @@ impl<'a> PagerConfig<'a> {
             lscolors,
             peek_value,
             tail,
+            cwd: cwd.to_string(),
         }
     }
 }
@@ -371,6 +375,7 @@ fn create_view_config<'a>(pager: &'a Pager<'_>) -> ViewConfig<'a> {
         cfg.explore_config,
         cfg.style_computer,
         cfg.lscolors,
+        &pager.config.cwd,
     )
 }
 
@@ -419,12 +424,7 @@ fn run_command(
         Command::View { mut cmd, stackable } => {
             // what we do we just replace the view.
             let value = view_stack.curr_view.as_mut().and_then(|p| p.view.exit());
-            let view_cfg = ViewConfig::new(
-                pager.config.nu_config,
-                pager.config.explore_config,
-                pager.config.style_computer,
-                pager.config.lscolors,
-            );
+            let view_cfg = create_view_config(pager);
 
             let new_view = cmd.spawn(engine_state, stack, value, &view_cfg)?;
             if let Some(view) = view_stack.curr_view.take() {

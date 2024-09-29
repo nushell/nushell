@@ -3245,6 +3245,7 @@ dependencies = [
  "nu-engine",
  "nu-json",
  "nu-parser",
+ "nu-path",
  "nu-pretty-hex",
  "nu-protocol",
  "nu-table",
