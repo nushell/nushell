@@ -32,34 +32,6 @@ impl<T> Id<T> {
     }
 }
 
-// conversion methods, ensure that these conversions are valid
-
-impl BlockId {
-    /// Reinterprets a `BlockId` as a `ModuleId`.
-    ///
-    /// This conversion is necessary as parsed blocks may be modules.
-    #[inline]
-    pub const fn into_module_id(self) -> ModuleId {
-        ModuleId {
-            inner: self.inner,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl ModuleId {
-    /// Reinterprets a `ModuleId` as a `BlockId`.
-    ///
-    /// The `Expr::Overlay` requires a `BlockId`, but when we call it, we only have the `ModuleId`.
-    #[inline]
-    pub const fn into_block_id(self) -> BlockId {
-        BlockId {
-            inner: self.inner,
-            _phantom: PhantomData,
-        }
-    }
-}
-
 impl<T> Debug for Id<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         let marker = any::type_name::<T>().split("::").last().expect("not empty");
