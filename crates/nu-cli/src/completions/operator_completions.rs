@@ -131,7 +131,7 @@ pub fn get_variable_completions<'a>(
     working_set: &StateWorkingSet,
 ) -> Vec<(&'a str, &'a str)> {
     let var = working_set.get_variable(id);
-    if var.mutable == false {
+    if !var.mutable {
         return vec![];
     }
 
