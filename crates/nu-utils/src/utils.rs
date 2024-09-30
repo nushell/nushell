@@ -17,6 +17,7 @@ pub fn enable_vt_processing() -> Result<()> {
     Ok(())
 }
 
+#[cfg(windows)]
 fn enable_vt_processing_input(console_in_mode: ConsoleMode, mode: u32) -> Result<()> {
     //
     // Input Mode flags:
@@ -45,6 +46,7 @@ fn enable_vt_processing_input(console_in_mode: ConsoleMode, mode: u32) -> Result
     )
 }
 
+#[cfg(windows)]
 fn enable_vt_processing_output(console_out_mode: ConsoleMode, mode: u32) -> Result<()> {
     //
     // Output Mode flags:
