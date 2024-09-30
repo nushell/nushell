@@ -1,3 +1,4 @@
+#[cfg(windows)]
 use crossterm_winapi::{ConsoleMode, Handle};
 use lscolors::LsColors;
 use std::io::{Result, Write};
