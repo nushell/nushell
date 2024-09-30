@@ -65,6 +65,14 @@ impl<'a> ConfigErrors<'a> {
         });
     }
 
+    pub fn deprecated_option(&mut self, path: &ConfigPath, suggestion: &'static str, span: Span) {
+        self.error(ConfigError::Deprecated {
+            path: path.to_string(),
+            suggestion,
+            span,
+        });
+    }
+
     pub fn into_shell_error(self) -> Option<ShellError> {
         if self.is_empty() {
             None

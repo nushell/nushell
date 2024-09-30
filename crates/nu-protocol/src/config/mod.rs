@@ -158,16 +158,7 @@ impl UpdateFromValue for Config {
                 "color_config" => self.color_config.update(val, path, errors),
                 "use_grid_icons" => {
                     // TODO: delete it after 0.99
-                    errors.error(
-                        ShellError::GenericError {
-                            error: format!("{} is deprecated", **path),
-                            msg: "remove this".into(),
-                            span: Some(val.span()),
-                            help: Some("use `grid -i` instead".into()),
-                            inner: Vec::new(),
-                        }
-                        .into(),
-                    );
+                    errors.deprecated_option(path, "use `grid -i`", val.span());
                 }
                 "footer_mode" => self.footer_mode.update(val, path, errors),
                 "float_precision" => self.float_precision.update(val, path, errors),

@@ -38,6 +38,18 @@ pub enum ConfigError {
         #[label("has no '{column}' column")]
         span: Span,
     },
+    #[error("{path} is deprecated")]
+    #[diagnostic(
+        code(nu::shell::deprecated_config_option),
+        help("please {suggestion} instead")
+    )]
+    Deprecated {
+        path: String,
+        suggestion: &'static str,
+        #[label("deprecated")]
+        span: Span,
+    },
+    // TODO: remove this
     #[error(transparent)]
     #[diagnostic(transparent)]
     ShellError(#[from] ShellError),
