@@ -24,10 +24,13 @@ pub fn decode(
     let output = match encoding.decode(input_str.as_bytes()) {
         Ok(output) => output,
         Err(err) => {
-            return Err(ShellError::IncorrectValue {
+            // TODO: convert/map each possible `DecodeError` case.
+            return Err(ShellError::GenericError {
+                error: "Failed to decode".into(),
                 msg: err.to_string(),
-                val_span: input_span,
-                call_span,
+                span: Some(call_span),
+                help: None,
+                inner: Vec::new(),
             });
         }
     };

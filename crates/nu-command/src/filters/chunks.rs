@@ -83,18 +83,15 @@ impl Command for Chunks {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let chunk_size: Value = call.req(engine_state, stack, 0)?;
+        let chunk_size: Spanned<i64> = call.req(engine_state, stack, 0)?;
 
-        let size =
-            usize::try_from(chunk_size.as_int()?).map_err(|_| ShellError::NeedsPositiveValue {
-                span: chunk_size.span(),
+        let size = usize::try_from(chunk_size.item)
+            .and_then(NonZeroUsize::try_from)
+            .map_err(|_| ShellError::InvalidValue {
+                valid: "an integer greater than 0".into(),
+                actual: chunk_size.item.to_string(),
+                span: chunk_size.span,
             })?;
-
-        let size = NonZeroUsize::try_from(size).map_err(|_| ShellError::IncorrectValue {
-            msg: "`chunk_size` cannot be zero".into(),
-            val_span: chunk_size.span(),
-            call_span: head,
-        })?;
 
         chunks(engine_state, input, size, head)
     }

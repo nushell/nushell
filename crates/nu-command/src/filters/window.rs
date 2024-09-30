@@ -82,33 +82,26 @@ impl Command for Window {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let window_size: Value = call.req(engine_state, stack, 0)?;
-        let stride: Option<Value> = call.get_flag(engine_state, stack, "stride")?;
+        let window_size: Spanned<i64> = call.req(engine_state, stack, 0)?;
+        let stride: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "stride")?;
         let remainder = call.has_flag(engine_state, stack, "remainder")?;
 
-        let size =
-            usize::try_from(window_size.as_int()?).map_err(|_| ShellError::NeedsPositiveValue {
-                span: window_size.span(),
+        let size = usize::try_from(window_size.item)
+            .and_then(NonZeroUsize::try_from)
+            .map_err(|_| ShellError::InvalidValue {
+                valid: "an integer greater than 0".into(),
+                actual: window_size.item.to_string(),
+                span: window_size.span,
             })?;
 
-        let size = NonZeroUsize::try_from(size).map_err(|_| ShellError::IncorrectValue {
-            msg: "`window_size` cannot be zero".into(),
-            val_span: window_size.span(),
-            call_span: head,
-        })?;
-
-        let stride = if let Some(stride_val) = stride {
-            let stride = usize::try_from(stride_val.as_int()?).map_err(|_| {
-                ShellError::NeedsPositiveValue {
-                    span: stride_val.span(),
-                }
-            })?;
-
-            NonZeroUsize::try_from(stride).map_err(|_| ShellError::IncorrectValue {
-                msg: "`stride` cannot be zero".into(),
-                val_span: stride_val.span(),
-                call_span: head,
-            })?
+        let stride = if let Some(stride) = stride {
+            usize::try_from(stride.item)
+                .and_then(NonZeroUsize::try_from)
+                .map_err(|_| ShellError::InvalidValue {
+                    valid: "an integer greater than 0".into(),
+                    actual: stride.item.to_string(),
+                    span: stride.span,
+                })?
         } else {
             NonZeroUsize::MIN
         };

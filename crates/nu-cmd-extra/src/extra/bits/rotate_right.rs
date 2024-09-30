@@ -134,13 +134,13 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
 
             if bits > input_num_type.num_bits() {
                 return Value::error(
-                    ShellError::IncorrectValue {
-                        msg: format!(
-                            "Trying to rotate by more than the available bits ({})",
+                    ShellError::InvalidValue {
+                        valid: format!(
+                            "an integer less than or equal to the available number of bits ({})",
                             input_num_type.num_bits()
                         ),
-                        val_span: bits_span,
-                        call_span: span,
+                        actual: bits.to_string(),
+                        span: bits_span,
                     },
                     span,
                 );
@@ -175,16 +175,16 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             Value::int(int, span)
         }
         Value::Binary { val, .. } => {
-            let len = val.len();
-            if bits > len * 8 {
+            let max_bits = val.len() * 8;
+            if bits > max_bits {
                 return Value::error(
-                    ShellError::IncorrectValue {
-                        msg: format!(
-                            "Trying to rotate by more than the available bits ({})",
-                            len * 8
+                    ShellError::InvalidValue {
+                        valid: format!(
+                            "an integer less than or equal to the available number of bits ({})",
+                            max_bits
                         ),
-                        val_span: bits_span,
-                        call_span: span,
+                        actual: bits.to_string(),
+                        span: bits_span,
                     },
                     span,
                 );

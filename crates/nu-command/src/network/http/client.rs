@@ -313,11 +313,13 @@ fn send_form_request(
     match body {
         Value::List { ref vals, .. } => {
             if vals.len() % 2 != 0 {
-                return Err(ShellErrorOrRequestError::ShellError(ShellError::IncorrectValue {
-                    msg: "Body type 'list' for form requests requires paired values. E.g.: [foo, 10]".into(),
-                    val_span: body.span(),
-                    call_span: span,
-                }));
+                return Err(ShellErrorOrRequestError::ShellError(
+                    ShellError::InvalidValue {
+                        valid: "a list with an even number of elements".into(),
+                        actual: format!("a list with {} elements", vals.len()),
+                        span: body.span(),
+                    },
+                ));
             }
 
             let data = vals
