@@ -76,6 +76,8 @@ pub mod marker {
     pub struct File;
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct VirtualPath;
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct Span;
 }
 
 pub type VarId = Id<marker::Var>;
@@ -85,9 +87,7 @@ pub type ModuleId = Id<marker::Module>;
 pub type OverlayId = Id<marker::Overlay>;
 pub type FileId = Id<marker::File>;
 pub type VirtualPathId = Id<marker::VirtualPath>;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct SpanId(pub usize); // more robust ID style used in the new parser
+pub type SpanId = Id<marker::Span>;
 
 /// An ID for an [IR](crate::ir) register. `%n` is a common shorthand for `RegId(n)`.
 ///

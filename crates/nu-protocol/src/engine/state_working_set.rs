@@ -1037,20 +1037,20 @@ impl<'a> StateWorkingSet<'a> {
     pub fn add_span(&mut self, span: Span) -> SpanId {
         let num_permanent_spans = self.permanent_state.spans.len();
         self.delta.spans.push(span);
-        SpanId(num_permanent_spans + self.delta.spans.len() - 1)
+        SpanId::new(num_permanent_spans + self.delta.spans.len() - 1)
     }
 }
 
 impl<'a> GetSpan for &'a StateWorkingSet<'a> {
     fn get_span(&self, span_id: SpanId) -> Span {
         let num_permanent_spans = self.permanent_state.num_spans();
-        if span_id.0 < num_permanent_spans {
+        if span_id.get() < num_permanent_spans {
             self.permanent_state.get_span(span_id)
         } else {
             *self
                 .delta
                 .spans
-                .get(span_id.0 - num_permanent_spans)
+                .get(span_id.get() - num_permanent_spans)
                 .expect("internal error: missing span")
         }
     }

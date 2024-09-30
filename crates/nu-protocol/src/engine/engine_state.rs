@@ -120,7 +120,7 @@ pub const ENV_VARIABLE_ID: VarId = VarId::new(2);
 // NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
 
 // The first span is unknown span
-pub const UNKNOWN_SPAN_ID: SpanId = SpanId(0);
+pub const UNKNOWN_SPAN_ID: SpanId = SpanId::new(0);
 
 impl EngineState {
     pub fn new() -> Self {
@@ -1027,12 +1027,12 @@ impl EngineState {
     /// Add new span and return its ID
     pub fn add_span(&mut self, span: Span) -> SpanId {
         self.spans.push(span);
-        SpanId(self.num_spans() - 1)
+        SpanId::new(self.num_spans() - 1)
     }
 
     /// Find ID of a span (should be avoided if possible)
     pub fn find_span_id(&self, span: Span) -> Option<SpanId> {
-        self.spans.iter().position(|sp| sp == &span).map(SpanId)
+        self.spans.iter().position(|sp| sp == &span).map(SpanId::new)
     }
 }
 
@@ -1041,7 +1041,7 @@ impl<'a> GetSpan for &'a EngineState {
     fn get_span(&self, span_id: SpanId) -> Span {
         *self
             .spans
-            .get(span_id.0)
+            .get(span_id.get())
             .expect("internal error: missing span")
     }
 }
