@@ -13,7 +13,7 @@ pub struct Id<M, V = usize> {
 impl<M, V> Id<M, V> {
     /// Creates a new `Id`.
     ///
-    /// Using a distinct type like `Id` instead of `usize` integer helps us avoid mixing plain integers
+    /// Using a distinct type like `Id` instead of `usize` helps us avoid mixing plain integers
     /// with identifiers.
     #[inline]
     pub const fn new(inner: V) -> Self {
