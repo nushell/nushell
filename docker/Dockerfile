@@ -7,13 +7,25 @@ FROM alpine
 
 LABEL maintainer=nushell
 
-RUN echo '/usr/bin/nu' >> /etc/shells \
+ARG TARGETARCH
+
+RUN set -eux; \
+    if [ "${TARGETARCH}" = "amd64" ] || [ "${TARGETARCH}" = "x86_64" ]; then \
+        echo "Downloading x86_64 binary for ${TARGETARCH}..."; \
+        arch_path="x86_64"; \
+    elif [ "${TARGETARCH}" = "arm64" ] || [ "${TARGETARCH}" = "aarch64"]; then \
+        echo "Downloading aarch64 binary for ${TARGETARCH}..."; \
+        arch_path="aarch64"; \
+    else \
+        arch_path=""; \
+    fi; \
+    echo '/usr/bin/nu' >> /etc/shells \
     && adduser -D -s /usr/bin/nu nushell \
     && mkdir -p /home/nushell/.config/nushell/ \
     && cd /tmp \
     && wget -qO - https://api.github.com/repos/nushell/nushell/releases/latest \
     | grep browser_download_url \
-    | grep musl.tar.gz \
+    | grep "${arch_path}.*.musl.tar.gz" \
     | cut -f4 -d '"' \
     | xargs -I{} wget {} \
     && tar -xzf nu* \

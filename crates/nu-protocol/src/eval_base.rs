@@ -5,7 +5,7 @@ use crate::{
         ExternalArgument, ListItem, Math, Operator, RecordItem,
     },
     debugger::DebugContext,
-    Config, GetSpan, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
+    BlockId, Config, GetSpan, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -369,7 +369,7 @@ pub trait Eval {
     fn eval_subexpression<D: DebugContext>(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
-        block_id: usize,
+        block_id: BlockId,
         span: Span,
     ) -> Result<Value, ShellError>;
 
@@ -396,7 +396,7 @@ pub trait Eval {
     fn eval_row_condition_or_closure(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
-        block_id: usize,
+        block_id: BlockId,
         span: Span,
     ) -> Result<Value, ShellError>;
 

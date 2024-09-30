@@ -2,7 +2,7 @@ use nu_engine::{
     command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block_with_early_return,
     redirect_env,
 };
-use nu_protocol::engine::CommandType;
+use nu_protocol::{engine::CommandType, BlockId};
 use std::path::PathBuf;
 
 /// Source a file for environment variables.
@@ -50,6 +50,7 @@ impl Command for SourceEnv {
         // Note: this hidden positional is the block_id that corresponded to the 0th position
         // it is put here by the parser
         let block_id: i64 = call.req_parser_info(engine_state, caller_stack, "block_id")?;
+        let block_id = BlockId::new(block_id as usize);
 
         // Set the currently evaluated directory (file-relative PWD)
         let file_path = if let Some(path) = find_in_dirs_env(
@@ -78,7 +79,7 @@ impl Command for SourceEnv {
         );
 
         // Evaluate the block
-        let block = engine_state.get_block(block_id as usize).clone();
+        let block = engine_state.get_block(block_id).clone();
         let mut callee_stack = caller_stack
             .gather_captures(engine_state, &block.captures)
             .reset_pipes();

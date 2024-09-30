@@ -183,6 +183,7 @@ mod test {
     use nu_protocol::{
         ast::{CellPath, PathMember},
         engine::Closure,
+        BlockId,
     };
     use std::collections::HashSet;
 
@@ -244,7 +245,7 @@ mod test {
             Value::list(vec![Value::bool(true, span)], span),
             Value::closure(
                 Closure {
-                    block_id: 0,
+                    block_id: BlockId::new(0),
                     captures: Vec::new(),
                 },
                 span,

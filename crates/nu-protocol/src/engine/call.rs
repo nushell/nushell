@@ -31,7 +31,7 @@ impl Call<'_> {
         // anyway.
         Call {
             head: span,
-            decl_id: 0,
+            decl_id: DeclId::new(0),
             inner: CallImpl::AstBox(Box::new(ast::Call::new(span))),
         }
     }

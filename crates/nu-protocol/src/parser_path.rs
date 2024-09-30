@@ -1,4 +1,7 @@
-use crate::engine::{StateWorkingSet, VirtualPath};
+use crate::{
+    engine::{StateWorkingSet, VirtualPath},
+    FileId,
+};
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
@@ -112,7 +115,7 @@ impl ParserPath {
                 std::fs::File::open(p).map(|f| Box::new(f) as Box<dyn std::io::Read>)
             }
             ParserPath::VirtualFile(_, file_id) => working_set
-                .get_contents_of_file(*file_id)
+                .get_contents_of_file(FileId::new(*file_id))
                 .map(|bytes| Box::new(bytes) as Box<dyn std::io::Read>)
                 .ok_or(std::io::ErrorKind::NotFound.into()),
 
@@ -136,7 +139,9 @@ impl ParserPath {
         virtual_path: &VirtualPath,
     ) -> Self {
         match virtual_path {
-            VirtualPath::File(file_id) => ParserPath::VirtualFile(PathBuf::from(name), *file_id),
+            VirtualPath::File(file_id) => {
+                ParserPath::VirtualFile(PathBuf::from(name), file_id.get())
+            }
             VirtualPath::Dir(entries) => ParserPath::VirtualDir(
                 PathBuf::from(name),
                 entries
