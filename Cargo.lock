@@ -1979,9 +1979,9 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
 name = "human-date-parser"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5cbf96a7157cc349eeafe4595e4f283c3fcab73b5a656d8b2cc00a870a74e1a"
+checksum = "1116cf4debfe770c12168458321c4a8591b71c4c19f7100de07c84cf81701c63"
 dependencies = [
  "chrono",
  "pest",
