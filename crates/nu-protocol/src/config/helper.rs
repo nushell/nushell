@@ -127,12 +127,14 @@ where
         errors: &mut ConfigErrors,
     ) {
         if let Ok(record) = value.as_record() {
-            self.retain(|k, _| record.contains(k.borrow()));
-            for (key, val) in record {
-                self.entry(key.as_str().into())
-                    .or_default()
-                    .update(val, path, errors);
-            }
+            *self = record
+                .iter()
+                .map(|(key, val)| {
+                    let mut old = self.remove(key).unwrap_or_default();
+                    old.update(val, &mut path.push(key), errors);
+                    (key.as_str().into(), old)
+                })
+                .collect();
         } else {
             errors.type_mismatch(path, Type::record(), value);
         }
