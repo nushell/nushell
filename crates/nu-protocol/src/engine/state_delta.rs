@@ -98,7 +98,7 @@ impl StateDelta {
             Some(
                 &mut last_scope
                     .overlays
-                    .get_mut(*last_overlay_id)
+                    .get_mut(last_overlay_id.get())
                     .expect("internal error: missing required overlay")
                     .1,
             )
@@ -117,7 +117,7 @@ impl StateDelta {
             Some(
                 &last_scope
                     .overlays
-                    .get(*last_overlay_id)
+                    .get(last_overlay_id.get())
                     .expect("internal error: missing required overlay")
                     .1,
             )

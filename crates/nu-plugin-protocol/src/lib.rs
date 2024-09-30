@@ -627,7 +627,7 @@ pub enum EngineCallResponse<D> {
     PipelineData(D),
     Config(SharedCow<Config>),
     ValueMap(HashMap<String, Value>),
-    Identifier(usize),
+    Identifier(DeclId),
 }
 
 impl<D> EngineCallResponse<D> {
