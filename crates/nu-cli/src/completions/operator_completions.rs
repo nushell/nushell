@@ -136,10 +136,14 @@ pub fn get_variable_completions<'a>(
     }
 
     match var.ty {
-        Type::List(_) | Type::String | Type::Binary => vec![(
-            "++=",
-            "Appends a list, a value, a string, or a binary value to a variable.",
-        )],
+        Type::List(_) | Type::String | Type::Binary => vec![
+            (
+                "++=",
+                "Appends a list, a value, a string, or a binary value to a variable.",
+            ),
+            ("=", "Assigns a value to a variable."),
+        ],
+
         Type::Int | Type::Float => vec![
             ("=", "Assigns a value to a variable."),
             ("+=", "Adds a value to a variable."),
