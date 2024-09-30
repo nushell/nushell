@@ -126,7 +126,7 @@ This command is a parser keyword. For details, check:
 
                 if let Some(path) = maybe_file_path_or_dir {
                     let module_file_path = if path.is_dir() {
-                        // the existance of `mod.nu` is verified in parsing time
+                        // the existence of `mod.nu` is verified in parsing time
                         // so it's safe to use it here.
                         Value::string(path.join("mod.nu").to_string_lossy(), call.head)
                     } else {
