@@ -21,8 +21,6 @@ pub fn load_standard_library(
             ("core", include_str!("../std/core.nu")),
             // std module - Loads all commands and submodules
             ("mod.nu", include_str!("../std/mod.nu")),
-            // Faster - Loads a subset of commands and submodules
-            ("prelude", include_str!("../std/prelude.nu")),
             // std submodules
             ("assert", include_str!("../std/assert.nu")),
             ("bench", include_str!("../std/bench.nu")),
