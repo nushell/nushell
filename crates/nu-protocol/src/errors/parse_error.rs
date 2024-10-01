@@ -262,18 +262,24 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::circular_import), help("{0}"))]
     CircularImport(String, #[label = "detected circular import"] Span),
 
-    #[error("Can't export {0} named same as the module.")]
+    #[error("Can't export `{item}` named same as the module.")]
     #[diagnostic(
         code(nu::parser::named_as_module),
-        help("Module {1} can't export {0} named the same as the module. Either change the module name, or export `{2}` {0}.")
+        help("Module `{module}` can't export `{item}` named the same as the module. Either change the module name, or export `{alternative}` {item}.")
     )]
-    NamedAsModule(
-        String,
-        String,
-        String,
-        #[label = "can't export from module {1}"] Span,
-    ),
-
+    NamedAsModule {
+        item: String,
+        module: String,
+        alternative: String,
+        #[label = "can't export from module {module}"]
+        span: Span,
+    },
+    // NamedAsModule(
+    //     String,
+    //     String,
+    //     String,
+    //     #[label = "can't export from module {1}"] Span,
+    // ),
     #[error("Module already contains 'main' command.")]
     #[diagnostic(
         code(nu::parser::module_double_main),
@@ -548,7 +554,7 @@ impl ParseError {
             ParseError::CommandDefNotValid(s) => *s,
             ParseError::ModuleNotFound(s, _) => *s,
             ParseError::ModuleMissingModNuFile(_, s) => *s,
-            ParseError::NamedAsModule(_, _, _, s) => *s,
+            ParseError::NamedAsModule { span, .. } => *span,
             ParseError::ModuleDoubleMain(_, s) => *s,
             ParseError::ExportMainAliasNotAllowed(s) => *s,
             ParseError::CircularImport(_, s) => *s,

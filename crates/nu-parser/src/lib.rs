@@ -5,6 +5,7 @@ mod flatten;
 mod known_external;
 mod lex;
 mod lite_parser;
+mod parse_definitions;
 mod parse_keywords;
 mod parse_patterns;
 mod parse_shape_specs;

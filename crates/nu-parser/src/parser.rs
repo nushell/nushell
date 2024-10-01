@@ -1,6 +1,7 @@
 use crate::{
     lex::{is_assignment_operator, lex, lex_n_tokens, lex_signature, LexState},
     lite_parser::{lite_parse, LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget},
+    parse_definitions::{declare_definition, parse_definition, prepare_definition},
     parse_keywords::*,
     parse_patterns::parse_pattern,
     parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
@@ -844,7 +845,7 @@ pub fn parse_multispan_value(
         SyntaxShape::Signature => {
             trace!("parsing: signature");
 
-            let sig = parse_full_signature(working_set, &spans[*spans_idx..]);
+            let sig = parse_signature(working_set, spans[0]);
             *spans_idx = spans.len() - 1;
 
             sig
@@ -3219,96 +3220,6 @@ pub fn expand_to_cell_path(
     }
 }
 
-pub fn parse_input_output_types(
-    working_set: &mut StateWorkingSet,
-    spans: &[Span],
-) -> Vec<(Type, Type)> {
-    let mut full_span = Span::concat(spans);
-
-    let mut bytes = working_set.get_span_contents(full_span);
-
-    if bytes.starts_with(b"[") {
-        bytes = &bytes[1..];
-        full_span.start += 1;
-    }
-
-    if bytes.ends_with(b"]") {
-        bytes = &bytes[..(bytes.len() - 1)];
-        full_span.end -= 1;
-    }
-
-    let (tokens, parse_error) =
-        lex_signature(bytes, full_span.start, &[b'\n', b'\r', b','], &[], true);
-
-    if let Some(parse_error) = parse_error {
-        working_set.error(parse_error);
-    }
-
-    let mut output = vec![];
-
-    let mut idx = 0;
-    while idx < tokens.len() {
-        let type_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
-        let input_type = parse_type(working_set, &type_bytes, tokens[idx].span);
-
-        idx += 1;
-        if idx >= tokens.len() {
-            working_set.error(ParseError::Expected(
-                "arrow (->)",
-                Span::new(tokens[idx - 1].span.end, tokens[idx - 1].span.end),
-            ));
-            break;
-        }
-
-        let arrow = working_set.get_span_contents(tokens[idx].span);
-        if arrow != b"->" {
-            working_set.error(ParseError::Expected("arrow (->)", tokens[idx].span));
-        }
-
-        idx += 1;
-        if idx >= tokens.len() {
-            working_set.error(ParseError::MissingType(Span::new(
-                tokens[idx - 1].span.end,
-                tokens[idx - 1].span.end,
-            )));
-            break;
-        }
-
-        let type_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
-        let output_type = parse_type(working_set, &type_bytes, tokens[idx].span);
-
-        output.push((input_type, output_type));
-
-        idx += 1;
-    }
-
-    output
-}
-
-pub fn parse_full_signature(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
-    let arg_signature = working_set.get_span_contents(spans[0]);
-
-    if arg_signature.ends_with(b":") {
-        let mut arg_signature =
-            parse_signature(working_set, Span::new(spans[0].start, spans[0].end - 1));
-
-        let input_output_types = parse_input_output_types(working_set, &spans[1..]);
-
-        if let Expression {
-            expr: Expr::Signature(sig),
-            span: expr_span,
-            ..
-        } = &mut arg_signature
-        {
-            sig.input_output_types = input_output_types;
-            expr_span.end = Span::concat(&spans[1..]).end;
-        }
-        arg_signature
-    } else {
-        parse_signature(working_set, spans[0])
-    }
-}
-
 pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
     let var_id = working_set.add_variable(b"$it".to_vec(), Span::concat(spans), Type::Any, false);
     let expression = parse_math_expression(working_set, spans, Some(var_id));
@@ -5588,8 +5499,6 @@ pub fn parse_builtin_commands(
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
-        b"def" => parse_def(working_set, lite_command, None).0,
-        b"extern" => parse_extern(working_set, lite_command, None),
         b"let" => parse_let(
             working_set,
             &lite_command
@@ -5955,28 +5864,22 @@ pub(crate) fn redirecting_builtin_error(
 }
 
 pub fn parse_pipeline(working_set: &mut StateWorkingSet, pipeline: &LitePipeline) -> Pipeline {
-    if pipeline.commands.len() > 1 {
-        // Parse a normal multi command pipeline
-        let elements: Vec<_> = pipeline
-            .commands
-            .iter()
-            .enumerate()
-            .map(|(index, element)| {
-                let element = parse_pipeline_element(working_set, element);
-                // Handle $in for pipeline elements beyond the first one
-                if index > 0 && element.has_in_variable(working_set) {
-                    wrap_element_with_collect(working_set, element.clone())
-                } else {
-                    element
-                }
-            })
-            .collect();
+    let elements: Vec<_> = pipeline
+        .commands
+        .iter()
+        .enumerate()
+        .map(|(index, element)| {
+            let element = parse_pipeline_element(working_set, element);
+            // Handle $in for pipeline elements beyond the first one
+            if index > 0 && element.has_in_variable(working_set) {
+                wrap_element_with_collect(working_set, element.clone())
+            } else {
+                element
+            }
+        })
+        .collect();
 
-        Pipeline { elements }
-    } else {
-        // If there's only one command in the pipeline, this could be a builtin command
-        parse_builtin_commands(working_set, &pipeline.commands[0])
-    }
+    Pipeline { elements }
 }
 
 pub fn parse_block(
@@ -5997,19 +5900,99 @@ pub fn parse_block(
         working_set.enter_scope();
     }
 
+    let definitions = lite_block
+        .block
+        .iter()
+        .fold(Vec::new(), |mut defs, pipeline| {
+            if pipeline.commands.len() != 1 {
+                return defs;
+            }
+
+            let Some(def) = prepare_definition(working_set, &pipeline.commands[0]) else {
+                return defs;
+            };
+
+            defs.push(def);
+            defs
+        });
+
     // Pre-declare any definition so that definitions
     // that share the same block can see each other
-    for pipeline in &lite_block.block {
-        if pipeline.commands.len() == 1 {
-            parse_def_predecl(working_set, &pipeline.commands[0].parts)
-        }
-    }
+    let signatures = definitions
+        .iter()
+        .map(|def| declare_definition(working_set, def))
+        .collect_vec();
 
+    let mut sig_def_pairs = signatures.into_iter().zip(definitions);
     let mut block = Block::new_with_capacity(lite_block.block.len());
     block.span = Some(span);
 
     for lite_pipeline in &lite_block.block {
-        let pipeline = parse_pipeline(working_set, lite_pipeline);
+        if lite_pipeline.commands.len() > 1 {
+            let pipeline = parse_pipeline(working_set, lite_pipeline);
+            block.pipelines.push(pipeline);
+            continue;
+        }
+
+        let Some(lite_command) = lite_pipeline.commands.first() else {
+            continue;
+        };
+
+        let Some(kw_bytes) = lite_command
+            .parts
+            .first()
+            .map(|span| working_set.get_span_contents(*span).to_vec())
+        else {
+            continue;
+        };
+
+        let unknown_state_error = || -> ParseError {
+            let def = if matches!(kw_bytes.as_slice(), b"def") {
+                "def"
+            } else {
+                "extern"
+            };
+
+            ParseError::UnknownState(
+                format!("internal error: `{def}` declaration not found"),
+                span,
+            )
+        };
+
+        let pipeline = match kw_bytes.as_slice() {
+            b"def" | b"extern" => {
+                let Some((sig, def)) = sig_def_pairs.next() else {
+                    working_set.error(unknown_state_error());
+                    continue;
+                };
+
+                parse_definition(working_set, &def, sig, None).0
+            }
+
+            b"export" => {
+                let Some(next_token) = lite_command.parts.get(1) else {
+                    let pipeline = parse_builtin_commands(working_set, lite_command);
+                    block.pipelines.push(pipeline);
+                    continue;
+                };
+
+                let next_bytes = working_set.get_span_contents(*next_token).to_vec();
+
+                if matches!(next_bytes.as_slice(), b"def" | b"extern") {
+                    let Some((sig, def)) = sig_def_pairs.next() else {
+                        working_set.error(unknown_state_error());
+                        continue;
+                    };
+
+                    parse_definition(working_set, &def, sig, None).0
+                } else {
+                    parse_builtin_commands(working_set, lite_command)
+                }
+            }
+
+            _ => parse_builtin_commands(working_set, lite_command),
+        };
+
         block.pipelines.push(pipeline);
     }
 
