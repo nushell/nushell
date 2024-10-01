@@ -340,7 +340,7 @@ fn ls_for_one_pattern(
     let path = pattern_arg.into_spanned(p_tag);
     let (prefix, paths) = if just_read_dir {
         let expanded = nu_path::expand_path_with(path.item.as_ref(), &cwd, path.item.is_expand());
-        let paths = read_dir(&expanded)?;
+        let paths = read_dir(&expanded, use_threads)?;
         // just need to read the directory, so prefix is path itself.
         (Some(expanded), paths)
     } else {
@@ -980,10 +980,16 @@ mod windows_helper {
 #[allow(clippy::type_complexity)]
 fn read_dir(
     f: &Path,
+    use_threads: bool,
 ) -> Result<Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send>, ShellError> {
     let iter = f.read_dir()?.map(|d| {
         d.map(|r| r.path())
             .map_err(|e| ShellError::IOError { msg: e.to_string() })
     });
-    Ok(Box::new(sorted(iter)))
+
+    if use_threads {
+        Ok(Box::new(iter))
+    } else {
+        Ok(Box::new(sorted(iter)))
+    }
 }
