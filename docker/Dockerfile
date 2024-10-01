@@ -11,7 +11,6 @@ LABEL maintainer=nushell
 
 ARG TARGETARCH
 ARG ARCH=${TARGETARCH/arm64/aarch64}
-ARG ARCH=${ARCH/arm/armv7}
 ARG ARCH=${ARCH/amd64/x86_64}
 
 RUN echo '/usr/bin/nu' >> /etc/shells \
@@ -24,7 +23,7 @@ RUN echo '/usr/bin/nu' >> /etc/shells \
     | grep ${ARCH}-unknown-linux-musl \
     | xargs -I{} wget {} \
     && tar -xzf nu* \
-    && cd nu*-musl* \
+    && cd nu*-musl \
     && mv nu* /usr/bin \
     && chmod +x /usr/bin/nu \
     && chown -R nushell:nushell /home/nushell/.config/nushell \
