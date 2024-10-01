@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 
 use chrono::{DateTime, Duration, FixedOffset, NaiveTime, TimeZone, Utc};
@@ -487,25 +488,52 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
             }
             DataType::Struct(fields) => {
                 let schema = Some(NuSchema::new(Schema::from_iter(fields.clone())));
-                let mut structs: Vec<Series> = Vec::new();
+                // let mut structs: Vec<Series> = Vec::new();
+                let mut structs: HashMap<String, Series> = HashMap::new();
 
                 for v in column.values.iter() {
                     let mut column_values: ColumnMap = IndexMap::new();
                     let record = v.as_record()?;
                     insert_record(&mut column_values, record.clone(), &schema)?;
                     let df = from_parsed_columns(column_values)?;
-                    structs.push(df.as_series(Span::unknown())?);
+                    for name in df.df.get_column_names() {
+                        let series = df.df.column(name).map_err(|e| ShellError::GenericError {
+                            error: format!(
+                                "Error creating struct, could not get column name {name}: {e}"
+                            ),
+                            msg: "".into(),
+                            span: None,
+                            help: None,
+                            inner: vec![],
+                        })?;
+
+                        if let Some(v) = structs.get_mut(name) {
+                            let _ = v.append(series)
+                                .map_err(|e| ShellError::GenericError {
+                                    error: format!("Error creating struct, could not append to series for col {name}: {e}"),
+                                    msg: "".into(),
+                                    span: None,
+                                    help: None,
+                                    inner: vec![],
+                                })?;
+                        } else {
+                            structs.insert(name.to_string(), series.to_owned());
+                        }
+                    }
                 }
 
-                let chunked = StructChunked::new(column.name(), structs.as_ref()).map_err(|e| {
-                    ShellError::GenericError {
-                        error: format!("Error creating struct: {e}"),
-                        msg: "".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    }
-                })?;
+                let structs: Vec<Series> = structs.into_values().collect();
+
+                let chunked =
+                    StructChunked::new(column.name(), structs.as_slice()).map_err(|e| {
+                        ShellError::GenericError {
+                            error: format!("Error creating struct: {e}"),
+                            msg: "".into(),
+                            span: None,
+                            help: None,
+                            inner: vec![],
+                        }
+                    })?;
                 Ok(chunked.into_series())
             }
             _ => Err(ShellError::GenericError {

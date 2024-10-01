@@ -6,6 +6,7 @@ use crate::{
 
 use crate::values::NuDataFrame;
 
+use log::debug;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value,
@@ -159,7 +160,7 @@ impl PluginCommand for ToDataFrame {
             },
             Example {
                 description: "Convert to a dataframe and provide a schema",
-                example: "{a: 1, b: {a: [1 2 3]}, c: [a b c]}| polars into-df -s {a: u8, b: {a: list<u64>}, c: list<str>}",
+                example: "[[a b c]; [1 {d: [1 2 3]} [10 11 12] ]]| polars into-df -s {a: u8, b: {d: list<u64>}, c: list<u8>}",
                 result: Some(
                     NuDataFrame::try_from_series_vec(vec![
                         Series::new("a", &[1u8]),
@@ -172,7 +173,7 @@ impl PluginCommand for ToDataFrame {
                         },
                         {
                             let dtype = DataType::List(Box::new(DataType::String));
-                            let vals = vec![AnyValue::List(Series::new("c", &["a", "b", "c"]))];
+                            let vals = vec![AnyValue::List(Series::new("c", &[10, 11, 12]))];
                             Series::from_any_values_and_dtype("c", &vals, &dtype, false)
                                 .expect("List series should not fail")
                         }
@@ -208,6 +209,8 @@ impl PluginCommand for ToDataFrame {
             .map(|schema| NuSchema::try_from(&schema))
             .transpose()?;
 
+        debug!("schema: {:?}", maybe_schema);
+
         let maybe_as_columns = call.has_flag("as-columns")?;
 
         let df = if !maybe_as_columns {
@@ -230,14 +233,22 @@ impl PluginCommand for ToDataFrame {
                                 .collect::<Vec<Column>>();
                             NuDataFrame::try_from_columns(columns, maybe_schema)?
                         }
-                        Err(_) => NuDataFrame::try_from_iter(
-                            plugin,
-                            input.into_iter(),
-                            maybe_schema.clone(),
-                        )?,
+                        Err(e) => {
+                            debug!(
+                                "Failed to build with multiple columns, attempting as series. failure:{e}"
+                            );
+                            NuDataFrame::try_from_iter(
+                                plugin,
+                                input.into_iter(),
+                                maybe_schema.clone(),
+                            )?
+                        }
                     }
                 }
-                _ => NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?,
+                _ => {
+                    debug!("Other input: {input:?}");
+                    NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?
+                }
             }
         };
 
