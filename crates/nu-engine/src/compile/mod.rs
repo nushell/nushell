@@ -18,7 +18,7 @@ use expression::compile_expression;
 use operator::*;
 use redirect::*;
 
-const BLOCK_INPUT: RegId = RegId(0);
+const BLOCK_INPUT: RegId = RegId::new(0);
 
 /// Compile Nushell pipeline abstract syntax tree (AST) to internal representation (IR) instructions
 /// for evaluation.
