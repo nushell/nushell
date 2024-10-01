@@ -340,7 +340,6 @@ pub fn parse_definition(
         ..
     } = definition;
 
-
     let name_str = signature.name.clone();
 
     if let Some(module_name) = module_name {
