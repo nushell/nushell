@@ -1,6 +1,5 @@
-use itertools::Itertools;
 use nu_engine::command_prelude::*;
-use nu_protocol::FromValue;
+use nu_protocol::ast::PathMember;
 
 use crate::Comparator;
 
@@ -165,12 +164,12 @@ impl Command for Sort {
                 // but since this is a table we know columns are equal for all rows,
                 // so we explicitly compare by each column
                 if let Type::Table(cols) = value.get_type() {
-                    let cellpaths: Vec<CellPath> = cols
+                    let columns: Vec<Comparator> = cols
                         .into_iter()
-                        .map(|col| Value::string(&col.0, Span::unknown()))
-                        .map(CellPath::from_value)
-                        .try_collect()?;
-                    let columns = cellpaths.into_iter().map(Comparator::CellPath).collect();
+                        .map(|col| vec![PathMember::string(col.0.clone(), false, Span::unknown())])
+                        .map(|members| CellPath { members })
+                        .map(Comparator::CellPath)
+                        .collect();
                     crate::sort_by(&mut vec, columns, span, insensitive, natural)?;
                 } else {
                     crate::sort(&mut vec, insensitive, natural)?;
