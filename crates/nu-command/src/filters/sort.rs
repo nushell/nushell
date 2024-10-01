@@ -1,4 +1,8 @@
+use itertools::Itertools;
 use nu_engine::command_prelude::*;
+use nu_protocol::FromValue;
+
+use crate::Comparator;
 
 #[derive(Clone)]
 pub struct Sort;
@@ -153,10 +157,24 @@ impl Command for Sort {
                 )?;
                 Value::record(record, span)
             }
-            Value::List { vals, .. } => {
+            Value::List { ref vals, .. } => {
                 let mut vec = vals.to_owned();
 
-                crate::sort(&mut vec, insensitive, natural)?;
+                // if we have a table specifically, then we want to sort along each column
+                // Record's PartialOrd dictates that columns are compared in alphabetical order,
+                // but since this is a table we know columns are equal for all rows,
+                // so we explicitly compare by each column
+                if let Type::Table(cols) = value.get_type() {
+                    let cellpaths: Vec<CellPath> = cols
+                        .into_iter()
+                        .map(|col| Value::string(&col.0, Span::unknown()))
+                        .map(CellPath::from_value)
+                        .try_collect()?;
+                    let columns = cellpaths.into_iter().map(Comparator::CellPath).collect();
+                    crate::sort_by(&mut vec, columns, span, insensitive, natural)?;
+                } else {
+                    crate::sort(&mut vec, insensitive, natural)?;
+                }
 
                 if reverse {
                     vec.reverse()
