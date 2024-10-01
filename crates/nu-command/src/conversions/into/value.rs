@@ -32,7 +32,11 @@ impl Command for IntoValue {
     }
 
     fn description(&self) -> &str {
-        "Infer nushell datatype for each cell."
+        "Infer Nushell datatype for each cell."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert", "conversion"]
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -10,13 +10,17 @@ pub enum OutDest {
     /// If stdout and stderr are both set to `Pipe`,
     /// then they will combined into the `stdout` of [`ChildProcess`](crate::process::ChildProcess).
     Pipe,
-    /// Capture output to later be collected into a [`Value`](crate::Value), `Vec`, or used in some other way.
+    /// Redirect the stdout and/or stderr of one command as the input for the next command in the pipeline.
     ///
     /// The output stream(s) will be available in the `stdout` or `stderr` of [`ChildProcess`](crate::process::ChildProcess).
     ///
     /// This is similar to `Pipe` but will never combine stdout and stderr
     /// or place an external command's stderr into `stdout` of [`ChildProcess`](crate::process::ChildProcess).
-    Capture,
+    PipeSeparate,
+    /// Signifies the result of the pipeline will be immediately collected into a value after this command.
+    ///
+    /// So, it is fine to collect the stream ahead of time in the current command.
+    Value,
     /// Ignore output.
     ///
     /// This will forward output to the null device for the platform.
@@ -46,7 +50,7 @@ impl TryFrom<&OutDest> for Stdio {
 
     fn try_from(out_dest: &OutDest) -> Result<Self, Self::Error> {
         match out_dest {
-            OutDest::Pipe | OutDest::Capture => Ok(Self::piped()),
+            OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => Ok(Self::piped()),
             OutDest::Null => Ok(Self::null()),
             OutDest::Inherit => Ok(Self::inherit()),
             OutDest::File(file) => Ok(file.try_clone()?.into()),

@@ -11,7 +11,7 @@ use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DidYouMean, Flag,
+    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean, Flag,
     ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId, ENV_VARIABLE_ID,
     IN_VARIABLE_ID,
 };
@@ -258,7 +258,6 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                 from: usize,
                 quote_char: u8,
                 escaped: bool,
-                depth: i32,
             },
         }
         // Find the spans of parts of the string that can be parsed as their own strings for
@@ -287,7 +286,6 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                             from: index,
                             quote_char: ch,
                             escaped: false,
-                            depth: 1,
                         };
                     }
                     b'$' => {
@@ -300,7 +298,6 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                                 from: index,
                                 quote_char,
                                 escaped: false,
-                                depth: 1,
                             };
                             // Skip over two chars (the dollar sign and the quote)
                             index += 2;
@@ -314,28 +311,12 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                     from,
                     quote_char,
                     escaped,
-                    depth,
                 } => match ch {
                     ch if ch == *quote_char && !*escaped => {
-                        // Count if there are more than `depth` quotes remaining
-                        if contents[index..]
-                            .iter()
-                            .filter(|b| *b == quote_char)
-                            .count() as i32
-                            > *depth
-                        {
-                            // Increment depth to be greedy
-                            *depth += 1;
-                        } else {
-                            // Decrement depth
-                            *depth -= 1;
-                        }
-                        if *depth == 0 {
-                            // End of string
-                            spans.push(make_span(*from, index + 1));
-                            // go back to Bare state
-                            state = State::Bare { from: index + 1 };
-                        }
+                        // quoted string ended, just make a new span for it.
+                        spans.push(make_span(*from, index + 1));
+                        // go back to Bare state.
+                        state = State::Bare { from: index + 1 };
                     }
                     b'\\' if !*escaped && *quote_char == b'"' => {
                         // The next token is escaped so it doesn't count (only for double quote)
@@ -753,22 +734,23 @@ fn calculate_end_span(
             // keywords, they get to set this by being present
 
             let positionals_between = kw_pos - positional_idx - 1;
-            if positionals_between > (kw_idx - spans_idx) {
+            if positionals_between >= (kw_idx - spans_idx) {
                 kw_idx
             } else {
                 kw_idx - positionals_between
             }
         } else {
             // Make space for the remaining require positionals, if we can
-            if signature.num_positionals_after(positional_idx) == 0 {
-                spans.len()
-            } else if positional_idx < signature.required_positional.len()
-                && spans.len() > (signature.required_positional.len() - positional_idx)
-            {
-                spans.len() - (signature.required_positional.len() - positional_idx - 1)
-            } else {
-                spans_idx + 1
-            }
+            // spans_idx < spans.len() is an invariant
+            let remaining_spans = spans.len() - (spans_idx + 1);
+            // positional_idx can be larger than required_positional.len() if we have optional args
+            let remaining_positional = signature
+                .required_positional
+                .len()
+                .saturating_sub(positional_idx + 1);
+            // Saturates to 0 when we have too few args
+            let extra_spans = remaining_spans.saturating_sub(remaining_positional);
+            spans_idx + 1 + extra_spans
         }
     }
 }
@@ -939,9 +921,9 @@ pub fn parse_internal_call(
     working_set: &mut StateWorkingSet,
     command_span: Span,
     spans: &[Span],
-    decl_id: usize,
+    decl_id: DeclId,
 ) -> ParsedInternalCall {
-    trace!("parsing: internal call (decl id: {})", decl_id);
+    trace!("parsing: internal call (decl id: {})", decl_id.get());
 
     let mut call = Call::new(command_span);
     call.decl_id = decl_id;
@@ -1183,11 +1165,24 @@ pub fn parse_internal_call(
         if let Some(positional) = signature.get_positional(positional_idx) {
             let end = calculate_end_span(working_set, &signature, spans, spans_idx, positional_idx);
 
-            let end = if spans.len() > spans_idx && end == spans_idx {
-                end + 1
-            } else {
-                end
-            };
+            // Missing arguments before next keyword
+            if end == spans_idx {
+                let prev_span = if spans_idx == 0 {
+                    command_span
+                } else {
+                    spans[spans_idx - 1]
+                };
+                let whitespace_span = Span::new(prev_span.end, spans[spans_idx].start);
+                working_set.error(ParseError::MissingPositional(
+                    positional.name.clone(),
+                    whitespace_span,
+                    signature.call_signature(),
+                ));
+                call.add_positional(Expression::garbage(working_set, whitespace_span));
+                positional_idx += 1;
+                continue;
+            }
+            debug_assert!(end <= spans.len());
 
             if spans[..end].is_empty() || spans_idx == end {
                 working_set.error(ParseError::MissingPositional(
@@ -6588,6 +6583,7 @@ pub fn parse(
     let mut errors = vec![];
     for (block_idx, block) in working_set.delta.blocks.iter().enumerate() {
         let block_id = block_idx + working_set.permanent_state.num_blocks();
+        let block_id = BlockId::new(block_id);
 
         if !seen_blocks.contains_key(&block_id) {
             let mut captures = vec![];
@@ -6630,7 +6626,7 @@ pub fn parse(
         // already saved in permanent state
         if !captures.is_empty()
             && block_captures_empty
-            && block_id >= working_set.permanent_state.num_blocks()
+            && block_id.get() >= working_set.permanent_state.num_blocks()
         {
             let block = working_set.get_block_mut(block_id);
             block.captures = captures.into_iter().map(|(var_id, _)| var_id).collect();

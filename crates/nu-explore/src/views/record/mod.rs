@@ -127,7 +127,7 @@ impl RecordView {
         if layer.record_text.is_none() {
             let mut data =
                 convert_records_to_string(&layer.record_values, cfg.nu_config, cfg.style_computer);
-            lscolorize(&layer.column_names, &mut data, cfg.lscolors);
+            lscolorize(&layer.column_names, &mut data, cfg.cwd, cfg.lscolors);
 
             layer.record_text = Some(data);
         }

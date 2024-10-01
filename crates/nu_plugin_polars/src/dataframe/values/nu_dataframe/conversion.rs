@@ -12,8 +12,8 @@ use polars::prelude::{
     DataFrame, DataType, DatetimeChunked, Float32Type, Float64Type, Int16Type, Int32Type,
     Int64Type, Int8Type, IntoSeries, ListBooleanChunkedBuilder, ListBuilderTrait,
     ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, NamedFrom, NewChunkedArray,
-    ObjectType, Schema, Series, StructChunked, TemporalMethods, TimeUnit, UInt16Type, UInt32Type,
-    UInt64Type, UInt8Type,
+    ObjectType, PolarsError, Schema, Series, StructChunked, TemporalMethods, TimeUnit, UInt16Type,
+    UInt32Type, UInt64Type, UInt8Type,
 };
 
 use nu_protocol::{Record, ShellError, Span, Value};
@@ -237,6 +237,7 @@ pub fn insert_value(
             | (Value::Bool { .. }, Value::Bool { .. })
             | (Value::Date { .. }, Value::Date { .. })
             | (Value::Filesize { .. }, Value::Filesize { .. })
+            | (Value::Binary { .. }, Value::Binary { .. })
             | (Value::Duration { .. }, Value::Duration { .. }) => col_val.values.push(value),
             (_, Value::Nothing { .. }) => col_val.values.push(value),
             (Value::List { .. }, _) => {
@@ -261,6 +262,7 @@ fn value_to_data_type(value: &Value) -> DataType {
         Value::Date { .. } => DataType::Date,
         Value::Duration { .. } => DataType::Duration(TimeUnit::Nanoseconds),
         Value::Filesize { .. } => DataType::Int64,
+        Value::Binary { .. } => DataType::Binary,
         Value::List { vals, .. } => {
             // We need to determined the type inside of the list.
             // Since Value::List does not have any kind of
@@ -402,6 +404,11 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                     .iter()
                     .map(|v| value_to_option(v, |v| v.coerce_string()))
                     .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Binary | DataType::BinaryOffset => {
+                let series_values: Result<Vec<_>, _> =
+                    column.values.iter().map(|v| v.coerce_binary()).collect();
                 Ok(Series::new(name, series_values?))
             }
             DataType::Object(_, _) => value_to_series(name, &column.values),
@@ -959,6 +966,34 @@ fn series_to_values(
             }
             .map(|v| match v {
                 Some(a) => Value::string(a.to_string(), span),
+                None => Value::nothing(span),
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        t @ (DataType::Binary | DataType::BinaryOffset) => {
+            let make_err = |e: PolarsError| ShellError::GenericError {
+                error: "Error casting column to binary".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.to_string()),
+                inner: vec![],
+            };
+
+            let it = match t {
+                DataType::Binary => series.binary().map_err(make_err)?.into_iter(),
+                DataType::BinaryOffset => series.binary_offset().map_err(make_err)?.into_iter(),
+                _ => unreachable!(),
+            };
+
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(b) => Value::binary(b, span),
                 None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();

@@ -1,7 +1,7 @@
 use crate::{
     engine::{
         ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
-        StackCaptureGuard, StackIoGuard, StackOutDest, DEFAULT_OVERLAY_NAME,
+        StackCollectValueGuard, StackIoGuard, StackOutDest, DEFAULT_OVERLAY_NAME,
     },
     Config, OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
@@ -68,7 +68,7 @@ impl Stack {
     /// stdout and stderr will be set to [`OutDest::Inherit`]. So, if the last command is an external command,
     /// then its output will be forwarded to the terminal/stdio streams.
     ///
-    /// Use [`Stack::capture`] afterwards if you need to evaluate an expression to a [`Value`]
+    /// Use [`Stack::collect_value`] afterwards if you need to evaluate an expression to a [`Value`]
     /// (as opposed to a [`PipelineData`](crate::PipelineData)).
     pub fn new() -> Self {
         Self {
@@ -299,7 +299,8 @@ impl Stack {
     }
 
     pub fn captures_to_stack(&self, captures: Vec<(VarId, Value)>) -> Stack {
-        self.captures_to_stack_preserve_out_dest(captures).capture()
+        self.captures_to_stack_preserve_out_dest(captures)
+            .collect_value()
     }
 
     pub fn captures_to_stack_preserve_out_dest(&self, captures: Vec<(VarId, Value)>) -> Stack {
@@ -589,11 +590,11 @@ impl Stack {
         self.out_dest.pipe_stderr.as_ref()
     }
 
-    /// Temporarily set the pipe stdout redirection to [`OutDest::Capture`].
+    /// Temporarily set the pipe stdout redirection to [`OutDest::Value`].
     ///
     /// This is used before evaluating an expression into a `Value`.
-    pub fn start_capture(&mut self) -> StackCaptureGuard {
-        StackCaptureGuard::new(self)
+    pub fn start_collect_value(&mut self) -> StackCollectValueGuard {
+        StackCollectValueGuard::new(self)
     }
 
     /// Temporarily use the output redirections in the parent scope.
@@ -612,14 +613,14 @@ impl Stack {
         StackIoGuard::new(self, stdout, stderr)
     }
 
-    /// Mark stdout for the last command as [`OutDest::Capture`].
+    /// Mark stdout for the last command as [`OutDest::Value`].
     ///
     /// This will irreversibly alter the output redirections, and so it only makes sense to use this on an owned `Stack`
     /// (which is why this function does not take `&mut self`).
     ///
-    /// See [`Stack::start_capture`] which can temporarily set stdout as [`OutDest::Capture`] for a mutable `Stack` reference.
-    pub fn capture(mut self) -> Self {
-        self.out_dest.pipe_stdout = Some(OutDest::Capture);
+    /// See [`Stack::start_collect_value`] which can temporarily set stdout as [`OutDest::Value`] for a mutable `Stack` reference.
+    pub fn collect_value(mut self) -> Self {
+        self.out_dest.pipe_stdout = Some(OutDest::Value);
         self.out_dest.pipe_stderr = None;
         self
     }
@@ -733,7 +734,7 @@ impl Stack {
 mod test {
     use std::sync::Arc;
 
-    use crate::{engine::EngineState, Span, Value};
+    use crate::{engine::EngineState, Span, Value, VarId};
 
     use super::Stack;
 
@@ -748,22 +749,25 @@ mod test {
     #[test]
     fn test_children_see_inner_values() {
         let mut original = Stack::new();
-        original.add_var(0, string_value("hello"));
+        original.add_var(VarId::new(0), string_value("hello"));
 
         let cloned = Stack::with_parent(Arc::new(original));
-        assert_eq!(cloned.get_var(0, ZERO_SPAN), Ok(string_value("hello")));
+        assert_eq!(
+            cloned.get_var(VarId::new(0), ZERO_SPAN),
+            Ok(string_value("hello"))
+        );
     }
 
     #[test]
     fn test_children_dont_see_deleted_values() {
         let mut original = Stack::new();
-        original.add_var(0, string_value("hello"));
+        original.add_var(VarId::new(0), string_value("hello"));
 
         let mut cloned = Stack::with_parent(Arc::new(original));
-        cloned.remove_var(0);
+        cloned.remove_var(VarId::new(0));
 
         assert_eq!(
-            cloned.get_var(0, ZERO_SPAN),
+            cloned.get_var(VarId::new(0), ZERO_SPAN),
             Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
         );
     }
@@ -771,60 +775,69 @@ mod test {
     #[test]
     fn test_children_changes_override_parent() {
         let mut original = Stack::new();
-        original.add_var(0, string_value("hello"));
+        original.add_var(VarId::new(0), string_value("hello"));
 
         let mut cloned = Stack::with_parent(Arc::new(original));
-        cloned.add_var(0, string_value("there"));
-        assert_eq!(cloned.get_var(0, ZERO_SPAN), Ok(string_value("there")));
+        cloned.add_var(VarId::new(0), string_value("there"));
+        assert_eq!(
+            cloned.get_var(VarId::new(0), ZERO_SPAN),
+            Ok(string_value("there"))
+        );
 
-        cloned.remove_var(0);
+        cloned.remove_var(VarId::new(0));
         // the underlying value shouldn't magically re-appear
         assert_eq!(
-            cloned.get_var(0, ZERO_SPAN),
+            cloned.get_var(VarId::new(0), ZERO_SPAN),
             Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
         );
     }
     #[test]
     fn test_children_changes_persist_in_offspring() {
         let mut original = Stack::new();
-        original.add_var(0, string_value("hello"));
+        original.add_var(VarId::new(0), string_value("hello"));
 
         let mut cloned = Stack::with_parent(Arc::new(original));
-        cloned.add_var(1, string_value("there"));
+        cloned.add_var(VarId::new(1), string_value("there"));
 
-        cloned.remove_var(0);
+        cloned.remove_var(VarId::new(0));
         let cloned = Stack::with_parent(Arc::new(cloned));
 
         assert_eq!(
-            cloned.get_var(0, ZERO_SPAN),
+            cloned.get_var(VarId::new(0), ZERO_SPAN),
             Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
         );
 
-        assert_eq!(cloned.get_var(1, ZERO_SPAN), Ok(string_value("there")));
+        assert_eq!(
+            cloned.get_var(VarId::new(1), ZERO_SPAN),
+            Ok(string_value("there"))
+        );
     }
 
     #[test]
     fn test_merging_children_back_to_parent() {
         let mut original = Stack::new();
         let engine_state = EngineState::new();
-        original.add_var(0, string_value("hello"));
+        original.add_var(VarId::new(0), string_value("hello"));
 
         let original_arc = Arc::new(original);
         let mut cloned = Stack::with_parent(original_arc.clone());
-        cloned.add_var(1, string_value("there"));
+        cloned.add_var(VarId::new(1), string_value("there"));
 
-        cloned.remove_var(0);
+        cloned.remove_var(VarId::new(0));
 
         cloned.add_env_var("ADDED_IN_CHILD".to_string(), string_value("New Env Var"));
 
         let original = Stack::with_changes_from_child(original_arc, cloned);
 
         assert_eq!(
-            original.get_var(0, ZERO_SPAN),
+            original.get_var(VarId::new(0), ZERO_SPAN),
             Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
         );
 
-        assert_eq!(original.get_var(1, ZERO_SPAN), Ok(string_value("there")));
+        assert_eq!(
+            original.get_var(VarId::new(1), ZERO_SPAN),
+            Ok(string_value("there"))
+        );
 
         assert_eq!(
             original.get_env_var(&engine_state, "ADDED_IN_CHILD"),

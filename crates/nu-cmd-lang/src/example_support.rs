@@ -126,7 +126,7 @@ pub fn eval_block(
     cwd: &std::path::Path,
     engine_state: &EngineState,
 ) -> Value {
-    let mut stack = Stack::new().capture();
+    let mut stack = Stack::new().collect_value();
 
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
@@ -143,13 +143,13 @@ pub fn check_example_evaluates_to_expected_output(
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
 ) {
-    let mut stack = Stack::new().capture();
+    let mut stack = Stack::new().collect_value();
 
     // Set up PWD
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
     engine_state
-        .merge_env(&mut stack, cwd)
+        .merge_env(&mut stack)
         .expect("Error merging environment");
 
     let empty_input = PipelineData::empty();

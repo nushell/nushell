@@ -340,7 +340,7 @@ fn write_pipeline_data(
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
         writer.write_all(&val)?;
     } else {
-        stack.start_capture();
+        stack.start_collect_value();
 
         // Turn off color as we pass data through
         Arc::make_mut(&mut engine_state.config).use_ansi_coloring = false;
@@ -367,7 +367,7 @@ pub fn command_not_found(
 ) -> ShellError {
     // Run the `command_not_found` hook if there is one.
     if let Some(hook) = &stack.get_config(engine_state).hooks.command_not_found {
-        let mut stack = stack.start_capture();
+        let mut stack = stack.start_collect_value();
         // Set a special environment variable to avoid infinite loops when the
         // `command_not_found` hook triggers itself.
         let canary = "ENTERED_COMMAND_NOT_FOUND";
@@ -623,8 +623,16 @@ mod test {
 
     #[test]
     fn test_write_pipeline_data() {
-        let engine_state = EngineState::new();
+        let mut engine_state = EngineState::new();
         let stack = Stack::new();
+        let cwd = std::env::current_dir()
+            .unwrap()
+            .into_os_string()
+            .into_string()
+            .unwrap();
+
+        // set the PWD environment variable as it's required now
+        engine_state.add_env_var("PWD".into(), Value::string(cwd, Span::test_data()));
 
         let mut buf = vec![];
         let input = PipelineData::Empty;
