@@ -24,7 +24,7 @@ RUN echo '/usr/bin/nu' >> /etc/shells \
     | grep ${ARCH}-unknown-linux-musl \
     | xargs -I{} wget {} \
     && tar -xzf nu* \
-    && cd nu*-musl \
+    && cd nu*-musl* \
     && mv nu* /usr/bin \
     && chmod +x /usr/bin/nu \
     && chown -R nushell:nushell /home/nushell/.config/nushell \
