@@ -180,12 +180,19 @@ impl Command for External {
         }
 
         // Wrap the output into a `PipelineData::ByteStream`.
-        let child = ChildProcess::new(
+        let mut child = ChildProcess::new(
             child,
             merged_stream,
             matches!(stderr, OutDest::Pipe),
             call.head,
         )?;
+
+        if matches!(stdout, OutDest::Pipe | OutDest::PipeSeparate)
+            || matches!(stderr, OutDest::Pipe | OutDest::PipeSeparate)
+        {
+            child.ignore_error(true);
+        }
+
         Ok(PipelineData::ByteStream(
             ByteStream::child(child, call.head),
             None,
