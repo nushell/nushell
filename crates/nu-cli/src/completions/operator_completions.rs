@@ -127,7 +127,7 @@ impl Completer for OperatorCompletion {
 }
 
 pub fn get_variable_completions<'a>(
-    id: usize,
+    id: nu_protocol::Id<nu_protocol::marker::Var>,
     working_set: &StateWorkingSet,
 ) -> Vec<(&'a str, &'a str)> {
     let var = working_set.get_variable(id);
