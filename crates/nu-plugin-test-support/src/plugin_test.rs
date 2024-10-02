@@ -156,7 +156,7 @@ impl PluginTest {
         };
 
         // Eval the block with the input
-        let mut stack = Stack::new().capture();
+        let mut stack = Stack::new().collect_value();
         let data = eval_block::<WithoutDebug>(&self.engine_state, &mut stack, &block, input)?;
         if matches!(data, PipelineData::ByteStream(..)) {
             Ok(data)

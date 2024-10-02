@@ -256,13 +256,9 @@ pub fn nu_repl() {
     for (i, line) in source_lines.iter().enumerate() {
         let mut stack = Stack::with_parent(top_stack.clone());
 
-        let cwd = engine_state
-            .cwd(Some(&stack))
-            .unwrap_or_else(|err| outcome_err(&engine_state, &err));
-
         // Before doing anything, merge the environment from the previous REPL iteration into the
         // permanent state.
-        if let Err(err) = engine_state.merge_env(&mut stack, &cwd) {
+        if let Err(err) = engine_state.merge_env(&mut stack) {
             outcome_err(&engine_state, &err);
         }
 
@@ -337,7 +333,7 @@ pub fn nu_repl() {
         let config = engine_state.get_config();
 
         {
-            let stack = &mut stack.start_capture();
+            let stack = &mut stack.start_collect_value();
             match eval_block::<WithoutDebug>(&engine_state, stack, &block, input) {
                 Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
                     Ok(s) => last_output = s,
@@ -352,7 +348,7 @@ pub fn nu_repl() {
                 .coerce_str()
                 .unwrap_or_else(|err| outcome_err(&engine_state, &err));
             let _ = std::env::set_current_dir(path.as_ref());
-            engine_state.add_env_var("PWD".into(), cwd);
+            engine_state.add_env_var("PWD".into(), cwd.clone());
         }
         top_stack = Arc::new(Stack::with_changes_from_child(top_stack, stack));
     }

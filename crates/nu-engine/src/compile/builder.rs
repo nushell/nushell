@@ -58,9 +58,9 @@ impl BlockBuilder {
                 }
             })
         {
-            Ok(RegId(index as u32))
+            Ok(RegId::new(index as u32))
         } else if self.register_allocation_state.len() < (u32::MAX as usize - 2) {
-            let reg_id = RegId(self.register_allocation_state.len() as u32);
+            let reg_id = RegId::new(self.register_allocation_state.len() as u32);
             self.register_allocation_state.push(true);
             Ok(reg_id)
         } else {
@@ -73,13 +73,16 @@ impl BlockBuilder {
     /// Check if a register is initialized with a value.
     pub(crate) fn is_allocated(&self, reg_id: RegId) -> bool {
         self.register_allocation_state
-            .get(reg_id.0 as usize)
+            .get(reg_id.get() as usize)
             .is_some_and(|state| *state)
     }
 
     /// Mark a register as initialized.
     pub(crate) fn mark_register(&mut self, reg_id: RegId) -> Result<(), CompileError> {
-        if let Some(is_allocated) = self.register_allocation_state.get_mut(reg_id.0 as usize) {
+        if let Some(is_allocated) = self
+            .register_allocation_state
+            .get_mut(reg_id.get() as usize)
+        {
             *is_allocated = true;
             Ok(())
         } else {
@@ -92,7 +95,7 @@ impl BlockBuilder {
     /// Mark a register as empty, so that it can be used again by something else.
     #[track_caller]
     pub(crate) fn free_register(&mut self, reg_id: RegId) -> Result<(), CompileError> {
-        let index = reg_id.0 as usize;
+        let index = reg_id.get() as usize;
 
         if self
             .register_allocation_state

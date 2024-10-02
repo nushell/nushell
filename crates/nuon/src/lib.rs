@@ -12,7 +12,7 @@ mod tests {
     use nu_protocol::{
         ast::{CellPath, PathMember, RangeInclusion},
         engine::Closure,
-        record, IntRange, Range, Span, Value,
+        record, BlockId, IntRange, Range, Span, Value,
     };
 
     use crate::{from_nuon, to_nuon, ToStyle};
@@ -175,7 +175,7 @@ mod tests {
     fn to_nuon_errs_on_closure() {
         assert!(to_nuon(
             &Value::test_closure(Closure {
-                block_id: 0,
+                block_id: BlockId::new(0),
                 captures: vec![]
             }),
             ToStyle::Raw,

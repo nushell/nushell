@@ -68,7 +68,7 @@ fn get_prompt_string(
         .get_env_var(engine_state, prompt)
         .and_then(|v| match v {
             Value::Closure { val, .. } => {
-                let result = ClosureEvalOnce::new(engine_state, stack, *val)
+                let result = ClosureEvalOnce::new(engine_state, stack, val.as_ref().clone())
                     .run_with_input(PipelineData::Empty);
 
                 trace!(
@@ -119,7 +119,11 @@ pub(crate) fn update_prompt(
     // Now that we have the prompt string lets ansify it.
     // <133 A><prompt><133 B><command><133 C><command output>
     let left_prompt_string = if config.shell_integration.osc633 {
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
             // We're in vscode and we have osc633 enabled
             Some(format!(
                 "{VSCODE_PRE_PROMPT_MARKER}{configured_left_prompt_string}{VSCODE_POST_PROMPT_MARKER}"

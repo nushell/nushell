@@ -69,7 +69,7 @@ prints out the list properly."#
         let icons_param: bool = call.has_flag(engine_state, stack, "icons")?;
         let config = &stack.get_config(engine_state);
         let env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
-            Some(v) => Some(env_to_string("LS_COLORS", &v, engine_state, stack)?),
+            Some(v) => Some(env_to_string("LS_COLORS", v, engine_state, stack)?),
             None => None,
         };
 
@@ -237,7 +237,9 @@ fn create_grid_output(
                     cell.alignment = Alignment::Left;
                     grid.add(cell);
                 } else {
-                    let style = ls_colors.style_for_path(value.clone());
+                    let no_ansi = nu_utils::strip_ansi_unlikely(&value);
+                    let path = cwd.join(no_ansi.as_ref());
+                    let style = ls_colors.style_for_path(path.clone());
                     let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
                     let mut cell = Cell::from(ansi_style.paint(value).to_string());
                     cell.alignment = Alignment::Left;

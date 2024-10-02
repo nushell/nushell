@@ -147,6 +147,7 @@ impl Command for Do {
                             None
                         };
 
+                        child.ignore_error(false);
                         child.wait()?;
 
                         let mut child = ChildProcess::from_raw(None, None, None, span);
@@ -166,10 +167,13 @@ impl Command for Do {
             }
             Ok(PipelineData::ByteStream(mut stream, metadata))
                 if ignore_program_errors
-                    && !matches!(caller_stack.stdout(), OutDest::Pipe | OutDest::Capture) =>
+                    && !matches!(
+                        caller_stack.stdout(),
+                        OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
+                    ) =>
             {
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
-                    child.set_exit_code(0)
+                    child.ignore_error(true);
                 }
                 Ok(PipelineData::ByteStream(stream, metadata))
             }

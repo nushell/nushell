@@ -580,8 +580,8 @@ impl ByteStream {
                 copy_with_signals(file, dest, span, signals)?;
             }
             ByteStreamSource::Child(mut child) => {
-                // All `OutDest`s except `OutDest::Capture` will cause `stderr` to be `None`.
-                // Only `save`, `tee`, and `complete` set the stderr `OutDest` to `OutDest::Capture`,
+                // All `OutDest`s except `OutDest::PipeSeparate` will cause `stderr` to be `None`.
+                // Only `save`, `tee`, and `complete` set the stderr `OutDest` to `OutDest::PipeSeparate`,
                 // and those commands have proper simultaneous handling of stdout and stderr.
                 debug_assert!(child.stderr.is_none(), "stderr should not exist");
 
@@ -614,7 +614,7 @@ impl ByteStream {
                 write_to_out_dest(read, stdout, true, span, signals)?;
             }
             ByteStreamSource::File(file) => match stdout {
-                OutDest::Pipe | OutDest::Capture | OutDest::Null => {}
+                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value | OutDest::Null => {}
                 OutDest::Inherit => {
                     copy_with_signals(file, io::stdout(), span, signals)?;
                 }
@@ -970,7 +970,7 @@ fn write_to_out_dest(
     signals: &Signals,
 ) -> Result<(), ShellError> {
     match stream {
-        OutDest::Pipe | OutDest::Capture => return Ok(()),
+        OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => return Ok(()),
         OutDest::Null => copy_with_signals(read, io::sink(), span, signals),
         OutDest::Inherit if stdout => copy_with_signals(read, io::stdout(), span, signals),
         OutDest::Inherit => copy_with_signals(read, io::stderr(), span, signals),

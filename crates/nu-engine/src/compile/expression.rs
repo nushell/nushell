@@ -90,7 +90,7 @@ pub(crate) fn compile_expression(
                         working_set,
                         builder,
                         part_expr,
-                        RedirectModes::capture_out(part_expr.span),
+                        RedirectModes::value(part_expr.span),
                         None,
                         reg,
                     )?;
@@ -148,7 +148,7 @@ pub(crate) fn compile_expression(
                 working_set,
                 builder,
                 subexpr,
-                RedirectModes::capture_out(subexpr.span),
+                RedirectModes::value(subexpr.span),
                 None,
                 out_reg,
             )?;
@@ -217,7 +217,7 @@ pub(crate) fn compile_expression(
                     working_set,
                     builder,
                     expr,
-                    RedirectModes::capture_out(expr.span),
+                    RedirectModes::value(expr.span),
                     None,
                     reg,
                 )?;
@@ -265,7 +265,7 @@ pub(crate) fn compile_expression(
                         working_set,
                         builder,
                         column,
-                        RedirectModes::capture_out(column.span),
+                        RedirectModes::value(column.span),
                         None,
                         reg,
                     )?;
@@ -290,7 +290,7 @@ pub(crate) fn compile_expression(
                         working_set,
                         builder,
                         item,
-                        RedirectModes::capture_out(item.span),
+                        RedirectModes::value(item.span),
                         None,
                         item_reg,
                     )?;
@@ -337,7 +337,7 @@ pub(crate) fn compile_expression(
                             working_set,
                             builder,
                             key,
-                            RedirectModes::capture_out(key.span),
+                            RedirectModes::value(key.span),
                             None,
                             key_reg,
                         )?;
@@ -345,7 +345,7 @@ pub(crate) fn compile_expression(
                             working_set,
                             builder,
                             val,
-                            RedirectModes::capture_out(val.span),
+                            RedirectModes::value(val.span),
                             None,
                             val_reg,
                         )?;
@@ -365,7 +365,7 @@ pub(crate) fn compile_expression(
                             working_set,
                             builder,
                             expr,
-                            RedirectModes::capture_out(expr.span),
+                            RedirectModes::value(expr.span),
                             None,
                             reg,
                         )?;
@@ -449,7 +449,7 @@ pub(crate) fn compile_expression(
                     // general, which shouldn't be captured any differently than they otherwise
                     // would be.
                     if !full_cell_path.tail.is_empty() {
-                        RedirectModes::capture_out(expr.span)
+                        RedirectModes::value(expr.span)
                     } else {
                         redirect_modes
                     },
@@ -491,7 +491,7 @@ pub(crate) fn compile_expression(
                     working_set,
                     builder,
                     exprs_iter.next().expect("peek() was Some"),
-                    RedirectModes::capture_out(expr.span),
+                    RedirectModes::value(expr.span),
                     None,
                     out_reg,
                 )?;
@@ -507,7 +507,7 @@ pub(crate) fn compile_expression(
                     working_set,
                     builder,
                     expr,
-                    RedirectModes::capture_out(expr.span),
+                    RedirectModes::value(expr.span),
                     None,
                     scratch_reg,
                 )?;

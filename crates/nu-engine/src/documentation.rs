@@ -23,7 +23,7 @@ pub fn get_full_help(
     // internally call several commands (`table`, `ansi`, `nu-highlight`) and get their
     // `PipelineData` using this `Stack`, any other output should not be redirected like the main
     // execution.
-    let stack = &mut stack.start_capture();
+    let stack = &mut stack.start_collect_value();
 
     let signature = engine_state
         .get_signature(command)
@@ -202,7 +202,7 @@ fn get_documentation(
                 ));
             }
 
-            let caller_stack = &mut Stack::new().capture();
+            let caller_stack = &mut Stack::new().collect_value();
             if let Ok(result) = eval_call::<WithoutDebug>(
                 engine_state,
                 caller_stack,
@@ -329,7 +329,7 @@ fn update_ansi_from_config(
     theme_component: &str,
 ) {
     if let Some(color) = &nu_config.color_config.get(theme_component) {
-        let caller_stack = &mut Stack::new().capture();
+        let caller_stack = &mut Stack::new().collect_value();
         let span = Span::unknown();
         let span_id = UNKNOWN_SPAN_ID;
 

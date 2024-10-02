@@ -113,25 +113,28 @@ impl<'a> EvalContext<'a> {
     #[inline]
     fn put_reg(&mut self, reg_id: RegId, new_value: PipelineData) {
         // log::trace!("{reg_id} <- {new_value:?}");
-        self.registers[reg_id.0 as usize] = new_value;
+        self.registers[reg_id.get() as usize] = new_value;
     }
 
     /// Borrow the contents of a register.
     #[inline]
     fn borrow_reg(&self, reg_id: RegId) -> &PipelineData {
-        &self.registers[reg_id.0 as usize]
+        &self.registers[reg_id.get() as usize]
     }
 
     /// Replace the contents of a register with `Empty` and then return the value that it contained
     #[inline]
     fn take_reg(&mut self, reg_id: RegId) -> PipelineData {
         // log::trace!("<- {reg_id}");
-        std::mem::replace(&mut self.registers[reg_id.0 as usize], PipelineData::Empty)
+        std::mem::replace(
+            &mut self.registers[reg_id.get() as usize],
+            PipelineData::Empty,
+        )
     }
 
     /// Clone data from a register. Must be collected first.
     fn clone_reg(&mut self, reg_id: RegId, error_span: Span) -> Result<PipelineData, ShellError> {
-        match &self.registers[reg_id.0 as usize] {
+        match &self.registers[reg_id.get() as usize] {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(val, meta) => Ok(PipelineData::Value(val.clone(), meta.clone())),
             _ => Err(ShellError::IrEvalError {
@@ -1414,7 +1417,8 @@ fn eval_redirection(
 ) -> Result<Option<Redirection>, ShellError> {
     match mode {
         RedirectMode::Pipe => Ok(Some(Redirection::Pipe(OutDest::Pipe))),
-        RedirectMode::Capture => Ok(Some(Redirection::Pipe(OutDest::Capture))),
+        RedirectMode::PipeSeparate => Ok(Some(Redirection::Pipe(OutDest::PipeSeparate))),
+        RedirectMode::Value => Ok(Some(Redirection::Pipe(OutDest::Value))),
         RedirectMode::Null => Ok(Some(Redirection::Pipe(OutDest::Null))),
         RedirectMode::Inherit => Ok(Some(Redirection::Pipe(OutDest::Inherit))),
         RedirectMode::File { file_num } => {

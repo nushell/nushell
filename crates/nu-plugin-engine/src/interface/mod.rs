@@ -1276,7 +1276,9 @@ pub(crate) fn handle_engine_call(
         }
         EngineCall::GetEnvVar(name) => {
             let value = context.get_env_var(&name)?;
-            Ok(value.map_or_else(EngineCallResponse::empty, EngineCallResponse::value))
+            Ok(value
+                .cloned()
+                .map_or_else(EngineCallResponse::empty, EngineCallResponse::value))
         }
         EngineCall::GetEnvVars => context.get_env_vars().map(EngineCallResponse::ValueMap),
         EngineCall::GetCurrentDir => {

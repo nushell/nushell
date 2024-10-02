@@ -96,7 +96,7 @@ pub struct Call {
 impl Call {
     pub fn new(head: Span) -> Call {
         Self {
-            decl_id: 0,
+            decl_id: DeclId::new(0),
             head,
             arguments: vec![],
             parser_info: HashMap::new(),

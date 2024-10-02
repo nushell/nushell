@@ -76,7 +76,7 @@ impl ScopeFrame {
     pub fn with_empty_overlay(name: Vec<u8>, origin: ModuleId, prefixed: bool) -> Self {
         Self {
             overlays: vec![(name, OverlayFrame::from_origin(origin, prefixed))],
-            active_overlays: vec![0],
+            active_overlays: vec![OverlayId::new(0)],
             removed_overlays: vec![],
             predecls: HashMap::new(),
         }
@@ -86,7 +86,7 @@ impl ScopeFrame {
         for overlay_id in self.active_overlays.iter().rev() {
             if let Some(var_id) = self
                 .overlays
-                .get(*overlay_id)
+                .get(overlay_id.get())
                 .expect("internal error: missing overlay")
                 .1
                 .vars
@@ -139,7 +139,7 @@ impl ScopeFrame {
     pub fn get_overlay_name(&self, overlay_id: OverlayId) -> &[u8] {
         &self
             .overlays
-            .get(overlay_id)
+            .get(overlay_id.get())
             .expect("internal error: missing overlay")
             .0
     }
@@ -147,7 +147,7 @@ impl ScopeFrame {
     pub fn get_overlay(&self, overlay_id: OverlayId) -> &OverlayFrame {
         &self
             .overlays
-            .get(overlay_id)
+            .get(overlay_id.get())
             .expect("internal error: missing overlay")
             .1
     }
@@ -155,19 +155,23 @@ impl ScopeFrame {
     pub fn get_overlay_mut(&mut self, overlay_id: OverlayId) -> &mut OverlayFrame {
         &mut self
             .overlays
-            .get_mut(overlay_id)
+            .get_mut(overlay_id.get())
             .expect("internal error: missing overlay")
             .1
     }
 
     pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
-        self.overlays.iter().position(|(n, _)| n == name)
+        self.overlays
+            .iter()
+            .position(|(n, _)| n == name)
+            .map(OverlayId::new)
     }
 
     pub fn find_active_overlay(&self, name: &[u8]) -> Option<OverlayId> {
         self.overlays
             .iter()
             .position(|(n, _)| n == name)
+            .map(OverlayId::new)
             .filter(|id| self.active_overlays.contains(id))
     }
 }

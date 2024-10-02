@@ -565,7 +565,7 @@ fn render_split_line(
     style: NuStyle,
 ) -> u16 {
     if has_head {
-        render_vertical_split_line(buf, x, y, height, &[0], &[2], &[], style);
+        render_vertical_split_line(buf, x, y, height, &[y], &[y + 2], &[], style);
     } else {
         render_vertical_split_line(buf, x, y, height, &[], &[], &[], style);
     }

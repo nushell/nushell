@@ -16,10 +16,7 @@ use crate::{
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
-use nu_cmd_base::{
-    hook::eval_hook,
-    util::{get_editor, get_guaranteed_cwd},
-};
+use nu_cmd_base::{hook::eval_hook, util::get_editor};
 use nu_color_config::StyleComputer;
 #[allow(deprecated)]
 use nu_engine::{convert_env_values, current_dir_str, env_to_strings};
@@ -112,8 +109,7 @@ pub fn evaluate_repl(
             PipelineData::empty(),
             false,
         );
-        let cwd = get_guaranteed_cwd(engine_state, &unique_stack);
-        engine_state.merge_env(&mut unique_stack, cwd)?;
+        engine_state.merge_env(&mut unique_stack)?;
     }
 
     let hostname = System::host_name();
@@ -280,12 +276,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         hostname,
     } = ctx;
 
-    let cwd = get_guaranteed_cwd(engine_state, &stack);
-
     let mut start_time = std::time::Instant::now();
     // Before doing anything, merge the environment from the previous REPL iteration into the
     // permanent state.
-    if let Err(err) = engine_state.merge_env(&mut stack, cwd) {
+    if let Err(err) = engine_state.merge_env(&mut stack) {
         report_shell_error(engine_state, &err);
     }
     // Check whether $env.NU_DISABLE_IR is set, so that the user can change it in the REPL
@@ -518,8 +512,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             drop(repl);
 
             if shell_integration_osc633 {
-                if stack.get_env_var(engine_state, "TERM_PROGRAM")
-                    == Some(Value::test_string("vscode"))
+                if stack
+                    .get_env_var(engine_state, "TERM_PROGRAM")
+                    .and_then(|v| v.as_str().ok())
+                    == Some("vscode")
                 {
                     start_time = Instant::now();
 
@@ -841,7 +837,7 @@ fn do_auto_cd(
 
     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
     let mut shells = if let Some(v) = shells {
-        v.into_list().unwrap_or_else(|_| vec![cwd])
+        v.clone().into_list().unwrap_or_else(|_| vec![cwd])
     } else {
         vec![cwd]
     };
@@ -1033,7 +1029,11 @@ fn run_shell_integration_osc633(
     if let Ok(path) = current_dir_str(engine_state, stack) {
         // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
         // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
             let start_time = Instant::now();
 
             // If we're in vscode, run their specific ansi escape sequence.
@@ -1231,7 +1231,11 @@ fn get_command_finished_marker(
         .and_then(|e| e.as_i64().ok());
 
     if shell_integration_osc633 {
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
             // We're in vscode and we have osc633 enabled
             format!(
                 "{}{}{}",
@@ -1280,7 +1284,11 @@ fn run_finaliziation_ansi_sequence(
 ) {
     if shell_integration_osc633 {
         // Only run osc633 if we are in vscode
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
             let start_time = Instant::now();
 
             run_ansi_sequence(&get_command_finished_marker(

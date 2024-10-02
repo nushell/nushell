@@ -314,7 +314,7 @@ fn send_form_request(
         Value::List { ref vals, .. } => {
             if vals.len() % 2 != 0 {
                 return Err(ShellErrorOrRequestError::ShellError(ShellError::IncorrectValue {
-                    msg: "Body type 'list' for form requests requires paired values. E.g.: [foo, 10]".into(), 
+                    msg: "Body type 'list' for form requests requires paired values. E.g.: [foo, 10]".into(),
                     val_span: body.span(),
                     call_span: span,
                 }));
@@ -901,6 +901,7 @@ fn retrieve_http_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -
         .or(stack.get_env_var(engine_state, "https_proxy"))
         .or(stack.get_env_var(engine_state, "HTTPS_PROXY"))
         .or(stack.get_env_var(engine_state, "ALL_PROXY"))
+        .cloned()
         .and_then(|proxy| proxy.coerce_into_string().ok())
 }
 
