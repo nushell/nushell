@@ -159,13 +159,12 @@ impl Command for Sort {
             Value::List { ref vals, .. } => {
                 let mut vec = vals.to_owned();
 
-                // if we have a table specifically, then we want to sort along each column
-                // Record's PartialOrd dictates that columns are compared in alphabetical order,
-                // but since this is a table we know columns are equal for all rows,
-                // so we explicitly compare by each column
+                // If we have a table specifically, then we want to sort along each column.
+                // Record's PartialOrd impl dictates that columns are compared in alphabetical order,
+                // so we have to explicitly compare by each column.
                 if let Type::Table(cols) = value.get_type() {
                     let columns: Vec<Comparator> = cols
-                        .into_iter()
+                        .iter()
                         .map(|col| vec![PathMember::string(col.0.clone(), false, Span::unknown())])
                         .map(|members| CellPath { members })
                         .map(Comparator::CellPath)

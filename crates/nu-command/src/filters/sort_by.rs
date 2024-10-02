@@ -24,7 +24,8 @@ impl Command for SortBy {
                 "comparator",
                 SyntaxShape::OneOf(vec![
                     SyntaxShape::CellPath,
-                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
+                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any])), // key closure
+                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])), // custom closure
                 ]),
                 "The cell path(s) or closure(s) to compare elements by.",
             )
