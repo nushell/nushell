@@ -413,28 +413,13 @@ $env.config = {
         {
             name: ide_completion_menu
             modifier: control
-            keycode: char_n
+            keycode: space
             mode: [emacs vi_normal vi_insert]
             event: {
                 until: [
                     { send: menu name: ide_completion_menu }
                     { send: menunext }
                     { edit: complete }
-                    { send: down }
-                ]
-            }
-        }
-        {
-            name: move_up
-            modifier: control
-            keycode: char_p
-            mode: [emacs vi_normal vi_insert]
-            event: {
-                until: [
-                    { send: menu name: ide_completion_menu }
-                    { send: menuprevious }
-                    { edit: complete }
-                    { send: up }
                 ]
             }
         }
@@ -632,6 +617,30 @@ $env.config = {
             keycode: end
             mode: [emacs, vi_normal, vi_insert]
             event: { edit: movetolineend }
+        }
+        {
+            name: move_down
+            modifier: control
+            keycode: char_n
+            mode: [emacs, vi_normal, vi_insert]
+            event: {
+                until: [
+                    { send: menudown }
+                    { send: down }
+                ]
+            }
+        }
+        {
+            name: move_up
+            modifier: control
+            keycode: char_p
+            mode: [emacs, vi_normal, vi_insert]
+            event: {
+                until: [
+                    { send: menuup }
+                    { send: up }
+                ]
+            }
         }
         {
             name: delete_one_character_backward

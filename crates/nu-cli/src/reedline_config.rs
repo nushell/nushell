@@ -36,6 +36,41 @@ const DEFAULT_COMPLETION_MENU: &str = r#"
   }
 }"#;
 
+const DEFAULT_IDE_COMPLETION_MENU: &str = r#"
+{
+  name: ide_completion_menu
+  only_buffer_difference: false
+  marker: "| "
+  type: {
+    layout: ide
+    min_completion_width: 0,
+    max_completion_width: 50,
+    max_completion_height: 10, # will be limited by the available lines in the terminal
+    padding: 0,
+    border: true,
+    cursor_offset: 0,
+    description_mode: "prefer_right"
+    min_description_width: 0
+    max_description_width: 50
+    max_description_height: 10
+    description_offset: 1
+    # If true, the cursor pos will be corrected, so the suggestions match up with the typed text
+    #
+    # C:\> str
+    #      str join
+    #      str trim
+    #      str split
+    correct_cursor_pos: false
+  }
+  style: {
+    text: green
+    selected_text: { attr: r }
+    description_text: yellow
+    match_text: { attr: u }
+    selected_match_text: { attr: ur }
+  }
+}"#;
+
 const DEFAULT_HISTORY_MENU: &str = r#"
 {
   name: history_menu
@@ -95,6 +130,7 @@ pub(crate) fn add_menus(
     // Checking if the default menus have been added from the config file
     let default_menus = [
         ("completion_menu", DEFAULT_COMPLETION_MENU),
+        ("ide_completion_menu", DEFAULT_IDE_COMPLETION_MENU),
         ("history_menu", DEFAULT_HISTORY_MENU),
         ("help_menu", DEFAULT_HELP_MENU),
     ];
@@ -624,6 +660,16 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         KeyCode::Tab,
         ReedlineEvent::UntilFound(vec![
             ReedlineEvent::Menu("completion_menu".to_string()),
+            ReedlineEvent::MenuNext,
+            ReedlineEvent::Edit(vec![EditCommand::Complete]),
+        ]),
+    );
+
+    keybindings.add_binding(
+        KeyModifiers::CONTROL,
+        KeyCode::Char(' '),
+        ReedlineEvent::UntilFound(vec![
+            ReedlineEvent::Menu("ide_completion_menu".to_string()),
             ReedlineEvent::MenuNext,
             ReedlineEvent::Edit(vec![EditCommand::Complete]),
         ]),
