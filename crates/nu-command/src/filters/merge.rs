@@ -38,21 +38,21 @@ repeating this process with row 1, and so on."#
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[a b c] | wrap name | merge ( [4 5 6] | wrap id )",
+                example: "[a b c] | wrap name | merge ( [47 512 618] | wrap id )",
                 description: "Add an 'id' column to the input table",
                 result: Some(Value::list(
                     vec![
                         Value::test_record(record! {
                             "name" => Value::test_string("a"),
-                            "id" => Value::test_int(4),
+                            "id" => Value::test_int(47),
                         }),
                         Value::test_record(record! {
                             "name" => Value::test_string("b"),
-                            "id" => Value::test_int(5),
+                            "id" => Value::test_int(512),
                         }),
                         Value::test_record(record! {
                             "name" => Value::test_string("c"),
-                            "id" => Value::test_int(6),
+                            "id" => Value::test_int(618),
                         }),
                     ],
                     Span::test_data(),
