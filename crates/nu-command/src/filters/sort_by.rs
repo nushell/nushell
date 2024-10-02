@@ -83,6 +83,41 @@ impl Command for SortBy {
                     }),
                 ])),
             },
+            Example {
+                description: "Sort by a nested value",
+                example: "[[name info]; [Cairo {founded: 969}] [Kyoto {founded: 794}]] | sort-by info.founded",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "name" => Value::test_string("Kyoto"),
+                        "info" => Value::test_record(
+                            record! { "founded" => Value::test_int(794) },
+                        )}),
+                    Value::test_record(record! {
+                        "name" => Value::test_string("Cairo"),
+                        "info" => Value::test_record(
+                            record! { "founded" => Value::test_int(969) },
+                        )})
+                ])),
+            },
+            Example {
+                description: "Sort by the last value in a list",
+                example: "[[2 50] [10 1]] | sort-by { last }",
+                result: Some(Value::test_list(vec![
+                    Value::test_list(vec![Value::test_int(10), Value::test_int(1)]),
+                    Value::test_list(vec![Value::test_int(2), Value::test_int(50)])
+                ]))
+            },
+            Example {
+                description: "Sort in a custom order",
+                example: "[7 3 2 8 4] | sort-by -c {|a, b| $a < $b}",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                    Value::test_int(7),
+                    Value::test_int(8),
+                ]))
+            }
         ]
     }
 
@@ -144,12 +179,12 @@ impl Command for SortBy {
 
 #[cfg(test)]
 mod test {
+    use crate::{test_examples_with_commands, Last};
+
     use super::*;
 
     #[test]
     fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(SortBy {})
+        test_examples_with_commands(SortBy {}, &[&Last]);
     }
 }

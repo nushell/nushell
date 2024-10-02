@@ -47,67 +47,66 @@ impl Command for Sort {
         vec![
             Example {
                 example: "[2 0 1] | sort",
-                description: "sort the list by increasing value",
-                result: Some(Value::list(
-                    vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
-                    Span::test_data(),
-                )),
+                description: "Sort the list by increasing value",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                ])),
             },
             Example {
                 example: "[2 0 1] | sort --reverse",
-                description: "sort the list by decreasing value",
-                result: Some(Value::list(
-                    vec![Value::test_int(2), Value::test_int(1), Value::test_int(0)],
-                    Span::test_data(),
-                )),
+                description: "Sort the list by decreasing value",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(2),
+                    Value::test_int(1),
+                    Value::test_int(0),
+                ])),
             },
             Example {
                 example: "[betty amy sarah] | sort",
-                description: "sort a list of strings",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("amy"),
-                        Value::test_string("betty"),
-                        Value::test_string("sarah"),
-                    ],
-                    Span::test_data(),
-                )),
+                description: "Sort a list of strings",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("amy"),
+                    Value::test_string("betty"),
+                    Value::test_string("sarah"),
+                ])),
             },
             Example {
                 example: "[betty amy sarah] | sort --reverse",
-                description: "sort a list of strings in reverse",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("sarah"),
-                        Value::test_string("betty"),
-                        Value::test_string("amy"),
-                    ],
-                    Span::test_data(),
-                )),
+                description: "Sort a list of strings in reverse",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("sarah"),
+                    Value::test_string("betty"),
+                    Value::test_string("amy"),
+                ])),
             },
             Example {
                 description: "Sort strings (case-insensitive)",
                 example: "[airplane Truck Car] | sort -i",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("airplane"),
-                        Value::test_string("Car"),
-                        Value::test_string("Truck"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_string("airplane"),
+                    Value::test_string("Car"),
+                    Value::test_string("Truck"),
+                ])),
             },
             Example {
                 description: "Sort strings (reversed case-insensitive)",
                 example: "[airplane Truck Car] | sort -i -r",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("Truck"),
-                        Value::test_string("Car"),
-                        Value::test_string("airplane"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_string("Truck"),
+                    Value::test_string("Car"),
+                    Value::test_string("airplane"),
+                ])),
+            },
+            Example {
+                description: "Sort alphanumeric strings in natural order",
+                example: "[foo1 foo10 foo9] | sort -n",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("foo1"),
+                    Value::test_string("foo9"),
+                    Value::test_string("foo10"),
+                ])),
             },
             Example {
                 description: "Sort record by key (case-insensitive)",
