@@ -137,8 +137,8 @@ impl Command for SortBy {
             vec.reverse()
         }
 
-        let iter = vec.into_iter();
-        Ok(iter.into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
+        let val = Value::list(vec, head);
+        Ok(val.into_pipeline_data_with_metadata(metadata))
     }
 }
 
