@@ -69,7 +69,7 @@ prints out the list properly."#
         let icons_param: bool = call.has_flag(engine_state, stack, "icons")?;
         let config = &stack.get_config(engine_state);
         let env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
-            Some(v) => Some(env_to_string("LS_COLORS", &v, engine_state, stack)?),
+            Some(v) => Some(env_to_string("LS_COLORS", v, engine_state, stack)?),
             None => None,
         };
 

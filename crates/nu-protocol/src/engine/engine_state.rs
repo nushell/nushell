@@ -935,14 +935,14 @@ impl EngineState {
         let pwd = if let Some(stack) = stack {
             stack.get_env_var(self, "PWD")
         } else {
-            self.get_env_var("PWD").cloned()
+            self.get_env_var("PWD")
         };
 
         let pwd = pwd.ok_or_else(|| error("$env.PWD not found", ""))?;
 
-        if let Value::String { val, .. } = pwd {
-            let path = AbsolutePathBuf::try_from(val)
-                .map_err(|path| error("$env.PWD is not an absolute path", path))?;
+        if let Ok(pwd) = pwd.as_str() {
+            let path = AbsolutePathBuf::try_from(pwd)
+                .map_err(|_| error("$env.PWD is not an absolute path", pwd))?;
 
             // Technically, a root path counts as "having trailing slashes", but
             // for the purpose of PWD, a root path is acceptable.

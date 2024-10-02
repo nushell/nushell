@@ -512,8 +512,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             drop(repl);
 
             if shell_integration_osc633 {
-                if stack.get_env_var(engine_state, "TERM_PROGRAM")
-                    == Some(Value::test_string("vscode"))
+                if stack
+                    .get_env_var(engine_state, "TERM_PROGRAM")
+                    .and_then(|v| v.as_str().ok())
+                    == Some("vscode")
                 {
                     start_time = Instant::now();
 
@@ -835,7 +837,7 @@ fn do_auto_cd(
 
     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
     let mut shells = if let Some(v) = shells {
-        v.into_list().unwrap_or_else(|_| vec![cwd])
+        v.clone().into_list().unwrap_or_else(|_| vec![cwd])
     } else {
         vec![cwd]
     };
@@ -1027,7 +1029,11 @@ fn run_shell_integration_osc633(
     if let Ok(path) = current_dir_str(engine_state, stack) {
         // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
         // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
             let start_time = Instant::now();
 
             // If we're in vscode, run their specific ansi escape sequence.
@@ -1225,7 +1231,11 @@ fn get_command_finished_marker(
         .and_then(|e| e.as_i64().ok());
 
     if shell_integration_osc633 {
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
             // We're in vscode and we have osc633 enabled
             format!(
                 "{}{}{}",
@@ -1274,7 +1284,11 @@ fn run_finaliziation_ansi_sequence(
 ) {
     if shell_integration_osc633 {
         // Only run osc633 if we are in vscode
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
             let start_time = Instant::now();
 
             run_ansi_sequence(&get_command_finished_marker(
