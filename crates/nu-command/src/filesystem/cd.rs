@@ -107,7 +107,7 @@ impl Command for Cd {
         // Set OLDPWD.
         // We're using `Stack::get_env_var()` instead of `EngineState::cwd()` to avoid a conversion roundtrip.
         if let Some(oldpwd) = stack.get_env_var(engine_state, "PWD") {
-            stack.add_env_var("OLDPWD".into(), oldpwd)
+            stack.add_env_var("OLDPWD".into(), oldpwd.clone())
         }
 
         match have_permission(&path) {

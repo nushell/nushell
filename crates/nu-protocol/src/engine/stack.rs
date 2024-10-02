@@ -211,7 +211,7 @@ impl Stack {
     ///
     /// The config will be updated with successfully parsed values even if an error occurs.
     pub fn update_config(&mut self, engine_state: &EngineState) -> Result<(), ShellError> {
-        if let Some(mut config) = self.get_env_var(engine_state, "config") {
+        if let Some(mut config) = self.get_env_var(engine_state, "config").cloned() {
             let existing_config = self.get_config(engine_state);
             let (new_config, error) = config.parse_as_config(&existing_config);
             self.config = Some(new_config.into());
@@ -451,12 +451,16 @@ impl Stack {
         result
     }
 
-    pub fn get_env_var(&self, engine_state: &EngineState, name: &str) -> Option<Value> {
+    pub fn get_env_var<'a>(
+        &'a self,
+        engine_state: &'a EngineState,
+        name: &str,
+    ) -> Option<&'a Value> {
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get(active_overlay) {
                     if let Some(v) = env_vars.get(name) {
-                        return Some(v.clone());
+                        return Some(v);
                     }
                 }
             }
@@ -472,7 +476,7 @@ impl Stack {
             if !is_hidden {
                 if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
                     if let Some(v) = env_vars.get(name) {
-                        return Some(v.clone());
+                        return Some(v);
                     }
                 }
             }
@@ -842,7 +846,9 @@ mod test {
         );
 
         assert_eq!(
-            original.get_env_var(&engine_state, "ADDED_IN_CHILD"),
+            original
+                .get_env_var(&engine_state, "ADDED_IN_CHILD")
+                .cloned(),
             Some(string_value("New Env Var")),
         );
     }

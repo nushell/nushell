@@ -180,7 +180,7 @@ pub fn complete_item(
         && engine_state.config.use_ansi_coloring)
         .then(|| {
             let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
-                Some(v) => env_to_string("LS_COLORS", &v, engine_state, stack).ok(),
+                Some(v) => env_to_string("LS_COLORS", v, engine_state, stack).ok(),
                 None => None,
             };
             get_ls_colors(ls_colors_env_str)

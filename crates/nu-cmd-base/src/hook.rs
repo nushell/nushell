@@ -18,17 +18,12 @@ pub fn eval_env_change_hook(
         match hook {
             Value::Record { val, .. } => {
                 for (env_name, hook_value) in &*val {
-                    let before = engine_state
-                        .previous_env_vars
-                        .get(env_name)
-                        .cloned()
-                        .unwrap_or_default();
-
-                    let after = stack
-                        .get_env_var(engine_state, env_name)
-                        .unwrap_or_default();
-
+                    let before = engine_state.previous_env_vars.get(env_name);
+                    let after = stack.get_env_var(engine_state, env_name);
                     if before != after {
+                        let before = before.cloned().unwrap_or_default();
+                        let after = after.cloned().unwrap_or_default();
+
                         eval_hook(
                             engine_state,
                             stack,
@@ -39,7 +34,7 @@ pub fn eval_env_change_hook(
                         )?;
 
                         Arc::make_mut(&mut engine_state.previous_env_vars)
-                            .insert(env_name.to_string(), after);
+                            .insert(env_name.clone(), after);
                     }
                 }
             }
