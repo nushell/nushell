@@ -1,19 +1,19 @@
 # std.nu, `used` to load all standard library components
 
+# Top-level commands: ellie, repeat, null-device, and "path add"
+export use lib *
+
+# std submodules
+export module assert
+export module bench
+export module dt
+export module formats
 export module help
 export module input
 export module iter
 export module log
-export module assert
-
-# Allow use of non-prefixed commands
-# from these submodules when `use std *`
-export use lib *
-export use bench *
-export use dt *
-export use formats *
-export use xml *
-export use math *
+export module math
+export module xml
 
 # Load main dirs command and all subcommands
 export use dirs main
@@ -26,9 +26,3 @@ export module dirs {
     goto
   ]
 }
-
-# Backward compatibility
-# Allow, for example, `formats to jsonl`
-export module xml
-export module formats
-export module dt
