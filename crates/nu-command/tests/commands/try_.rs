@@ -117,3 +117,10 @@ fn try_catches_exit_code_in_expr() {
     let actual = nu!("print (try { nu -c 'exit 42' } catch { |e| $e.exit_code })");
     assert_eq!(actual.out, "42");
 }
+
+#[test]
+
+fn try_prints_only_if_last_pipeline() {
+    let actual = nu!("try { 'should not print' }; 'last value'");
+    assert_eq!(actual.out, "last value");
+}
