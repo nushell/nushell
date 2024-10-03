@@ -484,7 +484,7 @@ fn trim_as_header(
     }
 
     // make sure we are fit in;
-    // which is might not be the case where we need to truncate columns furter then a column head width
+    // which is might not be the case where we need to truncate columns further then a column head width
     let expected_width = get_total_width2(&widths, cfg);
     if expected_width > trim.width_max {
         let mut diff = expected_width - trim.width_max;
