@@ -1,5 +1,5 @@
-use std assert
-use std dt *
+use std/assert
+use std/dt *
 
 #[test]
 def equal_times [] {

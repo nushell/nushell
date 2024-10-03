@@ -159,7 +159,7 @@ pub fn evaluate_repl(
         eval_source(
             engine_state,
             &mut unique_stack,
-            r#"use std banner; banner"#.as_bytes(),
+            r#"banner"#.as_bytes(),
             "show_banner",
             PipelineData::empty(),
             false,

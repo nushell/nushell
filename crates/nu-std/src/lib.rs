@@ -9,30 +9,33 @@ use nu_protocol::{
 };
 use std::path::PathBuf;
 
-// Virtual std directory unlikely to appear in user's file system
-const NU_STDLIB_VIRTUAL_DIR: &str = "NU_STDLIB_VIRTUAL_DIR";
-
 pub fn load_standard_library(
     engine_state: &mut nu_protocol::engine::EngineState,
 ) -> Result<(), miette::ErrReport> {
     trace!("load_standard_library");
     let (block, delta) = {
-        // Using full virtual path to avoid potential conflicts with user having 'std' directory
-        // in their working directory.
-        let std_dir = PathBuf::from(NU_STDLIB_VIRTUAL_DIR).join("std");
+        let std_dir = PathBuf::from("std");
 
         let mut std_files = vec![
+            // Loaded at startup
+            ("core", include_str!("../std/core.nu")),
+            // std module - Loads all commands and submodules
             ("mod.nu", include_str!("../std/mod.nu")),
-            ("dirs.nu", include_str!("../std/dirs.nu")),
-            ("dt.nu", include_str!("../std/dt.nu")),
-            ("help.nu", include_str!("../std/help.nu")),
-            ("iter.nu", include_str!("../std/iter.nu")),
-            ("log.nu", include_str!("../std/log.nu")),
-            ("assert.nu", include_str!("../std/assert.nu")),
-            ("xml.nu", include_str!("../std/xml.nu")),
-            ("input.nu", include_str!("../std/input.nu")),
-            ("math.nu", include_str!("../std/math.nu")),
-            ("formats.nu", include_str!("../std/formats.nu")),
+            // std submodules
+            ("assert", include_str!("../std/assert.nu")),
+            ("bench", include_str!("../std/bench.nu")),
+            ("dirs", include_str!("../std/dirs.nu")),
+            ("dt", include_str!("../std/dt.nu")),
+            ("formats", include_str!("../std/formats.nu")),
+            ("help", include_str!("../std/help.nu")),
+            ("input", include_str!("../std/input.nu")),
+            ("iter", include_str!("../std/iter.nu")),
+            ("log", include_str!("../std/log.nu")),
+            ("math", include_str!("../std/math.nu")),
+            ("lib", include_str!("../std/lib.nu")),
+            ("xml", include_str!("../std/xml.nu")),
+            // Remove in following release
+            ("deprecated_dirs", include_str!("../std/deprecated_dirs.nu")),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
@@ -52,11 +55,9 @@ pub fn load_standard_library(
 
         let std_dir = std_dir.to_string_lossy().to_string();
         let source = r#"
-# Define the `std` module
-module std
-
 # Prelude
-use std dirs [
+use std/core *
+use std/deprecated_dirs [
     enter
     shells
     g
@@ -64,14 +65,13 @@ use std dirs [
     p
     dexit
 ]
-use std pwd
 "#;
 
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
 
         // Add a placeholder file to the stack of files being evaluated.
         // The name of this file doesn't matter; it's only there to set the current working directory to NU_STDLIB_VIRTUAL_DIR.
-        let placeholder = PathBuf::from(NU_STDLIB_VIRTUAL_DIR).join("loading stdlib");
+        let placeholder = PathBuf::from("load std/core");
         working_set.files = FileStack::with_file(placeholder);
 
         let block = parse(
