@@ -272,8 +272,6 @@ fn set_indent(table: &mut Table, left: usize, right: usize) {
 }
 
 fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) {
-    let pad = wctrl.pad;
-
     if with_footer {
         let count_rows = table.count_rows();
         let last_row_index = count_rows - 1;
@@ -288,6 +286,12 @@ fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) 
         table.with(&mut head_settings);
         table.with(&mut last_row);
 
+        let head = first_row.1;
+        let footer = last_row.1;
+        let alignment = head_settings.1;
+        let head_color = head_settings.2.clone();
+        let footer_color = head_settings.2;
+
         table.with(
             Settings::default()
                 .with(wctrl)
@@ -296,19 +300,12 @@ fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) 
                 .with(MoveRowNext::new(0, 0))
                 .with(MoveRowPrev::new(last_row_index - 1, last_row_index))
                 .with(SetLineHeaders::new(
-                    0,
-                    first_row.1,
-                    head_settings.1,
-                    head_settings.2.clone(),
-                    pad,
-                ))
-                .with(SetLineHeaders::new(
                     last_row_index - 1,
-                    last_row.1,
-                    head_settings.1,
-                    head_settings.2,
-                    pad,
-                )),
+                    footer,
+                    alignment,
+                    footer_color,
+                ))
+                .with(SetLineHeaders::new(0, head, alignment, head_color)),
         );
     } else {
         let mut row = GetRow(0, Vec::new());
@@ -322,7 +319,7 @@ fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) 
                 .with(wctrl)
                 .with(StripColorFromRow(0))
                 .with(MoveRowNext::new(0, 0))
-                .with(SetLineHeaders::new(0, row.1, row_opts.1, row_opts.2, pad)),
+                .with(SetLineHeaders::new(0, row.1, row_opts.1, row_opts.2)),
         );
     }
 }
@@ -987,7 +984,6 @@ struct SetLineHeaders {
     columns: Vec<String>,
     alignment: AlignmentHorizontal,
     color: Option<Color>,
-    pad: usize,
 }
 
 impl SetLineHeaders {
@@ -996,14 +992,12 @@ impl SetLineHeaders {
         columns: Vec<String>,
         alignment: AlignmentHorizontal,
         color: Option<Color>,
-        pad: usize,
     ) -> Self {
         Self {
             line,
             columns,
             alignment,
             color,
-            pad,
         }
     }
 }
@@ -1016,11 +1010,14 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
         dims: &mut CompleteDimensionVecRecords<'_>,
     ) {
         let mut columns = self.columns;
+
+        println!("----> {:?}", dims.get_widths());
+
         match dims.get_widths() {
             Some(widths) => {
                 columns = columns
                     .into_iter()
-                    .zip(widths.iter().map(|w| w - self.pad)) // it must be always safe to do
+                    .zip(widths.iter().cloned()) // it must be always safe to do
                     .map(|(s, width)| Truncate::truncate(&s, width).into_owned())
                     .collect();
             }
