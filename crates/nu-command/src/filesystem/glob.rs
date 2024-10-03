@@ -169,12 +169,16 @@ impl Command for Glob {
             });
         }
 
+        // below we have to check / and \\ because windows allows both
+        // so we can't assume MAIN_SEPARATOR will be the only separator
         let folder_depth = if let Some(depth) = depth {
             depth
         } else if glob_pattern.contains("**") {
             usize::MAX
-        } else if glob_pattern.contains(std::path::MAIN_SEPARATOR) {
-            glob_pattern.split(std::path::MAIN_SEPARATOR).count() + 1
+        } else if glob_pattern.contains('/') {
+            glob_pattern.split('/').count() + 1
+        } else if glob_pattern.contains('\\') {
+            glob_pattern.split('\\').count() + 1
         } else {
             1
         };
