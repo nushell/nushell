@@ -165,57 +165,67 @@ impl PipelineData {
         }
     }
 
-    /// Writes all values or redirects all output to the current [`OutDest`]s in `stack`.
+    pub fn write_to(self, mut dest: impl Write) -> Result<(), ShellError> {
+        match self {
+            PipelineData::Empty => Ok(()),
+            PipelineData::Value(value, ..) => {
+                let bytes = value_to_bytes(value)?;
+                dest.write_all(&bytes)?;
+                dest.flush()?;
+                Ok(())
+            }
+            PipelineData::ListStream(stream, ..) => {
+                for value in stream {
+                    let bytes = value_to_bytes(value)?;
+                    dest.write_all(&bytes)?;
+                    dest.write_all(b"\n")?;
+                }
+                dest.flush()?;
+                Ok(())
+            }
+            PipelineData::ByteStream(stream, ..) => stream.write_to(dest),
+        }
+    }
+
+    /// Drain this [`PipelineData`] if the current stdout [`OutDest`]s in `stack` is a sink (not
+    /// [`OutDest::Pipe`] or [`OutDest::PipeSeparate`]).
     ///
-    /// For [`OutDest::Pipe`] and [`OutDest::PipeSeparate`], this will return the `PipelineData` as
-    /// is without consuming input and without writing anything.
-    ///
-    /// For the other [`OutDest`]s, the given `PipelineData` will be completely consumed
-    /// and `PipelineData::Empty` will be returned (assuming no errors).
-    pub fn write_to_out_dests(
+    /// For [`OutDest::Pipe`] and [`OutDest::PipeSeparate`], this will return the [`PipelineData`]
+    /// as is. Otherwise, streams may be turned into [`Value`]s or [`PipelineData::Empty`] depending
+    /// on the `stack` [`OutDest`]s.
+    pub fn drain_if_end(
         self,
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<PipelineData, ShellError> {
         match (self, stack.stdout()) {
-            (PipelineData::Empty, ..) => {}
-            (data, OutDest::Pipe | OutDest::PipeSeparate) => return Ok(data),
+            // Empty and Value are not streams and so cannot be drained
+            (data @ (PipelineData::Empty | PipelineData::Value(..)), ..) => Ok(data),
+            // do not drain if this is not the last pipeline element
+            (data, OutDest::Pipe | OutDest::PipeSeparate) => Ok(data),
             (data, OutDest::Value) => {
                 let metadata = data.metadata();
                 let span = data.span().unwrap_or(Span::unknown());
-                return data
-                    .into_value(span)
-                    .map(|val| PipelineData::Value(val, metadata));
+                data.into_value(span)
+                    .map(|val| PipelineData::Value(val, metadata))
             }
             (PipelineData::ByteStream(stream, ..), stdout) => {
                 stream.write_to_out_dests(stdout, stack.stderr())?;
+                Ok(PipelineData::Empty)
             }
-            (PipelineData::Value(..), OutDest::Null) => {}
             (PipelineData::ListStream(stream, ..), OutDest::Null) => {
-                // we need to drain the stream in case there are external commands in the pipeline
                 stream.drain()?;
+                Ok(PipelineData::Empty)
             }
-            (PipelineData::Value(value, ..), OutDest::File(file)) => {
-                let bytes = value_to_bytes(value)?;
-                let mut file = file.as_ref();
-                file.write_all(&bytes)?;
-                file.flush()?;
+            (data @ PipelineData::ListStream(..), OutDest::File(file)) => {
+                data.write_to(file.as_ref())?;
+                Ok(PipelineData::Empty)
             }
-            (PipelineData::ListStream(stream, ..), OutDest::File(file)) => {
-                let mut file = file.as_ref();
-                // use BufWriter here?
-                for value in stream {
-                    let bytes = value_to_bytes(value)?;
-                    file.write_all(&bytes)?;
-                    file.write_all(b"\n")?;
-                }
-                file.flush()?;
-            }
-            (data @ (PipelineData::Value(..) | PipelineData::ListStream(..)), OutDest::Inherit) => {
+            (data @ PipelineData::ListStream(..), OutDest::Inherit) => {
                 data.print(engine_state, stack, false, false)?;
+                Ok(PipelineData::Empty)
             }
         }
-        Ok(PipelineData::Empty)
     }
 
     pub fn drain(self) -> Result<(), ShellError> {
