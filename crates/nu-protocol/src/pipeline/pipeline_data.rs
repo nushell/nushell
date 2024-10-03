@@ -165,6 +165,9 @@ impl PipelineData {
         }
     }
 
+    /// Drain and write this [`PipelineData`] to `dest`.
+    ///
+    /// Values are converted to bytes and separated by newlines if this is a `ListStream`.
     pub fn write_to(self, mut dest: impl Write) -> Result<(), ShellError> {
         match self {
             PipelineData::Empty => Ok(()),
