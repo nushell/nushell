@@ -296,9 +296,9 @@ fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) 
             Settings::default()
                 .with(StripColorFromRow(0))
                 .with(StripColorFromRow(count_rows - 1))
+                .with(wctrl)
                 .with(MoveRowNext::new(0, 0))
                 .with(MoveRowPrev::new(last_row_index - 1, last_row_index))
-                .with(wctrl)
                 .with(SetLineHeaders::new(0, head, alignment, head_color))
                 .with(SetLineHeaders::new(
                     last_row_index - 1,
@@ -317,8 +317,8 @@ fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) 
         table.with(
             Settings::default()
                 .with(StripColorFromRow(0))
-                .with(MoveRowNext::new(0, 0))
                 .with(wctrl)
+                .with(MoveRowNext::new(0, 0))
                 .with(SetLineHeaders::new(0, row.1, row_opts.1, row_opts.2)),
         );
     }
@@ -1109,6 +1109,10 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
     ) {
         row_shift_next(recs, cfg, self.row, self.line);
     }
+
+    fn hint_change(&self) -> Option<Entity> {
+        None
+    }
 }
 
 impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for MoveRowPrev {
@@ -1119,6 +1123,10 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
         _: &mut CompleteDimensionVecRecords<'_>,
     ) {
         row_shift_prev(recs, cfg, self.row, self.line);
+    }
+
+    fn hint_change(&self) -> Option<Entity> {
+        None
     }
 }
 
