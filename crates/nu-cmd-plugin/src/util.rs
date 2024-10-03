@@ -95,8 +95,9 @@ pub(crate) fn get_plugin_dirs(
     let working_set = StateWorkingSet::new(engine_state);
     let value = working_set
         .find_variable(b"$NU_PLUGIN_DIRS")
-        .and_then(|var_id| working_set.get_constant(var_id).ok().cloned())
-        .or_else(|| stack.get_env_var(engine_state, "NU_PLUGIN_DIRS"));
+        .and_then(|var_id| working_set.get_constant(var_id).ok())
+        .or_else(|| stack.get_env_var(engine_state, "NU_PLUGIN_DIRS"))
+        .cloned(); // TODO: avoid this clone
 
     // Get all of the strings in the list, if possible
     value

@@ -6,7 +6,7 @@ use super::{
     Range, Table, ValueWithUnit,
 };
 use crate::{
-    ast::ImportPattern, engine::StateWorkingSet, BlockId, OutDest, Signature, Span, VarId,
+    ast::ImportPattern, engine::StateWorkingSet, BlockId, ModuleId, OutDest, Signature, Span, VarId,
 };
 
 /// An [`Expression`] AST node
@@ -47,7 +47,7 @@ pub enum Expr {
     CellPath(CellPath),
     FullCellPath(Box<FullCellPath>),
     ImportPattern(Box<ImportPattern>),
-    Overlay(Option<BlockId>), // block ID of the overlay's origin module
+    Overlay(Option<ModuleId>),
     Signature(Box<Signature>),
     StringInterpolation(Vec<Expression>),
     /// The boolean is `true` if the string is quoted.

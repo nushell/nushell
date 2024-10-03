@@ -25,7 +25,7 @@ pub trait PluginExecutionContext: Send + Sync {
     /// Get plugin configuration
     fn get_plugin_config(&self) -> Result<Option<Value>, ShellError>;
     /// Get an environment variable from `$env`
-    fn get_env_var(&self, name: &str) -> Result<Option<Value>, ShellError>;
+    fn get_env_var(&self, name: &str) -> Result<Option<&Value>, ShellError>;
     /// Get all environment variables
     fn get_env_vars(&self) -> Result<HashMap<String, Value>, ShellError>;
     /// Get current working directory
@@ -125,7 +125,7 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
             }))
     }
 
-    fn get_env_var(&self, name: &str) -> Result<Option<Value>, ShellError> {
+    fn get_env_var(&self, name: &str) -> Result<Option<&Value>, ShellError> {
         Ok(self.stack.get_env_var(&self.engine_state, name))
     }
 
@@ -177,7 +177,7 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
                 error: "Plugin misbehaving".into(),
                 msg: format!(
                     "Tried to evaluate unknown block id: {}",
-                    closure.item.block_id
+                    closure.item.block_id.get()
                 ),
                 span: Some(closure.span),
                 help: None,
@@ -226,10 +226,10 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
         redirect_stdout: bool,
         redirect_stderr: bool,
     ) -> Result<PipelineData, ShellError> {
-        if decl_id >= self.engine_state.num_decls() {
+        if decl_id.get() >= self.engine_state.num_decls() {
             return Err(ShellError::GenericError {
                 error: "Plugin misbehaving".into(),
-                msg: format!("Tried to call unknown decl id: {}", decl_id),
+                msg: format!("Tried to call unknown decl id: {}", decl_id.get()),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
@@ -300,7 +300,7 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
         Ok(None)
     }
 
-    fn get_env_var(&self, _name: &str) -> Result<Option<Value>, ShellError> {
+    fn get_env_var(&self, _name: &str) -> Result<Option<&Value>, ShellError> {
         Err(ShellError::NushellFailed {
             msg: "get_env_var not implemented on bogus".into(),
         })

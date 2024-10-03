@@ -623,7 +623,7 @@ fn handle_row_stream(
             let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
                 Some(v) => Some(env_to_string(
                     "LS_COLORS",
-                    &v,
+                    v,
                     input.engine_state,
                     input.stack,
                 )?),

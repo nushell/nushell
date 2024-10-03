@@ -182,6 +182,8 @@ impl Command for Save {
                             }
                             (None, None) => {}
                         };
+
+                        child.wait()?;
                     }
                 }
 

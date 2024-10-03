@@ -93,7 +93,7 @@ pub struct EngineState {
     pub config: Arc<Config>,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
-    pub table_decl_id: Option<usize>,
+    pub table_decl_id: Option<DeclId>,
     #[cfg(feature = "plugin")]
     pub plugin_path: Option<PathBuf>,
     #[cfg(feature = "plugin")]
@@ -114,13 +114,13 @@ pub struct EngineState {
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
 const REGEX_CACHE_SIZE: usize = 100; // must be nonzero, otherwise will panic
 
-pub const NU_VARIABLE_ID: usize = 0;
-pub const IN_VARIABLE_ID: usize = 1;
-pub const ENV_VARIABLE_ID: usize = 2;
+pub const NU_VARIABLE_ID: VarId = VarId::new(0);
+pub const IN_VARIABLE_ID: VarId = VarId::new(1);
+pub const ENV_VARIABLE_ID: VarId = VarId::new(2);
 // NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
 
 // The first span is unknown span
-pub const UNKNOWN_SPAN_ID: SpanId = SpanId(0);
+pub const UNKNOWN_SPAN_ID: SpanId = SpanId::new(0);
 
 impl EngineState {
     pub fn new() -> Self {
@@ -144,7 +144,7 @@ impl EngineState {
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
-                0,
+                ModuleId::new(0),
                 false,
             ),
             signal_handlers: None,
@@ -380,7 +380,7 @@ impl EngineState {
         let other_names = other.active_overlays.iter().map(|other_id| {
             &other
                 .overlays
-                .get(*other_id)
+                .get(other_id.get())
                 .expect("internal error: missing overlay")
                 .0
         });
@@ -410,7 +410,7 @@ impl EngineState {
         &self
             .scope
             .overlays
-            .get(overlay_id)
+            .get(overlay_id.get())
             .expect("internal error: missing overlay")
             .0
     }
@@ -419,7 +419,7 @@ impl EngineState {
         &self
             .scope
             .overlays
-            .get(overlay_id)
+            .get(overlay_id.get())
             .expect("internal error: missing overlay")
             .1
     }
@@ -763,7 +763,7 @@ impl EngineState {
 
     pub fn get_var(&self, var_id: VarId) -> &Variable {
         self.vars
-            .get(var_id)
+            .get(var_id.get())
             .expect("internal error: missing variable")
     }
 
@@ -773,12 +773,12 @@ impl EngineState {
     }
 
     pub fn generate_nu_constant(&mut self) {
-        self.vars[NU_VARIABLE_ID].const_val = Some(create_nu_constant(self, Span::unknown()));
+        self.vars[NU_VARIABLE_ID.get()].const_val = Some(create_nu_constant(self, Span::unknown()));
     }
 
     pub fn get_decl(&self, decl_id: DeclId) -> &dyn Command {
         self.decls
-            .get(decl_id)
+            .get(decl_id.get())
             .expect("internal error: missing declaration")
             .as_ref()
     }
@@ -810,7 +810,7 @@ impl EngineState {
 
     pub fn get_signature(&self, decl: &dyn Command) -> Signature {
         if let Some(block_id) = decl.block_id() {
-            *self.blocks[block_id].signature.clone()
+            *self.blocks[block_id.get()].signature.clone()
         } else {
             decl.signature()
         }
@@ -830,7 +830,7 @@ impl EngineState {
 
     pub fn get_block(&self, block_id: BlockId) -> &Arc<Block> {
         self.blocks
-            .get(block_id)
+            .get(block_id.get())
             .expect("internal error: missing block")
     }
 
@@ -840,18 +840,18 @@ impl EngineState {
     /// are normally a compiler error. This only exists to stop plugins from crashing the engine if
     /// they send us something invalid.
     pub fn try_get_block(&self, block_id: BlockId) -> Option<&Arc<Block>> {
-        self.blocks.get(block_id)
+        self.blocks.get(block_id.get())
     }
 
     pub fn get_module(&self, module_id: ModuleId) -> &Module {
         self.modules
-            .get(module_id)
+            .get(module_id.get())
             .expect("internal error: missing module")
     }
 
     pub fn get_virtual_path(&self, virtual_path_id: VirtualPathId) -> &(String, VirtualPath) {
         self.virtual_paths
-            .get(virtual_path_id)
+            .get(virtual_path_id.get())
             .expect("internal error: missing virtual path")
     }
 
@@ -879,7 +879,7 @@ impl EngineState {
             covered_span,
         });
 
-        self.num_files() - 1
+        FileId::new(self.num_files() - 1)
     }
 
     pub fn set_config_path(&mut self, key: &str, val: PathBuf) {
@@ -935,14 +935,14 @@ impl EngineState {
         let pwd = if let Some(stack) = stack {
             stack.get_env_var(self, "PWD")
         } else {
-            self.get_env_var("PWD").cloned()
+            self.get_env_var("PWD")
         };
 
         let pwd = pwd.ok_or_else(|| error("$env.PWD not found", ""))?;
 
-        if let Value::String { val, .. } = pwd {
-            let path = AbsolutePathBuf::try_from(val)
-                .map_err(|path| error("$env.PWD is not an absolute path", path))?;
+        if let Ok(pwd) = pwd.as_str() {
+            let path = AbsolutePathBuf::try_from(pwd)
+                .map_err(|_| error("$env.PWD is not an absolute path", pwd))?;
 
             // Technically, a root path counts as "having trailing slashes", but
             // for the purpose of PWD, a root path is acceptable.
@@ -1027,12 +1027,15 @@ impl EngineState {
     /// Add new span and return its ID
     pub fn add_span(&mut self, span: Span) -> SpanId {
         self.spans.push(span);
-        SpanId(self.num_spans() - 1)
+        SpanId::new(self.num_spans() - 1)
     }
 
     /// Find ID of a span (should be avoided if possible)
     pub fn find_span_id(&self, span: Span) -> Option<SpanId> {
-        self.spans.iter().position(|sp| sp == &span).map(SpanId)
+        self.spans
+            .iter()
+            .position(|sp| sp == &span)
+            .map(SpanId::new)
     }
 }
 
@@ -1041,7 +1044,7 @@ impl<'a> GetSpan for &'a EngineState {
     fn get_span(&self, span_id: SpanId) -> Span {
         *self
             .spans
-            .get(span_id.0)
+            .get(span_id.get())
             .expect("internal error: missing span")
     }
 }
@@ -1065,7 +1068,7 @@ mod engine_state_tests {
         let mut engine_state = StateWorkingSet::new(&engine_state);
         let id = engine_state.add_file("test.nu".into(), &[]);
 
-        assert_eq!(id, 0);
+        assert_eq!(id, FileId::new(0));
     }
 
     #[test]
@@ -1076,8 +1079,8 @@ mod engine_state_tests {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let working_set_id = working_set.add_file("child.nu".into(), &[]);
 
-        assert_eq!(parent_id, 0);
-        assert_eq!(working_set_id, 1);
+        assert_eq!(parent_id, FileId::new(0));
+        assert_eq!(working_set_id, FileId::new(1));
     }
 
     #[test]

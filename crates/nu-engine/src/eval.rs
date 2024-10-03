@@ -10,8 +10,8 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Closure, EngineState, Redirection, Stack, StateWorkingSet},
     eval_base::Eval,
-    ByteStreamSource, Config, DataSource, FromValue, IntoPipelineData, OutDest, PipelineData,
-    PipelineMetadata, ShellError, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    BlockId, ByteStreamSource, Config, DataSource, FromValue, IntoPipelineData, OutDest,
+    PipelineData, PipelineMetadata, ShellError, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 use std::{fs::OpenOptions, path::PathBuf, sync::Arc};
@@ -752,7 +752,7 @@ impl Eval for EvalRuntime {
     fn eval_subexpression<D: DebugContext>(
         engine_state: &EngineState,
         stack: &mut Stack,
-        block_id: usize,
+        block_id: BlockId,
         span: Span,
     ) -> Result<Value, ShellError> {
         let block = engine_state.get_block(block_id);
@@ -899,7 +899,7 @@ impl Eval for EvalRuntime {
     fn eval_row_condition_or_closure(
         engine_state: &EngineState,
         stack: &mut Stack,
-        block_id: usize,
+        block_id: BlockId,
         span: Span,
     ) -> Result<Value, ShellError> {
         let captures = engine_state

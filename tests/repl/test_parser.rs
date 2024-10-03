@@ -189,7 +189,31 @@ fn assignment_with_no_var() -> TestResult {
         "mut = 'foo' | $in; $x | describe",
     ];
 
-    let expected = "valid variable";
+    let expecteds = [
+        "missing var_name",
+        "missing var_name",
+        "missing const_name",
+        "missing var_name",
+        "missing var_name",
+    ];
+
+    for (case, expected) in std::iter::zip(cases, expecteds) {
+        fail_test(case, expected)?;
+    }
+
+    Ok(())
+}
+
+#[test]
+fn too_few_arguments() -> TestResult {
+    // Test for https://github.com/nushell/nushell/issues/9072
+    let cases = [
+        "def a [b: bool, c: bool, d: float, e: float, f: float] {}; a true true 1 1",
+        "def a [b: bool, c: bool, d: float, e: float, f: float, g: float] {}; a true true 1 1",
+        "def a [b: bool, c: bool, d: float, e: float, f: float, g: float, h: float] {}; a true true 1 1",
+    ];
+
+    let expected = "missing f";
 
     for case in cases {
         fail_test(case, expected)?;
