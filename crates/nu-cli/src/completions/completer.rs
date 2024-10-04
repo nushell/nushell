@@ -38,7 +38,7 @@ impl NuCompleter {
         &self,
         completer: &mut T,
         working_set: &StateWorkingSet,
-        prefix: Vec<u8>,
+        prefix: &[u8],
         new_span: Span,
         offset: usize,
         pos: usize,
@@ -55,7 +55,7 @@ impl NuCompleter {
         completer.fetch(
             working_set,
             &self.stack,
-            prefix.clone(),
+            prefix,
             new_span,
             offset,
             pos,
@@ -172,7 +172,7 @@ impl NuCompleter {
                         // Parses the prefix. Completion should look up to the cursor position, not after.
                         let mut prefix = working_set.get_span_contents(flat.0).to_vec();
                         let index = pos - flat.0.start;
-                        prefix.drain(index..);
+                        prefix.truncate(index);
 
                         // Variables completion
                         if prefix.starts_with(b"$") || most_left_var.is_some() {
@@ -182,7 +182,7 @@ impl NuCompleter {
                             let mut variable_completions = self.process_completion(
                                 &mut variable_names_completer,
                                 &working_set,
-                                prefix.clone(),
+                                &prefix,
                                 new_span,
                                 fake_offset,
                                 pos,
@@ -194,7 +194,7 @@ impl NuCompleter {
                             let mut variable_operations_completions = self.process_completion(
                                 &mut variable_operations_completer,
                                 &working_set,
-                                prefix,
+                                &prefix,
                                 new_span,
                                 fake_offset,
                                 pos,
@@ -211,7 +211,7 @@ impl NuCompleter {
                             let result = self.process_completion(
                                 &mut completer,
                                 &working_set,
-                                prefix.clone(),
+                                &prefix,
                                 new_span,
                                 fake_offset,
                                 pos,
@@ -245,7 +245,7 @@ impl NuCompleter {
                             return self.process_completion(
                                 &mut completer,
                                 &working_set,
-                                prefix,
+                                &prefix,
                                 new_span,
                                 fake_offset,
                                 pos,
@@ -269,7 +269,7 @@ impl NuCompleter {
                                     return self.process_completion(
                                         &mut completer,
                                         &working_set,
-                                        prefix,
+                                        &prefix,
                                         new_span,
                                         fake_offset,
                                         pos,
@@ -280,7 +280,7 @@ impl NuCompleter {
                                     return self.process_completion(
                                         &mut completer,
                                         &working_set,
-                                        prefix,
+                                        &prefix,
                                         new_span,
                                         fake_offset,
                                         pos,
@@ -300,7 +300,7 @@ impl NuCompleter {
                                     return self.process_completion(
                                         &mut completer,
                                         &working_set,
-                                        prefix,
+                                        &prefix,
                                         new_span,
                                         fake_offset,
                                         pos,
@@ -321,7 +321,7 @@ impl NuCompleter {
                                 return self.process_completion(
                                     &mut completer,
                                     &working_set,
-                                    prefix,
+                                    &prefix,
                                     new_span,
                                     fake_offset,
                                     pos,
@@ -333,7 +333,7 @@ impl NuCompleter {
                                 return self.process_completion(
                                     &mut completer,
                                     &working_set,
-                                    prefix,
+                                    &prefix,
                                     new_span,
                                     fake_offset,
                                     pos,
@@ -345,7 +345,7 @@ impl NuCompleter {
                                 return self.process_completion(
                                     &mut completer,
                                     &working_set,
-                                    prefix,
+                                    &prefix,
                                     new_span,
                                     fake_offset,
                                     pos,
@@ -362,7 +362,7 @@ impl NuCompleter {
                                 let mut out: Vec<_> = self.process_completion(
                                     &mut completer,
                                     &working_set,
-                                    prefix.clone(),
+                                    &prefix,
                                     new_span,
                                     fake_offset,
                                     pos,
@@ -391,7 +391,7 @@ impl NuCompleter {
                                 out = self.process_completion(
                                     &mut completer,
                                     &working_set,
-                                    prefix,
+                                    &prefix,
                                     new_span,
                                     fake_offset,
                                     pos,
