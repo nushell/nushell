@@ -99,7 +99,8 @@ use std/deprecated_dirs [
 
     eval_block::<WithoutDebug>(engine_state, &mut stack, &block, pipeline_data)?;
 
-    engine_state.merge_env(&mut stack)?;
+    let cwd = engine_state.cwd(Some(&stack))?;
+    engine_state.merge_env(&mut stack, cwd)?;
 
     Ok(())
 }

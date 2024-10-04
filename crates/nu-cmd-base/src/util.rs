@@ -1,8 +1,29 @@
+use nu_path::AbsolutePathBuf;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Range, ShellError, Span, Value,
 };
 use std::ops::Bound;
+
+pub fn get_init_cwd() -> AbsolutePathBuf {
+    std::env::current_dir()
+        .ok()
+        .and_then(|path| AbsolutePathBuf::try_from(path).ok())
+        .or_else(|| {
+            std::env::var("PWD")
+                .ok()
+                .and_then(|path| AbsolutePathBuf::try_from(path).ok())
+        })
+        .or_else(nu_path::home_dir)
+        .expect("Failed to get current working directory")
+}
+
+pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> AbsolutePathBuf {
+    engine_state
+        .cwd(Some(stack))
+        .ok()
+        .unwrap_or_else(get_init_cwd)
+}
 
 type MakeRangeError = fn(&str, Span) -> ShellError;
 

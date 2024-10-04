@@ -17,7 +17,7 @@ use nu_path::AbsolutePathBuf;
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
         Arc, Mutex, MutexGuard, PoisonError,
@@ -307,7 +307,11 @@ impl EngineState {
     }
 
     /// Merge the environment from the runtime Stack into the engine state
-    pub fn merge_env(&mut self, stack: &mut Stack) -> Result<(), ShellError> {
+    pub fn merge_env(
+        &mut self,
+        stack: &mut Stack,
+        cwd: impl AsRef<Path>,
+    ) -> Result<(), ShellError> {
         for mut scope in stack.env_vars.drain(..) {
             for (overlay_name, mut env) in Arc::make_mut(&mut scope).drain() {
                 if let Some(env_vars) = Arc::make_mut(&mut self.env_vars).get_mut(&overlay_name) {
@@ -319,6 +323,9 @@ impl EngineState {
                 }
             }
         }
+
+        // TODO: better error
+        std::env::set_current_dir(cwd)?;
 
         if let Some(config) = stack.config.take() {
             // If config was updated in the stack, replace it.

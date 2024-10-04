@@ -131,9 +131,9 @@ fn command_not_found_error_suggests_typo_fix() {
 #[test]
 fn command_not_found_error_recognizes_non_executable_file() {
     let actual = nu!("./Cargo.toml");
-    assert!(actual
-        .err
-        .contains("is neither a Nushell built-in or a known external command"));
+    assert!(actual.err.contains(
+        "refers to a file that is not executable. Did you forget to to set execute permissions?"
+    ));
 }
 
 #[test]
