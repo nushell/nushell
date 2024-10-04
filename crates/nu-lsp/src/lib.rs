@@ -176,7 +176,7 @@ impl LanguageServer {
 
     fn span_to_range(span: &Span, rope_of_file: &Rope, offset: usize) -> lsp_types::Range {
         let line = rope_of_file.byte_to_line(span.start - offset);
-        let character = span.start - offset - rope_of_file.line_to_char(line);
+        let character = span.start - offset - rope_of_file.line_to_byte(line);
 
         let start = lsp_types::Position {
             line: line as u32,
@@ -184,7 +184,7 @@ impl LanguageServer {
         };
 
         let line = rope_of_file.byte_to_line(span.end - offset);
-        let character = span.end - offset - rope_of_file.line_to_char(line);
+        let character = span.end - offset - rope_of_file.line_to_byte(line);
 
         let end = lsp_types::Position {
             line: line as u32,
@@ -197,6 +197,14 @@ impl LanguageServer {
     pub fn lsp_position_to_location(position: &lsp_types::Position, rope_of_file: &Rope) -> usize {
         let line_idx = rope_of_file.line_to_char(position.line as usize);
         line_idx + position.character as usize
+    }
+
+    fn lsp_position_to_byte_offset(position: &lsp_types::Position, rope_of_file: &Rope) -> usize {
+        let line_idx = rope_of_file.line_to_char(position.line as usize);
+        let char_idx = line_idx + position.character as usize;
+        rope_of_file
+            .try_char_to_byte(char_idx)
+            .expect("Character index out of range!")
     }
 
     fn find_id(
@@ -270,7 +278,7 @@ impl LanguageServer {
             &mut working_set,
             path,
             file,
-            Self::lsp_position_to_location(&params.text_document_position_params.position, file),
+            Self::lsp_position_to_byte_offset(&params.text_document_position_params.position, file),
         )?;
 
         match id {
@@ -333,7 +341,7 @@ impl LanguageServer {
             &mut working_set,
             path,
             file,
-            Self::lsp_position_to_location(&params.text_document_position_params.position, file),
+            Self::lsp_position_to_byte_offset(&params.text_document_position_params.position, file),
         )?;
 
         match id {
@@ -551,8 +559,10 @@ impl LanguageServer {
         let mut completer =
             NuCompleter::new(Arc::new(engine_state.clone()), Arc::new(Stack::new()));
 
-        let location =
-            Self::lsp_position_to_location(&params.text_document_position.position, rope_of_file);
+        let location = Self::lsp_position_to_byte_offset(
+            &params.text_document_position.position,
+            rope_of_file,
+        );
         let results =
             completer.fetch_completions_at(&rope_of_file.to_string()[..location], location);
         if results.is_empty() {
