@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::AbsolutePathBuf;
 
 pub fn home_dir() -> Option<AbsolutePathBuf> {
@@ -6,27 +8,29 @@ pub fn home_dir() -> Option<AbsolutePathBuf> {
 
 /// Return the data directory for the current platform or XDG_DATA_HOME if specified.
 pub fn data_dir() -> Option<AbsolutePathBuf> {
-    std::env::var("XDG_DATA_HOME")
-        .ok()
-        .and_then(|path| AbsolutePathBuf::try_from(path).ok())
-        .or_else(|| dirs::data_dir().and_then(|path| AbsolutePathBuf::try_from(path).ok()))
-        .map(|path| path.canonicalize().map(Into::into).unwrap_or(path))
+    configurable_dir_path("XDG_DATA_HOME", dirs::data_dir)
 }
 
 /// Return the cache directory for the current platform or XDG_CACHE_HOME if specified.
 pub fn cache_dir() -> Option<AbsolutePathBuf> {
-    std::env::var("XDG_CACHE_HOME")
-        .ok()
-        .and_then(|path| AbsolutePathBuf::try_from(path).ok())
-        .or_else(|| dirs::cache_dir().and_then(|path| AbsolutePathBuf::try_from(path).ok()))
-        .map(|path| path.canonicalize().map(Into::into).unwrap_or(path))
+    configurable_dir_path("XDG_CACHE_HOME", dirs::cache_dir)
 }
 
-/// Return the config directory for the current platform or XDG_CONFIG_HOME if specified.
-pub fn config_dir() -> Option<AbsolutePathBuf> {
-    std::env::var("XDG_CONFIG_HOME")
+/// Return the nushell config directory.
+pub fn nu_config_dir() -> Option<AbsolutePathBuf> {
+    configurable_dir_path("XDG_CONFIG_HOME", dirs::config_dir).map(|mut p| {
+        p.push("nushell");
+        p
+    })
+}
+
+fn configurable_dir_path(
+    name: &'static str,
+    dir: impl FnOnce() -> Option<PathBuf>,
+) -> Option<AbsolutePathBuf> {
+    std::env::var(name)
         .ok()
         .and_then(|path| AbsolutePathBuf::try_from(path).ok())
-        .or_else(|| dirs::config_dir().and_then(|path| AbsolutePathBuf::try_from(path).ok()))
+        .or_else(|| dir().and_then(|path| AbsolutePathBuf::try_from(path).ok()))
         .map(|path| path.canonicalize().map(Into::into).unwrap_or(path))
 }

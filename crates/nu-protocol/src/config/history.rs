@@ -9,6 +9,16 @@ pub enum HistoryFileFormat {
     Plaintext,
 }
 
+impl HistoryFileFormat {
+    pub fn default_file_name(self) -> std::path::PathBuf {
+        match self {
+            HistoryFileFormat::Plaintext => "history.txt",
+            HistoryFileFormat::Sqlite => "history.sqlite3",
+        }
+        .into()
+    }
+}
+
 impl FromStr for HistoryFileFormat {
     type Err = &'static str;
 
@@ -27,6 +37,15 @@ pub struct HistoryConfig {
     pub sync_on_enter: bool,
     pub file_format: HistoryFileFormat,
     pub isolation: bool,
+}
+
+impl HistoryConfig {
+    pub fn file_path(&self) -> Option<std::path::PathBuf> {
+        nu_path::nu_config_dir().map(|mut history_path| {
+            history_path.push(self.file_format.default_file_name());
+            history_path.into()
+        })
+    }
 }
 
 impl Default for HistoryConfig {
