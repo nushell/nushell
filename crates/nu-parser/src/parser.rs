@@ -2105,20 +2105,33 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
         String::from_utf8_lossy(contents).to_string()
     };
 
-    if let Some(id) = parse_variable(working_set, span) {
-        Expression::new(
-            working_set,
-            Expr::Var(id),
-            span,
-            working_set.get_variable(id).ty.clone(),
-        )
-    } else if working_set.get_env_var(&name).is_some() {
-        working_set.error(ParseError::EnvVarNotVar(name, span));
-        garbage(working_set, span)
+    if is_variable(contents) {
+        if let Some(id) = working_set.find_variable(contents) {
+            Expression::new(
+                working_set,
+                Expr::Var(id),
+                span,
+                working_set.get_variable(id).ty.clone(),
+            )
+        } else if working_set.get_env_var(&name).is_some() {
+            working_set.error(ParseError::EnvVarNotVar(name, span));
+            garbage(working_set, span)
+        } else {
+            let suggestion = DidYouMean::look_for_suggestion(working_set, contents);
+            working_set.error(ParseError::VariableNotFound(suggestion, span));
+            garbage(working_set, span)
+        }
     } else {
-        let ws = &*working_set;
-        let suggestion = DidYouMean::new(&ws.list_variables(), ws.get_span_contents(span));
-        working_set.error(ParseError::VariableNotFound(suggestion, span));
+        // when the contents aren't a variable, we still might find something
+        // useful through DidYouMean, so let's try
+        let suggestion = DidYouMean::look_for_suggestion(working_set, contents);
+        if suggestion.has_suggestion() {
+            working_set.error(ParseError::VariableNotFound(suggestion, span));
+        }
+        // the underlying contents is not a variable, so we still should generate
+        // the valid variable name error, even with a suggestion.
+        // But placing suggestions first makes it be displayed in certain UIs first
+        working_set.error(ParseError::Expected("valid variable name", span));
         garbage(working_set, span)
     }
 }
@@ -5537,6 +5550,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
     }
 }
 
+#[allow(dead_code)]
 pub fn parse_variable(working_set: &mut StateWorkingSet, span: Span) -> Option<VarId> {
     let bytes = working_set.get_span_contents(span);
 

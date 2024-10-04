@@ -3,6 +3,7 @@ use std::{
     str::{from_utf8, Utf8Error},
 };
 
+use crate::engine::StateWorkingSet;
 use crate::{ast::RedirectionSource, did_you_mean, Span, Type};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
@@ -622,6 +623,13 @@ fn did_you_mean_impl(possibilities_bytes: &[&[u8]], input_bytes: &[u8]) -> Optio
 impl DidYouMean {
     pub fn new(possibilities_bytes: &[&[u8]], input_bytes: &[u8]) -> DidYouMean {
         DidYouMean(did_you_mean_impl(possibilities_bytes, input_bytes))
+    }
+
+    pub fn look_for_suggestion(working_set: &StateWorkingSet, input_bytes: &[u8]) -> DidYouMean {
+        DidYouMean::new(&working_set.list_variables(), input_bytes)
+    }
+    pub fn has_suggestion(&self) -> bool {
+        self.0.is_some()
     }
 }
 
