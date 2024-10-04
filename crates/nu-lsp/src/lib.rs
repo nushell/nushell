@@ -1157,7 +1157,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = complete(&client_connection, script, 0, 14);
+        let resp = complete(&client_connection, script, 0, 13);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1172,8 +1172,8 @@ mod tests {
                   "detail": "Trim whitespace or specific character.",
                   "textEdit": {
                      "range": {
-                        "start": { "line": 0, "character": 9 },
-                        "end": { "line": 0, "character": 14 },
+                        "start": { "line": 0, "character": 8 },
+                        "end": { "line": 0, "character": 13 },
                      },
                      "newText": "str trim"
                   },
