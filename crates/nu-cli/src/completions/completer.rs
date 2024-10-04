@@ -1,6 +1,6 @@
 use crate::completions::{
     CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
-    DotNuCompletion, FileCompletion, FlagCompletion, VariableCompletion,
+    DotNuCompletion, FileCompletion, FlagCompletion, OperatorCompletion, VariableCompletion,
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
@@ -176,17 +176,32 @@ impl NuCompleter {
 
                         // Variables completion
                         if prefix.starts_with(b"$") || most_left_var.is_some() {
-                            let mut completer =
+                            let mut variable_names_completer =
                                 VariableCompletion::new(most_left_var.unwrap_or((vec![], vec![])));
 
-                            return self.process_completion(
-                                &mut completer,
+                            let mut variable_completions = self.process_completion(
+                                &mut variable_names_completer,
+                                &working_set,
+                                prefix.clone(),
+                                new_span,
+                                fake_offset,
+                                pos,
+                            );
+
+                            let mut variable_operations_completer =
+                                OperatorCompletion::new(pipeline_element.expr.clone());
+
+                            let mut variable_operations_completions = self.process_completion(
+                                &mut variable_operations_completer,
                                 &working_set,
                                 prefix,
                                 new_span,
                                 fake_offset,
                                 pos,
                             );
+
+                            variable_completions.append(&mut variable_operations_completions);
+                            return variable_completions;
                         }
 
                         // Flags completion
@@ -261,6 +276,26 @@ impl NuCompleter {
                                     );
                                 } else if prev_expr_str == b"ls" {
                                     let mut completer = FileCompletion::new();
+
+                                    return self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix,
+                                        new_span,
+                                        fake_offset,
+                                        pos,
+                                    );
+                                } else if matches!(
+                                    previous_expr.1,
+                                    FlatShape::Float
+                                        | FlatShape::Int
+                                        | FlatShape::String
+                                        | FlatShape::List
+                                        | FlatShape::Bool
+                                        | FlatShape::Variable(_)
+                                ) {
+                                    let mut completer =
+                                        OperatorCompletion::new(pipeline_element.expr.clone());
 
                                     return self.process_completion(
                                         &mut completer,
@@ -533,6 +568,11 @@ mod completer_tests {
 
         let mut completer = NuCompleter::new(engine_state.into(), Arc::new(Stack::new()));
         let dataset = [
+            ("1 bit-sh", true, "b", vec!["bit-shl", "bit-shr"]),
+            ("1.0 bit-sh", false, "b", vec![]),
+            ("1 m", true, "m", vec!["mod"]),
+            ("1.0 m", true, "m", vec!["mod"]),
+            ("\"a\" s", true, "s", vec!["starts-with"]),
             ("sudo", false, "", Vec::new()),
             ("sudo l", true, "l", vec!["ls", "let", "lines", "loop"]),
             (" sudo", false, "", Vec::new()),
