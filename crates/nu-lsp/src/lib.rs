@@ -175,16 +175,22 @@ impl LanguageServer {
     }
 
     fn span_to_range(span: &Span, rope_of_file: &Rope, offset: usize) -> lsp_types::Range {
-        let line = rope_of_file.byte_to_line(span.start - offset);
-        let character = span.start - offset - rope_of_file.line_to_byte(line);
+        let line = rope_of_file
+            .try_byte_to_line(span.start - offset)
+            .unwrap_or_else(|_| 0);
+        let character =
+            rope_of_file.byte_to_char(span.start - offset) - rope_of_file.line_to_char(line);
 
         let start = lsp_types::Position {
             line: line as u32,
             character: character as u32,
         };
 
-        let line = rope_of_file.byte_to_line(span.end - offset);
-        let character = span.end - offset - rope_of_file.line_to_byte(line);
+        let line = rope_of_file
+            .try_byte_to_line(span.end - offset)
+            .unwrap_or_else(|_| 0);
+        let character =
+            rope_of_file.byte_to_char(span.end - offset) - rope_of_file.line_to_char(line);
 
         let end = lsp_types::Position {
             line: line as u32,
@@ -288,11 +294,20 @@ impl LanguageServer {
                     if let Some(span) = &block.span {
                         for cached_file in working_set.files() {
                             if cached_file.covered_span.contains(span.start) {
+                                let uri = Url::from_file_path(&*cached_file.name).ok()?;
+                                let rope_of_file = self
+                                    .ropes
+                                    .entry(uri.to_file_path().ok()?)
+                                    .or_insert_with(|| {
+                                        let raw_string =
+                                            String::from_utf8_lossy(&*cached_file.content);
+                                        Rope::from_str(&raw_string)
+                                    });
                                 return Some(GotoDefinitionResponse::Scalar(Location {
-                                    uri: Url::from_file_path(&*cached_file.name).ok()?,
+                                    uri: uri,
                                     range: Self::span_to_range(
                                         span,
-                                        file,
+                                        rope_of_file,
                                         cached_file.covered_span.start,
                                     ),
                                 }));
@@ -308,15 +323,20 @@ impl LanguageServer {
                         .covered_span
                         .contains(var.declaration_span.start)
                     {
+                        let uri = Url::from_file_path(&*cached_file.name).ok()?;
+                        let rope_of_file = self
+                            .ropes
+                            .entry(uri.to_file_path().ok()?)
+                            .or_insert_with(|| {
+                                let raw_string = String::from_utf8_lossy(&*cached_file.content);
+                                Rope::from_str(&raw_string)
+                            });
+
                         return Some(GotoDefinitionResponse::Scalar(Location {
-                            uri: params
-                                .text_document_position_params
-                                .text_document
-                                .uri
-                                .clone(),
+                            uri: uri,
                             range: Self::span_to_range(
                                 &var.declaration_span,
-                                file,
+                                rope_of_file,
                                 cached_file.covered_span.start,
                             ),
                         }));
