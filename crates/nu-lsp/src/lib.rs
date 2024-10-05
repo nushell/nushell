@@ -177,7 +177,7 @@ impl LanguageServer {
     fn span_to_range(span: &Span, rope_of_file: &Rope, offset: usize) -> lsp_types::Range {
         let line = rope_of_file
             .try_byte_to_line(span.start - offset)
-            .unwrap_or_else(|_| 0);
+            .unwrap_or(0);
         let character =
             rope_of_file.byte_to_char(span.start - offset) - rope_of_file.line_to_char(line);
 
@@ -188,7 +188,7 @@ impl LanguageServer {
 
         let line = rope_of_file
             .try_byte_to_line(span.end - offset)
-            .unwrap_or_else(|_| 0);
+            .unwrap_or(0);
         let character =
             rope_of_file.byte_to_char(span.end - offset) - rope_of_file.line_to_char(line);
 
@@ -300,11 +300,11 @@ impl LanguageServer {
                                     .entry(uri.to_file_path().ok()?)
                                     .or_insert_with(|| {
                                         let raw_string =
-                                            String::from_utf8_lossy(&*cached_file.content);
+                                            String::from_utf8_lossy(&cached_file.content);
                                         Rope::from_str(&raw_string)
                                     });
                                 return Some(GotoDefinitionResponse::Scalar(Location {
-                                    uri: uri,
+                                    uri,
                                     range: Self::span_to_range(
                                         span,
                                         rope_of_file,
@@ -328,12 +328,12 @@ impl LanguageServer {
                             .ropes
                             .entry(uri.to_file_path().ok()?)
                             .or_insert_with(|| {
-                                let raw_string = String::from_utf8_lossy(&*cached_file.content);
+                                let raw_string = String::from_utf8_lossy(&cached_file.content);
                                 Rope::from_str(&raw_string)
                             });
 
                         return Some(GotoDefinitionResponse::Scalar(Location {
-                            uri: uri,
+                            uri,
                             range: Self::span_to_range(
                                 &var.declaration_span,
                                 rope_of_file,
