@@ -320,6 +320,10 @@ impl EngineState {
             }
         }
 
+        let cwd = self.cwd(Some(stack))?;
+        // TODO: better error
+        std::env::set_current_dir(cwd)?;
+
         if let Some(config) = stack.config.take() {
             // If config was updated in the stack, replace it.
             self.config = config;
