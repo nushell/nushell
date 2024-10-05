@@ -7,7 +7,7 @@ fn int_in_inc_range() -> TestResult {
 
 #[test]
 fn int_in_dec_range() -> TestResult {
-    run_test(r#"1 in 9.42..-4"#, "true")
+    run_test(r#"1 in 9..-4.42"#, "true")
 }
 
 #[test]
