@@ -99,8 +99,8 @@ impl Completer for OperatorCompletion {
                 ),
             ],
             Expr::Bool(_) => vec![
-                ("and", "Both values are true"),
-                ("or", "Either value is true"),
+                ("and", "Both values are true (short-circuits when first value is false)"),
+                ("or", "Either value is true (short-circuits when first value is true)"),
                 ("xor", "One value is true and the other is false"),
                 ("not", "Negates a value or expression"),
                 ("in", "Is a member of (doesn't use regex)"),
