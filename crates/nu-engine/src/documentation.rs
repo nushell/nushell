@@ -572,7 +572,9 @@ where
                 document_shape(arg)
             );
         }
-        let _ = write!(long_desc, " - {}", flag.desc);
+        if !flag.desc.is_empty() {
+            let _ = write!(long_desc, ": {}", flag.desc);
+        }
         if let Some(value) = &flag.default_value {
             let _ = write!(long_desc, " (default: {})", &value_formatter(value));
         }
