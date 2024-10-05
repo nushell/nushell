@@ -4,21 +4,21 @@
 export use lib *
 
 # std submodules
-export module assert
-export module bench
-export module dt
-export module formats
-export module help
-export module input
-export module iter
-export module log
-export module math
-export module xml
+export module ./assert
+export module ./bench
+export module ./dt
+export module ./formats
+export module ./help
+export module ./input
+export module ./iter
+export module ./log
+export module ./math
+export module ./xml
 
 # Load main dirs command and all subcommands
-export use dirs main
-export module dirs {
-  export use dirs [
+export use ./dirs main
+export module ./dirs {
+  export use ./dirs [
     add
     drop
     next
