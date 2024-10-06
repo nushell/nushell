@@ -25,6 +25,10 @@ impl Command for SubCommand {
         vec!["vector", "squared norm"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
@@ -32,16 +36,16 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
+        operate(call, input)
+    }
 
-        // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty { dst_span: head });
-        }
-
-        run_with_function(call, input, |vector_lhs, pipeline_span, command_span| {
-            compute_squared_norm(vector_lhs, pipeline_span, command_span)
-        })
+    fn run_const(
+        &self,
+        _working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        operate(call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -51,6 +55,19 @@ impl Command for SubCommand {
             result: Some(Value::test_int(-4)),
         }]
     }
+}
+
+fn operate(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
+    let head = call.head;
+
+    // This doesn't match explicit nulls
+    if matches!(input, PipelineData::Empty) {
+        return Err(ShellError::PipelineEmpty { dst_span: head });
+    }
+
+    run_with_function(call, input, |vector_lhs, pipeline_span, command_span| {
+        compute_squared_norm(vector_lhs, pipeline_span, command_span)
+    })
 }
 
 pub fn compute_squared_norm(

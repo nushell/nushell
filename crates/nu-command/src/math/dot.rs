@@ -5,7 +5,7 @@ use nu_engine::command_prelude::*;
 use nu_protocol::IntoValue;
 
 struct Arguments {
-    vector_rhs: Vec<f64>
+    vector_rhs: Vec<f64>,
 }
 
 #[derive(Clone)]
@@ -51,15 +51,28 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run(call, input, Arguments {
-            vector_rhs: call.req::<Vec<f64>>(engine_state, stack, 0)?
-        })
+        operate(
+            call,
+            input,
+            Arguments {
+                vector_rhs: call.req::<Vec<f64>>(engine_state, stack, 0)?,
+            },
+        )
     }
 
-    fn run_const(&self, working_set: &StateWorkingSet, call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
-        run(call, input, Arguments {
-            vector_rhs: call.req_const::<Vec<f64>>(working_set, 0)?
-        })
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        operate(
+            call,
+            input,
+            Arguments {
+                vector_rhs: call.req_const::<Vec<f64>>(working_set, 0)?,
+            },
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -71,7 +84,7 @@ impl Command for SubCommand {
     }
 }
 
-fn run(call: &Call, input: PipelineData, args: Arguments) -> Result<PipelineData, ShellError> {
+fn operate(call: &Call, input: PipelineData, args: Arguments) -> Result<PipelineData, ShellError> {
     let head = call.head;
 
     // This doesn't match explicit nulls
@@ -79,7 +92,8 @@ fn run(call: &Call, input: PipelineData, args: Arguments) -> Result<PipelineData
         return Err(ShellError::PipelineEmpty { dst_span: head });
     }
 
-    let vector_rhs = args.vector_rhs
+    let vector_rhs = args
+        .vector_rhs
         .iter()
         .map(|float| float.into_value(head))
         .collect_vec();
