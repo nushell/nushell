@@ -24,4 +24,3 @@ fn should_not_allow_vectors_with_different_dimensions() {
     assert!(actual.err.contains("Incorrect value"));
     assert!(actual.err.contains("equal-length vectors"))
 }
-

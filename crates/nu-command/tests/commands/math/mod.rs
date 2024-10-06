@@ -4,6 +4,7 @@ mod ceil;
 mod dot;
 mod floor;
 mod log;
+mod magnitude;
 mod max;
 mod median;
 mod min;
@@ -14,7 +15,7 @@ mod sqrt;
 mod stddev;
 mod sum;
 mod variance;
-mod magnitude;
+mod vcos;
 
 use nu_test_support::{nu, pipeline};
 
