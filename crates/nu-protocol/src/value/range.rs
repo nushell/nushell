@@ -357,7 +357,7 @@ mod float_range {
                     _ => {}
                 };
             }
-            (value - self.start) % self.step == 0.0
+            ((value - self.start) % self.step).abs() < f64::EPSILON
         }
 
         pub fn into_range_iter(self, signals: Signals) -> Iter {
