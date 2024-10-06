@@ -24,7 +24,7 @@ impl Completer for OperatorCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        _prefix: Vec<u8>,
+        _prefix: &[u8],
         span: Span,
         offset: usize,
         _pos: usize,

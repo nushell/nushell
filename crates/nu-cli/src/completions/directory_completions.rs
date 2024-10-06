@@ -26,13 +26,13 @@ impl Completer for DirectoryCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: Vec<u8>,
+        prefix: &[u8],
         span: Span,
         offset: usize,
         _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let AdjustView { prefix, span, .. } = adjust_if_intermediate(&prefix, working_set, span);
+        let AdjustView { prefix, span, .. } = adjust_if_intermediate(prefix, working_set, span);
 
         // Filter only the folders
         #[allow(deprecated)]

@@ -335,7 +335,7 @@ pub fn sort_completions<T>(
         } else {
             matcher = matcher.ignore_case();
         };
-        items.sort_by(|a, b| {
+        items.sort_unstable_by(|a, b| {
             let a_str = get_value(a);
             let b_str = get_value(b);
             let a_score = matcher.fuzzy_match(a_str, prefix).unwrap_or_default();
@@ -343,7 +343,7 @@ pub fn sort_completions<T>(
             b_score.cmp(&a_score).then(a_str.cmp(b_str))
         });
     } else {
-        items.sort_by(|a, b| get_value(a).cmp(get_value(b)));
+        items.sort_unstable_by(|a, b| get_value(a).cmp(get_value(b)));
     }
 
     items

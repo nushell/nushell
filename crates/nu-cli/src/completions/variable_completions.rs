@@ -27,7 +27,7 @@ impl Completer for VariableCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: Vec<u8>,
+        prefix: &[u8],
         span: Span,
         offset: usize,
         _pos: usize,
@@ -42,7 +42,7 @@ impl Completer for VariableCompletion {
             end: span.end - offset,
         };
         let sublevels_count = self.var_context.1.len();
-        let prefix_str = String::from_utf8_lossy(&prefix);
+        let prefix_str = String::from_utf8_lossy(prefix);
 
         // Completions for the given variable
         if !var_str.is_empty() {
@@ -66,7 +66,7 @@ impl Completer for VariableCompletion {
                             if options.match_algorithm.matches_u8_insensitive(
                                 options.case_sensitive,
                                 suggestion.suggestion.value.as_bytes(),
-                                &prefix,
+                                prefix,
                             ) {
                                 output.push(suggestion);
                             }
@@ -80,7 +80,7 @@ impl Completer for VariableCompletion {
                         if options.match_algorithm.matches_u8_insensitive(
                             options.case_sensitive,
                             env_var.0.as_bytes(),
-                            &prefix,
+                            prefix,
                         ) {
                             output.push(SemanticSuggestion {
                                 suggestion: Suggestion {
@@ -111,7 +111,7 @@ impl Completer for VariableCompletion {
                         if options.match_algorithm.matches_u8_insensitive(
                             options.case_sensitive,
                             suggestion.suggestion.value.as_bytes(),
-                            &prefix,
+                            prefix,
                         ) {
                             output.push(suggestion);
                         }
@@ -133,7 +133,7 @@ impl Completer for VariableCompletion {
                         if options.match_algorithm.matches_u8_insensitive(
                             options.case_sensitive,
                             suggestion.suggestion.value.as_bytes(),
-                            &prefix,
+                            prefix,
                         ) {
                             output.push(suggestion);
                         }
@@ -149,7 +149,7 @@ impl Completer for VariableCompletion {
             if options.match_algorithm.matches_u8_insensitive(
                 options.case_sensitive,
                 builtin.as_bytes(),
-                &prefix,
+                prefix,
             ) {
                 output.push(SemanticSuggestion {
                     suggestion: Suggestion {
@@ -173,7 +173,7 @@ impl Completer for VariableCompletion {
                     if options.match_algorithm.matches_u8_insensitive(
                         options.case_sensitive,
                         v.0,
-                        &prefix,
+                        prefix,
                     ) {
                         output.push(SemanticSuggestion {
                             suggestion: Suggestion {
@@ -201,7 +201,7 @@ impl Completer for VariableCompletion {
                 if options.match_algorithm.matches_u8_insensitive(
                     options.case_sensitive,
                     v.0,
-                    &prefix,
+                    prefix,
                 ) {
                     output.push(SemanticSuggestion {
                         suggestion: Suggestion {
