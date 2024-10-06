@@ -14,6 +14,7 @@ mod sqrt;
 mod stddev;
 mod sum;
 mod variance;
+mod magnitude;
 
 use nu_test_support::{nu, pipeline};
 

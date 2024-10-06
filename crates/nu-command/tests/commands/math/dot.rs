@@ -13,8 +13,15 @@ fn compute_dot_product_of_floats() {
 }
 
 #[test]
+fn should_not_accept_empty_pipeline() {
+    let actual = nu!("[] | math dot []");
+    assert!(actual.err.contains("Unsupported input"));
+}
+
+#[test]
 fn should_not_allow_vectors_with_different_dimensions() {
     let actual = nu!("[1 2 3] | math dot [3 4 5 6]");
+    assert!(actual.err.contains("Incorrect value"));
     assert!(actual.err.contains("equal-length vectors"))
 }
 
