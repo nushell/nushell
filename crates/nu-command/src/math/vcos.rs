@@ -80,7 +80,7 @@ impl Command for SubCommand {
         vec![Example {
             description: "Calculate the cosine similarity between two vectors",
             example: "[1 2 3] | math vcos [3 4 -5]",
-            result: Some(Value::test_float(0.15118578920369088)),
+            result: Some(Value::test_float(-0.15118578920369088)),
         }]
     }
 }
