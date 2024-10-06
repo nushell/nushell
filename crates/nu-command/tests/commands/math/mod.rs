@@ -11,11 +11,13 @@ mod min;
 mod mode;
 mod product;
 mod round;
+mod sqnorm;
 mod sqrt;
 mod stddev;
 mod sum;
 mod variance;
 mod vcos;
+mod vsin;
 
 use nu_test_support::{nu, pipeline};
 
