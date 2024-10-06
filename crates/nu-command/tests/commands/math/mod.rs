@@ -1,6 +1,7 @@
 mod abs;
 mod avg;
 mod ceil;
+mod dot;
 mod floor;
 mod log;
 mod max;
