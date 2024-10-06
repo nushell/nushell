@@ -11,7 +11,7 @@ fn compute_vcos_between_two_int_vectors() {
 fn compute_vcos_between_two_float_vectors() {
     let actual = nu!("[1 2.0 3.55] | math vsin [3.2 4.7 -5]");
     // Use "starts with" to avoid float inaccuracies
-    assert!(actual.out.starts_with("0.295348184"))
+    assert!(actual.out.starts_with("0.986771511"))
 }
 
 #[test]
