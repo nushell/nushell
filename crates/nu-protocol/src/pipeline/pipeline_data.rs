@@ -190,54 +190,46 @@ impl PipelineData {
         }
     }
 
-    /// Drain this [`PipelineData`] if the current stdout [`OutDest`]s in `stack` is a sink (not
-    /// [`OutDest::Pipe`] or [`OutDest::PipeSeparate`]).
+    /// Drain this [`PipelineData`] according to the current stdout [`OutDest`]s in `stack`.
     ///
     /// For [`OutDest::Pipe`] and [`OutDest::PipeSeparate`], this will return the [`PipelineData`]
-    /// as is. Otherwise, streams may be turned into [`Value`]s or [`PipelineData::Empty`] depending
-    /// on the `stack` [`OutDest`]s.
-    pub fn drain_if_end(
+    /// as is. For [`OutDest::Value`], this will collect into a value and return it. For
+    /// [`OutDest::Print`], the [`PipelineData`] is drained and printed. Otherwise, the
+    /// [`PipelineData`] is drained, but only printed if it is the output of an external command.
+    pub fn drain_to_out_dest(
         self,
         engine_state: &EngineState,
         stack: &mut Stack,
-    ) -> Result<PipelineData, ShellError> {
-        match (self, stack.stdout()) {
-            // Empty and Value are not streams and so cannot be drained
-            (data @ (PipelineData::Empty | PipelineData::Value(..)), ..) => Ok(data),
-            // do not drain if this is not the last pipeline element
-            (data, OutDest::Pipe | OutDest::PipeSeparate) => Ok(data),
-            (data, OutDest::Value) => {
-                let metadata = data.metadata();
-                let span = data.span().unwrap_or(Span::unknown());
-                data.into_value(span)
-                    .map(|val| PipelineData::Value(val, metadata))
+    ) -> Result<Self, ShellError> {
+        match stack.pipe_stdout().unwrap_or(&OutDest::Inherit) {
+            OutDest::Print => {
+                self.print(engine_state, stack, false, false)?;
+                Ok(Self::Empty)
             }
-            (PipelineData::ByteStream(stream, ..), stdout) => {
-                stream.write_to_out_dests(stdout, stack.stderr())?;
-                Ok(PipelineData::Empty)
+            OutDest::Pipe | OutDest::PipeSeparate => Ok(self),
+            OutDest::Value => {
+                let metadata = self.metadata();
+                let span = self.span().unwrap_or(Span::unknown());
+                self.into_value(span).map(|val| Self::Value(val, metadata))
             }
-            (PipelineData::ListStream(stream, ..), OutDest::Null) => {
-                stream.drain()?;
-                Ok(PipelineData::Empty)
+            OutDest::File(file) => {
+                self.write_to(file.as_ref())?;
+                Ok(Self::Empty)
             }
-            (data @ PipelineData::ListStream(..), OutDest::File(file)) => {
-                data.write_to(file.as_ref())?;
-                Ok(PipelineData::Empty)
-            }
-            (data @ PipelineData::ListStream(..), OutDest::Inherit) => {
-                data.print(engine_state, stack, false, false)?;
-                Ok(PipelineData::Empty)
+            OutDest::Null | OutDest::Inherit => {
+                self.drain()?;
+                Ok(Self::Empty)
             }
         }
     }
 
     pub fn drain(self) -> Result<(), ShellError> {
         match self {
-            PipelineData::Empty => Ok(()),
-            PipelineData::Value(Value::Error { error, .. }, ..) => Err(*error),
-            PipelineData::Value(..) => Ok(()),
-            PipelineData::ListStream(stream, ..) => stream.drain(),
-            PipelineData::ByteStream(stream, ..) => stream.drain(),
+            Self::Empty => Ok(()),
+            Self::Value(Value::Error { error, .. }, ..) => Err(*error),
+            Self::Value(..) => Ok(()),
+            Self::ListStream(stream, ..) => stream.drain(),
+            Self::ByteStream(stream, ..) => stream.drain(),
         }
     }
 

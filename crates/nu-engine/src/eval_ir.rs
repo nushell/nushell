@@ -328,7 +328,7 @@ fn eval_instruction<D: DebugContext>(
                 let stack = &mut ctx
                     .stack
                     .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
-                data.drain_if_end(ctx.engine_state, stack)?
+                data.drain_to_out_dest(ctx.engine_state, stack)?
             };
             ctx.put_reg(*src, res);
             Ok(Continue)
@@ -1426,6 +1426,7 @@ fn eval_redirection(
         RedirectMode::Value => Ok(Some(Redirection::Pipe(OutDest::Value))),
         RedirectMode::Null => Ok(Some(Redirection::Pipe(OutDest::Null))),
         RedirectMode::Inherit => Ok(Some(Redirection::Pipe(OutDest::Inherit))),
+        RedirectMode::Print => Ok(Some(Redirection::Pipe(OutDest::Print))),
         RedirectMode::File { file_num } => {
             let file = ctx
                 .files

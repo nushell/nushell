@@ -312,6 +312,7 @@ impl fmt::Display for RedirectMode {
             RedirectMode::Value => write!(f, "value"),
             RedirectMode::Null => write!(f, "null"),
             RedirectMode::Inherit => write!(f, "inherit"),
+            RedirectMode::Print => write!(f, "print"),
             RedirectMode::File { file_num } => write!(f, "file({file_num})"),
             RedirectMode::Caller => write!(f, "caller"),
         }

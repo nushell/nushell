@@ -62,8 +62,8 @@ pub(crate) struct StackOutDest {
 impl StackOutDest {
     pub(crate) fn new() -> Self {
         Self {
-            pipe_stdout: None,
-            pipe_stderr: None,
+            pipe_stdout: Some(OutDest::Print),
+            pipe_stderr: Some(OutDest::Print),
             stdout: OutDest::Inherit,
             stderr: OutDest::Inherit,
             parent_stdout: None,

@@ -63,7 +63,7 @@ impl Command for Try {
         let eval_block = get_eval_block(engine_state);
 
         let result = eval_block(engine_state, stack, try_block, input)
-            .and_then(|pipeline| pipeline.drain_if_end(engine_state, stack));
+            .and_then(|pipeline| pipeline.drain_to_out_dest(engine_state, stack));
 
         match result {
             Err(err) => run_catch(err, head, catch_block, engine_state, stack, eval_block),

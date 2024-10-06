@@ -450,6 +450,7 @@ pub enum RedirectMode {
     Value,
     Null,
     Inherit,
+    Print,
     /// Use the given numbered file.
     File {
         file_num: u32,
