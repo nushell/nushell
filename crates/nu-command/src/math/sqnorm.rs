@@ -50,9 +50,9 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Calculate the squared norm as vectors",
-            example: "[1, 2, 3] | math sqnorm",
-            result: Some(Value::test_int(-4)),
+            description: "Calculate the squared norm of a vector",
+            example: "[1 2 3] | math sqnorm",
+            result: Some(Value::test_int(14)),
         }]
     }
 }

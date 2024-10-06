@@ -73,9 +73,9 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Calculate the sine angle between two vectors, represented by lists",
-            example: "[1, 2, 3] | math vsin [3, 4, -5]",
-            result: Some(Value::test_int(-4)),
+            description: "Calculate the sine of the angle between two vectors",
+            example: "[1 2 3] | math vsin [3 4 -5]",
+            result: Some(Value::test_float(0.9885053652574968)),
         }]
     }
 }

@@ -77,8 +77,8 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Apply the dot product to two lists of numbers, interpreted as vectors",
-            example: "[1, 2, 3] | math dot [3, 4, -5]",
+            description: "Get the dot product of two vectors",
+            example: "[1 2 3] | math dot [3 4 -5]",
             result: Some(Value::test_int(-4)),
         }]
     }

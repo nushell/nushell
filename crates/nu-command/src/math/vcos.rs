@@ -78,9 +78,9 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Calculate the cosine angle between two vectors, represented by lists",
-            example: "[1, 2, 3] | math vcos [3, 4, -5]",
-            result: Some(Value::test_int(-4)),
+            description: "Calculate the cosine similarity between two vectors",
+            example: "[1 2 3] | math vcos [3 4 -5]",
+            result: Some(Value::test_float(0.15118578920369088)),
         }]
     }
 }

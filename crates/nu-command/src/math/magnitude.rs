@@ -27,7 +27,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["vector", "length", "measure"]
+        vec!["vector", "length"]
     }
 
     fn is_const(&self) -> bool {
@@ -55,9 +55,9 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Calculate the squared norm as vectors",
-            example: "[1, 2, 3] | math sqnorm",
-            result: Some(Value::test_int(-4)),
+            description: "Calculate the magnitude of a vector",
+            example: "[2 3 6] | math magnitude",
+            result: Some(Value::test_int(7)),
         }]
     }
 }
