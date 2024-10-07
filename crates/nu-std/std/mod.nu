@@ -26,3 +26,14 @@ export module ./dirs {
     goto
   ]
 }
+
+# Workaround for #13403 to load export-env blocks from submodules
+export-env {
+    # log
+    $env.NU_LOG_FORMAT = $env.NU_LOG_FORMAT? | default "%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
+    $env.NU_LOG_DATE_FORMAT = $env.NU_LOG_DATE_FORMAT? | default "%Y-%m-%dT%H:%M:%S%.3f"
+    
+    # dirs
+    $env.DIRS_POSITION = 0
+    $env.DIRS_LIST = [($env.PWD | path expand)]
+}
