@@ -1,4 +1,3 @@
-mod base64;
 mod decode;
 mod encode;
 mod encoding;
