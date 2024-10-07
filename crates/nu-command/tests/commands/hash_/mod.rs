@@ -10,43 +10,21 @@ fn base64_defaults_to_encoding_with_standard_character_type() {
 }
 
 #[test]
-fn base64_encode_characterset_binhex() {
+fn base64_defaults_to_encoding_with_nopad() {
     let actual = nu!(r#"
-        echo 'username:password' | encode base64 --character-set binhex
+        echo 'username:password' | encode base64 --nopad
         "#);
 
-    assert_eq!(actual.out, "GA0PFQjKE@8kF'&cFhG[FQ3");
+    assert_eq!(actual.out, "dXNlcm5hbWU6cGFzc3dvcmQ");
 }
 
 #[test]
-fn error_when_invalid_character_set_given() {
+fn base64_encode_url_safe() {
     let actual = nu!(r#"
-        echo 'username:password' | encode base64 --character-set 'this is invalid'
+        0x[BE EE FF] | encode base64 --url
         "#);
 
-    assert!(actual
-        .err
-        .contains("this is invalid is not a valid character-set"));
-}
-
-#[test]
-fn base64_decode_characterset_binhex() {
-    let actual = nu!(
-        r#""GA0PFQjKE@8kF'&cFhG[FQ3" | decode base64 --character-set binhex --binary | decode utf-8"#
-    );
-
-    assert_eq!(actual.out, "username:password");
-}
-
-#[test]
-fn error_invalid_decode_value() {
-    let actual = nu!(r#"
-        echo "this should not be a valid encoded value" | decode base64 --character-set url-safe
-        "#);
-
-    assert!(actual
-        .err
-        .contains("invalid base64 input for character set url-safe"));
+    assert_eq!(actual.out, "vu7_");
 }
 
 #[test]
