@@ -52,7 +52,7 @@ fn config_add_unsupported_key() {
 
     assert!(actual
         .err
-        .contains("$env.config.foo is an unknown config setting"));
+        .contains("Unknown config option: $env.config.foo"));
 }
 
 #[test]
@@ -61,7 +61,7 @@ fn config_add_unsupported_type() {
         r#"$env.config.ls = '' "#,
         r#";"#]));
 
-    assert!(actual.err.contains("should be a record"));
+    assert!(actual.err.contains("Type mismatch"));
 }
 
 #[test]
@@ -70,12 +70,8 @@ fn config_add_unsupported_value() {
         r#"$env.config.history.file_format = ''"#,
         r#";"#]));
 
-    assert!(actual
-        .err
-        .contains("unrecognized $env.config.history.file_format option ''"));
-    assert!(actual
-        .err
-        .contains("expected either 'sqlite' or 'plaintext'"));
+    assert!(actual.err.contains("Invalid value"));
+    assert!(actual.err.contains("expected 'sqlite' or 'plaintext'"));
 }
 
 #[test]

@@ -1,7 +1,5 @@
-use super::helper::{process_bool_config, report_invalid_key, report_invalid_value};
 use super::prelude::*;
 use crate as nu_protocol;
-use crate::ShellError;
 use std::collections::HashMap;
 
 /// Configures when plugins should be stopped if inactive
@@ -19,79 +17,28 @@ impl PluginGcConfigs {
     pub fn get(&self, plugin_name: &str) -> &PluginGcConfig {
         self.plugins.get(plugin_name).unwrap_or(&self.default)
     }
-
-    pub(super) fn process(
-        &mut self,
-        path: &[&str],
-        value: &mut Value,
-        errors: &mut Vec<ShellError>,
-    ) {
-        if let Value::Record { val, .. } = value {
-            // Handle resets to default if keys are missing
-            if !val.contains("default") {
-                self.default = PluginGcConfig::default();
-            }
-            if !val.contains("plugins") {
-                self.plugins = HashMap::new();
-            }
-
-            val.to_mut().retain_mut(|key, value| {
-                let span = value.span();
-                match key {
-                    "default" => {
-                        self.default
-                            .process(&join_path(path, &["default"]), value, errors)
-                    }
-                    "plugins" => process_plugins(
-                        &join_path(path, &["plugins"]),
-                        value,
-                        errors,
-                        &mut self.plugins,
-                    ),
-                    _ => {
-                        report_invalid_key(&join_path(path, &[key]), span, errors);
-                        return false;
-                    }
-                }
-                true
-            });
-        } else {
-            report_invalid_value("should be a record", value.span(), errors);
-            *value = self.clone().into_value(value.span());
-        }
-    }
 }
 
-fn process_plugins(
-    path: &[&str],
-    value: &mut Value,
-    errors: &mut Vec<ShellError>,
-    plugins: &mut HashMap<String, PluginGcConfig>,
-) {
-    if let Value::Record { val, .. } = value {
-        // Remove any plugin configs that aren't in the value
-        plugins.retain(|key, _| val.contains(key));
+impl UpdateFromValue for PluginGcConfigs {
+    fn update<'a>(
+        &mut self,
+        value: &'a Value,
+        path: &mut ConfigPath<'a>,
+        errors: &mut ConfigErrors,
+    ) {
+        let Value::Record { val: record, .. } = value else {
+            errors.type_mismatch(path, Type::record(), value);
+            return;
+        };
 
-        val.to_mut().retain_mut(|key, value| {
-            if matches!(value, Value::Record { .. }) {
-                plugins.entry(key.to_owned()).or_default().process(
-                    &join_path(path, &[key]),
-                    value,
-                    errors,
-                );
-                true
-            } else {
-                report_invalid_value("should be a record", value.span(), errors);
-                if let Some(conf) = plugins.get(key) {
-                    // Reconstruct the value if it existed before
-                    *value = conf.clone().into_value(value.span());
-                    true
-                } else {
-                    // Remove it if it didn't
-                    false
-                }
+        for (col, val) in record.iter() {
+            let path = &mut path.push(col);
+            match col.as_str() {
+                "default" => self.default.update(val, path, errors),
+                "plugins" => self.plugins.update(val, path, errors),
+                _ => errors.unknown_option(path, val),
             }
-        });
+        }
     }
 }
 
@@ -123,57 +70,43 @@ impl IntoValue for PluginGcConfig {
     }
 }
 
-impl PluginGcConfig {
-    fn process(&mut self, path: &[&str], value: &mut Value, errors: &mut Vec<ShellError>) {
-        if let Value::Record { val, .. } = value {
-            // Handle resets to default if keys are missing
-            if !val.contains("enabled") {
-                self.enabled = PluginGcConfig::default().enabled;
-            }
-            if !val.contains("stop_after") {
-                self.stop_after = PluginGcConfig::default().stop_after;
-            }
+impl UpdateFromValue for PluginGcConfig {
+    fn update<'a>(
+        &mut self,
+        value: &'a Value,
+        path: &mut ConfigPath<'a>,
+        errors: &mut ConfigErrors,
+    ) {
+        let Value::Record { val: record, .. } = value else {
+            errors.type_mismatch(path, Type::record(), value);
+            return;
+        };
 
-            val.to_mut().retain_mut(|key, value| {
-                let span = value.span();
-                match key {
-                    "enabled" => process_bool_config(value, errors, &mut self.enabled),
-                    "stop_after" => match value {
-                        Value::Duration { val, .. } => {
-                            if *val >= 0 {
-                                self.stop_after = *val;
-                            } else {
-                                report_invalid_value("must not be negative", span, errors);
-                                *val = self.stop_after;
-                            }
+        for (col, val) in record.iter() {
+            let path = &mut path.push(col);
+            match col.as_str() {
+                "enabled" => self.enabled.update(val, path, errors),
+                "stop_after" => {
+                    if let Ok(duration) = val.as_duration() {
+                        if duration >= 0 {
+                            self.stop_after = duration;
+                        } else {
+                            errors.invalid_value(path, "a non-negative duration", val);
                         }
-                        _ => {
-                            report_invalid_value("should be a duration", span, errors);
-                            *value = Value::duration(self.stop_after, span);
-                        }
-                    },
-                    _ => {
-                        report_invalid_key(&join_path(path, &[key]), span, errors);
-                        return false;
+                    } else {
+                        errors.type_mismatch(path, Type::Duration, val);
                     }
                 }
-                true
-            })
-        } else {
-            report_invalid_value("should be a record", value.span(), errors);
-            *value = self.clone().into_value(value.span());
+                _ => errors.unknown_option(path, val),
+            }
         }
     }
-}
-
-fn join_path<'a>(a: &[&'a str], b: &[&'a str]) -> Vec<&'a str> {
-    a.iter().copied().chain(b.iter().copied()).collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::{record, Span};
+    use crate::{record, Config, Span};
 
     fn test_pair() -> (PluginGcConfigs, Value) {
         (
@@ -208,11 +141,12 @@ mod tests {
     }
 
     #[test]
-    fn process() {
-        let (expected, mut input) = test_pair();
-        let mut errors = vec![];
+    fn update() {
+        let (expected, input) = test_pair();
+        let config = Config::default();
+        let mut errors = ConfigErrors::new(&config);
         let mut result = PluginGcConfigs::default();
-        result.process(&[], &mut input, &mut errors);
+        result.update(&input, &mut ConfigPath::new(), &mut errors);
         assert!(errors.is_empty(), "errors: {errors:#?}");
         assert_eq!(expected, result);
     }

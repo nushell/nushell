@@ -15,8 +15,8 @@ use thiserror::Error;
 /// forwards most methods, except for `.source_code()`, which we provide.
 #[derive(Error)]
 #[error("{0}")]
-pub struct CliError<'src>(
-    pub &'src (dyn miette::Diagnostic + Send + Sync + 'static),
+struct CliError<'src>(
+    pub &'src dyn miette::Diagnostic,
     pub &'src StateWorkingSet<'src>,
 );
 
@@ -48,10 +48,7 @@ pub fn report_compile_error(working_set: &StateWorkingSet, error: &CompileError)
     report_error(working_set, error);
 }
 
-fn report_error(
-    working_set: &StateWorkingSet,
-    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
-) {
+fn report_error(working_set: &StateWorkingSet, error: &dyn miette::Diagnostic) {
     eprintln!("Error: {:?}", CliError(error, working_set));
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
@@ -60,10 +57,7 @@ fn report_error(
     }
 }
 
-fn report_warning(
-    working_set: &StateWorkingSet,
-    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
-) {
+fn report_warning(working_set: &StateWorkingSet, error: &dyn miette::Diagnostic) {
     eprintln!("Warning: {:?}", CliError(error, working_set));
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]

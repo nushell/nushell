@@ -48,6 +48,10 @@ impl Type {
         Self::Table([].into())
     }
 
+    pub fn custom(name: impl Into<Box<str>>) -> Self {
+        Self::Custom(name.into())
+    }
+
     pub fn is_subtype(&self, other: &Type) -> bool {
         // Structural subtyping
         let is_subtype_collection = |this: &[(String, Type)], that: &[(String, Type)]| {
