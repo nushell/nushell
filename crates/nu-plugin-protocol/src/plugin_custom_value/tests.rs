@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 
 use crate::test_util::{expected_test_custom_value, test_plugin_custom_value, TestCustomValue};
 

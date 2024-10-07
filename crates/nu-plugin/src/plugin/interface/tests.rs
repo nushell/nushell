@@ -9,13 +9,11 @@ use nu_plugin_protocol::{
     PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, StreamData,
 };
 use nu_protocol::{
-    engine::Closure, BlockId, ByteStreamType, Config, CustomValue, Id,
-    IntoInterruptiblePipelineData, LabeledError, PipelineData, PluginSignature, ShellError,
-    Signals, Span, Spanned, Value, VarId,
+    engine::Closure, BlockId, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData,
+    LabeledError, PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value, VarId,
 };
 use std::{
     collections::HashMap,
-    hash::Hash,
     sync::{
         mpsc::{self, TryRecvError},
         Arc,
