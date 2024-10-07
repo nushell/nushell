@@ -19,12 +19,41 @@ fn base64_defaults_to_encoding_with_nopad() {
 }
 
 #[test]
-fn base64_encode_url_safe() {
+fn base64_decode_value() {
     let actual = nu!(r#"
-        0x[BE EE FF] | encode base64 --url
+        echo 'YWJjeHl6' | decode base64 | decode
         "#);
 
-    assert_eq!(actual.out, "vu7_");
+    assert_eq!(actual.out, "abcxyz");
+}
+
+#[test]
+fn base64_decode_with_nopad() {
+    let actual = nu!(r#"
+        echo 'R29vZCBsdWNrIHRvIHlvdQ' | decode base64 --nopad | decode
+        "#);
+
+    assert_eq!(actual.out, "Good luck to you");
+}
+
+#[test]
+fn base64_decode_with_url() {
+    let actual = nu!(r#"
+        echo 'vu7_' | decode base64 --url | decode
+        "#);
+
+    assert_eq!(actual.out, "¾îÿ");
+}
+
+#[test]
+fn error_invalid_decode_value() {
+    let actual = nu!(r#"
+        echo "this should not be a valid encoded value" | decode base64
+        "#);
+
+    assert!(actual
+        .err
+        .contains("nu::shell::incorrect_value"));
 }
 
 #[test]
