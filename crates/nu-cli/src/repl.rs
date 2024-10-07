@@ -132,21 +132,7 @@ pub fn evaluate_repl(
         // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
         let cmd_text = line_editor.current_buffer_contents().to_string();
 
-        let replaced_cmd_text = cmd_text
-            .bytes()
-            .map(|byte| {
-                // all chars <- 0x20 and 0x3b which is ';', semi-colon
-                if byte <= 0x20 || byte == 0x3b {
-                    // Escape using \xHH format
-                    format!("\\x{:02X}", byte)
-                // 0x5c is '\', backslash
-                } else if byte == 0x5c {
-                    "\\\\".to_string() // Escape backslashes
-                } else {
-                    byte.to_string() // Leave other characters as they are
-                }
-            })
-            .collect();
+        let replaced_cmd_text = escape_special_vscode_bytes(&cmd_text);
 
         run_shell_integration_osc633(
             engine_state,
@@ -228,6 +214,22 @@ pub fn evaluate_repl(
     }
 
     Ok(())
+}
+
+fn escape_special_vscode_bytes(input: &str) -> String {
+    input
+        .bytes()
+        .map(|byte| match byte {
+            // Escape bytes below 0x20
+            b if b < 0x20 => format!("\\x{:02X}", b),
+            // Escape the semicolon as \x3B
+            b';' => "\\x3B".to_string(),
+            // Escape the backslash
+            b'\\' => "\\\\".to_string(),
+            // Otherwise, return the character as-is
+            b => (b as char).to_string(),
+        })
+        .collect()
 }
 
 fn get_line_editor(
@@ -1057,21 +1059,7 @@ fn run_shell_integration_osc633(
 
             // escape a few things because this says so
             // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
-            let replaced_cmd_text: String = repl_cmd_line_text
-                .bytes()
-                .map(|byte| {
-                    // all chars <- 0x20 and 0x3b which is ';', semi-colon
-                    if byte <= 0x20 || byte == 0x3b {
-                        // Escape using \xHH format
-                        format!("\\x{:02X}", byte)
-                    // 0x5c is '\', backslash
-                    } else if byte == 0x5c {
-                        "\\\\".to_string() // Escape backslashes
-                    } else {
-                        byte.to_string() // Leave other characters as they are
-                    }
-                })
-                .collect();
+            let replaced_cmd_text = escape_special_vscode_bytes(&repl_cmd_line_text);
 
             //OSC 633 ; E ; <commandline> [; <nonce] ST - Explicitly set the command line with an optional nonce.
             run_ansi_sequence(&format!(
