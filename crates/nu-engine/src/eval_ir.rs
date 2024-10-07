@@ -328,7 +328,7 @@ fn eval_instruction<D: DebugContext>(
                 let stack = &mut ctx
                     .stack
                     .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
-                data.drain_to_out_dest(ctx.engine_state, stack)?
+                data.drain_to_out_dests(ctx.engine_state, stack)?
             };
             ctx.put_reg(*src, res);
             Ok(Continue)
