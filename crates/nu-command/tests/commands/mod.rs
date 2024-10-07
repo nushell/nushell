@@ -101,7 +101,6 @@ mod skip;
 mod sort;
 mod sort_by;
 mod source_env;
-mod split_by;
 mod split_column;
 mod split_row;
 mod str_;
