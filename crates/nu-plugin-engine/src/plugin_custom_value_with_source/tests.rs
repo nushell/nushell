@@ -137,7 +137,7 @@ fn add_source_in_nested_closure() -> Result<(), ShellError> {
     captures.insert(VarId::new(1), orig_custom_val.clone());
     let mut val = Value::test_closure(Closure {
         block_id: BlockId::new(0),
-        captures: captures,
+        captures,
     });
     let source = Arc::new(PluginSource::new_fake("foo"));
     PluginCustomValueWithSource::add_source_in(&mut val, &source)?;

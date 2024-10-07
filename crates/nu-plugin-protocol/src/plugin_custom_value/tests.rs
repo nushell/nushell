@@ -163,7 +163,7 @@ fn serialize_in_closure() -> Result<(), ShellError> {
     captures.insert(VarId::new(1), orig_custom_val.clone());
     let mut val = Value::test_closure(Closure {
         block_id: BlockId::new(0),
-        captures: captures,
+        captures,
     });
     PluginCustomValue::serialize_custom_values_in(&mut val)?;
 
@@ -253,7 +253,7 @@ fn deserialize_in_closure() -> Result<(), ShellError> {
     captures.insert(VarId::new(1), orig_custom_val.clone());
     let mut val = Value::test_closure(Closure {
         block_id: BlockId::new(0),
-        captures: captures,
+        captures,
     });
     PluginCustomValue::deserialize_custom_values_in(&mut val)?;
 

@@ -39,12 +39,12 @@ fn find_custom_values() {
             Value::test_int(4),
         ]),
         "closure" => Value::test_closure({
-            let mut capture = Box::new(HashMap::new());
-            capture.insert(VarId::new(0), cv.clone());
-            capture.insert(VarId::new(1), Value::test_string("foo"));
+            let mut captures = Box::new(HashMap::new());
+            captures.insert(VarId::new(0), cv.clone());
+            captures.insert(VarId::new(1), Value::test_string("foo"));
             Closure {
                 block_id: BlockId::new(0),
-                captures: capture
+                captures
             }
     }),
     });

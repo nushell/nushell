@@ -1036,14 +1036,14 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
         EngineCallResponse::PipelineData(PipelineData::Value(Value::test_int(2), None))
     });
 
-    let mut capture = Box::new(HashMap::new());
-    capture.insert(VarId::new(0), Value::test_int(5));
+    let mut captures = Box::new(HashMap::new());
+    captures.insert(VarId::new(0), Value::test_int(5));
     let result = interface
         .eval_closure_with_stream(
             &Spanned {
                 item: Closure {
                     block_id: BlockId::new(42),
-                    captures: capture,
+                    captures,
                 },
                 span: Span::test_data(),
             },
