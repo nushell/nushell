@@ -23,6 +23,7 @@ use nu_protocol::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     sync::{mpsc, Arc},
     time::Duration,
 };
@@ -432,7 +433,7 @@ fn manager_consume_engine_call_forwards_to_subscriber_with_pipeline_data() -> Re
             closure: Spanned {
                 item: Closure {
                     block_id: BlockId::new(0),
-                    captures: vec![],
+                    captures: Box::new(HashMap::new()),
                 },
                 span: Span::test_data(),
             },

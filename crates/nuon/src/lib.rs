@@ -8,6 +8,8 @@ pub use to::ToStyle;
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use chrono::DateTime;
     use nu_protocol::{
         ast::{CellPath, PathMember, RangeInclusion},
@@ -176,7 +178,7 @@ mod tests {
         assert!(to_nuon(
             &Value::test_closure(Closure {
                 block_id: BlockId::new(0),
-                captures: vec![]
+                captures: Box::new(HashMap::new())
             }),
             ToStyle::Raw,
             None,

@@ -28,6 +28,7 @@ where
 fn find_custom_values() {
     use nu_plugin_protocol::test_util::test_plugin_custom_value;
     use nu_protocol::{engine::Closure, record};
+    use std::collections::HashMap;
 
     let mut cv = Value::test_custom_value(Box::new(test_plugin_custom_value()));
 
@@ -37,12 +38,15 @@ fn find_custom_values() {
             cv.clone(),
             Value::test_int(4),
         ]),
-        "closure" => Value::test_closure(
+        "closure" => Value::test_closure({
+            let mut capture = Box::new(HashMap::new());
+            capture.insert(VarId::new(0), cv.clone());
+            capture.insert(VarId::new(1), Value::test_string("foo"));
             Closure {
                 block_id: BlockId::new(0),
-                captures: vec![(VarId::new(0), cv.clone()), (VarId::new(1), Value::test_string("foo"))]
+                captures: capture
             }
-        ),
+    }),
     });
 
     // Do with_custom_values_in, and count the number of custom values found

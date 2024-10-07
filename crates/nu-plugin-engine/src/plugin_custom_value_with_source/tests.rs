@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use nu_plugin_protocol::test_util::{test_plugin_custom_value, TestCustomValue};
 use nu_protocol::{
@@ -112,17 +112,16 @@ fn add_source_in_nested_list() -> Result<(), ShellError> {
 
 fn check_closure_custom_values(
     val: &Value,
-    indices: impl IntoIterator<Item = usize>,
+    indices: impl IntoIterator<Item = VarId>,
     mut f: impl FnMut(usize, &dyn CustomValue) -> Result<(), ShellError>,
 ) -> Result<(), ShellError> {
     let closure = val.as_closure()?;
-    for index in indices {
+    for (index, id) in indices.into_iter().enumerate() {
         let val = closure
             .captures
-            .get(index)
+            .get(&id)
             .unwrap_or_else(|| panic!("[{index}] not present in closure"));
         let custom_value = val
-            .1
             .as_custom_value()
             .unwrap_or_else(|_| panic!("[{index}] not custom value"));
         f(index, custom_value)?;
@@ -133,28 +132,32 @@ fn check_closure_custom_values(
 #[test]
 fn add_source_in_nested_closure() -> Result<(), ShellError> {
     let orig_custom_val = Value::test_custom_value(Box::new(test_plugin_custom_value()));
+    let mut captures = Box::new(HashMap::new());
+    captures.insert(VarId::new(0), orig_custom_val.clone());
+    captures.insert(VarId::new(1), orig_custom_val.clone());
     let mut val = Value::test_closure(Closure {
         block_id: BlockId::new(0),
-        captures: vec![
-            (VarId::new(0), orig_custom_val.clone()),
-            (VarId::new(1), orig_custom_val.clone()),
-        ],
+        captures: captures,
     });
     let source = Arc::new(PluginSource::new_fake("foo"));
     PluginCustomValueWithSource::add_source_in(&mut val, &source)?;
 
-    check_closure_custom_values(&val, 0..=1, |index, custom_value| {
-        let plugin_custom_value: &PluginCustomValueWithSource = custom_value
-            .as_any()
-            .downcast_ref()
-            .unwrap_or_else(|| panic!("[{index}] not PluginCustomValueWithSource"));
-        assert_eq!(
-            Arc::as_ptr(&source),
-            Arc::as_ptr(&plugin_custom_value.source),
-            "[{index}] source not set correctly"
-        );
-        Ok(())
-    })
+    check_closure_custom_values(
+        &val,
+        vec![VarId::new(0), VarId::new(1)],
+        |index, custom_value| {
+            let plugin_custom_value: &PluginCustomValueWithSource = custom_value
+                .as_any()
+                .downcast_ref()
+                .unwrap_or_else(|| panic!("[{index}] not PluginCustomValueWithSource"));
+            assert_eq!(
+                Arc::as_ptr(&source),
+                Arc::as_ptr(&plugin_custom_value.source),
+                "[{index}] source not set correctly"
+            );
+            Ok(())
+        },
+    )
 }
 
 #[test]

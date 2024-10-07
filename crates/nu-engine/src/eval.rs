@@ -920,7 +920,13 @@ impl Eval for EvalRuntime {
             })
             .collect::<Result<_, _>>()?;
 
-        Ok(Value::closure(Closure { block_id, captures }, span))
+        Ok(Value::closure(
+            Closure {
+                block_id,
+                captures: Box::new(captures),
+            },
+            span,
+        ))
     }
 
     fn eval_overlay(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {

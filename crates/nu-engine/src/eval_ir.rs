@@ -827,11 +827,11 @@ fn literal_value(
                 .captures
                 .iter()
                 .map(|var_id| get_var(ctx, *var_id, span).map(|val| (*var_id, val)))
-                .collect::<Result<Vec<_>, ShellError>>()?;
+                .collect::<Result<_, ShellError>>()?;
             Value::closure(
                 Closure {
                     block_id: *block_id,
-                    captures,
+                    captures: Box::new(captures),
                 },
                 span,
             )

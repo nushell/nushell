@@ -84,14 +84,14 @@ is particularly large, this can cause high memory usage."#
                 redirect_env(engine_state, stack, &stack_captures);
                 // for when we support `data | let x = $in;`
                 // remove the variables added earlier
-                for (var_id, _) in closure.captures {
+                for (var_id, _) in closure.captures.into_iter() {
                     stack_captures.remove_var(var_id);
                 }
                 if let Some(u) = saved_positional {
                     stack_captures.remove_var(u);
                 }
                 // add any new variables to the stack
-                stack.vars.extend(stack_captures.vars);
+                stack.vars.extend(*stack_captures.vars);
             }
         } else {
             result = Ok(input.into_pipeline_data_with_metadata(metadata));

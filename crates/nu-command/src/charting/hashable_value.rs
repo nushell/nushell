@@ -185,7 +185,7 @@ mod test {
         engine::Closure,
         BlockId,
     };
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
 
     #[test]
     fn from_value() {
@@ -246,7 +246,7 @@ mod test {
             Value::closure(
                 Closure {
                     block_id: BlockId::new(0),
-                    captures: Vec::new(),
+                    captures: Box::new(HashMap::new()),
                 },
                 span,
             ),

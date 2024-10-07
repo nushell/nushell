@@ -37,6 +37,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     cmp::Ordering,
+    collections::HashMap,
     fmt::{Debug, Display, Write},
     ops::Bound,
     path::PathBuf,
@@ -2030,7 +2031,7 @@ impl Value {
             Value::test_list(Vec::new()),
             Value::test_closure(Closure {
                 block_id: BlockId::new(0),
-                captures: Vec::new(),
+                captures: Box::new(HashMap::new()),
             }),
             Value::test_nothing(),
             Value::error(

@@ -9,11 +9,13 @@ use nu_plugin_protocol::{
     PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, StreamData,
 };
 use nu_protocol::{
-    engine::Closure, BlockId, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData,
-    LabeledError, PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value, VarId,
+    engine::Closure, BlockId, ByteStreamType, Config, CustomValue, Id,
+    IntoInterruptiblePipelineData, LabeledError, PipelineData, PluginSignature, ShellError,
+    Signals, Span, Spanned, Value, VarId,
 };
 use std::{
     collections::HashMap,
+    hash::Hash,
     sync::{
         mpsc::{self, TryRecvError},
         Arc,
@@ -1036,12 +1038,14 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
         EngineCallResponse::PipelineData(PipelineData::Value(Value::test_int(2), None))
     });
 
+    let mut capture = Box::new(HashMap::new());
+    capture.insert(VarId::new(0), Value::test_int(5));
     let result = interface
         .eval_closure_with_stream(
             &Spanned {
                 item: Closure {
                     block_id: BlockId::new(42),
-                    captures: vec![(VarId::new(0), Value::test_int(5))],
+                    captures: capture,
                 },
                 span: Span::test_data(),
             },
@@ -1071,8 +1075,8 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
                 );
                 assert_eq!(1, closure.item.captures.len(), "closure.item.captures.len");
                 assert_eq!(
-                    (VarId::new(0), Value::test_int(5)),
-                    closure.item.captures[0],
+                    (&VarId::new(0), &Value::test_int(5)),
+                    closure.item.captures.get_key_value(&VarId::new(0)).unwrap(),
                     "closure.item.captures[0]"
                 );
                 assert_eq!(Span::test_data(), closure.span, "closure.span");

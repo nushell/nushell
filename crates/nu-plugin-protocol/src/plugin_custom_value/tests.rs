@@ -1,7 +1,11 @@
+use std::{collections::HashMap, hash::Hash};
+
 use crate::test_util::{expected_test_custom_value, test_plugin_custom_value, TestCustomValue};
 
 use super::PluginCustomValue;
-use nu_protocol::{engine::Closure, record, BlockId, CustomValue, ShellError, Span, Value, VarId};
+use nu_protocol::{
+    engine::Closure, marker::Var, record, BlockId, CustomValue, Id, ShellError, Span, Value, VarId,
+};
 
 fn check_record_custom_values(
     val: &Value,
@@ -41,17 +45,16 @@ fn check_list_custom_values(
 
 fn check_closure_custom_values(
     val: &Value,
-    indices: impl IntoIterator<Item = usize>,
+    indices: impl IntoIterator<Item = Id<Var, usize>>,
     mut f: impl FnMut(usize, &dyn CustomValue) -> Result<(), ShellError>,
 ) -> Result<(), ShellError> {
     let closure = val.as_closure()?;
-    for index in indices {
+    for (index, id) in indices.into_iter().enumerate() {
         let val = closure
             .captures
-            .get(index)
+            .get(&id)
             .unwrap_or_else(|| panic!("[{index}] not present in closure"));
         let custom_value = val
-            .1
             .as_custom_value()
             .unwrap_or_else(|_| panic!("[{index}] not custom value"));
         f(index, custom_value)?;
@@ -155,27 +158,31 @@ fn serialize_in_list() -> Result<(), ShellError> {
 #[test]
 fn serialize_in_closure() -> Result<(), ShellError> {
     let orig_custom_val = Value::test_custom_value(Box::new(TestCustomValue(24)));
+    let mut captures = Box::new(HashMap::new());
+    captures.insert(VarId::new(0), orig_custom_val.clone());
+    captures.insert(VarId::new(1), orig_custom_val.clone());
     let mut val = Value::test_closure(Closure {
         block_id: BlockId::new(0),
-        captures: vec![
-            (VarId::new(0), orig_custom_val.clone()),
-            (VarId::new(1), orig_custom_val.clone()),
-        ],
+        captures: captures,
     });
     PluginCustomValue::serialize_custom_values_in(&mut val)?;
 
-    check_closure_custom_values(&val, 0..=1, |index, custom_value| {
-        let plugin_custom_value: &PluginCustomValue = custom_value
-            .as_any()
-            .downcast_ref()
-            .unwrap_or_else(|| panic!("[{index}] not PluginCustomValue"));
-        assert_eq!(
-            "TestCustomValue",
-            plugin_custom_value.name(),
-            "[{index}] name not set correctly"
-        );
-        Ok(())
-    })
+    check_closure_custom_values(
+        &val,
+        vec![VarId::new(0), VarId::new(1)],
+        |index, custom_value| {
+            let plugin_custom_value: &PluginCustomValue = custom_value
+                .as_any()
+                .downcast_ref()
+                .unwrap_or_else(|| panic!("[{index}] not PluginCustomValue"));
+            assert_eq!(
+                "TestCustomValue",
+                plugin_custom_value.name(),
+                "[{index}] name not set correctly"
+            );
+            Ok(())
+        },
+    )
 }
 
 #[test]
@@ -241,25 +248,29 @@ fn deserialize_in_list() -> Result<(), ShellError> {
 #[test]
 fn deserialize_in_closure() -> Result<(), ShellError> {
     let orig_custom_val = Value::test_custom_value(Box::new(test_plugin_custom_value()));
+    let mut captures = Box::new(HashMap::new());
+    captures.insert(VarId::new(0), orig_custom_val.clone());
+    captures.insert(VarId::new(1), orig_custom_val.clone());
     let mut val = Value::test_closure(Closure {
         block_id: BlockId::new(0),
-        captures: vec![
-            (VarId::new(0), orig_custom_val.clone()),
-            (VarId::new(1), orig_custom_val.clone()),
-        ],
+        captures: captures,
     });
     PluginCustomValue::deserialize_custom_values_in(&mut val)?;
 
-    check_closure_custom_values(&val, 0..=1, |index, custom_value| {
-        let test_custom_value: &TestCustomValue = custom_value
-            .as_any()
-            .downcast_ref()
-            .unwrap_or_else(|| panic!("[{index}] not TestCustomValue"));
-        assert_eq!(
-            expected_test_custom_value(),
-            *test_custom_value,
-            "[{index}] name not deserialized correctly"
-        );
-        Ok(())
-    })
+    check_closure_custom_values(
+        &val,
+        vec![VarId::new(0), VarId::new(1)],
+        |index, custom_value| {
+            let test_custom_value: &TestCustomValue = custom_value
+                .as_any()
+                .downcast_ref()
+                .unwrap_or_else(|| panic!("[{index}] not TestCustomValue"));
+            assert_eq!(
+                expected_test_custom_value(),
+                *test_custom_value,
+                "[{index}] name not deserialized correctly"
+            );
+            Ok(())
+        },
+    )
 }
