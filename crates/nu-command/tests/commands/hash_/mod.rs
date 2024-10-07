@@ -51,9 +51,7 @@ fn error_invalid_decode_value() {
         echo "this should not be a valid encoded value" | decode base64
         "#);
 
-    assert!(actual
-        .err
-        .contains("nu::shell::incorrect_value"));
+    assert!(actual.err.contains("nu::shell::incorrect_value"));
 }
 
 #[test]
