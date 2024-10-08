@@ -41,6 +41,9 @@ env_logger = "0.11.3"
 log.workspace = true
 uuid = { version = "1.10", features = ["v4", "serde"] }
 
+# Do to a compile error with polars, this included to force the raw dependency
+hashbrown = { version = "0.14", features = ["rayon", "ahash", "serde", "raw"] }
+
 [dependencies.polars]
 features = [
 	"arg_where",

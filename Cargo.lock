@@ -3592,6 +3592,7 @@ dependencies = [
  "chrono-tz 0.9.0",
  "env_logger 0.11.5",
  "fancy-regex",
+ "hashbrown 0.14.5",
  "indexmap",
  "log",
  "mimalloc",
