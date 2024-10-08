@@ -32,7 +32,7 @@ pub fn load_standard_library(
             ("iter", include_str!("../std/iter.nu")),
             ("log", include_str!("../std/log.nu")),
             ("math", include_str!("../std/math.nu")),
-            ("lib", include_str!("../std/lib.nu")),
+            ("util", include_str!("../std/util.nu")),
             ("xml", include_str!("../std/xml.nu")),
             // Remove in following release
             ("deprecated_dirs", include_str!("../std/deprecated_dirs.nu")),
