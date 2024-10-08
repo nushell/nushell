@@ -26,7 +26,7 @@ print -e $"
 (ansi red)Warning:(ansi reset) The 'std dirs' module will no longer automatically
 be loaded in the next release. To continue using the Shells
 feature, and to remove this warning, please add the following
-to your startup configuration \(typically env.nu or config.nu):
+to your startup configuration \(typically env.nu or config.nu\):
 
 use std/dirs shells-aliases *
 
