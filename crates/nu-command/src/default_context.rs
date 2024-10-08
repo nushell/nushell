@@ -188,8 +188,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             EncodeBase32Hex,
             DecodeBase64,
             EncodeBase64,
-            DecodeBase64Old,
-            EncodeBase64Old,
             DetectColumns,
             Parse,
             Split,
