@@ -218,18 +218,34 @@ pub fn evaluate_repl(
 
 fn escape_special_vscode_bytes(input: &str) -> String {
     input
-        .bytes()
-        .map(|byte| match byte {
-            // Escape bytes below 0x20
-            b if b < 0x20 => format!("\\x{:02X}", b),
-            // Escape the semicolon as \x3B
-            b';' => "\\x3B".to_string(),
-            // Escape the backslash
-            b'\\' => "\\\\".to_string(),
-            // Otherwise, return the character as-is
-            b => (b as char).to_string(),
+        .chars()
+        .flat_map(|c| {
+            let mut buf = [0; 4]; // Buffer to hold UTF-8 bytes of the character
+            let c_bytes = c.encode_utf8(&mut buf); // Get UTF-8 bytes for the character
+
+            if c_bytes.len() == 1 {
+                let byte = c_bytes.as_bytes()[0];
+
+                match byte {
+                    // Escape bytes below 0x20
+                    b if b < 0x20 => format!("\\x{:02X}", byte).into_bytes(),
+                    // Escape semicolon as \x3B
+                    b';' => "\\x3B".to_string().into_bytes(),
+                    // Escape backslash as \\
+                    b'\\' => "\\\\".to_string().into_bytes(),
+                    // Otherwise, return the character unchanged
+                    _ => vec![byte],
+                }
+            } else {
+                // Escape all multi-byte characters (i.e., those above 0x7F)
+                c_bytes
+                    .bytes()
+                    .flat_map(|b| format!("\\x{:02X}", b).into_bytes())
+                    .collect()
+            }
         })
-        .collect()
+        .map(|b| b as char) // Convert escaped bytes back to chars
+        .collect() // Collect into final String
 }
 
 fn get_line_editor(
