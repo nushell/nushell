@@ -42,7 +42,11 @@ pub fn load_standard_library(
         ("mod.nu", "std/bench", include_str!("../std/bench/mod.nu")),
         ("mod.nu", "std/dirs", include_str!("../std/dirs/mod.nu")),
         ("mod.nu", "std/dt", include_str!("../std/dt/mod.nu")),
-        ("mod.nu", "std/formats", include_str!("../std/formats/mod.nu")),
+        (
+            "mod.nu",
+            "std/formats",
+            include_str!("../std/formats/mod.nu"),
+        ),
         ("mod.nu", "std/help", include_str!("../std/help/mod.nu")),
         ("mod.nu", "std/input", include_str!("../std/input/mod.nu")),
         ("mod.nu", "std/iter", include_str!("../std/iter/mod.nu")),
@@ -61,11 +65,7 @@ pub fn load_standard_library(
     for (filename, std_subdir_name, content) in std_submodules.drain(..) {
         let mod_dir = PathBuf::from(std_subdir_name);
         let name = mod_dir.join(filename);
-        let virt_file_id = create_virt_file(
-            &mut working_set,
-            &name.to_string_lossy().to_string(),
-            content,
-        );
+        let virt_file_id = create_virt_file(&mut working_set, &name.to_string_lossy(), content);
 
         // Place file in virtual subdir
         let mod_dir_filelist = vec![virt_file_id];
