@@ -1,4 +1,4 @@
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, ClosureEval};
 
 use crate::Comparator;
 
@@ -149,10 +149,11 @@ impl Command for SortBy {
             let cmp = match val {
                 Value::CellPath { val, .. } => Comparator::CellPath(val),
                 Value::Closure { val, .. } => {
+                    let closure_eval = ClosureEval::new(engine_state, stack, *val);
                     if custom {
-                        Comparator::CustomClosure(*val, engine_state.clone(), stack.clone())
+                        Comparator::CustomClosure(closure_eval)
                     } else {
-                        Comparator::KeyClosure(*val, engine_state.clone(), stack.clone())
+                        Comparator::KeyClosure(closure_eval)
                     }
                 }
                 _ => {

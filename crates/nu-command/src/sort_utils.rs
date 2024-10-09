@@ -1,9 +1,5 @@
 use nu_engine::ClosureEval;
-use nu_protocol::{
-    ast::CellPath,
-    engine::{Closure, EngineState, Stack},
-    PipelineData, Record, ShellError, Span, Value,
-};
+use nu_protocol::{ast::CellPath, PipelineData, Record, ShellError, Span, Value};
 use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
 
@@ -12,8 +8,8 @@ use std::cmp::Ordering;
 /// A closure comparator allows the user to return custom ordering to sort by.
 /// A cell path comparator uses the value referred to by the cell path as the sorting key.
 pub enum Comparator {
-    KeyClosure(Closure, EngineState, Stack),
-    CustomClosure(Closure, EngineState, Stack),
+    KeyClosure(ClosureEval),
+    CustomClosure(ClosureEval),
     CellPath(CellPath),
 }
 
@@ -51,7 +47,7 @@ pub fn sort(vec: &mut [Value], insensitive: bool, natural: bool) -> Result<(), S
 /// Sort a slice of `Value`s by criteria specified by one or multiple `Comparator`s.
 pub fn sort_by(
     vec: &mut [Value],
-    comparators: Vec<Comparator>,
+    mut comparators: Vec<Comparator>,
     head_span: Span,
     insensitive: bool,
     natural: bool,
@@ -76,7 +72,7 @@ pub fn sort_by(
         compare_by(
             a,
             b,
-            &comparators,
+            &mut comparators,
             head_span,
             insensitive,
             natural,
@@ -133,24 +129,22 @@ pub fn sort_record(
 pub fn compare_by(
     left: &Value,
     right: &Value,
-    comparators: &[Comparator],
+    comparators: &mut Vec<Comparator>,
     span: Span,
     insensitive: bool,
     natural: bool,
     error: &mut Option<ShellError>,
 ) -> Ordering {
-    for cmp in comparators.iter() {
+    for cmp in comparators.into_iter() {
         let result = match cmp {
             Comparator::CellPath(cell_path) => {
-                compare_cell_path(left, right, cell_path, insensitive, natural)
+                compare_cell_path(left, right, &cell_path, insensitive, natural)
             }
-            Comparator::KeyClosure(closure, engine_state, stack) => {
-                let closure_eval = ClosureEval::new(engine_state, stack, closure.clone());
-                compare_key_closure(left, right, closure_eval, span, insensitive, natural)
+            Comparator::KeyClosure(closure) => {
+                compare_key_closure(left, right, closure, span, insensitive, natural)
             }
-            Comparator::CustomClosure(closure, engine_state, stack) => {
-                let closure_eval = ClosureEval::new(engine_state, stack, closure.clone());
-                compare_custom_closure(left, right, closure_eval, span)
+            Comparator::CustomClosure(closure) => {
+                compare_custom_closure(left, right, closure, span)
             }
         };
         match result {
@@ -235,7 +229,7 @@ pub fn compare_cell_path(
 pub fn compare_key_closure(
     left: &Value,
     right: &Value,
-    mut closure_eval: ClosureEval,
+    closure_eval: &mut ClosureEval,
     span: Span,
     insensitive: bool,
     natural: bool,
@@ -252,7 +246,7 @@ pub fn compare_key_closure(
 pub fn compare_custom_closure(
     left: &Value,
     right: &Value,
-    mut closure_eval: ClosureEval,
+    closure_eval: &mut ClosureEval,
     span: Span,
 ) -> Result<Ordering, ShellError> {
     closure_eval
