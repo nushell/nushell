@@ -155,13 +155,13 @@ impl Command for Sort {
                 )?;
                 Value::record(record, span)
             }
-            Value::List { ref vals, .. } => {
-                let mut vec = vals.to_owned();
-
+            value @ Value::List { .. } => {
                 // If we have a table specifically, then we want to sort along each column.
                 // Record's PartialOrd impl dictates that columns are compared in alphabetical order,
                 // so we have to explicitly compare by each column.
-                if let Type::Table(cols) = value.get_type() {
+                let r#type = value.get_type();
+                let mut vec = value.into_list().expect("matched list above");
+                if let Type::Table(cols) = r#type {
                     let columns: Vec<Comparator> = cols
                         .iter()
                         .map(|col| vec![PathMember::string(col.0.clone(), false, Span::unknown())])
