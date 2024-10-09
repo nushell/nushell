@@ -285,32 +285,16 @@ fn select(
                 }
             }
         }
-        PipelineData::ListStream(stream, metadata, ..) => {
-            let mut values = vec![];
-
-            for x in stream {
-                if !columns.is_empty() {
-                    let mut record = Record::new();
-                    for path in &columns {
-                        //FIXME: improve implementation to not clone
-                        match x.clone().follow_cell_path(&path.members, false) {
-                            Ok(value) => {
-                                record.push(path.to_string(), value);
-                            }
-                            Err(e) => return Err(e),
-                        }
-                    }
-                    values.push(Value::record(record, call_span));
-                } else {
-                    values.push(x);
-                }
-            }
-
-            Ok(values.into_pipeline_data_with_metadata(
-                call_span,
-                engine_state.signals().clone(),
-                metadata,
-            ))
+        PipelineData::ListStream(..) => {
+            let metadata = input.metadata();
+            input.into_iter_strict(call_span).map(|iter| {
+                SelectColumnsIterator::new(iter, call_span, columns)
+                    .into_pipeline_data_with_metadata(
+                        call_span,
+                        engine_state.signals().clone(),
+                        metadata,
+                    )
+            })
         }
         _ => Ok(PipelineData::empty()),
     }
@@ -340,6 +324,57 @@ impl Iterator for NthIterator {
             } else {
                 return None;
             }
+        }
+    }
+}
+
+/// Selects only the specified columns from each item of an iterator.
+struct SelectColumnsIterator<Iter>
+where
+    Iter: Iterator<Item = Value>,
+{
+    iter: Iter,
+    span: Span,
+    columns: Vec<CellPath>,
+}
+
+impl<Iter> SelectColumnsIterator<Iter>
+where
+    Iter: Iterator<Item = Value>,
+{
+    fn new(iter: Iter, span: Span, columns: Vec<CellPath>) -> Self {
+        Self {
+            iter,
+            span,
+            columns,
+        }
+    }
+}
+
+impl<Iter> Iterator for SelectColumnsIterator<Iter>
+where
+    Iter: Iterator<Item = Value>,
+{
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(item) = self.iter.next() {
+            if self.columns.is_empty() {
+                return Some(item);
+            }
+
+            let mut record = Record::new();
+            for path in &self.columns {
+                match item.clone().follow_cell_path(&path.members, false) {
+                    Ok(cell_value) => record.push(path.to_string(), cell_value),
+                    Err(error) => {
+                        return Some(Value::error(error, self.span));
+                    }
+                }
+            }
+            Some(Value::record(record, self.span))
+        } else {
+            None
         }
     }
 }
