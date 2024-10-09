@@ -144,28 +144,25 @@ impl Command for SortBy {
             });
         }
 
-        let mut comparators = vec![];
-        for val in comparator_vals.into_iter() {
-            let cmp = match val {
-                Value::CellPath { val, .. } => Comparator::CellPath(val),
+        let comparators = comparator_vals
+            .into_iter()
+            .map(|val| match val {
+                Value::CellPath { val, .. } => Ok(Comparator::CellPath(val)),
                 Value::Closure { val, .. } => {
                     let closure_eval = ClosureEval::new(engine_state, stack, *val);
                     if custom {
-                        Comparator::CustomClosure(closure_eval)
+                        Ok(Comparator::CustomClosure(closure_eval))
                     } else {
-                        Comparator::KeyClosure(closure_eval)
+                        Ok(Comparator::KeyClosure(closure_eval))
                     }
                 }
-                _ => {
-                    return Err(ShellError::TypeMismatch {
-                        err_message:
-                            "Cannot sort using a value which is not a cell path or closure".into(),
-                        span: val.span(),
-                    })
-                }
-            };
-            comparators.push(cmp);
-        }
+                _ => Err(ShellError::TypeMismatch {
+                    err_message: "Cannot sort using a value which is not a cell path or closure"
+                        .into(),
+                    span: val.span(),
+                }),
+            })
+            .collect::<Result<_, _>>()?;
 
         crate::sort_by(&mut vec, comparators, head, insensitive, natural)?;
 
