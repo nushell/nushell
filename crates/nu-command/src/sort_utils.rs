@@ -104,16 +104,16 @@ pub fn sort_record(
     // since sort_by closure must be infallible
     let mut compare_err: Option<ShellError> = None;
 
-    input_pairs.sort_by(|a, b| {
-        if sort_by_value {
+    if sort_by_value {
+        input_pairs.sort_by(|a, b| {
             compare_values(&a.1, &b.1, insensitive, natural).unwrap_or_else(|err| {
                 compare_err.get_or_insert(err);
                 Ordering::Equal
             })
-        } else {
-            compare_strings(&a.0, &b.0, insensitive, natural)
-        }
-    });
+        });
+    } else {
+        input_pairs.sort_by(|a, b| compare_strings(&a.0, &b.0, insensitive, natural));
+    };
 
     if let Some(err) = compare_err {
         return Err(err);
