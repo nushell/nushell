@@ -1,4 +1,4 @@
-use std/lib
+use std *
 
 #[test]
 def path_add [] {
@@ -11,19 +11,19 @@ def path_add [] {
 
         assert equal (get_path) []
 
-        lib path add "/foo/"
+        path add "/foo/"
         assert equal (get_path) (["/foo/"] | path expand)
 
-        lib path add "/bar/" "/baz/"
+        path add "/bar/" "/baz/"
         assert equal (get_path) (["/bar/", "/baz/", "/foo/"] | path expand)
 
         load-env {$path_name: []}
 
-        lib path add "foo"
-        lib path add "bar" "baz" --append
+        path add "foo"
+        path add "bar" "baz" --append
         assert equal (get_path) (["foo", "bar", "baz"] | path expand)
 
-        assert equal (lib path add "fooooo" --ret) (["fooooo", "foo", "bar", "baz"] | path expand)
+        assert equal (path add "fooooo" --ret) (["fooooo", "foo", "bar", "baz"] | path expand)
         assert equal (get_path) (["fooooo", "foo", "bar", "baz"] | path expand)
 
         load-env {$path_name: []}
@@ -35,11 +35,11 @@ def path_add [] {
             android: "quux",
         }
 
-        lib path add $target_paths
+        path add $target_paths
         assert equal (get_path) ([($target_paths | get $nu.os-info.name)] | path expand)
 
         load-env {$path_name: [$"(["/foo", "/bar"] | path expand | str join (char esep))"]}
-        lib path add "~/foo"
+        path add "~/foo"
         assert equal (get_path) (["~/foo", "/foo", "/bar"] | path expand)
     }
 }
@@ -63,7 +63,7 @@ def path_add_expand [] {
     with-env {$path_name: []} {
         def get_path [] { $env | get $path_name }
 
-        lib path add $link_dir
+        path add $link_dir
         assert equal (get_path) ([$link_dir])
     }
 
@@ -73,11 +73,11 @@ def path_add_expand [] {
 #[test]
 def repeat_things [] {
     use std/assert
-    assert error { "foo" | lib repeat -1 }
+    assert error { "foo" | repeat -1 }
 
     for x in ["foo", [1 2], {a: 1}] {
-        assert equal ($x | lib repeat 0) []
-        assert equal ($x | lib repeat 1) [$x]
-        assert equal ($x | lib repeat 2) [$x $x]
+        assert equal ($x | repeat 0) []
+        assert equal ($x | repeat 1) [$x]
+        assert equal ($x | repeat 2) [$x $x]
     }
 }
