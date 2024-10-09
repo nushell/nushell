@@ -202,32 +202,34 @@ pub fn compare_values(
     natural: bool,
 ) -> Result<Ordering, ShellError> {
     if should_string_compare(left, right, natural) {
-        let left_str = left.coerce_string()?;
-        let right_str = right.coerce_string()?;
-        Ok(compare_strings(&left_str, &right_str, insensitive, natural))
+        Ok(compare_strings(
+            &left.coerce_str()?,
+            &right.coerce_str()?,
+            insensitive,
+            natural,
+        ))
     } else {
         Ok(left.partial_cmp(right).unwrap_or(Ordering::Equal))
     }
 }
 
-pub fn compare_strings(
-    left: &String,
-    right: &String,
-    insensitive: bool,
-    natural: bool,
-) -> Ordering {
-    // only allocate new String if necessary for case folding,
-    // so callers don't need to pass an owned String
-    let (left_str, right_str) = if insensitive {
-        (&left.to_folded_case(), &right.to_folded_case())
-    } else {
-        (left, right)
-    };
+pub fn compare_strings(left: &str, right: &str, insensitive: bool, natural: bool) -> Ordering {
+    fn compare_inner<T>(left: T, right: T, natural: bool) -> Ordering
+    where
+        T: AsRef<str> + Ord,
+    {
+        if natural {
+            alphanumeric_sort::compare_str(left, right)
+        } else {
+            left.cmp(&right)
+        }
+    }
 
-    if natural {
-        alphanumeric_sort::compare_str(left_str, right_str)
+    // only allocate a String if necessary for case folding
+    if insensitive {
+        compare_inner(left.to_folded_case(), right.to_folded_case(), natural)
     } else {
-        left_str.cmp(right_str)
+        compare_inner(left, right, natural)
     }
 }
 
