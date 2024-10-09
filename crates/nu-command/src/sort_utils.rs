@@ -182,7 +182,10 @@ pub fn compare_by(
 fn should_sort_as_string(val: &Value, natural: bool) -> bool {
     matches!(
         (val, natural),
-        (&Value::String { .. }, _) | (&Value::Int { .. }, true) | (&Value::Float { .. }, true)
+        (&Value::String { .. }, _)
+            | (&Value::Glob { .. }, _)
+            | (&Value::Int { .. }, true)
+            | (&Value::Float { .. }, true)
     )
 }
 

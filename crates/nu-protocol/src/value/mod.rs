@@ -370,6 +370,7 @@ impl Value {
     /// - `Int`
     /// - `Float`
     /// - `String`
+    /// - `Glob`
     /// - `Binary` (only if valid utf-8)
     /// - `Date`
     ///
@@ -382,6 +383,7 @@ impl Value {
     ///             Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
+    ///                 | Value::Glob { .. }
     ///                 | Value::Binary { .. }
     ///                 | Value::Date { .. }
     ///         ),
@@ -394,6 +396,7 @@ impl Value {
             Value::Int { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::Float { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::String { val, .. } => Ok(Cow::Borrowed(val)),
+            Value::Glob { val, .. } => Ok(Cow::Borrowed(val)),
             Value::Binary { val, .. } => match std::str::from_utf8(val) {
                 Ok(s) => Ok(Cow::Borrowed(s)),
                 Err(_) => self.cant_convert_to("string"),
