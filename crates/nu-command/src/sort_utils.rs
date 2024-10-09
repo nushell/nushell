@@ -178,7 +178,7 @@ pub fn compare_by(
 /// Determines whether a value should be sorted as a string
 ///
 /// If we're natural sorting, we want to sort strings, integers, and floats alphanumerically, so we should string sort.
-/// Otherwise, we only want to string sort if both values are strings (to enable case insensitive comparison)
+/// Otherwise, we only want to string sort if both values are strings or globs (to enable case insensitive comparison)
 fn should_sort_as_string(val: &Value, natural: bool) -> bool {
     matches!(
         (val, natural),
