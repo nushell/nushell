@@ -31,7 +31,12 @@ pub fn sort(vec: &mut [Value], insensitive: bool, natural: bool) -> Result<(), S
     let mut compare_err: Option<ShellError> = None;
 
     vec.sort_by(|a, b| {
-        crate::compare_values(a, b, insensitive, natural).unwrap_or_else(|err| {
+        // we've already hit an error, bail out now
+        if compare_err.is_some() {
+            return Ordering::Equal;
+        }
+
+        compare_values(a, b, insensitive, natural).unwrap_or_else(|err| {
             compare_err.get_or_insert(err);
             Ordering::Equal
         })
@@ -106,6 +111,11 @@ pub fn sort_record(
 
     if sort_by_value {
         input_pairs.sort_by(|a, b| {
+            // we've already hit an error, bail out now
+            if compare_err.is_some() {
+                return Ordering::Equal;
+            }
+
             compare_values(&a.1, &b.1, insensitive, natural).unwrap_or_else(|err| {
                 compare_err.get_or_insert(err);
                 Ordering::Equal
@@ -135,6 +145,10 @@ pub fn compare_by(
     natural: bool,
     error: &mut Option<ShellError>,
 ) -> Ordering {
+    // we've already hit an error, bail out now
+    if error.is_some() {
+        return Ordering::Equal;
+    }
     for cmp in comparators.into_iter() {
         let result = match cmp {
             Comparator::CellPath(cell_path) => {
