@@ -4,17 +4,18 @@ use lsp_types::{
     request::{Completion, GotoDefinition, HoverRequest, Request},
     CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
     GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location,
-    MarkupContent, MarkupKind, OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit,
-    Url,
+    MarkupContent, MarkupKind, OneOf, Position, PositionEncodingKind, Range, ServerCapabilities,
+    TextDocumentSyncKind, TextEdit, Url,
 };
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{NuCompleter, SuggestionKind};
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{CachedFile, EngineState, Stack, StateWorkingSet},
     DeclId, Span, Value, VarId,
 };
 use ropey::Rope;
+use serde_json::json;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -36,6 +37,7 @@ pub struct LanguageServer {
     connection: Connection,
     io_threads: Option<IoThreads>,
     ropes: BTreeMap<PathBuf, Rope>,
+    position_encoding: PositionEncodingKind,
 }
 
 impl LanguageServer {
@@ -52,7 +54,19 @@ impl LanguageServer {
             connection,
             io_threads,
             ropes: BTreeMap::new(),
+            position_encoding: PositionEncodingKind::UTF16,
         })
+    }
+
+    fn get_offset_encoding(&self, initialization_params: serde_json::Value) -> String {
+        initialization_params
+            .pointer("/capabilities/offsetEncoding/0")
+            .unwrap_or(
+                initialization_params
+                    .pointer("/capabilities/offset_encoding/0")
+                    .unwrap_or(&json!("utf-16")),
+            )
+            .to_string()
     }
 
     pub fn serve_requests(mut self, engine_state: EngineState) -> Result<()> {
@@ -67,12 +81,14 @@ impl LanguageServer {
         })
         .expect("Must be serializable");
 
-        let _initialization_params = self
+        let initialization_params = self
             .connection
             .initialize_while(server_capabilities, || {
                 !engine_state.signals().interrupted()
             })
             .into_diagnostic()?;
+        self.position_encoding =
+            PositionEncodingKind::from(self.get_offset_encoding(initialization_params));
 
         while !engine_state.signals().interrupted() {
             let msg = match self
@@ -174,43 +190,78 @@ impl LanguageServer {
         }
     }
 
-    fn span_to_range(span: &Span, rope_of_file: &Rope, offset: usize) -> lsp_types::Range {
-        let line = rope_of_file
-            .try_byte_to_line(span.start - offset)
-            .unwrap_or(0);
-        let character =
-            rope_of_file.byte_to_char(span.start - offset) - rope_of_file.line_to_char(line);
-
-        let start = lsp_types::Position {
-            line: line as u32,
-            character: character as u32,
-        };
-
-        let line = rope_of_file
-            .try_byte_to_line(span.end - offset)
-            .unwrap_or(0);
-        let character =
-            rope_of_file.byte_to_char(span.end - offset) - rope_of_file.line_to_char(line);
-
-        let end = lsp_types::Position {
-            line: line as u32,
-            character: character as u32,
-        };
-
-        lsp_types::Range { start, end }
+    fn span_to_range(
+        span: &Span,
+        rope_of_file: &Rope,
+        offset: usize,
+        position_encoding: &PositionEncodingKind,
+    ) -> Range {
+        let start = Self::lsp_byte_offset_to_utf_cu_position(
+            span.start.saturating_sub(offset),
+            rope_of_file,
+            position_encoding,
+        );
+        let end = Self::lsp_byte_offset_to_utf_cu_position(
+            span.end.saturating_sub(offset),
+            rope_of_file,
+            position_encoding,
+        );
+        Range { start, end }
     }
 
-    pub fn lsp_position_to_location(position: &lsp_types::Position, rope_of_file: &Rope) -> usize {
-        let line_idx = rope_of_file.line_to_char(position.line as usize);
-        line_idx + position.character as usize
+    fn lsp_byte_offset_to_utf_cu_position(
+        offset: usize,
+        rope_of_file: &Rope,
+        position_encoding: &PositionEncodingKind,
+    ) -> Position {
+        let line = rope_of_file.try_byte_to_line(offset).unwrap_or(0);
+        match position_encoding.as_str() {
+            "\"utf-8\"" => {
+                let character = offset - rope_of_file.line_to_byte(line);
+                Position {
+                    line: line as u32,
+                    character: character as u32,
+                }
+            }
+            _ => {
+                let character = rope_of_file.char_to_utf16_cu(rope_of_file.byte_to_char(offset))
+                    - rope_of_file.char_to_utf16_cu(rope_of_file.line_to_char(line));
+                Position {
+                    line: line as u32,
+                    character: character as u32,
+                }
+            }
+        }
     }
 
-    fn lsp_position_to_byte_offset(position: &lsp_types::Position, rope_of_file: &Rope) -> usize {
-        let line_idx = rope_of_file.line_to_char(position.line as usize);
-        let char_idx = line_idx + position.character as usize;
-        rope_of_file
-            .try_char_to_byte(char_idx)
-            .expect("Character index out of range!")
+    fn utf16_cu_position_to_char(rope_of_file: &Rope, position: &Position) -> usize {
+        let line_utf_idx =
+            rope_of_file.char_to_utf16_cu(rope_of_file.line_to_char(position.line as usize));
+        rope_of_file.utf16_cu_to_char(line_utf_idx + position.character as usize)
+    }
+
+    pub fn lsp_position_to_location(
+        position: &Position,
+        rope_of_file: &Rope,
+        position_encoding: &PositionEncodingKind,
+    ) -> usize {
+        match position_encoding.as_str() {
+            "\"utf-8\"" => rope_of_file.byte_to_char(
+                rope_of_file.line_to_byte(position.line as usize) + position.character as usize,
+            ),
+            _ => Self::utf16_cu_position_to_char(rope_of_file, position),
+        }
+    }
+
+    fn lsp_position_to_byte_offset(&self, position: &Position, rope_of_file: &Rope) -> usize {
+        match self.position_encoding.as_str() {
+            "\"utf-8\"" => {
+                rope_of_file.line_to_byte(position.line as usize) + position.character as usize
+            }
+            _ => rope_of_file
+                .try_char_to_byte(Self::utf16_cu_position_to_char(rope_of_file, position))
+                .expect("Character index out of range!"),
+        }
     }
 
     fn find_id(
@@ -254,7 +305,7 @@ impl LanguageServer {
     }
 
     fn read_in_file<'a>(
-        &mut self,
+        &self,
         engine_state: &'a mut EngineState,
         file_url: &Url,
     ) -> Option<(&Rope, &PathBuf, StateWorkingSet<'a>)> {
@@ -265,6 +316,15 @@ impl LanguageServer {
         let working_set = StateWorkingSet::new(engine_state);
 
         Some((file, path, working_set))
+    }
+
+    fn rope_file_from_cached_file(&mut self, cached_file: &CachedFile) -> Result<(Url, &Rope), ()> {
+        let uri = Url::from_file_path(&*cached_file.name)?;
+        let rope_of_file = self.ropes.entry(uri.to_file_path()?).or_insert_with(|| {
+            let raw_string = String::from_utf8_lossy(&cached_file.content);
+            Rope::from_str(&raw_string)
+        });
+        Ok((uri, rope_of_file))
     }
 
     fn goto_definition(
@@ -284,7 +344,7 @@ impl LanguageServer {
             &mut working_set,
             path,
             file,
-            Self::lsp_position_to_byte_offset(&params.text_document_position_params.position, file),
+            self.lsp_position_to_byte_offset(&params.text_document_position_params.position, file),
         )?;
 
         match id {
@@ -294,21 +354,16 @@ impl LanguageServer {
                     if let Some(span) = &block.span {
                         for cached_file in working_set.files() {
                             if cached_file.covered_span.contains(span.start) {
-                                let uri = Url::from_file_path(&*cached_file.name).ok()?;
-                                let rope_of_file = self
-                                    .ropes
-                                    .entry(uri.to_file_path().ok()?)
-                                    .or_insert_with(|| {
-                                        let raw_string =
-                                            String::from_utf8_lossy(&cached_file.content);
-                                        Rope::from_str(&raw_string)
-                                    });
+                                let position_encoding = self.position_encoding.clone();
+                                let (uri, rope_of_file) =
+                                    self.rope_file_from_cached_file(cached_file).ok()?;
                                 return Some(GotoDefinitionResponse::Scalar(Location {
                                     uri,
                                     range: Self::span_to_range(
                                         span,
                                         rope_of_file,
                                         cached_file.covered_span.start,
+                                        &position_encoding,
                                     ),
                                 }));
                             }
@@ -323,21 +378,16 @@ impl LanguageServer {
                         .covered_span
                         .contains(var.declaration_span.start)
                     {
-                        let uri = Url::from_file_path(&*cached_file.name).ok()?;
-                        let rope_of_file = self
-                            .ropes
-                            .entry(uri.to_file_path().ok()?)
-                            .or_insert_with(|| {
-                                let raw_string = String::from_utf8_lossy(&cached_file.content);
-                                Rope::from_str(&raw_string)
-                            });
-
+                        let position_encoding = self.position_encoding.clone();
+                        let (uri, rope_of_file) =
+                            self.rope_file_from_cached_file(cached_file).ok()?;
                         return Some(GotoDefinitionResponse::Scalar(Location {
                             uri,
                             range: Self::span_to_range(
                                 &var.declaration_span,
                                 rope_of_file,
                                 cached_file.covered_span.start,
+                                &position_encoding,
                             ),
                         }));
                     }
@@ -361,7 +411,7 @@ impl LanguageServer {
             &mut working_set,
             path,
             file,
-            Self::lsp_position_to_byte_offset(&params.text_document_position_params.position, file),
+            self.lsp_position_to_byte_offset(&params.text_document_position_params.position, file),
         )?;
 
         match id {
@@ -579,10 +629,8 @@ impl LanguageServer {
         let mut completer =
             NuCompleter::new(Arc::new(engine_state.clone()), Arc::new(Stack::new()));
 
-        let location = Self::lsp_position_to_byte_offset(
-            &params.text_document_position.position,
-            rope_of_file,
-        );
+        let location =
+            self.lsp_position_to_byte_offset(&params.text_document_position.position, rope_of_file);
         let results =
             completer.fetch_completions_at(&rope_of_file.to_string()[..location], location);
         if results.is_empty() {
@@ -648,7 +696,9 @@ mod tests {
     use nu_test_support::fs::{fixtures, root};
     use std::sync::mpsc::Receiver;
 
-    pub fn initialize_language_server() -> (Connection, Receiver<Result<()>>) {
+    pub fn initialize_language_server(
+        client_offset_encoding: Option<Vec<String>>,
+    ) -> (Connection, Receiver<Result<()>>) {
         use std::sync::mpsc;
         let (client_connection, server_connection) = Connection::memory();
         let lsp_server = LanguageServer::initialize_connection(server_connection, None).unwrap();
@@ -666,6 +716,10 @@ mod tests {
                 id: 1.into(),
                 method: Initialize::METHOD.to_string(),
                 params: serde_json::to_value(InitializeParams {
+                    capabilities: lsp_types::ClientCapabilities {
+                        offset_encoding: client_offset_encoding,
+                        ..Default::default()
+                    },
                     ..Default::default()
                 })
                 .unwrap(),
@@ -689,7 +743,7 @@ mod tests {
 
     #[test]
     fn shutdown_on_request() {
-        let (client_connection, recv) = initialize_language_server();
+        let (client_connection, recv) = initialize_language_server(None);
 
         client_connection
             .sender
@@ -715,7 +769,7 @@ mod tests {
 
     #[test]
     fn goto_definition_for_none_existing_file() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut none_existent_path = root();
         none_existent_path.push("none-existent.nu");
@@ -730,7 +784,7 @@ mod tests {
                         text_document: TextDocumentIdentifier {
                             uri: Url::from_file_path(none_existent_path).unwrap(),
                         },
-                        position: lsp_types::Position {
+                        position: Position {
                             line: 0,
                             character: 0,
                         },
@@ -847,7 +901,7 @@ mod tests {
                 params: serde_json::to_value(GotoDefinitionParams {
                     text_document_position_params: TextDocumentPositionParams {
                         text_document: TextDocumentIdentifier { uri },
-                        position: lsp_types::Position { line, character },
+                        position: Position { line, character },
                     },
                     work_done_progress_params: WorkDoneProgressParams::default(),
                     partial_result_params: PartialResultParams::default(),
@@ -864,7 +918,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -895,7 +949,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_command() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -925,8 +979,71 @@ mod tests {
     }
 
     #[test]
+    fn goto_definition_of_command_utf8() {
+        let (client_connection, _recv) =
+            initialize_language_server(Some(vec!["utf-8".to_string(), "utf-16".to_string()]));
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("goto");
+        script.push("command_unicode.nu");
+        let script = Url::from_file_path(script).unwrap();
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = goto_definition(&client_connection, script.clone(), 4, 1);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!({
+               "uri": script,
+               "range": {
+                  "start": { "line": 0, "character": 28 },
+                  "end": { "line": 2, "character": 1 }
+               }
+            })
+        );
+    }
+
+    #[test]
+    fn goto_definition_of_command_utf16() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("goto");
+        script.push("command_unicode.nu");
+        let script = Url::from_file_path(script).unwrap();
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = goto_definition(&client_connection, script.clone(), 4, 1);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!({
+               "uri": script,
+               "range": {
+                  "start": { "line": 0, "character": 19 },
+                  "end": { "line": 2, "character": 1 }
+               }
+            })
+        );
+    }
+
+    #[test]
     fn goto_definition_of_command_parameter() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -964,7 +1081,7 @@ mod tests {
                 params: serde_json::to_value(HoverParams {
                     text_document_position_params: TextDocumentPositionParams {
                         text_document: TextDocumentIdentifier { uri },
-                        position: lsp_types::Position { line, character },
+                        position: Position { line, character },
                     },
                     work_done_progress_params: WorkDoneProgressParams::default(),
                 })
@@ -980,7 +1097,7 @@ mod tests {
 
     #[test]
     fn hover_on_variable() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -1007,7 +1124,7 @@ mod tests {
 
     #[test]
     fn hover_on_custom_command() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -1037,7 +1154,7 @@ mod tests {
 
     #[test]
     fn hover_on_str_join() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -1074,7 +1191,7 @@ mod tests {
                 params: serde_json::to_value(CompletionParams {
                     text_document_position: TextDocumentPositionParams {
                         text_document: TextDocumentIdentifier { uri },
-                        position: lsp_types::Position { line, character },
+                        position: Position { line, character },
                     },
                     work_done_progress_params: WorkDoneProgressParams::default(),
                     partial_result_params: PartialResultParams::default(),
@@ -1092,7 +1209,7 @@ mod tests {
 
     #[test]
     fn complete_on_variable() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -1129,7 +1246,7 @@ mod tests {
 
     #[test]
     fn complete_command_with_space() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -1166,8 +1283,48 @@ mod tests {
     }
 
     #[test]
-    fn complete_command_with_utf_line() {
-        let (client_connection, _recv) = initialize_language_server();
+    fn complete_command_with_utf8_line() {
+        let (client_connection, _recv) =
+            initialize_language_server(Some(vec!["utf-8".to_string()]));
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("completion");
+        script.push("utf_pipeline.nu");
+        let script = Url::from_file_path(script).unwrap();
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = complete(&client_connection, script, 0, 14);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!([
+               {
+                  "label": "str trim",
+                  "detail": "Trim whitespace or specific character.",
+                  "textEdit": {
+                     "range": {
+                        "start": { "line": 0, "character": 9 },
+                        "end": { "line": 0, "character": 14 },
+                     },
+                     "newText": "str trim"
+                  },
+                  "kind": 3
+               }
+            ])
+        );
+    }
+
+    #[test]
+    fn complete_command_with_utf16_line() {
+        let (client_connection, _recv) =
+            initialize_language_server(Some(vec!["utf-16".to_string()]));
 
         let mut script = fixtures();
         script.push("lsp");
@@ -1205,7 +1362,7 @@ mod tests {
 
     #[test]
     fn complete_keyword() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
