@@ -227,7 +227,7 @@ pub fn compare_strings(
     if natural {
         alphanumeric_sort::compare_str(left_str, right_str)
     } else {
-        left_str.partial_cmp(right_str).unwrap_or(Ordering::Equal)
+        left_str.cmp(right_str)
     }
 }
 
