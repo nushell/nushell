@@ -139,7 +139,7 @@ pub fn sort_record(
 pub fn compare_by(
     left: &Value,
     right: &Value,
-    comparators: &mut Vec<Comparator>,
+    comparators: &mut [Comparator],
     span: Span,
     insensitive: bool,
     natural: bool,
@@ -149,10 +149,10 @@ pub fn compare_by(
     if error.is_some() {
         return Ordering::Equal;
     }
-    for cmp in comparators.into_iter() {
+    for cmp in comparators.iter_mut() {
         let result = match cmp {
             Comparator::CellPath(cell_path) => {
-                compare_cell_path(left, right, &cell_path, insensitive, natural)
+                compare_cell_path(left, right, cell_path, insensitive, natural)
             }
             Comparator::KeyClosure(closure) => {
                 compare_key_closure(left, right, closure, span, insensitive, natural)
