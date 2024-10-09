@@ -423,6 +423,7 @@ impl Value {
     /// - `Int`
     /// - `Float`
     /// - `String`
+    /// - `Glob`
     /// - `Binary` (only if valid utf-8)
     /// - `Date`
     ///
@@ -435,6 +436,7 @@ impl Value {
     ///             Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
+    ///                 | Value::Glob { .. }
     ///                 | Value::Binary { .. }
     ///                 | Value::Date { .. }
     ///         ),
@@ -452,6 +454,7 @@ impl Value {
     /// - `Int`
     /// - `Float`
     /// - `String`
+    /// - `Glob`
     /// - `Binary` (only if valid utf-8)
     /// - `Date`
     ///
@@ -464,6 +467,7 @@ impl Value {
     ///             Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
+    ///                 | Value::Glob { .. }
     ///                 | Value::Binary { .. }
     ///                 | Value::Date { .. }
     ///         ),
@@ -477,6 +481,7 @@ impl Value {
             Value::Int { val, .. } => Ok(val.to_string()),
             Value::Float { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val),
+            Value::Glob { val, .. } => Ok(val),
             Value::Binary { val, .. } => match String::from_utf8(val) {
                 Ok(s) => Ok(s),
                 Err(err) => Value::binary(err.into_bytes(), span).cant_convert_to("string"),
