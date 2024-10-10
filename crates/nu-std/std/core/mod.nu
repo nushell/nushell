@@ -3,7 +3,8 @@ use std/dt [datetime-diff, pretty-print-duration]
 # Print a banner for nushell with information about the project
 export def banner [] {
 let dt = (datetime-diff (date now) 2019-05-10T09:59:12-07:00)
-$"(ansi green)     __  ,(ansi reset)
+
+let banner_msg = $"(ansi green)     __  ,(ansi reset)
 (ansi green) .--\(\)°'.' (ansi reset)Welcome to (ansi green)Nushell(ansi reset),
 (ansi green)'|, . ,'   (ansi reset)based on the (ansi green)nu(ansi reset) language,
 (ansi green) !_-\(_\\    (ansi reset)where all data is structured!
@@ -19,6 +20,11 @@ It's been this long since (ansi green)Nushell(ansi reset)'s first commit:
 
 Startup Time: ($nu.startup-time)
 "
+
+match $env.config.use_ansi_coloring? {
+    false => { $banner_msg | ansi strip }
+    _ => $banner_msg
+}
 }
 
 # Return the current working directory
