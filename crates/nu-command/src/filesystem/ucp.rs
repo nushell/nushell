@@ -274,6 +274,8 @@ impl Command for UCp {
 
         if let Err(error) = uu_cp::copy(&sources, &target_path, &options) {
             match error {
+                // code should still be EXIT_ERR as does GNU cp
+                uu_cp::Error::NotAllFilesCopied => {}
                 _ => {
                     return Err(ShellError::GenericError {
                         error: format!("{}", error),
