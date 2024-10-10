@@ -1,4 +1,4 @@
-use dt [datetime-diff, pretty-print-duration]
+use std/dt [datetime-diff, pretty-print-duration]
 
 # Print a banner for nushell with information about the project
 export def banner [] {
