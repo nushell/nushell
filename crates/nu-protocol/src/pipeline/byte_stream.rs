@@ -1,7 +1,7 @@
 //! Module managing the streaming of raw bytes between pipeline elements
 use crate::{
     process::{ChildPipe, ChildProcess},
-    ErrSpan, IntoSpanned, OutDest, PipelineData, ShellError, Signals, Span, Type, Value,
+    ErrSpan, IntoSpanned, PipelineData, ShellError, Signals, Span, Type, Value,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(unix)]
@@ -13,7 +13,6 @@ use std::{
     fs::File,
     io::{self, BufRead, BufReader, Cursor, ErrorKind, Read, Write},
     process::Stdio,
-    thread,
 };
 
 /// The source of bytes for a [`ByteStream`].
@@ -600,80 +599,6 @@ impl ByteStream {
         }
         Ok(())
     }
-
-    pub(crate) fn write_to_out_dests(
-        self,
-        stdout: &OutDest,
-        stderr: &OutDest,
-    ) -> Result<(), ShellError> {
-        let span = self.span;
-        let signals = &self.signals;
-
-        match self.stream {
-            ByteStreamSource::Read(read) => {
-                write_to_out_dest(read, stdout, true, span, signals)?;
-            }
-            ByteStreamSource::File(file) => match stdout {
-                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value | OutDest::Null => {}
-                OutDest::Inherit => {
-                    copy_with_signals(file, io::stdout(), span, signals)?;
-                }
-                OutDest::File(f) => {
-                    copy_with_signals(file, f.as_ref(), span, signals)?;
-                }
-            },
-            ByteStreamSource::Child(mut child) => {
-                match (child.stdout.take(), child.stderr.take()) {
-                    (Some(out), Some(err)) => {
-                        // To avoid deadlocks, we must spawn a separate thread to wait on stderr.
-                        thread::scope(|s| {
-                            let err_thread = thread::Builder::new()
-                                .name("stderr writer".into())
-                                .spawn_scoped(s, || match err {
-                                    ChildPipe::Pipe(pipe) => {
-                                        write_to_out_dest(pipe, stderr, false, span, signals)
-                                    }
-                                    ChildPipe::Tee(tee) => {
-                                        write_to_out_dest(tee, stderr, false, span, signals)
-                                    }
-                                })
-                                .err_span(span);
-
-                            match out {
-                                ChildPipe::Pipe(pipe) => {
-                                    write_to_out_dest(pipe, stdout, true, span, signals)
-                                }
-                                ChildPipe::Tee(tee) => {
-                                    write_to_out_dest(tee, stdout, true, span, signals)
-                                }
-                            }?;
-
-                            if let Ok(result) = err_thread?.join() {
-                                result?;
-                            } else {
-                                // thread panicked, which should not happen
-                                debug_assert!(false)
-                            }
-
-                            Ok::<_, ShellError>(())
-                        })?;
-                    }
-                    (Some(out), None) => {
-                        // single output stream, we can consume directly
-                        write_to_out_dest(out, stdout, true, span, signals)?;
-                    }
-                    (None, Some(err)) => {
-                        // single output stream, we can consume directly
-                        write_to_out_dest(err, stderr, false, span, signals)?;
-                    }
-                    (None, None) => {}
-                }
-                child.wait()?;
-            }
-        }
-
-        Ok(())
-    }
 }
 
 impl From<ByteStream> for PipelineData {
@@ -960,23 +885,6 @@ fn trim_end_newline(string: &mut String) {
             string.pop();
         }
     }
-}
-
-fn write_to_out_dest(
-    read: impl Read,
-    stream: &OutDest,
-    stdout: bool,
-    span: Span,
-    signals: &Signals,
-) -> Result<(), ShellError> {
-    match stream {
-        OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => return Ok(()),
-        OutDest::Null => copy_with_signals(read, io::sink(), span, signals),
-        OutDest::Inherit if stdout => copy_with_signals(read, io::stdout(), span, signals),
-        OutDest::Inherit => copy_with_signals(read, io::stderr(), span, signals),
-        OutDest::File(file) => copy_with_signals(read, file.as_ref(), span, signals),
-    }?;
-    Ok(())
 }
 
 #[cfg(unix)]

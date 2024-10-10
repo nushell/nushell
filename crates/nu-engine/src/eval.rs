@@ -395,13 +395,13 @@ fn eval_element_with_input_inner<D: DebugContext>(
 ) -> Result<PipelineData, ShellError> {
     let data = eval_expression_with_input::<D>(engine_state, stack, &element.expr, input)?;
 
-    if let Some(redirection) = element.redirection.as_ref() {
-        let is_external = if let PipelineData::ByteStream(stream, ..) = &data {
-            matches!(stream.source(), ByteStreamSource::Child(..))
-        } else {
-            false
-        };
+    let is_external = if let PipelineData::ByteStream(stream, ..) = &data {
+        matches!(stream.source(), ByteStreamSource::Child(..))
+    } else {
+        false
+    };
 
+    if let Some(redirection) = element.redirection.as_ref() {
         if !is_external {
             match redirection {
                 &PipelineRedirection::Single {
@@ -437,30 +437,24 @@ fn eval_element_with_input_inner<D: DebugContext>(
         }
     }
 
-    let has_stdout_file = matches!(stack.pipe_stdout(), Some(OutDest::File(_)));
-
-    let data = match &data {
-        PipelineData::Value(..) | PipelineData::ListStream(..) => {
-            if has_stdout_file {
-                data.write_to_out_dests(engine_state, stack)?;
+    let data = if let Some(OutDest::File(file)) = stack.pipe_stdout() {
+        match &data {
+            PipelineData::Value(..) | PipelineData::ListStream(..) => {
+                data.write_to(file.as_ref())?;
                 PipelineData::Empty
-            } else {
-                data
             }
-        }
-        PipelineData::ByteStream(stream, ..) => {
-            let write = match stream.source() {
-                ByteStreamSource::Read(_) | ByteStreamSource::File(_) => has_stdout_file,
-                ByteStreamSource::Child(_) => false,
-            };
-            if write {
-                data.write_to_out_dests(engine_state, stack)?;
-                PipelineData::Empty
-            } else {
-                data
+            PipelineData::ByteStream(..) => {
+                if !is_external {
+                    data.write_to(file.as_ref())?;
+                    PipelineData::Empty
+                } else {
+                    data
+                }
             }
+            PipelineData::Empty => PipelineData::Empty,
         }
-        PipelineData::Empty => PipelineData::Empty,
+    } else {
+        data
     };
 
     Ok(data)

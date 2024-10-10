@@ -151,7 +151,8 @@ pub(crate) fn out_dest_to_redirect_mode(
             OutDest::PipeSeparate => Ok(RedirectMode::PipeSeparate),
             OutDest::Value => Ok(RedirectMode::Value),
             OutDest::Null => Ok(RedirectMode::Null),
-            OutDest::Inherit => Ok(RedirectMode::Inherit),
+            OutDest::Print => Ok(RedirectMode::Print),
+            OutDest::Inherit => Err(CompileError::InvalidRedirectMode { span }),
             OutDest::File(_) => Err(CompileError::InvalidRedirectMode { span }),
         })
         .transpose()

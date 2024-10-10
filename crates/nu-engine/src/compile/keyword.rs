@@ -473,7 +473,7 @@ pub(crate) fn compile_try(
     if let Some(mode) = redirect_modes.err {
         builder.push(mode.map(|mode| Instruction::RedirectErr { mode }))?;
     }
-    builder.push(Instruction::WriteToOutDests { src: io_reg }.into_spanned(call.head))?;
+    builder.push(Instruction::DrainIfEnd { src: io_reg }.into_spanned(call.head))?;
     builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
 
     // Jump over the failure case

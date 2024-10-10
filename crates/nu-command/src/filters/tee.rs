@@ -163,7 +163,7 @@ use it in your pipeline."#
                                     Ok(None)
                                 }
                                 OutDest::Null => copy_on_thread(tee, io::sink(), &info).map(Some),
-                                OutDest::Inherit => {
+                                OutDest::Print | OutDest::Inherit => {
                                     copy_on_thread(tee, io::stderr(), &info).map(Some)
                                 }
                                 OutDest::File(file) => {
@@ -181,7 +181,9 @@ use it in your pipeline."#
                                     Ok(())
                                 }
                                 OutDest::Null => copy_pipe(stdout, io::sink(), &info),
-                                OutDest::Inherit => copy_pipe(stdout, io::stdout(), &info),
+                                OutDest::Print | OutDest::Inherit => {
+                                    copy_pipe(stdout, io::stdout(), &info)
+                                }
                                 OutDest::File(file) => copy_pipe(stdout, file.as_ref(), &info),
                             }?;
                         }
@@ -198,7 +200,7 @@ use it in your pipeline."#
                                 OutDest::Null => {
                                     copy_pipe_on_thread(stderr, io::sink(), &info).map(Some)
                                 }
-                                OutDest::Inherit => {
+                                OutDest::Print | OutDest::Inherit => {
                                     copy_pipe_on_thread(stderr, io::stderr(), &info).map(Some)
                                 }
                                 OutDest::File(file) => {
@@ -218,7 +220,7 @@ use it in your pipeline."#
                                     Ok(())
                                 }
                                 OutDest::Null => copy(tee, io::sink(), &info),
-                                OutDest::Inherit => copy(tee, io::stdout(), &info),
+                                OutDest::Print | OutDest::Inherit => copy(tee, io::stdout(), &info),
                                 OutDest::File(file) => copy(tee, file.as_ref(), &info),
                             }?;
                         }

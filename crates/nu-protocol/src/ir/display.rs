@@ -92,8 +92,8 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::Drain { src } => {
                 write!(f, "{:WIDTH$} {src}", "drain")
             }
-            Instruction::WriteToOutDests { src } => {
-                write!(f, "{:WIDTH$} {src}", "write-to-out-dests")
+            Instruction::DrainIfEnd { src } => {
+                write!(f, "{:WIDTH$} {src}", "drain-if-end")
             }
             Instruction::LoadVariable { dst, var_id } => {
                 let var = FmtVar::new(self.engine_state, *var_id);
@@ -312,6 +312,7 @@ impl fmt::Display for RedirectMode {
             RedirectMode::Value => write!(f, "value"),
             RedirectMode::Null => write!(f, "null"),
             RedirectMode::Inherit => write!(f, "inherit"),
+            RedirectMode::Print => write!(f, "print"),
             RedirectMode::File { file_num } => write!(f, "file({file_num})"),
             RedirectMode::Caller => write!(f, "caller"),
         }
