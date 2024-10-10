@@ -46,6 +46,7 @@ impl Command for BytesAt {
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
+            .allow_variants_without_examples(true)
             .required("range", SyntaxShape::Range, "The range to get bytes.")
             .rest(
                 "rest",
@@ -95,36 +96,45 @@ impl Command for BytesAt {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Get a subbytes `0x[10 01]` from the bytes `0x[33 44 55 10 01 13]`",
-                example: " 0x[33 44 55 10 01 13] | bytes at 3..<4",
-                result: Some(Value::test_binary(vec![0x10])),
-            },
-            Example {
-                description: "Get a subbytes `0x[10 01 13]` from the bytes `0x[33 44 55 10 01 13]`",
-                example: " 0x[33 44 55 10 01 13] | bytes at 3..6",
-                result: Some(Value::test_binary(vec![0x10, 0x01, 0x13])),
-            },
-            Example {
-                description: "Get the remaining characters from a starting index",
-                example: " { data: 0x[33 44 55 10 01 13] } | bytes at 3.. data",
+                description: "Extract bytes starting from a specific index",
+                example: "{ data: 0x[33 44 55 10 01 13 10] } | bytes at 3.. data",
                 result: Some(Value::test_record(record! {
-                    "data" => Value::test_binary(vec![0x10, 0x01, 0x13]),
+                    "data" => Value::test_binary(vec![0x10, 0x01, 0x13, 0x10]),
                 })),
             },
             Example {
-                description: "Get the characters from the beginning until ending index",
-                example: " 0x[33 44 55 10 01 13] | bytes at ..<4",
+                description: "Slice out `0x[10 01 13]` from `0x[33 44 55 10 01 13]`",
+                example: "0x[33 44 55 10 01 13 10] | bytes at 3..6",
+                result: Some(Value::test_binary(vec![0x10, 0x01, 0x13, 0x10])),
+            },
+            Example {
+                description: "Extract bytes from the start up to a specific index",
+                example: "0x[33 44 55 10 01 13 10] | bytes at ..4",
+                result: Some(Value::test_binary(vec![0x33, 0x44, 0x55, 0x10, 0x01])),
+            },
+            Example {
+                description: "Extract byte `0x[10]` using an exclusive end index",
+                example: "0x[33 44 55 10 01 13 10] | bytes at 3..<4",
+                result: Some(Value::test_binary(vec![0x10])),
+            },
+            Example {
+                description: "Extract bytes up to a negative index (inclusive)",
+                example: "0x[33 44 55 10 01 13 10] | bytes at ..-4",
                 result: Some(Value::test_binary(vec![0x33, 0x44, 0x55, 0x10])),
             },
             Example {
-                description:
-                    "Or the characters from the beginning until ending index inside a table",
-                example: r#" [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes at 1.. ColB ColC"#,
+                description: "Slice bytes across multiple table columns",
+                example: r#"[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes at 1.. ColB ColC"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_binary(vec![0x11, 0x12, 0x13]),
                     "ColB" => Value::test_binary(vec![0x15, 0x16]),
                     "ColC" => Value::test_binary(vec![0x18, 0x19]),
                 })])),
+            },
+            Example {
+                description: "Extract the last three bytes using a negative start index",
+                example: "0x[33 44 55 10 01 13 10] | bytes at (-3)..",
+                result: Some(Value::test_binary(vec![0x01, 0x13, 0x10])),
             },
         ]
     }
@@ -155,10 +165,6 @@ fn handle_byte_stream(
     engine_state: &EngineState,
 ) -> Result<PipelineData, ShellError> {
     let idxs = args.indexes;
-    if idxs.0 >= idxs.1 {
-        return Ok(PipelineData::empty());
-    }
-
     match stream.reader() {
         Some(reader) => {
             let iter = reader.bytes();
@@ -230,4 +236,36 @@ fn read_stream(
     );
 
     PipelineData::ByteStream(stream, metadata)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_test_support::nu;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+        test_examples(BytesAt {})
+    }
+
+    #[test]
+    fn returns_error_for_relative_range_on_infinite_stream() {
+        let actual = nu!("nu --testbin iecho 3 | bytes at ..-3");
+        assert!(
+            actual.err.contains(
+                "Negative range values cannot be used with streams that don't specify a length"
+            ),
+            "Expected error message for negative range with infinite stream"
+        );
+    }
+
+    #[test]
+    fn returns_bytes_for_fixed_range_on_infinite_stream() {
+        let actual = nu!("nu --testbin iecho 3 | bytes at ..10 | decode");
+        assert_eq!(
+            actual.out, "33333",
+            "Expected bytes from index 1 to 10, but got different output"
+        );
+    }
 }
