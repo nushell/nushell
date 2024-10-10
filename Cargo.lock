@@ -3203,9 +3203,10 @@ dependencies = [
  "uu_mkdir",
  "uu_mktemp",
  "uu_mv",
+ "uu_touch",
  "uu_uname",
  "uu_whoami",
- "uucore",
+ "uucore 0.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "uuid",
  "v_htmlescape",
  "wax",
@@ -4050,6 +4051,17 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f2a05b18d44e2957b88f96ba460715e295bc1d7510468a2f3d3b44535d26c24"
 dependencies = [
+ "regex",
+]
+
+[[package]]
+name = "parse_datetime"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8720474e3dd4af20cea8716703498b9f3b690f318fa9d9d9e2e38eaf44b96d0"
+dependencies = [
+ "chrono",
+ "nom",
  "regex",
 ]
 
@@ -6669,7 +6681,7 @@ dependencies = [
  "indicatif",
  "libc",
  "quick-error 2.0.1",
- "uucore",
+ "uucore 0.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir",
  "xattr",
 ]
@@ -6681,7 +6693,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "219588fbc146f18188781208ac4034616c51cf151677b4e1f9caf63ca8a7f2cf"
 dependencies = [
  "clap",
- "uucore",
+ "uucore 0.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -6693,7 +6705,7 @@ dependencies = [
  "clap",
  "rand",
  "tempfile",
- "uucore",
+ "uucore 0.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -6705,7 +6717,20 @@ dependencies = [
  "clap",
  "fs_extra",
  "indicatif",
- "uucore",
+ "uucore 0.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "uu_touch"
+version = "0.0.27"
+source = "git+https://github.com/uutils/coreutils.git#716f140905d36561cbbb46e297db3e76eb28a6fd"
+dependencies = [
+ "chrono",
+ "clap",
+ "filetime",
+ "parse_datetime",
+ "uucore 0.0.27 (git+https://github.com/uutils/coreutils.git)",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -6716,7 +6741,7 @@ checksum = "ad1ca90f9b292bccaad0de70e6feccac5182c6713a5e1ca72d97bf3555b608b4"
 dependencies = [
  "clap",
  "platform-info",
- "uucore",
+ "uucore 0.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -6727,7 +6752,7 @@ checksum = "bc7c52e42e0425710461700adc1063f468f2ba8a8ff83ee69ba661095ab7b77a"
 dependencies = [
  "clap",
  "libc",
- "uucore",
+ "uucore 0.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "windows-sys 0.48.0",
 ]
 
@@ -6745,12 +6770,28 @@ dependencies = [
  "number_prefix",
  "once_cell",
  "os_display",
- "uucore_procs",
+ "uucore_procs 0.0.26",
  "walkdir",
  "wild",
  "winapi-util",
  "windows-sys 0.48.0",
  "xattr",
+]
+
+[[package]]
+name = "uucore"
+version = "0.0.27"
+source = "git+https://github.com/uutils/coreutils.git#716f140905d36561cbbb46e297db3e76eb28a6fd"
+dependencies = [
+ "clap",
+ "glob",
+ "libc",
+ "nix",
+ "number_prefix",
+ "once_cell",
+ "os_display",
+ "uucore_procs 0.0.27",
+ "wild",
 ]
 
 [[package]]
@@ -6761,7 +6802,17 @@ checksum = "c3d588f57acb2ba416e072a6fa652f2e11cf727267c697d2e2d65175f3b10c41"
 dependencies = [
  "proc-macro2",
  "quote",
- "uuhelp_parser",
+ "uuhelp_parser 0.0.26",
+]
+
+[[package]]
+name = "uucore_procs"
+version = "0.0.27"
+source = "git+https://github.com/uutils/coreutils.git#716f140905d36561cbbb46e297db3e76eb28a6fd"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "uuhelp_parser 0.0.27",
 ]
 
 [[package]]
@@ -6769,6 +6820,11 @@ name = "uuhelp_parser"
 version = "0.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96f26868814bf1ca9deec910a08007c93eb1d8e407ce36451999d4c1c1ea6767"
+
+[[package]]
+name = "uuhelp_parser"
+version = "0.0.27"
+source = "git+https://github.com/uutils/coreutils.git#716f140905d36561cbbb46e297db3e76eb28a6fd"
 
 [[package]]
 name = "uuid"
