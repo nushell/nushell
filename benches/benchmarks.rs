@@ -121,7 +121,7 @@ fn bench_eval_source(
             let mut engine = engine.clone();
             let fname: &str = &fname.clone();
             let source: &[u8] = &source.clone();
-            black_box(eval_source(
+            let _ = black_box(eval_source(
                 &mut engine,
                 &mut stack,
                 source,

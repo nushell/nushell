@@ -299,7 +299,8 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
         &old_plugin_file_path.to_string_lossy(),
         PipelineData::Empty,
         false,
-    ) != 0
+    )
+    .is_err()
     {
         return false;
     }

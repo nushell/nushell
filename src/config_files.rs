@@ -155,7 +155,9 @@ pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut S
 
 pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut Stack) {
     let config_file = get_default_env();
-    eval_source(
+
+    // TODO: ignore this error?
+    let _ = eval_source(
         engine_state,
         stack,
         config_file.as_bytes(),
@@ -236,7 +238,8 @@ fn eval_default_config(
         &config_file, is_env_config
     );
     // Just use the contents of "default_config.nu" or "default_env.nu"
-    eval_source(
+    // TODO: ignore this error?
+    let _ = eval_source(
         engine_state,
         stack,
         config_file.as_bytes(),
