@@ -118,9 +118,9 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: >-
         gh release download ${{ github.ref_name }}
-            --repo ${{ github.repository }}
-            --pattern '*'
-            --dir release
+        --repo ${{ github.repository }}
+        --pattern '*'
+        --dir release
     - name: Create Checksums
       run: cd release && shasum -a 256 * > ../SHA256SUMS
     - name: Publish Checksums
