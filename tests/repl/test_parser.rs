@@ -268,6 +268,22 @@ fn string_interp_with_equals() -> TestResult {
 }
 
 #[test]
+fn raw_string_with_equals() -> TestResult {
+    run_test(
+        r#"let query_prefix = r#'https://api.github.com/search/issues?q=repo:nushell/'#; $query_prefix"#,
+        "https://api.github.com/search/issues?q=repo:nushell/",
+    )
+}
+
+#[test]
+fn list_string_with_equals() -> TestResult {
+    run_test(
+        r#"["https://api.github.com/search/issues?q=repo:nushell/"] | get 0"#,
+        "https://api.github.com/search/issues?q=repo:nushell/",
+    )
+}
+
+#[test]
 fn recursive_parse() -> TestResult {
     run_test(r#"def c [] { c }; echo done"#, "done")
 }
