@@ -1,14 +1,18 @@
 use nu_test_support::fs::files_exist_at;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
+
+#[cfg(test)]
 #[cfg(not(windows))]
 use uucore::mode;
 
+#[cfg(test)]
 #[cfg(not(windows))]
 fn get_umask() -> u32 {
     mode::get_umask()
 }
 
+#[cfg(test)]
 #[cfg(windows)]
 fn get_umask() -> u32 {
     0
