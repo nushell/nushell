@@ -244,6 +244,27 @@ fn complex_const_export() {
 }
 
 #[test]
+fn only_nested_module_have_const() {
+    let setup = r#"
+        module spam {
+            export module eggs {
+                export module bacon {
+                    export const viking = 'eats'
+                    export module none {}
+                }
+            }
+        }
+    "#;
+    let inp = &[setup, "use spam", "$spam.eggs.bacon.viking"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "eats");
+
+    let inp = &[setup, "use spam", "'none' in $spam.eggs.bacon"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "false");
+}
+
+#[test]
 fn complex_const_glob_export() {
     let inp = &[MODULE_SETUP, "use spam *", "$X"];
     let actual = nu!(&inp.join("; "));
