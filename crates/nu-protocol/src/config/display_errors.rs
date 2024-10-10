@@ -22,7 +22,7 @@ impl DisplayErrors {
 impl Default for DisplayErrors {
     fn default() -> Self {
         Self {
-            exit_code: true,
+            exit_code: false,
             termination_signal: true,
         }
     }
