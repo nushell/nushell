@@ -14,7 +14,7 @@ defaults:
     shell: bash
 
 jobs:
-  standard:
+  release:
     name: Nu
 
     strategy:
@@ -105,5 +105,28 @@ jobs:
       with:
         draft: true
         files: ${{ steps.nu.outputs.archive }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sha256sum:
+    needs: release
+    name: Create Sha256sum
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download Release Archives
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: >-
+        gh release download ${{ github.ref_name }}
+            --repo ${{ github.repository }}
+            --pattern '*'
+            --dir release
+    - name: Create Checksums
+      run: cd release && shasum -a 256 * > ../SHA256SUMS
+    - name: Publish Checksums
+      uses: softprops/action-gh-release@v2.0.8
+      with:
+        draft: true
+        files: SHA256SUMS
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
