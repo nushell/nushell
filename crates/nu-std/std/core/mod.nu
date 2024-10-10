@@ -21,7 +21,7 @@ It's been this long since (ansi green)Nushell(ansi reset)'s first commit:
 Startup Time: ($nu.startup-time)
 "
 
-match $env.config.use_ansi_coloring? {
+match $env.config?.use_ansi_coloring? {
     false => { $banner_msg | ansi strip }
     _ => $banner_msg
 }
