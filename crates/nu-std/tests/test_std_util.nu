@@ -1,8 +1,8 @@
-use std
+use std *
 
 #[test]
 def path_add [] {
-    use std assert
+    use std/assert
 
     let path_name = if "PATH" in $env { "PATH" } else { "Path" }
 
@@ -11,19 +11,19 @@ def path_add [] {
 
         assert equal (get_path) []
 
-        std path add "/foo/"
+        path add "/foo/"
         assert equal (get_path) (["/foo/"] | path expand)
 
-        std path add "/bar/" "/baz/"
+        path add "/bar/" "/baz/"
         assert equal (get_path) (["/bar/", "/baz/", "/foo/"] | path expand)
 
         load-env {$path_name: []}
 
-        std path add "foo"
-        std path add "bar" "baz" --append
+        path add "foo"
+        path add "bar" "baz" --append
         assert equal (get_path) (["foo", "bar", "baz"] | path expand)
 
-        assert equal (std path add "fooooo" --ret) (["fooooo", "foo", "bar", "baz"] | path expand)
+        assert equal (path add "fooooo" --ret) (["fooooo", "foo", "bar", "baz"] | path expand)
         assert equal (get_path) (["fooooo", "foo", "bar", "baz"] | path expand)
 
         load-env {$path_name: []}
@@ -35,18 +35,18 @@ def path_add [] {
             android: "quux",
         }
 
-        std path add $target_paths
+        path add $target_paths
         assert equal (get_path) ([($target_paths | get $nu.os-info.name)] | path expand)
 
         load-env {$path_name: [$"(["/foo", "/bar"] | path expand | str join (char esep))"]}
-        std path add "~/foo"
+        path add "~/foo"
         assert equal (get_path) (["~/foo", "/foo", "/bar"] | path expand)
     }
 }
 
 #[test]
 def path_add_expand [] {
-    use std assert
+    use std/assert
 
     # random paths to avoid collision, especially if left dangling on failure
     let real_dir = $nu.temp-path | path join $"real-dir-(random chars)"
@@ -63,7 +63,7 @@ def path_add_expand [] {
     with-env {$path_name: []} {
         def get_path [] { $env | get $path_name }
 
-        std path add $link_dir
+        path add $link_dir
         assert equal (get_path) ([$link_dir])
     }
 
@@ -71,17 +71,13 @@ def path_add_expand [] {
 }
 
 #[test]
-def banner [] {
-    std assert ((std banner | lines | length) == 15)
-}
-
-#[test]
 def repeat_things [] {
-    std assert error { "foo" | std repeat -1 }
+    use std/assert
+    assert error { "foo" | repeat -1 }
 
     for x in ["foo", [1 2], {a: 1}] {
-        std assert equal ($x | std repeat 0) []
-        std assert equal ($x | std repeat 1) [$x]
-        std assert equal ($x | std repeat 2) [$x $x]
+        assert equal ($x | repeat 0) []
+        assert equal ($x | repeat 1) [$x]
+        assert equal ($x | repeat 2) [$x $x]
     }
 }

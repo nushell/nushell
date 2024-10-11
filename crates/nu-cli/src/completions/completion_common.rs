@@ -267,8 +267,10 @@ pub fn escape_path(path: String, dir: bool) -> String {
     let filename_contaminated = !dir && path.contains(['\'', '"', ' ', '#', '(', ')']);
     let dirname_contaminated = dir && path.contains(['\'', '"', ' ', '#']);
     let maybe_flag = path.starts_with('-');
+    let maybe_variable = path.starts_with('$');
     let maybe_number = path.parse::<f64>().is_ok();
-    if filename_contaminated || dirname_contaminated || maybe_flag || maybe_number {
+    if filename_contaminated || dirname_contaminated || maybe_flag || maybe_variable || maybe_number
+    {
         format!("`{path}`")
     } else {
         path
@@ -333,7 +335,7 @@ pub fn sort_completions<T>(
         } else {
             matcher = matcher.ignore_case();
         };
-        items.sort_by(|a, b| {
+        items.sort_unstable_by(|a, b| {
             let a_str = get_value(a);
             let b_str = get_value(b);
             let a_score = matcher.fuzzy_match(a_str, prefix).unwrap_or_default();
@@ -341,7 +343,7 @@ pub fn sort_completions<T>(
             b_score.cmp(&a_score).then(a_str.cmp(b_str))
         });
     } else {
-        items.sort_by(|a, b| get_value(a).cmp(get_value(b)));
+        items.sort_unstable_by(|a, b| get_value(a).cmp(get_value(b)));
     }
 
     items

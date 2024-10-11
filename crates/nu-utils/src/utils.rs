@@ -155,6 +155,8 @@ pub fn get_ls_colors(lscolors_env_string: Option<String>) -> LsColors {
                 "*.rb=0;38;5;48",
                 "*.md=0;38;5;185",
                 "*.js=0;38;5;48",
+                "*.cjs=0;38;5;48",
+                "*.mjs=0;38;5;48",
                 "*.go=0;38;5;48",
                 "*.vb=0;38;5;48",
                 "*.hi=0;38;5;243",

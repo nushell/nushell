@@ -131,16 +131,13 @@ pub fn evaluate_repl(
         // escape a few things because this says so
         // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
         let cmd_text = line_editor.current_buffer_contents().to_string();
+        let len = cmd_text.len();
+        let mut cmd_text_chars = cmd_text[0..len].chars();
+        let mut replaced_cmd_text = String::with_capacity(len);
 
-        let replaced_cmd_text = cmd_text
-            .chars()
-            .map(|c| match c {
-                '\n' => '\x0a',
-                '\r' => '\x0d',
-                '\x1b' => '\x1b',
-                _ => c,
-            })
-            .collect();
+        while let Some(c) = unescape_for_vscode(&mut cmd_text_chars) {
+            replaced_cmd_text.push(c);
+        }
 
         run_shell_integration_osc633(
             engine_state,
@@ -159,7 +156,7 @@ pub fn evaluate_repl(
         eval_source(
             engine_state,
             &mut unique_stack,
-            r#"use std banner; banner"#.as_bytes(),
+            r#"banner"#.as_bytes(),
             "show_banner",
             PipelineData::empty(),
             false,
@@ -222,6 +219,28 @@ pub fn evaluate_repl(
     }
 
     Ok(())
+}
+
+fn unescape_for_vscode(text: &mut std::str::Chars) -> Option<char> {
+    match text.next() {
+        Some('\\') => match text.next() {
+            Some('0') => Some('\x00'),  // NUL '\0' (null character)
+            Some('a') => Some('\x07'),  // BEL '\a' (bell)
+            Some('b') => Some('\x08'),  // BS  '\b' (backspace)
+            Some('t') => Some('\x09'),  // HT  '\t' (horizontal tab)
+            Some('n') => Some('\x0a'),  // LF  '\n' (new line)
+            Some('v') => Some('\x0b'),  // VT  '\v' (vertical tab)
+            Some('f') => Some('\x0c'),  // FF  '\f' (form feed)
+            Some('r') => Some('\x0d'),  // CR  '\r' (carriage ret)
+            Some(';') => Some('\x3b'),  // semi-colon
+            Some('\\') => Some('\x5c'), // backslash
+            Some('e') => Some('\x1b'),  // escape
+            Some(c) => Some(c),
+            None => None,
+        },
+        Some(c) => Some(c),
+        None => None,
+    }
 }
 
 fn get_line_editor(
@@ -357,7 +376,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 .to_string_lossy()
                 .to_string(),
         ))
-        .with_cursor_config(cursor_config);
+        .with_cursor_config(cursor_config)
+        .with_visual_selection_style(nu_ansi_term::Style {
+            is_reverse: true,
+            ..Default::default()
+        });
 
     perf!("reedline builder", start_time, use_color);
 

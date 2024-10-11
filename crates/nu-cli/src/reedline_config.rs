@@ -35,6 +35,41 @@ const DEFAULT_COMPLETION_MENU: &str = r#"
   }
 }"#;
 
+const DEFAULT_IDE_COMPLETION_MENU: &str = r#"
+{
+  name: ide_completion_menu
+  only_buffer_difference: false
+  marker: "| "
+  type: {
+    layout: ide
+    min_completion_width: 0,
+    max_completion_width: 50,
+    max_completion_height: 10, # will be limited by the available lines in the terminal
+    padding: 0,
+    border: true,
+    cursor_offset: 0,
+    description_mode: "prefer_right"
+    min_description_width: 0
+    max_description_width: 50
+    max_description_height: 10
+    description_offset: 1
+    # If true, the cursor pos will be corrected, so the suggestions match up with the typed text
+    #
+    # C:\> str
+    #      str join
+    #      str trim
+    #      str split
+    correct_cursor_pos: false
+  }
+  style: {
+    text: green
+    selected_text: { attr: r }
+    description_text: yellow
+    match_text: { attr: u }
+    selected_match_text: { attr: ur }
+  }
+}"#;
+
 const DEFAULT_HISTORY_MENU: &str = r#"
 {
   name: history_menu
@@ -94,6 +129,7 @@ pub(crate) fn add_menus(
     // Checking if the default menus have been added from the config file
     let default_menus = [
         ("completion_menu", DEFAULT_COMPLETION_MENU),
+        ("ide_completion_menu", DEFAULT_IDE_COMPLETION_MENU),
         ("history_menu", DEFAULT_HISTORY_MENU),
         ("help_menu", DEFAULT_HELP_MENU),
     ];
@@ -599,6 +635,16 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
     );
 
     keybindings.add_binding(
+        KeyModifiers::CONTROL,
+        KeyCode::Char(' '),
+        ReedlineEvent::UntilFound(vec![
+            ReedlineEvent::Menu("ide_completion_menu".to_string()),
+            ReedlineEvent::MenuNext,
+            ReedlineEvent::Edit(vec![EditCommand::Complete]),
+        ]),
+    );
+
+    keybindings.add_binding(
         KeyModifiers::SHIFT,
         KeyCode::BackTab,
         ReedlineEvent::MenuPrevious,
@@ -730,29 +776,7 @@ fn add_parsed_keybinding(
     keybinding: &ParsedKeybinding,
     config: &Config,
 ) -> Result<(), ShellError> {
-    let mut modifier = KeyModifiers::NONE;
-    if let Ok(str) = keybinding.modifier.as_str().map(str::to_ascii_lowercase) {
-        if str != "none" {
-            for part in str.split('_') {
-                match part {
-                    "control" => modifier |= KeyModifiers::CONTROL,
-                    "shift" => modifier |= KeyModifiers::SHIFT,
-                    "alt" => modifier |= KeyModifiers::ALT,
-                    "super" => modifier |= KeyModifiers::SUPER,
-                    "hyper" => modifier |= KeyModifiers::HYPER,
-                    "meta" => modifier |= KeyModifiers::META,
-                    str => {
-                        return Err(ShellError::InvalidValue {
-                            valid: "'control', 'shift', 'alt', 'super', 'hyper', 'meta', or 'none'"
-                                .into(),
-                            actual: format!("'{str}'"),
-                            span: keybinding.modifier.span(),
-                        });
-                    }
-                }
-            }
-        }
-    } else {
+    let Ok(modifier_str) = keybinding.modifier.as_str().map(str::to_ascii_lowercase) else {
         return Err(ShellError::RuntimeTypeMismatch {
             expected: Type::String,
             actual: keybinding.modifier.get_type(),
@@ -760,27 +784,62 @@ fn add_parsed_keybinding(
         });
     };
 
-    let keycode = if let Ok(keycode) = keybinding.keycode.as_str() {
-        match keycode.to_ascii_lowercase().as_str() {
-            "backspace" => KeyCode::Backspace,
-            "enter" => KeyCode::Enter,
-            c if c.starts_with("char_") => {
-                let mut char_iter = c.chars().skip(5);
-                let pos1 = char_iter.next();
-                let pos2 = char_iter.next();
-
-                let char = if let (Some(char), None) = (pos1, pos2) {
-                    char
-                } else {
+    let mut modifier = KeyModifiers::NONE;
+    if modifier_str != "none" {
+        for part in modifier_str.split('_') {
+            match part {
+                "control" => modifier |= KeyModifiers::CONTROL,
+                "shift" => modifier |= KeyModifiers::SHIFT,
+                "alt" => modifier |= KeyModifiers::ALT,
+                "super" => modifier |= KeyModifiers::SUPER,
+                "hyper" => modifier |= KeyModifiers::HYPER,
+                "meta" => modifier |= KeyModifiers::META,
+                str => {
                     return Err(ShellError::InvalidValue {
-                        valid: "'char_<CHAR: unicode codepoint>'".into(),
-                        actual: format!("'{c}'"),
-                        span: keybinding.keycode.span(),
+                        valid: "'control', 'shift', 'alt', 'super', 'hyper', 'meta', or 'none'"
+                            .into(),
+                        actual: format!("'{str}'"),
+                        span: keybinding.modifier.span(),
                     });
+                }
+            }
+        }
+    }
+
+    let Ok(keycode) = keybinding.keycode.as_str() else {
+        return Err(ShellError::RuntimeTypeMismatch {
+            expected: Type::String,
+            actual: keybinding.keycode.get_type(),
+            span: keybinding.keycode.span(),
+        });
+    };
+
+    let keycode = if let Some(rest) = keycode.strip_prefix("char_") {
+        let error = |valid: &str, actual: &str| ShellError::InvalidValue {
+            valid: valid.into(),
+            actual: actual.into(),
+            span: keybinding.keycode.span(),
+        };
+
+        let mut char_iter = rest.chars();
+        let char = match (char_iter.next(), char_iter.next()) {
+            (Some(char), None) => char,
+            (Some('u'), Some(_)) => {
+                // This will never panic as we know there are at least two symbols
+                let Ok(code_point) = u32::from_str_radix(&rest[1..], 16) else {
+                    return Err(error("a valid hex code", keycode));
                 };
 
-                KeyCode::Char(char)
+                char::from_u32(code_point).ok_or(error("a valid Unicode code point", keycode))?
             }
+            _ => return Err(error("'char_<char>' or 'char_u<hex code>'", keycode)),
+        };
+
+        KeyCode::Char(char)
+    } else {
+        match keycode {
+            "backspace" => KeyCode::Backspace,
+            "enter" => KeyCode::Enter,
             "space" => KeyCode::Char(' '),
             "down" => KeyCode::Down,
             "up" => KeyCode::Up,
@@ -816,12 +875,6 @@ fn add_parsed_keybinding(
                 });
             }
         }
-    } else {
-        return Err(ShellError::RuntimeTypeMismatch {
-            expected: Type::String,
-            actual: keybinding.keycode.get_type(),
-            span: keybinding.keycode.span(),
-        });
     };
 
     if let Some(event) = parse_event(&keybinding.event, config)? {
