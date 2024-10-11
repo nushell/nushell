@@ -58,10 +58,9 @@ impl Command for Group {
         report_shell_warning(
             engine_state,
             &ShellError::Deprecated {
-                old_command: "group".into(),
-                new_suggestion: "the new `chunks` command".into(),
+                command: "group",
                 span: head,
-                url: "`help chunks`".into(),
+                help: "Please use the new `chunks` command instead. See `help chunks`.",
             },
         );
 

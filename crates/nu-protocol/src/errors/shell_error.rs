@@ -1304,14 +1304,14 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
-    #[error("Deprecated: {old_command}")]
-    #[diagnostic(help("for more info see {url}"))]
+    #[error("Deprecated: {command}")]
+    #[diagnostic()]
     Deprecated {
-        old_command: String,
-        new_suggestion: String,
-        #[label("`{old_command}` is deprecated and will be removed in a future release. Please {new_suggestion} instead.")]
+        command: &'static str,
+        #[label("`{command}` is deprecated and will be removed in a future release.")]
         span: Span,
-        url: String,
+        #[help]
+        help: &'static str,
     },
 
     /// Invalid glob pattern
