@@ -1229,6 +1229,18 @@ fn test_nothing_comparison_eq() {
 }
 
 #[rstest]
+#[case(b"let a o> file = 1")]
+#[case(b"mut a o> file = 1")]
+fn test_redirection_inside_letmut_no_panic(#[case] phase: &[u8]) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(Let));
+    working_set.add_decl(Box::new(Mut));
+
+    parse(&mut working_set, None, phase, true);
+}
+
+#[rstest]
 #[case(b"let a = 1 err> /dev/null")]
 #[case(b"let a = 1 out> /dev/null")]
 #[case(b"let a = 1 out+err> /dev/null")]
