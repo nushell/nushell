@@ -1,5 +1,6 @@
 use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
+use nu_protocol::report_shell_warning;
 
 #[derive(Clone)]
 pub struct SplitBy;
@@ -27,6 +28,14 @@ impl Command for SplitBy {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        report_shell_warning(
+            engine_state,
+            &ShellError::Deprecated {
+                command: "split_by",
+                span: call.head,
+                help: "If you want this command to stay, please provide feedback at https://github.com/nushell/nushell/pull/14019",
+            },
+        );
         split_by(engine_state, stack, call, input)
     }
 
