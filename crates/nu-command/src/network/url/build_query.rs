@@ -42,6 +42,11 @@ impl Command for SubCommand {
                 example: r#"{a:"AT&T", b: "AT T"} | url build-query"#,
                 result: Some(Value::test_string("a=AT%26T&b=AT+T")),
             },
+            Example {
+                description: "Outputs a query string representing the contents of this record",
+                example: r#"{a[]: ["one", "two"], b: "three"} | url build-query"#,
+                result: Some(Value::test_string("a%5B%5D=one&a%5B%5D=two&b=three")),
+            },
         ]
     }
 
@@ -66,18 +71,40 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
                 Value::Record { ref val, .. } => {
                     let mut row_vec = vec![];
                     for (k, v) in &**val {
-                        match v.coerce_string() {
-                            Ok(s) => {
-                                row_vec.push((k.clone(), s));
+                        match v {
+                            Value::List { ref vals, .. } => {
+                                for v_list in vals {
+                                    match v_list.coerce_string() {
+                                        Ok(s) => {
+                                            row_vec.push((k.clone(), s));
+                                        }
+                                        _ => {
+                                            return Err(ShellError::UnsupportedInput {
+                                                msg: "Expected a record with list of string values"
+                                                    .to_string(),
+                                                input: "value originates from here".into(),
+                                                msg_span: head,
+                                                input_span: span,
+                                            });
+                                        }
+                                    }
+                                }
                             }
-                            _ => {
-                                return Err(ShellError::UnsupportedInput {
-                                    msg: "Expected a record with string values".to_string(),
-                                    input: "value originates from here".into(),
-                                    msg_span: head,
-                                    input_span: span,
-                                });
-                            }
+                            _ => match v.coerce_string() {
+                                Ok(s) => {
+                                    row_vec.push((k.clone(), s));
+                                }
+                                _ => {
+                                    return Err(ShellError::UnsupportedInput {
+                                        msg:
+                                            "Expected a record with string or list of string values"
+                                                .to_string(),
+                                        input: "value originates from here".into(),
+                                        msg_span: head,
+                                        input_span: span,
+                                    });
+                                }
+                            },
                         }
                     }
 
