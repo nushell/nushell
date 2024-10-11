@@ -73,8 +73,8 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
                     for (k, v) in &**val {
                         match v {
                             Value::List { ref vals, .. } => {
-                                for v_list in vals {
-                                    match v_list.coerce_string() {
+                                for v_item in vals {
+                                    match v_item.coerce_string() {
                                         Ok(s) => {
                                             row_vec.push((k.clone(), s));
                                         }
