@@ -25,7 +25,7 @@ impl Command for Transpose {
             ])
             .switch(
                 "header-row",
-                "treat the first column as the header-row (column names)",
+                "use the first input column as the table header-row (or keynames when combined with --as-record)",
                 Some('r'),
             )
             .switch(
