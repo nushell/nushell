@@ -12,12 +12,6 @@ fn get_umask() -> u32 {
     mode::get_umask()
 }
 
-#[cfg(test)]
-#[cfg(windows)]
-fn get_umask() -> u32 {
-    0
-}
-
 #[test]
 fn creates_directory() {
     Playground::setup("mkdir_test_1", |dirs, _| {
