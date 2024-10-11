@@ -98,21 +98,15 @@ This command is a parser keyword. For details, check:
                     engine_state.get_span_contents(import_pattern.head.span),
                 );
 
-                let maybe_file_path_or_dir = find_in_dirs_env(
+                let maybe_file_path = find_in_dirs_env(
                     &module_arg_str,
                     engine_state,
                     caller_stack,
                     get_dirs_var_from_call(caller_stack, call),
                 )?;
-                // module_arg_str maybe a directory, in this case
-                // find_in_dirs_env returns a directory.
-                let maybe_parent = maybe_file_path_or_dir.as_ref().and_then(|path| {
-                    if path.is_dir() {
-                        Some(path.to_path_buf())
-                    } else {
-                        path.parent().map(|p| p.to_path_buf())
-                    }
-                });
+                let maybe_parent = maybe_file_path
+                    .as_ref()
+                    .and_then(|path| path.parent().map(|p| p.to_path_buf()));
 
                 let mut callee_stack = caller_stack
                     .gather_captures(engine_state, &block.captures)
@@ -124,15 +118,9 @@ This command is a parser keyword. For details, check:
                     callee_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
                 }
 
-                if let Some(path) = maybe_file_path_or_dir {
-                    let module_file_path = if path.is_dir() {
-                        // the existence of `mod.nu` is verified in parsing time
-                        // so it's safe to use it here.
-                        Value::string(path.join("mod.nu").to_string_lossy(), call.head)
-                    } else {
-                        Value::string(path.to_string_lossy(), call.head)
-                    };
-                    callee_stack.add_env_var("CURRENT_FILE".to_string(), module_file_path);
+                if let Some(file_path) = maybe_file_path {
+                    let file_path = Value::string(file_path.to_string_lossy(), call.head);
+                    callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
                 }
 
                 let eval_block = get_eval_block(engine_state);
@@ -142,10 +130,6 @@ This command is a parser keyword. For details, check:
 
                 // Merge the block's environment to the current stack
                 redirect_env(engine_state, caller_stack, &callee_stack);
-
-                // File-reative PWD is useless after eval file block.
-                caller_stack.remove_env_var(engine_state, "FILE_PWD");
-                caller_stack.remove_env_var(engine_state, "CURRENT_FILE");
             }
         } else {
             return Err(ShellError::GenericError {
