@@ -853,18 +853,16 @@ fn add_parsed_keybinding(
             "backtab" => KeyCode::BackTab,
             "delete" => KeyCode::Delete,
             "insert" => KeyCode::Insert,
-            c if c.starts_with('f') => {
-                let fn_num: u8 = c[1..]
-                    .parse()
-                    .ok()
-                    .filter(|num| matches!(num, 1..=20))
-                    .ok_or(ShellError::InvalidValue {
-                        valid: "'f1', 'f2', ..., or 'f20'".into(),
-                        actual: format!("'{c}'"),
-                        span: keybinding.keycode.span(),
-                    })?;
-                KeyCode::F(fn_num)
-            }
+            c if c.starts_with('f') => c[1..]
+                .parse()
+                .ok()
+                .filter(|num| (1..=20).contains(num))
+                .map(KeyCode::F)
+                .ok_or(ShellError::InvalidValue {
+                    valid: "'f1', 'f2', ..., or 'f20'".into(),
+                    actual: format!("'{c}'"),
+                    span: keybinding.keycode.span(),
+                })?,
             "null" => KeyCode::Null,
             "esc" | "escape" => KeyCode::Esc,
             str => {
