@@ -39,26 +39,14 @@ impl Command for History {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let Some(history) = engine_state.history_config() else {
-            return Ok(PipelineData::empty());
-        };
-
-        // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
-        if let Some(config_path) = nu_path::config_dir() {
+        if let Some(history) = engine_state.history_config() {
+            // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
+            let Some(history_path) = history.file_path() else {
+                return Err(ShellError::ConfigDirNotFound { span: Some(head) });
+            };
             let clear = call.has_flag(engine_state, stack, "clear")?;
             let long = call.has_flag(engine_state, stack, "long")?;
             let signals = engine_state.signals().clone();
-
-            let mut history_path = config_path;
-            history_path.push("nushell");
-            match history.file_format {
-                HistoryFileFormat::Sqlite => {
-                    history_path.push("history.sqlite3");
-                }
-                HistoryFileFormat::Plaintext => {
-                    history_path.push("history.txt");
-                }
-            }
 
             if clear {
                 let _ = std::fs::remove_file(history_path);
@@ -67,17 +55,16 @@ impl Command for History {
             } else {
                 let history_reader: Option<Box<dyn ReedlineHistory>> = match history.file_format {
                     HistoryFileFormat::Sqlite => {
-                        SqliteBackedHistory::with_file(history_path.clone().into(), None, None)
+                        SqliteBackedHistory::with_file(history_path.clone(), None, None)
                             .map(|inner| {
                                 let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
                                 boxed
                             })
                             .ok()
                     }
-
                     HistoryFileFormat::Plaintext => FileBackedHistory::with_file(
                         history.max_size as usize,
-                        history_path.clone().into(),
+                        history_path.clone(),
                     )
                     .map(|inner| {
                         let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
@@ -85,7 +72,6 @@ impl Command for History {
                     })
                     .ok(),
                 };
-
                 match history.file_format {
                     HistoryFileFormat::Plaintext => Ok(history_reader
                         .and_then(|h| {
@@ -126,7 +112,7 @@ impl Command for History {
                 }
             }
         } else {
-            Err(ShellError::ConfigDirNotFound { span: Some(head) })
+            Ok(PipelineData::empty())
         }
     }
 
