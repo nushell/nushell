@@ -74,49 +74,41 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
                         match v {
                             Value::List { ref vals, .. } => {
                                 for v_item in vals {
-                                    match v_item.coerce_string() {
-                                        Ok(s) => {
-                                            row_vec.push((k.clone(), s));
-                                        }
-                                        _ => {
-                                            return Err(ShellError::UnsupportedInput {
+                                    row_vec.push((
+                                        k.clone(),
+                                        v_item.coerce_string().map_err(|_| {
+                                            ShellError::UnsupportedInput {
                                                 msg: "Expected a record with list of string values"
                                                     .to_string(),
                                                 input: "value originates from here".into(),
                                                 msg_span: head,
                                                 input_span: span,
-                                            });
-                                        }
-                                    }
+                                            }
+                                        })?,
+                                    ));
                                 }
                             }
-                            _ => match v.coerce_string() {
-                                Ok(s) => {
-                                    row_vec.push((k.clone(), s));
-                                }
-                                _ => {
-                                    return Err(ShellError::UnsupportedInput {
+                            _ => row_vec.push((
+                                k.clone(),
+                                v.coerce_string()
+                                    .map_err(|_| ShellError::UnsupportedInput {
                                         msg:
                                             "Expected a record with string or list of string values"
                                                 .to_string(),
                                         input: "value originates from here".into(),
                                         msg_span: head,
                                         input_span: span,
-                                    });
-                                }
-                            },
+                                    })?,
+                            )),
                         }
                     }
 
-                    match serde_urlencoded::to_string(row_vec) {
-                        Ok(s) => Ok(s),
-                        _ => Err(ShellError::CantConvert {
-                            to_type: "URL".into(),
-                            from_type: value.get_type().to_string(),
-                            span: head,
-                            help: None,
-                        }),
-                    }
+                    serde_urlencoded::to_string(row_vec).map_err(|_| ShellError::CantConvert {
+                        to_type: "URL".into(),
+                        from_type: value.get_type().to_string(),
+                        span: head,
+                        help: None,
+                    })
                 }
                 // Propagate existing errors
                 Value::Error { error, .. } => Err(*error),
