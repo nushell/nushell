@@ -58,7 +58,7 @@ pub enum FooterMode {
     Always,
     /// Only show the footer if there are more than RowCount rows
     RowCount(u64),
-    /// Calculate the screen height, calculate row count, if display will be bigger than screen, add the footer
+    /// Calculate the screen height and row count, if screen height is larger than row count, don't show footer
     Auto,
 }
 

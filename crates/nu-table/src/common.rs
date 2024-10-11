@@ -202,18 +202,14 @@ fn need_footer(config: &Config, count_records: u64) -> bool {
         FooterMode::Always => true,
         // Never show the footer
         FooterMode::Never => false,
-        // Calculate the screen height, calculate row count, if display will be bigger than screen, add the footer
+        // Calculate the screen height and row count, if screen height is larger than row count, don't show footer
         FooterMode::Auto => {
             let (_width, height) = match terminal_size() {
                 Some((w, h)) => (Width(w.0).0 as u64, Height(h.0).0 as u64),
                 None => (Width(0).0 as u64, Height(0).0 as u64),
             };
 
-            if height > count_records {
-                false
-            } else {
-                true
-            }
+            height <= count_records
         }
     }
 }
