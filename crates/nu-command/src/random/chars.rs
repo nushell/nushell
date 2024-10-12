@@ -21,7 +21,7 @@ impl Command for SubCommand {
             .allow_variants_without_examples(true)
             .named(
                 "length",
-                SyntaxShape::Int,
+                SyntaxShape::OneOf(vec![SyntaxShape::Int, SyntaxShape::Filesize]),
                 "Number of chars (default 25)",
                 Some('l'),
             )
@@ -56,6 +56,11 @@ impl Command for SubCommand {
             Example {
                 description: "Generate random chars with specified length",
                 example: "random chars --length 20",
+                result: None,
+            },
+            Example {
+                description: "Generate one kilobyte of random chars",
+                example: "random chars --length 1kb",
                 result: None,
             },
         ]
