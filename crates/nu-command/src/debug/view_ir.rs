@@ -114,7 +114,7 @@ the declaration may not be in scope.
                 val.try_into()
                     .map(BlockId::new)
                     .map_err(|_| ShellError::InvalidValue {
-                        valid: "a non-negative interger".into(),
+                        valid: "a non-negative integer".into(),
                         actual: val.to_string(),
                         span: target.span(),
                     })?
