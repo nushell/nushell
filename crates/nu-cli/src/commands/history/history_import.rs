@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 use nu_engine::command_prelude::*;
 use nu_protocol::HistoryFileFormat;
 
@@ -24,12 +26,15 @@ impl Command for HistoryImport {
         r#"Can import history from input, either successive command lines or more detailed records. If providing records, available fields are:
     command_line, id, start_timestamp, hostname, cwd, duration, exit_status.
 
-If no input is provided, will import all history items from existing history in the other format: if current history is stored in sqlite, it will store it in plain text and vice versa."#
+If no input is provided, will import all history items from existing history in the other format: if current history is stored in sqlite, it will store it in plain text and vice versa.
+
+Note that history item IDs are ignored by default. Use the --include-ids flag if you want to retain item IDs during import (possibly overwriting existing ones)."#
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("history import")
             .category(Category::History)
+            .switch("include-ids", "Include history item IDs when importing. WARNING: Setting this flag can cause existing history items to be overwritten.", None)
             .input_output_types(vec![
                 (Type::Nothing, Type::Nothing),
                 (Type::List(Box::new(Type::String)), Type::Nothing),
@@ -61,7 +66,7 @@ If no input is provided, will import all history items from existing history in 
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -75,7 +80,11 @@ If no input is provided, will import all history items from existing history in 
                 span: Some(call.head),
             });
         };
+        let include_ids = call.has_flag(engine_state, stack, "include-ids")?;
 
+        if let Some(bak_path) = backup(&current_history_path)? {
+            println!("Backed history to {}", bak_path.display());
+        }
         match input {
             PipelineData::Empty => {
                 let other_format = match history.file_format {
@@ -92,13 +101,14 @@ If no input is provided, will import all history items from existing history in 
                     .map_err(error_from_reedline)?
                     .into_iter()
                     .map(Ok);
-                import(dst.as_mut(), items)
+                import(dst.as_mut(), items, include_ids)
             }
             _ => {
                 let input = input.into_iter().map(item_from_value);
                 import(
                     new_backend(history.file_format, Some(current_history_path))?.as_mut(),
                     input,
+                    include_ids,
                 )
             }
         }?;
@@ -109,7 +119,7 @@ If no input is provided, will import all history items from existing history in 
 
 fn new_backend(
     format: HistoryFileFormat,
-    path: Option<std::path::PathBuf>,
+    path: Option<PathBuf>,
 ) -> Result<Box<dyn History>, ShellError> {
     let path = match path {
         Some(path) => path,
@@ -139,9 +149,14 @@ fn new_backend(
 fn import(
     dst: &mut dyn History,
     src: impl Iterator<Item = Result<HistoryItem, ShellError>>,
+    include_ids: bool,
 ) -> Result<(), ShellError> {
     for item in src {
-        dst.save(item?).map_err(error_from_reedline)?;
+        let mut item = item?;
+        if !include_ids {
+            item.id = None;
+        }
+        dst.save(item).map_err(error_from_reedline)?;
     }
     Ok(())
 }
@@ -232,9 +247,51 @@ fn duration_from_value(v: Value) -> Result<std::time::Duration, ShellError> {
         })
 }
 
+fn find_backup_path(path: &Path) -> Result<PathBuf, ShellError> {
+    let Ok(mut bak_path) = path.to_path_buf().into_os_string().into_string() else {
+        // This isn't fundamentally problem, but trying to work with OsString is a nightmare.
+        return Err(ShellError::IOError {
+            msg: "History path mush be representable as UTF-8".to_string(),
+        });
+    };
+    bak_path.push_str(".bak");
+    if !Path::new(&bak_path).exists() {
+        return Ok(bak_path.into());
+    }
+    let base_len = bak_path.len();
+    for i in 1..100 {
+        use std::fmt::Write;
+        bak_path.truncate(base_len);
+        write!(&mut bak_path, ".{i}").unwrap();
+        if !Path::new(&bak_path).exists() {
+            return Ok(PathBuf::from(bak_path));
+        }
+    }
+    Err(ShellError::IOError {
+        msg: "Too many existing backup files".to_string(),
+    })
+}
+
+fn backup(path: &Path) -> Result<Option<PathBuf>, ShellError> {
+    match path.metadata() {
+        Ok(md) if md.is_file() => (),
+        Ok(_) => {
+            return Err(ShellError::IOError {
+                msg: "history path exists but is not a file".to_string(),
+            })
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e.into()),
+    }
+    let bak_path = find_backup_path(path)?;
+    std::fs::copy(path, &bak_path)?;
+    Ok(Some(bak_path))
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::DateTime;
+    use test_case::case;
 
     use super::*;
 
@@ -328,5 +385,43 @@ mod tests {
         )
         .unwrap();
         Value::record(rec, span)
+    }
+
+    #[case(&["history.dat"], "history.dat.bak"; "no_backup")]
+    #[case(&["history.dat", "history.dat.bak"], "history.dat.bak.1"; "backup_exists")]
+    #[case(
+        &["history.dat", "history.dat.bak", "history.dat.bak.1"],
+        "history.dat.bak.2";
+        "multiple_backups_exists"
+    )]
+    fn test_find_backup_path(existing: &[&str], want: &str) {
+        let dir = tempfile::tempdir().unwrap();
+        for name in existing {
+            std::fs::File::create_new(dir.path().join(name)).unwrap();
+        }
+        let got = find_backup_path(&dir.path().join("history.dat")).unwrap();
+        assert_eq!(got, dir.path().join(want))
+    }
+
+    #[test]
+    fn test_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut history = std::fs::File::create_new(dir.path().join("history.dat")).unwrap();
+        use std::io::Write;
+        write!(&mut history, "123").unwrap();
+        let want_bak_path = dir.path().join("history.dat.bak");
+        assert_eq!(
+            backup(&dir.path().join("history.dat")),
+            Ok(Some(want_bak_path.clone()))
+        );
+        let got_data = String::from_utf8(std::fs::read(want_bak_path).unwrap()).unwrap();
+        assert_eq!(got_data, "123");
+    }
+
+    #[test]
+    fn test_backup_no_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let bak_path = backup(&dir.path().join("history.dat")).unwrap();
+        assert!(bak_path.is_none());
     }
 }
