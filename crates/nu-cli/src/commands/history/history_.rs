@@ -5,8 +5,6 @@ use reedline::{
     SqliteBackedHistory,
 };
 
-use super::fields;
-
 #[derive(Clone)]
 pub struct History;
 
@@ -85,8 +83,7 @@ impl Command for History {
                     entries.into_iter().enumerate().map(move |(idx, entry)| {
                         Value::record(
                             record! {
-                                fields::COMMAND_LINE => Value::string(entry.command_line, head),
-                                // TODO: This name is inconsistent with create_history_record.
+                                "command" => Value::string(entry.command_line, head),
                                 "index" => Value::int(idx as i64, head),
                             },
                             head,
@@ -178,14 +175,14 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
     if long {
         Value::record(
             record! {
-                fields::ID => item_id_value,
-                fields::START_TIMESTAMP => start_timestamp_value,
-                fields::COMMAND_LINE => command_value,
-                fields::SESSION_ID => session_id_value,
-                fields::HOSTNAME => hostname_value,
-                fields::CWD => cwd_value,
-                fields::DURATION => duration_value,
-                fields::EXIT_STATUS => exit_status_value,
+                "item_id" => item_id_value,
+                "start_timestamp" => start_timestamp_value,
+                "command" => command_value,
+                "session_id" => session_id_value,
+                "hostname" => hostname_value,
+                "cwd" => cwd_value,
+                "duration" => duration_value,
+                "exit_status" => exit_status_value,
                 "idx" => index_value,
             },
             head,
@@ -193,11 +190,11 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
     } else {
         Value::record(
             record! {
-                fields::START_TIMESTAMP => start_timestamp_value,
-                fields::COMMAND_LINE => command_value,
-                fields::CWD => cwd_value,
-                fields::DURATION => duration_value,
-                fields::EXIT_STATUS => exit_status_value,
+                "start_timestamp" => start_timestamp_value,
+                "command" => command_value,
+                "cwd" => cwd_value,
+                "duration" => duration_value,
+                "exit_status" => exit_status_value,
             },
             head,
         )
