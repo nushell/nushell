@@ -58,6 +58,7 @@ If no input is provided, will import all history items from existing history in 
         ]
     }
 
+    #[allow(unreachable_code, unused_variables)]
     fn run(
         &self,
         engine_state: &EngineState,
@@ -65,6 +66,14 @@ If no input is provided, will import all history items from existing history in 
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        return Err(ShellError::GenericError {
+            error: "Temporarily disabled".into(),
+            msg: "See https://github.com/nushell/nushell/issues/14076".into(),
+            span: Some(call.head),
+            help: None,
+            inner: Vec::new(),
+        });
+
         let ok = Ok(Value::nothing(call.head).into_pipeline_data());
 
         let Some(history) = engine_state.history_config() else {
@@ -238,6 +247,7 @@ mod tests {
 
     use super::*;
 
+    #[ignore]
     #[test]
     fn test_item_from_value_string() -> Result<(), ShellError> {
         let item = item_from_value(Value::string("foo", Span::unknown()))?;
@@ -258,6 +268,7 @@ mod tests {
         Ok(())
     }
 
+    #[ignore]
     #[test]
     fn test_item_from_value_record() {
         let span = Span::unknown();
@@ -298,6 +309,7 @@ mod tests {
         );
     }
 
+    #[ignore]
     #[test]
     fn test_item_from_value_record_extra_field() {
         let span = Span::unknown();
@@ -308,6 +320,7 @@ mod tests {
         assert!(item_from_value(rec).is_err());
     }
 
+    #[ignore]
     #[test]
     fn test_item_from_value_record_bad_type() {
         let span = Span::unknown();

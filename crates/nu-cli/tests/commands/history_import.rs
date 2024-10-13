@@ -73,6 +73,7 @@ const EMPTY_ITEM: HistoryItem = HistoryItem {
     more_info: None,
 };
 
+#[ignore]
 #[test]
 fn history_import_pipe_string() {
     let test = Test::new("plaintext");
@@ -89,6 +90,7 @@ fn history_import_pipe_string() {
     );
 }
 
+#[ignore]
 #[test]
 fn history_import_pipe_record() {
     let test = Test::new("sqlite");
@@ -105,6 +107,7 @@ fn history_import_pipe_record() {
     );
 }
 
+#[ignore]
 #[test]
 fn history_import_plain_to_sqlite() {
     let test = Test::new("sqlite");
@@ -144,6 +147,7 @@ fn history_import_plain_to_sqlite() {
     );
 }
 
+#[ignore]
 #[test]
 fn history_import_sqlite_to_plain() {
     let test = Test::new("plaintext");
