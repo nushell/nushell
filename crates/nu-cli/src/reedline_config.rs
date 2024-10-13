@@ -806,7 +806,7 @@ fn add_parsed_keybinding(
         }
     }
 
-    let Ok(keycode) = keybinding.keycode.as_str() else {
+    let Ok(keycode) = keybinding.keycode.as_str().map(str::to_ascii_lowercase) else {
         return Err(ShellError::RuntimeTypeMismatch {
             expected: Type::String,
             actual: keybinding.keycode.get_type(),
@@ -827,17 +827,17 @@ fn add_parsed_keybinding(
             (Some('u'), Some(_)) => {
                 // This will never panic as we know there are at least two symbols
                 let Ok(code_point) = u32::from_str_radix(&rest[1..], 16) else {
-                    return Err(error("a valid hex code", keycode));
+                    return Err(error("a valid hex code", &keycode));
                 };
 
-                char::from_u32(code_point).ok_or(error("a valid Unicode code point", keycode))?
+                char::from_u32(code_point).ok_or(error("a valid Unicode code point", &keycode))?
             }
-            _ => return Err(error("'char_<char>' or 'char_u<hex code>'", keycode)),
+            _ => return Err(error("'char_<char>' or 'char_u<hex code>'", &keycode)),
         };
 
         KeyCode::Char(char)
     } else {
-        match keycode {
+        match keycode.as_str() {
             "backspace" => KeyCode::Backspace,
             "enter" => KeyCode::Enter,
             "space" => KeyCode::Char(' '),
