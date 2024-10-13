@@ -776,7 +776,7 @@ fn add_parsed_keybinding(
     keybinding: &ParsedKeybinding,
     config: &Config,
 ) -> Result<(), ShellError> {
-    let Ok(modifier_str) = keybinding.modifier.as_str().map(str::to_ascii_lowercase) else {
+    let Ok(modifier_str) = keybinding.modifier.as_str() else {
         return Err(ShellError::RuntimeTypeMismatch {
             expected: Type::String,
             actual: keybinding.modifier.get_type(),
@@ -785,20 +785,20 @@ fn add_parsed_keybinding(
     };
 
     let mut modifier = KeyModifiers::NONE;
-    if modifier_str != "none" {
+    if !str::eq_ignore_ascii_case(modifier_str, "none") {
         for part in modifier_str.split('_') {
-            match part {
+            match part.to_ascii_lowercase().as_str() {
                 "control" => modifier |= KeyModifiers::CONTROL,
                 "shift" => modifier |= KeyModifiers::SHIFT,
                 "alt" => modifier |= KeyModifiers::ALT,
                 "super" => modifier |= KeyModifiers::SUPER,
                 "hyper" => modifier |= KeyModifiers::HYPER,
                 "meta" => modifier |= KeyModifiers::META,
-                str => {
+                _ => {
                     return Err(ShellError::InvalidValue {
                         valid: "'control', 'shift', 'alt', 'super', 'hyper', 'meta', or 'none'"
                             .into(),
-                        actual: format!("'{str}'"),
+                        actual: format!("'{part}'"),
                         span: keybinding.modifier.span(),
                     });
                 }
@@ -806,7 +806,7 @@ fn add_parsed_keybinding(
         }
     }
 
-    let Ok(keycode) = keybinding.keycode.as_str().map(str::to_ascii_lowercase) else {
+    let Ok(keycode) = keybinding.keycode.as_str() else {
         return Err(ShellError::RuntimeTypeMismatch {
             expected: Type::String,
             actual: keybinding.keycode.get_type(),
@@ -814,7 +814,9 @@ fn add_parsed_keybinding(
         });
     };
 
-    let keycode = if let Some(rest) = keycode.strip_prefix("char_") {
+    let keycode_lower = keycode.to_ascii_lowercase();
+
+    let keycode = if let Some(rest) = keycode_lower.strip_prefix("char_") {
         let error = |valid: &str, actual: &str| ShellError::InvalidValue {
             valid: valid.into(),
             actual: actual.into(),
@@ -827,17 +829,17 @@ fn add_parsed_keybinding(
             (Some('u'), Some(_)) => {
                 // This will never panic as we know there are at least two symbols
                 let Ok(code_point) = u32::from_str_radix(&rest[1..], 16) else {
-                    return Err(error("a valid hex code", &keycode));
+                    return Err(error("a valid hex code", keycode));
                 };
 
-                char::from_u32(code_point).ok_or(error("a valid Unicode code point", &keycode))?
+                char::from_u32(code_point).ok_or(error("a valid Unicode code point", keycode))?
             }
-            _ => return Err(error("'char_<char>' or 'char_u<hex code>'", &keycode)),
+            _ => return Err(error("'char_<char>' or 'char_u<hex code>'", keycode)),
         };
 
         KeyCode::Char(char)
     } else {
-        match keycode.as_str() {
+        match keycode_lower.as_str() {
             "backspace" => KeyCode::Backspace,
             "enter" => KeyCode::Enter,
             "space" => KeyCode::Char(' '),
@@ -860,15 +862,15 @@ fn add_parsed_keybinding(
                 .map(KeyCode::F)
                 .ok_or(ShellError::InvalidValue {
                     valid: "'f1', 'f2', ..., or 'f20'".into(),
-                    actual: format!("'{c}'"),
+                    actual: format!("'{keycode}'"),
                     span: keybinding.keycode.span(),
                 })?,
             "null" => KeyCode::Null,
             "esc" | "escape" => KeyCode::Esc,
-            str => {
+            _ => {
                 return Err(ShellError::InvalidValue {
                     valid: "a crossterm KeyCode".into(),
-                    actual: format!("'{str}'"),
+                    actual: format!("'{keycode}'"),
                     span: keybinding.keycode.span(),
                 });
             }
