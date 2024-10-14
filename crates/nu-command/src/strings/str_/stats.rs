@@ -64,17 +64,19 @@ impl Command for SubCommand {
                         "bytes" =>     Value::test_int(38),
                         "chars" =>     Value::test_int(38),
                         "graphemes" => Value::test_int(38),
+                        "unicode-width" => Value::test_int(38),
                 })),
             },
             Example {
                 description: "Counts unicode characters",
-                example: r#"'今天天气真好' | str stats "#,
+                example: r#"'今天天气真好' | str stats"#,
                 result: Some(Value::test_record(record! {
                         "lines" =>     Value::test_int(1),
                         "words" =>     Value::test_int(6),
                         "bytes" =>     Value::test_int(18),
                         "chars" =>     Value::test_int(6),
                         "graphemes" => Value::test_int(6),
+                        "unicode-width" => Value::test_int(12),
                 })),
             },
             Example {
@@ -86,6 +88,7 @@ impl Command for SubCommand {
                         "bytes" =>     Value::test_int(15),
                         "chars" =>     Value::test_int(14),
                         "graphemes" => Value::test_int(13),
+                        "unicode-width" => Value::test_int(13),
                 })),
             },
         ]
@@ -139,6 +142,7 @@ fn counter(contents: &str, span: Span) -> Value {
         "bytes" => get_count(&counts, Counter::Bytes, span),
         "chars" => get_count(&counts, Counter::CodePoints, span),
         "graphemes" => get_count(&counts, Counter::GraphemeClusters, span),
+        "unicode-width" => get_count(&counts, Counter::UnicodeWidth, span),
     };
 
     Value::record(record, span)
@@ -208,6 +212,7 @@ impl Count for Counter {
             }
             Counter::Words => s.unicode_words().count(),
             Counter::CodePoints => s.chars().count(),
+            Counter::UnicodeWidth => unicode_width::UnicodeWidthStr::width(s),
         }
     }
 }
@@ -229,15 +234,19 @@ pub enum Counter {
 
     /// Counts unicode code points
     CodePoints,
+
+    /// Counts the width of the string
+    UnicodeWidth,
 }
 
 /// A convenience array of all counter types.
-pub const ALL_COUNTERS: [Counter; 5] = [
+pub const ALL_COUNTERS: [Counter; 6] = [
     Counter::GraphemeClusters,
     Counter::Bytes,
     Counter::Lines,
     Counter::Words,
     Counter::CodePoints,
+    Counter::UnicodeWidth,
 ];
 
 impl fmt::Display for Counter {
@@ -248,6 +257,7 @@ impl fmt::Display for Counter {
             Counter::Lines => "lines",
             Counter::Words => "words",
             Counter::CodePoints => "codepoints",
+            Counter::UnicodeWidth => "unicode-width",
         };
 
         write!(f, "{s}")
@@ -297,6 +307,7 @@ fn test_one_newline() {
     correct_counts.insert(Counter::GraphemeClusters, 1);
     correct_counts.insert(Counter::Bytes, 1);
     correct_counts.insert(Counter::CodePoints, 1);
+    correct_counts.insert(Counter::UnicodeWidth, 0);
 
     assert_eq!(correct_counts, counts);
 }
@@ -336,6 +347,7 @@ fn test_count_counts_lines() {
 
     // one more than grapheme clusters because of \r\n
     correct_counts.insert(Counter::CodePoints, 24);
+    correct_counts.insert(Counter::UnicodeWidth, 17);
 
     assert_eq!(correct_counts, counts);
 }
@@ -353,6 +365,7 @@ fn test_count_counts_words() {
     correct_counts.insert(Counter::Bytes, i_can_eat_glass.len());
     correct_counts.insert(Counter::Words, 9);
     correct_counts.insert(Counter::CodePoints, 50);
+    correct_counts.insert(Counter::UnicodeWidth, 50);
 
     assert_eq!(correct_counts, counts);
 }

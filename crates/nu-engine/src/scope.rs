@@ -1,16 +1,16 @@
 use nu_protocol::{
     ast::Expr,
     engine::{Command, EngineState, Stack, Visibility},
-    record, ModuleId, Signature, Span, SyntaxShape, Type, Value,
+    record, DeclId, ModuleId, Signature, Span, SyntaxShape, Type, Value, VarId,
 };
 use std::{cmp::Ordering, collections::HashMap};
 
 pub struct ScopeData<'e, 's> {
     engine_state: &'e EngineState,
     stack: &'s Stack,
-    vars_map: HashMap<&'e Vec<u8>, &'e usize>,
-    decls_map: HashMap<&'e Vec<u8>, &'e usize>,
-    modules_map: HashMap<&'e Vec<u8>, &'e usize>,
+    vars_map: HashMap<&'e Vec<u8>, &'e VarId>,
+    decls_map: HashMap<&'e Vec<u8>, &'e DeclId>,
+    modules_map: HashMap<&'e Vec<u8>, &'e ModuleId>,
     visibility: Visibility,
 }
 
@@ -62,7 +62,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::nothing(span)
             };
 
-            let var_id_val = Value::int(**var_id as i64, span);
+            let var_id_val = Value::int(var_id.get() as i64, span);
 
             vars.push(Value::record(
                 record! {
@@ -116,7 +116,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "creates_scope" => Value::bool(signature.creates_scope, span),
                     "extra_description" => Value::string(decl.extra_description(), span),
                     "search_terms" => Value::string(decl.search_terms().join(", "), span),
-                    "decl_id" => Value::int(**decl_id as i64, span),
+                    "decl_id" => Value::int(decl_id.get() as i64, span),
                 };
 
                 commands.push(Value::record(record, span))
@@ -333,7 +333,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 let record = record! {
                     "name" => Value::string(String::from_utf8_lossy(command_name), span),
                     "description" => Value::string(decl.description(), span),
-                    "decl_id" => Value::int(**decl_id as i64, span),
+                    "decl_id" => Value::int(decl_id.get() as i64, span),
                 };
 
                 externals.push(Value::record(record, span))
@@ -353,7 +353,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 if let Some(alias) = decl.as_alias() {
                     let aliased_decl_id = if let Expr::Call(wrapped_call) = &alias.wrapped_call.expr
                     {
-                        Value::int(wrapped_call.decl_id as i64, span)
+                        Value::int(wrapped_call.decl_id.get() as i64, span)
                     } else {
                         Value::nothing(span)
                     };
@@ -367,7 +367,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                             "name" => Value::string(String::from_utf8_lossy(&decl_name), span),
                             "expansion" => Value::string(expansion, span),
                             "description" => Value::string(alias.description(), span),
-                            "decl_id" => Value::int(decl_id as i64, span),
+                            "decl_id" => Value::int(decl_id.get() as i64, span),
                             "aliased_decl_id" => aliased_decl_id,
                         },
                         span,
@@ -395,7 +395,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     Some(Value::record(
                         record! {
                             "name" => Value::string(String::from_utf8_lossy(name_bytes), span),
-                            "decl_id" => Value::int(*decl_id as i64, span),
+                            "decl_id" => Value::int(decl_id.get() as i64, span),
                         },
                         span,
                     ))
@@ -414,7 +414,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     Some(Value::record(
                         record! {
                             "name" => Value::string(String::from_utf8_lossy(name_bytes), span),
-                            "decl_id" => Value::int(*decl_id as i64, span),
+                            "decl_id" => Value::int(decl_id.get() as i64, span),
                         },
                         span,
                     ))
@@ -433,7 +433,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     Some(Value::record(
                         record! {
                             "name" => Value::string(String::from_utf8_lossy(name_bytes), span),
-                            "decl_id" => Value::int(*decl_id as i64, span),
+                            "decl_id" => Value::int(decl_id.get() as i64, span),
                         },
                         span,
                     ))
@@ -457,7 +457,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     record! {
                         "name" => Value::string(String::from_utf8_lossy(name_bytes), span),
                         "type" => Value::string(self.engine_state.get_var(*var_id).ty.to_string(), span),
-                        "var_id" => Value::int(*var_id as i64, span),
+                        "var_id" => Value::int(var_id.get() as i64, span),
                     },
                     span,
                 )
@@ -486,7 +486,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "has_env_block" => Value::bool(module.env_block.is_some(), span),
                 "description" => Value::string(module_desc, span),
                 "extra_description" => Value::string(module_extra_desc, span),
-                "module_id" => Value::int(*module_id as i64, span),
+                "module_id" => Value::int(module_id.get() as i64, span),
             },
             span,
         )

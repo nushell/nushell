@@ -21,7 +21,6 @@ use command::gather_commandline_args;
 use log::{trace, Level};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
-use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
@@ -44,6 +43,27 @@ fn get_engine_state() -> EngineState {
     nu_explore::add_explore_context(engine_state)
 }
 
+/// Get the directory where the Nushell executable is located.
+fn current_exe_directory() -> PathBuf {
+    let mut path = std::env::current_exe().expect("current_exe() should succeed");
+    path.pop();
+    path
+}
+
+/// Get the current working directory from the environment.
+fn current_dir_from_environment() -> PathBuf {
+    if let Ok(cwd) = std::env::current_dir() {
+        return cwd;
+    }
+    if let Ok(cwd) = std::env::var("PWD") {
+        return cwd.into();
+    }
+    if let Some(home) = nu_path::home_dir() {
+        return home.into_std_path_buf();
+    }
+    current_exe_directory()
+}
+
 fn main() -> Result<()> {
     let entire_start_time = std::time::Instant::now();
     let mut start_time = std::time::Instant::now();
@@ -54,9 +74,10 @@ fn main() -> Result<()> {
         miette_hook(x);
     }));
 
-    // Get initial current working directory.
-    let init_cwd = get_init_cwd();
     let mut engine_state = get_engine_state();
+
+    // Get the current working directory from the environment.
+    let init_cwd = current_dir_from_environment();
 
     // Custom additions
     let delta = {
@@ -77,14 +98,7 @@ fn main() -> Result<()> {
     // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If
     // the env.nu file exists, these values will be overwritten, if it does not exist, or
     // there is an error reading it, these values will be used.
-    let nushell_config_path = if let Some(mut path) = nu_path::config_dir() {
-        path.push("nushell");
-        path.into()
-    } else {
-        // Not really sure what to default this to if nu_path::config_dir() returns None
-        std::path::PathBuf::new()
-    };
-
+    let nushell_config_path: PathBuf = nu_path::nu_config_dir().map(Into::into).unwrap_or_default();
     if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
         if !xdg_config_home.is_empty() {
             if nushell_config_path
@@ -319,6 +333,12 @@ fn main() -> Result<()> {
             _ => std::process::exit(1),
         }
         std::process::exit(0)
+    } else {
+        // If we're not running a testbin, set the current working directory to
+        // the location of the Nushell executable. This prevents the OS from
+        // locking the directory where the user launched Nushell.
+        std::env::set_current_dir(current_exe_directory())
+            .expect("set_current_dir() should succeed");
     }
     perf!("run test_bins", start_time, use_color);
 

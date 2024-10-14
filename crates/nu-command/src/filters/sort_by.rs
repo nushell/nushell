@@ -1,4 +1,6 @@
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, ClosureEval};
+
+use crate::Comparator;
 
 #[derive(Clone)]
 pub struct SortBy;
@@ -18,24 +20,37 @@ impl Command for SortBy {
                 (Type::record(), Type::table()),
                 (Type::table(), Type::table()),
             ])
-            .rest("columns", SyntaxShape::Any, "The column(s) to sort by.")
+            .rest(
+                "comparator",
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::CellPath,
+                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any])), // key closure
+                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])), // custom closure
+                ]),
+                "The cell path(s) or closure(s) to compare elements by.",
+            )
             .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
                 "ignore-case",
-                "Sort string-based columns case-insensitively",
+                "Sort string-based data case-insensitively",
                 Some('i'),
             )
             .switch(
                 "natural",
-                "Sort alphanumeric string-based columns naturally (1, 9, 10, 99, 100, ...)",
+                "Sort alphanumeric string-based data naturally (1, 9, 10, 99, 100, ...)",
                 Some('n'),
+            )
+            .switch(
+                "custom",
+                "Use closures to specify a custom sort order, rather than to compute a comparison key",
+                Some('c'),
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 
     fn description(&self) -> &str {
-        "Sort by the given columns, in increasing order."
+        "Sort by the given cell path or closure."
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -68,6 +83,41 @@ impl Command for SortBy {
                     }),
                 ])),
             },
+            Example {
+                description: "Sort by a nested value",
+                example: "[[name info]; [Cairo {founded: 969}] [Kyoto {founded: 794}]] | sort-by info.founded",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "name" => Value::test_string("Kyoto"),
+                        "info" => Value::test_record(
+                            record! { "founded" => Value::test_int(794) },
+                        )}),
+                    Value::test_record(record! {
+                        "name" => Value::test_string("Cairo"),
+                        "info" => Value::test_record(
+                            record! { "founded" => Value::test_int(969) },
+                        )})
+                ])),
+            },
+            Example {
+                description: "Sort by the last value in a list",
+                example: "[[2 50] [10 1]] | sort-by { last }",
+                result: Some(Value::test_list(vec![
+                    Value::test_list(vec![Value::test_int(10), Value::test_int(1)]),
+                    Value::test_list(vec![Value::test_int(2), Value::test_int(50)])
+                ]))
+            },
+            Example {
+                description: "Sort in a custom order",
+                example: "[7 3 2 8 4] | sort-by -c {|a, b| $a < $b}",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                    Value::test_int(7),
+                    Value::test_int(8),
+                ]))
+            }
         ]
     }
 
@@ -79,39 +129,60 @@ impl Command for SortBy {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
+        let comparator_vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let reverse = call.has_flag(engine_state, stack, "reverse")?;
         let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
         let natural = call.has_flag(engine_state, stack, "natural")?;
+        let custom = call.has_flag(engine_state, stack, "custom")?;
         let metadata = input.metadata();
         let mut vec: Vec<_> = input.into_iter_strict(head)?.collect();
 
-        if columns.is_empty() {
+        if comparator_vals.is_empty() {
             return Err(ShellError::MissingParameter {
-                param_name: "columns".into(),
+                param_name: "comparator".into(),
                 span: head,
             });
         }
 
-        crate::sort(&mut vec, columns, head, insensitive, natural)?;
+        let comparators = comparator_vals
+            .into_iter()
+            .map(|val| match val {
+                Value::CellPath { val, .. } => Ok(Comparator::CellPath(val)),
+                Value::Closure { val, .. } => {
+                    let closure_eval = ClosureEval::new(engine_state, stack, *val);
+                    if custom {
+                        Ok(Comparator::CustomClosure(closure_eval))
+                    } else {
+                        Ok(Comparator::KeyClosure(closure_eval))
+                    }
+                }
+                _ => Err(ShellError::TypeMismatch {
+                    err_message: "Cannot sort using a value which is not a cell path or closure"
+                        .into(),
+                    span: val.span(),
+                }),
+            })
+            .collect::<Result<_, _>>()?;
+
+        crate::sort_by(&mut vec, comparators, head, insensitive, natural)?;
 
         if reverse {
             vec.reverse()
         }
 
-        let iter = vec.into_iter();
-        Ok(iter.into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
+        let val = Value::list(vec, head);
+        Ok(val.into_pipeline_data_with_metadata(metadata))
     }
 }
 
 #[cfg(test)]
 mod test {
+    use crate::{test_examples_with_commands, Last};
+
     use super::*;
 
     #[test]
     fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(SortBy {})
+        test_examples_with_commands(SortBy {}, &[&Last]);
     }
 }

@@ -259,7 +259,7 @@ impl Debugger for Profiler {
                     .or_else(|| {
                         instruction
                             .output_register()
-                            .map(|register| Ok(&registers[register.0 as usize]))
+                            .map(|register| Ok(&registers[register.get() as usize]))
                     })
                     .map(|result| format_result(&result, span))
             })

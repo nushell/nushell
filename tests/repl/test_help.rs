@@ -6,11 +6,11 @@ use rstest::rstest;
 #[case(": arga help")]
 #[case("argb help")]
 #[case("optional, default: 20")]
-#[case("- f1 switch")]
-#[case("- f2 named no default")]
-#[case("- f3 named default 3")]
+#[case(": f1 switch")]
+#[case(": f2 named no default")]
+#[case(": f3 named default 3")]
 #[case("default: 33")]
-#[case("--help - Display the help message")]
+#[case("--help: Display the help message")]
 fn can_get_help(#[case] exp_result: &str) -> TestResult {
     run_test(
         &format!(

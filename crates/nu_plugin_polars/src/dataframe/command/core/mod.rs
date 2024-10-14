@@ -2,6 +2,7 @@ mod cache;
 mod columns;
 mod fetch;
 mod open;
+mod profile;
 mod save;
 mod schema;
 mod shape;
@@ -28,6 +29,7 @@ pub(crate) fn core_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(cache::LazyCache),
         Box::new(LazyFetch),
         Box::new(OpenDataFrame),
+        Box::new(profile::ProfileDF),
         Box::new(Summary),
         Box::new(ShapeDF),
         Box::new(SchemaCmd),

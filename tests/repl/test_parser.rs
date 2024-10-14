@@ -176,7 +176,14 @@ fn bad_var_name() -> TestResult {
 
 #[test]
 fn bad_var_name2() -> TestResult {
-    fail_test(r#"let $foo-bar = 4"#, "valid variable")
+    fail_test(r#"let $foo-bar = 4"#, "valid variable")?;
+    fail_test(r#"foo-bar=4 true"#, "Command `foo-bar=4` not found")
+}
+
+#[test]
+fn bad_var_name3() -> TestResult {
+    fail_test(r#"let $=foo = 4"#, "valid variable")?;
+    fail_test(r#"=foo=4 true"#, "Command `=foo=4` not found")
 }
 
 #[test]
@@ -189,7 +196,31 @@ fn assignment_with_no_var() -> TestResult {
         "mut = 'foo' | $in; $x | describe",
     ];
 
-    let expected = "valid variable";
+    let expecteds = [
+        "missing var_name",
+        "missing var_name",
+        "missing const_name",
+        "missing var_name",
+        "missing var_name",
+    ];
+
+    for (case, expected) in std::iter::zip(cases, expecteds) {
+        fail_test(case, expected)?;
+    }
+
+    Ok(())
+}
+
+#[test]
+fn too_few_arguments() -> TestResult {
+    // Test for https://github.com/nushell/nushell/issues/9072
+    let cases = [
+        "def a [b: bool, c: bool, d: float, e: float, f: float] {}; a true true 1 1",
+        "def a [b: bool, c: bool, d: float, e: float, f: float, g: float] {}; a true true 1 1",
+        "def a [b: bool, c: bool, d: float, e: float, f: float, g: float, h: float] {}; a true true 1 1",
+    ];
+
+    let expected = "missing f";
 
     for case in cases {
         fail_test(case, expected)?;
@@ -241,6 +272,34 @@ fn string_interp_with_equals() -> TestResult {
         r#"let query_prefix = $"https://api.github.com/search/issues?q=repo:nushell/"; $query_prefix"#,
         "https://api.github.com/search/issues?q=repo:nushell/",
     )
+}
+
+#[test]
+fn raw_string_with_equals() -> TestResult {
+    run_test(
+        r#"let query_prefix = r#'https://api.github.com/search/issues?q=repo:nushell/'#; $query_prefix"#,
+        "https://api.github.com/search/issues?q=repo:nushell/",
+    )
+}
+
+#[test]
+fn list_quotes_with_equals() -> TestResult {
+    run_test(
+        r#"["https://api.github.com/search/issues?q=repo:nushell/"] | get 0"#,
+        "https://api.github.com/search/issues?q=repo:nushell/",
+    )
+}
+
+#[test]
+fn record_quotes_with_equals() -> TestResult {
+    run_test(r#"{"a=":b} | get a="#, "b")?;
+    run_test(r#"{"=a":b} | get =a"#, "b")?;
+
+    run_test(r#"{a:"=b"} | get a"#, "=b")?;
+    run_test(r#"{a:"b="} | get a"#, "b=")?;
+
+    run_test(r#"{a:b,"=c":d} | get =c"#, "d")?;
+    run_test(r#"{a:b,"c=":d} | get c="#, "d")
 }
 
 #[test]

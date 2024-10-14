@@ -1,14 +1,21 @@
+#[cfg(unix)]
+use std::io::prelude::*;
 use std::{
     io,
-    process::{Child, Command, ExitStatus},
+    process::{Child, Command},
     sync::{atomic::AtomicU32, Arc},
 };
+
+use crate::ExitStatus;
 
 #[cfg(unix)]
 use std::{io::IsTerminal, sync::atomic::Ordering};
 
 #[cfg(unix)]
 pub use foreground_pgroup::stdin_fd;
+
+#[cfg(unix)]
+use nix::{sys::signal, sys::wait, unistd::Pid};
 
 /// A simple wrapper for [`std::process::Child`]
 ///
@@ -73,7 +80,52 @@ impl ForegroundChild {
     }
 
     pub fn wait(&mut self) -> io::Result<ExitStatus> {
-        self.as_mut().wait()
+        #[cfg(unix)]
+        {
+            // the child may be stopped multiple times, we loop until it exits
+            loop {
+                let child_pid = Pid::from_raw(self.inner.id() as i32);
+                let status = wait::waitpid(child_pid, Some(wait::WaitPidFlag::WUNTRACED));
+                match status {
+                    Err(e) => {
+                        drop(self.inner.stdin.take());
+                        return Err(e.into());
+                    }
+                    Ok(wait::WaitStatus::Exited(_, status)) => {
+                        drop(self.inner.stdin.take());
+                        return Ok(ExitStatus::Exited(status));
+                    }
+                    Ok(wait::WaitStatus::Signaled(_, signal, core_dumped)) => {
+                        drop(self.inner.stdin.take());
+                        return Ok(ExitStatus::Signaled {
+                            signal: signal as i32,
+                            core_dumped,
+                        });
+                    }
+                    Ok(wait::WaitStatus::Stopped(_, _)) => {
+                        println!("nushell currently does not support background jobs");
+                        // acquire terminal in order to be able to read from stdin
+                        foreground_pgroup::reset();
+                        let mut stdin = io::stdin();
+                        let mut stdout = io::stdout();
+                        write!(stdout, "press any key to continue")?;
+                        stdout.flush()?;
+                        stdin.read_exact(&mut [0u8])?;
+                        // bring child's pg back into foreground and continue it
+                        if let Some(state) = self.pipeline_state.as_ref() {
+                            let existing_pgrp = state.0.load(Ordering::SeqCst);
+                            foreground_pgroup::set(&self.inner, existing_pgrp);
+                        }
+                        signal::killpg(child_pid, signal::SIGCONT)?;
+                    }
+                    Ok(_) => {
+                        // keep waiting
+                    }
+                };
+            }
+        }
+        #[cfg(not(unix))]
+        self.as_mut().wait().map(Into::into)
     }
 }
 
@@ -275,9 +327,13 @@ mod foreground_pgroup {
                 // SIGINT has special handling
                 let _ = sigaction(Signal::SIGQUIT, &default);
                 // We don't support background jobs, so keep some signals blocked for now
-                // let _ = sigaction(Signal::SIGTSTP, &default);
                 // let _ = sigaction(Signal::SIGTTIN, &default);
                 // let _ = sigaction(Signal::SIGTTOU, &default);
+                // We do need to reset SIGTSTP though, since some TUI
+                // applications implement their own Ctrl-Z handling, and
+                // ForegroundChild::wait() needs to be able to react to the
+                // child being stopped.
+                let _ = sigaction(Signal::SIGTSTP, &default);
                 let _ = sigaction(Signal::SIGTERM, &default);
 
                 Ok(())

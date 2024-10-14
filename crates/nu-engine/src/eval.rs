@@ -10,8 +10,8 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Closure, EngineState, Redirection, Stack, StateWorkingSet},
     eval_base::Eval,
-    ByteStreamSource, Config, DataSource, FromValue, IntoPipelineData, OutDest, PipelineData,
-    PipelineMetadata, ShellError, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    BlockId, ByteStreamSource, Config, DataSource, FromValue, IntoPipelineData, OutDest,
+    PipelineData, PipelineMetadata, ShellError, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 use std::{fs::OpenOptions, path::PathBuf, sync::Arc};
@@ -235,7 +235,7 @@ pub fn eval_expression<D: DebugContext>(
     stack: &mut Stack,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    let stack = &mut stack.start_capture();
+    let stack = &mut stack.start_collect_value();
     <EvalRuntime as Eval>::eval::<D>(engine_state, stack, expr)
 }
 
@@ -278,7 +278,7 @@ pub fn eval_expression_with_input<D: DebugContext>(
                 let block = engine_state.get_block(*block_id);
 
                 if !full_cell_path.tail.is_empty() {
-                    let stack = &mut stack.start_capture();
+                    let stack = &mut stack.start_collect_value();
                     // FIXME: protect this collect with ctrl-c
                     input = eval_subexpression::<D>(engine_state, stack, block, input)?
                         .into_value(*span)?
@@ -325,7 +325,7 @@ fn eval_redirection<D: DebugContext>(
         }
         RedirectionTarget::Pipe { .. } => {
             let dest = match next_out {
-                None | Some(OutDest::Capture) => OutDest::Pipe,
+                None | Some(OutDest::PipeSeparate) => OutDest::Pipe,
                 Some(next) => next,
             };
             Ok(Redirection::Pipe(dest))
@@ -357,7 +357,7 @@ fn eval_element_redirection<D: DebugContext>(
                 let stderr = eval_redirection::<D>(engine_state, stack, target, None)?;
                 if matches!(stderr, Redirection::Pipe(OutDest::Pipe)) {
                     let dest = match next_out {
-                        None | Some(OutDest::Capture) => OutDest::Pipe,
+                        None | Some(OutDest::PipeSeparate) => OutDest::Pipe,
                         Some(next) => next,
                     };
                     // e>| redirection, don't override current stack `stdout`
@@ -395,13 +395,13 @@ fn eval_element_with_input_inner<D: DebugContext>(
 ) -> Result<PipelineData, ShellError> {
     let data = eval_expression_with_input::<D>(engine_state, stack, &element.expr, input)?;
 
-    if let Some(redirection) = element.redirection.as_ref() {
-        let is_external = if let PipelineData::ByteStream(stream, ..) = &data {
-            matches!(stream.source(), ByteStreamSource::Child(..))
-        } else {
-            false
-        };
+    let is_external = if let PipelineData::ByteStream(stream, ..) = &data {
+        matches!(stream.source(), ByteStreamSource::Child(..))
+    } else {
+        false
+    };
 
+    if let Some(redirection) = element.redirection.as_ref() {
         if !is_external {
             match redirection {
                 &PipelineRedirection::Single {
@@ -437,30 +437,24 @@ fn eval_element_with_input_inner<D: DebugContext>(
         }
     }
 
-    let has_stdout_file = matches!(stack.pipe_stdout(), Some(OutDest::File(_)));
-
-    let data = match &data {
-        PipelineData::Value(..) | PipelineData::ListStream(..) => {
-            if has_stdout_file {
-                data.write_to_out_dests(engine_state, stack)?;
+    let data = if let Some(OutDest::File(file)) = stack.pipe_stdout() {
+        match &data {
+            PipelineData::Value(..) | PipelineData::ListStream(..) => {
+                data.write_to(file.as_ref())?;
                 PipelineData::Empty
-            } else {
-                data
             }
-        }
-        PipelineData::ByteStream(stream, ..) => {
-            let write = match stream.source() {
-                ByteStreamSource::Read(_) | ByteStreamSource::File(_) => has_stdout_file,
-                ByteStreamSource::Child(_) => false,
-            };
-            if write {
-                data.write_to_out_dests(engine_state, stack)?;
-                PipelineData::Empty
-            } else {
-                data
+            PipelineData::ByteStream(..) => {
+                if !is_external {
+                    data.write_to(file.as_ref())?;
+                    PipelineData::Empty
+                } else {
+                    data
+                }
             }
+            PipelineData::Empty => PipelineData::Empty,
         }
-        PipelineData::Empty => PipelineData::Empty,
+    } else {
+        data
     };
 
     Ok(data)
@@ -752,7 +746,7 @@ impl Eval for EvalRuntime {
     fn eval_subexpression<D: DebugContext>(
         engine_state: &EngineState,
         stack: &mut Stack,
-        block_id: usize,
+        block_id: BlockId,
         span: Span,
     ) -> Result<Value, ShellError> {
         let block = engine_state.get_block(block_id);
@@ -899,7 +893,7 @@ impl Eval for EvalRuntime {
     fn eval_row_condition_or_closure(
         engine_state: &EngineState,
         stack: &mut Stack,
-        block_id: usize,
+        block_id: BlockId,
         span: Span,
     ) -> Result<Value, ShellError> {
         let captures = engine_state

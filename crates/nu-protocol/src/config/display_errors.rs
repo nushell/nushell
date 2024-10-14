@@ -27,3 +27,26 @@ impl Default for DisplayErrors {
         }
     }
 }
+
+impl UpdateFromValue for DisplayErrors {
+    fn update<'a>(
+        &mut self,
+        value: &'a Value,
+        path: &mut ConfigPath<'a>,
+        errors: &mut ConfigErrors,
+    ) {
+        let Value::Record { val: record, .. } = value else {
+            errors.type_mismatch(path, Type::record(), value);
+            return;
+        };
+
+        for (col, val) in record.iter() {
+            let path = &mut path.push(col);
+            match col.as_str() {
+                "exit_code" => self.exit_code.update(val, path, errors),
+                "termination_signal" => self.termination_signal.update(val, path, errors),
+                _ => errors.unknown_option(path, val),
+            }
+        }
+    }
+}

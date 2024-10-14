@@ -22,13 +22,13 @@ impl Completer for DotNuCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: Vec<u8>,
+        prefix: &[u8],
         span: Span,
         offset: usize,
         _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let prefix_str = String::from_utf8_lossy(&prefix).replace('`', "");
+        let prefix_str = String::from_utf8_lossy(prefix).replace('`', "");
         let mut search_dirs: Vec<String> = vec![];
 
         // If prefix_str is only a word we want to search in the current dir

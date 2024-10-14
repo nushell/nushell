@@ -21,23 +21,37 @@ export-env {
     $env.DIRS_LIST = [($env.PWD | path expand)]
 }
 
+def deprecation_warning [ ] {
+print -e $"
+(ansi red)Warning:(ansi reset) The 'std dirs' module will no longer automatically
+be loaded in the next release. To continue using the Shells
+feature, and to remove this warning, please add the following
+to your startup configuration \(typically env.nu or config.nu\):
+
+use std/dirs shells-aliases *
+
+Or see the documentation for more options.
+"
+}
+
 # Add one or more directories to the list.
 # PWD becomes first of the newly added directories.
 export def --env add [
     ...paths: string    # directory or directories to add to working list
-    ] {
-        mut abspaths = []
-        for p in $paths {
-            let exp = ($p | path expand)
-            if ($exp | path type) != 'dir' {
-                let span = (metadata $p).span
-                error make {msg: "not a directory", label: {text: "not a directory", span: $span } }
-            }
-            $abspaths = ($abspaths | append $exp)
+] {
+    deprecation_warning
+
+    mut abspaths = []
+    for p in $paths {
+        let exp = ($p | path expand)
+        if ($exp | path type) != 'dir' {
+            let span = (metadata $p).span
+            error make {msg: "not a directory", label: {text: "not a directory", span: $span } }
         }
+        $abspaths = ($abspaths | append $exp)
+    }
 
-        $env.DIRS_LIST = ($env.DIRS_LIST | insert ($env.DIRS_POSITION + 1) $abspaths | flatten)
-
+    $env.DIRS_LIST = ($env.DIRS_LIST | insert ($env.DIRS_POSITION + 1) $abspaths | flatten)
 
     _fetch 1
 }
@@ -48,6 +62,7 @@ export alias enter = add
 export def --env next [
     N:int = 1   # number of positions to move.
 ] {
+    deprecation_warning
     _fetch $N
 }
 
@@ -57,6 +72,7 @@ export alias n = next
 export def --env prev [
     N:int = 1   # number of positions to move.
 ] {
+    deprecation_warning
     _fetch (-1 * $N)
 }
 
@@ -65,6 +81,7 @@ export alias p = prev
 # Drop the current directory from the list, if it's not the only one.
 # PWD becomes the next working directory
 export def --env drop [] {
+    deprecation_warning
     if ($env.DIRS_LIST | length) > 1 {
         $env.DIRS_LIST = ($env.DIRS_LIST | reject $env.DIRS_POSITION)
         if ($env.DIRS_POSITION >= ($env.DIRS_LIST | length)) {$env.DIRS_POSITION = 0}
@@ -79,6 +96,7 @@ export alias dexit = drop
 
 # Display current working directories.
 export def --env show [] {
+    deprecation_warning
     mut out = []
     for $p in ($env.DIRS_LIST | enumerate) {
         let is_act_slot = $p.index == $env.DIRS_POSITION
@@ -96,6 +114,7 @@ export def --env show [] {
 export alias shells = show
 
 export def --env goto [shell?: int] {
+    deprecation_warning
     if $shell == null {
         return (show)
     }

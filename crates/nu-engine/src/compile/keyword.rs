@@ -47,7 +47,7 @@ pub(crate) fn compile_if(
             working_set,
             builder,
             condition,
-            RedirectModes::capture_out(condition.span),
+            RedirectModes::value(condition.span),
             None,
             condition_reg,
         )?;
@@ -181,7 +181,7 @@ pub(crate) fn compile_match(
         working_set,
         builder,
         match_expr,
-        RedirectModes::capture_out(match_expr.span),
+        RedirectModes::value(match_expr.span),
         None,
         match_reg,
     )?;
@@ -233,7 +233,7 @@ pub(crate) fn compile_match(
                 working_set,
                 builder,
                 guard,
-                RedirectModes::capture_out(guard.span),
+                RedirectModes::value(guard.span),
                 None,
                 guard_reg,
             )?;
@@ -319,7 +319,7 @@ pub(crate) fn compile_let(
         working_set,
         builder,
         block,
-        RedirectModes::capture_out(call.head),
+        RedirectModes::value(call.head),
         Some(io_reg),
         io_reg,
     )?;
@@ -427,7 +427,7 @@ pub(crate) fn compile_try(
                     working_set,
                     builder,
                     catch_expr,
-                    RedirectModes::capture_out(catch_expr.span),
+                    RedirectModes::value(catch_expr.span),
                     None,
                     closure_reg,
                 )?;
@@ -473,7 +473,7 @@ pub(crate) fn compile_try(
     if let Some(mode) = redirect_modes.err {
         builder.push(mode.map(|mode| Instruction::RedirectErr { mode }))?;
     }
-    builder.push(Instruction::WriteToOutDests { src: io_reg }.into_spanned(call.head))?;
+    builder.push(Instruction::DrainIfEnd { src: io_reg }.into_spanned(call.head))?;
     builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
 
     // Jump over the failure case
@@ -655,7 +655,7 @@ pub(crate) fn compile_while(
         working_set,
         builder,
         cond_arg,
-        RedirectModes::capture_out(call.head),
+        RedirectModes::value(call.head),
         None,
         io_reg,
     )?;
@@ -739,7 +739,7 @@ pub(crate) fn compile_for(
         working_set,
         builder,
         in_expr,
-        RedirectModes::capture_out(in_expr.span),
+        RedirectModes::value(in_expr.span),
         None,
         stream_reg,
     )?;
@@ -867,7 +867,7 @@ pub(crate) fn compile_return(
             working_set,
             builder,
             arg_expr,
-            RedirectModes::capture_out(arg_expr.span),
+            RedirectModes::value(arg_expr.span),
             None,
             io_reg,
         )?;

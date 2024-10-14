@@ -1,5 +1,5 @@
-use std assert
-use std help
+use std/assert
+use std/help
 
 #[test]
 def show_help_on_commands [] {

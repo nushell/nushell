@@ -5,11 +5,10 @@ use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    create_menus,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    extract_value, Config, EditBindings, ParsedKeybinding, ParsedMenu, PipelineData, Record,
-    ShellError, Span, Value,
+    extract_value, Config, EditBindings, FromValue, ParsedKeybinding, ParsedMenu, PipelineData,
+    Record, ShellError, Span, Type, Value,
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
@@ -33,6 +32,41 @@ const DEFAULT_COMPLETION_MENU: &str = r#"
       text: green,
       selected_text: green_reverse
       description_text: yellow
+  }
+}"#;
+
+const DEFAULT_IDE_COMPLETION_MENU: &str = r#"
+{
+  name: ide_completion_menu
+  only_buffer_difference: false
+  marker: "| "
+  type: {
+    layout: ide
+    min_completion_width: 0,
+    max_completion_width: 50,
+    max_completion_height: 10, # will be limited by the available lines in the terminal
+    padding: 0,
+    border: true,
+    cursor_offset: 0,
+    description_mode: "prefer_right"
+    min_description_width: 0
+    max_description_width: 50
+    max_description_height: 10
+    description_offset: 1
+    # If true, the cursor pos will be corrected, so the suggestions match up with the typed text
+    #
+    # C:\> str
+    #      str join
+    #      str trim
+    #      str split
+    correct_cursor_pos: false
+  }
+  style: {
+    text: green
+    selected_text: { attr: r }
+    description_text: yellow
+    match_text: { attr: u }
+    selected_match_text: { attr: ur }
   }
 }"#;
 
@@ -95,6 +129,7 @@ pub(crate) fn add_menus(
     // Checking if the default menus have been added from the config file
     let default_menus = [
         ("completion_menu", DEFAULT_COMPLETION_MENU),
+        ("ide_completion_menu", DEFAULT_IDE_COMPLETION_MENU),
         ("history_menu", DEFAULT_HISTORY_MENU),
         ("help_menu", DEFAULT_HELP_MENU),
     ];
@@ -122,7 +157,7 @@ pub(crate) fn add_menus(
 
             engine_state.merge_delta(delta)?;
 
-            let mut temp_stack = Stack::new().capture();
+            let mut temp_stack = Stack::new().collect_value();
             let input = PipelineData::Empty;
             menu_eval_results.push(eval_block::<WithoutDebug>(
                 &engine_state,
@@ -137,15 +172,13 @@ pub(crate) fn add_menus(
 
     for res in menu_eval_results.into_iter() {
         if let PipelineData::Value(value, None) = res {
-            for menu in create_menus(&value)? {
-                line_editor = add_menu(
-                    line_editor,
-                    &menu,
-                    new_engine_state_ref.clone(),
-                    stack,
-                    config.clone(),
-                )?;
-            }
+            line_editor = add_menu(
+                line_editor,
+                &ParsedMenu::from_value(value)?,
+                new_engine_state_ref.clone(),
+                stack,
+                config.clone(),
+            )?;
         }
     }
 
@@ -168,22 +201,22 @@ fn add_menu(
             "list" => add_list_menu(line_editor, menu, engine_state, stack, config),
             "ide" => add_ide_menu(line_editor, menu, engine_state, stack, config),
             "description" => add_description_menu(line_editor, menu, engine_state, stack, config),
-            _ => Err(ShellError::UnsupportedConfigValue {
-                expected: "columnar, list, ide or description".to_string(),
-                value: menu.r#type.to_abbreviated_string(&config),
-                span: menu.r#type.span(),
+            str => Err(ShellError::InvalidValue {
+                valid: "'columnar', 'list', 'ide', or 'description'".into(),
+                actual: format!("'{str}'"),
+                span,
             }),
         }
     } else {
-        Err(ShellError::UnsupportedConfigValue {
-            expected: "only record type".to_string(),
-            value: menu.r#type.to_abbreviated_string(&config),
-            span: menu.r#type.span(),
+        Err(ShellError::RuntimeTypeMismatch {
+            expected: Type::record(),
+            actual: menu.r#type.get_type(),
+            span,
         })
     }
 }
 
-fn get_style(record: &Record, name: &str, span: Span) -> Option<Style> {
+fn get_style(record: &Record, name: &'static str, span: Span) -> Option<Style> {
     extract_value(name, record, span)
         .ok()
         .map(|text| match text {
@@ -262,30 +295,23 @@ pub(crate) fn add_columnar_menu(
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     columnar_menu = columnar_menu.with_only_buffer_difference(only_buffer_difference);
 
-    let span = menu.source.span();
-    match &menu.source {
-        Value::Nothing { .. } => {
-            Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(columnar_menu))))
-        }
-        Value::Closure { val, .. } => {
-            let menu_completer = NuMenuCompleter::new(
-                val.block_id,
-                span,
-                stack.captures_to_stack(val.captures.clone()),
-                engine_state,
-                only_buffer_difference,
-            );
-            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
-                menu: Box::new(columnar_menu),
-                completer: Box::new(menu_completer),
-            }))
-        }
-        _ => Err(ShellError::UnsupportedConfigValue {
-            expected: "block or omitted value".to_string(),
-            value: menu.source.to_abbreviated_string(config),
+    let completer = if let Some(closure) = &menu.source {
+        let menu_completer = NuMenuCompleter::new(
+            closure.block_id,
             span,
-        }),
-    }
+            stack.captures_to_stack(closure.captures.clone()),
+            engine_state,
+            only_buffer_difference,
+        );
+        ReedlineMenu::WithCompleter {
+            menu: Box::new(columnar_menu),
+            completer: Box::new(menu_completer),
+        }
+    } else {
+        ReedlineMenu::EngineCompleter(Box::new(columnar_menu))
+    };
+
+    Ok(line_editor.with_menu(completer))
 }
 
 // Adds a search menu to the line editor
@@ -318,30 +344,23 @@ pub(crate) fn add_list_menu(
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     list_menu = list_menu.with_only_buffer_difference(only_buffer_difference);
 
-    let span = menu.source.span();
-    match &menu.source {
-        Value::Nothing { .. } => {
-            Ok(line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(list_menu))))
+    let completer = if let Some(closure) = &menu.source {
+        let menu_completer = NuMenuCompleter::new(
+            closure.block_id,
+            span,
+            stack.captures_to_stack(closure.captures.clone()),
+            engine_state,
+            only_buffer_difference,
+        );
+        ReedlineMenu::WithCompleter {
+            menu: Box::new(list_menu),
+            completer: Box::new(menu_completer),
         }
-        Value::Closure { val, .. } => {
-            let menu_completer = NuMenuCompleter::new(
-                val.block_id,
-                span,
-                stack.captures_to_stack(val.captures.clone()),
-                engine_state,
-                only_buffer_difference,
-            );
-            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
-                menu: Box::new(list_menu),
-                completer: Box::new(menu_completer),
-            }))
-        }
-        _ => Err(ShellError::UnsupportedConfigValue {
-            expected: "block or omitted value".to_string(),
-            value: menu.source.to_abbreviated_string(&config),
-            span: menu.source.span(),
-        }),
-    }
+    } else {
+        ReedlineMenu::HistoryMenu(Box::new(list_menu))
+    };
+
+    Ok(line_editor.with_menu(completer))
 }
 
 // Adds an IDE menu to the line editor
@@ -416,9 +435,9 @@ pub(crate) fn add_ide_menu(
                         vertical,
                     )
                 } else {
-                    return Err(ShellError::UnsupportedConfigValue {
-                        expected: "bool or record".to_string(),
-                        value: border.to_abbreviated_string(&config),
+                    return Err(ShellError::RuntimeTypeMismatch {
+                        expected: Type::custom("bool or record"),
+                        actual: border.get_type(),
                         span: border.span(),
                     });
                 }
@@ -439,10 +458,10 @@ pub(crate) fn add_ide_menu(
                 "left" => ide_menu.with_description_mode(DescriptionMode::Left),
                 "right" => ide_menu.with_description_mode(DescriptionMode::Right),
                 "prefer_right" => ide_menu.with_description_mode(DescriptionMode::PreferRight),
-                _ => {
-                    return Err(ShellError::UnsupportedConfigValue {
-                        expected: "\"left\", \"right\" or \"prefer_right\"".to_string(),
-                        value: description_mode.to_abbreviated_string(&config),
+                str => {
+                    return Err(ShellError::InvalidValue {
+                        valid: "'left', 'right', or 'prefer_right'".into(),
+                        actual: format!("'{str}'"),
                         span: description_mode.span(),
                     });
                 }
@@ -499,30 +518,23 @@ pub(crate) fn add_ide_menu(
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     ide_menu = ide_menu.with_only_buffer_difference(only_buffer_difference);
 
-    let span = menu.source.span();
-    match &menu.source {
-        Value::Nothing { .. } => {
-            Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(ide_menu))))
-        }
-        Value::Closure { val, .. } => {
-            let menu_completer = NuMenuCompleter::new(
-                val.block_id,
-                span,
-                stack.captures_to_stack(val.captures.clone()),
-                engine_state,
-                only_buffer_difference,
-            );
-            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
-                menu: Box::new(ide_menu),
-                completer: Box::new(menu_completer),
-            }))
-        }
-        _ => Err(ShellError::UnsupportedConfigValue {
-            expected: "block or omitted value".to_string(),
-            value: menu.source.to_abbreviated_string(&config),
+    let completer = if let Some(closure) = &menu.source {
+        let menu_completer = NuMenuCompleter::new(
+            closure.block_id,
             span,
-        }),
-    }
+            stack.captures_to_stack(closure.captures.clone()),
+            engine_state,
+            only_buffer_difference,
+        );
+        ReedlineMenu::WithCompleter {
+            menu: Box::new(ide_menu),
+            completer: Box::new(menu_completer),
+        }
+    } else {
+        ReedlineMenu::EngineCompleter(Box::new(ide_menu))
+    };
+
+    Ok(line_editor.with_menu(completer))
 }
 
 // Adds a description menu to the line editor
@@ -587,34 +599,27 @@ pub(crate) fn add_description_menu(
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     description_menu = description_menu.with_only_buffer_difference(only_buffer_difference);
 
-    let span = menu.source.span();
-    match &menu.source {
-        Value::Nothing { .. } => {
-            let completer = Box::new(NuHelpCompleter::new(engine_state, config));
-            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
-                menu: Box::new(description_menu),
-                completer,
-            }))
+    let completer = if let Some(closure) = &menu.source {
+        let menu_completer = NuMenuCompleter::new(
+            closure.block_id,
+            span,
+            stack.captures_to_stack(closure.captures.clone()),
+            engine_state,
+            only_buffer_difference,
+        );
+        ReedlineMenu::WithCompleter {
+            menu: Box::new(description_menu),
+            completer: Box::new(menu_completer),
         }
-        Value::Closure { val, .. } => {
-            let menu_completer = NuMenuCompleter::new(
-                val.block_id,
-                span,
-                stack.captures_to_stack(val.captures.clone()),
-                engine_state,
-                only_buffer_difference,
-            );
-            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
-                menu: Box::new(description_menu),
-                completer: Box::new(menu_completer),
-            }))
+    } else {
+        let menu_completer = NuHelpCompleter::new(engine_state, config);
+        ReedlineMenu::WithCompleter {
+            menu: Box::new(description_menu),
+            completer: Box::new(menu_completer),
         }
-        _ => Err(ShellError::UnsupportedConfigValue {
-            expected: "closure or omitted value".to_string(),
-            value: menu.source.to_abbreviated_string(&config),
-            span: menu.source.span(),
-        }),
-    }
+    };
+
+    Ok(line_editor.with_menu(completer))
 }
 
 fn add_menu_keybindings(keybindings: &mut Keybindings) {
@@ -624,6 +629,16 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         KeyCode::Tab,
         ReedlineEvent::UntilFound(vec![
             ReedlineEvent::Menu("completion_menu".to_string()),
+            ReedlineEvent::MenuNext,
+            ReedlineEvent::Edit(vec![EditCommand::Complete]),
+        ]),
+    );
+
+    keybindings.add_binding(
+        KeyModifiers::CONTROL,
+        KeyCode::Char(' '),
+        ReedlineEvent::UntilFound(vec![
+            ReedlineEvent::Menu("ide_completion_menu".to_string()),
             ReedlineEvent::MenuNext,
             ReedlineEvent::Edit(vec![EditCommand::Complete]),
         ]),
@@ -728,9 +743,9 @@ fn add_keybinding(
             "emacs" => add_parsed_keybinding(emacs_keybindings, keybinding, config),
             "vi_insert" => add_parsed_keybinding(insert_keybindings, keybinding, config),
             "vi_normal" => add_parsed_keybinding(normal_keybindings, keybinding, config),
-            m => Err(ShellError::UnsupportedConfigValue {
-                expected: "emacs, vi_insert or vi_normal".to_string(),
-                value: m.to_string(),
+            str => Err(ShellError::InvalidValue {
+                valid: "'emacs', 'vi_insert', or 'vi_normal'".into(),
+                actual: format!("'{str}'"),
                 span,
             }),
         },
@@ -748,9 +763,9 @@ fn add_keybinding(
 
             Ok(())
         }
-        v => Err(ShellError::UnsupportedConfigValue {
-            expected: "string or list of strings".to_string(),
-            value: v.to_abbreviated_string(config),
+        v => Err(ShellError::RuntimeTypeMismatch {
+            expected: Type::custom("string or list<string>"),
+            actual: v.get_type(),
             span: v.span(),
         }),
     }
@@ -761,91 +776,107 @@ fn add_parsed_keybinding(
     keybinding: &ParsedKeybinding,
     config: &Config,
 ) -> Result<(), ShellError> {
-    let modifier = match keybinding
-        .modifier
-        .to_expanded_string("", config)
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "control" => KeyModifiers::CONTROL,
-        "shift" => KeyModifiers::SHIFT,
-        "alt" => KeyModifiers::ALT,
-        "none" => KeyModifiers::NONE,
-        "shift_alt" | "alt_shift" => KeyModifiers::SHIFT | KeyModifiers::ALT,
-        "control_shift" | "shift_control" => KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-        "control_alt" | "alt_control" => KeyModifiers::CONTROL | KeyModifiers::ALT,
-        "control_alt_shift" | "control_shift_alt" => {
-            KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SHIFT
-        }
-        _ => {
-            return Err(ShellError::UnsupportedConfigValue {
-                expected: "CONTROL, SHIFT, ALT or NONE".to_string(),
-                value: keybinding.modifier.to_abbreviated_string(config),
-                span: keybinding.modifier.span(),
-            })
-        }
+    let Ok(modifier_str) = keybinding.modifier.as_str() else {
+        return Err(ShellError::RuntimeTypeMismatch {
+            expected: Type::String,
+            actual: keybinding.modifier.get_type(),
+            span: keybinding.modifier.span(),
+        });
     };
 
-    let keycode = match keybinding
-        .keycode
-        .to_expanded_string("", config)
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "backspace" => KeyCode::Backspace,
-        "enter" => KeyCode::Enter,
-        c if c.starts_with("char_") => {
-            let mut char_iter = c.chars().skip(5);
-            let pos1 = char_iter.next();
-            let pos2 = char_iter.next();
-
-            let char = if let (Some(char), None) = (pos1, pos2) {
-                char
-            } else {
-                return Err(ShellError::UnsupportedConfigValue {
-                    expected: "char_<CHAR: unicode codepoint>".to_string(),
-                    value: c.to_string(),
-                    span: keybinding.keycode.span(),
-                });
-            };
-
-            KeyCode::Char(char)
+    let mut modifier = KeyModifiers::NONE;
+    if !str::eq_ignore_ascii_case(modifier_str, "none") {
+        for part in modifier_str.split('_') {
+            match part.to_ascii_lowercase().as_str() {
+                "control" => modifier |= KeyModifiers::CONTROL,
+                "shift" => modifier |= KeyModifiers::SHIFT,
+                "alt" => modifier |= KeyModifiers::ALT,
+                "super" => modifier |= KeyModifiers::SUPER,
+                "hyper" => modifier |= KeyModifiers::HYPER,
+                "meta" => modifier |= KeyModifiers::META,
+                _ => {
+                    return Err(ShellError::InvalidValue {
+                        valid: "'control', 'shift', 'alt', 'super', 'hyper', 'meta', or 'none'"
+                            .into(),
+                        actual: format!("'{part}'"),
+                        span: keybinding.modifier.span(),
+                    });
+                }
+            }
         }
-        "space" => KeyCode::Char(' '),
-        "down" => KeyCode::Down,
-        "up" => KeyCode::Up,
-        "left" => KeyCode::Left,
-        "right" => KeyCode::Right,
-        "home" => KeyCode::Home,
-        "end" => KeyCode::End,
-        "pageup" => KeyCode::PageUp,
-        "pagedown" => KeyCode::PageDown,
-        "tab" => KeyCode::Tab,
-        "backtab" => KeyCode::BackTab,
-        "delete" => KeyCode::Delete,
-        "insert" => KeyCode::Insert,
-        c if c.starts_with('f') => {
-            let fn_num: u8 = c[1..]
+    }
+
+    let Ok(keycode) = keybinding.keycode.as_str() else {
+        return Err(ShellError::RuntimeTypeMismatch {
+            expected: Type::String,
+            actual: keybinding.keycode.get_type(),
+            span: keybinding.keycode.span(),
+        });
+    };
+
+    let keycode_lower = keycode.to_ascii_lowercase();
+
+    let keycode = if let Some(rest) = keycode_lower.strip_prefix("char_") {
+        let error = |valid: &str, actual: &str| ShellError::InvalidValue {
+            valid: valid.into(),
+            actual: actual.into(),
+            span: keybinding.keycode.span(),
+        };
+
+        let mut char_iter = rest.chars();
+        let char = match (char_iter.next(), char_iter.next()) {
+            (Some(char), None) => char,
+            (Some('u'), Some(_)) => {
+                // This will never panic as we know there are at least two symbols
+                let Ok(code_point) = u32::from_str_radix(&rest[1..], 16) else {
+                    return Err(error("a valid hex code", keycode));
+                };
+
+                char::from_u32(code_point).ok_or(error("a valid Unicode code point", keycode))?
+            }
+            _ => return Err(error("'char_<char>' or 'char_u<hex code>'", keycode)),
+        };
+
+        KeyCode::Char(char)
+    } else {
+        match keycode_lower.as_str() {
+            "backspace" => KeyCode::Backspace,
+            "enter" => KeyCode::Enter,
+            "space" => KeyCode::Char(' '),
+            "down" => KeyCode::Down,
+            "up" => KeyCode::Up,
+            "left" => KeyCode::Left,
+            "right" => KeyCode::Right,
+            "home" => KeyCode::Home,
+            "end" => KeyCode::End,
+            "pageup" => KeyCode::PageUp,
+            "pagedown" => KeyCode::PageDown,
+            "tab" => KeyCode::Tab,
+            "backtab" => KeyCode::BackTab,
+            "delete" => KeyCode::Delete,
+            "insert" => KeyCode::Insert,
+            c if c.starts_with('f') => c[1..]
                 .parse()
                 .ok()
-                .filter(|num| matches!(num, 1..=20))
-                .ok_or(ShellError::UnsupportedConfigValue {
-                    expected: "(f1|f2|...|f20)".to_string(),
-                    value: format!("unknown function key: {c}"),
+                .filter(|num| (1..=20).contains(num))
+                .map(KeyCode::F)
+                .ok_or(ShellError::InvalidValue {
+                    valid: "'f1', 'f2', ..., or 'f20'".into(),
+                    actual: format!("'{keycode}'"),
                     span: keybinding.keycode.span(),
-                })?;
-            KeyCode::F(fn_num)
-        }
-        "null" => KeyCode::Null,
-        "esc" | "escape" => KeyCode::Esc,
-        _ => {
-            return Err(ShellError::UnsupportedConfigValue {
-                expected: "crossterm KeyCode".to_string(),
-                value: keybinding.keycode.to_abbreviated_string(config),
-                span: keybinding.keycode.span(),
-            })
+                })?,
+            "null" => KeyCode::Null,
+            "esc" | "escape" => KeyCode::Esc,
+            _ => {
+                return Err(ShellError::InvalidValue {
+                    valid: "a crossterm KeyCode".into(),
+                    actual: format!("'{keycode}'"),
+                    span: keybinding.keycode.span(),
+                });
+            }
         }
     };
+
     if let Some(event) = parse_event(&keybinding.event, config)? {
         keybindings.add_binding(modifier, keycode, event);
     } else {
@@ -867,8 +898,8 @@ impl<'config> EventType<'config> {
             .map(Self::Send)
             .or_else(|_| extract_value("edit", record, span).map(Self::Edit))
             .or_else(|_| extract_value("until", record, span).map(Self::Until))
-            .map_err(|_| ShellError::MissingConfigValue {
-                missing_value: "send, edit or until".to_string(),
+            .map_err(|_| ShellError::MissingRequiredColumn {
+                column: "'send', 'edit', or 'until'",
                 span,
             })
     }
@@ -906,9 +937,9 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
                         .iter()
                         .map(|value| match parse_event(value, config) {
                             Ok(inner) => match inner {
-                                None => Err(ShellError::UnsupportedConfigValue {
-                                    expected: "List containing valid events".to_string(),
-                                    value: "Nothing value (null)".to_string(),
+                                None => Err(ShellError::RuntimeTypeMismatch {
+                                    expected: Type::custom("record or table"),
+                                    actual: value.get_type(),
                                     span: value.span(),
                                 }),
                                 Some(event) => Ok(event),
@@ -919,9 +950,9 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
 
                     Ok(Some(ReedlineEvent::UntilFound(events)))
                 }
-                v => Err(ShellError::UnsupportedConfigValue {
-                    expected: "list of events".to_string(),
-                    value: v.to_abbreviated_string(config),
+                v => Err(ShellError::RuntimeTypeMismatch {
+                    expected: Type::list(Type::Any),
+                    actual: v.get_type(),
                     span: v.span(),
                 }),
             },
@@ -931,9 +962,9 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
                 .iter()
                 .map(|value| match parse_event(value, config) {
                     Ok(inner) => match inner {
-                        None => Err(ShellError::UnsupportedConfigValue {
-                            expected: "List containing valid events".to_string(),
-                            value: "Nothing value (null)".to_string(),
+                        None => Err(ShellError::RuntimeTypeMismatch {
+                            expected: Type::custom("record or table"),
+                            actual: value.get_type(),
                             span: value.span(),
                         }),
                         Some(event) => Ok(event),
@@ -945,9 +976,9 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
             Ok(Some(ReedlineEvent::Multiple(events)))
         }
         Value::Nothing { .. } => Ok(None),
-        v => Err(ShellError::UnsupportedConfigValue {
-            expected: "record or list of records, null to unbind key".to_string(),
-            value: v.to_abbreviated_string(config),
+        v => Err(ShellError::RuntimeTypeMismatch {
+            expected: Type::custom("record, table, or nothing"),
+            actual: v.get_type(),
             span: v.span(),
         }),
     }
@@ -996,12 +1027,12 @@ fn event_from_record(
             let cmd = extract_value("cmd", record, span)?;
             ReedlineEvent::ExecuteHostCommand(cmd.to_expanded_string("", config))
         }
-        v => {
-            return Err(ShellError::UnsupportedConfigValue {
-                expected: "Reedline event".to_string(),
-                value: v.to_string(),
+        str => {
+            return Err(ShellError::InvalidValue {
+                valid: "a reedline event".into(),
+                actual: format!("'{str}'"),
                 span,
-            })
+            });
         }
     };
 
@@ -1094,7 +1125,7 @@ fn edit_from_record(
         }
         "insertchar" => {
             let value = extract_value("value", record, span)?;
-            let char = extract_char(value, config)?;
+            let char = extract_char(value)?;
             EditCommand::InsertChar(char)
         }
         "insertstring" => {
@@ -1131,17 +1162,17 @@ fn edit_from_record(
         "redo" => EditCommand::Redo,
         "cutrightuntil" => {
             let value = extract_value("value", record, span)?;
-            let char = extract_char(value, config)?;
+            let char = extract_char(value)?;
             EditCommand::CutRightUntil(char)
         }
         "cutrightbefore" => {
             let value = extract_value("value", record, span)?;
-            let char = extract_char(value, config)?;
+            let char = extract_char(value)?;
             EditCommand::CutRightBefore(char)
         }
         "moverightuntil" => {
             let value = extract_value("value", record, span)?;
-            let char = extract_char(value, config)?;
+            let char = extract_char(value)?;
             let select = extract_value("select", record, span)
                 .and_then(|value| value.as_bool())
                 .unwrap_or(false);
@@ -1149,7 +1180,7 @@ fn edit_from_record(
         }
         "moverightbefore" => {
             let value = extract_value("value", record, span)?;
-            let char = extract_char(value, config)?;
+            let char = extract_char(value)?;
             let select = extract_value("select", record, span)
                 .and_then(|value| value.as_bool())
                 .unwrap_or(false);
@@ -1157,17 +1188,17 @@ fn edit_from_record(
         }
         "cutleftuntil" => {
             let value = extract_value("value", record, span)?;
-            let char = extract_char(value, config)?;
+            let char = extract_char(value)?;
             EditCommand::CutLeftUntil(char)
         }
         "cutleftbefore" => {
             let value = extract_value("value", record, span)?;
-            let char = extract_char(value, config)?;
+            let char = extract_char(value)?;
             EditCommand::CutLeftBefore(char)
         }
         "moveleftuntil" => {
             let value = extract_value("value", record, span)?;
-            let char = extract_char(value, config)?;
+            let char = extract_char(value)?;
             let select = extract_value("select", record, span)
                 .and_then(|value| value.as_bool())
                 .unwrap_or(false);
@@ -1175,7 +1206,7 @@ fn edit_from_record(
         }
         "moveleftbefore" => {
             let value = extract_value("value", record, span)?;
-            let char = extract_char(value, config)?;
+            let char = extract_char(value)?;
             let select = extract_value("select", record, span)
                 .and_then(|value| value.as_bool())
                 .unwrap_or(false);
@@ -1192,28 +1223,36 @@ fn edit_from_record(
         #[cfg(feature = "system-clipboard")]
         "pastesystem" => EditCommand::PasteSystem,
         "selectall" => EditCommand::SelectAll,
-        e => {
-            return Err(ShellError::UnsupportedConfigValue {
-                expected: "reedline EditCommand".to_string(),
-                value: e.to_string(),
+        str => {
+            return Err(ShellError::InvalidValue {
+                valid: "a reedline EditCommand".into(),
+                actual: format!("'{str}'"),
                 span,
-            })
+            });
         }
     };
 
     Ok(edit)
 }
 
-fn extract_char(value: &Value, config: &Config) -> Result<char, ShellError> {
-    let span = value.span();
-    value
-        .to_expanded_string("", config)
-        .chars()
-        .next()
-        .ok_or_else(|| ShellError::MissingConfigValue {
-            missing_value: "char to insert".to_string(),
-            span,
+fn extract_char(value: &Value) -> Result<char, ShellError> {
+    if let Ok(str) = value.as_str() {
+        let mut chars = str.chars();
+        match (chars.next(), chars.next()) {
+            (Some(c), None) => Ok(c),
+            _ => Err(ShellError::InvalidValue {
+                valid: "a single character".into(),
+                actual: format!("'{str}'"),
+                span: value.span(),
+            }),
+        }
+    } else {
+        Err(ShellError::RuntimeTypeMismatch {
+            expected: Type::String,
+            actual: value.get_type(),
+            span: value.span(),
         })
+    }
 }
 
 #[cfg(test)]
@@ -1342,7 +1381,7 @@ mod test {
 
         let span = Span::test_data();
         let b = EventType::try_from_record(&event, span);
-        assert!(matches!(b, Err(ShellError::MissingConfigValue { .. })));
+        assert!(matches!(b, Err(ShellError::MissingRequiredColumn { .. })));
     }
 
     #[test]

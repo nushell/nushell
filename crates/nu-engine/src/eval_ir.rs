@@ -113,25 +113,28 @@ impl<'a> EvalContext<'a> {
     #[inline]
     fn put_reg(&mut self, reg_id: RegId, new_value: PipelineData) {
         // log::trace!("{reg_id} <- {new_value:?}");
-        self.registers[reg_id.0 as usize] = new_value;
+        self.registers[reg_id.get() as usize] = new_value;
     }
 
     /// Borrow the contents of a register.
     #[inline]
     fn borrow_reg(&self, reg_id: RegId) -> &PipelineData {
-        &self.registers[reg_id.0 as usize]
+        &self.registers[reg_id.get() as usize]
     }
 
     /// Replace the contents of a register with `Empty` and then return the value that it contained
     #[inline]
     fn take_reg(&mut self, reg_id: RegId) -> PipelineData {
         // log::trace!("<- {reg_id}");
-        std::mem::replace(&mut self.registers[reg_id.0 as usize], PipelineData::Empty)
+        std::mem::replace(
+            &mut self.registers[reg_id.get() as usize],
+            PipelineData::Empty,
+        )
     }
 
     /// Clone data from a register. Must be collected first.
     fn clone_reg(&mut self, reg_id: RegId, error_span: Span) -> Result<PipelineData, ShellError> {
-        match &self.registers[reg_id.0 as usize] {
+        match &self.registers[reg_id.get() as usize] {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(val, meta) => Ok(PipelineData::Value(val.clone(), meta.clone())),
             _ => Err(ShellError::IrEvalError {
@@ -319,13 +322,13 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src);
             drain(ctx, data)
         }
-        Instruction::WriteToOutDests { src } => {
+        Instruction::DrainIfEnd { src } => {
             let data = ctx.take_reg(*src);
             let res = {
                 let stack = &mut ctx
                     .stack
                     .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
-                data.write_to_out_dests(ctx.engine_state, stack)?
+                data.drain_to_out_dests(ctx.engine_state, stack)?
             };
             ctx.put_reg(*src, res);
             Ok(Continue)
@@ -504,14 +507,19 @@ fn eval_instruction<D: DebugContext>(
                     msg: format!("Tried to write to file #{file_num}, but it is not open"),
                     span: Some(*span),
                 })?;
-            let result = {
-                let mut stack = ctx
-                    .stack
-                    .push_redirection(Some(Redirection::File(file)), None);
-                src.write_to_out_dests(ctx.engine_state, &mut stack)?
+            let is_external = if let PipelineData::ByteStream(stream, ..) = &src {
+                matches!(stream.source(), ByteStreamSource::Child(..))
+            } else {
+                false
             };
-            // Abort execution if there's an exit code from a failed external
-            drain(ctx, result)
+            if let Err(err) = src.write_to(file.as_ref()) {
+                if is_external {
+                    ctx.stack.set_last_error(&err);
+                }
+                Err(err)?
+            } else {
+                Ok(Continue)
+            }
         }
         Instruction::CloseFile { file_num } => {
             if ctx.files[*file_num as usize].take().is_some() {
@@ -1414,9 +1422,11 @@ fn eval_redirection(
 ) -> Result<Option<Redirection>, ShellError> {
     match mode {
         RedirectMode::Pipe => Ok(Some(Redirection::Pipe(OutDest::Pipe))),
-        RedirectMode::Capture => Ok(Some(Redirection::Pipe(OutDest::Capture))),
+        RedirectMode::PipeSeparate => Ok(Some(Redirection::Pipe(OutDest::PipeSeparate))),
+        RedirectMode::Value => Ok(Some(Redirection::Pipe(OutDest::Value))),
         RedirectMode::Null => Ok(Some(Redirection::Pipe(OutDest::Null))),
         RedirectMode::Inherit => Ok(Some(Redirection::Pipe(OutDest::Inherit))),
+        RedirectMode::Print => Ok(Some(Redirection::Pipe(OutDest::Print))),
         RedirectMode::File { file_num } => {
             let file = ctx
                 .files

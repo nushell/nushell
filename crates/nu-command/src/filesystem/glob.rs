@@ -169,10 +169,16 @@ impl Command for Glob {
             });
         }
 
+        // below we have to check / instead of MAIN_SEPARATOR because glob uses / as separator
+        // using a glob like **\*.rs should fail because it's not a valid glob pattern
         let folder_depth = if let Some(depth) = depth {
             depth
-        } else {
+        } else if glob_pattern.contains("**") {
             usize::MAX
+        } else if glob_pattern.contains('/') {
+            glob_pattern.split('/').count() + 1
+        } else {
+            1
         };
 
         let (prefix, glob) = match WaxGlob::new(&glob_pattern) {

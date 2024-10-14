@@ -2,9 +2,8 @@ use crate::{color_record_to_nustyle, lookup_ansi_color_style, text_style::Alignm
 use nu_ansi_term::{Color, Style};
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
-    cli_error::CliError,
-    engine::{Closure, EngineState, Stack, StateWorkingSet},
-    Span, Value,
+    engine::{Closure, EngineState, Stack},
+    report_shell_error, Span, Value,
 };
 use std::{
     collections::HashMap,
@@ -70,14 +69,8 @@ impl<'a> StyleComputer<'a> {
                             _ => Style::default(),
                         }
                     }
-                    // This is basically a copy of nu_cli::report_error(), but that isn't usable due to
-                    // dependencies. While crudely spitting out a bunch of errors like this is not ideal,
-                    // currently hook closure errors behave roughly the same.
-                    Err(e) => {
-                        eprintln!(
-                            "Error: {:?}",
-                            CliError(&e, &StateWorkingSet::new(self.engine_state))
-                        );
+                    Err(err) => {
+                        report_shell_error(self.engine_state, &err);
                         Style::default()
                     }
                 }

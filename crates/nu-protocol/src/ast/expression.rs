@@ -584,7 +584,7 @@ impl Expression {
         Expression {
             expr,
             span,
-            span_id: SpanId(0),
+            span_id: SpanId::new(0),
             ty,
             custom_completion: None,
         }

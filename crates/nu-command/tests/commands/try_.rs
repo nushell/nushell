@@ -105,3 +105,24 @@ fn exit_code_available_in_catch() {
     let actual = nu!("try { nu -c 'exit 42' } catch { |e| $e.exit_code }");
     assert_eq!(actual.out, "42");
 }
+
+#[test]
+fn catches_exit_code_in_assignment() {
+    let actual = nu!("let x = try { nu -c 'exit 42' } catch { |e| $e.exit_code }; $x");
+    assert_eq!(actual.out, "42");
+}
+
+#[test]
+fn catches_exit_code_in_expr() {
+    let actual = nu!("print (try { nu -c 'exit 42' } catch { |e| $e.exit_code })");
+    assert_eq!(actual.out, "42");
+}
+
+#[test]
+fn prints_only_if_last_pipeline() {
+    let actual = nu!("try { 'should not print' }; 'last value'");
+    assert_eq!(actual.out, "last value");
+
+    let actual = nu!("try { ['should not print'] | every 1 }; 'last value'");
+    assert_eq!(actual.out, "last value");
+}

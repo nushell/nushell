@@ -7,7 +7,8 @@ use crate::{
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
-    record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
+    record, BlockId, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value,
+    VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
@@ -33,11 +34,8 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
 
     let mut record = Record::new();
 
-    let config_path = match nu_path::config_dir() {
-        Some(mut path) => {
-            path.push("nushell");
-            Ok(canonicalize_path(engine_state, path.as_ref()))
-        }
+    let config_path = match nu_path::nu_config_dir() {
+        Some(path) => Ok(canonicalize_path(engine_state, path.as_ref())),
         None => Err(Value::error(
             ShellError::ConfigDirNotFound { span: Some(span) },
             span,
@@ -481,7 +479,7 @@ impl Eval for EvalConst {
     fn eval_subexpression<D: DebugContext>(
         working_set: &StateWorkingSet,
         _: &mut (),
-        block_id: usize,
+        block_id: BlockId,
         span: Span,
     ) -> Result<Value, ShellError> {
         // TODO: Allow debugging const eval
@@ -516,7 +514,7 @@ impl Eval for EvalConst {
     fn eval_row_condition_or_closure(
         _: &StateWorkingSet,
         _: &mut (),
-        _: usize,
+        _: BlockId,
         span: Span,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span })

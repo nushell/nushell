@@ -27,7 +27,7 @@ impl Completer for FileCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: Vec<u8>,
+        prefix: &[u8],
         span: Span,
         offset: usize,
         _pos: usize,
@@ -37,7 +37,7 @@ impl Completer for FileCompletion {
             prefix,
             span,
             readjusted,
-        } = adjust_if_intermediate(&prefix, working_set, span);
+        } = adjust_if_intermediate(prefix, working_set, span);
 
         #[allow(deprecated)]
         let items: Vec<_> = complete_item(

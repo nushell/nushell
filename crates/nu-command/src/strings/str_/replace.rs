@@ -156,12 +156,17 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("my_library.nu")),
             },
             Example {
-                description: "Find and replace all occurrences of find string using regular expression",
+                description: "Find and replace contents with capture group using regular expression, with escapes",
+                example: "'hello=world' | str replace -r '\\$?(?<varname>.*)=(?<value>.*)' '$$$varname = $value'",
+                result: Some(Value::test_string("$hello = world")),
+            },
+            Example {
+                description: "Find and replace all occurrences of found string using regular expression",
                 example: "'abc abc abc' | str replace --all --regex 'b' 'z'",
                 result: Some(Value::test_string("azc azc azc")),
             },
             Example {
-                description: "Find and replace all occurrences of find string in table using regular expression",
+                description: "Find and replace all occurrences of found string in table using regular expression",
                 example:
                     "[[ColA ColB ColC]; [abc abc ads]] | str replace --all --regex 'b' 'z' ColA ColC",
                 result: Some(Value::test_list (
@@ -173,7 +178,7 @@ impl Command for SubCommand {
                 )),
             },
             Example {
-                description: "Find and replace all occurrences of find string in record using regular expression",
+                description: "Find and replace all occurrences of found string in record using regular expression",
                 example:
                     "{ KeyA: abc, KeyB: abc, KeyC: ads } | str replace --all --regex 'b' 'z' KeyA KeyC",
                 result: Some(Value::test_record(record! {

@@ -17,7 +17,7 @@ use nu_plugin_protocol::{
 use nu_protocol::{
     ast::{Math, Operator},
     engine::Closure,
-    ByteStreamType, CustomValue, DataSource, IntoInterruptiblePipelineData, IntoSpanned,
+    BlockId, ByteStreamType, CustomValue, DataSource, IntoInterruptiblePipelineData, IntoSpanned,
     PipelineData, PipelineMetadata, PluginMetadata, PluginSignature, ShellError, Signals, Span,
     Spanned, Value,
 };
@@ -431,7 +431,7 @@ fn manager_consume_engine_call_forwards_to_subscriber_with_pipeline_data() -> Re
         call: EngineCall::EvalClosure {
             closure: Spanned {
                 item: Closure {
-                    block_id: 0,
+                    block_id: BlockId::new(0),
                     captures: vec![],
                 },
                 span: Span::test_data(),

@@ -158,12 +158,12 @@ use it in your pipeline."#
                             let tee_thread = spawn_tee(info.clone(), eval_block)?;
                             let tee = IoTee::new(stderr, tee_thread);
                             match stack.stderr() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stderr = Some(ChildPipe::Tee(Box::new(tee)));
                                     Ok(None)
                                 }
                                 OutDest::Null => copy_on_thread(tee, io::sink(), &info).map(Some),
-                                OutDest::Inherit => {
+                                OutDest::Print | OutDest::Inherit => {
                                     copy_on_thread(tee, io::stderr(), &info).map(Some)
                                 }
                                 OutDest::File(file) => {
@@ -176,12 +176,14 @@ use it in your pipeline."#
 
                         if let Some(stdout) = child.stdout.take() {
                             match stack.stdout() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stdout = Some(stdout);
                                     Ok(())
                                 }
                                 OutDest::Null => copy_pipe(stdout, io::sink(), &info),
-                                OutDest::Inherit => copy_pipe(stdout, io::stdout(), &info),
+                                OutDest::Print | OutDest::Inherit => {
+                                    copy_pipe(stdout, io::stdout(), &info)
+                                }
                                 OutDest::File(file) => copy_pipe(stdout, file.as_ref(), &info),
                             }?;
                         }
@@ -191,14 +193,14 @@ use it in your pipeline."#
                         let stderr_thread = if let Some(stderr) = child.stderr.take() {
                             let info = info.clone();
                             match stack.stderr() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stderr = Some(stderr);
                                     Ok(None)
                                 }
                                 OutDest::Null => {
                                     copy_pipe_on_thread(stderr, io::sink(), &info).map(Some)
                                 }
-                                OutDest::Inherit => {
+                                OutDest::Print | OutDest::Inherit => {
                                     copy_pipe_on_thread(stderr, io::stderr(), &info).map(Some)
                                 }
                                 OutDest::File(file) => {
@@ -213,12 +215,12 @@ use it in your pipeline."#
                             let tee_thread = spawn_tee(info.clone(), eval_block)?;
                             let tee = IoTee::new(stdout, tee_thread);
                             match stack.stdout() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stdout = Some(ChildPipe::Tee(Box::new(tee)));
                                     Ok(())
                                 }
                                 OutDest::Null => copy(tee, io::sink(), &info),
-                                OutDest::Inherit => copy(tee, io::stdout(), &info),
+                                OutDest::Print | OutDest::Inherit => copy(tee, io::stdout(), &info),
                                 OutDest::File(file) => copy(tee, file.as_ref(), &info),
                             }?;
                         }
@@ -280,7 +282,7 @@ use it in your pipeline."#
     }
 
     fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
-        (Some(OutDest::Capture), Some(OutDest::Capture))
+        (Some(OutDest::PipeSeparate), Some(OutDest::PipeSeparate))
     }
 }
 
