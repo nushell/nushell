@@ -124,10 +124,15 @@ See also: `plugin use`
         let plugins_info = match (memory_mode, registry_mode) {
             // --memory and --registry together is equivalent to the default.
             (false, false) | (true, true) => {
-                let plugins_in_memory = get_plugins_in_memory(engine_state);
-                let plugins_in_registry =
-                    get_plugins_in_registry(engine_state, stack, call.head, &custom_path)?;
-                merge_plugin_info(plugins_in_memory, plugins_in_registry)
+                if engine_state.plugin_path.is_some() || custom_path.is_some() {
+                    let plugins_in_memory = get_plugins_in_memory(engine_state);
+                    let plugins_in_registry =
+                        get_plugins_in_registry(engine_state, stack, call.head, &custom_path)?;
+                    merge_plugin_info(plugins_in_memory, plugins_in_registry)
+                } else {
+                    // Don't produce error when running nu --no-config-file
+                    get_plugins_in_memory(engine_state)
+                }
             }
             (true, false) => get_plugins_in_memory(engine_state),
             (false, true) => get_plugins_in_registry(engine_state, stack, call.head, &custom_path)?,
