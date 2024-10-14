@@ -29,8 +29,8 @@ fn capture_errors_works_for_external_with_pipeline() {
 #[test]
 fn capture_errors_works_for_external_with_semicolon() {
     let actual = nu!(r#"do -c {nu --testbin fail}; echo `text`"#);
-    assert!(actual.err.contains("exited with code"));
     assert!(!actual.status.success());
+    assert!(!actual.err.contains("exited with code"));
 }
 
 #[test]
