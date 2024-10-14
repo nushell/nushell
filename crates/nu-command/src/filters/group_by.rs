@@ -127,6 +127,7 @@ pub fn group_by(
     let head = call.head;
     let grouper: Option<Value> = call.opt(engine_state, stack, 0)?;
     let to_table = call.has_flag(engine_state, stack, "to-table")?;
+    let config = engine_state.get_config();
 
     let values: Vec<Value> = input.into_iter().collect();
     if values.is_empty() {
@@ -137,7 +138,7 @@ pub fn group_by(
         Some(grouper) => {
             let span = grouper.span();
             match grouper {
-                Value::CellPath { val, .. } => group_cell_path(val, values)?,
+                Value::CellPath { val, .. } => group_cell_path(val, values, config)?,
                 Value::Closure { val, .. } => {
                     group_closure(values, span, *val, engine_state, stack)?
                 }
@@ -149,7 +150,7 @@ pub fn group_by(
                 }
             }
         }
-        None => group_no_grouper(values)?,
+        None => group_no_grouper(values, config)?,
     };
 
     let value = if to_table {
@@ -164,6 +165,7 @@ pub fn group_by(
 fn group_cell_path(
     column_name: CellPath,
     values: Vec<Value>,
+    config: &nu_protocol::Config,
 ) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
     let mut groups = IndexMap::<_, Vec<_>>::new();
 
@@ -176,18 +178,21 @@ fn group_cell_path(
             continue; // likely the result of a failed optional access, ignore this value
         }
 
-        let key = key.coerce_string()?;
+        let key = key.to_abbreviated_string(config);
         groups.entry(key).or_default().push(value);
     }
 
     Ok(groups)
 }
 
-fn group_no_grouper(values: Vec<Value>) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
+fn group_no_grouper(
+    values: Vec<Value>,
+    config: &nu_protocol::Config,
+) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
     let mut groups = IndexMap::<_, Vec<_>>::new();
 
     for value in values.into_iter() {
-        let key = value.coerce_string()?;
+        let key = value.to_abbreviated_string(config);
         groups.entry(key).or_default().push(value);
     }
 
@@ -203,12 +208,13 @@ fn group_closure(
 ) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
     let mut groups = IndexMap::<_, Vec<_>>::new();
     let mut closure = ClosureEval::new(engine_state, stack, closure);
+    let config = engine_state.get_config();
 
     for value in values {
         let key = closure
             .run_with_value(value.clone())?
             .into_value(span)?
-            .coerce_into_string()?;
+            .to_abbreviated_string(config);
 
         groups.entry(key).or_default().push(value);
     }
