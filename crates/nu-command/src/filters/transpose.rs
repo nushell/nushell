@@ -176,10 +176,9 @@ pub fn transpose(
     let metadata = input.metadata();
     let input: Vec<_> = input.into_iter().collect();
     // Ensure error values are propagated
-    for x in input.iter() {
-        match x {
-            Value::Error {..} => return Ok(x.clone().into_pipeline_data_with_metadata(metadata)),
-            _ => {}
+    for i in input.iter() {
+        if let Value::Error { .. } = i {
+            return Ok(i.clone().into_pipeline_data_with_metadata(metadata));
         }
     }
 
