@@ -150,13 +150,7 @@ fn parse_collection_shape(
             return mk_shape(vec![]);
         }
         let source = working_set.get_span_contents(inner_span);
-        let (tokens, err) = lex_signature(
-            source,
-            inner_span.start,
-            &[b'\n', b'\r'],
-            &[b':', b','],
-            true,
-        );
+        let (tokens, err) = lex_signature(source, inner_span.start, b"\n\r", b":,", true);
 
         if let Some(err) = err {
             working_set.error(err);
