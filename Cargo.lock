@@ -7572,8 +7572,3 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "reedline"
-version = "0.35.0"
-source = "git+https://github.com/nushell/reedline?branch=main#5e556bfd2855420e782e1753da13a4fcb798f2c7"
