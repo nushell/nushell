@@ -1,4 +1,5 @@
 use crate::repl::tests::{fail_test, run_test, TestResult};
+use rstest::rstest;
 
 #[test]
 fn list_annotations() -> TestResult {
@@ -374,4 +375,13 @@ fn table_annotations_with_extra_characters() -> TestResult {
     let input = "def run [t: table<int>extra] {$t | length}; run [[int]; [8]]";
     let expected = "Extra characters in the parameter name";
     fail_test(input, expected)
+}
+
+#[rstest]
+#[case("{ |a $a }")]
+#[case("{ |a, b $a + $b }")]
+#[case("do { |a $a } 1")]
+#[case("do { |a $a } 1 2")]
+fn closure_param_list_not_terminated(#[case] input: &str) -> TestResult {
+    fail_test(input, "unclosed |")
 }
