@@ -36,9 +36,9 @@ impl Command for PluginList {
                 None,
             )
             .switch(
-                "memory",
-                "Show info for plugins that are loaded in memory only.",
-                Some('m'),
+                "engine",
+                "Show info for plugins that are loaded into the engine only.",
+                Some('e'),
             )
             .switch(
                 "registry",
@@ -57,22 +57,22 @@ impl Command for PluginList {
 The `status` column will contain one of the following values:
 
 - `added`:    The plugin is present in the plugin registry file, but not in
-              memory.
+              the engine.
 - `loaded`:   The plugin is present both in the plugin registry file and in
-              memory, but is not running.
+              the engine, but is not running.
 - `running`:  The plugin is currently running, and the `pid` column should
               contain its process ID.
 - `modified`: The plugin state present in the plugin registry file is different
-              from memory.
-- `removed`:  The plugin is still loaded in memory, but is not present in the
-              plugin registry file.
+              from the state in the engine.
+- `removed`:  The plugin is still loaded in the engine, but is not present in
+              the plugin registry file.
 - `invalid`:  The data in the plugin registry file couldn't be deserialized,
               and the plugin most likely needs to be added again.
 
 `running` takes priority over any other status. Unless `--registry` is used
 or the plugin has not been loaded yet, the values of `version`, `filename`,
-`shell`, and `commands` reflect the values in memory and not the ones in the
-plugin registry file.
+`shell`, and `commands` reflect the values in the engine and not the ones in
+the plugin registry file.
 
 See also: `plugin use`
 "#
@@ -118,23 +118,23 @@ See also: `plugin use`
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let custom_path = call.get_flag(engine_state, stack, "plugin-config")?;
-        let memory_mode = call.has_flag(engine_state, stack, "memory")?;
+        let engine_mode = call.has_flag(engine_state, stack, "engine")?;
         let registry_mode = call.has_flag(engine_state, stack, "registry")?;
 
-        let plugins_info = match (memory_mode, registry_mode) {
-            // --memory and --registry together is equivalent to the default.
+        let plugins_info = match (engine_mode, registry_mode) {
+            // --engine and --registry together is equivalent to the default.
             (false, false) | (true, true) => {
                 if engine_state.plugin_path.is_some() || custom_path.is_some() {
-                    let plugins_in_memory = get_plugins_in_memory(engine_state);
+                    let plugins_in_engine = get_plugins_in_engine(engine_state);
                     let plugins_in_registry =
                         get_plugins_in_registry(engine_state, stack, call.head, &custom_path)?;
-                    merge_plugin_info(plugins_in_memory, plugins_in_registry)
+                    merge_plugin_info(plugins_in_engine, plugins_in_registry)
                 } else {
                     // Don't produce error when running nu --no-config-file
-                    get_plugins_in_memory(engine_state)
+                    get_plugins_in_engine(engine_state)
                 }
             }
-            (true, false) => get_plugins_in_memory(engine_state),
+            (true, false) => get_plugins_in_engine(engine_state),
             (false, true) => get_plugins_in_registry(engine_state, stack, call.head, &custom_path)?,
         };
 
@@ -164,7 +164,7 @@ enum PluginStatus {
     Invalid,
 }
 
-fn get_plugins_in_memory(engine_state: &EngineState) -> Vec<PluginInfo> {
+fn get_plugins_in_engine(engine_state: &EngineState) -> Vec<PluginInfo> {
     // Group plugin decls by plugin identity
     let decls = engine_state.plugin_decls().into_group_map_by(|decl| {
         decl.plugin_identity()
@@ -245,20 +245,20 @@ fn get_plugins_in_registry(
     Ok(plugins_info)
 }
 
-/// If no options are provided, the command loads from both the plugin list in memory and what's in
-/// the registry file. We need to reconcile the two to set the proper states and make sure that new
-/// plugins that were added to the plugin registry file show up.
+/// If no options are provided, the command loads from both the plugin list in the engine and what's
+/// in the registry file. We need to reconcile the two to set the proper states and make sure that
+/// new plugins that were added to the plugin registry file show up.
 fn merge_plugin_info(
-    from_memory: Vec<PluginInfo>,
+    from_engine: Vec<PluginInfo>,
     from_registry: Vec<PluginInfo>,
 ) -> Vec<PluginInfo> {
-    from_memory
+    from_engine
         .into_iter()
         .merge_join_by(from_registry, |info_a, info_b| {
             info_a.name.cmp(&info_b.name)
         })
         .map(|either_or_both| match either_or_both {
-            // Exists in memory, but not in the registry file
+            // Exists in the engine, but not in the registry file
             EitherOrBoth::Left(info) => PluginInfo {
                 status: match info.status {
                     PluginStatus::Running => info.status,
@@ -267,22 +267,22 @@ fn merge_plugin_info(
                 },
                 ..info
             },
-            // Exists in the registry file, but not in memory
+            // Exists in the registry file, but not in the engine
             EitherOrBoth::Right(info) => info,
             // Exists in both
-            EitherOrBoth::Both(info_memory, info_registry) => PluginInfo {
-                status: match (info_memory.status, info_registry.status) {
+            EitherOrBoth::Both(info_engine, info_registry) => PluginInfo {
+                status: match (info_engine.status, info_registry.status) {
                     // Above all, `running` should be displayed if the plugin is running
                     (PluginStatus::Running, _) => PluginStatus::Running,
                     // `invalid` takes precedence over other states because the user probably wants
                     // to fix it
                     (_, PluginStatus::Invalid) => PluginStatus::Invalid,
                     // Display `modified` if the state in the registry is different somehow
-                    _ if info_memory.is_modified(&info_registry) => PluginStatus::Modified,
+                    _ if info_engine.is_modified(&info_registry) => PluginStatus::Modified,
                     // Otherwise, `loaded` (it's not running)
                     _ => PluginStatus::Loaded,
                 },
-                ..info_memory
+                ..info_engine
             },
         })
         .sorted()
