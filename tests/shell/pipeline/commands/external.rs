@@ -627,16 +627,18 @@ fn exit_code_stops_execution_closure() {
     assert!(actual.err.contains("exited with code 1"));
 }
 
+// TODO: need to add tests under display_error.exit_code = true
 #[test]
 fn exit_code_stops_execution_custom_command() {
     let actual = nu!("def cmd [] { nu -c 'exit 42'; 'ok1' }; cmd; print 'ok2'");
     assert!(actual.out.is_empty());
-    assert!(actual.err.contains("exited with code 42"));
+    assert!(!actual.err.contains("exited with code 42"));
 }
 
+// TODO: need to add tests under display_error.exit_code = true
 #[test]
 fn exit_code_stops_execution_for_loop() {
     let actual = nu!("for x in [0 1] { nu -c 'exit 42'; print $x }");
     assert!(actual.out.is_empty());
-    assert!(actual.err.contains("exited with code 42"));
+    assert!(!actual.err.contains("exited with code 42"));
 }
