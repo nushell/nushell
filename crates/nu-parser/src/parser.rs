@@ -1435,7 +1435,13 @@ fn parse_binary_with_base(
 
     if let Some(token) = token.strip_prefix(prefix) {
         if let Some(token) = token.strip_suffix(suffix) {
-            let (lexed, err) = lex(token, span.start + prefix.len(), b",\r\n", b"", true);
+            let (lexed, err) = lex(
+                token,
+                span.start + prefix.len(),
+                &[b',', b'\r', b'\n'],
+                &[],
+                true,
+            );
             if let Some(err) = err {
                 working_set.error(err);
             }
@@ -1647,7 +1653,13 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
     // Avoid calling sub-parsers on unmatched parens, to prevent quadratic time on things like ((((1..2))))
     // No need to call the expensive parse_value on "((((1"
     if dotdot_pos[0] > 0 {
-        let (_tokens, err) = lex(&contents[..dotdot_pos[0]], span.start, &[], b".?", true);
+        let (_tokens, err) = lex(
+            &contents[..dotdot_pos[0]],
+            span.start,
+            &[],
+            &[b'.', b'?'],
+            true,
+        );
         if let Some(_err) = err {
             working_set.error(ParseError::Expected("Valid expression before ..", span));
             return None;
@@ -1859,7 +1871,7 @@ pub fn parse_brace_expr(
     }
 
     let bytes = working_set.get_span_contents(Span::new(span.start + 1, span.end - 1));
-    let (tokens, _) = lex(bytes, span.start + 1, b"\r\n\t", b":", true);
+    let (tokens, _) = lex(bytes, span.start + 1, &[b'\r', b'\n', b'\t'], &[b':'], true);
 
     let second_token = tokens
         .first()
@@ -2227,7 +2239,7 @@ pub fn parse_cell_path(
 pub fn parse_simple_cell_path(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let source = working_set.get_span_contents(span);
 
-    let (tokens, err) = lex(source, span.start, b"\n\r", b".?", true);
+    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -2253,7 +2265,7 @@ pub fn parse_full_cell_path(
     let full_cell_span = span;
     let source = working_set.get_span_contents(span);
 
-    let (tokens, err) = lex(source, span.start, b"\n\r", b".?", true);
+    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -2281,7 +2293,7 @@ pub fn parse_full_cell_path(
 
             let source = working_set.get_span_contents(span);
 
-            let (output, err) = lex(source, span.start, b"\n\r", &[], true);
+            let (output, err) = lex(source, span.start, &[b'\n', b'\r'], &[], true);
             if let Some(err) = err {
                 working_set.error(err)
             }
@@ -3126,7 +3138,7 @@ pub fn parse_var_with_opt_type(
             let type_bytes = working_set.get_span_contents(full_span).to_vec();
 
             let (tokens, parse_error) =
-                lex_signature(&type_bytes, full_span.start, b",", &[], true);
+                lex_signature(&type_bytes, full_span.start, &[b','], &[], true);
 
             if let Some(parse_error) = parse_error {
                 working_set.error(parse_error);
@@ -3245,7 +3257,8 @@ pub fn parse_input_output_types(
         full_span.end -= 1;
     }
 
-    let (tokens, parse_error) = lex_signature(bytes, full_span.start, b"\n\r,", &[], true);
+    let (tokens, parse_error) =
+        lex_signature(bytes, full_span.start, &[b'\n', b'\r', b','], &[], true);
 
     if let Some(parse_error) = parse_error {
         working_set.error(parse_error);
@@ -3406,7 +3419,13 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
 
     let source = working_set.get_span_contents(span);
 
-    let (output, err) = lex_signature(source, span.start, b"\n\r", b":=,", false);
+    let (output, err) = lex_signature(
+        source,
+        span.start,
+        &[b'\n', b'\r'],
+        &[b':', b'=', b','],
+        false,
+    );
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -4008,7 +4027,7 @@ pub fn parse_list_expression(
     let inner_span = Span::new(start, end);
     let source = working_set.get_span_contents(inner_span);
 
-    let (output, err) = lex(source, inner_span.start, b"\n\r,", &[], true);
+    let (output, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -4130,7 +4149,7 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
     };
 
     let source = working_set.get_span_contents(inner_span);
-    let (tokens, err) = lex(source, inner_span.start, b"\n\r,", &[], true);
+    let (tokens, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -4354,7 +4373,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
 
     let source = working_set.get_span_contents(inner_span);
 
-    let (output, err) = lex(source, start, b" \r\n,|", &[], true);
+    let (output, err) = lex(source, start, &[b' ', b'\r', b'\n', b',', b'|'], &[], true);
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -5728,10 +5747,10 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         )
     };
     loop {
-        if lex_n(b"\n\r,", b":", 2) < 2 {
+        if lex_n(&[b'\n', b'\r', b','], &[b':'], 2) < 2 {
             break;
         };
-        if lex_n(b"\n\r,", &[], 1) < 1 {
+        if lex_n(&[b'\n', b'\r', b','], &[], 1) < 1 {
             break;
         };
     }

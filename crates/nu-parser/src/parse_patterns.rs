@@ -93,7 +93,7 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
     let inner_span = Span::new(start, end);
     let source = working_set.get_span_contents(inner_span);
 
-    let (output, err) = lex(source, inner_span.start, b"\n\r,", &[], true);
+    let (output, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -179,7 +179,7 @@ pub fn parse_record_pattern(working_set: &mut StateWorkingSet, span: Span) -> Ma
     let inner_span = Span::new(start, end);
     let source = working_set.get_span_contents(inner_span);
 
-    let (tokens, err) = lex(source, start, b"\n\r,", b":", true);
+    let (tokens, err) = lex(source, start, &[b'\n', b'\r', b','], &[b':'], true);
     if let Some(err) = err {
         working_set.error(err);
     }
