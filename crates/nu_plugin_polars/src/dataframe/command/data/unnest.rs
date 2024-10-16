@@ -37,7 +37,9 @@ impl PluginCommand for UnnestDF {
                 description: "Unnest a dataframe",
                 example: r#"[[id person]; [1 {name: "Bob", age: 36}] [2 {name: "Betty", age: 63}]] 
                     | polars into-df -s {id: i64, person: {name: str, age: u8}} 
-                    | polars unnest person"#,
+                    | polars unnest person
+                    | polars get id name age
+                    | polars sort-by id"#,
                 result: Some(
                     NuDataFrame::from(
                         df!(
@@ -56,8 +58,9 @@ impl PluginCommand for UnnestDF {
                     | polars into-df -s {id: i64, person: {name: str, age: u8}} 
                     | polars into-lazy 
                     | polars unnest person
+                    | polars select (polars col id) (polars col name) (polars col age)
                     | polars collect
-                    | polars sort-by id age name"#,
+                    | polars sort-by id"#,
                 result: Some(
                     NuDataFrame::from(
                         df!(
