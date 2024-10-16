@@ -78,3 +78,38 @@ impl Command for Def {
         ]
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use nu_parser::parse;
+
+    fn get_test_env() -> EngineState {
+        let mut engine_state = EngineState::new();
+        let delta = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            working_set.add_decl(Box::new(Def));
+            working_set.render()
+        };
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+        engine_state
+    }
+    #[test]
+    fn test_did_you_mean() {
+        let engine_state = get_test_env();
+        let script = b"
+def foo [--a-long-name] {
+  $a-long-name
+}
+";
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        parse(&mut working_set, None, script, true);
+        assert_eq!(
+            format!("{:?}", working_set.parse_errors),
+            "[VariableNotFound(DidYouMean(Some(\"$a_long_name\")), Span { start: 29, end: 41 }), Expected(\"valid variable name\", Span { start: 29, end: 41 })]"
+        );
+    }
+}
