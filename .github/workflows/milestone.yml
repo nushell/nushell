@@ -1,0 +1,18 @@
+# Description:
+#   - Update milestone of a merged PR
+
+name: Milestone Action
+on:
+  pull_request_target:
+    types: [closed]
+
+jobs:
+  update-milestone:
+    runs-on: ubuntu-latest
+    name: Milestone Update
+    if: ${{github.event.pull_request.merged == true}}
+    steps:
+      - name: Set Milestone
+        uses: hustcer/milestone-action@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
