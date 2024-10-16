@@ -25,7 +25,7 @@ pub fn run_test(input: &str, expected: &str) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
 
-    let mut cmd = Command::cargo_bin("nu")?;
+    let mut cmd: Command = Command::cargo_bin("nu")?;
     cmd.arg("--no-std-lib");
     cmd.arg("--no-config-file");
     cmd.arg(name);
