@@ -142,10 +142,6 @@ This command is a parser keyword. For details, check:
 
                 // Merge the block's environment to the current stack
                 redirect_env(engine_state, caller_stack, &callee_stack);
-
-                // File-reative PWD is useless after eval file block.
-                caller_stack.remove_env_var(engine_state, "FILE_PWD");
-                caller_stack.remove_env_var(engine_state, "CURRENT_FILE");
             }
         } else {
             return Err(ShellError::GenericError {
