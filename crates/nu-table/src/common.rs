@@ -18,9 +18,12 @@ pub fn create_nu_table_config(
     expand: bool,
     mode: TableMode,
 ) -> NuTableConfig {
+    let with_footer = (config.footer_inheritance && out.with_footer)
+        || with_footer(config, out.with_header, out.table.count_rows());
+
     NuTableConfig {
         theme: load_theme(mode),
-        with_footer: with_footer(config, out.with_header, out.table.count_rows()),
+        with_footer,
         with_index: out.with_index,
         with_header: out.with_header,
         split_color: Some(lookup_separator_color(comp)),
