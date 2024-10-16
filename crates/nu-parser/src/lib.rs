@@ -1,3 +1,4 @@
+#![allow(clippy::byte_char_slices)]
 #![doc = include_str!("../README.md")]
 mod deparse;
 mod exportable;
