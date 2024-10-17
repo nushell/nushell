@@ -1,7 +1,7 @@
-use chrono::{FixedOffset, TimeZone};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
+use nu_protocol::IntoValue;
 use nu_utils::get_system_locale;
 
 struct Arguments {
@@ -294,30 +294,21 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 Value::int(0, span)
             }
         }
-        Value::Date { val, .. } => {
-            if val
-                < &FixedOffset::east_opt(0)
-                    .expect("constant")
-                    .with_ymd_and_hms(1677, 9, 21, 0, 12, 44)
-                    .unwrap()
-                || val
-                    > &FixedOffset::east_opt(0)
-                        .expect("constant")
-                        .with_ymd_and_hms(2262, 4, 11, 23, 47, 16)
-                        .unwrap()
-            {
-                Value::error (
-                    ShellError::IncorrectValue {
-                        msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
-                        val_span,
-                        call_span: span,
+        Value::Date { val, .. } => val
+            .timestamp_nanos_opt()
+            .map(|nanos| nanos.into_value(span))
+            .unwrap_or_else(|| {
+                Value::error(
+                    ShellError::GenericError {
+                        error: "Date value out of range".into(),
+                        msg: "cannot fit this date's number of nanoseconds into an int".into(),
+                        span: Some(span),
+                        help: None,
+                        inner: Vec::new(),
                     },
                     span,
                 )
-            } else {
-                Value::int(val.timestamp_nanos_opt().unwrap_or_default(), span)
-            }
-        }
+            }),
         Value::Duration { val, .. } => Value::int(*val, span),
         Value::Binary { val, .. } => {
             use byteorder::{BigEndian, ByteOrder, LittleEndian};
@@ -331,10 +322,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
 
             if size > 8 {
                 return Value::error(
-                    ShellError::IncorrectValue {
-                        msg: format!("binary input is too large to convert to int ({size} bytes)"),
-                        val_span,
-                        call_span: span,
+                    ShellError::InvalidValue {
+                        valid: "a binary value with 8 or less bytes".into(),
+                        actual: format!("one with {size} bytes"),
+                        span: val_span,
                     },
                     span,
                 );
@@ -617,8 +608,8 @@ mod test {
     }
 
     #[rstest]
-    #[case("2262-04-11T23:47:17+00:00", "DateTime out of range for timestamp")]
-    #[case("1677-09-21T00:12:43+00:00", "DateTime out of range for timestamp")]
+    #[case("2262-04-11T23:47:17+00:00", "Date value out of range")]
+    #[case("1677-09-21T00:12:43+00:00", "Date value out of range")]
     fn datetime_to_int_values_that_fail(
         #[case] dt_in: DateTime<FixedOffset>,
         #[case] err_expected: &str,
@@ -635,7 +626,7 @@ mod test {
             Span::test_data(),
         );
         if let Value::Error { error, .. } = actual {
-            if let ShellError::IncorrectValue { msg: e, .. } = *error {
+            if let ShellError::GenericError { error: e, .. } = *error {
                 assert!(
                     e.contains(err_expected),
                     "{e:?} doesn't contain {err_expected}"
