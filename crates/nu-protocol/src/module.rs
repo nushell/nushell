@@ -161,20 +161,25 @@ impl Module {
             }
 
             let span = self.span.unwrap_or(backup_span);
-            let const_record = Value::record(
-                const_rows
-                    .into_iter()
-                    .map(|(name, val)| (String::from_utf8_lossy(&name).to_string(), val))
-                    .collect(),
-                span,
-            );
+
+            // only needs to bring `$module` with a record value if it defines any constants.
+            let constants = if const_rows.is_empty() {
+                vec![]
+            } else {
+                vec![(
+                    final_name.clone(),
+                    Value::record(
+                        const_rows
+                            .into_iter()
+                            .map(|(name, val)| (String::from_utf8_lossy(&name).to_string(), val))
+                            .collect(),
+                        span,
+                    ),
+                )]
+            };
 
             return (
-                ResolvedImportPattern::new(
-                    decls,
-                    vec![(final_name.clone(), self_id)],
-                    vec![(final_name, const_record)],
-                ),
+                ResolvedImportPattern::new(decls, vec![(final_name.clone(), self_id)], constants),
                 errors,
             );
         };
