@@ -5,8 +5,8 @@ use nu_protocol::{
     cli_error::report_compile_error,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_parse_error, report_parse_warning, report_shell_error, PipelineData, ShellError, Span,
-    Value,
+    report_parse_error, report_parse_warning, report_shell_error, ParseError, PipelineData,
+    ShellError, Span, Value,
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
@@ -201,6 +201,24 @@ fn gather_env_vars(
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum ParseOrShellError {
+    ParseError(ParseError),
+    ShellError(ShellError),
+}
+
+impl From<ParseError> for ParseOrShellError {
+    fn from(err: ParseError) -> Self {
+        Self::ParseError(err)
+    }
+}
+
+impl From<ShellError> for ParseOrShellError {
+    fn from(err: ShellError) -> Self {
+        Self::ShellError(err)
+    }
+}
+
 pub fn eval_source(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -208,20 +226,22 @@ pub fn eval_source(
     fname: &str,
     input: PipelineData,
     allow_return: bool,
-) -> i32 {
+) -> Result<(), ParseOrShellError> {
     let start_time = std::time::Instant::now();
 
-    let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
-        Ok(failed) => {
-            let code = failed.into();
-            stack.set_last_exit_code(code, Span::unknown());
-            code
+    let result = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
+        Ok(()) => {
+            stack.set_last_exit_code(0, Span::unknown());
+            Ok(())
         }
-        Err(err) => {
+        Err(ParseOrShellError::ShellError(err)) => {
             report_shell_error(engine_state, &err);
-            let code = err.exit_code();
             stack.set_last_error(&err);
-            code
+            Err(ParseOrShellError::ShellError(err))
+        }
+        Err(ParseOrShellError::ParseError(err)) => {
+            stack.set_last_exit_code(1, Span::unknown());
+            Err(ParseOrShellError::ParseError(err))
         }
     };
 
@@ -237,7 +257,7 @@ pub fn eval_source(
         engine_state.get_config().use_ansi_coloring
     );
 
-    exit_code
+    result
 }
 
 fn evaluate_source(
@@ -247,7 +267,7 @@ fn evaluate_source(
     fname: &str,
     input: PipelineData,
     allow_return: bool,
-) -> Result<bool, ShellError> {
+) -> Result<(), ParseOrShellError> {
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
         let output = parse(
@@ -262,7 +282,7 @@ fn evaluate_source(
 
         if let Some(err) = working_set.parse_errors.first() {
             report_parse_error(&working_set, err);
-            return Ok(true);
+            return Err(ParseOrShellError::ParseError(err.clone()));
         }
 
         if let Some(err) = working_set.compile_errors.first() {
@@ -297,7 +317,7 @@ fn evaluate_source(
         pipeline.print(engine_state, stack, true, false)
     }?;
 
-    Ok(false)
+    Ok(())
 }
 
 #[cfg(test)]
