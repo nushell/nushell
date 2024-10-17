@@ -71,6 +71,7 @@ pub(crate) fn compile_call(
             "return" => {
                 return compile_return(working_set, builder, call, redirect_modes, io_reg);
             }
+            "def" | "export def" => return Ok(()),
             _ => (),
         }
     }
