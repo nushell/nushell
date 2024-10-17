@@ -4600,7 +4600,7 @@ pub fn parse_closure_expression(
                 } = token.1
                 {
                     end_span = Some(span);
-                    amt_to_skip = token.0;
+                    amt_to_skip += token.0;
                     break;
                 }
             }
@@ -4608,6 +4608,7 @@ pub fn parse_closure_expression(
             let end_point = if let Some(span) = end_span {
                 span.end
             } else {
+                working_set.error(ParseError::Unclosed("|".into(), Span::new(end, end)));
                 end
             };
 
