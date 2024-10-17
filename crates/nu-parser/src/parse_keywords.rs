@@ -1544,7 +1544,10 @@ pub fn parse_export_in_module(
 
                 if let Some(var_name_span) = spans.get(2) {
                     let var_name = working_set.get_span_contents(*var_name_span);
-                    let var_name = trim_quotes(var_name);
+                    let var_name = trim_quotes(match var_name.last() {
+                        Some(&b':') => &var_name[0..(var_name.len() - 1)],
+                        _ => var_name,
+                    });
 
                     if let Some(var_id) = working_set.find_variable(var_name) {
                         if let Err(err) = working_set.get_constant(var_id) {
