@@ -44,8 +44,8 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Outputs a query string representing the contents of this record",
-                example: r#"{a[]: ["one", "two"], b: "three"} | url build-query"#,
-                result: Some(Value::test_string("a%5B%5D=one&a%5B%5D=two&b=three")),
+                example: r#"{a: ["one", "two"], b: "three"} | url build-query"#,
+                result: Some(Value::test_string("a=one&a=two&b=three")),
             },
         ]
     }
