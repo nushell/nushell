@@ -32,7 +32,6 @@ mod sort_by_expr;
 pub mod sql_context;
 pub mod sql_expr;
 mod take;
-mod unnest;
 mod unpivot;
 mod with_column;
 use filter::LazyFilter;
@@ -110,6 +109,5 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazyFilter),
         Box::new(Shift),
         Box::new(Unique),
-        Box::new(unnest::UnnestDF),
     ]
 }
