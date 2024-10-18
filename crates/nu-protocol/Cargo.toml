@@ -35,7 +35,6 @@ miette = { workspace = true, features = ["fancy-no-backtrace"] }
 num-format = { workspace = true }
 rmp-serde = { workspace = true, optional = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 thiserror = "1.0"
 typetag = "0.2"
 os_pipe = { workspace = true, features = ["io_safety"] }

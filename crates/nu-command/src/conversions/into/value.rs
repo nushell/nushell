@@ -18,7 +18,7 @@ impl Command for IntoValue {
             .input_output_types(vec![(Type::table(), Type::table())])
             .named(
                 "columns",
-                SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                SyntaxShape::Table(vec![]),
                 "list of columns to update",
                 Some('c'),
             )
