@@ -12,6 +12,7 @@ use std::{
     io::{self, BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     thread,
+    time::{Duration, Instant},
 };
 
 #[derive(Clone)]
@@ -482,7 +483,7 @@ fn stream_to_file(
 
         let mut bar = progress_bar::NuProgressBar::new(known_size);
 
-        // TODO: reduce the number of progress bar updates?
+        let mut last_update = Instant::now();
 
         let mut reader = BufReader::new(source);
 
@@ -499,7 +500,10 @@ fn stream_to_file(
                     let len = buf.len();
                     reader.consume(len);
                     bytes_processed += len as u64;
-                    bar.update_bar(bytes_processed);
+                    if last_update.elapsed() >= Duration::from_millis(75) {
+                        bar.update_bar(bytes_processed);
+                        last_update = Instant::now();
+                    }
                 }
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
                 Err(e) => break Err(e),
