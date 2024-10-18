@@ -47,8 +47,8 @@ def get-all-operators [] { return [
     [Comparison, <=, LessThanOrEqual, "Checks if a value is less than or equal to another.", 80]
     [Comparison, >, GreaterThan, "Checks if a value is greater than another.", 80]
     [Comparison, >=, GreaterThanOrEqual, "Checks if a value is greater than or equal to another.", 80]
-    [Comparison, '=~ or like', RegexMatch, "Checks if a value matches a regular expression.", 80]
-    [Comparison, '!~ or not-like', NotRegexMatch, "Checks if a value does not match a regular expression.", 80]
+    [Comparison, =~, RegexMatch, "Checks if a value matches a regular expression.", 80]
+    [Comparison, !~, NotRegexMatch, "Checks if a value does not match a regular expression.", 80]
     [Comparison, in, In, "Checks if a value is in a list or string.", 80]
     [Comparison, not-in, NotIn, "Checks if a value is not in a list or string.", 80]
     [Comparison, starts-with, StartsWith, "Checks if a string starts with another.", 80]
@@ -771,7 +771,7 @@ You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https
 
     let modules = (try { modules $target_item --find $find })
     if not ($modules | is-empty) { return $modules }
-
+    
     if ($find | is-not-empty) {
         print -e $"No help results found mentioning: ($find)"
         return []
