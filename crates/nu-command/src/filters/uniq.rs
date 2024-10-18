@@ -46,7 +46,7 @@ impl Command for Uniq {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["distinct", "deduplicate"]
+        vec!["distinct", "deduplicate", "count"]
     }
 
     fn run(
