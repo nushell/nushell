@@ -101,7 +101,7 @@ fn all_columns(span: Span) -> Value {
         let environment = {
             let mut env_rec = Record::new();
             for val in p.environ() {
-                if let Some((key, value)) = val.split_once('=') {
+                if let Some((key, value)) = val.to_string_lossy().split_once('=') {
                     let is_env_var_a_list = {
                         {
                             #[cfg(target_family = "windows")]
@@ -146,8 +146,8 @@ fn all_columns(span: Span) -> Value {
                 "root" => root,
                 "cwd" => cwd,
                 "exe_path" => exe_path,
-                "command" => Value::string(p.cmd().join(" "), span),
-                "name" => Value::string(p.name(), span),
+                "command" => Value::string(p.cmd().join(std::ffi::OsStr::new(" ")).to_string_lossy(), span),
+                "name" => Value::string(p.name().to_string_lossy(), span),
                 "environment" => environment,
             },
             span,

@@ -107,7 +107,11 @@ fn run_catch(
 
     if let Some(catch) = catch {
         stack.set_last_error(&error);
-        let error = error.into_value(span);
+        let fancy_errors = match engine_state.get_config().error_style {
+            nu_protocol::ErrorStyle::Fancy => true,
+            nu_protocol::ErrorStyle::Plain => false,
+        };
+        let error = error.into_value(span, fancy_errors);
         let block = engine_state.get_block(catch.block_id);
         // Put the error value in the positional closure var
         if let Some(var) = block.signature.get_positional(0) {

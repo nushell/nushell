@@ -67,7 +67,9 @@ impl Completer for OperatorCompletion {
             ],
             Expr::String(_) => vec![
                 ("=~", "Contains regex match"),
+                ("like", "Contains regex match"),
                 ("!~", "Does not contain regex match"),
+                ("not-like", "Does not contain regex match"),
                 (
                     "++",
                     "Appends two lists, a list and a value, two strings, or two binary values",
