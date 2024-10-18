@@ -220,6 +220,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
             "params" => param_table,
             "input_output" => input_output_table,
             "search_terms" => Value::string(search_terms.join(", "), span),
+            "is_const" => Value::bool(decl.is_const(), span),
         };
 
         found_cmds_vec.push(Value::record(record, span));

@@ -113,6 +113,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "examples" => Value::list(examples, span),
                     "type" => Value::string(decl.command_type().to_string(), span),
                     "is_sub" => Value::bool(decl.is_sub(), span),
+                    "is_const" => Value::bool(decl.is_const(), span),
                     "creates_scope" => Value::bool(signature.creates_scope, span),
                     "extra_description" => Value::string(decl.extra_description(), span),
                     "search_terms" => Value::string(decl.search_terms().join(", "), span),
