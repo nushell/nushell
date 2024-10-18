@@ -35,6 +35,6 @@ fn return_works_in_script_with_def_main() {
 
 #[test]
 fn return_does_not_set_last_exit_code() {
-    let actual = nu!("do --env { return 42 }; $env.LAST_EXIT_CODE?");
-    assert!(matches!(actual.out.as_str(), "0" | ""));
+    let actual = nu!("hide-env LAST_EXIT_CODE; do --env { return 42 }; $env.LAST_EXIT_CODE?");
+    assert!(matches!(actual.out.as_str(), ""));
 }
