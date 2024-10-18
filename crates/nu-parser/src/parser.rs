@@ -3116,7 +3116,8 @@ pub fn parse_var_with_opt_type(
     spans_idx: &mut usize,
     mutable: bool,
 ) -> (Expression, Option<Type>) {
-    let bytes = working_set.get_span_contents(spans[*spans_idx]).to_vec();
+    let name_span = spans[*spans_idx];
+    let bytes = working_set.get_span_contents(name_span).to_vec();
 
     if bytes.contains(&b' ')
         || bytes.contains(&b'"')
@@ -3128,9 +3129,11 @@ pub fn parse_var_with_opt_type(
     }
 
     if bytes.ends_with(b":") {
+        let name_span = Span::new(name_span.start, name_span.end - 1);
+        let var_name = bytes[0..(bytes.len() - 1)].to_vec();
+
         // We end with colon, so the next span should be the type
         if *spans_idx + 1 < spans.len() {
-            let span_beginning = *spans_idx;
             *spans_idx += 1;
             // signature like record<a: int b: int> is broken into multiple spans due to
             // whitespaces. Collect the rest into one span and work on it
@@ -3147,8 +3150,6 @@ pub fn parse_var_with_opt_type(
             let ty = parse_type(working_set, &type_bytes, tokens[0].span);
             *spans_idx = spans.len() - 1;
 
-            let var_name = bytes[0..(bytes.len() - 1)].to_vec();
-
             if !is_variable(&var_name) {
                 working_set.error(ParseError::Expected(
                     "valid variable name",
@@ -3160,17 +3161,10 @@ pub fn parse_var_with_opt_type(
             let id = working_set.add_variable(var_name, spans[*spans_idx - 1], ty.clone(), mutable);
 
             (
-                Expression::new(
-                    working_set,
-                    Expr::VarDecl(id),
-                    Span::concat(&spans[span_beginning..*spans_idx + 1]),
-                    ty.clone(),
-                ),
+                Expression::new(working_set, Expr::VarDecl(id), name_span, ty.clone()),
                 Some(ty),
             )
         } else {
-            let var_name = bytes[0..(bytes.len() - 1)].to_vec();
-
             if !is_variable(&var_name) {
                 working_set.error(ParseError::Expected(
                     "valid variable name",
@@ -5618,7 +5612,7 @@ pub fn parse_builtin_commands(
                 .parts_including_redirection()
                 .collect::<Vec<Span>>(),
         ),
-        b"const" => parse_const(working_set, &lite_command.parts),
+        b"const" => parse_const(working_set, &lite_command.parts).0,
         b"mut" => parse_mut(
             working_set,
             &lite_command

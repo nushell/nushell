@@ -1,4 +1,5 @@
 use nu_test_support::nu;
+use rstest::rstest;
 
 #[test]
 fn mut_variable() {
@@ -7,11 +8,11 @@ fn mut_variable() {
     assert_eq!(actual.out, "4");
 }
 
-#[test]
-fn mut_name_builtin_var() {
-    let actual = nu!("mut in = 3");
-
-    assert!(actual
+#[rstest]
+#[case("mut in = 3")]
+#[case("mut in: int = 3")]
+fn mut_name_builtin_var(#[case] assignment: &str) {
+    assert!(nu!(assignment)
         .err
         .contains("'in' is the name of a builtin Nushell variable"));
 }
