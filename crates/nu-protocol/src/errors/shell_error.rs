@@ -1474,13 +1474,16 @@ impl ShellError {
         self.external_exit_code().map(|e| e.item).unwrap_or(1)
     }
 
-    pub fn into_value(self, span: Span) -> Value {
+    pub fn into_value(self, span: Span, fancy_errors: bool) -> Value {
         let exit_code = self.external_exit_code();
 
         let mut record = record! {
             "msg" => Value::string(self.to_string(), span),
             "debug" => Value::string(format!("{self:?}"), span),
-            "raw" => Value::error(self, span),
+            "raw" => Value::error(self.clone(), span),
+            // "labeled_error" => Value::string(LabeledError::from_diagnostic_and_render(self.clone()), span),
+            "rendered" => Value::string(ShellError::render_error_to_string(self.clone(), fancy_errors), span),
+            "json" => Value::string(serde_json::to_string(&self).expect("Could not serialize error"), span),
         };
 
         if let Some(code) = exit_code {
@@ -1498,6 +1501,21 @@ impl ShellError {
             "Encountered error during parse-time evaluation".into(),
             span,
         )
+    }
+    pub fn render_error_to_string(diag: impl miette::Diagnostic, fancy_errors: bool) -> String {
+        let theme = if fancy_errors {
+            miette::GraphicalTheme::unicode()
+        } else {
+            miette::GraphicalTheme::none()
+        };
+        let mut out = String::new();
+        miette::GraphicalReportHandler::new()
+            .with_width(80)
+            .with_theme(theme)
+            .render_report(&mut out, &diag)
+            .unwrap_or_default();
+
+        out
     }
 }
 
