@@ -221,7 +221,7 @@ pub fn eval_source(
             report_shell_error(engine_state, &err);
             let code = err.exit_code();
             stack.set_last_error(&err);
-            code
+            code.unwrap_or(0)
         }
     };
 

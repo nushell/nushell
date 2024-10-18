@@ -1470,8 +1470,11 @@ impl ShellError {
         Some(Spanned { item, span })
     }
 
-    pub fn exit_code(&self) -> i32 {
-        self.external_exit_code().map(|e| e.item).unwrap_or(1)
+    pub fn exit_code(&self) -> Option<i32> {
+        match self {
+            Self::Return { .. } | Self::Break { .. } | Self::Continue { .. } => None,
+            _ => self.external_exit_code().map(|e| e.item).or(Some(1)),
+        }
     }
 
     pub fn into_value(self, span: Span, fancy_errors: bool) -> Value {

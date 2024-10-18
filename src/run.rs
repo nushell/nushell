@@ -104,7 +104,7 @@ pub(crate) fn run_commands(
 
     if let Err(err) = result {
         report_shell_error(engine_state, &err);
-        std::process::exit(err.exit_code());
+        std::process::exit(err.exit_code().unwrap_or(0));
     }
 }
 
@@ -178,7 +178,7 @@ pub(crate) fn run_file(
 
     if let Err(err) = result {
         report_shell_error(engine_state, &err);
-        std::process::exit(err.exit_code());
+        std::process::exit(err.exit_code().unwrap_or(0));
     }
 }
 
