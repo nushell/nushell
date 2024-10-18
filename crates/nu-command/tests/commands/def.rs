@@ -318,7 +318,7 @@ fn export_def_recursive_func_should_work() {
     let actual = nu!(r#"
 export def recursive [c: int] {
     if ($c == 0) { return }
-    if ($c mod 2 > 0) {
+    if ($c mod 1 > 0) {
         $in | recursive ($c - 1)
     } else {
         recursive ($c - 1)
