@@ -144,14 +144,41 @@ path."#
 fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
     let lhs = expand_to_real_path(path);
     let rhs = expand_to_real_path(&args.path.item);
-    match lhs.strip_prefix(&rhs) {
-        Ok(p) => Value::string(p.to_string_lossy(), span),
-        Err(e) => Value::error(
-            ShellError::CantConvert {
-                to_type: e.to_string(),
-                from_type: "string".into(),
+
+    match (lhs.to_str(), rhs.to_str()) {
+        (Some(child_str), Some(parent_str)) => {
+            let common: String = child_str
+                .split("/")
+                .zip(parent_str.split("/"))
+                .take_while(|(x, y)| x == y)
+                .map(|(x, _)| x.to_string() + "/")
+                .collect();
+
+            if let Some(x) = child_str.strip_prefix(&common) {
+                if parent_str == common.trim_end_matches("/") {
+                    return Value::string(x.to_string(), span);
+                }
+                if let Some(remaining_parent) = parent_str.strip_prefix(&common) {
+                    let mut path: String = remaining_parent.split("/").map(|_| "../").collect();
+                    path.push_str(x);
+                    return Value::string(path.to_string(), span);
+                }
+            }
+
+            Value::error(
+                ShellError::IncorrectValue {
+                    msg: "Either the input or the argument path is incorrect".into(),
+                    val_span: span,
+                    call_span: span,
+                },
                 span,
-                help: None,
+            )
+        }
+        _ => Value::error(
+            ShellError::IncorrectValue {
+                msg: "Either the input or the argument path is incorrect".into(),
+                val_span: span,
+                call_span: span,
             },
             span,
         ),
