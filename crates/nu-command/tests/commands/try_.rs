@@ -126,20 +126,3 @@ fn prints_only_if_last_pipeline() {
     let actual = nu!("try { ['should not print'] | every 1 }; 'last value'");
     assert_eq!(actual.out, "last value");
 }
-
-#[test]
-fn get_error_columns() {
-    let actual = nu!(" try { non_existent_command } catch {|err| $err} | columns | to json -r");
-    assert_eq!(
-        actual.out,
-        "[\"msg\",\"debug\",\"raw\",\"rendered\",\"json\"]"
-    );
-}
-
-#[test]
-fn get_json_error() {
-    let actual = nu!("try { non_existent_command } catch {|err| $err} | get json | from json | update labels.span {{start: 0 end: 0}} | to json -r");
-    assert_eq!(
-        actual.out, "{\"msg\":\"External command failed\",\"labels\":[{\"text\":\"Command `non_existent_command` not found\",\"span\":{\"start\":0,\"end\":0}}],\"code\":\"nu::shell::external_command\",\"url\":null,\"help\":\"`non_existent_command` is neither a Nushell built-in or a known external command\",\"inner\":[]}"
-    );
-}

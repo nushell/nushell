@@ -23,33 +23,37 @@ fn groups() {
 
 #[test]
 fn errors_if_given_unknown_column_name() {
-    let sample = r#"{
-    "nu": {
-        "committers": [
-            {"name": "Andrés N. Robalino"},
-            {"name": "JT Turner"},
-            {"name": "Yehuda Katz"}
-        ],
-        "releases": [
-            {"version": "0.2"}
-            {"version": "0.8"},
-            {"version": "0.9999999"}
-        ],
-        "0xATYKARNU": [
-            ["Th", "e", " "],
-            ["BIG", " ", "UnO"],
-            ["punto", "cero"]
-        ]
-    }
-}
-"#;
+    let sample = r#"
+                {
+                    "nu": {
+                        "committers": [
+                            {"name": "Andrés N. Robalino"},
+                            {"name": "JT Turner"},
+                            {"name": "Yehuda Katz"}
+                        ],
+                        "releases": [
+                            {"version": "0.2"}
+                            {"version": "0.8"},
+                            {"version": "0.9999999"}
+                        ],
+                        "0xATYKARNU": [
+                            ["Th", "e", " "],
+                            ["BIG", " ", "UnO"],
+                            ["punto", "cero"]
+                        ]
+                    }
+                }
+            "#;
 
     let actual = nu!(pipeline(&format!(
-        r#"'{sample}'
-    | from json
-    | group-by {{|| get nu.releases.missing_column }}"#
+        r#"
+                '{sample}'
+                | from json
+                | group-by {{|| get nu.releases.version }}
+            "#
     )));
-    assert!(actual.err.contains("cannot find column"));
+
+    assert!(actual.err.contains("can't convert list<string> to string"));
 }
 
 #[test]

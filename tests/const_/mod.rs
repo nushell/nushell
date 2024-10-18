@@ -238,30 +238,13 @@ fn complex_const_export() {
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "eats");
 
-    let inp = &[MODULE_SETUP, "use spam", "'none' in $spam.eggs.bacon"];
+    let inp = &[
+        MODULE_SETUP,
+        "use spam",
+        "($spam.eggs.bacon.none | is-empty)",
+    ];
     let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "false");
-}
-
-#[test]
-fn only_nested_module_have_const() {
-    let setup = r#"
-        module spam {
-            export module eggs {
-                export module bacon {
-                    export const viking = 'eats'
-                    export module none {}
-                }
-            }
-        }
-    "#;
-    let inp = &[setup, "use spam", "$spam.eggs.bacon.viking"];
-    let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "eats");
-
-    let inp = &[setup, "use spam", "'none' in $spam.eggs.bacon"];
-    let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "false");
+    assert_eq!(actual.out, "true");
 }
 
 #[test]
@@ -278,16 +261,20 @@ fn complex_const_glob_export() {
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "eats");
 
-    let inp = &[MODULE_SETUP, "use spam *", "'none' in $eggs.bacon"];
+    let inp = &[MODULE_SETUP, "use spam *", "($eggs.bacon.none | is-empty)"];
     let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "false");
+    assert_eq!(actual.out, "true");
 }
 
 #[test]
 fn complex_const_drill_export() {
-    let inp = &[MODULE_SETUP, "use spam eggs bacon none", "$none"];
+    let inp = &[
+        MODULE_SETUP,
+        "use spam eggs bacon none",
+        "($none | is-empty)",
+    ];
     let actual = nu!(&inp.join("; "));
-    assert!(actual.err.contains("variable not found"));
+    assert_eq!(actual.out, "true");
 }
 
 #[test]

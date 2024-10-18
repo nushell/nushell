@@ -6,17 +6,18 @@ use std::{
     path::PathBuf,
 };
 
-fn get_plugin_registry_file_path(
+pub(crate) fn modify_plugin_file(
     engine_state: &EngineState,
     stack: &mut Stack,
     span: Span,
-    custom_path: &Option<Spanned<String>>,
-) -> Result<PathBuf, ShellError> {
+    custom_path: Option<Spanned<String>>,
+    operate: impl FnOnce(&mut PluginRegistryFile) -> Result<(), ShellError>,
+) -> Result<(), ShellError> {
     #[allow(deprecated)]
     let cwd = current_dir(engine_state, stack)?;
 
-    if let Some(ref custom_path) = custom_path {
-        Ok(nu_path::expand_path_with(&custom_path.item, cwd, true))
+    let plugin_registry_file_path = if let Some(ref custom_path) = custom_path {
+        nu_path::expand_path_with(&custom_path.item, cwd, true)
     } else {
         engine_state
             .plugin_path
@@ -27,53 +28,8 @@ fn get_plugin_registry_file_path(
                 span: Some(span),
                 help: Some("you may be running `nu` with --no-config-file".into()),
                 inner: vec![],
-            })
-    }
-}
-
-pub(crate) fn read_plugin_file(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    span: Span,
-    custom_path: &Option<Spanned<String>>,
-) -> Result<PluginRegistryFile, ShellError> {
-    let plugin_registry_file_path =
-        get_plugin_registry_file_path(engine_state, stack, span, custom_path)?;
-
-    let file_span = custom_path.as_ref().map(|p| p.span).unwrap_or(span);
-
-    // Try to read the plugin file if it exists
-    if fs::metadata(&plugin_registry_file_path).is_ok_and(|m| m.len() > 0) {
-        PluginRegistryFile::read_from(
-            File::open(&plugin_registry_file_path).map_err(|err| ShellError::IOErrorSpanned {
-                msg: format!(
-                    "failed to read `{}`: {}",
-                    plugin_registry_file_path.display(),
-                    err
-                ),
-                span: file_span,
-            })?,
-            Some(file_span),
-        )
-    } else if let Some(path) = custom_path {
-        Err(ShellError::FileNotFound {
-            file: path.item.clone(),
-            span: path.span,
-        })
-    } else {
-        Ok(PluginRegistryFile::default())
-    }
-}
-
-pub(crate) fn modify_plugin_file(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    span: Span,
-    custom_path: &Option<Spanned<String>>,
-    operate: impl FnOnce(&mut PluginRegistryFile) -> Result<(), ShellError>,
-) -> Result<(), ShellError> {
-    let plugin_registry_file_path =
-        get_plugin_registry_file_path(engine_state, stack, span, custom_path)?;
+            })?
+    };
 
     let file_span = custom_path.as_ref().map(|p| p.span).unwrap_or(span);
 

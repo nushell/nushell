@@ -1,7 +1,6 @@
 use crate::repl::tests::{fail_test, run_test, run_test_contains, TestResult};
 use nu_test_support::nu;
 use pretty_assertions::assert_eq;
-use rstest::rstest;
 
 #[test]
 fn no_scope_leak1() -> TestResult {
@@ -74,21 +73,10 @@ fn custom_switch1() -> TestResult {
     )
 }
 
-#[rstest]
-fn custom_flag_with_type_checking(
-    #[values(
-        ("int", "\"3\""),
-        ("int", "null"),
-        ("record<i: int>", "{i: \"\"}"),
-        ("list<int>", "[\"\"]")
-    )]
-    type_sig_value: (&str, &str),
-    #[values("--dry-run", "-d")] flag: &str,
-) -> TestResult {
-    let (type_sig, value) = type_sig_value;
-
+#[test]
+fn custom_flag_with_type_checking() -> TestResult {
     fail_test(
-        &format!("def florb [{flag}: {type_sig}] {{}}; let y = {value}; florb {flag} $y"),
+        r#"def florb [--dry-run: int] { $dry_run }; let y = "3"; florb --dry-run=$y"#,
         "type_mismatch",
     )
 }

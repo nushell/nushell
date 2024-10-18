@@ -31,13 +31,13 @@ impl PluginCommand for UnpivotDF {
         Signature::build(self.name())
             .required_named(
                 "index",
-                SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                SyntaxShape::Table(vec![]),
                 "column names for unpivoting",
                 Some('i'),
             )
             .required_named(
                 "on",
-                SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                SyntaxShape::Table(vec![]),
                 "column names used as value columns",
                 Some('o'),
             )

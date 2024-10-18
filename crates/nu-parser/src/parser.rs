@@ -1067,27 +1067,30 @@ pub fn parse_internal_call(
                     if let Some(arg_shape) = flag.arg {
                         if let Some(arg) = spans.get(spans_idx + 1) {
                             let arg = parse_value(working_set, *arg, &arg_shape);
-                            let (arg_name, val_expression) = ensure_flag_arg_type(
-                                working_set,
-                                flag.long.clone(),
-                                arg.clone(),
-                                &arg_shape,
-                                spans[spans_idx],
-                            );
 
                             if flag.long.is_empty() {
                                 if let Some(short) = flag.short {
                                     call.add_named((
-                                        arg_name,
+                                        Spanned {
+                                            item: String::new(),
+                                            span: spans[spans_idx],
+                                        },
                                         Some(Spanned {
                                             item: short.to_string(),
                                             span: spans[spans_idx],
                                         }),
-                                        Some(val_expression),
+                                        Some(arg),
                                     ));
                                 }
                             } else {
-                                call.add_named((arg_name, None, Some(val_expression)));
+                                call.add_named((
+                                    Spanned {
+                                        item: flag.long.clone(),
+                                        span: spans[spans_idx],
+                                    },
+                                    None,
+                                    Some(arg),
+                                ));
                             }
                             spans_idx += 1;
                         } else {
@@ -5018,8 +5021,8 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         b"<=" => Operator::Comparison(Comparison::LessThanOrEqual),
         b">" => Operator::Comparison(Comparison::GreaterThan),
         b">=" => Operator::Comparison(Comparison::GreaterThanOrEqual),
-        b"=~" | b"like" => Operator::Comparison(Comparison::RegexMatch),
-        b"!~" | b"not-like" => Operator::Comparison(Comparison::NotRegexMatch),
+        b"=~" => Operator::Comparison(Comparison::RegexMatch),
+        b"!~" => Operator::Comparison(Comparison::NotRegexMatch),
         b"+" => Operator::Math(Math::Plus),
         b"++" => Operator::Math(Math::Append),
         b"-" => Operator::Math(Math::Minus),

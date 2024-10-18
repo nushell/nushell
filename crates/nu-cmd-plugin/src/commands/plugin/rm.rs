@@ -87,7 +87,7 @@ fixed with `plugin add`.
 
         let filename = canonicalize_possible_filename_arg(engine_state, stack, &name.item);
 
-        modify_plugin_file(engine_state, stack, call.head, &custom_path, |contents| {
+        modify_plugin_file(engine_state, stack, call.head, custom_path, |contents| {
             if let Some(index) = contents
                 .plugins
                 .iter()

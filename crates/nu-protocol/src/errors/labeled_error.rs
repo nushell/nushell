@@ -139,23 +139,6 @@ impl LabeledError {
         self
     }
 
-    pub fn render_error_to_string(diag: impl miette::Diagnostic, fancy_errors: bool) -> String {
-        let theme = if fancy_errors {
-            miette::GraphicalTheme::unicode()
-        } else {
-            miette::GraphicalTheme::none()
-        };
-
-        let mut out = String::new();
-        miette::GraphicalReportHandler::new()
-            .with_width(80)
-            .with_theme(theme)
-            .render_report(&mut out, &diag)
-            .unwrap_or_default();
-
-        out
-    }
-
     /// Create a [`LabeledError`] from a type that implements [`miette::Diagnostic`].
     ///
     /// # Example
