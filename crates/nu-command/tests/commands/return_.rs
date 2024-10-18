@@ -32,3 +32,9 @@ fn return_works_in_script_with_def_main() {
     );
     assert!(actual.err.is_empty());
 }
+
+#[test]
+fn return_does_not_set_last_exit_code() {
+    let actual = nu!("do --env { return 42 }; $env.LAST_EXIT_CODE");
+    assert_eq!(actual.out, "0");
+}
