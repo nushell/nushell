@@ -1,3 +1,4 @@
+use chrono::{Local, TimeZone};
 #[cfg(windows)]
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
@@ -175,6 +176,10 @@ fn run_ps(
             #[cfg(target_os = "macos")]
             {
                 record.push("cwd", Value::string(proc.cwd(), span));
+                let timestamp = Local
+                    .timestamp_nanos(proc.start_time * 1_000_000_000)
+                    .into();
+                record.push("start_time", Value::date(timestamp, span));
             }
         }
 
