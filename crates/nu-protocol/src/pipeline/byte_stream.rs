@@ -41,10 +41,7 @@ impl ByteStreamSource {
 
     /// Source is a `Child` or `File`, rather than `Read`. Currently affects trimming
     fn is_external(&self) -> bool {
-        matches!(
-            self,
-            ByteStreamSource::File(..) | ByteStreamSource::Child(..)
-        )
+        matches!(self, ByteStreamSource::Child(..))
     }
 }
 
