@@ -1,3 +1,4 @@
+#[cfg(target_os = "macos")]
 use chrono::{Local, TimeZone};
 #[cfg(windows)]
 use itertools::Itertools;
