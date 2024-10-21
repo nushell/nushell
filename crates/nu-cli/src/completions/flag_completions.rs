@@ -35,7 +35,7 @@ impl Completer for FlagCompletion {
             let decl = working_set.get_decl(call.decl_id);
             let sig = decl.signature();
 
-            let mut matcher = NuMatcher::new(String::from_utf8_lossy(&prefix), options.clone());
+            let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), options.clone());
 
             for named in &sig.named {
                 let flag_desc = &named.desc;

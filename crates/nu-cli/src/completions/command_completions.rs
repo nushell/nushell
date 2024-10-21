@@ -147,7 +147,7 @@ impl Completer for CommandCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        prefix: &[u8],
+        _prefix: &[u8],
         span: Span,
         offset: usize,
         pos: usize,

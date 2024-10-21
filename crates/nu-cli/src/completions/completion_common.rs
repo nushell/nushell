@@ -1,8 +1,5 @@
 use super::{completion_options::NuMatcher, MatchAlgorithm};
-use crate::{
-    completions::{matches, CompletionOptions},
-    SemanticSuggestion,
-};
+use crate::completions::CompletionOptions;
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
 use nu_path::dots::expand_ndots;
@@ -165,7 +162,7 @@ pub struct FileSuggestion {
 
 /// # Parameters
 /// * `cwds` - A list of directories in which to search. The only reason this isn't a single string
-/// is because dotnu_completions searches in multiple directories at once
+///   is because dotnu_completions searches in multiple directories at once
 pub fn complete_item(
     want_directory: bool,
     span: nu_protocol::Span,
@@ -264,6 +261,7 @@ pub fn complete_item(
         if should_collapse_dots {
             p = collapse_ndots(p);
         }
+        let cwd = p.cwd.clone();
         let path = original_cwd.apply(p, path_separator);
         let style = ls_colors.as_ref().map(|lsc| {
             lsc.style_for_path_with_metadata(
@@ -343,4 +341,39 @@ pub fn adjust_if_intermediate(
         span,
         readjusted,
     }
+}
+
+/// Collapse multiple ".." components into n-dots.
+///
+/// It performs the reverse operation of `expand_ndots`, collapsing sequences of ".." into n-dots,
+/// such as "..." and "....".
+///
+/// The resulting path will use platform-specific path separators, regardless of what path separators were used in the input.
+fn collapse_ndots(path: PathBuiltFromString) -> PathBuiltFromString {
+    let mut result = PathBuiltFromString {
+        parts: Vec::with_capacity(path.parts.len()),
+        isdir: path.isdir,
+        cwd: path.cwd,
+    };
+
+    let mut dot_count = 0;
+
+    for part in path.parts {
+        if part == ".." {
+            dot_count += 1;
+        } else {
+            if dot_count > 0 {
+                result.parts.push(".".repeat(dot_count + 1));
+                dot_count = 0;
+            }
+            result.parts.push(part);
+        }
+    }
+
+    // Add any remaining dots
+    if dot_count > 0 {
+        result.parts.push(".".repeat(dot_count + 1));
+    }
+
+    result
 }
