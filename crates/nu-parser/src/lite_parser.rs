@@ -136,11 +136,15 @@ impl LiteCommand {
     }
 
     pub fn parts_including_redirection(&self) -> impl Iterator<Item = Span> + '_ {
-        self.parts.iter().copied().chain(
-            self.redirection
-                .iter()
-                .flat_map(|redirection| redirection.spans()),
-        )
+        self.parts
+            .iter()
+            .copied()
+            .chain(
+                self.redirection
+                    .iter()
+                    .flat_map(|redirection| redirection.spans()),
+            )
+            .sorted_unstable_by_key(|a| (a.start, a.end))
     }
 }
 
