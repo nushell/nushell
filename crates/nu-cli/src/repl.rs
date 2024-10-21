@@ -237,10 +237,7 @@ fn escape_special_vscode_bytes(input: &str) -> String {
                 }
             } else {
                 // Escape all multi-byte characters (i.e., those above 0x7F)
-                c_bytes
-                    .bytes()
-                    .flat_map(|b| format!("\\x{:02X}", b).into_bytes())
-                    .collect()
+                c_bytes.bytes().collect()
             }
         })
         .map(|b| b as char) // Convert escaped bytes back to chars
@@ -1417,7 +1414,7 @@ fn are_session_ids_in_sync() {
 
 #[cfg(test)]
 mod test_auto_cd {
-    use super::{do_auto_cd, parse_operation, ReplOperation};
+    use super::{do_auto_cd, escape_special_vscode_bytes, parse_operation, ReplOperation};
     use nu_path::AbsolutePath;
     use nu_protocol::engine::{EngineState, Stack};
     use tempfile::tempdir;
@@ -1566,5 +1563,46 @@ mod test_auto_cd {
         let dir = tempdir.join("foo");
         let input = if cfg!(windows) { r"foo\" } else { "foo/" };
         check(tempdir, input, dir);
+    }
+
+    #[test]
+    fn escape_vscode_semicolon_test() {
+        let input = r#"now;is"#;
+        let expected = r#"now\x3Bis"#;
+        let actual = escape_special_vscode_bytes(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn escape_vscode_backslash_test() {
+        let input = r#"now\is"#;
+        let expected = r#"now\\is"#;
+        let actual = escape_special_vscode_bytes(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn escape_vscode_linefeed_test() {
+        let input = "now\nis";
+        let expected = r#"now\x0Ais"#;
+        let actual = escape_special_vscode_bytes(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn escape_vscode_tab_null_cr_test() {
+        let input = "now\t\0\ris";
+        let expected = r#"now\x09\x00\x0Dis"#;
+        let actual = escape_special_vscode_bytes(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn escape_vscode_multibyte_ok() {
+        let input = "now🍪is";
+        let expected = format!("{}", "now\u{F0}\u{9F}\u{8D}\u{AA}is".escape_unicode());
+        let actual = format!("{}", escape_special_vscode_bytes(input).escape_unicode());
+
+        assert_eq!(expected, actual);
     }
 }
