@@ -6,6 +6,7 @@ use quickcheck_macros::quickcheck;
 
 mod commands;
 mod format_conversions;
+mod sort_utils;
 
 fn create_default_context() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())

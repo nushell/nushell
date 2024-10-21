@@ -176,7 +176,14 @@ fn bad_var_name() -> TestResult {
 
 #[test]
 fn bad_var_name2() -> TestResult {
-    fail_test(r#"let $foo-bar = 4"#, "valid variable")
+    fail_test(r#"let $foo-bar = 4"#, "valid variable")?;
+    fail_test(r#"foo-bar=4 true"#, "Command `foo-bar=4` not found")
+}
+
+#[test]
+fn bad_var_name3() -> TestResult {
+    fail_test(r#"let $=foo = 4"#, "valid variable")?;
+    fail_test(r#"=foo=4 true"#, "Command `=foo=4` not found")
 }
 
 #[test]
@@ -265,6 +272,34 @@ fn string_interp_with_equals() -> TestResult {
         r#"let query_prefix = $"https://api.github.com/search/issues?q=repo:nushell/"; $query_prefix"#,
         "https://api.github.com/search/issues?q=repo:nushell/",
     )
+}
+
+#[test]
+fn raw_string_with_equals() -> TestResult {
+    run_test(
+        r#"let query_prefix = r#'https://api.github.com/search/issues?q=repo:nushell/'#; $query_prefix"#,
+        "https://api.github.com/search/issues?q=repo:nushell/",
+    )
+}
+
+#[test]
+fn list_quotes_with_equals() -> TestResult {
+    run_test(
+        r#"["https://api.github.com/search/issues?q=repo:nushell/"] | get 0"#,
+        "https://api.github.com/search/issues?q=repo:nushell/",
+    )
+}
+
+#[test]
+fn record_quotes_with_equals() -> TestResult {
+    run_test(r#"{"a=":b} | get a="#, "b")?;
+    run_test(r#"{"=a":b} | get =a"#, "b")?;
+
+    run_test(r#"{a:"=b"} | get a"#, "=b")?;
+    run_test(r#"{a:"b="} | get a"#, "b=")?;
+
+    run_test(r#"{a:b,"=c":d} | get =c"#, "d")?;
+    run_test(r#"{a:b,"c=":d} | get c="#, "d")
 }
 
 #[test]

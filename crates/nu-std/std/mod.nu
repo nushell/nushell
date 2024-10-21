@@ -1,28 +1,34 @@
 # std.nu, `used` to load all standard library components
 
 # Top-level commands: ellie, repeat, null-device, and "path add"
-export use lib *
+export use std/util *
 
 # std submodules
-export module ./assert
-export module ./bench
-export module ./dt
-export module ./formats
-export module ./help
-export module ./input
-export module ./iter
-export module ./log
-export module ./math
-export module ./xml
+export module std/assert
+export module std/bench
+export module std/dt
+export module std/formats
+export module std/help
+export module std/input
+export module std/iter
+export module std/log
+export module std/math
+export module std/xml
 
 # Load main dirs command and all subcommands
-export use ./dirs main
-export module ./dirs {
-  export use ./dirs [
+export use std/dirs main
+export module dirs {
+  export use std/dirs [
     add
     drop
     next
     prev
     goto
   ]
+}
+
+# Workaround for #13403 to load export-env blocks from submodules
+export-env {
+    use std/log []
+    use std/dirs []
 }

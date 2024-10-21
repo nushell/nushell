@@ -220,8 +220,17 @@ fn eval_ir_block_impl<D: DebugContext>(
             }
             Err(err) => {
                 if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
+                    let fancy_errors = match ctx.engine_state.get_config().error_style {
+                        nu_protocol::ErrorStyle::Fancy => true,
+                        nu_protocol::ErrorStyle::Plain => false,
+                    };
                     // If an error handler is set, branch there
-                    prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
+                    prepare_error_handler(
+                        ctx,
+                        error_handler,
+                        Some(err.into_spanned(*span)),
+                        fancy_errors,
+                    );
                     pc = error_handler.handler_index;
                 } else {
                     // If not, exit the block with the error
@@ -246,6 +255,7 @@ fn prepare_error_handler(
     ctx: &mut EvalContext<'_>,
     error_handler: ErrorHandler,
     error: Option<Spanned<ShellError>>,
+    fancy_errors: bool,
 ) {
     if let Some(reg_id) = error_handler.error_register {
         if let Some(error) = error {
@@ -254,7 +264,10 @@ fn prepare_error_handler(
             // Create the error value and put it in the register
             ctx.put_reg(
                 reg_id,
-                error.item.into_value(error.span).into_pipeline_data(),
+                error
+                    .item
+                    .into_value(error.span, fancy_errors)
+                    .into_pipeline_data(),
             );
         } else {
             // Set the register to empty
@@ -322,13 +335,13 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src);
             drain(ctx, data)
         }
-        Instruction::WriteToOutDests { src } => {
+        Instruction::DrainIfEnd { src } => {
             let data = ctx.take_reg(*src);
             let res = {
                 let stack = &mut ctx
                     .stack
                     .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
-                data.write_to_out_dests(ctx.engine_state, stack)?
+                data.drain_to_out_dests(ctx.engine_state, stack)?
             };
             ctx.put_reg(*src, res);
             Ok(Continue)
@@ -507,14 +520,19 @@ fn eval_instruction<D: DebugContext>(
                     msg: format!("Tried to write to file #{file_num}, but it is not open"),
                     span: Some(*span),
                 })?;
-            let result = {
-                let mut stack = ctx
-                    .stack
-                    .push_redirection(Some(Redirection::File(file)), None);
-                src.write_to_out_dests(ctx.engine_state, &mut stack)?
+            let is_external = if let PipelineData::ByteStream(stream, ..) = &src {
+                matches!(stream.source(), ByteStreamSource::Child(..))
+            } else {
+                false
             };
-            // Abort execution if there's an exit code from a failed external
-            drain(ctx, result)
+            if let Err(err) = src.write_to(file.as_ref()) {
+                if is_external {
+                    ctx.stack.set_last_error(&err);
+                }
+                Err(err)?
+            } else {
+                Ok(Continue)
+            }
         }
         Instruction::CloseFile { file_num } => {
             if ctx.files[*file_num as usize].take().is_some() {
@@ -1421,6 +1439,7 @@ fn eval_redirection(
         RedirectMode::Value => Ok(Some(Redirection::Pipe(OutDest::Value))),
         RedirectMode::Null => Ok(Some(Redirection::Pipe(OutDest::Null))),
         RedirectMode::Inherit => Ok(Some(Redirection::Pipe(OutDest::Inherit))),
+        RedirectMode::Print => Ok(Some(Redirection::Pipe(OutDest::Print))),
         RedirectMode::File { file_num } => {
             let file = ctx
                 .files

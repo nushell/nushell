@@ -1,6 +1,5 @@
-use super::prelude::*;
+use super::{config_update_string_enum, prelude::*};
 use crate as nu_protocol;
-use crate::ShellError;
 
 #[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TableMode {
@@ -45,8 +44,14 @@ impl FromStr for TableMode {
             "restructured" => Ok(Self::Restructured),
             "ascii_rounded" => Ok(Self::AsciiRounded),
             "basic_compact" => Ok(Self::BasicCompact),
-            _ => Err("expected either 'basic', 'thin', 'light', 'compact', 'with_love', 'compact_double', 'rounded', 'reinforced', 'heavy', 'none', 'psql', 'markdown', 'dots', 'restructured', 'ascii_rounded', or 'basic_compact'"),
+            _ => Err("'basic', 'thin', 'light', 'compact', 'with_love', 'compact_double', 'rounded', 'reinforced', 'heavy', 'none', 'psql', 'markdown', 'dots', 'restructured', 'ascii_rounded', or 'basic_compact'"),
         }
+    }
+}
+
+impl UpdateFromValue for TableMode {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
+        config_update_string_enum(self, value, path, errors)
     }
 }
 
@@ -58,7 +63,7 @@ pub enum FooterMode {
     Always,
     /// Only show the footer if there are more than RowCount rows
     RowCount(u64),
-    /// Calculate the screen height, calculate row count, if display will be bigger than screen, add the footer
+    /// Calculate the screen height and row count, if screen height is larger than row count, don't show footer
     Auto,
 }
 
@@ -70,13 +75,30 @@ impl FromStr for FooterMode {
             "always" => Ok(FooterMode::Always),
             "never" => Ok(FooterMode::Never),
             "auto" => Ok(FooterMode::Auto),
-            x => {
-                if let Ok(count) = x.parse() {
-                    Ok(FooterMode::RowCount(count))
+            _ => Err("'never', 'always', 'auto', or int"),
+        }
+    }
+}
+
+impl UpdateFromValue for FooterMode {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
+        match value {
+            Value::String { val, .. } => match val.parse() {
+                Ok(val) => *self = val,
+                Err(err) => errors.invalid_value(path, err.to_string(), value),
+            },
+            &Value::Int { val, .. } => {
+                if val >= 0 {
+                    *self = Self::RowCount(val as u64);
                 } else {
-                    Err("expected either 'never', 'always', 'auto' or a row count")
+                    errors.invalid_value(path, "a non-negative integer", value);
                 }
             }
+            _ => errors.type_mismatch(
+                path,
+                Type::custom("'never', 'always', 'auto', or int"),
+                value,
+            ),
         }
     }
 }
@@ -87,7 +109,7 @@ impl IntoValue for FooterMode {
             FooterMode::Always => "always".into_value(span),
             FooterMode::Never => "never".into_value(span),
             FooterMode::Auto => "auto".into_value(span),
-            FooterMode::RowCount(c) => c.to_string().into_value(span),
+            FooterMode::RowCount(c) => (c as i64).into_value(span),
         }
     }
 }
@@ -110,8 +132,14 @@ impl FromStr for TableIndexMode {
             "always" => Ok(TableIndexMode::Always),
             "never" => Ok(TableIndexMode::Never),
             "auto" => Ok(TableIndexMode::Auto),
-            _ => Err("expected either 'never', 'always' or 'auto'"),
+            _ => Err("'never', 'always' or 'auto'"),
         }
+    }
+}
+
+impl UpdateFromValue for TableIndexMode {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
+        config_update_string_enum(self, value, path, errors)
     }
 }
 
@@ -159,93 +187,6 @@ impl Default for TrimStrategy {
     }
 }
 
-pub(super) fn try_parse_trim_strategy(
-    value: &Value,
-    errors: &mut Vec<ShellError>,
-) -> Result<TrimStrategy, ShellError> {
-    let map = value.as_record().map_err(|e| ShellError::GenericError {
-        error: "Error while applying config changes".into(),
-        msg: "$env.config.table.trim is not a record".into(),
-        span: Some(value.span()),
-        help: Some("Please consult the documentation for configuring Nushell.".into()),
-        inner: vec![e],
-    })?;
-
-    let mut methodology = match map.get("methodology") {
-        Some(value) => match try_parse_trim_methodology(value) {
-            Some(methodology) => methodology,
-            None => return Ok(TrimStrategy::default()),
-        },
-        None => {
-            errors.push(ShellError::GenericError {
-                error: "Error while applying config changes".into(),
-                msg: "$env.config.table.trim.methodology was not provided".into(),
-                span: Some(value.span()),
-                help: Some("Please consult the documentation for configuring Nushell.".into()),
-                inner: vec![],
-            });
-            return Ok(TrimStrategy::default());
-        }
-    };
-
-    match &mut methodology {
-        TrimStrategy::Wrap { try_to_keep_words } => {
-            if let Some(value) = map.get("wrapping_try_keep_words") {
-                if let Ok(b) = value.as_bool() {
-                    *try_to_keep_words = b;
-                } else {
-                    errors.push(ShellError::GenericError {
-                        error: "Error while applying config changes".into(),
-                        msg: "$env.config.table.trim.wrapping_try_keep_words is not a bool".into(),
-                        span: Some(value.span()),
-                        help: Some(
-                            "Please consult the documentation for configuring Nushell.".into(),
-                        ),
-                        inner: vec![],
-                    });
-                }
-            }
-        }
-        TrimStrategy::Truncate { suffix } => {
-            if let Some(value) = map.get("truncating_suffix") {
-                if let Ok(v) = value.coerce_string() {
-                    *suffix = Some(v);
-                } else {
-                    errors.push(ShellError::GenericError {
-                        error: "Error while applying config changes".into(),
-                        msg: "$env.config.table.trim.truncating_suffix is not a string".into(),
-                        span: Some(value.span()),
-                        help: Some(
-                            "Please consult the documentation for configuring Nushell.".into(),
-                        ),
-                        inner: vec![],
-                    });
-                }
-            }
-        }
-    }
-
-    Ok(methodology)
-}
-
-fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
-    if let Ok(value) = value.coerce_str() {
-        match value.to_lowercase().as_str() {
-        "wrapping" => {
-            return Some(TrimStrategy::Wrap {
-                try_to_keep_words: false,
-            });
-        }
-        "truncating" => return Some(TrimStrategy::Truncate { suffix: None }),
-        _ => eprintln!("unrecognized $config.table.trim.methodology value; expected either 'truncating' or 'wrapping'"),
-    }
-    } else {
-        eprintln!("$env.config.table.trim.methodology is not a string")
-    }
-
-    None
-}
-
 impl IntoValue for TrimStrategy {
     fn into_value(self, span: Span) -> Value {
         match self {
@@ -263,6 +204,70 @@ impl IntoValue for TrimStrategy {
             }
         }
         .into_value(span)
+    }
+}
+
+impl UpdateFromValue for TrimStrategy {
+    fn update<'a>(
+        &mut self,
+        value: &'a Value,
+        path: &mut ConfigPath<'a>,
+        errors: &mut ConfigErrors,
+    ) {
+        let Value::Record { val: record, .. } = value else {
+            errors.type_mismatch(path, Type::record(), value);
+            return;
+        };
+
+        let Some(methodology) = record.get("methodology") else {
+            errors.missing_column(path, "methodology", value.span());
+            return;
+        };
+
+        match methodology.as_str() {
+            Ok("wrapping") => {
+                let mut try_to_keep_words = if let &mut Self::Wrap { try_to_keep_words } = self {
+                    try_to_keep_words
+                } else {
+                    false
+                };
+                for (col, val) in record.iter() {
+                    let path = &mut path.push(col);
+                    match col.as_str() {
+                        "wrapping_try_keep_words" => try_to_keep_words.update(val, path, errors),
+                        "methodology" | "truncating_suffix" => (),
+                        _ => errors.unknown_option(path, val),
+                    }
+                }
+                *self = Self::Wrap { try_to_keep_words };
+            }
+            Ok("truncating") => {
+                let mut suffix = if let Self::Truncate { suffix } = self {
+                    suffix.take()
+                } else {
+                    None
+                };
+                for (col, val) in record.iter() {
+                    let path = &mut path.push(col);
+                    match col.as_str() {
+                        "truncating_suffix" => match val {
+                            Value::Nothing { .. } => suffix = None,
+                            Value::String { val, .. } => suffix = Some(val.clone()),
+                            _ => errors.type_mismatch(path, Type::String, val),
+                        },
+                        "methodology" | "wrapping_try_keep_words" => (),
+                        _ => errors.unknown_option(path, val),
+                    }
+                }
+                *self = Self::Truncate { suffix };
+            }
+            Ok(_) => errors.invalid_value(
+                &path.push("methodology"),
+                "'wrapping' or 'truncating'",
+                methodology,
+            ),
+            Err(_) => errors.type_mismatch(&path.push("methodology"), Type::String, methodology),
+        }
     }
 }
 
@@ -285,6 +290,37 @@ impl IntoValue for TableIndent {
 impl Default for TableIndent {
     fn default() -> Self {
         Self { left: 1, right: 1 }
+    }
+}
+
+impl UpdateFromValue for TableIndent {
+    fn update<'a>(
+        &mut self,
+        value: &'a Value,
+        path: &mut ConfigPath<'a>,
+        errors: &mut ConfigErrors,
+    ) {
+        match value {
+            &Value::Int { val, .. } => {
+                if let Ok(val) = val.try_into() {
+                    self.left = val;
+                    self.right = val;
+                } else {
+                    errors.invalid_value(path, "a non-negative integer", value);
+                }
+            }
+            Value::Record { val: record, .. } => {
+                for (col, val) in record.iter() {
+                    let path = &mut path.push(col);
+                    match col.as_str() {
+                        "left" => self.left.update(val, path, errors),
+                        "right" => self.right.update(val, path, errors),
+                        _ => errors.unknown_option(path, val),
+                    }
+                }
+            }
+            _ => errors.type_mismatch(path, Type::custom("int or record"), value),
+        }
     }
 }
 
@@ -329,6 +365,44 @@ impl Default for TableConfig {
             header_on_separator: false,
             padding: TableIndent::default(),
             abbreviated_row_count: None,
+        }
+    }
+}
+
+impl UpdateFromValue for TableConfig {
+    fn update<'a>(
+        &mut self,
+        value: &'a Value,
+        path: &mut ConfigPath<'a>,
+        errors: &mut ConfigErrors,
+    ) {
+        let Value::Record { val: record, .. } = value else {
+            errors.type_mismatch(path, Type::record(), value);
+            return;
+        };
+
+        for (col, val) in record.iter() {
+            let path = &mut path.push(col);
+            match col.as_str() {
+                "mode" => self.mode.update(val, path, errors),
+                "index_mode" => self.index_mode.update(val, path, errors),
+                "show_empty" => self.show_empty.update(val, path, errors),
+                "trim" => self.trim.update(val, path, errors),
+                "header_on_separator" => self.header_on_separator.update(val, path, errors),
+                "padding" => self.padding.update(val, path, errors),
+                "abbreviated_row_count" => match val {
+                    Value::Nothing { .. } => self.abbreviated_row_count = None,
+                    &Value::Int { val: count, .. } => {
+                        if let Ok(count) = count.try_into() {
+                            self.abbreviated_row_count = Some(count);
+                        } else {
+                            errors.invalid_value(path, "a non-negative integer", val);
+                        }
+                    }
+                    _ => errors.type_mismatch(path, Type::custom("int or nothing"), val),
+                },
+                _ => errors.unknown_option(path, val),
+            }
         }
     }
 }

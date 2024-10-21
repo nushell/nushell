@@ -201,6 +201,7 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "cc" => '\u{e61d}',             // 
             "cert" => '\u{eafa}',           // 
             "cfg" => '\u{e615}',            // 
+            "cjs" => '\u{e74e}',            // 
             "class" => '\u{e256}',          // 
             "clj" => '\u{e768}',            // 
             "cljs" => '\u{e76a}',           // 

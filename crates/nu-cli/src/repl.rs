@@ -50,7 +50,6 @@ use sysinfo::System;
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
     stack: Stack,
-    nushell_path: &str,
     prerun_command: Option<Spanned<String>>,
     load_std_lib: Option<Spanned<String>>,
     entire_start_time: Instant,
@@ -97,7 +96,7 @@ pub fn evaluate_repl(
 
     unique_stack.set_last_exit_code(0, Span::unknown());
 
-    let mut line_editor = get_line_editor(engine_state, nushell_path, use_color)?;
+    let mut line_editor = get_line_editor(engine_state, use_color)?;
     let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
 
     if let Some(s) = prerun_command {
@@ -208,7 +207,7 @@ pub fn evaluate_repl(
             }
             Err(_) => {
                 // line_editor is lost in the error case so reconstruct a new one
-                line_editor = get_line_editor(engine_state, nushell_path, use_color)?;
+                line_editor = get_line_editor(engine_state, use_color)?;
             }
         }
     }
@@ -248,11 +247,7 @@ fn escape_special_vscode_bytes(input: &str) -> String {
         .collect() // Collect into final String
 }
 
-fn get_line_editor(
-    engine_state: &mut EngineState,
-    nushell_path: &str,
-    use_color: bool,
-) -> Result<Reedline> {
+fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Reedline> {
     let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
 
@@ -263,7 +258,7 @@ fn get_line_editor(
     if let Some(history) = engine_state.history_config() {
         start_time = std::time::Instant::now();
 
-        line_editor = setup_history(nushell_path, engine_state, line_editor, history)?;
+        line_editor = setup_history(engine_state, line_editor, history)?;
 
         perf!("setup history", start_time, use_color);
     }
@@ -381,7 +376,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 .to_string_lossy()
                 .to_string(),
         ))
-        .with_cursor_config(cursor_config);
+        .with_cursor_config(cursor_config)
+        .with_visual_selection_style(nu_ansi_term::Style {
+            is_reverse: true,
+            ..Default::default()
+        });
 
     perf!("reedline builder", start_time, use_color);
 
@@ -1113,7 +1112,6 @@ fn flush_engine_state_repl_buffer(engine_state: &mut EngineState, line_editor: &
 /// Setup history management for Reedline
 ///
 fn setup_history(
-    nushell_path: &str,
     engine_state: &mut EngineState,
     line_editor: Reedline,
     history: HistoryConfig,
@@ -1125,7 +1123,7 @@ fn setup_history(
         None
     };
 
-    if let Some(path) = crate::config_files::get_history_path(nushell_path, history.file_format) {
+    if let Some(path) = history.file_path() {
         return update_line_editor_history(
             engine_state,
             path,
@@ -1401,8 +1399,7 @@ fn trailing_slash_looks_like_path() {
 fn are_session_ids_in_sync() {
     let engine_state = &mut EngineState::new();
     let history = engine_state.history_config().unwrap();
-    let history_path =
-        crate::config_files::get_history_path("nushell", history.file_format).unwrap();
+    let history_path = history.file_path().unwrap();
     let line_editor = reedline::Reedline::create();
     let history_session_id = reedline::Reedline::create_history_session_id();
     let line_editor = update_line_editor_history(

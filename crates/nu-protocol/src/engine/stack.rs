@@ -3,7 +3,7 @@ use crate::{
         ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
         StackCollectValueGuard, StackIoGuard, StackOutDest, DEFAULT_OVERLAY_NAME,
     },
-    Config, OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
+    Config, IntoValue, OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -211,12 +211,13 @@ impl Stack {
     ///
     /// The config will be updated with successfully parsed values even if an error occurs.
     pub fn update_config(&mut self, engine_state: &EngineState) -> Result<(), ShellError> {
-        if let Some(mut config) = self.get_env_var(engine_state, "config").cloned() {
-            let existing_config = self.get_config(engine_state);
-            let (new_config, error) = config.parse_as_config(&existing_config);
-            self.config = Some(new_config.into());
+        if let Some(value) = self.get_env_var(engine_state, "config") {
+            let old = self.get_config(engine_state);
+            let mut config = (*old).clone();
+            let error = config.update_from_value(&old, value);
             // The config value is modified by the update, so we should add it again
-            self.add_env_var("config".into(), config);
+            self.add_env_var("config".into(), config.clone().into_value(value.span()));
+            self.config = Some(config.into());
             match error {
                 None => Ok(()),
                 Some(err) => Err(err),
@@ -286,8 +287,8 @@ impl Stack {
     pub fn set_last_error(&mut self, error: &ShellError) {
         if let Some(code) = error.external_exit_code() {
             self.set_last_exit_code(code.item, code.span);
-        } else {
-            self.set_last_exit_code(1, Span::unknown());
+        } else if let Some(code) = error.exit_code() {
+            self.set_last_exit_code(code, Span::unknown());
         }
     }
 
