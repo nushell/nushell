@@ -127,7 +127,7 @@ impl RecordView {
         if layer.record_text.is_none() {
             let mut data =
                 convert_records_to_string(&layer.record_values, cfg.nu_config, cfg.style_computer);
-            lscolorize(&layer.column_names, &mut data, cfg.lscolors);
+            lscolorize(&layer.column_names, &mut data, cfg.cwd, cfg.lscolors);
 
             layer.record_text = Some(data);
         }
@@ -310,7 +310,7 @@ pub struct RecordLayer {
     column_names: Vec<String>,
     // These are the raw records in the current layer. The sole reason we keep this around is so we can return the original value
     // if it's being peeked. Otherwise we could accept an iterator over it.
-    // or if it could be Clonable we could do that anyway;
+    // or if it could be Cloneable we could do that anyway;
     // cause it would keep memory footprint lower while keep everything working
     // (yee would make return O(n); we would need to traverse iterator once again; but maybe worth it)
     record_values: Vec<Vec<Value>>,

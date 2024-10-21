@@ -3,7 +3,7 @@ use nu_parser::{escape_for_script_arg, escape_quote_string, parse};
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::StateWorkingSet,
-    report_error,
+    report_parse_error,
 };
 use nu_utils::stdout_write_all_and_flush;
 
@@ -68,7 +68,7 @@ pub(crate) fn parse_commandline_args(
 
         let output = parse(&mut working_set, None, commandline_args.as_bytes(), false);
         if let Some(err) = working_set.parse_errors.first() {
-            report_error(&working_set, err);
+            report_parse_error(&working_set, err);
             std::process::exit(1);
         }
 

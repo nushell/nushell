@@ -1,4 +1,8 @@
-use std log
+use std/log
+export-env {
+    # Place NU_FORMAT... environment variables in module-scope
+    export use std/log *
+}
 
 def "nu-complete threads" [] {
     seq 1 (sys cpu | length)

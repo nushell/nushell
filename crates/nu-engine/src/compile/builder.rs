@@ -58,9 +58,9 @@ impl BlockBuilder {
                 }
             })
         {
-            Ok(RegId(index as u32))
+            Ok(RegId::new(index as u32))
         } else if self.register_allocation_state.len() < (u32::MAX as usize - 2) {
-            let reg_id = RegId(self.register_allocation_state.len() as u32);
+            let reg_id = RegId::new(self.register_allocation_state.len() as u32);
             self.register_allocation_state.push(true);
             Ok(reg_id)
         } else {
@@ -73,13 +73,16 @@ impl BlockBuilder {
     /// Check if a register is initialized with a value.
     pub(crate) fn is_allocated(&self, reg_id: RegId) -> bool {
         self.register_allocation_state
-            .get(reg_id.0 as usize)
+            .get(reg_id.get() as usize)
             .is_some_and(|state| *state)
     }
 
     /// Mark a register as initialized.
     pub(crate) fn mark_register(&mut self, reg_id: RegId) -> Result<(), CompileError> {
-        if let Some(is_allocated) = self.register_allocation_state.get_mut(reg_id.0 as usize) {
+        if let Some(is_allocated) = self
+            .register_allocation_state
+            .get_mut(reg_id.get() as usize)
+        {
             *is_allocated = true;
             Ok(())
         } else {
@@ -92,7 +95,7 @@ impl BlockBuilder {
     /// Mark a register as empty, so that it can be used again by something else.
     #[track_caller]
     pub(crate) fn free_register(&mut self, reg_id: RegId) -> Result<(), CompileError> {
-        let index = reg_id.0 as usize;
+        let index = reg_id.get() as usize;
 
         if self
             .register_allocation_state
@@ -202,6 +205,7 @@ impl BlockBuilder {
             Instruction::Span { src_dst } => allocate(&[*src_dst], &[*src_dst]),
             Instruction::Drop { src } => allocate(&[*src], &[]),
             Instruction::Drain { src } => allocate(&[*src], &[]),
+            Instruction::DrainIfEnd { src } => allocate(&[*src], &[]),
             Instruction::LoadVariable { dst, var_id: _ } => allocate(&[], &[*dst]),
             Instruction::StoreVariable { var_id: _, src } => allocate(&[*src], &[]),
             Instruction::DropVariable { var_id: _ } => Ok(()),
@@ -278,7 +282,6 @@ impl BlockBuilder {
             Instruction::OnError { index: _ } => Ok(()),
             Instruction::OnErrorInto { index: _, dst } => allocate(&[], &[*dst]),
             Instruction::PopErrorHandler => Ok(()),
-            Instruction::CheckExternalFailed { dst, src } => allocate(&[*src], &[*dst, *src]),
             Instruction::ReturnEarly { src } => allocate(&[*src], &[]),
             Instruction::Return { src } => allocate(&[*src], &[]),
         };
@@ -499,6 +502,7 @@ impl BlockBuilder {
     }
 
     /// Mark an unreachable code path. Produces an error at runtime if executed.
+    #[allow(dead_code)] // currently unused, but might be used in the future.
     pub(crate) fn unreachable(&mut self, span: Span) -> Result<(), CompileError> {
         self.push(Instruction::Unreachable.into_spanned(span))
     }

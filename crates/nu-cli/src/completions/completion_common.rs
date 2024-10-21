@@ -1,7 +1,11 @@
 use super::{completion_options::NuMatcher, MatchAlgorithm};
-use crate::completions::CompletionOptions;
+use crate::{
+    completions::{matches, CompletionOptions},
+    SemanticSuggestion,
+};
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
+use nu_path::dots::expand_ndots;
 use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
@@ -35,7 +39,7 @@ fn complete_rec(
     isdir: bool,
 ) -> Vec<PathBuiltFromString> {
     if let Some((&base, rest)) = partial.split_first() {
-        if (base == "." || base == "..") && (isdir || !rest.is_empty()) {
+        if base.chars().all(|c| c == '.') && (isdir || !rest.is_empty()) {
             let built_paths: Vec<_> = built_paths
                 .iter()
                 .map(|built| {
@@ -171,25 +175,34 @@ pub fn complete_item(
     engine_state: &EngineState,
     stack: &Stack,
 ) -> Vec<FileSuggestion> {
-    let partial = surround_remove(partial);
-    let isdir = partial.ends_with(is_separator);
+    let cleaned_partial = surround_remove(partial);
+    let isdir = cleaned_partial.ends_with(is_separator);
+    let expanded_partial = expand_ndots(Path::new(&cleaned_partial));
+    let should_collapse_dots = expanded_partial != Path::new(&cleaned_partial);
+    let mut partial = expanded_partial.to_string_lossy().to_string();
 
     #[cfg(unix)]
     let path_separator = SEP;
     #[cfg(windows)]
-    let path_separator = partial
+    let path_separator = cleaned_partial
         .chars()
         .rfind(|c: &char| is_separator(*c))
         .unwrap_or(SEP);
+
+    // Handle the trailing dot case
+    if cleaned_partial.ends_with(&format!("{path_separator}.")) {
+        partial.push_str(&format!("{path_separator}."));
+    }
+
     let cwd_pathbufs: Vec<_> = cwds
         .iter()
         .map(|cwd| Path::new(cwd.as_ref()).to_path_buf())
         .collect();
-    let ls_colors = (engine_state.config.use_ls_colors_completions
+    let ls_colors = (engine_state.config.completions.use_ls_colors
         && engine_state.config.use_ansi_coloring)
         .then(|| {
             let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
-                Some(v) => env_to_string("LS_COLORS", &v, engine_state, stack).ok(),
+                Some(v) => env_to_string("LS_COLORS", v, engine_state, stack).ok(),
                 None => None,
             };
             get_ls_colors(ls_colors_env_str)
@@ -203,16 +216,11 @@ pub fn complete_item(
     match components.peek().cloned() {
         Some(c @ Component::Prefix(..)) => {
             // windows only by definition
-            components.next();
-            if let Some(Component::RootDir) = components.peek().cloned() {
-                components.next();
-            };
             cwds = vec![[c, Component::RootDir].iter().collect()];
             prefix_len = c.as_os_str().len();
             original_cwd = OriginalCwd::Prefix(c.as_os_str().to_string_lossy().into_owned());
         }
         Some(c @ Component::RootDir) => {
-            components.next();
             // This is kind of a hack. When joining an empty string with the rest,
             // we add the slash automagically
             cwds = vec![PathBuf::from(c.as_os_str())];
@@ -220,7 +228,6 @@ pub fn complete_item(
             original_cwd = OriginalCwd::Prefix(String::new());
         }
         Some(Component::Normal(home)) if home.to_string_lossy() == "~" => {
-            components.next();
             cwds = home_dir()
                 .map(|dir| vec![dir.into()])
                 .unwrap_or(cwd_pathbufs);
@@ -253,8 +260,10 @@ pub fn complete_item(
         isdir,
     )
     .into_iter()
-    .map(|p| {
-        let cwd = p.cwd.clone();
+    .map(|mut p| {
+        if should_collapse_dots {
+            p = collapse_ndots(p);
+        }
         let path = original_cwd.apply(p, path_separator);
         let style = ls_colors.as_ref().map(|lsc| {
             lsc.style_for_path_with_metadata(
@@ -293,8 +302,10 @@ pub fn escape_path(path: String, dir: bool) -> String {
     let filename_contaminated = !dir && path.contains(['\'', '"', ' ', '#', '(', ')']);
     let dirname_contaminated = dir && path.contains(['\'', '"', ' ', '#']);
     let maybe_flag = path.starts_with('-');
+    let maybe_variable = path.starts_with('$');
     let maybe_number = path.parse::<f64>().is_ok();
-    if filename_contaminated || dirname_contaminated || maybe_flag || maybe_number {
+    if filename_contaminated || dirname_contaminated || maybe_flag || maybe_variable || maybe_number
+    {
         format!("`{path}`")
     } else {
         path

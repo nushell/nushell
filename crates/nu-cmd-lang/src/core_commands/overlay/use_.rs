@@ -2,7 +2,7 @@ use nu_engine::{
     command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
 };
 use nu_parser::trim_quotes_str;
-use nu_protocol::{ast::Expr, engine::CommandType};
+use nu_protocol::{ast::Expr, engine::CommandType, ModuleId};
 
 use std::path::Path;
 
@@ -64,7 +64,7 @@ impl Command for OverlayUse {
         let mut name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
         name_arg.item = trim_quotes_str(&name_arg.item).to_string();
 
-        let maybe_origin_module_id =
+        let maybe_origin_module_id: Option<ModuleId> =
             if let Some(overlay_expr) = call.get_parser_info(caller_stack, "overlay_expr") {
                 if let Expr::Overlay(module_id) = &overlay_expr.expr {
                     *module_id

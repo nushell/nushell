@@ -335,7 +335,7 @@ fn get_padded_string(text: String, desired_length: usize, padding_character: cha
 
 #[cfg(test)]
 mod tests {
-    use crate::Metadata;
+    use crate::{Get, Metadata};
 
     use super::*;
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
@@ -474,6 +474,7 @@ mod tests {
 
             working_set.add_decl(Box::new(ToMd {}));
             working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
 
             working_set.render()
         };

@@ -47,7 +47,7 @@ pub(crate) fn compile_if(
             working_set,
             builder,
             condition,
-            RedirectModes::capture_out(condition.span),
+            RedirectModes::value(condition.span),
             None,
             condition_reg,
         )?;
@@ -181,7 +181,7 @@ pub(crate) fn compile_match(
         working_set,
         builder,
         match_expr,
-        RedirectModes::capture_out(match_expr.span),
+        RedirectModes::value(match_expr.span),
         None,
         match_reg,
     )?;
@@ -233,7 +233,7 @@ pub(crate) fn compile_match(
                 working_set,
                 builder,
                 guard,
-                RedirectModes::capture_out(guard.span),
+                RedirectModes::value(guard.span),
                 None,
                 guard_reg,
             )?;
@@ -319,7 +319,7 @@ pub(crate) fn compile_let(
         working_set,
         builder,
         block,
-        RedirectModes::capture_out(call.head),
+        RedirectModes::value(call.head),
         Some(io_reg),
         io_reg,
     )?;
@@ -362,12 +362,9 @@ pub(crate) fn compile_try(
     //
     //       on-error-into ERR, %io_reg           // or without
     //       %io_reg <- <...block...> <- %io_reg
-    //       check-external-failed %failed_reg, %io_reg
-    //       branch-if %failed_reg, FAIL
+    //       write-to-out-dests %io_reg
     //       pop-error-handler
     //       jump END
-    // FAIL: drain %io_reg
-    //       unreachable
     // ERR:  clone %err_reg, %io_reg
     //       store-variable $err_var, %err_reg         // or without
     //       %io_reg <- <...catch block...> <- %io_reg // set to empty if no catch block
@@ -378,12 +375,9 @@ pub(crate) fn compile_try(
     //       %closure_reg <- <catch_expr>
     //       on-error-into ERR, %io_reg
     //       %io_reg <- <...block...> <- %io_reg
-    //       check-external-failed %failed_reg, %io_reg
-    //       branch-if %failed_reg, FAIL
+    //       write-to-out-dests %io_reg
     //       pop-error-handler
     //       jump END
-    // FAIL: drain %io_reg
-    //       unreachable
     // ERR:  clone %err_reg, %io_reg
     //       push-positional %closure_reg
     //       push-positional %err_reg
@@ -405,7 +399,6 @@ pub(crate) fn compile_try(
     let catch_span = catch_expr.map(|e| e.span).unwrap_or(call.head);
 
     let err_label = builder.label(None);
-    let failed_label = builder.label(None);
     let end_label = builder.label(None);
 
     // We have two ways of executing `catch`: if it was provided as a literal, we can inline it.
@@ -434,7 +427,7 @@ pub(crate) fn compile_try(
                     working_set,
                     builder,
                     catch_expr,
-                    RedirectModes::capture_out(catch_expr.span),
+                    RedirectModes::value(catch_expr.span),
                     None,
                     closure_reg,
                 )?;
@@ -470,32 +463,23 @@ pub(crate) fn compile_try(
         io_reg,
     )?;
 
-    // Check for external command exit code failure, and also redirect that to the catch handler
-    let failed_reg = builder.next_register()?;
-    builder.push(
-        Instruction::CheckExternalFailed {
-            dst: failed_reg,
-            src: io_reg,
-        }
-        .into_spanned(catch_span),
-    )?;
-    builder.branch_if(failed_reg, failed_label, catch_span)?;
+    // Successful case:
+    // - write to the current output destinations
+    // - pop the error handler
+    if let Some(mode) = redirect_modes.out {
+        builder.push(mode.map(|mode| Instruction::RedirectOut { mode }))?;
+    }
 
-    // Successful case: pop the error handler
+    if let Some(mode) = redirect_modes.err {
+        builder.push(mode.map(|mode| Instruction::RedirectErr { mode }))?;
+    }
+    builder.push(Instruction::DrainIfEnd { src: io_reg }.into_spanned(call.head))?;
     builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
 
     // Jump over the failure case
     builder.jump(end_label, catch_span)?;
 
-    // Set up an error handler preamble for failed external.
-    // Draining the %io_reg results in the error handler being called with Empty, and sets
-    // $env.LAST_EXIT_CODE
-    builder.set_label(failed_label, builder.here())?;
-    builder.drain(io_reg, catch_span)?;
-    builder.add_comment("branches to err");
-    builder.unreachable(catch_span)?;
-
-    // This is the real error handler
+    // This is the error handler
     builder.set_label(err_label, builder.here())?;
 
     // Mark out register as likely not clean - state in error handler is not well defined
@@ -671,7 +655,7 @@ pub(crate) fn compile_while(
         working_set,
         builder,
         cond_arg,
-        RedirectModes::capture_out(call.head),
+        RedirectModes::value(call.head),
         None,
         io_reg,
     )?;
@@ -755,7 +739,7 @@ pub(crate) fn compile_for(
         working_set,
         builder,
         in_expr,
-        RedirectModes::capture_out(in_expr.span),
+        RedirectModes::value(in_expr.span),
         None,
         stream_reg,
     )?;
@@ -883,7 +867,7 @@ pub(crate) fn compile_return(
             working_set,
             builder,
             arg_expr,
-            RedirectModes::capture_out(arg_expr.span),
+            RedirectModes::value(arg_expr.span),
             None,
             io_reg,
         )?;

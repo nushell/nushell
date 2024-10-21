@@ -24,7 +24,7 @@ impl Completer for FlagCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        prefix: Vec<u8>,
+        prefix: &[u8],
         span: Span,
         offset: usize,
         _pos: usize,

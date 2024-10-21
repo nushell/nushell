@@ -7,6 +7,7 @@ use base64::{
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, LabeledError, Signals};
+use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
     io::Cursor,
@@ -18,12 +19,28 @@ use std::{
 use ureq::{Error, ErrorKind, Request, Response};
 use url::Url;
 
-#[derive(PartialEq, Eq)]
+const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
+
+type ContentType = String;
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum BodyType {
     Json,
     Form,
     Multipart,
-    Unknown,
+    Unknown(Option<ContentType>),
+}
+
+impl From<Option<ContentType>> for BodyType {
+    fn from(content_type: Option<ContentType>) -> Self {
+        match content_type {
+            Some(it) if it.contains("application/json") => BodyType::Json,
+            Some(it) if it.contains("application/x-www-form-urlencoded") => BodyType::Form,
+            Some(it) if it.contains("multipart/form-data") => BodyType::Multipart,
+            Some(it) => BodyType::Unknown(Some(it)),
+            None => BodyType::Unknown(None),
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -210,143 +227,209 @@ pub fn send_request(
             send_cancellable_request_bytes(&request_url, req, byte_stream, span, signals)
         }
         HttpBody::Value(body) => {
-            let (body_type, req) = match content_type {
-                Some(it) if it == "application/json" => (BodyType::Json, request),
-                Some(it) if it == "application/x-www-form-urlencoded" => (BodyType::Form, request),
-                Some(it) if it == "multipart/form-data" => (BodyType::Multipart, request),
-                Some(it) => {
-                    let r = request.clone().set("Content-Type", &it);
-                    (BodyType::Unknown, r)
-                }
-                _ => (BodyType::Unknown, request),
+            let body_type = BodyType::from(content_type);
+
+            // We should set the content_type if there is one available
+            // when the content type is unknown
+            let req = if let BodyType::Unknown(Some(content_type)) = &body_type {
+                request.clone().set("Content-Type", content_type)
+            } else {
+                request
             };
 
-            match body {
-                Value::Binary { val, .. } => send_cancellable_request(
-                    &request_url,
-                    Box::new(move || req.send_bytes(&val)),
-                    span,
-                    signals,
-                ),
-                Value::String { .. } if body_type == BodyType::Json => {
-                    let data = value_to_json_value(&body)?;
-                    send_cancellable_request(
-                        &request_url,
-                        Box::new(|| req.send_json(data)),
-                        span,
-                        signals,
-                    )
+            match body_type {
+                BodyType::Json => send_json_request(&request_url, body, req, span, signals),
+                BodyType::Form => send_form_request(&request_url, body, req, span, signals),
+                BodyType::Multipart => {
+                    send_multipart_request(&request_url, body, req, span, signals)
                 }
-                Value::String { val, .. } => send_cancellable_request(
-                    &request_url,
-                    Box::new(move || req.send_string(&val)),
-                    span,
-                    signals,
-                ),
-                Value::Record { .. } if body_type == BodyType::Json => {
-                    let data = value_to_json_value(&body)?;
-                    send_cancellable_request(
-                        &request_url,
-                        Box::new(|| req.send_json(data)),
-                        span,
-                        signals,
-                    )
+                BodyType::Unknown(_) => {
+                    send_default_request(&request_url, body, req, span, signals)
                 }
-                Value::Record { val, .. } if body_type == BodyType::Form => {
-                    let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
-
-                    for (col, val) in val.into_owned() {
-                        data.push((col, val.coerce_into_string()?))
-                    }
-
-                    let request_fn = move || {
-                        // coerce `data` into a shape that send_form() is happy with
-                        let data = data
-                            .iter()
-                            .map(|(a, b)| (a.as_str(), b.as_str()))
-                            .collect::<Vec<(&str, &str)>>();
-                        req.send_form(&data)
-                    };
-                    send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
-                }
-                // multipart form upload
-                Value::Record { val, .. } if body_type == BodyType::Multipart => {
-                    let mut builder = MultipartWriter::new();
-
-                    let err = |e| {
-                        ShellErrorOrRequestError::ShellError(ShellError::IOError {
-                            msg: format!("failed to build multipart data: {}", e),
-                        })
-                    };
-
-                    for (col, val) in val.into_owned() {
-                        if let Value::Binary { val, .. } = val {
-                            let headers = [
-                                "Content-Type: application/octet-stream".to_string(),
-                                "Content-Transfer-Encoding: binary".to_string(),
-                                format!(
-                                    "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"",
-                                    col, col
-                                ),
-                                format!("Content-Length: {}", val.len()),
-                            ];
-                            builder
-                                .add(&mut Cursor::new(val), &headers.join("\n"))
-                                .map_err(err)?;
-                        } else {
-                            let headers =
-                                format!(r#"Content-Disposition: form-data; name="{}""#, col);
-                            builder
-                                .add(val.coerce_into_string()?.as_bytes(), &headers)
-                                .map_err(err)?;
-                        }
-                    }
-                    builder.finish();
-
-                    let (boundary, data) = (builder.boundary, builder.data);
-                    let content_type = format!("multipart/form-data; boundary={}", boundary);
-
-                    let request_fn =
-                        move || req.set("Content-Type", &content_type).send_bytes(&data);
-
-                    send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
-                }
-                Value::List { vals, .. } if body_type == BodyType::Form => {
-                    if vals.len() % 2 != 0 {
-                        return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
-                            msg: "unsupported body input".into(),
-                        }));
-                    }
-
-                    let data = vals
-                        .chunks(2)
-                        .map(|it| Ok((it[0].coerce_string()?, it[1].coerce_string()?)))
-                        .collect::<Result<Vec<(String, String)>, ShellErrorOrRequestError>>()?;
-
-                    let request_fn = move || {
-                        // coerce `data` into a shape that send_form() is happy with
-                        let data = data
-                            .iter()
-                            .map(|(a, b)| (a.as_str(), b.as_str()))
-                            .collect::<Vec<(&str, &str)>>();
-                        req.send_form(&data)
-                    };
-                    send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
-                }
-                Value::List { .. } if body_type == BodyType::Json => {
-                    let data = value_to_json_value(&body)?;
-                    send_cancellable_request(
-                        &request_url,
-                        Box::new(|| req.send_json(data)),
-                        span,
-                        signals,
-                    )
-                }
-                _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
-                    msg: "unsupported body input".into(),
-                })),
             }
         }
+    }
+}
+
+fn send_json_request(
+    request_url: &str,
+    body: Value,
+    req: Request,
+    span: Span,
+    signals: &Signals,
+) -> Result<Response, ShellErrorOrRequestError> {
+    match body {
+        Value::Int { .. } | Value::Float { .. } | Value::List { .. } | Value::Record { .. } => {
+            let data = value_to_json_value(&body)?;
+            send_cancellable_request(request_url, Box::new(|| req.send_json(data)), span, signals)
+        }
+        // If the body type is string, assume it is string json content.
+        // If parsing fails, just send the raw string
+        Value::String { val: s, .. } => {
+            if let Ok(jvalue) = serde_json::from_str::<JsonValue>(&s) {
+                send_cancellable_request(
+                    request_url,
+                    Box::new(|| req.send_json(jvalue)),
+                    span,
+                    signals,
+                )
+            } else {
+                let data = serde_json::from_str(&s).unwrap_or_else(|_| nu_json::Value::String(s));
+                send_cancellable_request(
+                    request_url,
+                    Box::new(|| req.send_json(data)),
+                    span,
+                    signals,
+                )
+            }
+        }
+        _ => Err(ShellErrorOrRequestError::ShellError(
+            ShellError::TypeMismatch {
+                err_message: format!(
+                    "Accepted types: [int, float, list, string, record]. Check: {HTTP_DOCS}"
+                ),
+                span: body.span(),
+            },
+        )),
+    }
+}
+
+fn send_form_request(
+    request_url: &str,
+    body: Value,
+    req: Request,
+    span: Span,
+    signals: &Signals,
+) -> Result<Response, ShellErrorOrRequestError> {
+    let build_request_fn = |data: Vec<(String, String)>| {
+        // coerce `data` into a shape that send_form() is happy with
+        let data = data
+            .iter()
+            .map(|(a, b)| (a.as_str(), b.as_str()))
+            .collect::<Vec<(&str, &str)>>();
+        req.send_form(&data)
+    };
+
+    match body {
+        Value::List { ref vals, .. } => {
+            if vals.len() % 2 != 0 {
+                return Err(ShellErrorOrRequestError::ShellError(ShellError::IncorrectValue {
+                    msg: "Body type 'list' for form requests requires paired values. E.g.: [foo, 10]".into(),
+                    val_span: body.span(),
+                    call_span: span,
+                }));
+            }
+
+            let data = vals
+                .chunks(2)
+                .map(|it| Ok((it[0].coerce_string()?, it[1].coerce_string()?)))
+                .collect::<Result<Vec<(String, String)>, ShellErrorOrRequestError>>()?;
+
+            let request_fn = Box::new(|| build_request_fn(data));
+            send_cancellable_request(request_url, request_fn, span, signals)
+        }
+        Value::Record { val, .. } => {
+            let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
+
+            for (col, val) in val.into_owned() {
+                data.push((col, val.coerce_into_string()?))
+            }
+
+            let request_fn = Box::new(|| build_request_fn(data));
+            send_cancellable_request(request_url, request_fn, span, signals)
+        }
+        _ => Err(ShellErrorOrRequestError::ShellError(
+            ShellError::TypeMismatch {
+                err_message: format!("Accepted types: [list, record]. Check: {HTTP_DOCS}"),
+                span: body.span(),
+            },
+        )),
+    }
+}
+
+fn send_multipart_request(
+    request_url: &str,
+    body: Value,
+    req: Request,
+    span: Span,
+    signals: &Signals,
+) -> Result<Response, ShellErrorOrRequestError> {
+    let request_fn = match body {
+        Value::Record { val, .. } => {
+            let mut builder = MultipartWriter::new();
+
+            let err = |e| {
+                ShellErrorOrRequestError::ShellError(ShellError::IOError {
+                    msg: format!("failed to build multipart data: {}", e),
+                })
+            };
+
+            for (col, val) in val.into_owned() {
+                if let Value::Binary { val, .. } = val {
+                    let headers = [
+                        "Content-Type: application/octet-stream".to_string(),
+                        "Content-Transfer-Encoding: binary".to_string(),
+                        format!(
+                            "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"",
+                            col, col
+                        ),
+                        format!("Content-Length: {}", val.len()),
+                    ];
+                    builder
+                        .add(&mut Cursor::new(val), &headers.join("\n"))
+                        .map_err(err)?;
+                } else {
+                    let headers = format!(r#"Content-Disposition: form-data; name="{}""#, col);
+                    builder
+                        .add(val.coerce_into_string()?.as_bytes(), &headers)
+                        .map_err(err)?;
+                }
+            }
+            builder.finish();
+
+            let (boundary, data) = (builder.boundary, builder.data);
+            let content_type = format!("multipart/form-data; boundary={}", boundary);
+
+            move || req.set("Content-Type", &content_type).send_bytes(&data)
+        }
+        _ => {
+            return Err(ShellErrorOrRequestError::ShellError(
+                ShellError::TypeMismatch {
+                    err_message: format!("Accepted types: [record]. Check: {HTTP_DOCS}"),
+                    span: body.span(),
+                },
+            ))
+        }
+    };
+    send_cancellable_request(request_url, Box::new(request_fn), span, signals)
+}
+
+fn send_default_request(
+    request_url: &str,
+    body: Value,
+    req: Request,
+    span: Span,
+    signals: &Signals,
+) -> Result<Response, ShellErrorOrRequestError> {
+    match body {
+        Value::Binary { val, .. } => send_cancellable_request(
+            request_url,
+            Box::new(move || req.send_bytes(&val)),
+            span,
+            signals,
+        ),
+        Value::String { val, .. } => send_cancellable_request(
+            request_url,
+            Box::new(move || req.send_string(&val)),
+            span,
+            signals,
+        ),
+        _ => Err(ShellErrorOrRequestError::ShellError(
+            ShellError::TypeMismatch {
+                err_message: format!("Accepted types: [binary, string]. Check: {HTTP_DOCS}"),
+                span: body.span(),
+            },
+        )),
     }
 }
 
@@ -818,5 +901,34 @@ fn retrieve_http_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -
         .or(stack.get_env_var(engine_state, "https_proxy"))
         .or(stack.get_env_var(engine_state, "HTTPS_PROXY"))
         .or(stack.get_env_var(engine_state, "ALL_PROXY"))
+        .cloned()
         .and_then(|proxy| proxy.coerce_into_string().ok())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_body_type_from_content_type() {
+        let json = Some("application/json".to_string());
+        assert_eq!(BodyType::Json, BodyType::from(json));
+
+        // while the charset wont' be passed as we are allowing serde and the library to control
+        // this, it still shouldn't be missed as json if passed in.
+        let json_with_charset = Some("application/json; charset=utf-8".to_string());
+        assert_eq!(BodyType::Json, BodyType::from(json_with_charset));
+
+        let form = Some("application/x-www-form-urlencoded".to_string());
+        assert_eq!(BodyType::Form, BodyType::from(form));
+
+        let multipart = Some("multipart/form-data".to_string());
+        assert_eq!(BodyType::Multipart, BodyType::from(multipart));
+
+        let unknown = Some("application/octet-stream".to_string());
+        assert_eq!(BodyType::Unknown(unknown.clone()), BodyType::from(unknown));
+
+        let none = None;
+        assert_eq!(BodyType::Unknown(none.clone()), BodyType::from(none));
+    }
 }

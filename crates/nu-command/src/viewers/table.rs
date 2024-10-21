@@ -5,6 +5,7 @@
 use lscolors::{LsColors, Style};
 use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
 use nu_engine::{command_prelude::*, env_to_string};
+use nu_path::form::Absolute;
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
     ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode, ValueIterator,
@@ -125,7 +126,7 @@ impl Command for Table {
             let val = Value::list(supported_table_modes(), Span::test_data());
             return Ok(val.into_pipeline_data());
         }
-
+        let cwd = engine_state.cwd(Some(stack))?;
         let cfg = parse_table_config(call, engine_state, stack)?;
         let input = CmdInput::new(engine_state, stack, call, input);
 
@@ -135,7 +136,7 @@ impl Command for Table {
             let _ = nu_utils::enable_vt_processing();
         }
 
-        handle_table_command(input, cfg)
+        handle_table_command(input, cfg, cwd)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -258,7 +259,7 @@ fn parse_table_config(
     let flatten_separator: Option<String> = call.get_flag(state, stack, "flatten-separator")?;
     let abbrivation: Option<usize> = call
         .get_flag(state, stack, "abbreviated")?
-        .or_else(|| stack.get_config(state).table_abbreviation_threshold);
+        .or_else(|| stack.get_config(state).table.abbreviated_row_count);
     let table_view = match (expand, collapse) {
         (false, false) => TableView::General,
         (_, true) => TableView::Collapsed,
@@ -269,7 +270,7 @@ fn parse_table_config(
         },
     };
     let theme =
-        get_theme_flag(call, state, stack)?.unwrap_or_else(|| stack.get_config(state).table_mode);
+        get_theme_flag(call, state, stack)?.unwrap_or_else(|| stack.get_config(state).table.mode);
     let index = get_index_flag(call, state, stack)?;
 
     let term_width = get_width_param(width_param);
@@ -367,6 +368,7 @@ impl<'a> CmdInput<'a> {
 fn handle_table_command(
     mut input: CmdInput<'_>,
     cfg: TableConfig,
+    cwd: nu_path::PathBuf<Absolute>,
 ) -> Result<PipelineData, ShellError> {
     let span = input.data.span().unwrap_or(input.call.head);
     match input.data {
@@ -389,11 +391,11 @@ fn handle_table_command(
             let stream = ListStream::new(vals.into_iter(), span, signals);
             input.data = PipelineData::Empty;
 
-            handle_row_stream(input, cfg, stream, metadata)
+            handle_row_stream(input, cfg, stream, metadata, cwd)
         }
         PipelineData::ListStream(stream, metadata) => {
             input.data = PipelineData::Empty;
-            handle_row_stream(input, cfg, stream, metadata)
+            handle_row_stream(input, cfg, stream, metadata, cwd)
         }
         PipelineData::Value(Value::Record { val, .. }, ..) => {
             input.data = PipelineData::Empty;
@@ -413,7 +415,7 @@ fn handle_table_command(
             let stream =
                 ListStream::new(val.into_range_iter(span, Signals::empty()), span, signals);
             input.data = PipelineData::Empty;
-            handle_row_stream(input, cfg, stream, metadata)
+            handle_row_stream(input, cfg, stream, metadata, cwd)
         }
         x => Ok(x),
     }
@@ -520,7 +522,7 @@ fn handle_record(
         }
     }
 
-    let indent = (config.table_indent.left, config.table_indent.right);
+    let indent = (config.table.padding.left, config.table.padding.right);
     let opts = TableOpts::new(
         &config,
         styles,
@@ -605,6 +607,7 @@ fn handle_row_stream(
     cfg: TableConfig,
     stream: ListStream,
     metadata: Option<PipelineMetadata>,
+    cwd: nu_path::PathBuf<Absolute>,
 ) -> Result<PipelineData, ShellError> {
     let stream = match metadata.as_ref() {
         // First, `ls` sources:
@@ -620,7 +623,7 @@ fn handle_row_stream(
             let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
                 Some(v) => Some(env_to_string(
                     "LS_COLORS",
-                    &v,
+                    v,
                     input.engine_state,
                     input.stack,
                 )?),
@@ -634,7 +637,9 @@ fn handle_row_stream(
                     if let Some(value) = record.to_mut().get_mut("name") {
                         let span = value.span();
                         if let Value::String { val, .. } = value {
-                            if let Some(val) = render_path_name(val, &config, &ls_colors, span) {
+                            if let Some(val) =
+                                render_path_name(val, &config, &ls_colors, cwd.clone(), span)
+                            {
                                 *value = val;
                             }
                         }
@@ -821,7 +826,7 @@ impl PagingTableCreator {
             self.engine_state.signals(),
             self.head,
             self.cfg.term_width,
-            (cfg.table_indent.left, cfg.table_indent.right),
+            (cfg.table.padding.left, cfg.table.padding.right),
             self.cfg.theme,
             self.cfg.index.unwrap_or(0) + self.row_offset,
             self.cfg.index.is_none(),
@@ -1008,15 +1013,16 @@ fn render_path_name(
     path: &str,
     config: &Config,
     ls_colors: &LsColors,
+    cwd: nu_path::PathBuf<Absolute>,
     span: Span,
 ) -> Option<Value> {
-    if !config.use_ls_colors {
+    if !config.ls.use_ls_colors {
         return None;
     }
 
+    let fullpath = cwd.join(path);
     let stripped_path = nu_utils::strip_ansi_unlikely(path);
-
-    let metadata = std::fs::symlink_metadata(stripped_path.as_ref());
+    let metadata = std::fs::symlink_metadata(fullpath);
     let has_metadata = metadata.is_ok();
     let style =
         ls_colors.style_for_path_with_metadata(stripped_path.as_ref(), metadata.ok().as_ref());
@@ -1024,10 +1030,10 @@ fn render_path_name(
     // clickable links don't work in remote SSH sessions
     let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
     //TODO: Deprecated show_clickable_links_in_ls in favor of shell_integration_osc8
-    let show_clickable_links = config.show_clickable_links_in_ls
+    let show_clickable_links = config.ls.clickable_links
         && !in_ssh_session
         && has_metadata
-        && config.shell_integration_osc8;
+        && config.shell_integration.osc8;
 
     let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
 
@@ -1074,7 +1080,7 @@ fn create_empty_placeholder(
     stack: &Stack,
 ) -> String {
     let config = stack.get_config(engine_state);
-    if !config.table_show_empty {
+    if !config.table.show_empty {
         return String::new();
     }
 

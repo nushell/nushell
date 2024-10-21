@@ -2,7 +2,7 @@ use nu_parser::*;
 use nu_protocol::{
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
     engine::{Call, Command, EngineState, Stack, StateWorkingSet},
-    Category, ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Category, DeclId, ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
 };
 use rstest::rstest;
 
@@ -607,7 +607,7 @@ pub fn parse_call() {
     assert!(element.redirection.is_none());
 
     if let Expr::Call(call) = &element.expr.expr {
-        assert_eq!(call.decl_id, 0);
+        assert_eq!(call.decl_id, DeclId::new(0));
     }
 }
 
@@ -661,7 +661,7 @@ pub fn parse_call_short_flag_batch_arg_allowed() {
     assert!(element.redirection.is_none());
 
     if let Expr::Call(call) = &element.expr.expr {
-        assert_eq!(call.decl_id, 0);
+        assert_eq!(call.decl_id, DeclId::new(0));
         assert_eq!(call.arguments.len(), 2);
         matches!(call.arguments[0], Argument::Named((_, None, None)));
         matches!(call.arguments[1], Argument::Named((_, None, Some(_))));
@@ -996,6 +996,36 @@ pub fn test_external_call_head_interpolated_string(
     r"foo\external call",
     "backtick quote with backslash"
 )]
+#[case(
+    r#"^foo --flag="value""#,
+    r#"--flag=value"#,
+    "flag value with double quote"
+)]
+#[case(
+    r#"^foo --flag='value'"#,
+    r#"--flag=value"#,
+    "flag value with single quote"
+)]
+#[case(
+    r#"^foo {a:1,b:'c',c:'d'}"#,
+    r#"{a:1,b:c,c:d}"#,
+    "value with many inner single quotes"
+)]
+#[case(
+    r#"^foo {a:1,b:"c",c:"d"}"#,
+    r#"{a:1,b:c,c:d}"#,
+    "value with many double quotes"
+)]
+#[case(
+    r#"^foo {a:1,b:'c',c:"d"}"#,
+    r#"{a:1,b:c,c:d}"#,
+    "value with single quote and double quote"
+)]
+#[case(
+    r#"^foo `hello world`"#,
+    r#"hello world"#,
+    "value is surrounded by backtick quote"
+)]
 pub fn test_external_call_arg_glob(#[case] input: &str, #[case] expected: &str, #[case] tag: &str) {
     test_external_call(input, tag, |name, args| {
         match &name.expr {
@@ -1089,6 +1119,16 @@ pub fn test_external_call_arg_raw_string(
     r#"^foo "foo\\external call""#,
     r#"foo\external call"#,
     "double quote with backslash"
+)]
+#[case(
+    r#"^foo `"hello world"`"#,
+    r#"hello world"#,
+    "value is surrounded by backtick quote, with inner double quote"
+)]
+#[case(
+    r#"^foo `'hello world'`"#,
+    r#"hello world"#,
+    "value is surrounded by backtick quote, with inner single quote"
 )]
 pub fn test_external_call_arg_string(
     #[case] input: &str,
@@ -2476,5 +2516,58 @@ mod operator {
             0,
             "{test_tag}: expected to be parsed successfully, but failed."
         );
+    }
+}
+
+mod record {
+    use super::*;
+
+    use nu_protocol::ast::RecordItem;
+
+    #[rstest]
+    #[case(b"{ :: x }", "Invalid literal")] // Key is bare colon
+    #[case(b"{ a: x:y }", "Invalid literal")] // Value is bare word with colon
+    #[case(b"{ a: x('y'):z }", "Invalid literal")] // Value is bare string interpolation with colon
+    #[case(b"{ ;: x }", "Parse mismatch during operation.")] // Key is a non-item token
+    #[case(b"{ a: || }", "Parse mismatch during operation.")] // Value is a non-item token
+    fn refuse_confusing_record(#[case] expr: &[u8], #[case] error: &str) {
+        dbg!(String::from_utf8_lossy(expr));
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        parse(&mut working_set, None, expr, false);
+        assert_eq!(
+            working_set.parse_errors.first().map(|e| e.to_string()),
+            Some(error.to_string())
+        );
+    }
+
+    #[rstest]
+    #[case(b"{ a: 2024-07-23T22:54:54.532100627+02:00 b:xy }")]
+    fn parse_datetime_in_record(#[case] expr: &[u8]) {
+        dbg!(String::from_utf8_lossy(expr));
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let block = parse(&mut working_set, None, expr, false);
+        assert!(working_set.parse_errors.first().is_none());
+        let pipeline_el_expr = &block
+            .pipelines
+            .first()
+            .unwrap()
+            .elements
+            .first()
+            .unwrap()
+            .expr
+            .expr;
+        dbg!(pipeline_el_expr);
+        match pipeline_el_expr {
+            Expr::FullCellPath(v) => match &v.head.expr {
+                Expr::Record(fields) => assert!(matches!(
+                    fields[0],
+                    RecordItem::Pair(_, Expression { ty: Type::Date, .. })
+                )),
+                _ => panic!("Expected record head"),
+            },
+            _ => panic!("Expected full cell path"),
+        }
     }
 }

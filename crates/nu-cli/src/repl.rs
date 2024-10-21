@@ -16,10 +16,7 @@ use crate::{
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
-use nu_cmd_base::{
-    hook::eval_hook,
-    util::{get_editor, get_guaranteed_cwd},
-};
+use nu_cmd_base::{hook::eval_hook, util::get_editor};
 use nu_color_config::StyleComputer;
 #[allow(deprecated)]
 use nu_engine::{convert_env_values, current_dir_str, env_to_strings};
@@ -27,7 +24,7 @@ use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error_new, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
+    report_shell_error, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
     Value,
 };
 use nu_utils::{
@@ -53,7 +50,6 @@ use sysinfo::System;
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
     stack: Stack,
-    nushell_path: &str,
     prerun_command: Option<Spanned<String>>,
     load_std_lib: Option<Spanned<String>>,
     entire_start_time: Instant,
@@ -72,11 +68,11 @@ pub fn evaluate_repl(
     let mut entry_num = 0;
 
     // Let's grab the shell_integration configs
-    let shell_integration_osc2 = config.shell_integration_osc2;
-    let shell_integration_osc7 = config.shell_integration_osc7;
-    let shell_integration_osc9_9 = config.shell_integration_osc9_9;
-    let shell_integration_osc133 = config.shell_integration_osc133;
-    let shell_integration_osc633 = config.shell_integration_osc633;
+    let shell_integration_osc2 = config.shell_integration.osc2;
+    let shell_integration_osc7 = config.shell_integration.osc7;
+    let shell_integration_osc9_9 = config.shell_integration.osc9_9;
+    let shell_integration_osc133 = config.shell_integration.osc133;
+    let shell_integration_osc633 = config.shell_integration.osc633;
 
     let nu_prompt = NushellPrompt::new(
         shell_integration_osc133,
@@ -88,7 +84,7 @@ pub fn evaluate_repl(
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
     if let Err(e) = convert_env_values(engine_state, &unique_stack) {
-        report_error_new(engine_state, &e);
+        report_shell_error(engine_state, &e);
     }
     perf!("translate env vars", start_time, use_color);
 
@@ -98,9 +94,9 @@ pub fn evaluate_repl(
         Value::string("0823", Span::unknown()),
     );
 
-    unique_stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, Span::unknown()));
+    unique_stack.set_last_exit_code(0, Span::unknown());
 
-    let mut line_editor = get_line_editor(engine_state, nushell_path, use_color)?;
+    let mut line_editor = get_line_editor(engine_state, use_color)?;
     let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
 
     if let Some(s) = prerun_command {
@@ -112,8 +108,7 @@ pub fn evaluate_repl(
             PipelineData::empty(),
             false,
         );
-        let cwd = get_guaranteed_cwd(engine_state, &unique_stack);
-        engine_state.merge_env(&mut unique_stack, cwd)?;
+        engine_state.merge_env(&mut unique_stack)?;
     }
 
     let hostname = System::host_name();
@@ -135,16 +130,13 @@ pub fn evaluate_repl(
         // escape a few things because this says so
         // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
         let cmd_text = line_editor.current_buffer_contents().to_string();
+        let len = cmd_text.len();
+        let mut cmd_text_chars = cmd_text[0..len].chars();
+        let mut replaced_cmd_text = String::with_capacity(len);
 
-        let replaced_cmd_text = cmd_text
-            .chars()
-            .map(|c| match c {
-                '\n' => '\x0a',
-                '\r' => '\x0d',
-                '\x1b' => '\x1b',
-                _ => c,
-            })
-            .collect();
+        while let Some(c) = unescape_for_vscode(&mut cmd_text_chars) {
+            replaced_cmd_text.push(c);
+        }
 
         run_shell_integration_osc633(
             engine_state,
@@ -163,7 +155,7 @@ pub fn evaluate_repl(
         eval_source(
             engine_state,
             &mut unique_stack,
-            r#"use std banner; banner"#.as_bytes(),
+            r#"banner"#.as_bytes(),
             "show_banner",
             PipelineData::empty(),
             false,
@@ -220,7 +212,7 @@ pub fn evaluate_repl(
             }
             Err(_) => {
                 // line_editor is lost in the error case so reconstruct a new one
-                line_editor = get_line_editor(engine_state, nushell_path, use_color)?;
+                line_editor = get_line_editor(engine_state, use_color)?;
             }
         }
     }
@@ -228,11 +220,29 @@ pub fn evaluate_repl(
     Ok(())
 }
 
-fn get_line_editor(
-    engine_state: &mut EngineState,
-    nushell_path: &str,
-    use_color: bool,
-) -> Result<Reedline> {
+fn unescape_for_vscode(text: &mut std::str::Chars) -> Option<char> {
+    match text.next() {
+        Some('\\') => match text.next() {
+            Some('0') => Some('\x00'),  // NUL '\0' (null character)
+            Some('a') => Some('\x07'),  // BEL '\a' (bell)
+            Some('b') => Some('\x08'),  // BS  '\b' (backspace)
+            Some('t') => Some('\x09'),  // HT  '\t' (horizontal tab)
+            Some('n') => Some('\x0a'),  // LF  '\n' (new line)
+            Some('v') => Some('\x0b'),  // VT  '\v' (vertical tab)
+            Some('f') => Some('\x0c'),  // FF  '\f' (form feed)
+            Some('r') => Some('\x0d'),  // CR  '\r' (carriage ret)
+            Some(';') => Some('\x3b'),  // semi-colon
+            Some('\\') => Some('\x5c'), // backslash
+            Some('e') => Some('\x1b'),  // escape
+            Some(c) => Some(c),
+            None => None,
+        },
+        Some(c) => Some(c),
+        None => None,
+    }
+}
+
+fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Reedline> {
     let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
 
@@ -243,7 +253,7 @@ fn get_line_editor(
     if let Some(history) = engine_state.history_config() {
         start_time = std::time::Instant::now();
 
-        line_editor = setup_history(nushell_path, engine_state, line_editor, history)?;
+        line_editor = setup_history(engine_state, line_editor, history)?;
 
         perf!("setup history", start_time, use_color);
     }
@@ -280,17 +290,15 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         hostname,
     } = ctx;
 
-    let cwd = get_guaranteed_cwd(engine_state, &stack);
-
     let mut start_time = std::time::Instant::now();
     // Before doing anything, merge the environment from the previous REPL iteration into the
     // permanent state.
-    if let Err(err) = engine_state.merge_env(&mut stack, cwd) {
-        report_error_new(engine_state, &err);
+    if let Err(err) = engine_state.merge_env(&mut stack) {
+        report_shell_error(engine_state, &err);
     }
-    // Check whether $env.NU_USE_IR is set, so that the user can change it in the REPL
+    // Check whether $env.NU_DISABLE_IR is set, so that the user can change it in the REPL
     // Temporary while IR eval is optional
-    stack.use_ir = stack.has_env_var(engine_state, "NU_USE_IR");
+    stack.use_ir = !stack.has_env_var(engine_state, "NU_DISABLE_IR");
     perf!("merge env", start_time, use_color);
 
     start_time = std::time::Instant::now();
@@ -302,7 +310,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     // fire the "pre_prompt" hook
     if let Some(hook) = engine_state.get_config().hooks.pre_prompt.clone() {
         if let Err(err) = eval_hook(engine_state, &mut stack, None, vec![], &hook, "pre_prompt") {
-            report_error_new(engine_state, &err);
+            report_shell_error(engine_state, &err);
         }
     }
     perf!("pre-prompt hook", start_time, use_color);
@@ -312,7 +320,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     // fire the "env_change" hook
     let env_change = engine_state.get_config().hooks.env_change.clone();
     if let Err(error) = hook::eval_env_change_hook(env_change, engine_state, &mut stack) {
-        report_error_new(engine_state, &error)
+        report_shell_error(engine_state, &error)
     }
     perf!("env-change hook", start_time, use_color);
 
@@ -322,9 +330,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     start_time = std::time::Instant::now();
     // Find the configured cursor shapes for each mode
     let cursor_config = CursorConfig {
-        vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_insert),
-        vi_normal: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_normal),
-        emacs: map_nucursorshape_to_cursorshape(config.cursor_shape_emacs),
+        vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_insert),
+        vi_normal: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_normal),
+        emacs: map_nucursorshape_to_cursorshape(config.cursor_shape.emacs),
     };
     perf!("get config/cursor config", start_time, use_color);
 
@@ -352,8 +360,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             // STACK-REFERENCE 2
             stack_arc.clone(),
         )))
-        .with_quick_completions(config.quick_completions)
-        .with_partial_completions(config.partial_completions)
+        .with_quick_completions(config.completions.quick)
+        .with_partial_completions(config.completions.partial)
         .with_ansi_colors(config.use_ansi_coloring)
         .with_cwd(Some(
             engine_state
@@ -363,7 +371,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 .to_string_lossy()
                 .to_string(),
         ))
-        .with_cursor_config(cursor_config);
+        .with_cursor_config(cursor_config)
+        .with_visual_selection_style(nu_ansi_term::Style {
+            is_reverse: true,
+            ..Default::default()
+        });
 
     perf!("reedline builder", start_time, use_color);
 
@@ -386,7 +398,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     trace!("adding menus");
     line_editor =
         add_menus(line_editor, engine_reference, &stack_arc, config).unwrap_or_else(|e| {
-            report_error_new(engine_state, &e);
+            report_shell_error(engine_state, &e);
             Reedline::create()
         });
 
@@ -457,12 +469,12 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_completer(Box::<DefaultCompleter>::default());
 
     // Let's grab the shell_integration configs
-    let shell_integration_osc2 = config.shell_integration_osc2;
-    let shell_integration_osc7 = config.shell_integration_osc7;
-    let shell_integration_osc9_9 = config.shell_integration_osc9_9;
-    let shell_integration_osc133 = config.shell_integration_osc133;
-    let shell_integration_osc633 = config.shell_integration_osc633;
-    let shell_integration_reset_application_mode = config.shell_integration_reset_application_mode;
+    let shell_integration_osc2 = config.shell_integration.osc2;
+    let shell_integration_osc7 = config.shell_integration.osc7;
+    let shell_integration_osc9_9 = config.shell_integration.osc9_9;
+    let shell_integration_osc133 = config.shell_integration.osc133;
+    let shell_integration_osc633 = config.shell_integration.osc633;
+    let shell_integration_reset_application_mode = config.shell_integration.reset_application_mode;
 
     // TODO: we may clone the stack, this can lead to major performance issues
     // so we should avoid it or making stack cheaper to clone.
@@ -506,7 +518,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                     &hook,
                     "pre_execution",
                 ) {
-                    report_error_new(engine_state, &err);
+                    report_shell_error(engine_state, &err);
                 }
             }
 
@@ -518,8 +530,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             drop(repl);
 
             if shell_integration_osc633 {
-                if stack.get_env_var(engine_state, "TERM_PROGRAM")
-                    == Some(Value::test_string("vscode"))
+                if stack
+                    .get_env_var(engine_state, "TERM_PROGRAM")
+                    .and_then(|v| v.as_str().ok())
+                    == Some("vscode")
                 {
                     start_time = Instant::now();
 
@@ -808,7 +822,7 @@ fn do_auto_cd(
 ) {
     let path = {
         if !path.exists() {
-            report_error_new(
+            report_shell_error(
                 engine_state,
                 &ShellError::DirectoryNotFound {
                     dir: path.to_string_lossy().to_string(),
@@ -820,7 +834,7 @@ fn do_auto_cd(
     };
 
     if let PermissionResult::PermissionDenied(reason) = have_permission(path.clone()) {
-        report_error_new(
+        report_shell_error(
             engine_state,
             &ShellError::IOError {
                 msg: format!("Cannot change directory to {path}: {reason}"),
@@ -834,14 +848,14 @@ fn do_auto_cd(
     //FIXME: this only changes the current scope, but instead this environment variable
     //should probably be a block that loads the information from the state in the overlay
     if let Err(err) = stack.set_cwd(&path) {
-        report_error_new(engine_state, &err);
+        report_shell_error(engine_state, &err);
         return;
     };
     let cwd = Value::string(cwd, span);
 
     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
     let mut shells = if let Some(v) = shells {
-        v.into_list().unwrap_or_else(|_| vec![cwd])
+        v.clone().into_list().unwrap_or_else(|_| vec![cwd])
     } else {
         vec![cwd]
     };
@@ -867,7 +881,7 @@ fn do_auto_cd(
         "NUSHELL_LAST_SHELL".into(),
         Value::int(last_shell as i64, span),
     );
-    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, Span::unknown()));
+    stack.set_last_exit_code(0, Span::unknown());
 }
 
 ///
@@ -1033,7 +1047,11 @@ fn run_shell_integration_osc633(
     if let Ok(path) = current_dir_str(engine_state, stack) {
         // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
         // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
             let start_time = Instant::now();
 
             // If we're in vscode, run their specific ansi escape sequence.
@@ -1098,7 +1116,6 @@ fn flush_engine_state_repl_buffer(engine_state: &mut EngineState, line_editor: &
 /// Setup history management for Reedline
 ///
 fn setup_history(
-    nushell_path: &str,
     engine_state: &mut EngineState,
     line_editor: Reedline,
     history: HistoryConfig,
@@ -1110,7 +1127,7 @@ fn setup_history(
         None
     };
 
-    if let Some(path) = crate::config_files::get_history_path(nushell_path, history.file_format) {
+    if let Some(path) = history.file_path() {
         return update_line_editor_history(
             engine_state,
             path,
@@ -1141,7 +1158,7 @@ fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedl
             }
         },
         Err(e) => {
-            report_error_new(engine_state, &e);
+            report_shell_error(engine_state, &e);
             line_editor
         }
     };
@@ -1173,7 +1190,7 @@ fn update_line_editor_history(
     history_session_id: Option<HistorySessionId>,
 ) -> Result<Reedline, ErrReport> {
     let history: Box<dyn reedline::History> = match history.file_format {
-        HistoryFileFormat::PlainText => Box::new(
+        HistoryFileFormat::Plaintext => Box::new(
             FileBackedHistory::with_file(history.max_size as usize, history_path)
                 .into_diagnostic()?,
         ),
@@ -1211,10 +1228,10 @@ fn confirm_stdin_is_terminal() -> Result<()> {
 fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> Option<SetCursorStyle> {
     match shape {
         NuCursorShape::Block => Some(SetCursorStyle::SteadyBlock),
-        NuCursorShape::UnderScore => Some(SetCursorStyle::SteadyUnderScore),
+        NuCursorShape::Underscore => Some(SetCursorStyle::SteadyUnderScore),
         NuCursorShape::Line => Some(SetCursorStyle::SteadyBar),
         NuCursorShape::BlinkBlock => Some(SetCursorStyle::BlinkingBlock),
-        NuCursorShape::BlinkUnderScore => Some(SetCursorStyle::BlinkingUnderScore),
+        NuCursorShape::BlinkUnderscore => Some(SetCursorStyle::BlinkingUnderScore),
         NuCursorShape::BlinkLine => Some(SetCursorStyle::BlinkingBar),
         NuCursorShape::Inherit => None,
     }
@@ -1231,7 +1248,11 @@ fn get_command_finished_marker(
         .and_then(|e| e.as_i64().ok());
 
     if shell_integration_osc633 {
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
             // We're in vscode and we have osc633 enabled
             format!(
                 "{}{}{}",
@@ -1280,7 +1301,11 @@ fn run_finaliziation_ansi_sequence(
 ) {
     if shell_integration_osc633 {
         // Only run osc633 if we are in vscode
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
             let start_time = Instant::now();
 
             run_ansi_sequence(&get_command_finished_marker(
@@ -1378,8 +1403,7 @@ fn trailing_slash_looks_like_path() {
 fn are_session_ids_in_sync() {
     let engine_state = &mut EngineState::new();
     let history = engine_state.history_config().unwrap();
-    let history_path =
-        crate::config_files::get_history_path("nushell", history.file_format).unwrap();
+    let history_path = history.file_path().unwrap();
     let line_editor = reedline::Reedline::create();
     let history_session_id = reedline::Reedline::create_history_session_id();
     let line_editor = update_line_editor_history(

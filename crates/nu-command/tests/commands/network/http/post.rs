@@ -116,6 +116,24 @@ fn http_post_json_is_success() {
 }
 
 #[test]
+fn http_post_json_string_is_success() {
+    let mut server = Server::new();
+
+    let mock = server
+        .mock("POST", "/")
+        .match_body(r#"{"foo":"bar"}"#)
+        .create();
+
+    let actual = nu!(format!(
+        r#"http post -t 'application/json' {url} '{{"foo":"bar"}}'"#,
+        url = server.url()
+    ));
+
+    mock.assert();
+    assert!(actual.out.is_empty())
+}
+
+#[test]
 fn http_post_json_list_is_success() {
     let mut server = Server::new();
 
@@ -126,6 +144,36 @@ fn http_post_json_list_is_success() {
 
     let actual = nu!(format!(
         r#"http post -t 'application/json' {url} [{{foo: "bar"}}]"#,
+        url = server.url()
+    ));
+
+    mock.assert();
+    assert!(actual.out.is_empty())
+}
+
+#[test]
+fn http_post_json_int_is_success() {
+    let mut server = Server::new();
+
+    let mock = server.mock("POST", "/").match_body(r#"50"#).create();
+
+    let actual = nu!(format!(
+        r#"http post -t 'application/json' {url} 50"#,
+        url = server.url()
+    ));
+
+    mock.assert();
+    assert!(actual.out.is_empty())
+}
+
+#[test]
+fn http_post_json_raw_string_is_success() {
+    let mut server = Server::new();
+
+    let mock = server.mock("POST", "/").match_body(r#""test""#).create();
+
+    let actual = nu!(format!(
+        r#"http post -t 'application/json' {url} "test""#,
         url = server.url()
     ));
 

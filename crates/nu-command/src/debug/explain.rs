@@ -271,7 +271,7 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
                 .join(" ")
         ),
         //TODO: It would be good to drill deeper into closures.
-        Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
+        Value::Closure { val, .. } => format!("<Closure {}>", val.block_id.get()),
         Value::Nothing { .. } => String::new(),
         Value::Error { error, .. } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),

@@ -54,7 +54,9 @@ impl CommandCompletion {
                             if working_set
                                 .permanent_state
                                 .config
-                                .max_external_completion_results
+                                .completions
+                                .external
+                                .max_results
                                 > executables.len() as i64
                             {
                                 continue;
@@ -145,7 +147,7 @@ impl Completer for CommandCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        _prefix: Vec<u8>,
+        prefix: &[u8],
         span: Span,
         offset: usize,
         pos: usize,
@@ -200,7 +202,7 @@ impl Completer for CommandCompletion {
                 working_set,
                 span,
                 offset,
-                config.enable_external_completion,
+                config.completions.external.enable,
                 options,
             )
         } else {

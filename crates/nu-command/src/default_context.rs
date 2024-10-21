@@ -46,7 +46,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             First,
             Flatten,
             Get,
-            Group,
             GroupBy,
             Headers,
             Insert,
@@ -151,6 +150,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Explain,
             Inspect,
             Metadata,
+            MetadataAccess,
             MetadataSet,
             TimeIt,
             View,
@@ -187,8 +187,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             EncodeBase32Hex,
             DecodeBase64,
             EncodeBase64,
-            DecodeBase64Old,
-            EncodeBase64Old,
             DetectColumns,
             Parse,
             Split,
@@ -199,7 +197,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Str,
             StrCapitalize,
             StrContains,
-            StrDeunicode,
             StrDistance,
             StrDowncase,
             StrEndswith,
@@ -327,6 +324,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IntoString,
             IntoGlob,
             IntoValue,
+            SplitCellPath,
         };
 
         // Env

@@ -1,10 +1,7 @@
 use crate::prompt_update::{
     POST_PROMPT_MARKER, PRE_PROMPT_MARKER, VSCODE_POST_PROMPT_MARKER, VSCODE_PRE_PROMPT_MARKER,
 };
-use nu_protocol::{
-    engine::{EngineState, Stack},
-    Value,
-};
+use nu_protocol::engine::{EngineState, Stack};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use reedline::{
@@ -124,8 +121,11 @@ impl Prompt for NushellPrompt {
                 .replace('\n', "\r\n");
 
             if self.shell_integration_osc633 {
-                if self.stack.get_env_var(&self.engine_state, "TERM_PROGRAM")
-                    == Some(Value::test_string("vscode"))
+                if self
+                    .stack
+                    .get_env_var(&self.engine_state, "TERM_PROGRAM")
+                    .and_then(|v| v.as_str().ok())
+                    == Some("vscode")
                 {
                     // We're in vscode and we have osc633 enabled
                     format!("{VSCODE_PRE_PROMPT_MARKER}{prompt}{VSCODE_POST_PROMPT_MARKER}").into()

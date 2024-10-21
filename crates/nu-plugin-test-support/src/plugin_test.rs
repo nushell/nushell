@@ -10,7 +10,7 @@ use nu_plugin_protocol::PluginCustomValue;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error_new, CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData,
+    report_shell_error, CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData,
     ShellError, Signals, Span, Value,
 };
 
@@ -156,7 +156,7 @@ impl PluginTest {
         };
 
         // Eval the block with the input
-        let mut stack = Stack::new().capture();
+        let mut stack = Stack::new().collect_value();
         let data = eval_block::<WithoutDebug>(&self.engine_state, &mut stack, &block, input)?;
         if matches!(data, PipelineData::ByteStream(..)) {
             Ok(data)
@@ -252,7 +252,7 @@ impl PluginTest {
                     Err(err) => {
                         // Report the error
                         failed_header();
-                        report_error_new(&self.engine_state, &err);
+                        report_shell_error(&self.engine_state, &err);
                     }
                 }
             }

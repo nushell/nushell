@@ -17,45 +17,98 @@ use std::{
 ///
 /// # Derivable
 /// This trait can be used with `#[derive]`.
+///
 /// When derived on structs with named fields, it expects a [`Value::Record`] where each field of
 /// the struct maps to a corresponding field in the record.
+///
+/// - If `#[nu_value(rename = "...")]` is applied to a field, that name will be used as the key in
+///   the record.
+/// - If `#[nu_value(rename_all = "...")]` is applied on the container (struct) the key of the
+///   field will be case-converted accordingly.
+/// - If neither attribute is applied, the field name is used as is.
+///
+/// Supported case conversions include those provided by [`heck`], such as
+/// "snake_case", "kebab-case", "PascalCase", and others.
+/// Additionally, all values accepted by
+/// [`#[serde(rename_all = "...")]`](https://serde.rs/container-attrs.html#rename_all) are valid here.
+///
 /// For structs with unnamed fields, it expects a [`Value::List`], and the fields are populated in
 /// the order they appear in the list.
-/// Unit structs expect  a [`Value::Nothing`], as they contain no data.
+/// Unit structs expect a [`Value::Nothing`], as they contain no data.
 /// Attempting to convert from a non-matching `Value` type will result in an error.
 ///
 /// Only enums with no fields may derive this trait.
 /// The expected value representation will be the name of the variant as a [`Value::String`].
-/// By default, variant names will be expected in ["snake_case"](convert_case::Case::Snake).
-/// You can customize the case conversion using `#[nu_value(rename_all = "kebab-case")]` on the enum.
-/// All deterministic and useful case conversions provided by [`convert_case::Case`] are supported
-/// by specifying the case name followed by "case".
-/// Also all values for
-/// [`#[serde(rename_all = "...")]`](https://serde.rs/container-attrs.html#rename_all) are valid
-/// here.
+///
+/// - If `#[nu_value(rename = "...")]` is applied to a variant, that name will be used.
+/// - If `#[nu_value(rename_all = "...")]` is applied on the enum container, the name of variant
+///   will be case-converted accordingly.
+/// - If neither attribute is applied, the variant name will default to
+///   ["snake_case"](heck::ToSnakeCase).
 ///
 /// Additionally, you can use `#[nu_value(type_name = "...")]` in the derive macro to set a custom type name
 /// for `FromValue::expected_type`. This will result in a `Type::Custom` with the specified type name.
 /// This can be useful in situations where the default type name is not desired.
 ///
+/// # Enum Example
 /// ```
-/// # use nu_protocol::{FromValue, Value, ShellError};
+/// # use nu_protocol::{FromValue, Value, ShellError, record, Span};
+/// #
+/// # let span = Span::unknown();
+/// #
 /// #[derive(FromValue, Debug, PartialEq)]
 /// #[nu_value(rename_all = "COBOL-CASE", type_name = "birb")]
 /// enum Bird {
 ///     MountainEagle,
 ///     ForestOwl,
+///     #[nu_value(rename = "RIVER-QUACK")]
 ///     RiverDuck,
 /// }
 ///
 /// assert_eq!(
-///     Bird::from_value(Value::test_string("RIVER-DUCK")).unwrap(),
+///     Bird::from_value(Value::string("FOREST-OWL", span)).unwrap(),
+///     Bird::ForestOwl
+/// );
+///
+/// assert_eq!(
+///     Bird::from_value(Value::string("RIVER-QUACK", span)).unwrap(),
 ///     Bird::RiverDuck
 /// );
 ///
 /// assert_eq!(
 ///     &Bird::expected_type().to_string(),
 ///     "birb"
+/// );
+/// ```
+///
+/// # Struct Example
+/// ```
+/// # use nu_protocol::{FromValue, Value, ShellError, record, Span};
+/// #
+/// # let span = Span::unknown();
+/// #
+/// #[derive(FromValue, PartialEq, Eq, Debug)]
+/// #[nu_value(rename_all = "kebab-case")]
+/// struct Person {
+///     first_name: String,
+///     last_name: String,
+///     #[nu_value(rename = "age")]
+///     age_years: u32,
+/// }
+///
+/// let value = Value::record(record! {
+///     "first-name" => Value::string("John", span),
+///     "last-name" => Value::string("Doe", span),
+///     "age" => Value::int(42, span),
+/// }, span);
+///
+/// assert_eq!(
+///     Person::from_value(value).unwrap(),
+///     Person {
+///         first_name: "John".into(),
+///         last_name: "Doe".into(),
+///         age_years: 42,
+///     }
 /// );
 /// ```
 pub trait FromValue: Sized {

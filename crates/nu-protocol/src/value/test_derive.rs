@@ -384,62 +384,133 @@ fn enum_incorrect_type() {
     assert!(res.is_err());
 }
 
-// Generate the `Enum` from before but with all possible `rename_all` variants.
-macro_rules! enum_rename_all {
-    ($($ident:ident: $case:literal => [$a1:literal, $b2:literal, $c3:literal]),*) => {
-        $(
-            #[derive(Debug, PartialEq, IntoValue, FromValue)]
-            #[nu_value(rename_all = $case)]
-            enum $ident {
-                AlphaOne,
-                BetaTwo,
-                CharlieThree
-            }
+mod enum_rename_all {
+    use super::*;
+    use crate as nu_protocol;
 
-            impl $ident {
-                fn make() -> [Self; 3] {
-                    [Self::AlphaOne, Self::BetaTwo, Self::CharlieThree]
+    // Generate the `Enum` from before but with all possible `rename_all` variants.
+    macro_rules! enum_rename_all {
+        ($($ident:ident: $case:literal => [$a1:literal, $b2:literal, $c3:literal]),*) => {
+            $(
+                #[derive(Debug, PartialEq, IntoValue, FromValue)]
+                #[nu_value(rename_all = $case)]
+                enum $ident {
+                    AlphaOne,
+                    BetaTwo,
+                    CharlieThree
                 }
 
-                fn value() -> Value {
-                    Value::test_list(vec![
-                        Value::test_string($a1),
-                        Value::test_string($b2),
-                        Value::test_string($c3),
-                    ])
+                impl $ident {
+                    fn make() -> [Self; 3] {
+                        [Self::AlphaOne, Self::BetaTwo, Self::CharlieThree]
+                    }
+
+                    fn value() -> Value {
+                        Value::test_list(vec![
+                            Value::test_string($a1),
+                            Value::test_string($b2),
+                            Value::test_string($c3),
+                        ])
+                    }
                 }
-            }
-        )*
+            )*
 
-        #[test]
-        fn enum_rename_all_into_value() {$({
-            let expected = $ident::value();
-            let actual = $ident::make().into_test_value();
-            assert_eq!(expected, actual);
-        })*}
+            #[test]
+            fn into_value() {$({
+                let expected = $ident::value();
+                let actual = $ident::make().into_test_value();
+                assert_eq!(expected, actual);
+            })*}
 
-        #[test]
-        fn enum_rename_all_from_value() {$({
-            let expected = $ident::make();
-            let actual = <[$ident; 3]>::from_value($ident::value()).unwrap();
-            assert_eq!(expected, actual);
-        })*}
+            #[test]
+            fn from_value() {$({
+                let expected = $ident::make();
+                let actual = <[$ident; 3]>::from_value($ident::value()).unwrap();
+                assert_eq!(expected, actual);
+            })*}
+        }
+    }
+
+    enum_rename_all! {
+        Upper: "UPPER CASE" => ["ALPHA ONE", "BETA TWO", "CHARLIE THREE"],
+        Lower: "lower case" => ["alpha one", "beta two", "charlie three"],
+        Title: "Title Case" => ["Alpha One", "Beta Two", "Charlie Three"],
+        Camel: "camelCase" => ["alphaOne", "betaTwo", "charlieThree"],
+        Pascal: "PascalCase" => ["AlphaOne", "BetaTwo", "CharlieThree"],
+        Snake: "snake_case" => ["alpha_one", "beta_two", "charlie_three"],
+        UpperSnake: "UPPER_SNAKE_CASE" => ["ALPHA_ONE", "BETA_TWO", "CHARLIE_THREE"],
+        Kebab: "kebab-case" => ["alpha-one", "beta-two", "charlie-three"],
+        Cobol: "COBOL-CASE" => ["ALPHA-ONE", "BETA-TWO", "CHARLIE-THREE"],
+        Train: "Train-Case" => ["Alpha-One", "Beta-Two", "Charlie-Three"],
+        Flat: "flatcase" => ["alphaone", "betatwo", "charliethree"],
+        UpperFlat: "UPPERFLATCASE" => ["ALPHAONE", "BETATWO", "CHARLIETHREE"]
     }
 }
 
-enum_rename_all! {
-    Upper: "UPPER CASE" => ["ALPHA ONE", "BETA TWO", "CHARLIE THREE"],
-    Lower: "lower case" => ["alpha one", "beta two", "charlie three"],
-    Title: "Title Case" => ["Alpha One", "Beta Two", "Charlie Three"],
-    Camel: "camelCase" => ["alphaOne", "betaTwo", "charlieThree"],
-    Pascal: "PascalCase" => ["AlphaOne", "BetaTwo", "CharlieThree"],
-    Snake: "snake_case" => ["alpha_one", "beta_two", "charlie_three"],
-    UpperSnake: "UPPER_SNAKE_CASE" => ["ALPHA_ONE", "BETA_TWO", "CHARLIE_THREE"],
-    Kebab: "kebab-case" => ["alpha-one", "beta-two", "charlie-three"],
-    Cobol: "COBOL-CASE" => ["ALPHA-ONE", "BETA-TWO", "CHARLIE-THREE"],
-    Train: "Train-Case" => ["Alpha-One", "Beta-Two", "Charlie-Three"],
-    Flat: "flatcase" => ["alphaone", "betatwo", "charliethree"],
-    UpperFlat: "UPPERFLATCASE" => ["ALPHAONE", "BETATWO", "CHARLIETHREE"]
+mod named_fields_struct_rename_all {
+    use super::*;
+    use crate as nu_protocol;
+
+    macro_rules! named_fields_struct_rename_all {
+        ($($ident:ident: $case:literal => [$a1:literal, $b2:literal, $c3:literal]),*) => {
+            $(
+                #[derive(Debug, PartialEq, IntoValue, FromValue)]
+                #[nu_value(rename_all = $case)]
+                struct $ident {
+                    alpha_one: (),
+                    beta_two: (),
+                    charlie_three: (),
+                }
+
+                impl $ident {
+                    fn make() -> Self {
+                        Self {
+                            alpha_one: (),
+                            beta_two: (),
+                            charlie_three: (),
+                        }
+                    }
+
+                    fn value() -> Value {
+                        Value::test_record(record! {
+                            $a1 => Value::test_nothing(),
+                            $b2 => Value::test_nothing(),
+                            $c3 => Value::test_nothing(),
+                        })
+                    }
+                }
+            )*
+
+            #[test]
+            fn into_value() {$({
+                let expected = $ident::value();
+                let actual = $ident::make().into_test_value();
+                assert_eq!(expected, actual);
+            })*}
+
+            #[test]
+            fn from_value() {$({
+                let expected = $ident::make();
+                let actual = $ident::from_value($ident::value()).unwrap();
+                assert_eq!(expected, actual);
+            })*}
+        }
+    }
+
+    named_fields_struct_rename_all! {
+        Upper: "UPPER CASE" => ["ALPHA ONE", "BETA TWO", "CHARLIE THREE"],
+        Lower: "lower case" => ["alpha one", "beta two", "charlie three"],
+        Title: "Title Case" => ["Alpha One", "Beta Two", "Charlie Three"],
+        Camel: "camelCase" => ["alphaOne", "betaTwo", "charlieThree"],
+        Pascal: "PascalCase" => ["AlphaOne", "BetaTwo", "CharlieThree"],
+        Snake: "snake_case" => ["alpha_one", "beta_two", "charlie_three"],
+        UpperSnake: "UPPER_SNAKE_CASE" => ["ALPHA_ONE", "BETA_TWO", "CHARLIE_THREE"],
+        Kebab: "kebab-case" => ["alpha-one", "beta-two", "charlie-three"],
+        Cobol: "COBOL-CASE" => ["ALPHA-ONE", "BETA-TWO", "CHARLIE-THREE"],
+        Train: "Train-Case" => ["Alpha-One", "Beta-Two", "Charlie-Three"],
+        Flat: "flatcase" => ["alphaone", "betatwo", "charliethree"],
+        UpperFlat: "UPPERFLATCASE" => ["ALPHAONE", "BETATWO", "CHARLIETHREE"]
+    }
 }
 
 #[derive(IntoValue, FromValue, Debug, PartialEq)]
@@ -514,4 +585,87 @@ fn enum_type_name_attr() {
     struct TypeNameEnum;
 
     assert_eq!(TypeNameEnum::expected_type().to_string().as_str(), "enum");
+}
+
+#[derive(IntoValue, FromValue, Default, Debug, PartialEq)]
+struct RenamedFieldStruct {
+    #[nu_value(rename = "renamed")]
+    field: (),
+}
+
+impl RenamedFieldStruct {
+    fn value() -> Value {
+        Value::test_record(record! {
+            "renamed" => Value::test_nothing(),
+        })
+    }
+}
+
+#[test]
+fn renamed_field_struct_into_value() {
+    let expected = RenamedFieldStruct::value();
+    let actual = RenamedFieldStruct::default().into_test_value();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn renamed_field_struct_from_value() {
+    let expected = RenamedFieldStruct::default();
+    let actual = RenamedFieldStruct::from_value(RenamedFieldStruct::value()).unwrap();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn renamed_field_struct_roundtrip() {
+    let expected = RenamedFieldStruct::default();
+    let actual =
+        RenamedFieldStruct::from_value(RenamedFieldStruct::default().into_test_value()).unwrap();
+    assert_eq!(expected, actual);
+
+    let expected = RenamedFieldStruct::value();
+    let actual = RenamedFieldStruct::from_value(RenamedFieldStruct::value())
+        .unwrap()
+        .into_test_value();
+    assert_eq!(expected, actual);
+}
+
+#[derive(IntoValue, FromValue, Default, Debug, PartialEq)]
+enum RenamedVariantEnum {
+    #[default]
+    #[nu_value(rename = "renamed")]
+    Variant,
+}
+
+impl RenamedVariantEnum {
+    fn value() -> Value {
+        Value::test_string("renamed")
+    }
+}
+
+#[test]
+fn renamed_variant_enum_into_value() {
+    let expected = RenamedVariantEnum::value();
+    let actual = RenamedVariantEnum::default().into_test_value();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn renamed_variant_enum_from_value() {
+    let expected = RenamedVariantEnum::default();
+    let actual = RenamedVariantEnum::from_value(RenamedVariantEnum::value()).unwrap();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn renamed_variant_enum_roundtrip() {
+    let expected = RenamedVariantEnum::default();
+    let actual =
+        RenamedVariantEnum::from_value(RenamedVariantEnum::default().into_test_value()).unwrap();
+    assert_eq!(expected, actual);
+
+    let expected = RenamedVariantEnum::value();
+    let actual = RenamedVariantEnum::from_value(RenamedVariantEnum::value())
+        .unwrap()
+        .into_test_value();
+    assert_eq!(expected, actual);
 }

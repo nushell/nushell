@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.97.2"
+# version = "0.99.2"
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -174,6 +174,14 @@ $env.config = {
 
     error_style: "fancy" # "fancy" or "plain" for screen reader-friendly error messages
 
+    # Whether an error message should be printed if an error of a certain kind is triggered.
+    display_errors: {
+        exit_code: false # assume the external command prints an error message
+        # Core dump errors are always printed, and SIGPIPE never triggers an error.
+        # The setting below controls message printing for termination by all other signals.
+        termination_signal: true
+    }
+
     # datetime_format determines what a datetime rendered in the shell would look like.
     # Behavior without this configuration point will be to "humanize" the datetime display,
     # showing something like "a day ago."
@@ -227,7 +235,6 @@ $env.config = {
     }
 
     color_config: $dark_theme # if you want a more interesting theme, you can replace the empty record with `$dark_theme`, `$light_theme` or another custom record
-    use_grid_icons: true
     footer_mode: 25 # always, never, number_of_rows, auto
     float_precision: 2 # the precision for displaying floats in tables
     buffer_editor: null # command that will be used to edit the current line buffer with ctrl+o, if unset fallback to $env.EDITOR and $env.VISUAL
@@ -397,9 +404,16 @@ $env.config = {
             }
         }
         {
+            name: completion_previous_menu
+            modifier: shift
+            keycode: backtab
+            mode: [emacs, vi_normal, vi_insert]
+            event: { send: menuprevious }
+        }
+        {
             name: ide_completion_menu
             modifier: control
-            keycode: char_n
+            keycode: space
             mode: [emacs vi_normal vi_insert]
             event: {
                 until: [
@@ -422,13 +436,6 @@ $env.config = {
             keycode: f1
             mode: [emacs, vi_insert, vi_normal]
             event: { send: menu name: help_menu }
-        }
-        {
-            name: completion_previous_menu
-            modifier: shift
-            keycode: backtab
-            mode: [emacs, vi_normal, vi_insert]
-            event: { send: menuprevious }
         }
         {
             name: next_page_menu
@@ -612,6 +619,18 @@ $env.config = {
             event: { edit: movetolineend }
         }
         {
+            name: move_down
+            modifier: control
+            keycode: char_n
+            mode: [emacs, vi_normal, vi_insert]
+            event: {
+                until: [
+                    { send: menudown }
+                    { send: down }
+                ]
+            }
+        }
+        {
             name: move_up
             modifier: control
             keycode: char_p
@@ -620,18 +639,6 @@ $env.config = {
                 until: [
                     { send: menuup }
                     { send: up }
-                ]
-            }
-        }
-        {
-            name: move_down
-            modifier: control
-            keycode: char_t
-            mode: [emacs, vi_normal, vi_insert]
-            event: {
-                until: [
-                    { send: menudown }
-                    { send: down }
                 ]
             }
         }
@@ -749,7 +756,7 @@ $env.config = {
             modifier: control
             keycode: char_k
             mode: emacs
-            event: { edit: cuttoend }
+            event: { edit: cuttolineend }
         }
         {
             name: cut_line_from_start
@@ -854,8 +861,6 @@ $env.config = {
         }
         # The following bindings with `*system` events require that Nushell has
         # been compiled with the `system-clipboard` feature.
-        # This should be the case for Windows, macOS, and most Linux distributions
-        # Not available for example on Android (termux)
         # If you want to use the system clipboard for visual selection or to
         # paste directly, uncomment the respective lines and replace the version
         # using the internal clipboard.

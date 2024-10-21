@@ -152,7 +152,7 @@ fn truncate_data(
     let left_space = expected_width - width;
     let has_space_for_truncation_column = left_space > PAD;
     if !has_space_for_truncation_column {
-        peak_count -= 1;
+        peak_count = peak_count.saturating_sub(1);
     }
 
     remove_columns(data, peak_count);
@@ -201,11 +201,18 @@ mod util {
             Value::Record { val: record, .. } => {
                 let (cols, vals): (Vec<_>, Vec<_>) = record.into_owned().into_iter().unzip();
                 (
-                    cols,
-                    vec![vals
+                    match cols.is_empty() {
+                        true => vec![String::from("")],
+                        false => cols,
+                    },
+                    match vals
                         .into_iter()
                         .map(|s| debug_string_without_formatting(&s))
-                        .collect()],
+                        .collect::<Vec<String>>()
+                    {
+                        vals if vals.is_empty() => vec![],
+                        vals => vec![vals],
+                    },
                 )
             }
             Value::List { vals, .. } => {

@@ -118,7 +118,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
             .map(|(x, y)| format!("{}: {}", x, local_into_string(y, ", ", config)))
             .collect::<Vec<_>>()
             .join(separator),
-        Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
+        Value::Closure { val, .. } => format!("<Closure {}>", val.block_id.get()),
         Value::Nothing { .. } => String::new(),
         Value::Error { error, .. } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),
@@ -144,7 +144,7 @@ fn update_metadata(metadata: Option<PipelineMetadata>) -> Option<PipelineMetadat
 mod test {
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
-    use crate::Metadata;
+    use crate::{Get, Metadata};
 
     use super::*;
 
@@ -165,6 +165,7 @@ mod test {
 
             working_set.add_decl(Box::new(ToText {}));
             working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
 
             working_set.render()
         };

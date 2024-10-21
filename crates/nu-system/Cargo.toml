@@ -3,7 +3,7 @@ authors = ["The Nushell Project Developers", "procs creators"]
 description = "Nushell system querying"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-system"
 name = "nu-system"
-version = "0.97.2"
+version = "0.99.2"
 edition = "2021"
 license = "MIT"
 
@@ -11,6 +11,9 @@ license = "MIT"
 
 [lib]
 bench = false
+
+[lints]
+workspace = true
 
 [dependencies]
 libc = { workspace = true }

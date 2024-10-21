@@ -3,7 +3,7 @@
 //! Relies on the `miette` crate for pretty layout
 use crate::{
     engine::{EngineState, StateWorkingSet},
-    ErrorStyle,
+    CompileError, ErrorStyle, ParseError, ParseWarning, ShellError,
 };
 use miette::{
     LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler, RgbColors, Severity,
@@ -15,22 +15,40 @@ use thiserror::Error;
 /// forwards most methods, except for `.source_code()`, which we provide.
 #[derive(Error)]
 #[error("{0}")]
-pub struct CliError<'src>(
-    pub &'src (dyn miette::Diagnostic + Send + Sync + 'static),
+struct CliError<'src>(
+    pub &'src dyn miette::Diagnostic,
     pub &'src StateWorkingSet<'src>,
 );
 
-pub fn format_error(
-    working_set: &StateWorkingSet,
-    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
-) -> String {
+pub fn format_shell_error(working_set: &StateWorkingSet, error: &ShellError) -> String {
     format!("Error: {:?}", CliError(error, working_set))
 }
 
-pub fn report_error(
-    working_set: &StateWorkingSet,
-    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
-) {
+pub fn report_shell_error(engine_state: &EngineState, error: &ShellError) {
+    if engine_state.config.display_errors.should_show(error) {
+        report_error(&StateWorkingSet::new(engine_state), error)
+    }
+}
+
+pub fn report_shell_warning(engine_state: &EngineState, error: &ShellError) {
+    if engine_state.config.display_errors.should_show(error) {
+        report_warning(&StateWorkingSet::new(engine_state), error)
+    }
+}
+
+pub fn report_parse_error(working_set: &StateWorkingSet, error: &ParseError) {
+    report_error(working_set, error);
+}
+
+pub fn report_parse_warning(working_set: &StateWorkingSet, error: &ParseWarning) {
+    report_warning(working_set, error);
+}
+
+pub fn report_compile_error(working_set: &StateWorkingSet, error: &CompileError) {
+    report_error(working_set, error);
+}
+
+fn report_error(working_set: &StateWorkingSet, error: &dyn miette::Diagnostic) {
     eprintln!("Error: {:?}", CliError(error, working_set));
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
@@ -39,32 +57,13 @@ pub fn report_error(
     }
 }
 
-pub fn report_error_new(
-    engine_state: &EngineState,
-    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
-) {
-    let working_set = StateWorkingSet::new(engine_state);
-    report_error(&working_set, error);
-}
-
-pub fn report_warning(
-    working_set: &StateWorkingSet,
-    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
-) {
+fn report_warning(working_set: &StateWorkingSet, error: &dyn miette::Diagnostic) {
     eprintln!("Warning: {:?}", CliError(error, working_set));
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
     {
         let _ = nu_utils::enable_vt_processing();
     }
-}
-
-pub fn report_warning_new(
-    engine_state: &EngineState,
-    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
-) {
-    let working_set = StateWorkingSet::new(engine_state);
-    report_error(&working_set, error);
 }
 
 impl std::fmt::Debug for CliError<'_> {

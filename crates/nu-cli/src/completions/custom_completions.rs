@@ -7,7 +7,7 @@ use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{Stack, StateWorkingSet},
-    CompletionSort, PipelineData, Span, Type, Value,
+    CompletionSort, DeclId, PipelineData, Span, Type, Value,
 };
 use std::collections::HashMap;
 
@@ -15,12 +15,12 @@ use super::completion_options::NuMatcher;
 
 pub struct CustomCompletion {
     stack: Stack,
-    decl_id: usize,
+    decl_id: DeclId,
     line: String,
 }
 
 impl CustomCompletion {
-    pub fn new(stack: Stack, decl_id: usize, line: String) -> Self {
+    pub fn new(stack: Stack, decl_id: DeclId, line: String) -> Self {
         Self {
             stack,
             decl_id,
@@ -34,7 +34,7 @@ impl Completer for CustomCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        prefix: Vec<u8>,
+        prefix: &[u8],
         span: Span,
         offset: usize,
         pos: usize,

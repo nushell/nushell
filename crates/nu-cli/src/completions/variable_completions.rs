@@ -25,7 +25,7 @@ impl Completer for VariableCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: Vec<u8>,
+        prefix: &[u8],
         span: Span,
         offset: usize,
         _pos: usize,
@@ -39,7 +39,7 @@ impl Completer for VariableCompletion {
             end: span.end - offset,
         };
         let sublevels_count = self.var_context.1.len();
-        let prefix_str = String::from_utf8_lossy(&prefix);
+        let prefix_str = String::from_utf8_lossy(prefix);
         let mut matcher = NuMatcher::new(prefix_str, options.clone());
 
         // Completions for the given variable

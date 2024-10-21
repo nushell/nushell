@@ -1,5 +1,5 @@
 use crate::{
-    lex::{is_assignment_operator, lex, lex_signature},
+    lex::{is_assignment_operator, lex, lex_n_tokens, lex_signature, LexState},
     lite_parser::{lite_parse, LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget},
     parse_keywords::*,
     parse_patterns::parse_pattern,
@@ -11,7 +11,7 @@ use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DidYouMean, Flag,
+    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean, Flag,
     ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId, ENV_VARIABLE_ID,
     IN_VARIABLE_ID,
 };
@@ -240,10 +240,26 @@ fn parse_unknown_arg(
 /// string, where each balanced pair of quotes is parsed as a separate part of the string, and then
 /// concatenated together.
 ///
+/// `keep_surround_backtick_quote` should be true when parsing it as command name.  Or else it
+/// should be false.
+///
 /// For example, `-foo="bar\nbaz"` becomes `$"-foo=bar\nbaz"`
-fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let contents = &working_set.get_span_contents(span);
+fn parse_external_string(
+    working_set: &mut StateWorkingSet,
+    mut span: Span,
+    keep_surround_bakctick_quote: bool,
+) -> Expression {
+    let mut contents = working_set.get_span_contents(span);
 
+    if !keep_surround_bakctick_quote
+        && contents.len() > 1
+        && contents.starts_with(b"`")
+        && contents.ends_with(b"`")
+    {
+        contents = &contents[1..contents.len() - 1];
+        // backtick quote is useless in this case, so span is required to updated.
+        span = Span::new(span.start + 1, span.end - 1);
+    }
     if contents.starts_with(b"r#") {
         parse_raw_string(working_set, span)
     } else if contents
@@ -258,7 +274,6 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                 from: usize,
                 quote_char: u8,
                 escaped: bool,
-                depth: i32,
             },
         }
         // Find the spans of parts of the string that can be parsed as their own strings for
@@ -287,7 +302,6 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                             from: index,
                             quote_char: ch,
                             escaped: false,
-                            depth: 1,
                         };
                     }
                     b'$' => {
@@ -300,7 +314,6 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                                 from: index,
                                 quote_char,
                                 escaped: false,
-                                depth: 1,
                             };
                             // Skip over two chars (the dollar sign and the quote)
                             index += 2;
@@ -314,28 +327,12 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                     from,
                     quote_char,
                     escaped,
-                    depth,
                 } => match ch {
                     ch if ch == *quote_char && !*escaped => {
-                        // Count if there are more than `depth` quotes remaining
-                        if contents[index..]
-                            .iter()
-                            .filter(|b| *b == quote_char)
-                            .count() as i32
-                            > *depth
-                        {
-                            // Increment depth to be greedy
-                            *depth += 1;
-                        } else {
-                            // Decrement depth
-                            *depth -= 1;
-                        }
-                        if *depth == 0 {
-                            // End of string
-                            spans.push(make_span(*from, index + 1));
-                            // go back to Bare state
-                            state = State::Bare { from: index + 1 };
-                        }
+                        // quoted string ended, just make a new span for it.
+                        spans.push(make_span(*from, index + 1));
+                        // go back to Bare state.
+                        state = State::Bare { from: index + 1 };
                     }
                     b'\\' if !*escaped && *quote_char == b'"' => {
                         // The next token is escaped so it doesn't count (only for double quote)
@@ -460,7 +457,7 @@ fn parse_regular_external_arg(working_set: &mut StateWorkingSet, span: Span) -> 
     } else if contents.starts_with(b"[") {
         parse_list_expression(working_set, span, &SyntaxShape::Any)
     } else {
-        parse_external_string(working_set, span)
+        parse_external_string(working_set, span, false)
     }
 }
 
@@ -482,7 +479,7 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) ->
         let arg = parse_expression(working_set, &[head_span]);
         Box::new(arg)
     } else {
-        Box::new(parse_external_string(working_set, head_span))
+        Box::new(parse_external_string(working_set, head_span, true))
     };
 
     let args = spans[1..]
@@ -753,22 +750,23 @@ fn calculate_end_span(
             // keywords, they get to set this by being present
 
             let positionals_between = kw_pos - positional_idx - 1;
-            if positionals_between > (kw_idx - spans_idx) {
+            if positionals_between >= (kw_idx - spans_idx) {
                 kw_idx
             } else {
                 kw_idx - positionals_between
             }
         } else {
             // Make space for the remaining require positionals, if we can
-            if signature.num_positionals_after(positional_idx) == 0 {
-                spans.len()
-            } else if positional_idx < signature.required_positional.len()
-                && spans.len() > (signature.required_positional.len() - positional_idx)
-            {
-                spans.len() - (signature.required_positional.len() - positional_idx - 1)
-            } else {
-                spans_idx + 1
-            }
+            // spans_idx < spans.len() is an invariant
+            let remaining_spans = spans.len() - (spans_idx + 1);
+            // positional_idx can be larger than required_positional.len() if we have optional args
+            let remaining_positional = signature
+                .required_positional
+                .len()
+                .saturating_sub(positional_idx + 1);
+            // Saturates to 0 when we have too few args
+            let extra_spans = remaining_spans.saturating_sub(remaining_positional);
+            spans_idx + 1 + extra_spans
         }
     }
 }
@@ -939,9 +937,9 @@ pub fn parse_internal_call(
     working_set: &mut StateWorkingSet,
     command_span: Span,
     spans: &[Span],
-    decl_id: usize,
+    decl_id: DeclId,
 ) -> ParsedInternalCall {
-    trace!("parsing: internal call (decl id: {})", decl_id);
+    trace!("parsing: internal call (decl id: {})", decl_id.get());
 
     let mut call = Call::new(command_span);
     call.decl_id = decl_id;
@@ -1069,30 +1067,27 @@ pub fn parse_internal_call(
                     if let Some(arg_shape) = flag.arg {
                         if let Some(arg) = spans.get(spans_idx + 1) {
                             let arg = parse_value(working_set, *arg, &arg_shape);
+                            let (arg_name, val_expression) = ensure_flag_arg_type(
+                                working_set,
+                                flag.long.clone(),
+                                arg.clone(),
+                                &arg_shape,
+                                spans[spans_idx],
+                            );
 
                             if flag.long.is_empty() {
                                 if let Some(short) = flag.short {
                                     call.add_named((
-                                        Spanned {
-                                            item: String::new(),
-                                            span: spans[spans_idx],
-                                        },
+                                        arg_name,
                                         Some(Spanned {
                                             item: short.to_string(),
                                             span: spans[spans_idx],
                                         }),
-                                        Some(arg),
+                                        Some(val_expression),
                                     ));
                                 }
                             } else {
-                                call.add_named((
-                                    Spanned {
-                                        item: flag.long.clone(),
-                                        span: spans[spans_idx],
-                                    },
-                                    None,
-                                    Some(arg),
-                                ));
+                                call.add_named((arg_name, None, Some(val_expression)));
                             }
                             spans_idx += 1;
                         } else {
@@ -1183,11 +1178,24 @@ pub fn parse_internal_call(
         if let Some(positional) = signature.get_positional(positional_idx) {
             let end = calculate_end_span(working_set, &signature, spans, spans_idx, positional_idx);
 
-            let end = if spans.len() > spans_idx && end == spans_idx {
-                end + 1
-            } else {
-                end
-            };
+            // Missing arguments before next keyword
+            if end == spans_idx {
+                let prev_span = if spans_idx == 0 {
+                    command_span
+                } else {
+                    spans[spans_idx - 1]
+                };
+                let whitespace_span = Span::new(prev_span.end, spans[spans_idx].start);
+                working_set.error(ParseError::MissingPositional(
+                    positional.name.clone(),
+                    whitespace_span,
+                    signature.call_signature(),
+                ));
+                call.add_positional(Expression::garbage(working_set, whitespace_span));
+                positional_idx += 1;
+                continue;
+            }
+            debug_assert!(end <= spans.len());
 
             if spans[..end].is_empty() || spans_idx == end {
                 working_set.error(ParseError::MissingPositional(
@@ -2930,6 +2938,10 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
         }
         if bytes.starts_with(b"\'") && (bytes.len() == 1 || !bytes.ends_with(b"\'")) {
             working_set.error(ParseError::Unclosed("\'".into(), span));
+            return garbage(working_set, span);
+        }
+        if bytes.starts_with(b"r#") && (bytes.len() == 1 || !bytes.ends_with(b"#")) {
+            working_set.error(ParseError::Unclosed("r#".into(), span));
             return garbage(working_set, span);
         }
     }
@@ -5006,8 +5018,8 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         b"<=" => Operator::Comparison(Comparison::LessThanOrEqual),
         b">" => Operator::Comparison(Comparison::GreaterThan),
         b">=" => Operator::Comparison(Comparison::GreaterThanOrEqual),
-        b"=~" => Operator::Comparison(Comparison::RegexMatch),
-        b"!~" => Operator::Comparison(Comparison::NotRegexMatch),
+        b"=~" | b"like" => Operator::Comparison(Comparison::RegexMatch),
+        b"!~" | b"not-like" => Operator::Comparison(Comparison::NotRegexMatch),
         b"+" => Operator::Math(Math::Plus),
         b"++" => Operator::Math(Math::Append),
         b"-" => Operator::Math(Math::Minus),
@@ -5385,10 +5397,12 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
 
             let starting_error_count = working_set.parse_errors.len();
 
-            let lhs = parse_string_strict(
-                working_set,
-                Span::new(spans[pos].start, spans[pos].start + point - 1),
-            );
+            let lhs_span = Span::new(spans[pos].start, spans[pos].start + point - 1);
+            if !is_identifier(working_set.get_span_contents(lhs_span)) {
+                break;
+            }
+
+            let lhs = parse_string_strict(working_set, lhs_span);
             let rhs = if spans[pos].start + point < spans[pos].end {
                 let rhs_span = Span::new(spans[pos].start + point, spans[pos].end);
 
@@ -5650,6 +5664,49 @@ pub fn parse_builtin_commands(
     }
 }
 
+fn check_record_key_or_value(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+    position: &str,
+) -> Option<ParseError> {
+    let bareword_error = |string_value: &Expression| {
+        working_set
+            .get_span_contents(string_value.span)
+            .iter()
+            .find_position(|b| **b == b':')
+            .map(|(i, _)| {
+                let colon_position = i + string_value.span.start;
+                ParseError::InvalidLiteral(
+                    "colon".to_string(),
+                    format!("bare word specifying record {}", position),
+                    Span::new(colon_position, colon_position + 1),
+                )
+            })
+    };
+    let value_span = working_set.get_span_contents(expr.span);
+    match expr.expr {
+        Expr::String(_) => {
+            if ![b'"', b'\'', b'`'].contains(&value_span[0]) {
+                bareword_error(expr)
+            } else {
+                None
+            }
+        }
+        Expr::StringInterpolation(ref expressions) => {
+            if value_span[0] != b'$' {
+                expressions
+                    .iter()
+                    .filter(|expr| matches!(expr.expr, Expr::String(_)))
+                    .filter_map(bareword_error)
+                    .next()
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
 pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
 
@@ -5670,9 +5727,32 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
     }
 
     let inner_span = Span::new(start, end);
-    let source = working_set.get_span_contents(inner_span);
 
-    let (tokens, err) = lex(source, start, &[b'\n', b'\r', b','], &[b':'], true);
+    let mut lex_state = LexState {
+        input: working_set.get_span_contents(inner_span),
+        output: Vec::new(),
+        error: None,
+        span_offset: start,
+    };
+    let mut lex_n = |additional_whitespace, special_tokens, max_tokens| {
+        lex_n_tokens(
+            &mut lex_state,
+            additional_whitespace,
+            special_tokens,
+            true,
+            max_tokens,
+        )
+    };
+    loop {
+        if lex_n(&[b'\n', b'\r', b','], &[b':'], 2) < 2 {
+            break;
+        };
+        if lex_n(&[b'\n', b'\r', b','], &[], 1) < 1 {
+            break;
+        };
+    }
+    let (tokens, err) = (lex_state.output, lex_state.error);
+
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -5716,7 +5796,22 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             ));
         } else {
             // Normal key-value pair
-            let field = parse_value(working_set, curr_span, &SyntaxShape::Any);
+            let field_token = &tokens[idx];
+            let field = if field_token.contents != TokenContents::Item {
+                working_set.error(ParseError::Expected(
+                    "item in record key position",
+                    Span::new(field_token.span.start, field_token.span.end),
+                ));
+                garbage(working_set, curr_span)
+            } else {
+                let field = parse_value(working_set, curr_span, &SyntaxShape::Any);
+                if let Some(error) = check_record_key_or_value(working_set, &field, "key") {
+                    working_set.error(error);
+                    garbage(working_set, field.span)
+                } else {
+                    field
+                }
+            };
 
             idx += 1;
             if idx == tokens.len() {
@@ -5761,7 +5856,26 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
                 ));
                 break;
             }
-            let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+
+            let value_token = &tokens[idx];
+            let value = if value_token.contents != TokenContents::Item {
+                working_set.error(ParseError::Expected(
+                    "item in record value position",
+                    Span::new(value_token.span.start, value_token.span.end),
+                ));
+                garbage(
+                    working_set,
+                    Span::new(value_token.span.start, value_token.span.end),
+                )
+            } else {
+                let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+                if let Some(parse_error) = check_record_key_or_value(working_set, &value, "value") {
+                    working_set.error(parse_error);
+                    garbage(working_set, value.span)
+                } else {
+                    value
+                }
+            };
             idx += 1;
 
             if let Some(field) = field.as_string() {
@@ -6488,6 +6602,7 @@ pub fn parse(
     let mut errors = vec![];
     for (block_idx, block) in working_set.delta.blocks.iter().enumerate() {
         let block_id = block_idx + working_set.permanent_state.num_blocks();
+        let block_id = BlockId::new(block_id);
 
         if !seen_blocks.contains_key(&block_id) {
             let mut captures = vec![];
@@ -6530,7 +6645,7 @@ pub fn parse(
         // already saved in permanent state
         if !captures.is_empty()
             && block_captures_empty
-            && block_id >= working_set.permanent_state.num_blocks()
+            && block_id.get() >= working_set.permanent_state.num_blocks()
         {
             let block = working_set.get_block_mut(block_id);
             block.captures = captures.into_iter().map(|(var_id, _)| var_id).collect();

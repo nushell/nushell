@@ -31,8 +31,8 @@ impl CustomValue for TestCustomValue {
 
 /// A [`TestCustomValue`] serialized as a [`PluginCustomValue`].
 pub fn test_plugin_custom_value() -> PluginCustomValue {
-    let data = bincode::serialize(&expected_test_custom_value() as &dyn CustomValue)
-        .expect("bincode serialization of the expected_test_custom_value() failed");
+    let data = rmp_serde::to_vec(&expected_test_custom_value() as &dyn CustomValue)
+        .expect("MessagePack serialization of the expected_test_custom_value() failed");
 
     PluginCustomValue::new("TestCustomValue".into(), data, false)
 }
