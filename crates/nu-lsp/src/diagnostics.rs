@@ -45,7 +45,12 @@ impl LanguageServer {
             let message = err.to_string();
 
             diagnostics.diagnostics.push(Diagnostic {
-                range: Self::span_to_range(&err.span(), rope_of_file, offset),
+                range: Self::span_to_range(
+                    &err.span(),
+                    rope_of_file,
+                    offset,
+                    &self.position_encoding,
+                ),
                 severity: Some(DiagnosticSeverity::ERROR),
                 message,
                 ..Default::default()
@@ -71,7 +76,7 @@ mod tests {
 
     #[test]
     fn publish_diagnostics_variable_does_not_exists() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -102,7 +107,7 @@ mod tests {
 
     #[test]
     fn publish_diagnostics_fixed_unknown_variable() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
