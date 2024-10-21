@@ -100,10 +100,10 @@ pub fn to_delimited_data(
             .with_content_type(content_type),
     );
 
-    let separator = u8::try_from(separator.item).map_err(|_| ShellError::IncorrectValue {
-        msg: "separator must be an ASCII character".into(),
-        val_span: separator.span,
-        call_span: head,
+    let separator = u8::try_from(separator.item).map_err(|_| ShellError::InvalidValue {
+        valid: "an ASCII character".into(),
+        actual: separator.item.to_string(),
+        span: separator.span,
     })?;
 
     // Check to ensure the input is likely one of our supported types first. We can't check a stream
