@@ -229,7 +229,7 @@ Please submit an issue or PR to be added to this list.
 See [Contributing](CONTRIBUTING.md) for details. Thanks to all the people who already contributed!
 
 <a href="https://github.com/nushell/nushell/graphs/contributors">
-  <img src="https://contributors-img.web.app/image?repo=nushell/nushell&max=750" />
+  <img src="https://contributors-img.web.app/image?repo=nushell/nushell&max=750&columns=25" />
 </a>
 
 ## License
