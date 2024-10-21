@@ -236,7 +236,7 @@ fn escape_special_vscode_bytes(input: &str) -> String {
                     _ => vec![byte],
                 }
             } else {
-                // Escape all multi-byte characters (i.e., those above 0x7F)
+                // pass through multi-byte characters unchanged
                 c_bytes.bytes().collect()
             }
         })
