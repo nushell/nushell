@@ -301,9 +301,9 @@ impl Value {
     }
 
     /// Returns the inner `i64` filesize value or an error if this `Value` is not a filesize
-    pub fn as_filesize(&self) -> Result<i64, ShellError> {
+    pub fn as_filesize(&self) -> Result<Filesize, ShellError> {
         if let Value::Filesize { val, .. } = self {
-            Ok(*val)
+            Ok(Filesize::new(*val))
         } else {
             self.cant_convert_to("filesize")
         }
