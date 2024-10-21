@@ -383,23 +383,23 @@ fn open_files_inside_glob_metachars_dir() {
 #[test]
 fn test_content_types_with_open_raw() {
     Playground::setup("open_files_content_type_test", |dirs, _| {
-        let result = nu!(cwd: dirs.formats(), "open --raw random_numbers.csv | metadata");
+        let result = nu!(cwd: dirs.formats(), "open random_numbers.csv | metadata");
         assert!(result.out.contains("text/csv"));
-        let result = nu!(cwd: dirs.formats(), "open --raw caco3_plastics.tsv | metadata");
+        let result = nu!(cwd: dirs.formats(), "open caco3_plastics.tsv | metadata");
         assert!(result.out.contains("text/tab-separated-values"));
-        let result = nu!(cwd: dirs.formats(), "open --raw sample-simple.json | metadata");
+        let result = nu!(cwd: dirs.formats(), "open sample-simple.json | metadata");
         assert!(result.out.contains("application/json"));
-        let result = nu!(cwd: dirs.formats(), "open --raw sample.ini | metadata");
+        let result = nu!(cwd: dirs.formats(), "open sample.ini | metadata");
         assert!(result.out.contains("text/plain"));
-        let result = nu!(cwd: dirs.formats(), "open --raw sample_data.xlsx | metadata");
+        let result = nu!(cwd: dirs.formats(), "open -r sample_data.xlsx | metadata");
         assert!(result.out.contains("vnd.openxmlformats-officedocument"));
-        let result = nu!(cwd: dirs.formats(), "open --raw sample_def.nu | metadata");
-        assert!(!result.out.contains("content_type"));
-        let result = nu!(cwd: dirs.formats(), "open --raw sample.eml | metadata");
+        let result = nu!(cwd: dirs.formats(), "open sample_def.nu | metadata");
+        assert!(result.out.contains("application/x-nuscript"));
+        let result = nu!(cwd: dirs.formats(), "open sample.eml | metadata");
         assert!(result.out.contains("message/rfc822"));
-        let result = nu!(cwd: dirs.formats(), "open --raw cargo_sample.toml | metadata");
+        let result = nu!(cwd: dirs.formats(), "open cargo_sample.toml | metadata");
         assert!(result.out.contains("text/x-toml"));
-        let result = nu!(cwd: dirs.formats(), "open --raw appveyor.yml | metadata");
+        let result = nu!(cwd: dirs.formats(), "open appveyor.yml | metadata");
         assert!(result.out.contains("application/yaml"));
     })
 }
