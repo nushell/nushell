@@ -214,7 +214,7 @@ fn item_from_record(mut rec: Record, span: Span) -> Result<HistoryItem, ShellErr
         start_timestamp: get(rec, fields::START_TIMESTAMP, |v| Ok(v.as_date()?.to_utc()))?,
         hostname: get(rec, fields::HOSTNAME, |v| Ok(v.as_str()?.to_owned()))?,
         cwd: get(rec, fields::CWD, |v| Ok(v.as_str()?.to_owned()))?,
-        exit_status: get(rec, fields::EXIT_STATUS, |v| v.as_i64())?,
+        exit_status: get(rec, fields::EXIT_STATUS, |v| v.as_int())?,
         duration: get(rec, fields::DURATION, duration_from_value)?,
         more_info: None,
         // TODO: Currently reedline doesn't let you create session IDs.

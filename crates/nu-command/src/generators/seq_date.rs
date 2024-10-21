@@ -1,5 +1,6 @@
 use chrono::{Duration, Local, NaiveDate};
 use nu_engine::command_prelude::*;
+use nu_protocol::FromValue;
 
 use std::fmt::Write;
 
@@ -187,13 +188,14 @@ pub fn run_seq_dates(
 ) -> Result<Value, ShellError> {
     let today = Local::now().date_naive();
     // if cannot convert , it will return error
-    let mut step_size: i64 = increment.as_i64()?;
+    let increment_span = increment.span();
+    let mut step_size: i64 = i64::from_value(increment)?;
 
     if step_size == 0 {
         return Err(ShellError::GenericError {
             error: "increment cannot be 0".into(),
             msg: "increment cannot be 0".into(),
-            span: Some(increment.span()),
+            span: Some(increment_span),
             help: None,
             inner: vec![],
         });
@@ -264,7 +266,7 @@ pub fn run_seq_dates(
     };
 
     let mut days_to_output = match day_count {
-        Some(d) => d.as_i64()?,
+        Some(d) => i64::from_value(d)?,
         None => 0i64,
     };
 

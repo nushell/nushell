@@ -259,7 +259,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 if radix == 10 {
                     *val as i64
                 } else {
-                    match convert_int(&Value::int(*val as i64, span), span, radix).as_i64() {
+                    match convert_int(&Value::int(*val as i64, span), span, radix).as_int() {
                         Ok(v) => v,
                         _ => {
                             return Value::error(

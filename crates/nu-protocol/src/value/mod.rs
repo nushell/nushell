@@ -1,7 +1,6 @@
 mod custom_value;
 mod duration;
 mod filesize;
-mod from;
 mod from_value;
 mod glob;
 mod into_value;
