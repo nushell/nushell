@@ -146,10 +146,16 @@ impl Command for Open {
                         }
                     };
 
-                    let content_type = path
-                        .extension()
-                        .map(|ext| ext.to_string_lossy().to_string())
-                        .and_then(|ref s| detect_content_type(s));
+                    // Assigning content type should only happen in raw mode. Otherwise, the content
+                    // will potentially be in one of the built-in nushell `from xxx` formats and therefore
+                    // cease to be in the original content-type.... or so I'm told. :)
+                    let content_type = if raw {
+                        path.extension()
+                            .map(|ext| ext.to_string_lossy().to_string())
+                            .and_then(|ref s| detect_content_type(s))
+                    } else {
+                        None
+                    };
 
                     let stream = PipelineData::ByteStream(
                         ByteStream::file(file, call_span, engine_state.signals().clone()),
