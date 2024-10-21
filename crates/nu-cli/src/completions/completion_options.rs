@@ -34,6 +34,7 @@ enum State<T> {
         items: Vec<(String, T)>,
     },
     Fuzzy {
+        matcher: Box<SkimMatcherV2>,
         /// Holds (haystack, item, score)
         items: Vec<(String, T, i64)>,
     },
@@ -57,11 +58,22 @@ impl<T> NuMatcher<T> {
                 needle: lowercase_needle,
                 state: State::Prefix { items: Vec::new() },
             },
-            MatchAlgorithm::Fuzzy => NuMatcher {
-                options,
-                needle: orig_needle.to_owned(),
-                state: State::Fuzzy { items: Vec::new() },
-            },
+            MatchAlgorithm::Fuzzy => {
+                let mut matcher = SkimMatcherV2::default();
+                if options.case_sensitive {
+                    matcher = matcher.respect_case();
+                } else {
+                    matcher = matcher.ignore_case();
+                };
+                NuMatcher {
+                    options,
+                    needle: orig_needle.to_owned(),
+                    state: State::Fuzzy {
+                        matcher: Box::new(matcher),
+                        items: Vec::new(),
+                    },
+                }
+            }
         }
     }
 
@@ -69,51 +81,51 @@ impl<T> NuMatcher<T> {
     ///
     /// Returns whether the item was added.
     pub fn add(&mut self, haystack: String, item: T) -> bool {
+        let haystack = trim_quotes_str(&haystack);
         match &mut self.state {
             State::Prefix { items } => {
-                let haystack = trim_quotes_str(&haystack).to_owned();
-                let haystack_lowercased = if self.options.case_sensitive {
-                    Cow::Borrowed(&haystack)
+                let haystack = if self.options.case_sensitive {
+                    Cow::Borrowed(haystack)
                 } else {
                     Cow::Owned(haystack.to_folded_case())
                 };
                 let matches = if self.options.positional {
-                    haystack_lowercased.starts_with(self.needle.as_str())
+                    haystack.starts_with(self.needle.as_str())
                 } else {
-                    haystack_lowercased.contains(self.needle.as_str())
+                    haystack.contains(self.needle.as_str())
                 };
                 if matches {
-                    items.push((haystack, item));
+                    items.push((haystack.to_string(), item));
                 }
                 matches
             }
-            State::Fuzzy { items } => {
-                let mut matcher = SkimMatcherV2::default();
-                if self.options.case_sensitive {
-                    matcher = matcher.respect_case();
-                } else {
-                    matcher = matcher.ignore_case();
-                };
-                let Some(score) = matcher.fuzzy_match(&haystack, &self.needle) else {
+            State::Fuzzy { items, matcher } => {
+                let Some(score) = matcher.fuzzy_match(haystack, &self.needle) else {
                     return false;
                 };
-                items.push((haystack, item, score));
+                items.push((haystack.to_string(), item, score));
                 true
             }
         }
     }
 
-    /// Remove the last added item. This is useful if you want to filter matched
-    /// completions by some expensive condition. You can call `add`, run the expensive condition,
-    /// then call `remove_last` if the expensive condition is false.
-    pub fn remove_last(&mut self) {
+    /// Returns whether the item was added.
+    pub fn matches(&mut self, haystack: &str) -> bool {
+        let haystack = trim_quotes_str(haystack).to_owned();
         match &mut self.state {
-            State::Prefix { items } => {
-                items.pop();
+            State::Prefix { .. } => {
+                let haystack = if self.options.case_sensitive {
+                    Cow::Borrowed(&haystack)
+                } else {
+                    Cow::Owned(haystack.to_folded_case())
+                };
+                if self.options.positional {
+                    haystack.starts_with(self.needle.as_str())
+                } else {
+                    haystack.contains(self.needle.as_str())
+                }
             }
-            State::Fuzzy { items } => {
-                items.pop();
-            }
+            State::Fuzzy { matcher, .. } => matcher.fuzzy_match(&haystack, &self.needle).is_some(),
         }
     }
 

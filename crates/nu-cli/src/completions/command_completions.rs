@@ -59,7 +59,7 @@ impl CommandCompletion {
                                 .max_results
                                 > executables.len() as i64
                             {
-                                continue;
+                                break;
                             }
                             let Ok(name) = item.file_name().into_string() else {
                                 continue;
@@ -72,24 +72,23 @@ impl CommandCompletion {
                             } else {
                                 name.clone()
                             };
-                            if matcher.add(
-                                name.clone(),
-                                SemanticSuggestion {
-                                    suggestion: Suggestion {
-                                        value,
-                                        span: sugg_span,
-                                        append_whitespace: true,
-                                        ..Default::default()
+                            if matcher.matches(&name) && is_executable::is_executable(item.path()) {
+                                executables.insert(name.clone());
+                                // This causes the matcher to match the executable name twice,
+                                // but it's likely a cost we can eat
+                                matcher.add(
+                                    name,
+                                    SemanticSuggestion {
+                                        suggestion: Suggestion {
+                                            value,
+                                            span: sugg_span,
+                                            append_whitespace: true,
+                                            ..Default::default()
+                                        },
+                                        // TODO: is there a way to create a test?
+                                        kind: None,
                                     },
-                                    // TODO: is there a way to create a test?
-                                    kind: None,
-                                },
-                            ) {
-                                if is_executable::is_executable(item.path()) {
-                                    executables.insert(name);
-                                } else {
-                                    matcher.remove_last();
-                                }
+                                );
                             }
                         }
                     }
