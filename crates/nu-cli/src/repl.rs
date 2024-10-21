@@ -131,7 +131,7 @@ pub fn evaluate_repl(
         // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
         let cmd_text = line_editor.current_buffer_contents().to_string();
 
-        let replaced_cmd_text = escape_special_vscode_bytes(&cmd_text);
+        let replaced_cmd_text = escape_special_vscode_bytes(&cmd_text)?;
 
         run_shell_integration_osc633(
             engine_state,
@@ -215,8 +215,8 @@ pub fn evaluate_repl(
     Ok(())
 }
 
-fn escape_special_vscode_bytes(input: &str) -> String {
-    input
+fn escape_special_vscode_bytes(input: &str) -> Result<String, ShellError> {
+    let bytes = input
         .chars()
         .flat_map(|c| {
             let mut buf = [0; 4]; // Buffer to hold UTF-8 bytes of the character
@@ -240,8 +240,16 @@ fn escape_special_vscode_bytes(input: &str) -> String {
                 c_bytes.bytes().collect()
             }
         })
-        .map(|b| b as char) // Convert escaped bytes back to chars
-        .collect() // Collect into final String
+        .collect();
+
+    String::from_utf8(bytes).map_err(|err| ShellError::CantConvert {
+        to_type: "string".to_string(),
+        from_type: "bytes".to_string(),
+        span: Span::unknown(),
+        help: Some(format!(
+            "Error {err}, Unable to convert {input} to escaped bytes"
+        )),
+    })
 }
 
 fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Reedline> {
@@ -1071,7 +1079,8 @@ fn run_shell_integration_osc633(
 
             // escape a few things because this says so
             // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
-            let replaced_cmd_text = escape_special_vscode_bytes(&repl_cmd_line_text);
+            let replaced_cmd_text =
+                escape_special_vscode_bytes(&repl_cmd_line_text).unwrap_or(repl_cmd_line_text);
 
             //OSC 633 ; E ; <commandline> [; <nonce] ST - Explicitly set the command line with an optional nonce.
             run_ansi_sequence(&format!(
@@ -1569,7 +1578,7 @@ mod test_auto_cd {
     fn escape_vscode_semicolon_test() {
         let input = r#"now;is"#;
         let expected = r#"now\x3Bis"#;
-        let actual = escape_special_vscode_bytes(input);
+        let actual = escape_special_vscode_bytes(input).unwrap();
         assert_eq!(expected, actual);
     }
 
@@ -1577,7 +1586,7 @@ mod test_auto_cd {
     fn escape_vscode_backslash_test() {
         let input = r#"now\is"#;
         let expected = r#"now\\is"#;
-        let actual = escape_special_vscode_bytes(input);
+        let actual = escape_special_vscode_bytes(input).unwrap();
         assert_eq!(expected, actual);
     }
 
@@ -1585,7 +1594,7 @@ mod test_auto_cd {
     fn escape_vscode_linefeed_test() {
         let input = "now\nis";
         let expected = r#"now\x0Ais"#;
-        let actual = escape_special_vscode_bytes(input);
+        let actual = escape_special_vscode_bytes(input).unwrap();
         assert_eq!(expected, actual);
     }
 
@@ -1593,16 +1602,14 @@ mod test_auto_cd {
     fn escape_vscode_tab_null_cr_test() {
         let input = "now\t\0\ris";
         let expected = r#"now\x09\x00\x0Dis"#;
-        let actual = escape_special_vscode_bytes(input);
+        let actual = escape_special_vscode_bytes(input).unwrap();
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn escape_vscode_multibyte_ok() {
         let input = "now🍪is";
-        let expected = format!("{}", "now\u{F0}\u{9F}\u{8D}\u{AA}is".escape_unicode());
-        let actual = format!("{}", escape_special_vscode_bytes(input).escape_unicode());
-
-        assert_eq!(expected, actual);
+        let actual = escape_special_vscode_bytes(input).unwrap();
+        assert_eq!(input, actual);
     }
 }
