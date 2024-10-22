@@ -171,7 +171,8 @@ impl SQLContext {
                         .schema()
                         .get_at_index(shm_p)
                         .unwrap_or((&"".into(), &DataType::Null))
-                        .0)
+                        .0
+                        .clone())
                 })
                 .collect::<Vec<_>>();
             agg_df.select(final_proj)

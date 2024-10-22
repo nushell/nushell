@@ -41,9 +41,12 @@ impl PluginCommand for GetOrdinal {
     let df = ([$dt $dt] | polars into-df);
     $df | polars get-ordinal"#,
             result: Some(
-                NuDataFrame::try_from_series(Series::new("0", &[217i16, 217]), Span::test_data())
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                NuDataFrame::try_from_series(
+                    Series::new("0".into(), &[217i16, 217]),
+                    Span::test_data(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
             ),
         }]
     }

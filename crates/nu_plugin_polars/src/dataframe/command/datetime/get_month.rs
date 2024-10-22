@@ -41,7 +41,7 @@ impl PluginCommand for GetMonth {
     let df = ([$dt $dt] | polars into-df);
     $df | polars get-month"#,
             result: Some(
-                NuDataFrame::try_from_series(Series::new("0", &[8i8, 8]), Span::test_data())
+                NuDataFrame::try_from_series(Series::new("0".into(), &[8i8, 8]), Span::test_data())
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
             ),

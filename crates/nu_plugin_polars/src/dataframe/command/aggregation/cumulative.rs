@@ -82,9 +82,9 @@ impl PluginCommand for Cumulative {
         vec![
             Example {
                 description: "Cumulative sum for a column",
-                example: "[[a]; [1] [2] [3] [4] [5]] 
-                    | polars into-df 
-                    | polars select (polars col a | polars cumulative sum | polars as cum_a) 
+                example: "[[a]; [1] [2] [3] [4] [5]]
+                    | polars into-df
+                    | polars select (polars col a | polars cumulative sum | polars as cum_a)
                     | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
@@ -234,7 +234,7 @@ fn command_df(
     })?;
 
     let name = format!("{}_{}", series.name(), cum_type.to_str());
-    res.rename(&name);
+    res.rename(name.into());
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)

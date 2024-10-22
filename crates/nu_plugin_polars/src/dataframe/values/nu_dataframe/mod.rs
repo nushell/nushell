@@ -181,7 +181,7 @@ impl NuDataFrame {
                 )?,
                 _ => {
                     let key = "0".to_string();
-                    conversion::insert_value(value, key, &mut column_values, &maybe_schema)?
+                    conversion::insert_value(value, key.into(), &mut column_values, &maybe_schema)?
                 }
             }
         }
@@ -209,7 +209,7 @@ impl NuDataFrame {
         let mut column_values: ColumnMap = IndexMap::new();
 
         for column in columns {
-            let name = column.name().to_string();
+            let name = column.name().clone();
             for value in column {
                 conversion::insert_value(value, name.clone(), &mut column_values, &maybe_schema)?;
             }
@@ -493,10 +493,9 @@ fn add_missing_columns(
             })
             .collect();
 
-        // todo - fix
         let missing_exprs: Vec<Expr> = missing
             .iter()
-            .map(|(name, dtype)| lit(Null {}).cast((*dtype).to_owned()).alias(name))
+            .map(|(name, dtype)| lit(Null {}).cast((*dtype).to_owned()).alias(*name))
             .collect();
 
         let df = if !missing.is_empty() {

@@ -83,7 +83,7 @@ fn command(
             inner: vec![],
         })?
         .into_series();
-    res.rename("arg_unique");
+    res.rename("arg_unique".into());
 
     let df = NuDataFrame::try_from_series_vec(vec![res], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)
