@@ -37,12 +37,13 @@ pub enum ShellError {
     /// Check the inputs to the operation and add guards for their sizes.
     /// Integers are generally of size i64, floats are generally f64.
     #[error("Operator overflow.")]
-    #[diagnostic(code(nu::shell::operator_overflow), help("{help}"))]
+    #[diagnostic(code(nu::shell::operator_overflow))]
     OperatorOverflow {
         msg: String,
         #[label = "{msg}"]
         span: Span,
-        help: String,
+        #[help]
+        help: Option<String>,
     },
 
     /// The pipelined input into a command was not of the expected type. For example, it might

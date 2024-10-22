@@ -2425,7 +2425,11 @@ impl Value {
                 if let Some(val) = lhs.checked_add(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "add operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow {
+                        msg: "add operation overflowed".into(),
+                        span,
+                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                     })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2448,7 +2452,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "addition operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
@@ -2459,7 +2463,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "add operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
@@ -2470,7 +2474,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "add operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
@@ -2534,7 +2538,11 @@ impl Value {
                 if let Some(val) = lhs.checked_sub(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "subtraction operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow {
+                        msg: "subtraction operation overflowed".into(),
+                        span,
+                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                    })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2555,7 +2563,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "subtraction operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
@@ -2565,7 +2573,7 @@ impl Value {
                     _ => Err(ShellError::OperatorOverflow {
                         msg: "subtraction operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     }),
                 }
             }
@@ -2576,7 +2584,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "subtraction operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
@@ -2587,7 +2595,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "add operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
@@ -2612,7 +2620,11 @@ impl Value {
                 if let Some(val) = lhs.checked_mul(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "multiply operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow {
+                        msg: "multiply operation overflowed".into(),
+                        span,
+                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                    })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -3334,7 +3346,7 @@ impl Value {
                         msg: "right operand to bit-shl exceeds available bits in underlying data"
                             .into(),
                         span,
-                        help: format!("Limit operand to 0 <= rhs < {}", i64::BITS),
+                        help: Some(format!("Limit operand to 0 <= rhs < {}", i64::BITS)),
                     })
                 }
             }
@@ -3363,7 +3375,7 @@ impl Value {
                         msg: "right operand to bit-shr exceeds available bits in underlying data"
                             .into(),
                         span,
-                        help: format!("Limit operand to 0 <= rhs < {}", i64::BITS),
+                        help: Some(format!("Limit operand to 0 <= rhs < {}", i64::BITS)),
                     })
                 }
             }
@@ -3545,7 +3557,11 @@ impl Value {
                 if let Some(val) = lhs.checked_pow(*rhs as u32) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "pow operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow {
+                        msg: "pow operation overflowed".into(),
+                        span,
+                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                    })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
