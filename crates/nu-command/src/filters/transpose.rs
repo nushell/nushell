@@ -175,6 +175,12 @@ pub fn transpose(
 
     let metadata = input.metadata();
     let input: Vec<_> = input.into_iter().collect();
+    // Ensure error values are propagated
+    for i in input.iter() {
+        if let Value::Error { .. } = i {
+            return Ok(i.clone().into_pipeline_data_with_metadata(metadata));
+        }
+    }
 
     let descs = get_columns(&input);
 
