@@ -448,7 +448,6 @@ impl FromValue for String {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
         match v {
-            Value::CellPath { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val),
             v => Err(ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
@@ -650,7 +649,6 @@ impl FromValue for NuGlob {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
         match v {
-            Value::CellPath { val, .. } => Ok(NuGlob::Expand(val.to_string())),
             Value::String { val, .. } => Ok(NuGlob::DoNotExpand(val)),
             Value::Glob {
                 val,
