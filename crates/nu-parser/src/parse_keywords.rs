@@ -1204,7 +1204,7 @@ pub fn parse_export_in_block(
     match full_name {
         "export alias" => parse_alias(working_set, lite_command, None),
         "export def" => parse_def(working_set, lite_command, None).0,
-        "export const" => parse_const(working_set, &lite_command.parts[1..]),
+        "export const" => parse_const(working_set, &lite_command.parts[1..]).0,
         "export use" => parse_use(working_set, lite_command, None).0,
         "export module" => parse_module(working_set, lite_command, None).0,
         "export extern" => parse_extern(working_set, lite_command, None),
@@ -1514,7 +1514,7 @@ pub fn parse_export_in_module(
                 result
             }
             b"const" => {
-                let pipeline = parse_const(working_set, &spans[1..]);
+                let (pipeline, var_name_span) = parse_const(working_set, &spans[1..]);
                 let export_const_decl_id = if let Some(id) = working_set.find_decl(b"export const")
                 {
                     id
@@ -1542,8 +1542,8 @@ pub fn parse_export_in_module(
 
                 let mut result = vec![];
 
-                if let Some(var_name_span) = spans.get(2) {
-                    let var_name = working_set.get_span_contents(*var_name_span);
+                if let Some(var_name_span) = var_name_span {
+                    let var_name = working_set.get_span_contents(var_name_span);
                     let var_name = trim_quotes(var_name);
 
                     if let Some(var_id) = working_set.find_variable(var_name) {
@@ -1762,7 +1762,7 @@ pub fn parse_module_block(
                 }
                 b"const" => block
                     .pipelines
-                    .push(parse_const(working_set, &command.parts)),
+                    .push(parse_const(working_set, &command.parts).0),
                 b"extern" => block
                     .pipelines
                     .push(parse_extern(working_set, command, None)),
@@ -3154,7 +3154,8 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
     garbage_pipeline(working_set, spans)
 }
 
-pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
+/// Additionally returns a span encompassing the variable name, if successful.
+pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline, Option<Span>) {
     trace!("parsing: const");
 
     // JT: Disabling check_name because it doesn't work with optional types in the declaration
@@ -3271,28 +3272,37 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                     let call = Box::new(Call {
                         decl_id,
                         head: spans[0],
-                        arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                        arguments: vec![
+                            Argument::Positional(lvalue.clone()),
+                            Argument::Positional(rvalue),
+                        ],
                         parser_info: HashMap::new(),
                     });
 
-                    return Pipeline::from_vec(vec![Expression::new(
-                        working_set,
-                        Expr::Call(call),
-                        Span::concat(spans),
-                        Type::Any,
-                    )]);
+                    return (
+                        Pipeline::from_vec(vec![Expression::new(
+                            working_set,
+                            Expr::Call(call),
+                            Span::concat(spans),
+                            Type::Any,
+                        )]),
+                        Some(lvalue.span),
+                    );
                 }
             }
         }
         let ParsedInternalCall { call, output } =
             parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
-        return Pipeline::from_vec(vec![Expression::new(
-            working_set,
-            Expr::Call(call),
-            Span::concat(spans),
-            output,
-        )]);
+        return (
+            Pipeline::from_vec(vec![Expression::new(
+                working_set,
+                Expr::Call(call),
+                Span::concat(spans),
+                output,
+            )]),
+            None,
+        );
     } else {
         working_set.error(ParseError::UnknownState(
             "internal error: let or const statements not found in core language".into(),
@@ -3305,7 +3315,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
         Span::concat(spans),
     ));
 
-    garbage_pipeline(working_set, spans)
+    (garbage_pipeline(working_set, spans), None)
 }
 
 pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
