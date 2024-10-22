@@ -379,9 +379,9 @@ pub fn math_result_type(
             },
             Operator::Math(Math::FloorDivision) => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
-                (Type::Float, Type::Int) => (Type::Int, None),
-                (Type::Int, Type::Float) => (Type::Int, None),
-                (Type::Float, Type::Float) => (Type::Int, None),
+                (Type::Float, Type::Int) => (Type::Float, None),
+                (Type::Int, Type::Float) => (Type::Float, None),
+                (Type::Float, Type::Float) => (Type::Float, None),
                 (Type::Number, Type::Number) => (Type::Number, None),
                 (Type::Number, Type::Int) => (Type::Number, None),
                 (Type::Int, Type::Number) => (Type::Number, None),

@@ -2778,121 +2778,143 @@ impl Value {
     }
 
     pub fn floor_div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        // Taken from the unstable `div_floor` function in the std library.
+        fn checked_div_floor_i64(dividend: i64, divisor: i64) -> Option<i64> {
+            let quotient = dividend.checked_div(divisor)?;
+            let remainder = dividend.checked_rem(divisor)?;
+            if (remainder > 0 && divisor < 0) || (remainder < 0 && divisor > 0) {
+                // Note that `quotient - 1` cannot overflow, because:
+                //     `quotient` would have to be `i64::MIN`
+                //     => `divisor` would have to be `1`
+                //     => `remainder` would have to be `0`
+                // But `remainder == 0` is excluded from the check above.
+                Some(quotient - 1)
+            } else {
+                Some(quotient)
+            }
+        }
+
+        fn checked_div_floor_f64(dividend: f64, divisor: f64) -> Option<f64> {
+            if divisor == 0.0 {
+                None
+            } else {
+                Some((dividend / divisor).floor())
+            }
+        }
+
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(
-                        (*lhs as f64 / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = checked_div_floor_i64(*lhs, *rhs) {
+                    Ok(Value::int(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::int(
-                        (*lhs as f64 / *rhs)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
+                if let Some(val) = checked_div_floor_f64(*lhs as f64, *rhs) {
+                    Ok(Value::float(val, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(
-                        (*lhs / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
+                if let Some(val) = checked_div_floor_f64(*lhs, *rhs as f64) {
+                    Ok(Value::float(val, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::int(
-                        (lhs / rhs).clamp(i64::MIN as f64, i64::MAX as f64).floor() as i64,
-                        span,
-                    ))
+                if let Some(val) = checked_div_floor_f64(*lhs, *rhs) {
+                    Ok(Value::float(val, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(
-                        (*lhs as f64 / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = checked_div_floor_i64(*lhs, *rhs) {
+                    Ok(Value::int(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::filesize(
-                        ((*lhs as f64) / (*rhs as f64))
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = checked_div_floor_i64(*lhs, *rhs) {
+                    Ok(Value::filesize(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::filesize(
-                        (*lhs as f64 / *rhs)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
+                if let Some(val) = checked_div_floor_f64(*lhs as f64, *rhs) {
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::filesize(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operator overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(
-                        (*lhs as f64 / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = checked_div_floor_i64(*lhs, *rhs) {
+                    Ok(Value::int(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::duration(
-                        (*lhs as f64 / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = checked_div_floor_i64(*lhs, *rhs) {
+                    Ok(Value::duration(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::duration(
-                        (*lhs as f64 / *rhs)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
+                if let Some(val) = checked_div_floor_f64(*lhs as f64, *rhs) {
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::duration(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operator overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
@@ -2900,7 +2922,6 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
             }
-
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
