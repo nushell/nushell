@@ -93,12 +93,12 @@ impl Command for ToText {
         vec![
             Example {
                 description: "Outputs data as simple text with a newline",
-                example: "1 | to text",
+                example: "[1] | to text",
                 result: Some(Value::test_string("1".to_string() + LINE_ENDING)),
             },
             Example {
                 description: "Outputs data as simple text without a newline",
-                example: "1 | to text --no-newline",
+                example: "[1] | to text --no-newline",
                 result: Some(Value::test_string("1")),
             },
             Example {
