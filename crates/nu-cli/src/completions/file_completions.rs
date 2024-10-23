@@ -2,16 +2,14 @@ use crate::completions::{
     completion_common::{adjust_if_intermediate, complete_item, AdjustView},
     Completer, CompletionOptions,
 };
-use nu_ansi_term::Style;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Span,
 };
-use nu_utils::IgnoreCaseExt;
 use reedline::Suggestion;
 use std::path::Path;
 
-use super::SemanticSuggestion;
+use super::{completion_common::FileSuggestion, SemanticSuggestion};
 
 #[derive(Clone, Default)]
 pub struct FileCompletion {}
@@ -44,7 +42,7 @@ impl Completer for FileCompletion {
             readjusted,
             span,
             &prefix,
-            &working_set.permanent_state.current_work_dir(),
+            &[&working_set.permanent_state.current_work_dir()],
             options,
             working_set.permanent_state,
             stack,
@@ -52,11 +50,11 @@ impl Completer for FileCompletion {
         .into_iter()
         .map(move |x| SemanticSuggestion {
             suggestion: Suggestion {
-                value: x.1,
-                style: x.2,
+                value: x.path,
+                style: x.style,
                 span: reedline::Span {
-                    start: x.0.start - offset,
-                    end: x.0.end - offset,
+                    start: x.span.start - offset,
+                    end: x.span.end - offset,
                 },
                 ..Suggestion::default()
             },
@@ -95,21 +93,10 @@ impl Completer for FileCompletion {
 pub fn file_path_completion(
     span: nu_protocol::Span,
     partial: &str,
-    cwd: &str,
+    cwds: &[impl AsRef<str>],
     options: &CompletionOptions,
     engine_state: &EngineState,
     stack: &Stack,
-) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
-    complete_item(false, span, partial, cwd, options, engine_state, stack)
-}
-
-pub fn matches(partial: &str, from: &str, options: &CompletionOptions) -> bool {
-    // Check for case sensitive
-    if !options.case_sensitive {
-        return options
-            .match_algorithm
-            .matches_str(&from.to_folded_case(), &partial.to_folded_case());
-    }
-
-    options.match_algorithm.matches_str(from, partial)
+) -> Vec<FileSuggestion> {
+    complete_item(false, span, partial, cwds, options, engine_state, stack)
 }

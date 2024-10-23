@@ -18,7 +18,7 @@ pub use completion_options::{CompletionOptions, MatchAlgorithm};
 pub use custom_completions::CustomCompletion;
 pub use directory_completions::DirectoryCompletion;
 pub use dotnu_completions::DotNuCompletion;
-pub use file_completions::{file_path_completion, matches, FileCompletion};
+pub use file_completions::{file_path_completion, FileCompletion};
 pub use flag_completions::FlagCompletion;
 pub use operator_completions::OperatorCompletion;
 pub use variable_completions::VariableCompletion;
