@@ -895,5 +895,24 @@ $env.config = {
             mode: emacs
             event: { edit: selectall }
         }
+        # Users frequently request a keybinding to add new lines in code
+        # while using REPL. The only reason those keybindings were never shipped
+        # with the initial reedline set is that those combinations of modifiers
+        # with Enter have somewhat spotty support across different platforms/terminals.
+        # So please feel free to uncomment and try the keybindings that will work for you.
+        # {
+        #     name: insert_newline
+        #     modifier: alt     # In case of problems, check if the control or shift modifier works for you
+        #     keycode: enter
+        #     mode: [emacs vi_normal vi_insert]
+        #     event: { edit: insertnewline }
+        # }
+        {
+            name: insert_newline
+            modifier: control
+            keycode: char_j
+            mode: [emacs]
+            event: { edit: insertnewline }
+        }
     ]
 }
