@@ -21,6 +21,11 @@ impl Command for ToText {
     fn signature(&self) -> Signature {
         Signature::build("to text")
             .input_output_types(vec![(Type::Any, Type::String)])
+            .switch(
+                "no-newline",
+                "Do not append a newline to the end of the text",
+                Some('n'),
+            )
             .category(Category::Formats)
     }
 
@@ -36,6 +41,7 @@ impl Command for ToText {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
+        let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
         let input = input.try_expand_range()?;
         let config = stack.get_config(engine_state);
 
@@ -43,7 +49,11 @@ impl Command for ToText {
             PipelineData::Empty => Ok(Value::string(String::new(), span)
                 .into_pipeline_data_with_metadata(update_metadata(None))),
             PipelineData::Value(value, ..) => {
-                let str = local_into_string(value, LINE_ENDING, &config);
+                let mut str = local_into_string(value, LINE_ENDING, &config);
+                if !no_newline {
+                    str.push_str(LINE_ENDING);
+                }
+
                 Ok(
                     Value::string(str, span)
                         .into_pipeline_data_with_metadata(update_metadata(None)),
@@ -53,7 +63,9 @@ impl Command for ToText {
                 let span = stream.span();
                 let iter = stream.into_inner().map(move |value| {
                     let mut str = local_into_string(value, LINE_ENDING, &config);
-                    str.push_str(LINE_ENDING);
+                    if !no_newline {
+                        str.push_str(LINE_ENDING);
+                    }
                     str
                 });
                 Ok(PipelineData::ByteStream(
