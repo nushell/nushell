@@ -146,7 +146,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         Expr::Alias(expr, alias) => Ok(Value::record(
             record! {
                 "expr" => expr_to_value(expr.as_ref(), span)?,
-                "alias" => Value::string(alias.as_ref(), span),
+                "alias" => Value::string(alias.as_str(), span),
             },
             span,
         )),
@@ -271,7 +271,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         )),
         Expr::Cast {
             expr,
-            data_type,
+            dtype: data_type,
             options,
         } => {
             let cast_option_str = match options {

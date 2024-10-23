@@ -160,12 +160,12 @@ fn command_df(
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let start: i64 = call.req(0)?;
-    let start = Series::new("", &[start]);
+    let start = Series::new("".into(), &[start]);
 
     let length: Option<i64> = call.get_flag("length")?;
     let length = match length {
-        Some(v) => Series::new("", &[v as u64]),
-        None => Series::new_null("", 1),
+        Some(v) => Series::new("".into(), &[v as u64]),
+        None => Series::new_null("".into(), 1),
     };
 
     let series = df.as_series(call.head)?;
@@ -187,7 +187,7 @@ fn command_df(
             help: None,
             inner: vec![],
         })?
-        .with_name(series.name());
+        .with_name(series.name().to_owned());
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)

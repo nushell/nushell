@@ -83,16 +83,15 @@ impl NuLazyFrame {
     }
 
     pub fn schema(&mut self) -> Result<NuSchema, ShellError> {
-        let internal_schema =
-            Arc::make_mut(&mut self.lazy)
-                .schema()
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error getting schema from lazy frame".into(),
-                    msg: e.to_string(),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                })?;
+        let internal_schema = Arc::make_mut(&mut self.lazy)
+            .collect_schema()
+            .map_err(|e| ShellError::GenericError {
+                error: "Error getting schema from lazy frame".into(),
+                msg: e.to_string(),
+                span: None,
+                help: None,
+                inner: vec![],
+            })?;
         Ok(internal_schema.into())
     }
 

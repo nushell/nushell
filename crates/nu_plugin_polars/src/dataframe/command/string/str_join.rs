@@ -159,7 +159,7 @@ fn command_df(
 
     let mut res = chunked.concat(other_chunked);
 
-    res.rename(series.name());
+    res.rename(series.name().to_owned());
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)

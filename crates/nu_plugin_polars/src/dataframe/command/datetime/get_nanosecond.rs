@@ -41,9 +41,12 @@ impl PluginCommand for GetNanosecond {
     let df = ([$dt $dt] | polars into-df);
     $df | polars get-nanosecond"#,
             result: Some(
-                NuDataFrame::try_from_series(Series::new("0", &[0i32, 0]), Span::test_data())
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                NuDataFrame::try_from_series(
+                    Series::new("0".into(), &[0i32, 0]),
+                    Span::test_data(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
             ),
         }]
     }

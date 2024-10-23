@@ -69,7 +69,6 @@ pub use slice::SliceDF;
 use sort_by_expr::LazySortBy;
 pub use take::TakeDF;
 pub use unique::Unique;
-pub use unpivot::UnpivotDF;
 pub use with_column::WithColumn;
 
 pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
@@ -84,7 +83,7 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(filter_with::FilterWith),
         Box::new(GetDF),
         Box::new(pivot::PivotDF),
-        Box::new(UnpivotDF),
+        Box::new(unpivot::Unpivot),
         Box::new(FirstDF),
         Box::new(LastDF),
         Box::new(len::ExprLen),

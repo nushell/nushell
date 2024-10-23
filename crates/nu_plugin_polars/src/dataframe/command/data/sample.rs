@@ -114,7 +114,12 @@ fn command(
     let df = match (rows, fraction) {
         (Some(rows), None) => df
             .as_ref()
-            .sample_n(&Series::new("s", &[rows.item]), replace, shuffle, seed)
+            .sample_n(
+                &Series::new("s".into(), &[rows.item]),
+                replace,
+                shuffle,
+                seed,
+            )
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating sample".into(),
                 msg: e.to_string(),
@@ -124,7 +129,12 @@ fn command(
             }),
         (None, Some(frac)) => df
             .as_ref()
-            .sample_frac(&Series::new("frac", &[frac.item]), replace, shuffle, seed)
+            .sample_frac(
+                &Series::new("frac".into(), &[frac.item]),
+                replace,
+                shuffle,
+                seed,
+            )
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating sample".into(),
                 msg: e.to_string(),
