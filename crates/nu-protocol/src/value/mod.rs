@@ -2772,38 +2772,144 @@ impl Value {
     }
 
     pub fn modulo(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        // Based off the unstable `div_floor` function in the std library.
+        fn checked_mod_i64(dividend: i64, divisor: i64) -> Option<i64> {
+            let remainder = dividend.checked_rem(divisor)?;
+            if (remainder > 0 && divisor < 0) || (remainder < 0 && divisor > 0) {
+                // Note that `remainder + divisor` cannot overflow, because `remainder` and
+                // `divisor` have opposite signs.
+                Some(remainder + divisor)
+            } else {
+                Some(remainder)
+            }
+        }
+
+        fn checked_mod_f64(dividend: f64, divisor: f64) -> Option<f64> {
+            if divisor == 0.0 {
+                None
+            } else {
+                let remainder = dividend % divisor;
+                if (remainder > 0.0 && divisor < 0.0) || (remainder < 0.0 && divisor > 0.0) {
+                    Some(remainder + divisor)
+                } else {
+                    Some(remainder)
+                }
+            }
+        }
+
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(lhs % rhs, span))
-                } else {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::int(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "modulo operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::float(*lhs as f64 % *rhs, span))
+                if let Some(val) = checked_mod_f64(*lhs as f64, *rhs) {
+                    Ok(Value::float(val, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::float(*lhs % *rhs as f64, span))
+                if let Some(val) = checked_mod_f64(*lhs, *rhs as f64) {
+                    Ok(Value::float(val, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::float(lhs % rhs, span))
+                if let Some(val) = checked_mod_f64(*lhs, *rhs) {
+                    Ok(Value::float(val, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::filesize(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "modulo operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::filesize(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "modulo operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_f64(*lhs as f64, *rhs) {
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::filesize(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "modulo operator overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::duration(lhs % rhs, span))
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::duration(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::duration(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_f64(*lhs as f64, *rhs) {
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::duration(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operator overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
