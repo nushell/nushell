@@ -64,12 +64,12 @@ produce a table, a list will produce a list, and a record will produce a record.
                 Value::String { val, .. } => {
                     let cv = CellPath {
                         members: vec![PathMember::String {
-                            val: val.clone(),
+                            val,
                             span: *col_span,
                             optional: false,
                         }],
                     };
-                    new_columns.push(cv.clone());
+                    new_columns.push(cv);
                 }
                 Value::Int { val, internal_span } => {
                     if val < 0 {
@@ -87,7 +87,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                             optional: false,
                         }],
                     };
-                    new_columns.push(cv.clone());
+                    new_columns.push(cv);
                 }
                 x => {
                     return Err(ShellError::CantConvert {
