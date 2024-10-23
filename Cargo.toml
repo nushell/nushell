@@ -176,7 +176,7 @@ uuid = "1.11.0"
 v_htmlescape = "0.15.0"
 wax = "0.6"
 which = "6.0.0"
-windows = "0.56"
+windows = "0.57"
 windows-sys = "0.48"
 winreg = "0.52"
 
