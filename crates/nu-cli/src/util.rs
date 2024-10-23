@@ -282,8 +282,22 @@ fn evaluate_source(
     }?;
 
     if let PipelineData::ByteStream(..) = pipeline {
-        pipeline.print(engine_state, stack, false, false)
-    } else if let Some(hook) = engine_state.get_config().hooks.display_output.clone() {
+        // run the display hook on bytestreams too
+        run_display_hook(engine_state, stack, pipeline, false)
+    } else {
+        run_display_hook(engine_state, stack, pipeline, true)
+    }?;
+
+    Ok(false)
+}
+
+fn run_display_hook(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    pipeline: PipelineData,
+    no_newline: bool,
+) -> Result<(), ShellError> {
+    if let Some(hook) = engine_state.get_config().hooks.display_output.clone() {
         let pipeline = eval_hook(
             engine_state,
             stack,
@@ -292,14 +306,11 @@ fn evaluate_source(
             &hook,
             "display_output",
         )?;
-        pipeline.print(engine_state, stack, false, false)
+        pipeline.print(engine_state, stack, no_newline, false)
     } else {
-        pipeline.print(engine_state, stack, true, false)
-    }?;
-
-    Ok(false)
+        pipeline.print(engine_state, stack, no_newline, false)
+    }
 }
-
 #[cfg(test)]
 mod test {
     use super::*;
