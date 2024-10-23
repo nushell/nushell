@@ -47,7 +47,6 @@ pub struct Config {
     pub ls: LsConfig,
     pub color_config: HashMap<String, Value>,
     pub footer_mode: FooterMode,
-    pub footer_inheritance: bool,
     pub float_precision: i64,
     pub recursion_limit: i64,
     pub use_ansi_coloring: bool,
@@ -105,7 +104,6 @@ impl Default for Config {
 
             color_config: HashMap::new(),
             footer_mode: FooterMode::RowCount(25),
-            footer_inheritance: false,
             float_precision: 2,
             buffer_editor: Value::nothing(Span::unknown()),
             use_ansi_coloring: true,
@@ -163,14 +161,6 @@ impl UpdateFromValue for Config {
                     errors.deprecated_option(path, "use `grid -i`", val.span());
                 }
                 "footer_mode" => self.footer_mode.update(val, path, errors),
-                "footer_inheritance" => match val.as_bool() {
-                    Ok(val) => {
-                        self.footer_inheritance = val;
-                    }
-                    Err(_) => {
-                        errors.type_mismatch(path, Type::Bool, val);
-                    }
-                },
                 "float_precision" => self.float_precision.update(val, path, errors),
                 "use_ansi_coloring" => self.use_ansi_coloring.update(val, path, errors),
                 "edit_mode" => self.edit_mode.update(val, path, errors),

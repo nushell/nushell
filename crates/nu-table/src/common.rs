@@ -18,7 +18,7 @@ pub fn create_nu_table_config(
     expand: bool,
     mode: TableMode,
 ) -> NuTableConfig {
-    let with_footer = (config.footer_inheritance && out.with_footer)
+    let with_footer = (config.table.footer_inheritance && out.with_footer)
         || with_footer(config, out.with_header, out.table.count_rows());
 
     NuTableConfig {

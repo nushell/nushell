@@ -2928,7 +2928,7 @@ fn table_footer_inheritance() {
         table1
     );
     let actual = nu!(format!(
-        "$env.config.footer_inheritance = true; {structure} | table --width=80 --expand"
+        "$env.config.table.footer_inheritance = true; {structure} | table --width=80 --expand"
     ));
 
     assert_eq!(actual.out.match_indices("head1").count(), 2);
