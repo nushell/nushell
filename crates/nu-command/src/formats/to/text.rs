@@ -49,16 +49,12 @@ impl Command for ToText {
             PipelineData::Empty => Ok(Value::string(String::new(), span)
                 .into_pipeline_data_with_metadata(update_metadata(None))),
             PipelineData::Value(value, ..) => {
-                let value_type = value.clone().get_type();
+                let is_compound_type = matches!(value, Value::List { .. } | Value::Record { .. });
                 let mut str = local_into_string(value, LINE_ENDING, &config);
-                let str = if matches!(value_type, Type::List(_) | Type::Record(_)) {
-                    if !no_newline {
-                        str.push_str(LINE_ENDING);
-                    }
-                    str
-                } else {
-                    str
-                };
+                if is_compound_type && !no_newline {
+                    str.push_str(LINE_ENDING);
+                }
+
                 Ok(
                     Value::string(str, span)
                         .into_pipeline_data_with_metadata(update_metadata(None)),
