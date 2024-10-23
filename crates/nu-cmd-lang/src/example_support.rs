@@ -167,9 +167,9 @@ pub fn check_example_evaluates_to_expected_output(
                 "\x1b[31mError:\x1b[0m The result of example \x1b[34m'{}'\x1b[0m for the command \x1b[34m'{}'\x1b[0m differs from the expected value.\n\n\
                 Expected: {:?}\n\
                 Actual:   {:?}\n",
-                example.description, 
+                example.description,
                 cmd_name,
-                expected, 
+                expected,
                 result
             );
         }
