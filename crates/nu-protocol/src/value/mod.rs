@@ -2725,7 +2725,16 @@ impl Value {
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::filesize((*lhs as f64 / rhs) as i64, span))
+                    let val = *lhs as f64 / rhs;
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::filesize(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
@@ -2752,7 +2761,16 @@ impl Value {
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::duration(((*lhs as f64) / rhs) as i64, span))
+                    let val = *lhs as f64 / rhs;
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::duration(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
@@ -2864,7 +2882,7 @@ impl Value {
                         Ok(Value::filesize(val as i64, span))
                     } else {
                         Err(ShellError::OperatorOverflow {
-                            msg: "modulo operator overflowed".into(),
+                            msg: "modulo operation overflowed".into(),
                             span,
                             help: None,
                         })
@@ -2905,7 +2923,7 @@ impl Value {
                         Ok(Value::duration(val as i64, span))
                     } else {
                         Err(ShellError::OperatorOverflow {
-                            msg: "division operator overflowed".into(),
+                            msg: "division operation overflowed".into(),
                             span,
                             help: None,
                         })
@@ -3020,7 +3038,7 @@ impl Value {
                         Ok(Value::filesize(val as i64, span))
                     } else {
                         Err(ShellError::OperatorOverflow {
-                            msg: "division operator overflowed".into(),
+                            msg: "division operation overflowed".into(),
                             span,
                             help: None,
                         })
@@ -3061,7 +3079,7 @@ impl Value {
                         Ok(Value::duration(val as i64, span))
                     } else {
                         Err(ShellError::OperatorOverflow {
-                            msg: "division operator overflowed".into(),
+                            msg: "division operation overflowed".into(),
                             span,
                             help: None,
                         })
