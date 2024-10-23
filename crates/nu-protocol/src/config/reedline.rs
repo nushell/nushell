@@ -5,6 +5,7 @@ use crate::{engine::Closure, FromValue};
 /// Definition of a parsed keybinding from the config object
 #[derive(Clone, Debug, FromValue, IntoValue, Serialize, Deserialize)]
 pub struct ParsedKeybinding {
+    pub name: Option<Value>,
     pub modifier: Value,
     pub keycode: Value,
     pub event: Value,
