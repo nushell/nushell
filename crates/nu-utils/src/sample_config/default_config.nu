@@ -169,6 +169,7 @@ $env.config = {
             truncating_suffix: "..." # A suffix used by the 'truncating' methodology
         }
         header_on_separator: false # show header text on separator/border line
+        footer_inheritance: false # render footer in parent table if child is big enough (extended table option)
         # abbreviated_row_count: 10 # limit data rows from top and bottom after reaching a set point
     }
 
