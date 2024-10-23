@@ -41,9 +41,12 @@ impl PluginCommand for GetSecond {
     let df = ([$dt $dt] | polars into-df);
     $df | polars get-second"#,
             result: Some(
-                NuDataFrame::try_from_series(Series::new("0", &[18i8, 18]), Span::test_data())
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                NuDataFrame::try_from_series(
+                    Series::new("0".into(), &[18i8, 18]),
+                    Span::test_data(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
             ),
         }]
     }

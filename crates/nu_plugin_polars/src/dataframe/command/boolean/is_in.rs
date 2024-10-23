@@ -178,7 +178,7 @@ fn command_df(
         })?
         .into_series();
 
-    res.rename("is_in");
+    res.rename("is_in".into());
 
     let mut new_df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     new_df.from_lazy = df.from_lazy;

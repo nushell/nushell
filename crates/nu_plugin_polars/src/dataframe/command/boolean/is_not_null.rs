@@ -108,7 +108,7 @@ fn command(
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let mut res = df.as_series(call.head)?.is_not_null();
-    res.rename("is_not_null");
+    res.rename("is_not_null".into());
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)

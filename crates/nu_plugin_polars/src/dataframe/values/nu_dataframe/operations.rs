@@ -126,7 +126,7 @@ impl NuDataFrame {
                     .iter()
                     .chain(other.df.get_columns())
                     .map(|s| {
-                        let name = if columns.contains(&s.name()) {
+                        let name = if columns.contains(&s.name().as_str()) {
                             format!("{}_{}", s.name(), "x")
                         } else {
                             columns.push(s.name());
@@ -134,7 +134,7 @@ impl NuDataFrame {
                         };
 
                         let mut series = s.clone();
-                        series.rename(&name);
+                        series.rename(name.into());
                         series
                     })
                     .collect::<Vec<Series>>();

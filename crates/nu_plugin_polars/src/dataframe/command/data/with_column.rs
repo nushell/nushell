@@ -153,7 +153,7 @@ fn command_eager(
             None => other.name().to_string(),
         };
 
-        let series = other.rename(&name).clone();
+        let series = other.rename(name.into()).clone();
 
         let mut polars_df = df.to_polars();
         polars_df

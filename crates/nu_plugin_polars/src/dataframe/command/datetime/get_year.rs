@@ -41,9 +41,12 @@ impl PluginCommand for GetYear {
     let df = ([$dt $dt] | polars into-df);
     $df | polars get-year"#,
             result: Some(
-                NuDataFrame::try_from_series(Series::new("0", &[2020i32, 2020]), Span::test_data())
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                NuDataFrame::try_from_series(
+                    Series::new("0".into(), &[2020i32, 2020]),
+                    Span::test_data(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
             ),
         }]
     }

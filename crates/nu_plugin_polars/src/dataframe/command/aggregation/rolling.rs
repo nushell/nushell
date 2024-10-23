@@ -169,7 +169,7 @@ fn command(
     })?;
 
     let name = format!("{}_{}", series.name(), roll_type.to_str());
-    res.rename(&name);
+    res.rename(name.into());
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)
