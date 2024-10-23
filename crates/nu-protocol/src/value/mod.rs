@@ -2771,6 +2771,57 @@ impl Value {
         }
     }
 
+    pub fn modulo(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::int(lhs % rhs, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if *rhs != 0.0 {
+                    Ok(Value::float(*lhs as f64 % *rhs, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::float(*lhs % *rhs as f64, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if *rhs != 0.0 {
+                    Ok(Value::float(lhs % rhs, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::duration(lhs % rhs, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Math(Math::Modulo), op, rhs)
+            }
+
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type().to_string(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type().to_string(),
+                rhs_span: rhs.span(),
+            }),
+        }
+    }
+
     pub fn floor_div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         // Taken from the unstable `div_floor` function in the std library.
         fn checked_div_floor_i64(dividend: i64, divisor: i64) -> Option<i64> {
@@ -3451,57 +3502,6 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::BitAnd), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
-        }
-    }
-
-    pub fn modulo(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(lhs % rhs, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::float(*lhs as f64 % *rhs, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::float(*lhs % *rhs as f64, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::float(lhs % rhs, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::duration(lhs % rhs, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Math(Math::Modulo), op, rhs)
-            }
-
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
