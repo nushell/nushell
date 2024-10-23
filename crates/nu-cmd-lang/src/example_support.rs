@@ -163,14 +163,14 @@ pub fn check_example_evaluates_to_expected_output(
         let expected = DebuggableValue(expected);
         let result = DebuggableValue(&result);
         if result != expected {
-            panic!(
-                "\x1b[31mError:\x1b[0m The result of example \x1b[34m'{}'\x1b[0m for the command \x1b[34m'{}'\x1b[0m differs from the expected value.\n\n\
-                Expected: {:?}\n\
-                Actual:   {:?}\n",
+            assert_eq!(
+                result,
+                expected,
+                "\x1b[31mError:\x1b[0m The result of example \x1b[34m'{}'\x1b[0m for the command \x1b[34m'{}'\x1b[0m differs from the expected value.\n\nExpected: {:?}\nActual:   {:?}\n",
                 example.description,
                 cmd_name,
                 expected,
-                result
+                result,
             );
         }
     }

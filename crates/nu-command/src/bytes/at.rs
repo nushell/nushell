@@ -104,7 +104,7 @@ impl Command for BytesAt {
             },
             Example {
                 description: "Slice out `0x[10 01 13]` from `0x[33 44 55 10 01 13]`",
-                example: "0x[33 44 55 10 01 13 10] | bytes at 3..6",
+                example: "0x[33 44 55 10 01 13] | bytes at 3..6",
                 result: Some(Value::test_binary(vec![0x10, 0x01, 0x13, 0x10])),
             },
             Example {
