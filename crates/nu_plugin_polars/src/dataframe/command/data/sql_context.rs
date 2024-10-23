@@ -98,11 +98,11 @@ impl SQLContext {
         // Check for group by
         // After projection since there might be number.
         let group_by = match &select_stmt.group_by {
-                GroupByExpr::All =>
+                GroupByExpr::All(_) =>
                   Err(
                       PolarsError::ComputeError("Group-By Error: Only positive number or expression are supported, not all".into())
                   )?,
-                GroupByExpr::Expressions(expressions) => expressions
+                GroupByExpr::Expressions(expressions, _) => expressions
             }
             .iter()
             .map(

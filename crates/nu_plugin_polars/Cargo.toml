@@ -24,13 +24,13 @@ nu-utils = { path = "../nu-utils", version = "0.99.2" }
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
-chrono-tz = "0.9"
+chrono-tz = "0.10"
 fancy-regex = { workspace = true }
 indexmap = { version = "2.6" }
 mimalloc = { version = "0.1.42" }
 num = {version = "0.4"}
 serde = { version = "1.0", features = ["derive"] }
-sqlparser = { version = "0.47"}
+sqlparser = { version = "0.51"}
 polars-io = { version = "0.43", features = ["avro"]}
 polars-arrow = { version = "0.43"}
 polars-ops = { version = "0.43", features = ["pivot"]}
