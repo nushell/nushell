@@ -280,7 +280,7 @@ pub fn math_result_type(
                 }
             },
             Operator::Math(Math::Divide) => match (&lhs.ty, &rhs.ty) {
-                (Type::Int, Type::Int) => (Type::Int, None),
+                (Type::Int, Type::Int) => (Type::Float, None),
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
