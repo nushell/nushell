@@ -252,8 +252,6 @@ impl FromValue for i64 {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Int { val, .. } => Ok(val),
-            Value::Filesize { val, .. } => Ok(val),
-            Value::Duration { val, .. } => Ok(val),
 
             v => Err(ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
@@ -308,9 +306,7 @@ macro_rules! impl_from_value_for_uint {
                 let span = v.span();
                 const MAX: i64 = $max;
                 match v {
-                    Value::Int { val, .. }
-                    | Value::Filesize { val, .. }
-                    | Value::Duration { val, .. } => {
+                    Value::Int { val, .. } => {
                         match val {
                             i64::MIN..=-1 => Err(ShellError::NeedsPositiveValue { span }),
                             0..=MAX => Ok(val as $type),
@@ -452,7 +448,6 @@ impl FromValue for String {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
         match v {
-            Value::CellPath { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val),
             v => Err(ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
@@ -654,7 +649,6 @@ impl FromValue for NuGlob {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
         match v {
-            Value::CellPath { val, .. } => Ok(NuGlob::Expand(val.to_string())),
             Value::String { val, .. } => Ok(NuGlob::DoNotExpand(val)),
             Value::Glob {
                 val,
