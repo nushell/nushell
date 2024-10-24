@@ -78,7 +78,6 @@ struct TestCase {
     dst_format: HistoryFileFormat,
     dst_history: Vec<HistoryItem>,
     src_history: HistorySource,
-    import_flags: &'static str,
     want_history: Vec<HistoryItem>,
 }
 
@@ -86,7 +85,6 @@ const EMPTY_TEST_CASE: TestCase = TestCase {
     dst_format: HistoryFileFormat::Plaintext,
     dst_history: Vec::new(),
     src_history: HistorySource::Vec(Vec::new()),
-    import_flags: "",
     want_history: Vec::new(),
 };
 
@@ -110,20 +108,11 @@ impl TestCase {
                     Sqlite => Plaintext,
                 };
                 save_all(&mut *test.open_backend(src_format).unwrap(), src_history).unwrap();
-                let mut cmd = "history import".to_string();
-                if !self.import_flags.is_empty() {
-                    cmd.push(' ');
-                    cmd.push_str(self.import_flags);
-                }
-                test.nu(cmd)
+                test.nu("history import")
             }
             HistorySource::Command(cmd) => {
                 let mut cmd = cmd.to_string();
                 cmd.push_str(" | history import");
-                if !self.import_flags.is_empty() {
-                    cmd.push(' ');
-                    cmd.push_str(self.import_flags);
-                }
                 test.nu(cmd)
             }
         };
@@ -188,11 +177,11 @@ fn history_import_pipe_string() {
 fn history_import_pipe_record() {
     TestCase {
         dst_format: HistoryFileFormat::Sqlite,
-        src_history: HistorySource::Command("[[item_id command]; [42 some_command]]"),
-        import_flags: "--include-ids",
+        src_history: HistorySource::Command("[[cwd command]; [/tmp some_command]]"),
         want_history: vec![HistoryItem {
-            id: Some(HistoryItemId::new(42)),
+            id: Some(HistoryItemId::new(1)),
             command_line: "some_command".to_string(),
+            cwd: Some("/tmp".to_string()),
             ..EMPTY_ITEM
         }],
         ..EMPTY_TEST_CASE
@@ -301,7 +290,6 @@ fn to_existing(dst_format: HistoryFileFormat) {
                 ..EMPTY_ITEM
             },
         ],
-        ..EMPTY_TEST_CASE
     }
     .run()
 }

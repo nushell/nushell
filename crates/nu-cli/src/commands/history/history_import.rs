@@ -4,8 +4,7 @@ use nu_engine::command_prelude::*;
 use nu_protocol::HistoryFileFormat;
 
 use reedline::{
-    FileBackedHistory, History, HistoryItem, HistoryItemId, ReedlineError, SearchQuery,
-    SqliteBackedHistory,
+    FileBackedHistory, History, HistoryItem, ReedlineError, SearchQuery, SqliteBackedHistory,
 };
 
 use super::fields;
@@ -28,13 +27,12 @@ impl Command for HistoryImport {
 
 If no input is provided, will import all history items from existing history in the other format: if current history is stored in sqlite, it will store it in plain text and vice versa.
 
-Note that history item IDs are ignored by default. Use the --include-ids flag if you want to retain item IDs during import (possibly overwriting existing ones)."#
+Note that history item IDs are ignored when importing from file."#
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("history import")
             .category(Category::History)
-            .switch("include-ids", "Include history item IDs when importing. WARNING: Setting this flag can cause existing history items to be overwritten.", None)
             .input_output_types(vec![
                 (Type::Nothing, Type::Nothing),
                 (Type::List(Box::new(Type::String)), Type::Nothing),
@@ -66,7 +64,7 @@ Note that history item IDs are ignored by default. Use the --include-ids flag if
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -80,8 +78,6 @@ Note that history item IDs are ignored by default. Use the --include-ids flag if
                 span: Some(call.head),
             });
         };
-        let include_ids = call.has_flag(engine_state, stack, "include-ids")?;
-
         if let Some(bak_path) = backup(&current_history_path)? {
             println!("Backed history to {}", bak_path.display());
         }
@@ -101,14 +97,13 @@ Note that history item IDs are ignored by default. Use the --include-ids flag if
                     .map_err(error_from_reedline)?
                     .into_iter()
                     .map(Ok);
-                import(dst.as_mut(), items, include_ids)
+                import(dst.as_mut(), items)
             }
             _ => {
                 let input = input.into_iter().map(item_from_value);
                 import(
                     new_backend(history.file_format, Some(current_history_path))?.as_mut(),
                     input,
-                    include_ids,
                 )
             }
         }?;
@@ -149,13 +144,10 @@ fn new_backend(
 fn import(
     dst: &mut dyn History,
     src: impl Iterator<Item = Result<HistoryItem, ShellError>>,
-    include_ids: bool,
 ) -> Result<(), ShellError> {
     for item in src {
         let mut item = item?;
-        if !include_ids {
-            item.id = None;
-        }
+        item.id = None;
         dst.save(item).map_err(error_from_reedline)?;
     }
     Ok(())
@@ -218,7 +210,7 @@ fn item_from_record(mut rec: Record, span: Span) -> Result<HistoryItem, ShellErr
     let rec = &mut rec;
     let item = HistoryItem {
         command_line: cmd,
-        id: get(rec, fields::ID, |v| Ok(HistoryItemId::new(v.as_int()?)))?,
+        id: None,
         start_timestamp: get(rec, fields::START_TIMESTAMP, |v| Ok(v.as_date()?.to_utc()))?,
         hostname: get(rec, fields::HOSTNAME, |v| Ok(v.as_str()?.to_owned()))?,
         cwd: get(rec, fields::CWD, |v| Ok(v.as_str()?.to_owned()))?,
@@ -320,7 +312,6 @@ mod tests {
         let span = Span::unknown();
         let rec = new_record(&[
             ("command", Value::string("foo", span)),
-            ("item_id", Value::int(1, span)),
             (
                 "start_timestamp",
                 Value::date(
@@ -338,7 +329,7 @@ mod tests {
             item,
             HistoryItem {
                 command_line: "foo".to_string(),
-                id: Some(HistoryItemId::new(1)),
+                id: None,
                 start_timestamp: Some(
                     DateTime::parse_from_rfc3339("1996-12-19T16:39:57-08:00")
                         .unwrap()

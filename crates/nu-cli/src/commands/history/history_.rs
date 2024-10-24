@@ -178,7 +178,7 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
     if long {
         Value::record(
             record! {
-                fields::ID => item_id_value,
+                "item_id" => item_id_value,
                 fields::START_TIMESTAMP => start_timestamp_value,
                 fields::COMMAND_LINE => command_value,
                 fields::SESSION_ID => session_id_value,
