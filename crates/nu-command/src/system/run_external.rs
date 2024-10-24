@@ -449,8 +449,8 @@ pub fn command_not_found(
     }
 
     // Try to match the name with the search terms of existing commands.
-    let signatures = engine_state.get_signatures(false);
-    if let Some(sig) = signatures.iter().find(|sig| {
+    let signatures = engine_state.get_signatures_and_declids(false);
+    if let Some((sig, _)) = signatures.iter().find(|(sig, _)| {
         sig.search_terms
             .iter()
             .any(|term| term.to_folded_case() == name.to_folded_case())
@@ -463,7 +463,7 @@ pub fn command_not_found(
     }
 
     // Try a fuzzy search on the names of all existing commands.
-    if let Some(cmd) = did_you_mean(signatures.iter().map(|sig| &sig.name), name) {
+    if let Some(cmd) = did_you_mean(signatures.iter().map(|(sig, _)| &sig.name), name) {
         // The user is invoking an external command with the same name as a
         // built-in command. Remind them of this.
         if cmd == name {
