@@ -820,14 +820,14 @@ impl EngineState {
         }
     }
 
-    /// Get signatures of all commands within scope.
-    pub fn get_signatures(&self, include_hidden: bool) -> Vec<Signature> {
+    /// Get signatures of all commands within scope with their decl ids.
+    pub fn get_signatures_and_declids(&self, include_hidden: bool) -> Vec<(Signature, DeclId)> {
         self.get_decls_sorted(include_hidden)
             .into_iter()
             .map(|(_, id)| {
                 let decl = self.get_decl(id);
 
-                self.get_signature(decl).update_from_command(decl)
+                (self.get_signature(decl).update_from_command(decl), id)
             })
             .collect()
     }
