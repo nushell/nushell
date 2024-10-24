@@ -55,10 +55,10 @@ impl Command for BytesBuild {
             match val {
                 Value::Binary { mut val, .. } => output.append(&mut val),
                 Value::Int { val, .. } => {
-                    let byte: u8 = val.try_into().map_err(|_| ShellError::IncorrectValue {
-                        msg: format!("{val} is out of range for byte"),
-                        val_span,
-                        call_span: call.head,
+                    let byte: u8 = val.try_into().map_err(|_| ShellError::InvalidValue {
+                        valid: "an integer in the range [0, 255]".into(),
+                        actual: val.to_string(),
+                        span: val_span,
                     })?;
                     output.push(byte);
                 }

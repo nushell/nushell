@@ -132,13 +132,13 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
 
             if !input_num_type.is_permitted_bit_shift(bits) {
                 return Value::error(
-                    ShellError::IncorrectValue {
-                        msg: format!(
-                            "Trying to shift by more than the available bits (permitted < {})",
+                    ShellError::InvalidValue {
+                        valid: format!(
+                            "an integer less than or equal to the available number of bits ({})",
                             input_num_type.num_bits()
                         ),
-                        val_span: bits_span,
-                        call_span: span,
+                        actual: bits.to_string(),
+                        span: bits_span,
                     },
                     span,
                 );
@@ -157,26 +157,26 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             Value::int(int, span)
         }
         Value::Binary { val, .. } => {
-            let byte_shift = bits / 8;
-            let bit_shift = bits % 8;
-
-            let len = val.len();
             // This check is done for symmetry with the int case and the previous
             // implementation would overflow byte indices leading to unexpected output
             // lengths
-            if bits > len * 8 {
+            let max_bits = val.len() * 8;
+            if bits > max_bits {
                 return Value::error(
-                    ShellError::IncorrectValue {
-                        msg: format!(
-                            "Trying to shift by more than the available bits ({})",
-                            len * 8
+                    ShellError::InvalidValue {
+                        valid: format!(
+                            "an integer less than or equal to the available number of bits ({})",
+                            max_bits
                         ),
-                        val_span: bits_span,
-                        call_span: span,
+                        actual: bits.to_string(),
+                        span: bits_span,
                     },
                     span,
                 );
             }
+            let byte_shift = bits / 8;
+            let bit_shift = bits % 8;
+
             let bytes = if bit_shift == 0 {
                 shift_bytes_right(val, byte_shift)
             } else {

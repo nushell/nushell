@@ -338,10 +338,9 @@ fn set_limits(
     res: &ResourceInfo,
     soft: bool,
     hard: bool,
-    call_span: Span,
 ) -> Result<(), ShellError> {
     let (mut soft_limit, mut hard_limit) = getrlimit(res.resource)?;
-    let new_limit = parse_limit(limit_value, res, soft, soft_limit, hard_limit, call_span)?;
+    let new_limit = parse_limit(limit_value, res, soft, soft_limit, hard_limit)?;
 
     if hard {
         hard_limit = new_limit;
@@ -429,14 +428,14 @@ fn parse_limit(
     soft: bool,
     soft_limit: rlim_t,
     hard_limit: rlim_t,
-    call_span: Span,
 ) -> Result<rlim_t, ShellError> {
+    let span = limit_value.span();
     match limit_value {
-        Value::Int { val, internal_span } => {
+        Value::Int { val, .. } => {
             let value = rlim_t::try_from(*val).map_err(|e| ShellError::CantConvert {
                 to_type: "rlim_t".into(),
                 from_type: "i64".into(),
-                span: *internal_span,
+                span,
                 help: Some(e.to_string()),
             })?;
 
@@ -447,25 +446,25 @@ fn parse_limit(
                 Ok(limit)
             }
         }
-        Value::Filesize { val, internal_span } => {
+        Value::Filesize { val, .. } => {
             if res.multiplier != 1024 {
                 return Err(ShellError::TypeMismatch {
                     err_message: format!(
                         "filesize is not compatible with resource {:?}",
                         res.resource
                     ),
-                    span: *internal_span,
+                    span,
                 });
             }
 
             rlim_t::try_from(*val).map_err(|e| ShellError::CantConvert {
                 to_type: "rlim_t".into(),
                 from_type: "i64".into(),
-                span: *internal_span,
+                span,
                 help: Some(e.to_string()),
             })
         }
-        Value::String { val, internal_span } => {
+        Value::String { val, .. } => {
             if val == "unlimited" {
                 Ok(RLIM_INFINITY)
             } else if val == "soft" {
@@ -477,10 +476,10 @@ fn parse_limit(
             } else if val == "hard" {
                 Ok(hard_limit)
             } else {
-                return Err(ShellError::IncorrectValue {
-                    msg: "Only unlimited, soft and hard are supported for strings".into(),
-                    val_span: *internal_span,
-                    call_span,
+                return Err(ShellError::InvalidValue {
+                    valid: "'unlimited', 'soft', or 'hard'".into(),
+                    actual: format!("'{val}'"),
+                    span,
                 });
             }
         }
@@ -489,7 +488,7 @@ fn parse_limit(
                 "string, int or filesize required, you provide {}",
                 limit_value.get_type()
             ),
-            span: limit_value.span(),
+            span,
         }),
     }
 }
@@ -544,7 +543,7 @@ impl Command for ULimit {
 
             for res in RESOURCE_ARRAY.iter() {
                 if call.has_flag(engine_state, stack, res.name)? {
-                    set_limits(&limit_value, res, soft, hard, call.head)?;
+                    set_limits(&limit_value, res, soft, hard)?;
 
                     if set_default_limit {
                         set_default_limit = false;
@@ -555,7 +554,7 @@ impl Command for ULimit {
             // Set `RLIMIT_FSIZE` limit if no resource flag provided.
             if set_default_limit {
                 let res = ResourceInfo::default();
-                set_limits(&limit_value, &res, hard, soft, call.head)?;
+                set_limits(&limit_value, &res, hard, soft)?;
             }
 
             Ok(PipelineData::Empty)

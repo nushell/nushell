@@ -17,10 +17,10 @@ fn get_compression(call: &EvaluatedCall) -> Result<Option<AvroCompression>, Shel
         match compression.as_ref() {
             "snappy" => Ok(Some(AvroCompression::Snappy)),
             "deflate" => Ok(Some(AvroCompression::Deflate)),
-            _ => Err(ShellError::IncorrectValue {
-                msg: "compression must be one of deflate or snappy".to_string(),
-                val_span: span,
-                call_span: span,
+            _ => Err(ShellError::InvalidValue {
+                valid: "'deflate' or 'snappy'".into(),
+                actual: format!("'{compression}'"),
+                span,
             }),
         }
     } else {
