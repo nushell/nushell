@@ -107,6 +107,7 @@ impl Command for Let {
 
 #[cfg(test)]
 mod test {
+    use nu_parser::parse;
     use nu_protocol::engine::CommandType;
 
     use super::*;
@@ -121,5 +122,34 @@ mod test {
     #[test]
     fn test_command_type() {
         assert!(matches!(Let.command_type(), CommandType::Keyword));
+    }
+
+    fn get_test_env() -> EngineState {
+        let mut engine_state = EngineState::new();
+        let delta = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            working_set.add_decl(Box::new(Let));
+            working_set.render()
+        };
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+        engine_state
+    }
+    #[test]
+    fn test_did_you_mean() {
+        let engine_state = get_test_env();
+        let script = b"
+let $sheep = 3;
+echo $shep
+";
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        parse(&mut working_set, None, script, true);
+        assert_eq!(working_set.parse_errors.len(), 1);
+        assert_eq!(
+            format!("{:?}", working_set.parse_errors[0]),
+            "VariableNotFound(DidYouMean(Some(\"$sheep\")), Span { start: 22, end: 27 })"
+        );
     }
 }
