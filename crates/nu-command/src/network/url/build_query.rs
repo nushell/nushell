@@ -1,5 +1,7 @@
 use nu_engine::command_prelude::*;
 
+use super::query::record_to_qs;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -68,48 +70,7 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
         .map(move |value| {
             let span = value.span();
             match value {
-                Value::Record { ref val, .. } => {
-                    let mut row_vec = vec![];
-                    for (k, v) in &**val {
-                        match v {
-                            Value::List { ref vals, .. } => {
-                                for v_item in vals {
-                                    row_vec.push((
-                                        k.clone(),
-                                        v_item.coerce_string().map_err(|_| {
-                                            ShellError::UnsupportedInput {
-                                                msg: "Expected a record with list of string values"
-                                                    .to_string(),
-                                                input: "value originates from here".into(),
-                                                msg_span: head,
-                                                input_span: span,
-                                            }
-                                        })?,
-                                    ));
-                                }
-                            }
-                            _ => row_vec.push((
-                                k.clone(),
-                                v.coerce_string()
-                                    .map_err(|_| ShellError::UnsupportedInput {
-                                        msg:
-                                            "Expected a record with string or list of string values"
-                                                .to_string(),
-                                        input: "value originates from here".into(),
-                                        msg_span: head,
-                                        input_span: span,
-                                    })?,
-                            )),
-                        }
-                    }
-
-                    serde_urlencoded::to_string(row_vec).map_err(|_| ShellError::CantConvert {
-                        to_type: "URL".into(),
-                        from_type: value.get_type().to_string(),
-                        span: head,
-                        help: None,
-                    })
-                }
+                Value::Record { ref val, .. } => record_to_qs(val, span, head),
                 // Propagate existing errors
                 Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::UnsupportedInput {
