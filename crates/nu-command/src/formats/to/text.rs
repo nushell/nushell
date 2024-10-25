@@ -90,9 +90,7 @@ impl Command for ToText {
                     ByteStream::from_iter(
                         stream.into_inner().map(move |val| {
                             let mut str = local_into_string(val, LINE_ENDING, &config);
-                            if !no_newline {
-                                str.push_str(LINE_ENDING);
-                            }
+                            str.push_str(LINE_ENDING);
                             str
                         }),
                         span,
