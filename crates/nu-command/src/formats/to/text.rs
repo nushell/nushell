@@ -50,12 +50,16 @@ impl Command for ToText {
             PipelineData::Empty => Ok(Value::string(String::new(), head)
                 .into_pipeline_data_with_metadata(update_metadata(None))),
             PipelineData::Value(value, ..) => {
-                let is_compound_type = matches!(value, Value::List { .. } | Value::Record { .. });
+                let add_trailing = !no_newline
+                    && match &value {
+                        Value::List { vals, .. } => !vals.is_empty(),
+                        Value::Record { val, .. } => !val.is_empty(),
+                        _ => false,
+                    };
                 let mut str = local_into_string(value, LINE_ENDING, &config);
-                if is_compound_type && !no_newline {
+                if add_trailing {
                     str.push_str(LINE_ENDING);
                 }
-
                 Ok(
                     Value::string(str, head)
                         .into_pipeline_data_with_metadata(update_metadata(None)),
