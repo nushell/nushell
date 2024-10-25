@@ -114,12 +114,12 @@ impl Command for ToText {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Outputs data as simple text with a newline",
+                description: "Outputs data as simple text with a trailing newline",
                 example: "[1] | to text",
                 result: Some(Value::test_string("1".to_string() + LINE_ENDING)),
             },
             Example {
-                description: "Outputs data as simple text without a newline",
+                description: "Outputs data as simple text without a trailing newline",
                 example: "[1] | to text --no-newline",
                 result: Some(Value::test_string("1")),
             },
