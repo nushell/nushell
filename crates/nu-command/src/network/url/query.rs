@@ -21,13 +21,12 @@ pub fn record_to_qs(record: &Record, span: Span, head: Span) -> Result<String, S
             }
             _ => row_vec.push((
                 k.as_str(),
-                v.coerce_str()
-                    .map_err(|_| ShellError::UnsupportedInput {
-                        msg: "Expected a record with string or list of string values".to_string(),
-                        input: "value originates from here".into(),
-                        msg_span: head,
-                        input_span: span,
-                    })?,
+                v.coerce_str().map_err(|_| ShellError::UnsupportedInput {
+                    msg: "Expected a record with string or list of string values".to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: span,
+                })?,
             )),
         }
     }
