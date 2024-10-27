@@ -40,12 +40,12 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("foo=1&bar=2")),
             },
             Example {
-                description: "Outputs a query string representing the contents of this record",
+                description: "Outputs a query string representing the contents of this record, with a value that needs to be url-encoded",
                 example: r#"{a:"AT&T", b: "AT T"} | url build-query"#,
                 result: Some(Value::test_string("a=AT%26T&b=AT+T")),
             },
             Example {
-                description: "Outputs a query string representing the contents of this record",
+                description: "Outputs a query string representing the contents of this record, \"exploding\" the list into multiple parameters",
                 example: r#"{a: ["one", "two"], b: "three"} | url build-query"#,
                 result: Some(Value::test_string("a=one&a=two&b=three")),
             },
