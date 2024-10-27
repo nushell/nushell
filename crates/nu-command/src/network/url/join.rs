@@ -57,6 +57,21 @@ impl Command for SubCommand {
         "password": "pwd",
         "host": "www.pixiv.net",
         "port": "1234",
+        "params": {a: ["one", "two"], b: "three"},
+        "fragment": ""
+    } | url join"#,
+                result: Some(Value::test_string(
+                    "http://user:pwd@www.pixiv.net:1234?a=one&a=two&b=three",
+                )),
+            },
+            Example {
+                description: "Outputs a url representing the contents of this record",
+                example: r#"{
+        "scheme": "http",
+        "username": "user",
+        "password": "pwd",
+        "host": "www.pixiv.net",
+        "port": "1234",
         "query": "test=a",
         "fragment": ""
     } | url join"#,
