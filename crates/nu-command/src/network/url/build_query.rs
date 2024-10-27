@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 
-use super::query::record_to_qs;
+use super::query::record_to_query_string;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -70,7 +70,7 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
         .map(move |value| {
             let span = value.span();
             match value {
-                Value::Record { ref val, .. } => record_to_qs(val, span, head),
+                Value::Record { ref val, .. } => record_to_query_string(val, span, head),
                 // Propagate existing errors
                 Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::UnsupportedInput {

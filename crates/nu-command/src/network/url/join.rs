@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 
-use super::query::record_to_qs;
+use super::query::record_to_query_string;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -196,7 +196,7 @@ impl UrlComponents {
         if key == "params" {
             return match value {
                 Value::Record { ref val, .. } => {
-                    let mut qs = record_to_qs(val, value_span, span)?;
+                    let mut qs = record_to_query_string(val, value_span, span)?;
 
                     qs = if !qs.trim().is_empty() {
                         format!("?{qs}")

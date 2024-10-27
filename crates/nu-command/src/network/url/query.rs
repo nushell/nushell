@@ -1,6 +1,10 @@
 use nu_protocol::{Record, ShellError, Span, Type, Value};
 
-pub fn record_to_qs(record: &Record, span: Span, head: Span) -> Result<String, ShellError> {
+pub fn record_to_query_string(
+    record: &Record,
+    span: Span,
+    head: Span,
+) -> Result<String, ShellError> {
     let mut row_vec = vec![];
     for (k, v) in record {
         match v {
