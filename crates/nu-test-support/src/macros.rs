@@ -235,6 +235,7 @@ macro_rules! nu_with_plugins {
 
 use crate::{Outcome, NATIVE_PATH_ENV_VAR};
 use nu_path::{AbsolutePath, AbsolutePathBuf, Path, PathBuf};
+use nu_utils::escape_quote_string;
 use std::{
     ffi::OsStr,
     process::{Command, Stdio},
@@ -419,21 +420,6 @@ where
     println!("=== stderr\n{}", err);
 
     Outcome::new(out, err.into_owned(), output.status)
-}
-
-fn escape_quote_string(input: &str) -> String {
-    let mut output = String::with_capacity(input.len() + 2);
-    output.push('"');
-
-    for c in input.chars() {
-        if c == '"' || c == '\\' {
-            output.push('\\');
-        }
-        output.push(c);
-    }
-
-    output.push('"');
-    output
 }
 
 fn with_exe(name: &str) -> String {

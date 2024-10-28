@@ -4,6 +4,7 @@ mod deansi;
 pub mod emoji;
 pub mod filesystem;
 pub mod locale;
+mod quoting;
 mod shared_cow;
 pub mod utils;
 
@@ -18,6 +19,7 @@ pub use deansi::{
     strip_ansi_likely, strip_ansi_string_likely, strip_ansi_string_unlikely, strip_ansi_unlikely,
 };
 pub use emoji::contains_emoji;
+pub use quoting::{escape_quote_string, needs_quoting};
 pub use shared_cow::SharedCow;
 
 #[cfg(unix)]
