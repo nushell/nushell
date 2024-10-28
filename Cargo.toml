@@ -117,6 +117,7 @@ notify-debouncer-full = { version = "0.3", default-features = false }
 nu-ansi-term = "0.50.1"
 num-format = "0.4"
 num-traits = "0.2"
+oem_cp = "2.0.0"
 omnipath = "0.1"
 once_cell = "1.20"
 open = "5.3"
