@@ -41,14 +41,21 @@ impl Command for Clear {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let clear_type: ClearType = match call.has_flag(engine_state, stack, "keep-scrollback")? {
-            true => ClearType::All,
-            _ => ClearType::Purge,
+        match call.has_flag(engine_state, stack, "keep-scrollback")? {
+            true => {
+                std::io::stdout()
+                    .queue(MoveTo(0, 0))?
+                    .queue(ClearCommand(ClearType::All))?
+                    .flush()?;
+            }
+            _ => {
+                std::io::stdout()
+                    .queue(MoveTo(0, 0))?
+                    .queue(ClearCommand(ClearType::All))?
+                    .queue(ClearCommand(ClearType::Purge))?
+                    .flush()?;
+            }
         };
-        std::io::stdout()
-            .queue(ClearCommand(clear_type))?
-            .queue(MoveTo(0, 0))?
-            .flush()?;
 
         Ok(PipelineData::Empty)
     }
