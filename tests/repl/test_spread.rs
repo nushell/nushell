@@ -177,7 +177,7 @@ fn spread_args_type() -> TestResult {
 fn explain_spread_args() -> TestResult {
     run_test(
         r#"(explain { || echo ...[1 2] }).cmd_args.0 | select arg_type name type | to nuon"#,
-        r#"[[arg_type, name, type]; [spread, "[1 2]", list<int>]]"#,
+        r#"[["$.arg_type", "$.name", "$.type"]; [spread, "[1 2]", list<int>]]"#,
     )
 }
 

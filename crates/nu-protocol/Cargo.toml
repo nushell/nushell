@@ -59,6 +59,7 @@ serde_json = { workspace = true }
 strum = "0.26"
 strum_macros = "0.26"
 nu-test-support = { path = "../nu-test-support", version = "0.99.2" }
+nu-utils = { path = "../nu-utils", version = "0.99.2" }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 tempfile = { workspace = true }

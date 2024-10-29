@@ -1,5 +1,6 @@
 use super::Expression;
 use crate::Span;
+use nu_utils::{escape_quote_string, needs_quoting};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display};
 
@@ -177,18 +178,21 @@ impl CellPath {
 
 impl Display for CellPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (idx, elem) in self.members.iter().enumerate() {
-            if idx > 0 {
-                write!(f, ".")?;
-            }
-            match elem {
+        write!(f, "$")?;
+        for member in self.members.iter() {
+            match member {
                 PathMember::Int { val, optional, .. } => {
                     let question_mark = if *optional { "?" } else { "" };
-                    write!(f, "{val}{question_mark}")?
+                    write!(f, ".{val}{question_mark}")?
                 }
                 PathMember::String { val, optional, .. } => {
                     let question_mark = if *optional { "?" } else { "" };
-                    write!(f, "{val}{question_mark}")?
+                    let val = if needs_quoting(val) {
+                        &escape_quote_string(val)
+                    } else {
+                        val
+                    };
+                    write!(f, ".{val}{question_mark}")?
                 }
             }
         }
