@@ -3162,6 +3162,7 @@ dependencies = [
  "num-format",
  "num-traits",
  "nuon",
+ "oem_cp",
  "once_cell",
  "open",
  "os_pipe",
@@ -3866,6 +3867,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "27b64972346851a39438c60b341ebc01bba47464ae329e55cf343eb93964efd9"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "oem_cp"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "330138902ab4dab09a86e6b7ab7ddeffb5f8435d52fe0df1bce8b06a17b10ee4"
+dependencies = [
+ "phf 0.11.2",
+ "phf_codegen 0.11.2",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
