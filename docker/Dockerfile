@@ -1,17 +1,29 @@
 # syntax=docker/dockerfile:latest
 
 # Git: git version 2.30.2
-# /etc/os-release: Alpine Linux v3.16
+# /etc/os-release: Alpine Linux v3.20
 # Kernel: Linux ca3abedc4fb1 5.17.15-76051715-generic #202206141358~1655919116~22.04~1db9e34 SMP PREEMPT Wed Jun 22 19 x86_64 Linux
-# Build cmd: docker build --no-cache . -t nushell-latest
-# Other tags: nushell/alpine-nu:latest, nushell
+# Build cmd: docker build --no-cache . -t nushell:latest
+# Other tags: nushell:latest-alpine, nushell
 FROM alpine
-
-LABEL maintainer=nushell
 
 ARG TARGETARCH
 ARG ARCH=${TARGETARCH/arm64/aarch64}
+ARG ARCH=${ARCH/arm/armv7}
 ARG ARCH=${ARCH/amd64/x86_64}
+
+ARG BUILD_REF
+ARG BUILD_DATE
+LABEL maintainer="The Nushell Project Developers" \
+    org.opencontainers.image.licenses="MIT" \
+    org.opencontainers.image.title="Nushell" \
+    org.opencontainers.image.created=$BUILD_DATE \
+    org.opencontainers.image.revision=$BUILD_REF \
+    org.opencontainers.image.authors="The Nushell Project Developers" \
+    org.opencontainers.image.vendor="Nushell Project" \
+    org.opencontainers.image.description="A new type of shell" \
+    org.opencontainers.image.source="https://github.com/nushell/nushell" \
+    org.opencontainers.image.documentation="https://www.nushell.sh/book/"
 
 RUN echo '/usr/bin/nu' >> /etc/shells \
     && adduser -D -s /usr/bin/nu nushell \
@@ -22,9 +34,10 @@ RUN echo '/usr/bin/nu' >> /etc/shells \
     | cut -d '"' -f 4 \
     | grep ${ARCH}-unknown-linux-musl \
     | xargs -I{} wget {} \
-    && tar -xzf nu* \
-    && cd nu*-musl \
-    && mv nu* /usr/bin \
+    && mkdir nu-latest && tar xvf nu-*.tar.gz --directory=nu-latest \
+    && cp -aR nu-latest/**/* /usr/bin/ \
+    # Setup default config file for nushell
+    && cd /home/nushell/.config/nushell \
     && chmod +x /usr/bin/nu \
     && chown -R nushell:nushell /home/nushell/.config/nushell \
     # Reset Nushell config to default
