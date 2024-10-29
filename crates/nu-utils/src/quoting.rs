@@ -20,7 +20,6 @@ pub fn needs_quoting(string: &str) -> bool {
         // `true`/`false`/`null` are active keywords in JSON and NUON
         // `&&` is denied by the nu parser for diagnostics reasons
         // (https://github.com/nushell/nushell/pull/7241)
-        // TODO: remove the extra check in the nuon codepath
         "true" | "false" | "null" | "&&" => return true,
         _ => (),
     };
