@@ -1,12 +1,12 @@
 use fancy_regex::Regex;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 // This hits, in order:
 // • Any character of []:`{}#'";()|$,
 // • Any digit (\d)
 // • Any whitespace (\s)
 // • Case-insensitive sign-insensitive float "keywords" inf, infinity and nan.
-static NEEDS_QUOTING_REGEX: Lazy<Regex> = Lazy::new(|| {
+static NEEDS_QUOTING_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"[\[\]:`\{\}#'";\(\)\|\$,\d\s]|(?i)^[+\-]?(inf(inity)?|nan)$"#)
         .expect("internal error: NEEDS_QUOTING_REGEX didn't compile")
 });

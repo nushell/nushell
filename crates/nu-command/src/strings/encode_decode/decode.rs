@@ -1,12 +1,12 @@
 use nu_engine::command_prelude::*;
 use oem_cp::decode_string_complete_table;
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 // create a lazycell of all the code_table "Complete" code pages
 // the commented out code pages are "Incomplete", which means they
 // are stored as Option<char> and not &[char; 128]
-static OEM_DECODE: Lazy<HashMap<usize, &[char; 128]>> = Lazy::new(|| {
+static OEM_DECODE: LazyLock<HashMap<usize, &[char; 128]>> = LazyLock::new(|| {
     let mut m = HashMap::new();
     m.insert(437, &oem_cp::code_table::DECODING_TABLE_CP437);
     // m.insert(720, &oem_cp::code_table::DECODING_TABLE_CP720);

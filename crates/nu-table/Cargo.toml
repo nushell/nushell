@@ -19,7 +19,6 @@ nu-utils = { path = "../nu-utils", version = "0.99.2" }
 nu-engine = { path = "../nu-engine", version = "0.99.2" }
 nu-color-config = { path = "../nu-color-config", version = "0.99.2" }
 nu-ansi-term = { workspace = true }
-once_cell = { workspace = true }
 fancy-regex = { workspace = true }
 tabled = { workspace = true, features = ["ansi"], default-features = false }
 terminal_size = { workspace = true }

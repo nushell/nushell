@@ -34,7 +34,6 @@ mach2 = { workspace = true }
 [target.'cfg(target_os = "windows")'.dependencies]
 chrono = { workspace = true, default-features = false, features = ["clock"] }
 ntapi = "0.4"
-once_cell = { workspace = true }
 windows = { workspace = true, features = [
   "Wdk_System_SystemServices",
   "Wdk_System_Threading",

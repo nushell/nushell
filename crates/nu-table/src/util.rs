@@ -91,12 +91,14 @@ fn colorize_lead_trail_space(
 fn colorize_space_one(text: &str, lead: Option<ANSIStr<'_>>, trail: Option<ANSIStr<'_>>) -> String {
     use fancy_regex::Captures;
     use fancy_regex::Regex;
-    use once_cell::sync::Lazy;
+    use std::sync::LazyLock;
 
-    static RE_LEADING: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"(?m)(?P<beginsp>^\s+)").expect("error with leading space regex"));
-    static RE_TRAILING: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"(?m)(?P<endsp>\s+$)").expect("error with trailing space regex"));
+    static RE_LEADING: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?m)(?P<beginsp>^\s+)").expect("error with leading space regex")
+    });
+    static RE_TRAILING: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?m)(?P<endsp>\s+$)").expect("error with trailing space regex")
+    });
 
     let mut buf = text.to_owned();
 
