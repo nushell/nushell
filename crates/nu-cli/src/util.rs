@@ -1,6 +1,6 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
-use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
+use nu_parser::{lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::{
     cli_error::report_compile_error,
     debugger::WithoutDebug,
@@ -10,7 +10,7 @@ use nu_protocol::{
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
-use nu_utils::perf;
+use nu_utils::{escape_quote_string, perf};
 use std::path::Path;
 
 // This will collect environment variables from std::env and adds them to a stack.

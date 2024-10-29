@@ -3317,6 +3317,7 @@ dependencies = [
  "nu-path",
  "nu-plugin-engine",
  "nu-protocol",
+ "nu-utils",
  "rstest",
  "serde_json",
 ]
@@ -3522,10 +3523,12 @@ name = "nu-utils"
 version = "0.99.2"
 dependencies = [
  "crossterm_winapi",
+ "fancy-regex",
  "log",
  "lscolors",
  "nix 0.29.0",
  "num-format",
+ "once_cell",
  "serde",
  "strip-ansi-escapes",
  "sys-locale",
@@ -3755,11 +3758,10 @@ name = "nuon"
 version = "0.99.2"
 dependencies = [
  "chrono",
- "fancy-regex",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
- "once_cell",
+ "nu-utils",
 ]
 
 [[package]]

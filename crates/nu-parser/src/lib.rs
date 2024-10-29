@@ -11,7 +11,7 @@ mod parse_shape_specs;
 mod parser;
 mod type_check;
 
-pub use deparse::{escape_for_script_arg, escape_quote_string};
+pub use deparse::escape_for_script_arg;
 pub use flatten::{
     flatten_block, flatten_expression, flatten_pipeline, flatten_pipeline_element, FlatShape,
 };
