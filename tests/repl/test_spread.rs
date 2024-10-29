@@ -30,7 +30,7 @@ fn not_spread() -> TestResult {
     run_test(r#"def ... [x] { $x }; ... ..."#, "...").unwrap();
     run_test(
         r#"let a = 4; [... $a ... [1] ... (5) ...bare ...] | to nuon"#,
-        "[..., 4, ..., [1], ..., 5, ...bare, ...]",
+        r#"["...", 4, "...", [1], "...", 5, "...bare", "..."]"#,
     )
 }
 
@@ -177,7 +177,7 @@ fn spread_args_type() -> TestResult {
 fn explain_spread_args() -> TestResult {
     run_test(
         r#"(explain { || echo ...[1 2] }).cmd_args.0 | select arg_type name type | to nuon"#,
-        r#"[["$.arg_type", "$.name", "$.type"]; [spread, "[1 2]", list<int>]]"#,
+        r#"[[arg_type, name, type]; [spread, "[1 2]", list<int>]]"#,
     )
 }
 

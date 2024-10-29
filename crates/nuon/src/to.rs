@@ -97,7 +97,7 @@ fn value_to_string(
                 Ok("false".to_string())
             }
         }
-        Value::CellPath { val, .. } => Ok(format!("$.{}", val)),
+        Value::CellPath { val, .. } => Ok(val.to_string()),
         Value::Custom { .. } => Err(ShellError::UnsupportedInput {
             msg: "custom values are currently not nuon-compatible".to_string(),
             input: "value originates from here".into(),
@@ -116,10 +116,10 @@ fn value_to_string(
             if &val.round() == val && val.is_finite() {
                 Ok(format!("{}.0", *val))
             } else {
-                Ok(format!("{}", *val))
+                Ok(val.to_string())
             }
         }
-        Value::Int { val, .. } => Ok(format!("{}", *val)),
+        Value::Int { val, .. } => Ok(val.to_string()),
         Value::List { vals, .. } => {
             let headers = get_columns(vals);
             if !headers.is_empty() && vals.iter().all(|x| x.columns().eq(headers.iter())) {

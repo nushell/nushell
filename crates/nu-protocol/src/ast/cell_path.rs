@@ -174,6 +174,27 @@ impl CellPath {
             member.make_optional();
         }
     }
+
+    // Formats the cell-path as a column name, i.e. without quoting and optional markers ('?').
+    pub fn to_column_name(&self) -> String {
+        let mut s = String::new();
+
+        for member in &self.members {
+            match member {
+                PathMember::Int { val, .. } => {
+                    s += &val.to_string();
+                }
+                PathMember::String { val, .. } => {
+                    s += val;
+                }
+            }
+
+            s.push('.');
+        }
+
+        s.pop(); // Easier than checking whether to insert the '.' on every iteration.
+        s
+    }
 }
 
 impl Display for CellPath {

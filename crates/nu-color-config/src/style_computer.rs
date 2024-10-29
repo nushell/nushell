@@ -223,7 +223,7 @@ fn test_computable_style_closure_basic() {
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
         assert_eq!(actual_repl.err, "");
-        assert_eq!(actual_repl.out, "[bell.obj, book.obj, candle.obj]");
+        assert_eq!(actual_repl.out, r#"["bell.obj", "book.obj", "candle.obj"]"#);
     });
 }
 
