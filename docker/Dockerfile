@@ -23,8 +23,7 @@ LABEL maintainer="The Nushell Project Developers" \
     org.opencontainers.image.vendor="Nushell Project" \
     org.opencontainers.image.description="A new type of shell" \
     org.opencontainers.image.source="https://github.com/nushell/nushell" \
-    org.opencontainers.image.documentation="https://www.nushell.sh/book/" \
-    io.artifacthub.package.readme-url="https://raw.githubusercontent.com/nushell/nushell/refs/heads/main/README.md"
+    org.opencontainers.image.documentation="https://www.nushell.sh/book/"
 
 RUN echo '/usr/bin/nu' >> /etc/shells \
     && adduser -D -s /usr/bin/nu nushell \
