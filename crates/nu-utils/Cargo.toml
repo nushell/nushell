@@ -21,7 +21,6 @@ fancy-regex = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
 log = { workspace = true }
 num-format = { workspace = true }
-once_cell = { workspace = true }
 strip-ansi-escapes = { workspace = true }
 serde = { workspace = true }
 sys-locale = "0.3"

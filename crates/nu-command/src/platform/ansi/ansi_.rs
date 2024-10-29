@@ -1,8 +1,8 @@
 use nu_ansi_term::*;
 use nu_engine::command_prelude::*;
 use nu_protocol::{engine::StateWorkingSet, Signals};
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 #[derive(Clone)]
 pub struct AnsiCommand;
@@ -14,7 +14,7 @@ struct AnsiCode {
 }
 
 #[rustfmt::skip]
-static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
+static CODE_LIST: LazyLock<Vec<AnsiCode>> = LazyLock::new(|| { vec![
     AnsiCode{ short_name: Some("g"), long_name: "green", code: Color::Green.prefix().to_string()},
     AnsiCode{ short_name: Some("gb"), long_name: "green_bold", code: Color::Green.bold().prefix().to_string()},
     AnsiCode{ short_name: Some("gu"), long_name: "green_underline", code: Color::Green.underline().prefix().to_string()},
@@ -494,8 +494,8 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     ]
 });
 
-static CODE_MAP: Lazy<HashMap<&'static str, &'static str>> =
-    Lazy::new(|| build_ansi_hashmap(&CODE_LIST));
+static CODE_MAP: LazyLock<HashMap<&'static str, &'static str>> =
+    LazyLock::new(|| build_ansi_hashmap(&CODE_LIST));
 
 impl Command for AnsiCommand {
     fn name(&self) -> &str {

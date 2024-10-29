@@ -7,7 +7,7 @@ use nu_protocol::{
     Value,
 };
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 #[derive(Debug, Default, Clone)]
 pub struct HelpCmd {}
@@ -19,7 +19,7 @@ impl HelpCmd {
     }
 }
 
-static HELP_MESSAGE: Lazy<String> = Lazy::new(|| {
+static HELP_MESSAGE: LazyLock<String> = LazyLock::new(|| {
     let title = nu_ansi_term::Style::new().bold().underline();
     let code = nu_ansi_term::Style::new().bold().fg(Color::Blue);
 

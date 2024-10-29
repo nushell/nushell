@@ -1358,10 +1358,9 @@ fn run_finaliziation_ansi_sequence(
 
 // Absolute paths with a drive letter, like 'C:', 'D:\', 'E:\foo'
 #[cfg(windows)]
-static DRIVE_PATH_REGEX: once_cell::sync::Lazy<fancy_regex::Regex> =
-    once_cell::sync::Lazy::new(|| {
-        fancy_regex::Regex::new(r"^[a-zA-Z]:[/\\]?").expect("Internal error: regex creation")
-    });
+static DRIVE_PATH_REGEX: std::sync::LazyLock<fancy_regex::Regex> = std::sync::LazyLock::new(|| {
+    fancy_regex::Regex::new(r"^[a-zA-Z]:[/\\]?").expect("Internal error: regex creation")
+});
 
 // A best-effort "does this string look kinda like a path?" function to determine whether to auto-cd
 fn looks_like_path(orig: &str) -> bool {

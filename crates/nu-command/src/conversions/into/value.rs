@@ -1,9 +1,9 @@
 use crate::parse_date_from_string;
 use nu_engine::command_prelude::*;
 use nu_protocol::PipelineIterator;
-use once_cell::sync::Lazy;
 use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;
+use std::sync::LazyLock;
 
 #[derive(Clone)]
 pub struct IntoValue;
@@ -271,8 +271,9 @@ const DATETIME_DMY_PATTERN: &str = r#"(?x)
         $
         "#;
 
-static DATETIME_DMY_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(DATETIME_DMY_PATTERN).expect("datetime_dmy_pattern should be valid"));
+static DATETIME_DMY_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(DATETIME_DMY_PATTERN).expect("datetime_dmy_pattern should be valid")
+});
 const DATETIME_YMD_PATTERN: &str = r#"(?x)
         ^
         ['"]?                      # optional quotes
@@ -297,8 +298,9 @@ const DATETIME_YMD_PATTERN: &str = r#"(?x)
         ['"]?                      # optional quotes
         $
         "#;
-static DATETIME_YMD_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(DATETIME_YMD_PATTERN).expect("datetime_ymd_pattern should be valid"));
+static DATETIME_YMD_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(DATETIME_YMD_PATTERN).expect("datetime_ymd_pattern should be valid")
+});
 //2023-03-24 16:44:17.865147299 -05:00
 const DATETIME_YMDZ_PATTERN: &str = r#"(?x)
         ^
@@ -331,23 +333,24 @@ const DATETIME_YMDZ_PATTERN: &str = r#"(?x)
         ['"]?                  # optional quotes
         $
         "#;
-static DATETIME_YMDZ_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(DATETIME_YMDZ_PATTERN).expect("datetime_ymdz_pattern should be valid"));
+static DATETIME_YMDZ_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(DATETIME_YMDZ_PATTERN).expect("datetime_ymdz_pattern should be valid")
+});
 
-static FLOAT_RE: Lazy<Regex> = Lazy::new(|| {
+static FLOAT_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*[-+]?((\d*\.\d+)([eE][-+]?\d+)?|inf|NaN|(\d+)[eE][-+]?\d+|\d+\.)$")
         .expect("float pattern should be valid")
 });
 
-static INTEGER_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\s*-?(\d+)$").expect("integer pattern should be valid"));
+static INTEGER_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^\s*-?(\d+)$").expect("integer pattern should be valid"));
 
-static INTEGER_WITH_DELIMS_RE: Lazy<Regex> = Lazy::new(|| {
+static INTEGER_WITH_DELIMS_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*-?(\d{1,3}([,_]\d{3})+)$")
         .expect("integer with delimiters pattern should be valid")
 });
 
-static BOOLEAN_RE: Lazy<Regex> = Lazy::new(|| {
+static BOOLEAN_RE: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new(r"^\s*(true)$|^(false)$")
         .case_insensitive(true)
         .build()

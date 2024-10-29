@@ -8,7 +8,6 @@ use libc::c_void;
 use ntapi::ntrtl::RTL_USER_PROCESS_PARAMETERS;
 use ntapi::ntwow64::{PEB32, RTL_USER_PROCESS_PARAMETERS32};
 
-use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -17,6 +16,7 @@ use std::os::windows::ffi::OsStringExt;
 use std::path::PathBuf;
 use std::ptr;
 use std::ptr::null_mut;
+use std::sync::LazyLock;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -694,7 +694,7 @@ unsafe fn get_process_params(
     ))
 }
 
-static WINDOWS_8_1_OR_NEWER: Lazy<bool> = Lazy::new(|| unsafe {
+static WINDOWS_8_1_OR_NEWER: LazyLock<bool> = LazyLock::new(|| unsafe {
     let mut version_info: OSVERSIONINFOEXW = MaybeUninit::zeroed().assume_init();
 
     version_info.dwOSVersionInfoSize = std::mem::size_of::<OSVERSIONINFOEXW>() as u32;
