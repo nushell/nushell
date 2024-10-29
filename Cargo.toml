@@ -103,7 +103,7 @@ log = "0.4"
 lru = "0.12"
 lscolors = { version = "0.17", default-features = false }
 lsp-server = "0.7.5"
-lsp-types = "0.95.0"
+lsp-types = { version = "0.95.0", features = ["proposed"] }
 mach2 = "0.4"
 md5 = { version = "0.10", package = "md-5" }
 miette = "7.2"
