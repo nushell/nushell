@@ -3,6 +3,7 @@ mod decode;
 mod encode;
 mod join;
 mod parse;
+mod query;
 mod url_;
 
 pub use self::parse::SubCommand as UrlParse;

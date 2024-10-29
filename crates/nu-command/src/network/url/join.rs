@@ -1,5 +1,7 @@
 use nu_engine::command_prelude::*;
 
+use super::query::record_to_query_string;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -27,7 +29,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Outputs a url representing the contents of this record",
+                description: "Outputs a url representing the contents of this record, `params` and `query` fields must be equivalent",
                 example: r#"{
         "scheme": "http",
         "username": "",
@@ -45,6 +47,21 @@ impl Command for SubCommand {
     } | url join"#,
                 result: Some(Value::test_string(
                     "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=99260204",
+                )),
+            },
+            Example {
+                description: "Outputs a url representing the contents of this record, \"exploding\" the list in `params` into multiple parameters",
+                example: r#"{
+        "scheme": "http",
+        "username": "user",
+        "password": "pwd",
+        "host": "www.pixiv.net",
+        "port": "1234",
+        "params": {a: ["one", "two"], b: "three"},
+        "fragment": ""
+    } | url join"#,
+                result: Some(Value::test_string(
+                    "http://user:pwd@www.pixiv.net:1234?a=one&a=two&b=three",
                 )),
             },
             Example {
@@ -178,16 +195,8 @@ impl UrlComponents {
 
         if key == "params" {
             return match value {
-                Value::Record { val, .. } => {
-                    let mut qs = val
-                        .into_owned()
-                        .into_iter()
-                        .map(|(k, v)| match v.coerce_into_string() {
-                            Ok(val) => Ok(format!("{k}={val}")),
-                            Err(err) => Err(err),
-                        })
-                        .collect::<Result<Vec<String>, ShellError>>()?
-                        .join("&");
+                Value::Record { ref val, .. } => {
+                    let mut qs = record_to_query_string(val, value_span, span)?;
 
                     qs = if !qs.trim().is_empty() {
                         format!("?{qs}")
