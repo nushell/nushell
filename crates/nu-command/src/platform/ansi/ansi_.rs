@@ -448,7 +448,8 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode{ short_name: None, long_name:"clear_screen_from_cursor_to_end", code: "\x1b[0J".to_string()}, // clears from cursor until end of screen
     AnsiCode{ short_name: None, long_name:"clear_screen_from_cursor_to_beginning", code: "\x1b[1J".to_string()}, // clears from cursor to beginning of screen
     AnsiCode{ short_name: Some("cls"), long_name:"clear_entire_screen", code: "\x1b[2J".to_string()}, // clears the entire screen
-    AnsiCode{ short_name: Some("clsb"), long_name:"clear_entire_screen_plus_buffer", code: "\x1b[3J".to_string()}, // clear entire screen and delete all lines saved in the scrollback buffer
+    AnsiCode{ short_name: Some("clsb"), long_name:"clear_entire_screen_plus_buffer", code: "\x1b[2J\x1b[3J".to_string()}, // clear entire screen and delete all lines saved in the scrollback buffer
+    AnsiCode{ short_name: Some("clb"), long_name:"clear_scrollback_buffer", code: "\x1b[3J".to_string()}, // clear entire screen and delete all lines saved in the scrollback buffer
     AnsiCode{ short_name: None, long_name:"erase_line", code: "\x1b[K".to_string()},                   // clears the current line
     AnsiCode{ short_name: None, long_name:"erase_line_from_cursor_to_end", code: "\x1b[0K".to_string()}, // clears from cursor to end of line
     AnsiCode{ short_name: None, long_name:"erase_line_from_cursor_to_beginning", code: "\x1b[1K".to_string()}, // clears from cursor to start of line
