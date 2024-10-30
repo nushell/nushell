@@ -112,7 +112,7 @@ impl Command for SubCommand {
                             .into_owned()
                             .into_iter()
                             .try_fold(UrlComponents::new(), |url, (k, v)| {
-                                url.add_component(k, v, span, engine_state)
+                                url.add_component(k, v, head, engine_state)
                             });
 
                         url_components?.to_url(span)
@@ -155,7 +155,7 @@ impl UrlComponents {
         self,
         key: String,
         value: Value,
-        span: Span,
+        head: Span,
         engine_state: &EngineState,
     ) -> Result<Self, ShellError> {
         let value_span = value.span();
@@ -293,7 +293,7 @@ impl UrlComponents {
                     &ShellError::GenericError {
                         error: format!("'{key}' is not a valid URL field"),
                         msg: format!("remove '{key}' col from input record"),
-                        span: Some(span),
+                        span: Some(value_span),
                         help: None,
                         inner: vec![],
                     },
