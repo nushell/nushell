@@ -55,7 +55,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Parses a url",
-            example: "'http://user123:pass567@www.example.com:8081/foo/bar?param1=section&p2=&f[name]=vldc#hello' | url parse",
+            example: "'http://user123:pass567@www.example.com:8081/foo/bar?param1=section&p2=&f[name]=vldc&f[no]=42#hello' | url parse",
             result: Some(Value::test_record(record! {
                     "scheme" =>   Value::test_string("http"),
                     "username" => Value::test_string("user123"),
@@ -63,13 +63,14 @@ impl Command for SubCommand {
                     "host" =>     Value::test_string("www.example.com"),
                     "port" =>     Value::test_string("8081"),
                     "path" =>     Value::test_string("/foo/bar"),
-                    "query" =>    Value::test_string("param1=section&p2=&f[name]=vldc"),
+                    "query" =>    Value::test_string("param1=section&p2=&f[name]=vldc&f[no]=42"),
                     "fragment" => Value::test_string("hello"),
-                    "params" =>   Value::test_record(record! {
-                        "param1" =>  Value::test_string("section"),
-                        "p2" =>      Value::test_string(""),
-                        "f[name]" => Value::test_string("vldc"),
-                    }),
+                    "params" =>   Value::test_list(vec![
+                        Value::test_record(record! {"key" => Value::test_string("param1"), "value" => Value::test_string("section") }),
+                        Value::test_record(record! {"key" => Value::test_string("p2"), "value" => Value::test_string("") }),
+                        Value::test_record(record! {"key" => Value::test_string("f[name]"), "value" => Value::test_string("vldc") }),
+                        Value::test_record(record! {"key" => Value::test_string("f[no]"), "value" => Value::test_string("42") }),
+                    ]),
             })),
         }]
     }
