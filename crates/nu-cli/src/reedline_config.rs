@@ -862,10 +862,10 @@ fn add_parsed_keybinding(
             c if c.starts_with('f') => c[1..]
                 .parse()
                 .ok()
-                .filter(|num| (1..=20).contains(num))
+                .filter(|num| (1..=35).contains(num))
                 .map(KeyCode::F)
                 .ok_or(ShellError::InvalidValue {
-                    valid: "'f1', 'f2', ..., or 'f20'".into(),
+                    valid: "'f1', 'f2', ..., or 'f35'".into(),
                     actual: format!("'{keycode}'"),
                     span: keybinding.keycode.span(),
                 })?,
