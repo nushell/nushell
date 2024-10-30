@@ -11,7 +11,7 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("url build-query")
+        Signature::build("url split-query")
             .input_output_types(vec![(
                 Type::String,
                 Type::Table([("key".into(), Type::String), ("value".into(), Type::String)].into()),
