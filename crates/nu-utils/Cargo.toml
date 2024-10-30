@@ -24,7 +24,7 @@ num-format = { workspace = true }
 strip-ansi-escapes = { workspace = true }
 serde = { workspace = true }
 sys-locale = "0.3"
-unicase = "2.7.0"
+unicase = "2.8.0"
 
 [target.'cfg(windows)'.dependencies]
 crossterm_winapi = "0.9"
