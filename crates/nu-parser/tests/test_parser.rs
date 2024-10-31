@@ -1026,6 +1026,16 @@ pub fn test_external_call_head_interpolated_string(
     r#"hello world"#,
     "value is surrounded by backtick quote"
 )]
+#[case(
+    r#"^foo `"hello world"`"#,
+    "\"hello world\"",
+    "value is surrounded by backtick quote, with inner double quote"
+)]
+#[case(
+    r#"^foo `'hello world'`"#,
+    "'hello world'",
+    "value is surrounded by backtick quote, with inner single quote"
+)]
 pub fn test_external_call_arg_glob(#[case] input: &str, #[case] expected: &str, #[case] tag: &str) {
     test_external_call(input, tag, |name, args| {
         match &name.expr {
@@ -1119,16 +1129,6 @@ pub fn test_external_call_arg_raw_string(
     r#"^foo "foo\\external call""#,
     r#"foo\external call"#,
     "double quote with backslash"
-)]
-#[case(
-    r#"^foo `"hello world"`"#,
-    r#"hello world"#,
-    "value is surrounded by backtick quote, with inner double quote"
-)]
-#[case(
-    r#"^foo `'hello world'`"#,
-    r#"hello world"#,
-    "value is surrounded by backtick quote, with inner single quote"
 )]
 pub fn test_external_call_arg_string(
     #[case] input: &str,

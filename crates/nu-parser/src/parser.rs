@@ -240,34 +240,21 @@ fn parse_unknown_arg(
 /// string, where each balanced pair of quotes is parsed as a separate part of the string, and then
 /// concatenated together.
 ///
-/// `keep_surround_backtick_quote` should be true when parsing it as command name.  Or else it
-/// should be false.
-///
 /// For example, `-foo="bar\nbaz"` becomes `$"-foo=bar\nbaz"`
-fn parse_external_string(
-    working_set: &mut StateWorkingSet,
-    mut span: Span,
-    keep_surround_bakctick_quote: bool,
-) -> Expression {
-    let mut contents = working_set.get_span_contents(span);
+fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    let contents = working_set.get_span_contents(span);
 
-    if !keep_surround_bakctick_quote
-        && contents.len() > 1
-        && contents.starts_with(b"`")
-        && contents.ends_with(b"`")
-    {
-        contents = &contents[1..contents.len() - 1];
-        // backtick quote is useless in this case, so span is required to updated.
-        span = Span::new(span.start + 1, span.end - 1);
-    }
     if contents.starts_with(b"r#") {
         parse_raw_string(working_set, span)
     } else if contents
         .iter()
-        .any(|b| matches!(b, b'"' | b'\'' | b'(' | b')'))
+        .any(|b| matches!(b, b'"' | b'\'' | b'(' | b')' | b'`'))
     {
         enum State {
             Bare {
+                from: usize,
+            },
+            BackTickQuote {
                 from: usize,
             },
             Quote {
@@ -320,6 +307,12 @@ fn parse_external_string(
                             continue;
                         }
                     }
+                    b'`' => {
+                        if index != *from {
+                            spans.push(make_span(*from, index))
+                        }
+                        state = State::BackTickQuote { from: index }
+                    }
                     // Continue to consume
                     _ => (),
                 },
@@ -342,13 +335,21 @@ fn parse_external_string(
                         *escaped = false;
                     }
                 },
+                State::BackTickQuote { from } => {
+                    if ch == b'`' {
+                        spans.push(make_span(*from, index + 1));
+                        state = State::Bare { from: index + 1 };
+                    }
+                }
             }
             index += 1;
         }
 
         // Add the final span
         match state {
-            State::Bare { from } | State::Quote { from, .. } => {
+            State::Bare { from }
+            | State::Quote { from, .. }
+            | State::BackTickQuote { from, .. } => {
                 if from < contents.len() {
                     spans.push(make_span(from, contents.len()));
                 }
@@ -457,7 +458,7 @@ fn parse_regular_external_arg(working_set: &mut StateWorkingSet, span: Span) -> 
     } else if contents.starts_with(b"[") {
         parse_list_expression(working_set, span, &SyntaxShape::Any)
     } else {
-        parse_external_string(working_set, span, false)
+        parse_external_string(working_set, span)
     }
 }
 
@@ -479,7 +480,7 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) ->
         let arg = parse_expression(working_set, &[head_span]);
         Box::new(arg)
     } else {
-        Box::new(parse_external_string(working_set, head_span, true))
+        Box::new(parse_external_string(working_set, head_span))
     };
 
     let args = spans[1..]
