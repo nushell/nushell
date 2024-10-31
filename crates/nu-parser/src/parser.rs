@@ -2311,7 +2311,7 @@ pub fn parse_full_cell_path(
         } else if bytes.starts_with(b"[") {
             trace!("parsing: table head of full cell path");
 
-            let output = parse_table_expression(working_set, head.span);
+            let output = parse_table_expression(working_set, head.span, &SyntaxShape::Any);
 
             tokens.next();
 
@@ -4119,7 +4119,11 @@ fn parse_table_row(
         .map(|exprs| (exprs, span))
 }
 
-fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+fn parse_table_expression(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    list_element_shape: &SyntaxShape,
+) -> Expression {
     let bytes = working_set.get_span_contents(span);
     let inner_span = {
         let start = if bytes.starts_with(b"[") {
@@ -4148,13 +4152,13 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
     // Check that we have all arguments first, before trying to parse the first
     // in order to avoid exponential parsing time
     let [first, second, rest @ ..] = &tokens[..] else {
-        return parse_list_expression(working_set, span, &SyntaxShape::Any);
+        return parse_list_expression(working_set, span, list_element_shape);
     };
     if !working_set.get_span_contents(first.span).starts_with(b"[")
         || second.contents != TokenContents::Semicolon
         || rest.is_empty()
     {
-        return parse_list_expression(working_set, span, &SyntaxShape::Any);
+        return parse_list_expression(working_set, span, list_element_shape);
     };
     let head = parse_table_row(working_set, first.span);
 
@@ -4770,7 +4774,7 @@ pub fn parse_value(
         }
         SyntaxShape::List(elem) => {
             if bytes.starts_with(b"[") {
-                parse_list_expression(working_set, span, elem)
+                parse_table_expression(working_set, span, elem)
             } else {
                 working_set.error(ParseError::Expected("list", span));
 
@@ -4779,7 +4783,7 @@ pub fn parse_value(
         }
         SyntaxShape::Table(_) => {
             if bytes.starts_with(b"[") {
-                parse_table_expression(working_set, span)
+                parse_table_expression(working_set, span, &SyntaxShape::Any)
             } else {
                 working_set.error(ParseError::Expected("table", span));
 
