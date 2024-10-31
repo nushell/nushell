@@ -181,7 +181,11 @@ impl Command for Touch {
                 let result = if no_follow_symlinks {
                     filetime::set_symlink_file_times(
                         &path,
-                        FileTime::from_system_time(get_target_metadata()?.accessed()?),
+                        if change_atime {
+                            FileTime::from_system_time(atime)
+                        } else {
+                            FileTime::from_system_time(get_target_metadata()?.accessed()?)
+                        },
                         FileTime::from_system_time(mtime),
                     )
                 } else {
@@ -200,7 +204,11 @@ impl Command for Touch {
                     filetime::set_symlink_file_times(
                         &path,
                         FileTime::from_system_time(atime),
-                        FileTime::from_system_time(get_target_metadata()?.modified()?),
+                        if change_mtime {
+                            FileTime::from_system_time(mtime)
+                        } else {
+                            FileTime::from_system_time(get_target_metadata()?.modified()?)
+                        },
                     )
                 } else {
                     filetime::set_file_atime(&path, FileTime::from_system_time(atime))
