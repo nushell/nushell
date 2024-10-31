@@ -94,7 +94,14 @@ impl Command for Touch {
 
         if let Some(reference) = reference {
             let reference_path = nu_path::expand_path_with(reference.item, &cwd, true);
-            if !reference_path.exists() {
+            let exists = if no_follow_symlinks {
+                // There's no symlink_exists function, so we settle for
+                // getting direct metadata and if it's OK, it exists
+                reference_path.symlink_metadata().is_ok()
+            } else {
+                reference_path.exists()
+            };
+            if !exists {
                 return Err(ShellError::FileNotFoundCustom {
                     msg: "Reference path not found".into(),
                     span: reference.span,
@@ -126,20 +133,41 @@ impl Command for Touch {
 
         for glob in files {
             let path = expand_path_with(glob.item.as_ref(), &cwd, glob.item.is_expand());
+            let exists = if no_follow_symlinks {
+                path.symlink_metadata().is_ok()
+            } else {
+                path.exists()
+            };
 
             // If --no-create is passed and the file/dir does not exist there's nothing to do
-            if no_create && !path.exists() {
+            if no_create && !exists {
                 continue;
             }
 
             // Create a file at the given path unless the path is a directory
             if !path.is_dir() {
-                if let Err(err) = OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(false)
-                    .open(&path)
-                {
+                let mut options = OpenOptions::new();
+                options.write(true);
+                options.create(true);
+                options.truncate(false);
+
+                if no_follow_symlinks {
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::OpenOptionsExt;
+                        options.custom_flags(nix::libc::AT_SYMLINK_NOFOLLOW);
+                    }
+
+                    #[cfg(windows)]
+                    {
+                        use std::os::windows::fs::OpenOptionsExt;
+                        options.custom_flags(
+                            windows::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT.0,
+                        );
+                    }
+                }
+
+                if let Err(err) = options.open(&path) {
                     return Err(ShellError::CreateNotPossible {
                         msg: format!("Failed to create file: {err}"),
                         span: glob.span,
