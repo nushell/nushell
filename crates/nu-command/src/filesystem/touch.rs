@@ -144,30 +144,22 @@ impl Command for Touch {
                 continue;
             }
 
-            // Create a file at the given path unless the path is a directory
-            if !path.is_dir() {
-                let mut options = OpenOptions::new();
-                options.write(true);
-                options.create(true);
-                options.truncate(false);
+            // If --no-deref was passed in, the behavior of touch is to error on missing
+            if no_follow_symlinks && !exists {
+                return Err(ShellError::FileNotFound {
+                    file: path.to_string_lossy().into_owned(),
+                    span: glob.span,
+                });
+            }
 
-                if no_follow_symlinks {
-                    #[cfg(unix)]
-                    {
-                        use std::os::unix::fs::OpenOptionsExt;
-                        options.custom_flags(nix::libc::AT_SYMLINK_NOFOLLOW);
-                    }
-
-                    #[cfg(windows)]
-                    {
-                        use std::os::windows::fs::OpenOptionsExt;
-                        options.custom_flags(
-                            windows::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT.0,
-                        );
-                    }
-                }
-
-                if let Err(err) = options.open(&path) {
+            // Create a file at the given path unless the path is a directory (or a symlink with -d)
+            if !path.is_dir() && (!no_follow_symlinks || !path.is_symlink()) {
+                if let Err(err) = OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(false)
+                    .open(&path)
+                {
                     return Err(ShellError::CreateNotPossible {
                         msg: format!("Failed to create file: {err}"),
                         span: glob.span,

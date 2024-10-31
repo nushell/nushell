@@ -577,10 +577,10 @@ fn follow_symlinks() {
         nu!(
             cwd: dirs.test(),
             "
-                touch fms
                 touch fds
                 touch ds
                 touch fs
+                touch fms
             "
         );
 
@@ -620,10 +620,10 @@ fn no_follow_symlinks() {
         nu!(
             cwd: dirs.test(),
             "
-                touch fms -d
                 touch fds -d
                 touch ds -d
                 touch fs -d
+                touch fms -d
             "
         );
 
