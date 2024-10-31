@@ -167,11 +167,21 @@ impl Command for Touch {
                 };
             }
 
+            // We have to inefficiently access the target metadata to not reset it
+            // in set_symlink_file_times, because the filetime doesn't expose individual methods for it
+            let get_target_metadata = || {
+                path.symlink_metadata()
+                    .map_err(|err| ShellError::IOErrorSpanned {
+                        msg: format!("Failed to read metadata: {err}"),
+                        span: glob.span,
+                    })
+            };
+
             if change_mtime {
                 let result = if no_follow_symlinks {
                     filetime::set_symlink_file_times(
                         &path,
-                        FileTime::from_system_time(atime),
+                        FileTime::from_system_time(get_target_metadata()?.accessed()?),
                         FileTime::from_system_time(mtime),
                     )
                 } else {
@@ -190,7 +200,7 @@ impl Command for Touch {
                     filetime::set_symlink_file_times(
                         &path,
                         FileTime::from_system_time(atime),
-                        FileTime::from_system_time(mtime),
+                        FileTime::from_system_time(get_target_metadata()?.modified()?),
                     )
                 } else {
                     filetime::set_file_atime(&path, FileTime::from_system_time(atime))

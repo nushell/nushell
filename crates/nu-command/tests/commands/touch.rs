@@ -596,16 +596,17 @@ fn follow_symlinks() {
         assert_ne!(dir_times, (TIME_ONE, TIME_ONE));
         assert_ne!(dir_file_times, (TIME_ONE, TIME_ONE));
 
-        // For symlinks, they remain the same
+        // For symlinks, they remain (mostly) the same
+        // We can't test accessed times, since to reach the target file, the symlink must be accessed!
         let file_symlink_times = get_times(&dirs.test().join("fs"));
         let dir_symlink_times = get_times(&dirs.test().join("ds"));
         let dir_file_symlink_times = get_times(&dirs.test().join("fds"));
         let file_missing_symlink_times = get_times(&dirs.test().join("fms"));
 
-        assert_eq!(file_symlink_times, (TIME_ONE, TIME_ONE));
-        assert_eq!(dir_symlink_times, (TIME_ONE, TIME_ONE));
-        assert_eq!(dir_file_symlink_times, (TIME_ONE, TIME_ONE));
-        assert_eq!(file_missing_symlink_times, (TIME_ONE, TIME_ONE));
+        assert_eq!(file_symlink_times.1, TIME_ONE);
+        assert_eq!(dir_symlink_times.1, TIME_ONE);
+        assert_eq!(dir_file_symlink_times.1, TIME_ONE);
+        assert_eq!(file_missing_symlink_times.1, TIME_ONE);
     })
 }
 
