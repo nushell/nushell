@@ -51,7 +51,7 @@ impl Command for Touch {
             .switch(
                 "no-deref",
                 "do not follow symlinks",
-                Some('d')
+                Some('s')
             )
             .category(Category::FileSystem)
     }

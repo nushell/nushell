@@ -621,10 +621,10 @@ fn no_follow_symlinks() {
         nu!(
             cwd: dirs.test(),
             "
-                touch fds -d
-                touch ds -d
-                touch fs -d
-                touch fms -d
+                touch fds -s
+                touch ds -s
+                touch fs -s
+                touch fms -s
             "
         );
 
