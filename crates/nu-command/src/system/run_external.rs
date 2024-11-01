@@ -114,7 +114,7 @@ impl Command for External {
         command.args(args.into_iter().map(|s| s.item));
 
         // Configure stdout and stderr. If both are set to `OutDest::Pipe`,
-        // we'll setup a pipe that merge two streams into one.
+        // we'll set up a pipe that merge two streams into one.
         let stdout = stack.stdout();
         let stderr = stack.stderr();
         let merged_stream = if matches!(stdout, OutDest::Pipe) && matches!(stderr, OutDest::Pipe) {
@@ -129,7 +129,7 @@ impl Command for External {
         };
 
         // Configure stdin. We'll try connecting input to the child process
-        // directly. If that's not possible, we'll setup a pipe and spawn a
+        // directly. If that's not possible, we'll set up a pipe and spawn a
         // thread to copy data into the child process.
         let data_to_copy_into_stdin = match input {
             PipelineData::ByteStream(stream, metadata) => match stream.into_stdio() {
