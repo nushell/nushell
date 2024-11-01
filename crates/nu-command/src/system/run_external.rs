@@ -69,7 +69,7 @@ impl Command for External {
         };
 
         // Find the absolute path to the executable. On Windows, set the
-        // executable to "cmd.exe" if it's is a CMD internal command. If the
+        // executable to "cmd.exe" if it's a CMD internal command. If the
         // command is not found, display a helpful error message.
         let executable = if cfg!(windows) && is_cmd_internal_command(&name_str) {
             PathBuf::from("cmd.exe")
@@ -534,7 +534,7 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
     let Spanned { item: arg, span } = arg;
     let bytes = arg.as_encoded_bytes();
     if bytes.iter().any(|b| matches!(b, b'\r' | b'\n' | b'%')) {
-        // \r and \n trunacte the rest of the arguments and % can expand environment variables
+        // \r and \n truncate the rest of the arguments and % can expand environment variables
         Err(ShellError::ExternalCommand {
             label:
                 "Arguments to CMD internal commands cannot contain new lines or percent signs '%'"
