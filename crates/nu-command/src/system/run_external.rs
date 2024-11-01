@@ -114,7 +114,7 @@ impl Command for External {
         command.args(args.into_iter().map(|s| s.item));
 
         // Configure stdout and stderr. If both are set to `OutDest::Pipe`,
-        // we'll setup a pipe that merge two streams into one.
+        // we'll setup a pipe that merges two streams into one.
         let stdout = stack.stdout();
         let stderr = stack.stderr();
         let merged_stream = if matches!(stdout, OutDest::Pipe) && matches!(stderr, OutDest::Pipe) {
