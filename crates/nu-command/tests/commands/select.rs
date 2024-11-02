@@ -166,7 +166,7 @@ fn select_ignores_errors_successfully1() {
 fn select_ignores_errors_successfully2() {
     let actual = nu!("[{a: 1} {a: 2} {a: 3}] | select b? | to nuon");
 
-    assert_eq!(actual.out, "[[b?]; [null], [null], [null]]".to_string());
+    assert_eq!(actual.out, "[[b]; [null], [null], [null]]".to_string());
     assert!(actual.err.is_empty());
 }
 
@@ -174,7 +174,7 @@ fn select_ignores_errors_successfully2() {
 fn select_ignores_errors_successfully3() {
     let actual = nu!("{foo: bar} | select invalid_key? | to nuon");
 
-    assert_eq!(actual.out, "{invalid_key?: null}".to_string());
+    assert_eq!(actual.out, "{invalid_key: null}".to_string());
     assert!(actual.err.is_empty());
 }
 
@@ -184,10 +184,7 @@ fn select_ignores_errors_successfully4() {
         r#""key val\na 1\nb 2\n" | lines | split column --collapse-empty " " | select foo? | to nuon"#
     );
 
-    assert_eq!(
-        actual.out,
-        r#"[[foo?]; [null], [null], [null]]"#.to_string()
-    );
+    assert_eq!(actual.out, r#"[[foo]; [null], [null], [null]]"#.to_string());
     assert!(actual.err.is_empty());
 }
 
@@ -237,7 +234,7 @@ fn ignore_errors_works() {
         [{}] | select -i $path | to nuon
         "#);
 
-    assert_eq!(actual.out, "[[foo?]; [null]]");
+    assert_eq!(actual.out, "[[foo]; [null]]");
 }
 
 #[test]

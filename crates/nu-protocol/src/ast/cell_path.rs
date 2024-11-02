@@ -182,14 +182,8 @@ impl Display for CellPath {
                 write!(f, ".")?;
             }
             match elem {
-                PathMember::Int { val, optional, .. } => {
-                    let question_mark = if *optional { "?" } else { "" };
-                    write!(f, "{val}{question_mark}")?
-                }
-                PathMember::String { val, optional, .. } => {
-                    let question_mark = if *optional { "?" } else { "" };
-                    write!(f, "{val}{question_mark}")?
-                }
+                PathMember::Int { val, .. } => write!(f, "{val}")?,
+                PathMember::String { val, .. } => write!(f, "{val}")?,
             }
         }
         Ok(())
