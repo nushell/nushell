@@ -1,4 +1,3 @@
-use log::info;
 use nu_engine::command_prelude::*;
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
@@ -54,7 +53,7 @@ impl Command for Internal {
         let config = engine_state.get_config();
         let table_mode = config.table.mode.into_value(call.head);
         let error_style = config.error_style.into_value(call.head);
-        let no_newline = false;
+        // let no_newline = false;
         let commands: Spanned<String> = call.req(engine_state, stack, 0)?;
         // let _ = evaluate_commands(
         //     &commands,
@@ -76,7 +75,7 @@ impl Command for Internal {
             EvaluateCommandsOpts {
                 table_mode: Some(table_mode),
                 error_style: Some(error_style),
-                no_newline,
+                // no_newline,
             },
         )
     }
@@ -88,7 +87,7 @@ impl Command for Internal {
 pub struct EvaluateCommandsOpts {
     pub table_mode: Option<Value>,
     pub error_style: Option<Value>,
-    pub no_newline: bool,
+    // pub no_newline: bool,
 }
 
 /// Run a command (or commands) given to us by the user
@@ -102,7 +101,7 @@ pub fn evaluate_commands(
     let EvaluateCommandsOpts {
         table_mode,
         error_style,
-        no_newline,
+        // no_newline: _,
     } = opts;
 
     // Handle the configured error style early
