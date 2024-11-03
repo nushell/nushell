@@ -268,7 +268,7 @@ impl UrlComponents {
                         return Err(ShellError::IncompatibleParameters {
                             left_message: format!("Mismatch, query param is: {s}"),
                             left_span: value_span,
-                            right_message: format!("instead qs from params is: {q}"),
+                            right_message: format!("instead query string from params is: {q}"),
                             right_span: self.params_span.unwrap_or(Span::unknown()),
                         });
                     }
