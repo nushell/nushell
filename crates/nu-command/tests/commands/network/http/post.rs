@@ -1,3 +1,5 @@
+use std::{thread, time::Duration};
+
 use mockito::{Matcher, Server, ServerOpts};
 use nu_test_support::{nu, pipeline};
 
@@ -275,4 +277,26 @@ fn http_post_multipart_is_success() {
     ));
 
     assert!(actual.out.is_empty())
+}
+
+#[test]
+fn http_post_timeout() {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("POST", "/")
+        .with_chunked_body(|w| {
+            thread::sleep(Duration::from_secs(1));
+            w.write_all(b"Delayed response!")
+        })
+        .create();
+
+    let actual = nu!(pipeline(
+        format!(
+            "http post --max-time 500ms {url} postbody",
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert!(&actual.err.contains("nu::shell::io_error"));
 }
