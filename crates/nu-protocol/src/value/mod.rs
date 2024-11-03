@@ -2674,24 +2674,12 @@ impl Value {
     }
 
     pub fn div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        fn checked_div_i64(dividend: i64, divisor: i64) -> Option<f64> {
-            let val = dividend.checked_div(divisor)?;
-            let rem = dividend.checked_rem(divisor)?;
-            Some(val as f64 + rem as f64 / divisor as f64)
-        }
-
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if let Some(val) = checked_div_i64(*lhs, *rhs) {
-                    Ok(Value::float(val, span))
-                } else if *rhs == 0 {
+                if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "division operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
+                    Ok(Value::float(*lhs as f64 / *rhs as f64, span))
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2716,16 +2704,10 @@ impl Value {
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                if let Some(val) = checked_div_i64(*lhs, *rhs) {
-                    Ok(Value::float(val, span))
-                } else if *rhs == 0 {
+                if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "division operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
+                    Ok(Value::float(*lhs as f64 / *rhs as f64, span))
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -2758,16 +2740,10 @@ impl Value {
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if let Some(val) = checked_div_i64(*lhs, *rhs) {
-                    Ok(Value::float(val, span))
-                } else if *rhs == 0 {
+                if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "division operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
+                    Ok(Value::float(*lhs as f64 / *rhs as f64, span))
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
