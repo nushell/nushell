@@ -201,7 +201,9 @@ fn url_join_with_invalid_params() {
             "#
     ));
 
-    assert!(actual.err.contains("Key params has to be a record or a table"));
+    assert!(actual
+        .err
+        .contains("Key params has to be a record or a table"));
 }
 
 #[test]
@@ -422,5 +424,7 @@ fn url_join_with_params_invalid_table() {
     ));
 
     assert!(actual.err.contains("expected a table"));
-    assert!(actual.err.contains("not a table, contains non-record values"));
+    assert!(actual
+        .err
+        .contains("not a table, contains non-record values"));
 }
