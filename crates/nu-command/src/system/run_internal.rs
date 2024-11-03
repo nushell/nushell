@@ -56,7 +56,19 @@ impl Command for Internal {
         let error_style = config.error_style.into_value(call.head);
         let no_newline = false;
         let commands: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let _ = evaluate_commands(
+        // let _ = evaluate_commands(
+        //     &commands,
+        //     &mut engine_state.clone(),
+        //     &mut stack.clone(),
+        //     input,
+        //     EvaluateCommandsOpts {
+        //         table_mode: Some(table_mode),
+        //         error_style: Some(error_style),
+        //         no_newline,
+        //     },
+        // );
+        // Ok(PipelineData::Empty)
+        evaluate_commands(
             &commands,
             &mut engine_state.clone(),
             &mut stack.clone(),
@@ -66,8 +78,7 @@ impl Command for Internal {
                 error_style: Some(error_style),
                 no_newline,
             },
-        );
-        Ok(PipelineData::Empty)
+        )
     }
 }
 
@@ -87,7 +98,7 @@ pub fn evaluate_commands(
     stack: &mut Stack,
     input: PipelineData,
     opts: EvaluateCommandsOpts,
-) -> Result<(), ShellError> {
+) -> Result<PipelineData, ShellError> {
     let EvaluateCommandsOpts {
         table_mode,
         error_style,
@@ -146,22 +157,23 @@ pub fn evaluate_commands(
     engine_state.merge_delta(delta)?;
 
     // Run the block
-    let pipeline = eval_block::<WithoutDebug>(engine_state, stack, &block, input)?;
+    // let pipeline = eval_block::<WithoutDebug>(engine_state, stack, &block, input)?;
+    eval_block::<WithoutDebug>(engine_state, stack, &block, input)
 
-    if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline {
-        return Err(*error);
-    }
+    // if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline {
+    //     return Err(*error);
+    // }
 
-    if let Some(t_mode) = table_mode {
-        Arc::make_mut(&mut engine_state.config).table.mode =
-            t_mode.coerce_str()?.parse().unwrap_or_default();
-    }
+    // if let Some(t_mode) = table_mode {
+    //     Arc::make_mut(&mut engine_state.config).table.mode =
+    //         t_mode.coerce_str()?.parse().unwrap_or_default();
+    // }
 
-    pipeline.print(engine_state, stack, no_newline, false)?;
+    // pipeline.print(engine_state, stack, no_newline, false)?;
 
-    info!("evaluate {}:{}:{}", file!(), line!(), column!());
+    // info!("evaluate {}:{}:{}", file!(), line!(), column!());
 
-    Ok(())
+    // Ok(())
 }
 
 #[cfg(test)]
