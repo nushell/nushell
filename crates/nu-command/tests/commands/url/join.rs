@@ -156,7 +156,7 @@ fn url_join_with_different_query_and_params() {
 
     assert!(actual
         .err
-        .contains("Mismatch, qs from params is: ?par_1=aaab&par_2=bbb"));
+        .contains("Mismatch, query string from params is: ?par_1=aaab&par_2=bbb"));
     assert!(actual
         .err
         .contains("instead query is: ?par_1=aaa&par_2=bbb"));
@@ -183,7 +183,7 @@ fn url_join_with_different_query_and_params() {
         .contains("Mismatch, query param is: par_1=aaa&par_2=bbb"));
     assert!(actual
         .err
-        .contains("instead qs from params is: ?par_1=aaab&par_2=bbb"));
+        .contains("instead query string from params is: ?par_1=aaab&par_2=bbb"));
 }
 
 #[test]
