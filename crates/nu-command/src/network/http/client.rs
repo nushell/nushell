@@ -525,7 +525,7 @@ pub fn request_set_timeout(
     mut request: Request,
 ) -> Result<Request, ShellError> {
     if let Some(timeout) = timeout {
-        let val = timeout.as_i64()?;
+        let val = timeout.as_duration()?;
         if val.is_negative() || val < 1 {
             return Err(ShellError::TypeMismatch {
                 err_message: "Timeout value must be an int and larger than 0".to_string(),
@@ -533,7 +533,7 @@ pub fn request_set_timeout(
             });
         }
 
-        request = request.timeout(Duration::from_secs(val as u64));
+        request = request.timeout(Duration::from_nanos(val as u64));
     }
 
     Ok(request)
