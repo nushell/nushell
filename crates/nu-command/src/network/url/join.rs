@@ -216,7 +216,7 @@ impl UrlComponents {
                 if q != qs {
                     // if query is present it means that also query_span is set.
                     return Err(ShellError::IncompatibleParameters {
-                        left_message: format!("Mismatch, qs from params is: {qs}"),
+                        left_message: format!("Mismatch, query string from params is: {qs}"),
                         left_span: value_span,
                         right_message: format!("instead query is: {q}"),
                         right_span: self.query_span.unwrap_or(Span::unknown()),
