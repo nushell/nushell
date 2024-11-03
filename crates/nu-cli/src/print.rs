@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::ByteStreamSource;
+use nu_protocol::{DataSource, PipelineMetadata};
 
 #[derive(Clone)]
 pub struct Print;
@@ -57,15 +58,22 @@ Since this command has no output, there is no point in piping it with other comm
         let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
         let to_stderr = call.has_flag(engine_state, stack, "stderr")?;
         let raw = call.has_flag(engine_state, stack, "raw")?;
+        let metadata = match input.metadata() {
+            Some(md) => md,
+            None => PipelineMetadata {
+                data_source: DataSource::Ls,
+                content_type: None,
+            },
+        };
 
         // This will allow for easy printing of pipelines as well
         if !args.is_empty() {
             for arg in args {
                 if raw {
-                    arg.into_pipeline_data()
+                    arg.into_pipeline_data_with_metadata(metadata.clone())
                         .print_raw(engine_state, no_newline, to_stderr)?;
                 } else {
-                    arg.into_pipeline_data()
+                    arg.into_pipeline_data_with_metadata(metadata.clone())
                         .print(engine_state, stack, no_newline, to_stderr)?;
                 }
             }
