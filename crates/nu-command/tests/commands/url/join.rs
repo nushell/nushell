@@ -201,7 +201,7 @@ fn url_join_with_invalid_params() {
             "#
     ));
 
-    assert!(actual.err.contains("Key params has to be a record"));
+    assert!(actual.err.contains("Key params has to be a record or a table"));
 }
 
 #[test]
@@ -345,4 +345,82 @@ fn url_join_with_empty_params() {
     ));
 
     assert_eq!(actual.out, "https://localhost/foo");
+}
+
+#[test]
+fn url_join_with_list_in_params() {
+    let actual = nu!(pipeline(
+        r#"
+            {
+                "scheme": "http",
+                "username": "usr",
+                "password": "pwd",
+                "host": "localhost",
+                "params": {
+                    "par_1": "aaa",
+                    "par_2": ["bbb", "ccc"]
+                },
+                "port": "1234",
+            } | url join
+        "#
+    ));
+
+    assert_eq!(
+        actual.out,
+        "http://usr:pwd@localhost:1234?par_1=aaa&par_2=bbb&par_2=ccc"
+    );
+}
+
+#[test]
+fn url_join_with_params_table() {
+    let actual = nu!(pipeline(
+        r#"
+            {
+                "scheme": "http",
+                "username": "usr",
+                "password": "pwd",
+                "host": "localhost",
+                "params": [
+                    ["key", "value"];
+                    ["par_1", "aaa"],
+                    ["par_2", "bbb"],
+                    ["par_1", "ccc"],
+                    ["par_2", "ddd"],
+                ],
+                "port": "1234",
+            } | url join
+        "#
+    ));
+
+    assert_eq!(
+        actual.out,
+        "http://usr:pwd@localhost:1234?par_1=aaa&par_2=bbb&par_1=ccc&par_2=ddd"
+    );
+}
+
+#[test]
+fn url_join_with_params_invalid_table() {
+    let actual = nu!(pipeline(
+        r#"
+            {
+                "scheme": "http",
+                "username": "usr",
+                "password": "pwd",
+                "host": "localhost",
+                "params": (
+                    [
+                        ["key", "value"];
+                        ["par_1", "aaa"],
+                        ["par_2", "bbb"],
+                        ["par_1", "ccc"],
+                        ["par_2", "ddd"],
+                    ] ++ ["not a record"]
+                ),
+                "port": "1234",
+            } | url join
+        "#
+    ));
+
+    assert!(actual.err.contains("expected a table"));
+    assert!(actual.err.contains("not a table, contains non-record values"));
 }
