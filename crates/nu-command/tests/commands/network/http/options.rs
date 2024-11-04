@@ -1,3 +1,5 @@
+use std::{thread, time::Duration};
+
 use mockito::Server;
 use nu_test_support::{nu, pipeline};
 
@@ -40,4 +42,22 @@ fn http_options_failed_due_to_server_error() {
     ));
 
     assert!(actual.err.contains("Bad request (400)"))
+}
+
+#[test]
+fn http_options_timeout() {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("OPTIONS", "/")
+        .with_chunked_body(|w| {
+            thread::sleep(Duration::from_secs(1));
+            w.write_all(b"Delayed response!")
+        })
+        .create();
+
+    let actual = nu!(pipeline(
+        format!("http options --max-time 500ms {url}", url = server.url()).as_str()
+    ));
+
+    assert!(&actual.err.contains("nu::shell::io_error"));
 }

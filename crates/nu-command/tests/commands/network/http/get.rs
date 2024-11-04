@@ -1,3 +1,5 @@
+use std::{thread, time::Duration};
+
 use mockito::Server;
 use nu_test_support::{nu, pipeline};
 
@@ -315,4 +317,22 @@ fn http_get_with_unknown_mime_type() {
     ));
 
     assert_eq!(actual.out, "[1,2,3]");
+}
+
+#[test]
+fn http_get_timeout() {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/")
+        .with_chunked_body(|w| {
+            thread::sleep(Duration::from_secs(1));
+            w.write_all(b"Delayed response!")
+        })
+        .create();
+
+    let actual = nu!(pipeline(
+        format!("http get --max-time 500ms {url}", url = server.url()).as_str()
+    ));
+
+    assert!(&actual.err.contains("nu::shell::io_error"));
 }
