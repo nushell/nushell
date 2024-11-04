@@ -82,9 +82,13 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         #[allow(deprecated)]
+        let cwd = match working_set.files.top().and_then(|f| f.parent()) {
+            Some(file) => file.to_string_lossy().into_owned(),
+            None => current_dir_str_const(working_set)?,
+        };
         let args = Arguments {
             strict: call.has_flag_const(working_set, "strict")?,
-            cwd: current_dir_str_const(working_set)?,
+            cwd,
             not_follow_symlink: call.has_flag_const(working_set, "no-symlink")?,
         };
         // This doesn't match explicit nulls
