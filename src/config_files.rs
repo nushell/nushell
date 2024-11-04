@@ -26,18 +26,24 @@ pub(crate) fn read_config_file(
     stack: &mut Stack,
     config_file: Option<Spanned<String>>,
     is_env_config: bool,
+    load_defaults: bool,
     create_scaffold: bool,
 ) {
     info!(
         "read_config_file() config_file_specified: {:?}, is_env_config: {is_env_config}",
         &config_file
     );
-    let default_config_file = if is_env_config {
-        get_default_env()
-    } else {
-        get_default_config()
+
+    if load_defaults {
+        let default_config_file = if is_env_config {
+            get_default_env()
+        } else {
+            get_default_config()
+        };
+        info!("read_config_file() loading_defaults is_env_config: {is_env_config}");
+
+        eval_default_config(engine_state, stack, default_config_file, is_env_config);
     };
-    eval_default_config(engine_state, stack, default_config_file, is_env_config);
 
     // Load config startup file
     if let Some(file) = config_file {
@@ -206,11 +212,7 @@ fn eval_default_config(
     config_file: &str,
     is_env_config: bool,
 ) {
-    info!(
-        "eval_default_config() config_file_specified: {:?}, is_env_config: {}",
-        &config_file, is_env_config
-    );
-    // Just use the contents of "default_config.nu" or "default_env.nu"
+    info!("eval_default_config() is_env_config: {}", is_env_config);
     eval_source(
         engine_state,
         stack,
@@ -236,6 +238,7 @@ pub(crate) fn setup_config(
     #[cfg(feature = "plugin")] plugin_file: Option<Spanned<String>>,
     config_file: Option<Spanned<String>>,
     env_file: Option<Spanned<String>>,
+    load_defaults: bool,
     is_login_shell: bool,
 ) {
     info!(
@@ -249,8 +252,22 @@ pub(crate) fn setup_config(
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, plugin_file);
 
-        read_config_file(engine_state, stack, env_file, true, create_scaffold);
-        read_config_file(engine_state, stack, config_file, false, create_scaffold);
+        read_config_file(
+            engine_state,
+            stack,
+            env_file,
+            true,
+            load_defaults,
+            create_scaffold,
+        );
+        read_config_file(
+            engine_state,
+            stack,
+            config_file,
+            false,
+            load_defaults,
+            create_scaffold,
+        );
 
         if is_login_shell {
             read_loginshell_file(engine_state, stack);

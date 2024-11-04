@@ -409,6 +409,7 @@ fn main() -> Result<()> {
                 parsed_nu_cli_args.plugin_file,
                 parsed_nu_cli_args.config_file,
                 parsed_nu_cli_args.env_file,
+                parsed_nu_cli_args.no_defaults.is_none(),
                 false,
             );
         }
