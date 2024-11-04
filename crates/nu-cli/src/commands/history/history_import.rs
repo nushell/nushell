@@ -283,7 +283,7 @@ fn backup(path: &Path) -> Result<Option<PathBuf>, ShellError> {
 #[cfg(test)]
 mod tests {
     use chrono::DateTime;
-    use test_case::case;
+    use rstest::rstest;
 
     use super::*;
 
@@ -378,14 +378,11 @@ mod tests {
         Value::record(rec, span)
     }
 
-    #[case(&["history.dat"], "history.dat.bak"; "no_backup")]
-    #[case(&["history.dat", "history.dat.bak"], "history.dat.bak.1"; "backup_exists")]
-    #[case(
-        &["history.dat", "history.dat.bak", "history.dat.bak.1"],
-        "history.dat.bak.2";
-        "multiple_backups_exists"
-    )]
-    fn test_find_backup_path(existing: &[&str], want: &str) {
+    #[rstest]
+    #[case::no_backup(&["history.dat"], "history.dat.bak")]
+    #[case::backup_exists(&["history.dat", "history.dat.bak"], "history.dat.bak.1")]
+    #[case::multiple_backups_exists( &["history.dat", "history.dat.bak", "history.dat.bak.1"], "history.dat.bak.2")]
+    fn test_find_backup_path(#[case] existing: &[&str], #[case] want: &str) {
         let dir = tempfile::tempdir().unwrap();
         for name in existing {
             std::fs::File::create_new(dir.path().join(name)).unwrap();

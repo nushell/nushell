@@ -4,8 +4,8 @@ use reedline::{
     FileBackedHistory, History, HistoryItem, HistoryItemId, ReedlineError, SearchQuery,
     SqliteBackedHistory,
 };
+use rstest::rstest;
 use tempfile::TempDir;
-use test_case::case;
 
 struct Test {
     cfg_dir: TempDir,
@@ -251,9 +251,10 @@ fn to_empty_sqlite() {
     .run()
 }
 
-#[case(HistoryFileFormat::Plaintext; "plaintext")]
-#[case(HistoryFileFormat::Sqlite; "sqlite")]
-fn to_existing(dst_format: HistoryFileFormat) {
+#[rstest]
+#[case::plaintext(HistoryFileFormat::Plaintext)]
+#[case::sqlite(HistoryFileFormat::Sqlite)]
+fn to_existing(#[case] dst_format: HistoryFileFormat) {
     TestCase {
         dst_format,
         dst_history: vec![
