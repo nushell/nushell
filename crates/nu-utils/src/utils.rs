@@ -85,12 +85,20 @@ where
     ret
 }
 
+pub fn get_scaffold_env() -> &'static str {
+    include_str!("default_files/scaffold_env.nu")
+}
+
+pub fn get_scaffold_config() -> &'static str {
+    include_str!("default_files/scaffold_config.nu")
+}
+
 pub fn get_default_env() -> &'static str {
-    include_str!("sample_config/default_env.nu")
+    include_str!("default_files/default_env.nu")
 }
 
 pub fn get_default_config() -> &'static str {
-    include_str!("sample_config/default_config.nu")
+    include_str!("default_files/default_config.nu")
 }
 
 pub fn get_ls_colors(lscolors_env_string: Option<String>) -> LsColors {

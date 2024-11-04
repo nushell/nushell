@@ -1,4 +1,4 @@
-use log::warn;
+use log::info;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
@@ -7,7 +7,7 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     report_parse_error, report_shell_error, Config, ParseError, PipelineData, Spanned,
 };
-use nu_utils::{get_default_config, get_default_env};
+use nu_utils::{get_default_config, get_default_env, get_scaffold_env, get_scaffold_config};
 use std::{
     fs,
     fs::File,
@@ -28,7 +28,7 @@ pub(crate) fn read_config_file(
     is_env_config: bool,
     ask_to_create: bool,
 ) {
-    warn!(
+    info!(
         "read_config_file() config_file_specified: {:?}, is_env_config: {is_env_config}",
         &config_file
     );
@@ -84,7 +84,13 @@ pub(crate) fn read_config_file(
                 _ => false,
             };
 
-            let config_file = if is_env_config {
+            let scaffold_config_file = if is_env_config {
+                get_scaffold_env()
+            } else {
+                get_scaffold_config()
+            };
+
+            let default_config_file = if is_env_config {
                 get_default_env()
             } else {
                 get_default_config()
@@ -93,7 +99,7 @@ pub(crate) fn read_config_file(
             match will_create_file {
                 true => {
                     if let Ok(mut output) = File::create(&config_path) {
-                        if write!(output, "{config_file}").is_ok() {
+                        if write!(output, "{scaffold_config_file}").is_ok() {
                             let config_type = if is_env_config {
                                 "Environment config"
                             } else {
@@ -109,17 +115,17 @@ pub(crate) fn read_config_file(
                                 "Unable to write to {}, sourcing default file instead",
                                 config_path.to_string_lossy(),
                             );
-                            eval_default_config(engine_state, stack, config_file, is_env_config);
+                            eval_default_config(engine_state, stack, default_config_file, is_env_config);
                             return;
                         }
                     } else {
-                        eprintln!("Unable to create {config_file}, sourcing default file instead");
-                        eval_default_config(engine_state, stack, config_file, is_env_config);
+                        eprintln!("Unable to create {scaffold_config_file}, sourcing default file instead");
+                        eval_default_config(engine_state, stack, default_config_file, is_env_config);
                         return;
                     }
                 }
                 _ => {
-                    eval_default_config(engine_state, stack, config_file, is_env_config);
+                    eval_default_config(engine_state, stack, default_config_file, is_env_config);
                     return;
                 }
             }
@@ -130,7 +136,7 @@ pub(crate) fn read_config_file(
 }
 
 pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut Stack) {
-    warn!(
+    info!(
         "read_loginshell_file() {}:{}:{}",
         file!(),
         line!(),
@@ -141,7 +147,7 @@ pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut S
     if let Some(mut config_path) = nu_path::nu_config_dir() {
         config_path.push(LOGINSHELL_FILE);
 
-        warn!("loginshell_file: {}", config_path.display());
+        info!("loginshell_file: {}", config_path.display());
 
         if config_path.exists() {
             eval_config_contents(config_path.into(), engine_state, stack);
@@ -160,7 +166,7 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
         false,
     );
 
-    warn!(
+    info!(
         "read_default_env_file() env_file_contents: {config_file} {}:{}:{}",
         file!(),
         line!(),
@@ -192,7 +198,7 @@ fn read_and_sort_directory(path: &Path) -> Result<Vec<String>> {
 }
 
 pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: &mut Stack) {
-    warn!(
+    info!(
         "read_vendor_autoload_files() {}:{}:{}",
         file!(),
         line!(),
@@ -202,7 +208,7 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
     // The evaluation order is first determined by the semantics of `get_vendor_autoload_dirs`
     // to determine the order of directories to evaluate
     for autoload_dir in nu_protocol::eval_const::get_vendor_autoload_dirs(engine_state) {
-        warn!("read_vendor_autoload_files: {}", autoload_dir.display());
+        info!("read_vendor_autoload_files: {}", autoload_dir.display());
 
         if autoload_dir.exists() {
             // on a second levels files are lexicographically sorted by the string of the filename
@@ -213,7 +219,7 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
                         continue;
                     }
                     let path = autoload_dir.join(entry);
-                    warn!("AutoLoading: {:?}", path);
+                    info!("AutoLoading: {:?}", path);
                     eval_config_contents(path, engine_state, stack);
                 }
             }
@@ -227,7 +233,7 @@ fn eval_default_config(
     config_file: &str,
     is_env_config: bool,
 ) {
-    warn!(
+    info!(
         "eval_default_config() config_file_specified: {:?}, is_env_config: {}",
         &config_file, is_env_config
     );
@@ -259,7 +265,7 @@ pub(crate) fn setup_config(
     env_file: Option<Spanned<String>>,
     is_login_shell: bool,
 ) {
-    warn!(
+    info!(
         "setup_config() config_file_specified: {:?}, env_file_specified: {:?}, login: {}",
         &config_file, &env_file, is_login_shell
     );
@@ -300,7 +306,7 @@ pub(crate) fn set_config_path(
     key: &str,
     config_file: Option<&Spanned<String>>,
 ) {
-    warn!(
+    info!(
         "set_config_path() cwd: {:?}, default_config: {}, key: {}, config_file_specified: {:?}",
         &cwd, &default_config_name, &key, &config_file
     );
