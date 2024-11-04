@@ -16,7 +16,6 @@ nu-command = { path = "../nu-command", version = "0.99.2" }
 nu-test-support = { path = "../nu-test-support", version = "0.99.2" }
 rstest = { workspace = true, default-features = false }
 tempfile = { workspace = true }
-test-case = "3.3.1"
 
 [dependencies]
 nu-cmd-base = { path = "../nu-cmd-base", version = "0.99.2" }
