@@ -25,6 +25,11 @@ impl Command for SeqChar {
                 SyntaxShape::String,
                 "End of character sequence (inclusive).",
             )
+            .switch(
+                "graphic",
+                "Only include ASCII graphic characters in the output",
+                Some('g'), // Optional short flag (e.g., `-g`)
+            )
             .category(Category::Generators)
     }
 
@@ -60,7 +65,8 @@ impl Command for SeqChar {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        seq_char(engine_state, stack, call)
+        let graphic_only = call.has_flag("graphic");
+        seq_char(engine_state, stack, call, graphic_only)
     }
 }
 
@@ -72,6 +78,7 @@ fn seq_char(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
+    graphic_only: bool,
 ) -> Result<PipelineData, ShellError> {
     let start: Spanned<String> = call.req(engine_state, stack, 0)?;
     let end: Spanned<String> = call.req(engine_state, stack, 1)?;
@@ -117,7 +124,10 @@ fn seq_char(
 fn run_seq_char(start_ch: char, end_ch: char, span: Span) -> Result<PipelineData, ShellError> {
     let mut result_vec = vec![];
     for current_ch in start_ch as u8..end_ch as u8 + 1 {
-        result_vec.push((current_ch as char).to_string())
+        let char_to_add = current_ch as char;
+        if !graphic_only || char_to_add.is_ascii_graphic() {
+            result_vec.push(char_to_add.to_string());
+        }
     }
 
     let result = result_vec
