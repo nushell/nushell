@@ -65,7 +65,7 @@ impl Command for SeqChar {
 }
 
 fn is_single_character(ch: &str) -> bool {
-    ch.is_ascii() && ch.len() == 1 && ch.chars().all(char::is_alphabetic)
+    ch.is_ascii() && ch.len() == 1 
 }
 
 fn seq_char(
