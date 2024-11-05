@@ -5,9 +5,10 @@ use num_format::ToFormattedString;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt,
-    iter::{Product, Sum},
-    ops::{Add, Div, Mul, Neg, Rem, Sub},
+    iter::Sum,
+    ops::{Add, Mul, Neg, Sub},
 };
+use thiserror::Error;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[repr(transparent)]
@@ -23,6 +24,18 @@ impl Filesize {
 
     pub const fn get(&self) -> i64 {
         self.0
+    }
+
+    pub const fn is_positive(self) -> bool {
+        self.0.is_positive()
+    }
+
+    pub const fn is_negative(self) -> bool {
+        self.0.is_negative()
+    }
+
+    pub const fn signum(self) -> Self {
+        Self(self.0.signum())
     }
 
     pub const fn from_unit(value: i64, unit: FilesizeUnit) -> Option<Self> {
@@ -59,6 +72,39 @@ impl TryFrom<Filesize> for u64 {
 
     fn try_from(filesize: Filesize) -> Result<Self, Self::Error> {
         filesize.0.try_into()
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Error)]
+pub struct TryFromFloatError(());
+
+impl fmt::Display for TryFromFloatError {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "out of range float type conversion attempted")
+    }
+}
+
+impl TryFrom<f64> for Filesize {
+    type Error = TryFromFloatError;
+
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        if i64::MIN as f64 <= value && value <= i64::MAX as f64 {
+            Ok(Self(value as i64))
+        } else {
+            Err(TryFromFloatError(()))
+        }
+    }
+}
+
+impl TryFrom<f32> for Filesize {
+    type Error = TryFromFloatError;
+
+    fn try_from(value: f32) -> Result<Self, Self::Error> {
+        if i64::MIN as f32 <= value && value <= i64::MAX as f32 {
+            Ok(Self(value as i64))
+        } else {
+            Err(TryFromFloatError(()))
+        }
     }
 }
 
@@ -118,27 +164,45 @@ impl Sub for Filesize {
     }
 }
 
-impl Mul for Filesize {
+impl Mul<i64> for Filesize {
     type Output = Option<Self>;
 
-    fn mul(self, rhs: Self) -> Self::Output {
-        self.0.checked_mul(rhs.0).map(Self)
+    fn mul(self, rhs: i64) -> Self::Output {
+        self.0.checked_mul(rhs).map(Self)
     }
 }
 
-impl Div for Filesize {
-    type Output = Option<Self>;
+impl Mul<Filesize> for i64 {
+    type Output = Option<Filesize>;
 
-    fn div(self, rhs: Self) -> Self::Output {
-        self.0.checked_div(rhs.0).map(Self)
+    fn mul(self, rhs: Filesize) -> Self::Output {
+        self.checked_mul(rhs.0).map(Filesize::new)
     }
 }
 
-impl Rem for Filesize {
+impl Mul<f64> for Filesize {
     type Output = Option<Self>;
 
-    fn rem(self, rhs: Self) -> Self::Output {
-        self.0.checked_rem(rhs.0).map(Self)
+    fn mul(self, rhs: f64) -> Self::Output {
+        let bytes = ((self.0 as f64) * rhs).round();
+        if i64::MIN as f64 <= bytes && bytes <= i64::MAX as f64 {
+            Some(Self(bytes as i64))
+        } else {
+            None
+        }
+    }
+}
+
+impl Mul<Filesize> for f64 {
+    type Output = Option<Filesize>;
+
+    fn mul(self, rhs: Filesize) -> Self::Output {
+        let bytes = (self * (rhs.0 as f64)).round();
+        if i64::MIN as f64 <= bytes && bytes <= i64::MAX as f64 {
+            Some(Filesize(bytes as i64))
+        } else {
+            None
+        }
     }
 }
 
@@ -160,23 +224,13 @@ impl Sum<Filesize> for Option<Filesize> {
     }
 }
 
-impl Product<Filesize> for Option<Filesize> {
-    fn product<I: Iterator<Item = Filesize>>(iter: I) -> Self {
-        let mut product = Filesize::ZERO;
-        for filesize in iter {
-            product = (product * filesize)?;
-        }
-        Some(product)
-    }
-}
-
 impl fmt::Display for Filesize {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        format_filesize(self.0, "auto", Some(false)).fmt(f)
+        format_filesize(*self, "auto", Some(false)).fmt(f)
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FilesizeUnit {
     B,
     KB,
@@ -236,37 +290,15 @@ impl FilesizeUnit {
 
     pub const fn is_decimal(&self) -> bool {
         match self {
-            FilesizeUnit::B
-            | FilesizeUnit::KB
-            | FilesizeUnit::MB
-            | FilesizeUnit::GB
-            | FilesizeUnit::TB
-            | FilesizeUnit::PB
-            | FilesizeUnit::EB => true,
-            FilesizeUnit::KiB
-            | FilesizeUnit::MiB
-            | FilesizeUnit::GiB
-            | FilesizeUnit::TiB
-            | FilesizeUnit::PiB
-            | FilesizeUnit::EiB => false,
+            Self::B | Self::KB | Self::MB | Self::GB | Self::TB | Self::PB | Self::EB => true,
+            Self::KiB | Self::MiB | Self::GiB | Self::TiB | Self::PiB | Self::EiB => false,
         }
     }
 
     pub const fn is_binary(&self) -> bool {
         match self {
-            FilesizeUnit::KB
-            | FilesizeUnit::MB
-            | FilesizeUnit::GB
-            | FilesizeUnit::TB
-            | FilesizeUnit::PB
-            | FilesizeUnit::EB => false,
-            FilesizeUnit::B
-            | FilesizeUnit::KiB
-            | FilesizeUnit::MiB
-            | FilesizeUnit::GiB
-            | FilesizeUnit::TiB
-            | FilesizeUnit::PiB
-            | FilesizeUnit::EiB => true,
+            Self::KB | Self::MB | Self::GB | Self::TB | Self::PB | Self::EB => false,
+            Self::B | Self::KiB | Self::MiB | Self::GiB | Self::TiB | Self::PiB | Self::EiB => true,
         }
     }
 }
@@ -277,11 +309,11 @@ impl fmt::Display for FilesizeUnit {
     }
 }
 
-pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
+pub fn format_filesize_from_conf(filesize: Filesize, config: &Config) -> String {
     // We need to take into account config.filesize_metric so, if someone asks for KB
     // and filesize_metric is false, return KiB
     format_filesize(
-        num_bytes,
+        filesize,
         &config.filesize.format,
         Some(config.filesize.metric),
     )
@@ -290,7 +322,7 @@ pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
 // filesize_metric is explicit when printed a value according to user config;
 // other places (such as `format filesize`) don't.
 pub fn format_filesize(
-    num_bytes: i64,
+    filesize: Filesize,
     format_value: &str,
     filesize_metric: Option<bool>,
 ) -> String {
@@ -299,7 +331,7 @@ pub fn format_filesize(
     // When format_value is "auto" or an invalid value, the returned ByteUnit doesn't matter
     // and is always B.
     let filesize_unit = get_filesize_format(format_value, filesize_metric);
-    let byte = byte_unit::Byte::from_u64(num_bytes.unsigned_abs());
+    let byte = byte_unit::Byte::from_u64(filesize.0.unsigned_abs());
     let adj_byte = if let Some(unit) = filesize_unit {
         byte.get_adjusted_unit(unit)
     } else {
@@ -317,7 +349,7 @@ pub fn format_filesize(
             let locale = get_system_locale();
             let locale_byte = adj_byte.get_value() as u64;
             let locale_byte_string = locale_byte.to_formatted_string(&locale);
-            let locale_signed_byte_string = if num_bytes.is_negative() {
+            let locale_signed_byte_string = if filesize.is_negative() {
                 format!("-{locale_byte_string}")
             } else {
                 locale_byte_string
@@ -330,7 +362,7 @@ pub fn format_filesize(
             }
         }
         _ => {
-            if num_bytes.is_negative() {
+            if filesize.is_negative() {
                 format!("-{:.1}", adj_byte)
             } else {
                 format!("{:.1}", adj_byte)
@@ -390,6 +422,9 @@ mod tests {
         #[case] filesize_format: String,
         #[case] exp: &str,
     ) {
-        assert_eq!(exp, format_filesize(val, &filesize_format, filesize_metric));
+        assert_eq!(
+            exp,
+            format_filesize(Filesize::new(val), &filesize_format, filesize_metric)
+        );
     }
 }

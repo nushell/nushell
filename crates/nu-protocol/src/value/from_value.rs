@@ -252,9 +252,7 @@ impl FromValue for i64 {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Int { val, .. } => Ok(val),
-            Value::Filesize { val, .. } => Ok(val),
             Value::Duration { val, .. } => Ok(val),
-
             v => Err(ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
                 from_type: v.get_type().to_string(),
@@ -308,9 +306,7 @@ macro_rules! impl_from_value_for_uint {
                 let span = v.span();
                 const MAX: i64 = $max;
                 match v {
-                    Value::Int { val, .. }
-                    | Value::Filesize { val, .. }
-                    | Value::Duration { val, .. } => {
+                    Value::Int { val, .. } | Value::Duration { val, .. } => {
                         match val {
                             i64::MIN..=-1 => Err(ShellError::NeedsPositiveValue { span }),
                             0..=MAX => Ok(val as $type),
