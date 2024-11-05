@@ -334,6 +334,10 @@ pub(super) fn compute_series_single_value(
             Value::Float { val, .. } => {
                 compare_series_float(&lhs, *val, ChunkedArray::not_equal, lhs_span)
             }
+            Value::String { val, .. } => {
+                let equal_pattern = format!("^{}$", fancy_regex::escape(val));
+                contains_series_pat(&lhs, &equal_pattern, lhs_span)
+            }
             Value::Date { val, .. } => compare_series_i64(
                 &lhs,
                 val.timestamp_millis(),
