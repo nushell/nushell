@@ -79,7 +79,7 @@ fn seq_char(
     if !is_single_character(&start.item) {
         return Err(ShellError::GenericError {
             error: "seq char only accepts individual ASCII characters as parameters".into(),
-            msg: "should be 1 character long".into(),
+            msg: "input should be a single ASCII character".into(),
             span: Some(start.span),
             help: None,
             inner: vec![],
@@ -89,7 +89,7 @@ fn seq_char(
     if !is_single_character(&end.item) {
         return Err(ShellError::GenericError {
             error: "seq char only accepts individual ASCII characters as parameters".into(),
-            msg: "should be 1 character long".into(),
+            msg: "input should be a single ASCII character".into(),
             span: Some(end.span),
             help: None,
             inner: vec![],
