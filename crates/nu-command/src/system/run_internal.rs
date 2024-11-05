@@ -141,7 +141,7 @@ pub fn evaluate_commands(
 
         if let Some(err) = working_set.parse_errors.first() {
             report_parse_error(&working_set, err);
-            std::process::exit(1);
+            //std::process::exit(1);
         }
 
         if let Some(err) = working_set.compile_errors.first() {
