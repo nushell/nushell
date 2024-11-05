@@ -54,12 +54,6 @@ pub fn load_standard_library(
         ("mod.nu", "std/math", include_str!("../std/math/mod.nu")),
         ("mod.nu", "std/util", include_str!("../std/util/mod.nu")),
         ("mod.nu", "std/xml", include_str!("../std/xml/mod.nu")),
-        // Remove in following release
-        (
-            "mod.nu",
-            "std/deprecated_dirs",
-            include_str!("../std/deprecated_dirs/mod.nu"),
-        ),
     ];
 
     for (filename, std_subdir_name, content) in std_submodules.drain(..) {
@@ -87,14 +81,6 @@ pub fn load_standard_library(
         let source = r#"
 # Prelude
 use std/core *
-use std/deprecated_dirs [
-    enter
-    shells
-    g
-    n
-    p
-    dexit
-]
 "#;
 
         // Add a placeholder file to the stack of files being evaluated.
