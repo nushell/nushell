@@ -1,6 +1,4 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::Signals;
-use std::io::{self, Read};
 
 #[derive(Clone)]
 pub struct Skip;
@@ -96,21 +94,9 @@ impl Command for Skip {
             PipelineData::ByteStream(stream, metadata) => {
                 if stream.type_().is_binary_coercible() {
                     let span = stream.span();
-                    if let Some(mut reader) = stream.reader() {
-                        // Copy the number of skipped bytes into the sink before proceeding
-                        io::copy(&mut (&mut reader).take(n as u64), &mut io::sink())
-                            .err_span(span)?;
-                        Ok(PipelineData::ByteStream(
-                            ByteStream::read(
-                                reader,
-                                call.head,
-                                Signals::empty(),
-                                ByteStreamType::Binary,
-                            ),
-                            metadata,
-                        ))
-                    } else {
-                        Ok(PipelineData::Empty)
+                    match stream.skip(span, n as u64) {
+                        Ok(stream) => Ok(PipelineData::ByteStream(stream, metadata)),
+                        Err(err) => Err(err),
                     }
                 } else {
                     Err(ShellError::OnlySupportsThisInputType {

@@ -1,11 +1,9 @@
-use itertools::Itertools;
 use nu_cmd_base::{
     input_handler::{operate, CmdArgument},
     util,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::Range;
-use std::io::{Read, Write};
 
 #[derive(Clone)]
 pub struct BytesAt;
@@ -87,7 +85,15 @@ impl Command for BytesAt {
         };
 
         if let PipelineData::ByteStream(stream, metadata) = input {
-            handle_byte_stream(&args, stream, call, metadata, engine_state)
+            match stream.slice(
+                call.head,
+                call.arguments_span(),
+                args.indexes.0,
+                args.indexes.1,
+            ) {
+                Ok(stream) => Ok(PipelineData::ByteStream(stream, metadata)),
+                Err(err) => Err(err),
+            }
         } else {
             operate(map_value, args, input, call.head, engine_state.signals())
         }
@@ -104,8 +110,8 @@ impl Command for BytesAt {
             },
             Example {
                 description: "Slice out `0x[10 01 13]` from `0x[33 44 55 10 01 13]`",
-                example: "0x[33 44 55 10 01 13 10] | bytes at 3..6",
-                result: Some(Value::test_binary(vec![0x10, 0x01, 0x13, 0x10])),
+                example: "0x[33 44 55 10 01 13] | bytes at 3..6",
+                result: Some(Value::test_binary(vec![0x10, 0x01, 0x13])),
             },
             Example {
                 description: "Extract bytes from the start up to a specific index",
@@ -145,7 +151,7 @@ fn map_value(input: &Value, args: &Arguments, head: Span) -> Value {
     match input {
         Value::Binary { val, .. } => {
             let (start, end) = resolve_relative_range(range, val.len());
-            let iter = val.iter().map(|x| *x);
+            let iter = val.iter().copied();
 
             let bytes: Vec<u8> = if start > end {
                 vec![]
@@ -170,53 +176,6 @@ fn map_value(input: &Value, args: &Arguments, head: Span) -> Value {
     }
 }
 
-fn handle_byte_stream(
-    args: &Arguments,
-    stream: ByteStream,
-    call: &Call,
-    metadata: Option<nu_protocol::PipelineMetadata>,
-    engine_state: &EngineState,
-) -> Result<PipelineData, ShellError> {
-    match stream.reader() {
-        Some(reader) => {
-            let iter = reader.bytes().filter_map(Result::ok);
-            let Subbytes { 0: start, 1: end } = args.indexes;
-
-            let mut iter = if start < 0 || end < 0 {
-                match iter.try_len() {
-                    Ok(len) => {
-                        let (start, end) = resolve_relative_range(&args.indexes, len);
-                        iter.skip(start).take(end - start + 1)
-                    },
-                    Err(_) => return Err(ShellError::IncorrectValue {
-                        msg: "Negative range values cannot be used with streams that don't specify a length".into(),
-                        val_span: call.head,
-                        call_span: call.arguments_span(),
-                    }),
-                }
-            } else {
-                iter.skip(start as usize).take((end - start) as usize)
-            };
-
-            let stream = ByteStream::from_fn(
-                call.head,
-                engine_state.signals().clone(),
-                ByteStreamType::Binary,
-                move |buf| match iter.next() {
-                    Some(n) if n > 0 => match buf.write(&[n]) {
-                        Ok(_) => Ok(true),
-                        Err(err) => Err(err.into()),
-                    },
-                    _ => Ok(false),
-                },
-            );
-
-            Ok(PipelineData::ByteStream(stream, metadata))
-        }
-        None => Ok(PipelineData::empty()),
-    }
-}
-
 fn resolve_relative_range(range: &Subbytes, len: usize) -> (usize, usize) {
     let start = match range.0 {
         start if start < 0 => match len as isize + start {
@@ -232,4 +191,15 @@ fn resolve_relative_range(range: &Subbytes, len: usize) -> (usize, usize) {
     };
 
     (start, end)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+        test_examples(BytesAt {})
+    }
 }

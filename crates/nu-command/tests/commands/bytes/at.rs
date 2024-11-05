@@ -1,21 +1,63 @@
 use nu_test_support::nu;
 
 #[test]
-fn returns_error_for_relative_range_on_infinite_stream() {
+pub fn returns_error_for_relative_range_on_infinite_stream() {
     let actual = nu!("nu --testbin iecho 3 | bytes at ..-3");
     assert!(
         actual.err.contains(
-            "Negative range values cannot be used with streams that don't specify a length"
+            "Relative range values cannot be used with streams that don't specify a length"
         ),
         "Expected error message for negative range with infinite stream"
     );
 }
 
 #[test]
-fn returns_bytes_for_fixed_range_on_infinite_stream() {
+pub fn returns_bytes_for_fixed_range_on_infinite_stream() {
     let actual = nu!("nu --testbin iecho 3 | bytes at ..10 | decode");
     assert_eq!(
         actual.out, "33333",
         "Expected bytes from index 1 to 10, but got different output"
     );
+}
+
+#[test]
+pub fn test_string_returns_correct_slice_for_simple_positive_slice() {
+    let actual = nu!("\"Hello World\" | encode utf8 | bytes at ..4 | decode");
+    assert_eq!(actual.out, "Hello");
+}
+
+#[test]
+pub fn test_string_returns_correct_slice_for_negative_start() {
+    let actual = nu!("\"Hello World\" | encode utf8 | bytes at 6..11 | decode");
+    assert_eq!(actual.out, "World");
+}
+
+#[test]
+pub fn test_string_returns_correct_slice_for_negative_end() {
+    let actual = nu!("\"Hello World\" | encode utf8 | bytes at ..-7 | decode");
+    assert_eq!(actual.out, "Hello");
+}
+
+#[test]
+pub fn test_string_returns_correct_slice_for_empty_slice() {
+    let actual = nu!("\"Hello World\" | encode utf8 | bytes at 5..<5 | decode");
+    assert_eq!(actual.out, "");
+}
+
+#[test]
+pub fn test_string_returns_correct_slice_for_out_of_bounds() {
+    let actual = nu!("\"Hello World\" | encode utf8 | bytes at 0..20 | decode");
+    assert_eq!(actual.out, "Hello World");
+}
+
+#[test]
+pub fn test_string_returns_correct_slice_for_invalid_range() {
+    let actual = nu!("\"Hello World\" | encode utf8 | bytes at 11..5 | decode");
+    assert_eq!(actual.out, "");
+}
+
+#[test]
+pub fn test_string_returns_correct_slice_for_max_end() {
+    let actual = nu!("\"Hello World\" | encode utf8 | bytes at 6..<11 | decode");
+    assert_eq!(actual.out, "World");
 }
