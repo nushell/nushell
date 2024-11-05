@@ -220,6 +220,81 @@ impl ByteStream {
         )
     }
 
+    pub fn skip(self, span: Span, n: u64) -> Result<Self, ShellError> {
+        if let Some(mut reader) = self.reader() {
+            // Copy the number of skipped bytes into the sink before proceeding
+            io::copy(&mut (&mut reader).take(n as u64), &mut io::sink()).err_span(span)?;
+            Ok(ByteStream::read(
+                reader,
+                span,
+                Signals::empty(),
+                ByteStreamType::Binary,
+            ))
+        } else {
+            return Err(ShellError::TypeMismatch {
+                err_message: "expected readable stream".into(),
+                span,
+            });
+        }
+    }
+
+    pub fn take(self, span: Span, n: u64) -> Result<Self, ShellError> {
+        if let Some(reader) = self.reader() {
+            Ok(ByteStream::read(
+                reader.take(n),
+                span,
+                Signals::empty(),
+                ByteStreamType::Binary,
+            ))
+        } else {
+            return Err(ShellError::TypeMismatch {
+                err_message: "expected readable stream".into(),
+                span,
+            });
+        }
+    }
+
+    pub fn slice(
+        self,
+        val_span: Span,
+        call_span: Span,
+        start: isize,
+        end: isize,
+    ) -> Result<Self, ShellError> {
+        match self.known_size {
+            Some(len) => {
+                let absolute_start = match start {
+                    start if start < 0 => (len as isize + start).max(0) as usize,
+                    start => start.min(len as isize) as usize,
+                };
+
+                self.skip(val_span, absolute_start as u64)
+                    .and_then(|stream| {
+                        let absolute_end = match end {
+                            end if end < 0 => (len as isize + end).max(0) as usize,
+                            end => end.min(len as isize) as usize,
+                        };
+
+                        if absolute_end < absolute_start {
+                            stream.take(val_span, 0)
+                        } else {
+                            stream.take(val_span, (absolute_end - absolute_start) as u64)
+                        }
+                    })
+            }
+            None if start < 0 || end < 0 => Err(ShellError::IncorrectValue {
+                msg:
+                    "Negative range values cannot be used with streams that don't specify a length"
+                        .into(),
+                val_span,
+                call_span,
+            }),
+            None => self
+                .skip(val_span, start as u64)
+                .and_then(|stream| stream.take(val_span, end as u64)),
+        }
+    }
+
     /// Create a [`ByteStream`] from a string. The type of the stream is always `String`.
     pub fn read_string(string: String, span: Span, signals: Signals) -> Self {
         let len = string.len();
