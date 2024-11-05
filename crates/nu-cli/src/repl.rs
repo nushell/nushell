@@ -760,7 +760,7 @@ fn fill_in_result_related_history_metadata(
                 c.duration = Some(cmd_duration);
                 c.exit_status = stack
                     .get_env_var(engine_state, "LAST_EXIT_CODE")
-                    .and_then(|e| e.as_i64().ok());
+                    .and_then(|e| e.as_int().ok());
                 c
             })
             .into_diagnostic()?; // todo: don't stop repl if error here?
@@ -1247,7 +1247,7 @@ fn get_command_finished_marker(
 ) -> String {
     let exit_code = stack
         .get_env_var(engine_state, "LAST_EXIT_CODE")
-        .and_then(|e| e.as_i64().ok());
+        .and_then(|e| e.as_int().ok());
 
     if shell_integration_osc633 {
         if stack

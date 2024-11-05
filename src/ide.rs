@@ -27,7 +27,7 @@ fn find_id(
     let block = parse(working_set, Some(file_path), file, false);
     let flattened = flatten_block(working_set, &block);
 
-    if let Ok(location) = location.as_i64() {
+    if let Ok(location) = location.as_int() {
         let location = location as usize + offset;
         for item in flattened {
             if location >= item.0.start && location < item.0.end {
@@ -80,7 +80,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value
     let mut working_set = StateWorkingSet::new(engine_state);
     let file = std::fs::read(file_path);
 
-    let max_errors = if let Ok(max_errors) = max_errors.as_i64() {
+    let max_errors = if let Ok(max_errors) = max_errors.as_int() {
         max_errors as usize
     } else {
         100
@@ -603,7 +603,7 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &
             std::process::exit(1);
         });
 
-    if let Ok(location) = location.as_i64() {
+    if let Ok(location) = location.as_int() {
         let results = completer.complete(
             &String::from_utf8_lossy(&file)[..location as usize],
             location as usize,
