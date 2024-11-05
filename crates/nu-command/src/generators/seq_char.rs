@@ -71,7 +71,7 @@ impl Command for SeqChar {
 }
 
 fn is_single_character(ch: &str) -> bool {
-    ch.is_ascii() && ch.len() == 1 
+    ch.is_ascii() && ch.len() == 1
 }
 
 fn seq_char(
@@ -107,23 +107,26 @@ fn seq_char(
         .item
         .chars()
         .next()
-        // expect is ok here, because we just checked the length
-        .expect("seq char input must contains 2 inputs");
+        .expect("seq char input must contain 2 inputs");
 
     let end = end
         .item
         .chars()
         .next()
-        // expect is ok here, because we just checked the length
-        .expect("seq char input must contains 2 inputs");
+        .expect("seq char input must contain 2 inputs");
 
     let span = call.head;
-    run_seq_char(start, end, span)
+    run_seq_char(start, end, span, graphic_only)
 }
 
-fn run_seq_char(start_ch: char, end_ch: char, span: Span) -> Result<PipelineData, ShellError> {
+fn run_seq_char(
+    start_ch: char,
+    end_ch: char,
+    span: Span,
+    graphic_only: bool,
+) -> Result<PipelineData, ShellError> {
     let mut result_vec = vec![];
-    for current_ch in start_ch as u8..end_ch as u8 + 1 {
+    for current_ch in start_ch as u8..=end_ch as u8 {
         let char_to_add = current_ch as char;
         if !graphic_only || char_to_add.is_ascii_graphic() {
             result_vec.push(char_to_add.to_string());
