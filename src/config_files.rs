@@ -1,5 +1,6 @@
 use log::warn;
 #[cfg(feature = "plugin")]
+use nu_engine::convert_env_values;
 use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
 use nu_path::canonicalize_with;
@@ -7,7 +8,7 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     report_parse_error, report_shell_error, Config, ParseError, PipelineData, Spanned,
 };
-use nu_utils::{get_default_config, get_default_env, get_scaffold_config, get_scaffold_env};
+use nu_utils::{get_default_config, get_default_env, get_scaffold_config, get_scaffold_env, perf};
 use std::{
     fs,
     fs::File,
@@ -35,14 +36,20 @@ pub(crate) fn read_config_file(
     );
 
     if load_defaults {
-        let default_config_file = if is_env_config {
-            get_default_env()
+        if is_env_config {
+            eval_default_config(engine_state, stack, get_default_env(), is_env_config);
+            let config = engine_state.get_config();
+            let use_color = config.use_ansi_coloring;
+            let start_time = std::time::Instant::now();
+            // Translate environment variables from Strings to Values
+            if let Err(e) = convert_env_values(engine_state, &stack) {
+                report_shell_error(engine_state, &e);
+            }
+            perf!("translate env vars after default_env.nu", start_time, use_color);
         } else {
-            get_default_config()
+            eval_default_config(engine_state, stack, get_default_config(), is_env_config);
         };
         warn!("read_config_file() loading_defaults is_env_config: {is_env_config}");
-
-        eval_default_config(engine_state, stack, default_config_file, is_env_config);
     };
 
     // Load config startup file
