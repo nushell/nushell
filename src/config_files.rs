@@ -1,8 +1,8 @@
 use log::warn;
 #[cfg(feature = "plugin")]
-use nu_engine::convert_env_values;
 use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
+use nu_engine::convert_env_values;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
@@ -45,7 +45,11 @@ pub(crate) fn read_config_file(
             if let Err(e) = convert_env_values(engine_state, &stack) {
                 report_shell_error(engine_state, &e);
             }
-            perf!("translate env vars after default_env.nu", start_time, use_color);
+            perf!(
+                "translate env vars after default_env.nu",
+                start_time,
+                use_color
+            );
         } else {
             eval_default_config(engine_state, stack, get_default_config(), is_env_config);
         };
