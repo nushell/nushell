@@ -47,7 +47,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
     Ok(match &v {
         Value::Bool { val, .. } => toml::Value::Boolean(*val),
         Value::Int { val, .. } => toml::Value::Integer(*val),
-        Value::Filesize { val, .. } => toml::Value::Integer(*val),
+        Value::Filesize { val, .. } => toml::Value::Integer(val.get()),
         Value::Duration { val, .. } => toml::Value::String(val.to_string()),
         Value::Date { val, .. } => toml::Value::Datetime(to_toml_datetime(val)),
         Value::Range { .. } => toml::Value::String("<Range>".to_string()),

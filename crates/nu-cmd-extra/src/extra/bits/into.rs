@@ -203,7 +203,7 @@ pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
             Value::string(raw_string.trim(), span)
         }
         Value::Int { val, .. } => convert_to_smallest_number_type(*val, span),
-        Value::Filesize { val, .. } => convert_to_smallest_number_type(*val, span),
+        Value::Filesize { val, .. } => convert_to_smallest_number_type(val.get(), span),
         Value::Duration { val, .. } => convert_to_smallest_number_type(*val, span),
         Value::String { val, .. } => {
             let raw_bytes = val.as_bytes();

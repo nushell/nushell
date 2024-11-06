@@ -253,7 +253,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 convert_int(input, span, radix)
             }
         }
-        Value::Filesize { val, .. } => Value::int(*val, span),
+        Value::Filesize { val, .. } => Value::int(val.get(), span),
         Value::Float { val, .. } => Value::int(
             {
                 if radix == 10 {

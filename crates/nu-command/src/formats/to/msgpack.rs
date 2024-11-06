@@ -168,7 +168,7 @@ pub(crate) fn write_value(
             mp::write_f64(out, *val).err_span(span)?;
         }
         Value::Filesize { val, .. } => {
-            mp::write_sint(out, *val).err_span(span)?;
+            mp::write_sint(out, val.get()).err_span(span)?;
         }
         Value::Duration { val, .. } => {
             mp::write_sint(out, *val).err_span(span)?;

@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::{Expr, Expression, ListItem, RecordItem},
     engine::{EngineState, StateWorkingSet},
-    Range, Record, ShellError, Span, Type, Unit, Value,
+    Filesize, IntoValue, Range, Record, ShellError, Span, Type, Unit, Value,
 };
 use std::sync::Arc;
 
@@ -9,7 +9,7 @@ use std::sync::Arc;
 ///
 // WARNING: please leave the following two trailing spaces, they matter for the documentation
 // formatting
-/// > **Note**  
+/// > **Note**
 /// > [`Span`] can be passed to [`from_nuon`] if there is context available to the caller, e.g. when
 /// > using this function in a command implementation such as
 /// > [`from nuon`](https://www.nushell.sh/commands/docs/from_nuon.html).
@@ -407,32 +407,15 @@ fn convert_to_value(
             };
 
             match value.unit.item {
-                Unit::Byte => Ok(Value::filesize(size, span)),
-                Unit::Kilobyte => Ok(Value::filesize(size * 1000, span)),
-                Unit::Megabyte => Ok(Value::filesize(size * 1000 * 1000, span)),
-                Unit::Gigabyte => Ok(Value::filesize(size * 1000 * 1000 * 1000, span)),
-                Unit::Terabyte => Ok(Value::filesize(size * 1000 * 1000 * 1000 * 1000, span)),
-                Unit::Petabyte => Ok(Value::filesize(
-                    size * 1000 * 1000 * 1000 * 1000 * 1000,
-                    span,
-                )),
-                Unit::Exabyte => Ok(Value::filesize(
-                    size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
-                    span,
-                )),
-
-                Unit::Kibibyte => Ok(Value::filesize(size * 1024, span)),
-                Unit::Mebibyte => Ok(Value::filesize(size * 1024 * 1024, span)),
-                Unit::Gibibyte => Ok(Value::filesize(size * 1024 * 1024 * 1024, span)),
-                Unit::Tebibyte => Ok(Value::filesize(size * 1024 * 1024 * 1024 * 1024, span)),
-                Unit::Pebibyte => Ok(Value::filesize(
-                    size * 1024 * 1024 * 1024 * 1024 * 1024,
-                    span,
-                )),
-                Unit::Exbibyte => Ok(Value::filesize(
-                    size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
-                    span,
-                )),
+                Unit::Filesize(unit) => match Filesize::from_unit(size, unit) {
+                    Some(val) => Ok(val.into_value(span)),
+                    None => Err(ShellError::OutsideSpannedLabeledError {
+                        src: original_text.into(),
+                        error: "filesize too large".into(),
+                        msg: "filesize too large".into(),
+                        span: expr.span,
+                    }),
+                },
 
                 Unit::Nanosecond => Ok(Value::duration(size, span)),
                 Unit::Microsecond => Ok(Value::duration(size * 1000, span)),

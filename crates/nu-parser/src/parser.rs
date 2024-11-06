@@ -11,9 +11,9 @@ use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean, Flag,
-    ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId, ENV_VARIABLE_ID,
-    IN_VARIABLE_ID,
+    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean,
+    FilesizeUnit, Flag, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type,
+    VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -2572,19 +2572,67 @@ pub fn parse_unit_value<'res>(
 }
 
 pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
-    (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
-    (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
-    (Unit::Gigabyte, "GB", Some((Unit::Megabyte, 1000))),
-    (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
-    (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
-    (Unit::Exabyte, "EB", Some((Unit::Petabyte, 1000))),
-    (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
-    (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
-    (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
-    (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
-    (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
-    (Unit::Exbibyte, "EIB", Some((Unit::Pebibyte, 1024))),
-    (Unit::Byte, "B", None),
+    (
+        Unit::Filesize(FilesizeUnit::KB),
+        "KB",
+        Some((Unit::Filesize(FilesizeUnit::B), 1000)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::MB),
+        "MB",
+        Some((Unit::Filesize(FilesizeUnit::KB), 1000)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::GB),
+        "GB",
+        Some((Unit::Filesize(FilesizeUnit::MB), 1000)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::TB),
+        "TB",
+        Some((Unit::Filesize(FilesizeUnit::GB), 1000)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::PB),
+        "PB",
+        Some((Unit::Filesize(FilesizeUnit::TB), 1000)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::EB),
+        "EB",
+        Some((Unit::Filesize(FilesizeUnit::PB), 1000)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::KiB),
+        "KIB",
+        Some((Unit::Filesize(FilesizeUnit::B), 1024)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::MiB),
+        "MIB",
+        Some((Unit::Filesize(FilesizeUnit::KiB), 1024)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::GiB),
+        "GIB",
+        Some((Unit::Filesize(FilesizeUnit::MiB), 1024)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::TiB),
+        "TIB",
+        Some((Unit::Filesize(FilesizeUnit::GiB), 1024)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::PiB),
+        "PIB",
+        Some((Unit::Filesize(FilesizeUnit::TiB), 1024)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::EiB),
+        "EIB",
+        Some((Unit::Filesize(FilesizeUnit::EiB), 1024)),
+    ),
+    (Unit::Filesize(FilesizeUnit::B), "B", None),
 ];
 
 pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
