@@ -42,7 +42,7 @@ pub(crate) fn read_config_file(
             let use_color = config.use_ansi_coloring;
             let start_time = std::time::Instant::now();
             // Translate environment variables from Strings to Values
-            if let Err(e) = convert_env_values(engine_state, &stack) {
+            if let Err(e) = convert_env_values(engine_state, stack) {
                 report_shell_error(engine_state, &e);
             }
             perf!(
