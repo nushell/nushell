@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 
-use super::query::record_to_query_string;
+use super::query::{record_to_query_string, table_to_query_string};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -112,7 +112,7 @@ impl Command for SubCommand {
                             .into_owned()
                             .into_iter()
                             .try_fold(UrlComponents::new(), |url, (k, v)| {
-                                url.add_component(k, v, span, engine_state)
+                                url.add_component(k, v, head, engine_state)
                             });
 
                         url_components?.to_url(span)
@@ -155,7 +155,7 @@ impl UrlComponents {
         self,
         key: String,
         value: Value,
-        span: Span,
+        head: Span,
         engine_state: &EngineState,
     ) -> Result<Self, ShellError> {
         let value_span = value.span();
@@ -194,40 +194,41 @@ impl UrlComponents {
         }
 
         if key == "params" {
-            return match value {
-                Value::Record { ref val, .. } => {
-                    let mut qs = record_to_query_string(val, value_span, span)?;
-
-                    qs = if !qs.trim().is_empty() {
-                        format!("?{qs}")
-                    } else {
-                        qs
-                    };
-
-                    if let Some(q) = self.query {
-                        if q != qs {
-                            // if query is present it means that also query_span is set.
-                            return Err(ShellError::IncompatibleParameters {
-                                left_message: format!("Mismatch, qs from params is: {qs}"),
-                                left_span: value_span,
-                                right_message: format!("instead query is: {q}"),
-                                right_span: self.query_span.unwrap_or(Span::unknown()),
-                            });
-                        }
-                    }
-
-                    Ok(Self {
-                        query: Some(qs),
-                        params_span: Some(value_span),
-                        ..self
+            let mut qs = match value {
+                Value::Record { ref val, .. } => record_to_query_string(val, value_span, head)?,
+                Value::List { ref vals, .. } => table_to_query_string(vals, value_span, head)?,
+                Value::Error { error, .. } => return Err(*error),
+                other => {
+                    return Err(ShellError::IncompatibleParametersSingle {
+                        msg: String::from("Key params has to be a record or a table"),
+                        span: other.span(),
                     })
                 }
-                Value::Error { error, .. } => Err(*error),
-                other => Err(ShellError::IncompatibleParametersSingle {
-                    msg: String::from("Key params has to be a record"),
-                    span: other.span(),
-                }),
             };
+
+            qs = if !qs.trim().is_empty() {
+                format!("?{qs}")
+            } else {
+                qs
+            };
+
+            if let Some(q) = self.query {
+                if q != qs {
+                    // if query is present it means that also query_span is set.
+                    return Err(ShellError::IncompatibleParameters {
+                        left_message: format!("Mismatch, query string from params is: {qs}"),
+                        left_span: value_span,
+                        right_message: format!("instead query is: {q}"),
+                        right_span: self.query_span.unwrap_or(Span::unknown()),
+                    });
+                }
+            }
+
+            return Ok(Self {
+                query: Some(qs),
+                params_span: Some(value_span),
+                ..self
+            });
         }
 
         // apart from port and params all other keys are strings.
@@ -267,7 +268,7 @@ impl UrlComponents {
                         return Err(ShellError::IncompatibleParameters {
                             left_message: format!("Mismatch, query param is: {s}"),
                             left_span: value_span,
-                            right_message: format!("instead qs from params is: {q}"),
+                            right_message: format!("instead query string from params is: {q}"),
                             right_span: self.params_span.unwrap_or(Span::unknown()),
                         });
                     }
@@ -293,7 +294,7 @@ impl UrlComponents {
                     &ShellError::GenericError {
                         error: format!("'{key}' is not a valid URL field"),
                         msg: format!("remove '{key}' col from input record"),
-                        span: Some(span),
+                        span: Some(value_span),
                         help: None,
                         inner: vec![],
                     },
