@@ -47,9 +47,9 @@ impl PluginCommand for Sum {
     ) -> Result<PipelineData, LabeledError> {
         let mut acc = IntOrFloat::Int(0);
         for value in input {
-            if let Ok(n) = value.as_i64() {
+            if let Ok(n) = value.as_int() {
                 acc.add_i64(n);
-            } else if let Ok(n) = value.as_f64() {
+            } else if let Ok(n) = value.as_float() {
                 acc.add_f64(n);
             } else {
                 return Err(LabeledError::new("Sum only accepts ints and floats")

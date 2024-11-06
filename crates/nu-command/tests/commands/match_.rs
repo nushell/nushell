@@ -65,6 +65,12 @@ fn match_list_rest() {
 }
 
 #[test]
+fn match_list_rest_empty() {
+    let actual = nu!(r#"match [1] { [1 ..$rest] => { $rest == [] } }"#);
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
 fn match_constant_1() {
     let actual = nu!(
         r#"match 2 { 1 => { print "failure"}, 2 => { print "success" }, 3 => { print "failure" }}"#

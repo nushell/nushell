@@ -468,7 +468,7 @@ fn trim_as_header(
     // so we do use it if possible prioritizing left columns
     let mut widths = vec![0; headers_widths.len()];
     for (i, head_width) in headers_widths.into_iter().enumerate() {
-        let column_width = trim.width[i]; // safe to assume width is bigger then paddding
+        let column_width = trim.width[i]; // safe to assume width is bigger then padding
 
         let mut use_width = head_width;
         if free_width > 0 {
