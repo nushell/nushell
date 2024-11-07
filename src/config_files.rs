@@ -27,7 +27,6 @@ pub(crate) fn read_config_file(
     stack: &mut Stack,
     config_file: Option<Spanned<String>>,
     is_env_config: bool,
-    load_defaults: bool,
     create_scaffold: bool,
 ) {
     warn!(
@@ -35,26 +34,24 @@ pub(crate) fn read_config_file(
         &config_file
     );
 
-    if load_defaults {
-        if is_env_config {
-            eval_default_config(engine_state, stack, get_default_env(), is_env_config);
-            let config = engine_state.get_config();
-            let use_color = config.use_ansi_coloring;
-            let start_time = std::time::Instant::now();
-            // Translate environment variables from Strings to Values
-            if let Err(e) = convert_env_values(engine_state, stack) {
-                report_shell_error(engine_state, &e);
-            }
-            perf!(
-                "translate env vars after default_env.nu",
-                start_time,
-                use_color
-            );
-        } else {
-            eval_default_config(engine_state, stack, get_default_config(), is_env_config);
-        };
-        warn!("read_config_file() loading_defaults is_env_config: {is_env_config}");
+    if is_env_config {
+        eval_default_config(engine_state, stack, get_default_env(), is_env_config);
+        let config = engine_state.get_config();
+        let use_color = config.use_ansi_coloring;
+        let start_time = std::time::Instant::now();
+        // Translate environment variables from Strings to Values
+        if let Err(e) = convert_env_values(engine_state, stack) {
+            report_shell_error(engine_state, &e);
+        }
+        perf!(
+            "translate env vars after default_env.nu",
+            start_time,
+            use_color
+        );
+    } else {
+        eval_default_config(engine_state, stack, get_default_config(), is_env_config);
     };
+    warn!("read_config_file() loading_defaults is_env_config: {is_env_config}");
 
     // Load config startup file
     if let Some(file) = config_file {
@@ -249,7 +246,6 @@ pub(crate) fn setup_config(
     #[cfg(feature = "plugin")] plugin_file: Option<Spanned<String>>,
     config_file: Option<Spanned<String>>,
     env_file: Option<Spanned<String>>,
-    load_defaults: bool,
     is_login_shell: bool,
 ) {
     warn!(
@@ -263,22 +259,8 @@ pub(crate) fn setup_config(
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, plugin_file);
 
-        read_config_file(
-            engine_state,
-            stack,
-            env_file,
-            true,
-            load_defaults,
-            create_scaffold,
-        );
-        read_config_file(
-            engine_state,
-            stack,
-            config_file,
-            false,
-            load_defaults,
-            create_scaffold,
-        );
+        read_config_file(engine_state, stack, env_file, true, create_scaffold);
+        read_config_file(engine_state, stack, config_file, false, create_scaffold);
 
         if is_login_shell {
             read_loginshell_file(engine_state, stack);

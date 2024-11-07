@@ -46,7 +46,6 @@ pub(crate) fn run_commands(
                 &mut stack,
                 parsed_nu_cli_args.env_file,
                 true,
-                parsed_nu_cli_args.no_defaults.is_none(),
                 create_scaffold,
             );
         } else {
@@ -65,7 +64,6 @@ pub(crate) fn run_commands(
                 &mut stack,
                 parsed_nu_cli_args.config_file,
                 false,
-                parsed_nu_cli_args.no_defaults.is_none(),
                 create_scaffold,
             );
         }
@@ -138,7 +136,6 @@ pub(crate) fn run_file(
                 &mut stack,
                 parsed_nu_cli_args.env_file,
                 true,
-                parsed_nu_cli_args.no_defaults.is_none(),
                 create_scaffold,
             );
         } else {
@@ -153,7 +150,6 @@ pub(crate) fn run_file(
                 &mut stack,
                 parsed_nu_cli_args.config_file,
                 false,
-                parsed_nu_cli_args.no_defaults.is_none(),
                 create_scaffold,
             );
         }
@@ -196,7 +192,6 @@ pub(crate) fn run_repl(
             parsed_nu_cli_args.plugin_file,
             parsed_nu_cli_args.config_file,
             parsed_nu_cli_args.env_file,
-            parsed_nu_cli_args.no_defaults.is_none(),
             parsed_nu_cli_args.login_shell.is_some(),
         );
     }
