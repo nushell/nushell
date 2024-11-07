@@ -46,6 +46,12 @@ impl Command for SubCommand {
         "Try to expand a path to its absolute form."
     }
 
+    fn extra_description(&self) -> &str {
+        r#"This command expands a path relative to the current working directory.
+It also works in const contexts, in which the path will be expanded relative to
+the directory containing the script or module."#
+    }
+
     fn is_const(&self) -> bool {
         true
     }
