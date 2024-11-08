@@ -85,15 +85,15 @@ impl<T> NuMatcher<T> {
         let haystack = trim_quotes_str(haystack);
         match &mut self.state {
             State::Prefix { items } => {
-                let haystack = if self.options.case_sensitive {
+                let haystack_folded = if self.options.case_sensitive {
                     Cow::Borrowed(haystack)
                 } else {
                     Cow::Owned(haystack.to_folded_case())
                 };
                 let matches = if self.options.positional {
-                    haystack.starts_with(self.needle.as_str())
+                    haystack_folded.starts_with(self.needle.as_str())
                 } else {
-                    haystack.contains(self.needle.as_str())
+                    haystack_folded.contains(self.needle.as_str())
                 };
                 if matches {
                     if let Some(item) = item {
@@ -130,7 +130,17 @@ impl<T> NuMatcher<T> {
     pub fn results(self) -> Vec<T> {
         match self.state {
             State::Prefix { mut items, .. } => {
-                items.sort_by(|(haystack1, _), (haystack2, _)| haystack1.cmp(haystack2));
+                items.sort_by(|(haystack1, _), (haystack2, _)| {
+                    let cmp_sensitive = haystack1.cmp(haystack2);
+                    if self.options.case_sensitive {
+                        cmp_sensitive
+                    } else {
+                        haystack1
+                            .to_folded_case()
+                            .cmp(&haystack2.to_folded_case())
+                            .then(cmp_sensitive)
+                    }
+                });
                 items.into_iter().map(|(_, item)| item).collect::<Vec<_>>()
             }
             State::Fuzzy { mut items, .. } => {
