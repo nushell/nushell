@@ -85,15 +85,14 @@ impl Command for BytesAt {
         };
 
         if let PipelineData::ByteStream(stream, metadata) = input {
-            match stream.slice(
+            let stream = stream.slice(
                 call.head,
                 call.arguments_span(),
                 args.indexes.0,
                 args.indexes.1,
-            ) {
-                Ok(stream) => Ok(PipelineData::ByteStream(stream, metadata)),
-                Err(err) => Err(err),
-            }
+            )?;
+
+            Ok(PipelineData::ByteStream(stream, metadata))
         } else {
             operate(map_value, args, input, call.head, engine_state.signals())
         }
@@ -150,7 +149,7 @@ fn map_value(input: &Value, args: &Arguments, head: Span) -> Value {
     let range = &args.indexes;
     match input {
         Value::Binary { val, .. } => {
-            let (start, end) = resolve_relative_range(range, val.len());
+            let (start, end) = resolve_relative_range(range, &val.len());
             let iter = val.iter().copied();
 
             let bytes: Vec<u8> = if start > end {
@@ -176,17 +175,14 @@ fn map_value(input: &Value, args: &Arguments, head: Span) -> Value {
     }
 }
 
-fn resolve_relative_range(range: &Subbytes, len: usize) -> (usize, usize) {
+fn resolve_relative_range(range: &Subbytes, len: &usize) -> (usize, usize) {
     let start = match range.0 {
-        start if start < 0 => match len as isize + start {
-            start if start < 0 => 0,
-            start => start as usize,
-        },
+        start if start < 0 => len.checked_sub(start.abs() as usize).unwrap_or(0),
         start => start as usize,
     };
 
     let end = match range.1 {
-        end if end < 0 => (len as isize + end) as usize,
+        end if end < 0 => len.checked_sub(end.abs() as usize).unwrap_or(0),
         end => end as usize,
     };
 

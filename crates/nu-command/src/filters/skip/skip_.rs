@@ -94,10 +94,10 @@ impl Command for Skip {
             PipelineData::ByteStream(stream, metadata) => {
                 if stream.type_().is_binary_coercible() {
                     let span = stream.span();
-                    match stream.skip(span, n as u64) {
-                        Ok(stream) => Ok(PipelineData::ByteStream(stream, metadata)),
-                        Err(err) => Err(err),
-                    }
+                    Ok(PipelineData::ByteStream(
+                        stream.skip(span, n as u64)?,
+                        metadata,
+                    ))
                 } else {
                     Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "list, binary or range".into(),
