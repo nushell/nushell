@@ -77,11 +77,12 @@ impl<T> NuMatcher<T> {
         }
     }
 
-    /// Add the given item if the given haystack matches.
+    /// Returns whether or not the haystack matches the needle. If it does, `item` is added
+    /// to the list of matches (if given).
     ///
-    /// Returns whether the item was added.
-    pub fn add(&mut self, haystack: String, item: T) -> bool {
-        let haystack = trim_quotes_str(&haystack);
+    /// Helper to avoid code duplication between [NuMatcher::add] and [NuMatcher::matches].
+    fn matches_aux(&mut self, haystack: &str, item: Option<T>) -> bool {
+        let haystack = trim_quotes_str(haystack);
         match &mut self.state {
             State::Prefix { items } => {
                 let haystack = if self.options.case_sensitive {
@@ -95,7 +96,9 @@ impl<T> NuMatcher<T> {
                     haystack.contains(self.needle.as_str())
                 };
                 if matches {
-                    items.push((haystack.to_string(), item));
+                    if let Some(item) = item {
+                        items.push((haystack.to_string(), item));
+                    }
                 }
                 matches
             }
@@ -103,30 +106,24 @@ impl<T> NuMatcher<T> {
                 let Some(score) = matcher.fuzzy_match(haystack, &self.needle) else {
                     return false;
                 };
-                items.push((haystack.to_string(), item, score));
+                if let Some(item) = item {
+                    items.push((haystack.to_string(), item, score));
+                }
                 true
             }
         }
     }
 
+    /// Add the given item if the given haystack matches the needle.
+    ///
     /// Returns whether the item was added.
+    pub fn add(&mut self, haystack: impl AsRef<str>, item: T) -> bool {
+        self.matches_aux(haystack.as_ref(), Some(item))
+    }
+
+    /// Returns whether the haystack matches the needle.
     pub fn matches(&mut self, haystack: &str) -> bool {
-        let haystack = trim_quotes_str(haystack).to_owned();
-        match &mut self.state {
-            State::Prefix { .. } => {
-                let haystack = if self.options.case_sensitive {
-                    Cow::Borrowed(&haystack)
-                } else {
-                    Cow::Owned(haystack.to_folded_case())
-                };
-                if self.options.positional {
-                    haystack.starts_with(self.needle.as_str())
-                } else {
-                    haystack.contains(self.needle.as_str())
-                }
-            }
-            State::Fuzzy { matcher, .. } => matcher.fuzzy_match(&haystack, &self.needle).is_some(),
-        }
+        self.matches_aux(haystack, None)
     }
 
     /// Get all the items that matched (sorted)
@@ -246,7 +243,7 @@ mod test {
             ..Default::default()
         };
         let mut matcher = NuMatcher::new(needle, options);
-        matcher.add(haystack.to_string(), haystack);
+        matcher.add(haystack, haystack);
         if should_match {
             assert_eq!(vec![haystack], matcher.results());
         } else {
@@ -262,7 +259,7 @@ mod test {
         };
         let mut matcher = NuMatcher::new("fob", options);
         for item in ["foo/bar", "fob", "foo bar"] {
-            matcher.add(item.to_string(), item);
+            matcher.add(item, item);
         }
         // Sort by score, then in alphabetical order
         assert_eq!(vec!["fob", "foo bar", "foo/bar"], matcher.results());

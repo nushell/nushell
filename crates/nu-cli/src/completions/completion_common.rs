@@ -71,7 +71,7 @@ fn complete_rec(
             built.isdir = entry_isdir;
 
             if !want_directory || entry_isdir {
-                matcher.add(entry_name.to_string(), (entry_name, built));
+                matcher.add(entry_name.clone(), (entry_name, built));
             }
         }
     }
