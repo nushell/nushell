@@ -40,7 +40,8 @@ impl Command for ConfigNu {
                 result: None,
             },
             Example {
-                description: "pretty-print the default `config.nu` file which is loaded before user's config",
+                description:
+                    "pretty-print the default `config.nu` file which is loaded before user's config",
                 example: "config nu --default | nu-highlight",
                 result: None,
             },
