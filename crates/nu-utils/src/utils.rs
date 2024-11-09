@@ -101,6 +101,10 @@ pub fn get_default_config() -> &'static str {
     include_str!("default_files/default_config.nu")
 }
 
+pub fn get_sample_config() -> &'static str {
+    include_str!("default_files/sample_config.nu")
+}
+
 pub fn get_ls_colors(lscolors_env_string: Option<String>) -> LsColors {
     if let Some(s) = lscolors_env_string {
         LsColors::from_string(&s)
