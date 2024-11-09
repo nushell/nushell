@@ -1144,18 +1144,28 @@ mod test {
         use std::io;
         let mut iter = glob("/root/*").unwrap();
 
-        // Skip test if running with permissions to read /root
-        if std::fs::read_dir("/root/").is_err() {
-            // GlobErrors shouldn't halt iteration
-            let next = iter.next();
-            assert!(next.is_some());
+        match std::fs::read_dir("/root/") {
+            // skip if running with permissions to read /root
+            Ok(_) => {}
 
-            let err = next.unwrap();
-            assert!(err.is_err());
+            // skip if /root doesn't exist
+            Err(err) if err.kind() == io::ErrorKind::NotFound => {
+                assert!(iter.count() == 0);
+            }
 
-            let err = err.err().unwrap();
-            assert!(err.path() == Path::new("/root"));
-            assert!(err.error().kind() == io::ErrorKind::PermissionDenied);
+            // should otherwise return a single match with permission error
+            Err(_) => {
+                // GlobErrors shouldn't halt iteration
+                let next = iter.next();
+                assert!(next.is_some());
+
+                let err = next.unwrap();
+                assert!(err.is_err());
+
+                let err = err.err().unwrap();
+                assert!(err.path() == Path::new("/root"));
+                assert!(err.error().kind() == io::ErrorKind::PermissionDenied);
+            }
         }
     }
 
