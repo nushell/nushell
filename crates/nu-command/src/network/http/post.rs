@@ -129,7 +129,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Upload a file to example.com",
-                example: "http post --content-type multipart/form-data https://www.example.com { audio: (open -r file.mp3) }",
+                example: "http post --content-type multipart/form-data https://www.example.com { file: (open -r file.mp3 | into binary) }",
                 result: None,
             },
         ]
