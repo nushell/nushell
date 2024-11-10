@@ -3525,6 +3525,17 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                             return garbage_pipeline(working_set, spans);
                         }
 
+                        let new_file = working_set.add_variable(
+                            b"$current_file".into(),
+                            Span::concat(&spans[1..]),
+                            Type::String,
+                            false,
+                        );
+                        working_set.set_variable_const_val(
+                            new_file,
+                            Value::test_string(path.clone().path().to_string_lossy()),
+                        );
+
                         // This will load the defs from the file into the
                         // working set, if it was a successful parse.
                         let block = parse(
@@ -3536,6 +3547,29 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
 
                         // Remove the file from the stack of files being processed.
                         working_set.files.pop();
+
+                        // Restore `$current_size` to previous file
+                        let current_file = working_set.add_variable(
+                            b"$current_file".into(),
+                            Span::unknown(),
+                            Type::String,
+                            false,
+                        );
+                        if let Some(file) = working_set
+                            .files
+                            .top()
+                            .map(|f| f.to_string_lossy().into_owned())
+                        {
+                            working_set.set_variable_const_val(
+                                current_file,
+                                Value::string(file, Span::unknown()),
+                            );
+                        } else {
+                            working_set.set_variable_const_val(
+                                current_file,
+                                Value::nothing(Span::unknown()),
+                            )
+                        };
 
                         // Save the block into the working set
                         let block_id = working_set.add_block(block);
