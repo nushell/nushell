@@ -1719,6 +1719,16 @@ pub fn parse_module_block(
 ) -> (Block, Module, Vec<Span>) {
     working_set.enter_scope();
 
+    if let Some(file) = working_set
+        .files
+        .top()
+        .map(|f| f.to_string_lossy().into_owned())
+    {
+        let current_file =
+            working_set.add_variable(b"$current_file".into(), span, Type::String, false);
+        working_set.set_variable_const_val(current_file, Value::string(file, span));
+    };
+
     let source = working_set.get_span_contents(span);
 
     let (output, err) = lex(source, span.start, &[], &[], false);
