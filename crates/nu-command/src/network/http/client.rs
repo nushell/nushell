@@ -10,12 +10,17 @@ use nu_protocol::{ByteStream, LabeledError, Signals};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
-    io::Cursor,
+    io::{Cursor, Read},
     path::PathBuf,
     str::FromStr,
-    sync::mpsc::{self, RecvTimeoutError},
-    time::Duration,
+    sync::{
+        mpsc::{self, Receiver, RecvTimeoutError, TryRecvError},
+        Arc, Mutex,
+    },
+    thread,
+    time::{Duration, Instant},
 };
+use tungstenite::ClientRequestBuilder;
 use ureq::{Error, ErrorKind, Request, Response};
 use url::Url;
 
@@ -40,6 +45,128 @@ impl From<Option<ContentType>> for BodyType {
             Some(it) => BodyType::Unknown(Some(it)),
             None => BodyType::Unknown(None),
         }
+    }
+}
+
+struct ChannelReader {
+    rx: Arc<Mutex<Receiver<u8>>>,
+    deadline: Option<Instant>,
+}
+
+impl ChannelReader {
+    pub fn new(rx: Receiver<u8>, timeout: Option<Duration>) -> Self {
+        let mut cr = Self {
+            rx: Arc::new(Mutex::new(rx)),
+            deadline: None,
+        };
+        if let Some(timeout) = timeout {
+            cr.deadline = Some(Instant::now() + timeout);
+        }
+        cr
+    }
+}
+
+impl Read for ChannelReader {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let rx = self.rx.clone();
+        let rx = rx.lock().expect("Could not get lock on receiver");
+
+        let mut len = 0;
+        for buf in buf {
+            let byte = if len != 0 {
+                rx.try_recv()
+            } else {
+                match self.deadline {
+                    Some(deadline) => rx
+                        .recv_timeout(deadline.duration_since(Instant::now()))
+                        .map_err(|_| TryRecvError::Disconnected),
+                    None => rx.recv().map_err(|_| TryRecvError::Disconnected),
+                }
+            };
+            match byte {
+                Ok(b) => {
+                    *buf = b;
+                    len += 1;
+                }
+                Err(..) => return Ok(len),
+            }
+        }
+        Ok(len)
+    }
+}
+
+trait Upgradable {
+    fn upgrade(&self, timeout: Option<Duration>, req: &Request) -> Option<ChannelReader>;
+}
+
+impl Upgradable for Response {
+    fn upgrade(&self, timeout: Option<Duration>, req: &Request) -> Option<ChannelReader> {
+        if Some("chunked") == self.header("transfer-encoding") {
+            if let Ok(url) = Url::parse(self.get_url()) {
+                let mut new_url = url.clone();
+                let _ = match new_url.scheme() {
+                    "https" => new_url.set_scheme("wss"),
+                    _ => new_url.set_scheme("ws"),
+                };
+                let mut builder = ClientRequestBuilder::new(new_url.as_str().parse().ok()?);
+                builder = builder.with_header(
+                    "Origin",
+                    format!(
+                        "{}://{}:{}",
+                        url.scheme(),
+                        url.host_str().unwrap_or_default(),
+                        url.port().unwrap_or_default()
+                    ),
+                );
+                for name in req.header_names() {
+                    builder = builder.with_header(
+                        &name,
+                        req.header(name.as_str()).expect("Could not get header"),
+                    );
+                }
+                match tungstenite::connect(builder) {
+                    Ok((mut websocket, _)) => {
+                        let (tx, rx) = mpsc::sync_channel(1024);
+                        let tx = Arc::new(tx);
+                        thread::spawn(move || loop {
+                            let tx = tx.clone();
+                            match websocket.read() {
+                                Ok(msg) => match msg {
+                                    tungstenite::Message::Text(msg) => msg
+                                        .bytes()
+                                        .for_each(|b| if tx.send(b).is_err() {
+                                            websocket.close(Some(tungstenite::protocol::CloseFrame{
+                                                code: tungstenite::protocol::frame::coding::CloseCode::Normal,
+                                                reason: std::borrow::Cow::Borrowed("byte stream closed"),
+                                            })).expect("Could not close connection")
+                                        }),
+                                    tungstenite::Message::Binary(msg) => msg
+                                        .iter()
+                                        .for_each(|&b| if tx.send(b).is_err() {
+                                            websocket.close(Some(tungstenite::protocol::CloseFrame{
+                                                code: tungstenite::protocol::frame::coding::CloseCode::Normal,
+                                                reason: std::borrow::Cow::Borrowed("byte stream closed"),
+                                            })).expect("Could not close connection")
+                                        }),
+                                    tungstenite::Message::Close(..) => {
+                                        drop(tx);
+                                        return;
+                                    }
+                                    _ => continue,
+                                },
+                                _ => {
+                                    drop(tx);
+                                    return;
+                                }
+                            }
+                        });
+                        return Some(ChannelReader::new(rx, timeout));
+                    }
+                    Err(..) => return None,
+                }
+            }
+        }
+        None
     }
 }
 
@@ -143,7 +270,6 @@ pub fn response_to_buffer(
     };
 
     let reader = response.into_reader();
-
     PipelineData::ByteStream(
         ByteStream::read(reader, span, engine_state.signals().clone(), response_type)
             .with_known_size(buffer_size),
@@ -520,23 +646,16 @@ fn send_cancellable_request_bytes(
     }
 }
 
-pub fn request_set_timeout(
-    timeout: Option<Value>,
-    mut request: Request,
-) -> Result<Request, ShellError> {
-    if let Some(timeout) = timeout {
-        let val = timeout.as_duration()?;
-        if val.is_negative() || val < 1 {
-            return Err(ShellError::TypeMismatch {
-                err_message: "Timeout value must be an int and larger than 0".to_string(),
-                span: timeout.span(),
-            });
-        }
-
-        request = request.timeout(Duration::from_nanos(val as u64));
+pub fn get_timeout(timeout: Value) -> Result<Duration, ShellError> {
+    let val = timeout.as_duration()?;
+    if val.is_negative() || val < 1 {
+        return Err(ShellError::TypeMismatch {
+            err_message: "Timeout value must be an int and larger than 0".to_string(),
+            span: timeout.span(),
+        });
     }
 
-    Ok(request)
+    Ok(Duration::from_nanos(val as u64))
 }
 
 pub fn request_add_custom_headers(
@@ -632,6 +751,7 @@ pub struct RequestFlags {
     pub allow_errors: bool,
     pub raw: bool,
     pub full: bool,
+    pub timeout: Option<Duration>,
 }
 
 fn transform_response_using_content_type(
@@ -783,15 +903,29 @@ pub fn request_handle_response(
     request: Request,
 ) -> Result<PipelineData, ShellError> {
     match response {
-        Ok(resp) => request_handle_response_content(
-            engine_state,
-            stack,
-            span,
-            requested_url,
-            flags,
-            resp,
-            request,
-        ),
+        Ok(resp) => {
+            if let Some(upgrade) = resp.upgrade(flags.timeout, &request) {
+                let reader = Box::new(upgrade);
+                return Ok(PipelineData::ByteStream(
+                    ByteStream::read(
+                        reader,
+                        span,
+                        engine_state.signals().clone(),
+                        ByteStreamType::Unknown,
+                    ),
+                    None,
+                ));
+            }
+            request_handle_response_content(
+                engine_state,
+                stack,
+                span,
+                requested_url,
+                flags,
+                resp,
+                request,
+            )
+        }
         Err(e) => match e {
             ShellErrorOrRequestError::ShellError(e) => Err(e),
             ShellErrorOrRequestError::RequestError(_, e) => {

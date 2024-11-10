@@ -1,7 +1,7 @@
 use crate::network::http::client::{
-    check_response_redirection, http_client, http_parse_redirect_mode, http_parse_url,
+    check_response_redirection, get_timeout, http_client, http_parse_redirect_mode, http_parse_url,
     request_add_authorization_header, request_add_custom_headers, request_handle_response,
-    request_set_timeout, send_request, HttpBody, RequestFlags,
+    send_request, HttpBody, RequestFlags,
 };
 use nu_engine::command_prelude::*;
 
@@ -219,7 +219,19 @@ fn helper(
     let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
     let mut request = client.post(&requested_url);
 
-    request = request_set_timeout(args.timeout, request)?;
+    let mut request_flags = RequestFlags {
+        raw: args.raw,
+        full: args.full,
+        allow_errors: args.allow_errors,
+        timeout: None,
+    };
+
+    if let Some(timeout) = args.timeout {
+        let timeout = get_timeout(timeout)?;
+        request_flags.timeout = Some(timeout);
+        request = request.timeout(timeout);
+    }
+
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
@@ -230,12 +242,6 @@ fn helper(
         call.head,
         engine_state.signals(),
     );
-
-    let request_flags = RequestFlags {
-        raw: args.raw,
-        full: args.full,
-        allow_errors: args.allow_errors,
-    };
 
     check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response(

@@ -1,8 +1,8 @@
 use super::client::HttpBody;
 use crate::network::http::client::{
-    check_response_redirection, http_client, http_parse_redirect_mode, http_parse_url,
+    check_response_redirection, get_timeout, http_client, http_parse_redirect_mode, http_parse_url,
     request_add_authorization_header, request_add_custom_headers, request_handle_response_headers,
-    request_set_timeout, send_request,
+    send_request,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
@@ -151,7 +151,10 @@ fn helper(
     let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
     let mut request = client.head(&requested_url);
 
-    request = request_set_timeout(args.timeout, request)?;
+    if let Some(timeout) = args.timeout {
+        let timeout = get_timeout(timeout)?;
+        request = request.timeout(timeout);
+    }
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
