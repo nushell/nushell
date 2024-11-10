@@ -316,9 +316,7 @@ pub fn eval_block<D: DebugContext>(
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    D::enter_block(engine_state, block);
     let result = eval_ir_block::<D>(engine_state, stack, block, input);
-    D::leave_block(engine_state, block);
     if let Err(err) = &result {
         stack.set_last_error(err);
     }
