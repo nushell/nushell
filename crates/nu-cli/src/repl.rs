@@ -306,9 +306,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     if let Err(err) = engine_state.merge_env(&mut stack) {
         report_shell_error(engine_state, &err);
     }
-    // Check whether $env.NU_DISABLE_IR is set, so that the user can change it in the REPL
-    // Temporary while IR eval is optional
-    stack.use_ir = !stack.has_env_var(engine_state, "NU_DISABLE_IR");
     perf!("merge env", start_time, use_color);
 
     start_time = std::time::Instant::now();
