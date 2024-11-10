@@ -10,10 +10,14 @@ use nu_protocol::{ByteStream, LabeledError, Signals};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
-    io::Cursor,
+    io::{Cursor, Read},
     path::PathBuf,
     str::FromStr,
-    sync::mpsc::{self, RecvTimeoutError},
+    sync::{
+        mpsc::{self, RecvTimeoutError},
+        Arc, Mutex,
+    },
+    thread,
     time::Duration,
 };
 use ureq::{Error, ErrorKind, Request, Response};
@@ -40,6 +44,69 @@ impl From<Option<ContentType>> for BodyType {
             Some(it) => BodyType::Unknown(Some(it)),
             None => BodyType::Unknown(None),
         }
+    }
+}
+
+struct ChannelReader {
+    rx: Arc<Mutex<mpsc::Receiver<u8>>>,
+    timeout: Option<Duration>,
+}
+
+impl ChannelReader {
+    pub fn new(rx: mpsc::Receiver<u8>, timeout: Option<Duration>) -> Self {
+        Self {
+            rx: Arc::new(Mutex::new(rx)),
+            timeout,
+        }
+    }
+}
+
+impl Read for ChannelReader {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let rx = self.rx.clone();
+
+        let mut len = 0;
+        for i in 0..buf.len() {
+            let rx = rx.lock().unwrap();
+            let byte = match self.timeout {
+                Some(timeout) => rx.recv_timeout(timeout),
+                None => rx.recv().map_err(|_| mpsc::RecvTimeoutError::Disconnected),
+            };
+            match byte {
+                Ok(b) => {
+                    buf[i] = b;
+                    len += 1;
+                }
+                Err(..) => return Ok(len),
+            }
+        }
+        Ok(len)
+    }
+}
+
+trait Upgradable {
+    fn upgrade(&self, timeout: Option<Duration>) -> Option<ChannelReader>;
+}
+
+impl Upgradable for Response {
+    fn upgrade(&self, timeout: Option<Duration>) -> Option<ChannelReader> {
+        if let Ok(mut url) = Url::parse(self.get_url()) {
+            let _ = match url.scheme() {
+                "https" => url.set_scheme("wss"),
+                _ => url.set_scheme("ws"),
+            };
+            if let Ok((mut websocket, _)) = tungstenite::connect(url.as_str()) {
+                let (tx, rx) = mpsc::sync_channel(1);
+                thread::spawn(move || loop {
+                    if let Ok(tungstenite::Message::Text(msg)) = websocket.read() {
+                        msg.bytes()
+                            .for_each(|b| tx.send(b).expect("Could not sent a byte"));
+                    }
+                });
+                return Some(ChannelReader::new(rx, timeout));
+            }
+        }
+        None
     }
 }
 
@@ -115,6 +182,7 @@ pub fn http_parse_redirect_mode(mode: Option<Spanned<String>>) -> Result<Redirec
 
 pub fn response_to_buffer(
     response: Response,
+    timeout: Option<Duration>,
     engine_state: &EngineState,
     span: Span,
 ) -> PipelineData {
@@ -142,8 +210,18 @@ pub fn response_to_buffer(
         _ => ByteStreamType::Unknown,
     };
 
-    let reader = response.into_reader();
+    if Some("chunked") == response.header("transfer-encoding") {
+        if let Some(upgrade) = response.upgrade(timeout) {
+            let reader = Box::new(upgrade);
+            return PipelineData::ByteStream(
+                ByteStream::read(reader, span, engine_state.signals().clone(), response_type)
+                    .with_known_size(buffer_size),
+                None,
+            );
+        };
+    }
 
+    let reader = response.into_reader();
     PipelineData::ByteStream(
         ByteStream::read(reader, span, engine_state.signals().clone(), response_type)
             .with_known_size(buffer_size),
@@ -520,23 +598,16 @@ fn send_cancellable_request_bytes(
     }
 }
 
-pub fn request_set_timeout(
-    timeout: Option<Value>,
-    mut request: Request,
-) -> Result<Request, ShellError> {
-    if let Some(timeout) = timeout {
-        let val = timeout.as_duration()?;
-        if val.is_negative() || val < 1 {
-            return Err(ShellError::TypeMismatch {
-                err_message: "Timeout value must be an int and larger than 0".to_string(),
-                span: timeout.span(),
-            });
-        }
-
-        request = request.timeout(Duration::from_nanos(val as u64));
+pub fn get_timeout(timeout: Value) -> Result<Duration, ShellError> {
+    let val = timeout.as_duration()?;
+    if val.is_negative() || val < 1 {
+        return Err(ShellError::TypeMismatch {
+            err_message: "Timeout value must be an int and larger than 0".to_string(),
+            span: timeout.span(),
+        });
     }
 
-    Ok(request)
+    Ok(Duration::from_nanos(val as u64))
 }
 
 pub fn request_add_custom_headers(
@@ -632,6 +703,7 @@ pub struct RequestFlags {
     pub allow_errors: bool,
     pub raw: bool,
     pub full: bool,
+    pub timeout: Option<Duration>,
 }
 
 fn transform_response_using_content_type(
@@ -674,7 +746,7 @@ fn transform_response_using_content_type(
         _ => Some(content_type.subtype().to_string()),
     };
 
-    let output = response_to_buffer(resp, engine_state, span);
+    let output = response_to_buffer(resp, flags.timeout, engine_state, span);
     if flags.raw {
         Ok(output)
     } else if let Some(ext) = ext {
@@ -736,7 +808,12 @@ fn request_handle_response_content(
                 response,
                 &content_type,
             ),
-            None => Ok(response_to_buffer(response, engine_state, span)),
+            None => Ok(response_to_buffer(
+                response,
+                flags.timeout,
+                engine_state,
+                span,
+            )),
         }
     };
 

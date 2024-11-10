@@ -89,6 +89,7 @@ tabled = { workspace = true, features = ["ansi"], default-features = false }
 terminal_size = { workspace = true }
 titlecase = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"] }
+tungstenite = { workspace = true, features = ["native-tls"] }
 unicode-segmentation = { workspace = true }
 ureq = { workspace = true, default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
 url = { workspace = true }

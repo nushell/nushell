@@ -1,6 +1,6 @@
 use crate::network::http::client::{
-    http_client, http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout, send_request, RedirectMode, RequestFlags,
+    get_timeout, http_client, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_handle_response, send_request, RedirectMode, RequestFlags,
 };
 use nu_engine::command_prelude::*;
 
@@ -156,7 +156,22 @@ fn helper(
     let client = http_client(args.insecure, RedirectMode::Follow, engine_state, stack)?;
     let mut request = client.request("OPTIONS", &requested_url);
 
-    request = request_set_timeout(args.timeout, request)?;
+    // http options' response always showed in header, so we set full to true.
+    // And `raw` is useless too because options method doesn't return body, here we set to true
+    // too.
+    let mut request_flags = RequestFlags {
+        raw: true,
+        full: true,
+        allow_errors: args.allow_errors,
+        timeout: None,
+    };
+
+    if let Some(timeout) = args.timeout {
+        let timeout = get_timeout(timeout)?;
+        request_flags.timeout = Some(timeout);
+        request = request.timeout(timeout);
+    }
+
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
@@ -167,15 +182,6 @@ fn helper(
         call.head,
         engine_state.signals(),
     );
-
-    // http options' response always showed in header, so we set full to true.
-    // And `raw` is useless too because options method doesn't return body, here we set to true
-    // too.
-    let request_flags = RequestFlags {
-        raw: true,
-        full: true,
-        allow_errors: args.allow_errors,
-    };
 
     request_handle_response(
         engine_state,
