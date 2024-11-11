@@ -287,28 +287,10 @@ fn ls_for_one_pattern(
                 nu_path::expand_path_with(pat.item.as_ref(), &cwd, pat.item.is_expand());
             // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
             if !directory && tmp_expanded.is_dir() {
-                if permission_denied(&tmp_expanded) {
-                    #[cfg(unix)]
-                    let error_msg = format!(
-                        "The permissions of {:o} do not allow access for this user",
-                        tmp_expanded
-                            .metadata()
-                            .expect("this shouldn't be called since we already know there is a dir")
-                            .permissions()
-                            .mode()
-                            & 0o0777
-                    );
-                    #[cfg(not(unix))]
-                    let error_msg = String::from("Permission denied");
-                    return Err(ShellError::GenericError {
-                        error: "Permission denied".into(),
-                        msg: error_msg,
-                        span: Some(p_tag),
-                        help: None,
-                        inner: vec![],
-                    });
-                }
-                if is_empty_dir(&tmp_expanded) {
+                if read_dir(&tmp_expanded, p_tag, use_threads)?
+                    .next()
+                    .is_none()
+                {
                     return Ok(Value::test_nothing().into_pipeline_data());
                 }
                 just_read_dir = !(pat.item.is_expand() && pat.item.as_ref().contains(GLOB_CHARS));
@@ -327,7 +309,7 @@ fn ls_for_one_pattern(
             // Avoid pushing "*" to the default path when directory (do not show contents) flag is true
             if directory {
                 (NuGlob::Expand(".".to_string()), false)
-            } else if is_empty_dir(&cwd) {
+            } else if read_dir(&cwd, p_tag, use_threads)?.next().is_none() {
                 return Ok(Value::test_nothing().into_pipeline_data());
             } else {
                 (NuGlob::Expand("*".to_string()), false)
@@ -339,7 +321,7 @@ fn ls_for_one_pattern(
     let path = pattern_arg.into_spanned(p_tag);
     let (prefix, paths) = if just_read_dir {
         let expanded = nu_path::expand_path_with(path.item.as_ref(), &cwd, path.item.is_expand());
-        let paths = read_dir(&expanded, use_threads)?;
+        let paths = read_dir(&expanded, p_tag, use_threads)?;
         // just need to read the directory, so prefix is path itself.
         (Some(expanded), paths)
     } else {
@@ -490,20 +472,6 @@ fn ls_for_one_pattern(
     Ok(rx
         .into_iter()
         .into_pipeline_data(call_span, signals.clone()))
-}
-
-fn permission_denied(dir: impl AsRef<Path>) -> bool {
-    match dir.as_ref().read_dir() {
-        Err(e) => matches!(e.kind(), std::io::ErrorKind::PermissionDenied),
-        Ok(_) => false,
-    }
-}
-
-fn is_empty_dir(dir: impl AsRef<Path>) -> bool {
-    match dir.as_ref().read_dir() {
-        Err(_) => true,
-        Ok(mut s) => s.next().is_none(),
-    }
 }
 
 fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
@@ -979,12 +947,28 @@ mod windows_helper {
 #[allow(clippy::type_complexity)]
 fn read_dir(
     f: &Path,
+    span: Span,
     use_threads: bool,
 ) -> Result<Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send>, ShellError> {
-    let items = f.read_dir()?.map(|d| {
-        d.map(|r| r.path())
-            .map_err(|e| ShellError::IOError { msg: e.to_string() })
-    });
+    let items = f
+        .read_dir()
+        .map_err(|error| {
+            if error.kind() == std::io::ErrorKind::PermissionDenied {
+                return ShellError::GenericError {
+                    error: "Permission denied".into(),
+                    msg: "The permissions may not allow access for this user".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                };
+            }
+
+            error.into()
+        })?
+        .map(|d| {
+            d.map(|r| r.path())
+                .map_err(|e| ShellError::IOError { msg: e.to_string() })
+        });
     if !use_threads {
         let mut collected = items.collect::<Vec<_>>();
         collected.sort_by(|a, b| {
