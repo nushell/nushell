@@ -106,6 +106,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Path,
             PathBasename,
+            PathConst,
             PathDirname,
             PathExists,
             PathExpand,
