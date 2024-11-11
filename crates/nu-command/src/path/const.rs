@@ -22,7 +22,7 @@ impl Command for SubCommand {
     }
 
     fn description(&self) -> &str {
-        "Get the absoulute path of the script containing this command at parse time."
+        "Get the absolute path of the script containing this command at parse time."
     }
 
     fn is_const(&self) -> bool {
