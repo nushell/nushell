@@ -185,11 +185,13 @@ impl Command for SubCommand {
                 example: "'16.11.1984 8:00 am' | into datetime --format '%d.%m.%Y %H:%M %P'",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: Some(Value::date(
-                    DateTime::from_naive_utc_and_offset(
-                        NaiveDateTime::parse_from_str("16.11.1984 8:00 am", "%d.%m.%Y %H:%M %P")
-                        .expect("date calculation should not fail in test"),
-                        *Local::now().offset(),
-                    ),
+                    Local
+                        .from_local_datetime(
+                            &NaiveDateTime::parse_from_str("16.11.1984 8:00 am", "%d.%m.%Y %H:%M %P")
+                                .expect("date calculation should not fail in test"),
+                        )
+                        .unwrap()
+                        .with_timezone(Local::now().offset()),
                     Span::test_data(),
                 )),
             },
@@ -517,12 +519,16 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::date(
-            DateTime::from_naive_utc_and_offset(
-                NaiveDateTime::parse_from_str("16.11.1984 8:00 am", "%d.%m.%Y %H:%M %P").unwrap(),
-                *Local::now().offset(),
-            ),
+            Local
+                .from_local_datetime(
+                    &NaiveDateTime::parse_from_str("16.11.1984 8:00 am", "%d.%m.%Y %H:%M %P")
+                        .unwrap(),
+                )
+                .unwrap()
+                .with_timezone(Local::now().offset()),
             Span::test_data(),
         );
+
         assert_eq!(actual, expected)
     }
 
