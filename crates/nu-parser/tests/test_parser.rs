@@ -1991,7 +1991,7 @@ mod input_types {
                 .input_output_types(vec![(Type::Nothing, Type::Nothing)])
                 .required("def_name", SyntaxShape::String, "definition name")
                 .required("params", SyntaxShape::Signature, "parameters")
-                .required("body", SyntaxShape::Closure(None), "body of the definition")
+                .required("body", SyntaxShape::Block(false), "body of the definition")
                 .category(Category::Core)
         }
 
@@ -2228,7 +2228,7 @@ mod input_types {
                 .required("cond", SyntaxShape::MathExpression, "condition to check")
                 .required(
                     "then_block",
-                    SyntaxShape::Block,
+                    SyntaxShape::Block(true),
                     "block to run if check succeeds",
                 )
                 .optional(
@@ -2236,7 +2236,7 @@ mod input_types {
                     SyntaxShape::Keyword(
                         b"else".to_vec(),
                         Box::new(SyntaxShape::OneOf(vec![
-                            SyntaxShape::Block,
+                            SyntaxShape::Block(true),
                             SyntaxShape::Expression,
                         ])),
                     ),
