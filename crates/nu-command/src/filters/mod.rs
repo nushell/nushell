@@ -1,3 +1,4 @@
+mod agg_by;
 mod all;
 mod any;
 mod append;
@@ -55,6 +56,7 @@ mod window;
 mod wrap;
 mod zip;
 
+pub use agg_by::AggBy;
 pub use all::All;
 pub use any::Any;
 pub use append::Append;
