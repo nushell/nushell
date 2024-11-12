@@ -1,7 +1,6 @@
 use super::util::get_rest_for_glob_pattern;
 use crate::{DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
-use itertools::sorted;
 use nu_engine::glob_from;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, env::current_dir};
@@ -982,14 +981,11 @@ fn read_dir(
     f: &Path,
     use_threads: bool,
 ) -> Result<Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send>, ShellError> {
-    let iter = f.read_dir()?.map(|d| {
+    let mut items = f.read_dir()?.map(|d| {
         d.map(|r| r.path())
             .map_err(|e| ShellError::IOError { msg: e.to_string() })
-    });
+    }).collect::<Vec<_>>();
+    items.sort_by(|a, b| a.as_ref().unwrap().cmp(b.as_ref().unwrap()));
 
-    if use_threads {
-        Ok(Box::new(iter))
-    } else {
-        Ok(Box::new(sorted(iter)))
-    }
+    Ok(Box::new(items.into_iter()))
 }

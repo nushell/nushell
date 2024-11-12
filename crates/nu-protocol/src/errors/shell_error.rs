@@ -1,6 +1,5 @@
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
 use std::{io, num::NonZeroI32};
 use thiserror::Error;
 
@@ -1433,22 +1432,6 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Option<Span>,
     },
 }
-
-impl Ord for ShellError {
-    fn cmp(&self, other: &Self) -> Ordering {
-        into_code(self)
-            .cmp(&into_code(other))
-            .then_with(|| self.to_string().cmp(&other.to_string()))
-    }
-}
-
-impl PartialOrd for ShellError {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Eq for ShellError {}
 
 // TODO: Implement as From trait
 impl ShellError {
