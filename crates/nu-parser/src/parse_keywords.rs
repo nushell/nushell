@@ -462,10 +462,9 @@ pub fn parse_def(
                         let block = working_set.get_block_mut(*block_id);
                         block.signature = Box::new(sig.clone());
                     }
-                    _ => working_set.error(ParseError::Expected(
-                        "definition body closure { ... }",
-                        arg.span,
-                    )),
+                    _ => {
+                        working_set.error(ParseError::Expected("definition body { ... }", arg.span))
+                    }
                 }
             }
 

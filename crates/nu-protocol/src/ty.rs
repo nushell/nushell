@@ -109,7 +109,7 @@ impl Type {
             Type::Range => SyntaxShape::Range,
             Type::Bool => SyntaxShape::Boolean,
             Type::String => SyntaxShape::String,
-            Type::Block => SyntaxShape::Block, // FIXME needs more accuracy
+            Type::Block => SyntaxShape::Block(true), // FIXME needs more accuracy
             Type::Closure => SyntaxShape::Closure(None), // FIXME needs more accuracy
             Type::CellPath => SyntaxShape::CellPath,
             Type::Duration => SyntaxShape::Duration,

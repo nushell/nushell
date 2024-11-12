@@ -27,7 +27,7 @@ impl Command for For {
                 SyntaxShape::Keyword(b"in".to_vec(), Box::new(SyntaxShape::Any)),
                 "Range of the loop.",
             )
-            .required("block", SyntaxShape::Block, "The block to run.")
+            .required("block", SyntaxShape::Block(true), "The block to run.")
             .creates_scope()
             .category(Category::Core)
     }

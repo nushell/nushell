@@ -799,7 +799,7 @@ fn parse_oneof(
             | Some(ParseError::ExpectedWithStringMsg(_, error_span)) => {
                 matches!(
                     shape,
-                    SyntaxShape::Block | SyntaxShape::Closure(_) | SyntaxShape::Expression
+                    SyntaxShape::Block(_) | SyntaxShape::Closure(_) | SyntaxShape::Expression
                 ) && *error_span != spans[*spans_idx]
             }
             _ => true,
@@ -1888,8 +1888,8 @@ pub fn parse_brace_expr(
         // If we're empty, that means an empty record or closure
         if matches!(shape, SyntaxShape::Closure(_)) {
             parse_closure_expression(working_set, shape, span)
-        } else if matches!(shape, SyntaxShape::Block) {
-            parse_block_expression(working_set, span)
+        } else if let SyntaxShape::Block(capture_mutable) = shape {
+            parse_block_expression(working_set, capture_mutable, span)
         } else if matches!(shape, SyntaxShape::MatchBlock) {
             parse_match_block_expression(working_set, span)
         } else {
@@ -1903,8 +1903,8 @@ pub fn parse_brace_expr(
         parse_full_cell_path(working_set, None, span)
     } else if matches!(shape, SyntaxShape::Closure(_)) {
         parse_closure_expression(working_set, shape, span)
-    } else if matches!(shape, SyntaxShape::Block) {
-        parse_block_expression(working_set, span)
+    } else if let SyntaxShape::Block(capture_mutable) = shape {
+        parse_block_expression(working_set, capture_mutable, span)
     } else if matches!(shape, SyntaxShape::MatchBlock) {
         parse_match_block_expression(working_set, span)
     } else if second_token.is_some_and(|c| {
@@ -4405,7 +4405,11 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
     (Type::Table(ty.into()), errors)
 }
 
-pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+pub fn parse_block_expression(
+    working_set: &mut StateWorkingSet,
+    capture_mutable: &bool,
+    span: Span,
+) -> Expression {
     trace!("parsing: block expression");
 
     let bytes = working_set.get_span_contents(span);
@@ -4460,7 +4464,15 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
 
     let block_id = working_set.add_block(Arc::new(output));
 
-    Expression::new(working_set, Expr::Block(block_id), span, Type::Block)
+    Expression::new(
+        working_set,
+        match capture_mutable {
+            true => Expr::Block(block_id),
+            false => Expr::Closure(block_id),
+        },
+        span,
+        Type::Block,
+    )
 }
 
 pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -4645,7 +4657,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
             working_set,
             &[output[position].span],
             &mut 0,
-            &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
+            &SyntaxShape::OneOf(vec![SyntaxShape::Block(true), SyntaxShape::Expression]),
         );
         position += 1;
         working_set.exit_scope();
@@ -4921,7 +4933,7 @@ pub fn parse_value(
 
         // Be sure to return ParseError::Expected(..) if invoked for one of these shapes, but lex
         // stream doesn't start with '{'} -- parsing in SyntaxShape::Any arm depends on this error variant.
-        SyntaxShape::Block | SyntaxShape::Closure(..) | SyntaxShape::Record(_) => {
+        SyntaxShape::Block(_) | SyntaxShape::Closure(..) | SyntaxShape::Record(_) => {
             working_set.error(ParseError::Expected("block, closure or record", span));
 
             Expression::garbage(working_set, span)

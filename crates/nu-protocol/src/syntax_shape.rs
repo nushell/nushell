@@ -18,7 +18,8 @@ pub enum SyntaxShape {
     Binary,
 
     /// A block is allowed, eg `{start this thing}`
-    Block,
+    /// `bool`: capture mutable variables
+    Block(bool),
 
     /// A boolean value, eg `true` or `false`
     Boolean,
@@ -143,7 +144,7 @@ impl SyntaxShape {
 
         match self {
             SyntaxShape::Any => Type::Any,
-            SyntaxShape::Block => Type::Block,
+            SyntaxShape::Block(_) => Type::Block,
             SyntaxShape::Closure(_) => Type::Closure,
             SyntaxShape::Binary => Type::Binary,
             SyntaxShape::CellPath => Type::Any,
@@ -209,7 +210,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Directory => write!(f, "directory"),
             SyntaxShape::GlobPattern => write!(f, "glob"),
             SyntaxShape::ImportPattern => write!(f, "import"),
-            SyntaxShape::Block => write!(f, "block"),
+            SyntaxShape::Block(_) => write!(f, "block"),
             SyntaxShape::Closure(args) => {
                 if let Some(args) = args {
                     let arg_vec: Vec<_> = args.iter().map(|x| x.to_string()).collect();

@@ -18,7 +18,7 @@ impl Command for Def {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("def_name", SyntaxShape::String, "Command name.")
             .required("params", SyntaxShape::Signature, "Parameters.")
-            .required("block", SyntaxShape::Closure(None), "Body of the definition.")
+            .required("block", SyntaxShape::Block(false), "Body of the definition.")
             .switch("env", "keep the environment defined inside the command", None)
             .switch("wrapped", "treat unknown flags and arguments as strings (requires ...rest-like parameter in signature)", None)
             .category(Category::Core)

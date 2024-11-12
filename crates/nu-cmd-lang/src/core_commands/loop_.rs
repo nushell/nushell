@@ -17,7 +17,7 @@ impl Command for Loop {
         Signature::build("loop")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("block", SyntaxShape::Block, "Block to loop.")
+            .required("block", SyntaxShape::Block(true), "Block to loop.")
             .category(Category::Core)
     }
 

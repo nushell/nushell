@@ -16,7 +16,7 @@ impl Command for Try {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("try")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required("try_block", SyntaxShape::Block, "Block to run.")
+            .required("try_block", SyntaxShape::Block(true), "Block to run.")
             .optional(
                 "catch_closure",
                 SyntaxShape::Keyword(

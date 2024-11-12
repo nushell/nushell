@@ -20,7 +20,7 @@ impl Command for While {
             .required("cond", SyntaxShape::MathExpression, "Condition to check.")
             .required(
                 "block",
-                SyntaxShape::Block,
+                SyntaxShape::Block(true),
                 "Block to loop if check succeeds.",
             )
             .category(Category::Core)
