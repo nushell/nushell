@@ -1,6 +1,7 @@
 use crate::date::utils::parse_date_from_string;
 use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike};
 use nu_engine::command_prelude::*;
+use nu_protocol::{report_parse_warning, ParseWarning};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -35,6 +36,18 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+
+        let head = call.head;
+        report_parse_warning(
+            &StateWorkingSet::new(&engine_state),
+            &ParseWarning::DeprecatedWarning {
+                old_command: "date to-record".into(),
+                new_suggestion: "see `into record` command examples".into(),
+                span: head,
+                url: "`help into record`".into(),
+            },
+        );
+
         let head = call.head;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
