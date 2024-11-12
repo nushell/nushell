@@ -711,7 +711,6 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     }
     for keybinding in parsed_keybindings {
         add_keybinding(
-            &keybinding.name,
             &keybinding.mode,
             keybinding,
             config,
@@ -730,9 +729,7 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     }
 }
 
-#[allow(clippy::only_used_in_recursion)]
 fn add_keybinding(
-    name: &Option<Value>,
     mode: &Value,
     keybinding: &ParsedKeybinding,
     config: &Config,
@@ -755,7 +752,6 @@ fn add_keybinding(
         Value::List { vals, .. } => {
             for inner_mode in vals {
                 add_keybinding(
-                    name,
                     inner_mode,
                     keybinding,
                     config,
