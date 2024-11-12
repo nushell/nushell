@@ -143,7 +143,7 @@ fn mut_raw_string() {
 }
 
 #[test]
-fn mut_should_not_be_allowed_outside_func() {
+fn def_should_not_mutate_mut() {
     let actual = nu!("mut a = 3; def foo [] { $a = 4}");
     assert!(actual.err.contains("capture of mutable variable"));
     assert!(!actual.status.success())
