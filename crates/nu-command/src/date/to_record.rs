@@ -18,7 +18,7 @@ impl Command for SubCommand {
                 (Type::String, Type::record()),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
-            .category(Category::Date)
+            .category(Category::Deprecated)
     }
 
     fn description(&self) -> &str {
@@ -36,10 +36,9 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-
         let head = call.head;
         report_parse_warning(
-            &StateWorkingSet::new(&engine_state),
+            &StateWorkingSet::new(engine_state),
             &ParseWarning::DeprecatedWarning {
                 old_command: "date to-record".into(),
                 new_suggestion: "see `into record` command examples".into(),
