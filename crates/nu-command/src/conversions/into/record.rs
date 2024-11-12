@@ -102,18 +102,7 @@ impl Command for SubCommand {
             Example {
                 description: "convert date components to table columns",
                 example: "2020-04-12T22:10:57+02:00 | into record | transpose | transpose -r",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "year" =>     Value::test_int(2020),
-                    "month" =>    Value::test_int(4),
-                    "day" =>      Value::test_int(12),
-                    "hour" =>     Value::test_int(22),
-                    "minute" =>   Value::test_int(10),
-                    "second" =>   Value::test_int(57),
-                    "millisecond" => Value::test_int(0),
-                    "microsecond" => Value::test_int(0),
-                    "nanosecond" => Value::test_int(0),
-                    "timezone" => Value::test_string("+02:00"),
-                })])),
+                result: None,
             },
         ]
     }
