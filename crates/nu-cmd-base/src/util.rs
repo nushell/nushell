@@ -78,10 +78,10 @@ pub fn get_editor(
         get_editor_commandline(&config.buffer_editor, "$env.config.buffer_editor")
     {
         Ok(buff_editor)
-    } else if let Some(value) = env_vars.get("EDITOR") {
-        get_editor_commandline(value, "$env.EDITOR")
     } else if let Some(value) = env_vars.get("VISUAL") {
         get_editor_commandline(value, "$env.VISUAL")
+    } else if let Some(value) = env_vars.get("EDITOR") {
+        get_editor_commandline(value, "$env.EDITOR")
     } else {
         Err(ShellError::GenericError {
             error: "No editor configured".into(),

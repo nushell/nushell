@@ -48,13 +48,14 @@ impl Matcher for Pattern {
             Pattern::List(items) => match &value {
                 Value::List { vals, .. } => {
                     if items.len() > vals.len() {
-                        // The only we we allow this is to have a rest pattern in the n+1 position
+                        // We only allow this is to have a rest pattern in the n+1 position
                         if items.len() == (vals.len() + 1) {
                             match &items[vals.len()].pattern {
                                 Pattern::IgnoreRest => {}
-                                Pattern::Rest(var_id) => {
-                                    matches.push((*var_id, Value::nothing(items[vals.len()].span)))
-                                }
+                                Pattern::Rest(var_id) => matches.push((
+                                    *var_id,
+                                    Value::list(Vec::new(), items[vals.len()].span),
+                                )),
                                 _ => {
                                     // There is a pattern which can't skip missing values, so we fail
                                     return false;

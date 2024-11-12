@@ -69,7 +69,7 @@ impl Command for External {
         };
 
         // Find the absolute path to the executable. On Windows, set the
-        // executable to "cmd.exe" if it's is a CMD internal command. If the
+        // executable to "cmd.exe" if it's a CMD internal command. If the
         // command is not found, display a helpful error message.
         let executable = if cfg!(windows) && is_cmd_internal_command(&name_str) {
             PathBuf::from("cmd.exe")
@@ -114,7 +114,7 @@ impl Command for External {
         command.args(args.into_iter().map(|s| s.item));
 
         // Configure stdout and stderr. If both are set to `OutDest::Pipe`,
-        // we'll setup a pipe that merge two streams into one.
+        // we'll set up a pipe that merges two streams into one.
         let stdout = stack.stdout();
         let stderr = stack.stderr();
         let merged_stream = if matches!(stdout, OutDest::Pipe) && matches!(stderr, OutDest::Pipe) {
@@ -129,7 +129,7 @@ impl Command for External {
         };
 
         // Configure stdin. We'll try connecting input to the child process
-        // directly. If that's not possible, we'll setup a pipe and spawn a
+        // directly. If that's not possible, we'll set up a pipe and spawn a
         // thread to copy data into the child process.
         let data_to_copy_into_stdin = match input {
             PipelineData::ByteStream(stream, metadata) => match stream.into_stdio() {
@@ -180,12 +180,19 @@ impl Command for External {
         }
 
         // Wrap the output into a `PipelineData::ByteStream`.
-        let child = ChildProcess::new(
+        let mut child = ChildProcess::new(
             child,
             merged_stream,
             matches!(stderr, OutDest::Pipe),
             call.head,
         )?;
+
+        if matches!(stdout, OutDest::Pipe | OutDest::PipeSeparate)
+            || matches!(stderr, OutDest::Pipe | OutDest::PipeSeparate)
+        {
+            child.ignore_error(true);
+        }
+
         Ok(PipelineData::ByteStream(
             ByteStream::child(child, call.head),
             None,
@@ -442,8 +449,8 @@ pub fn command_not_found(
     }
 
     // Try to match the name with the search terms of existing commands.
-    let signatures = engine_state.get_signatures(false);
-    if let Some(sig) = signatures.iter().find(|sig| {
+    let signatures = engine_state.get_signatures_and_declids(false);
+    if let Some((sig, _)) = signatures.iter().find(|(sig, _)| {
         sig.search_terms
             .iter()
             .any(|term| term.to_folded_case() == name.to_folded_case())
@@ -456,7 +463,7 @@ pub fn command_not_found(
     }
 
     // Try a fuzzy search on the names of all existing commands.
-    if let Some(cmd) = did_you_mean(signatures.iter().map(|sig| &sig.name), name) {
+    if let Some(cmd) = did_you_mean(signatures.iter().map(|(sig, _)| &sig.name), name) {
         // The user is invoking an external command with the same name as a
         // built-in command. Remind them of this.
         if cmd == name {
@@ -527,7 +534,7 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
     let Spanned { item: arg, span } = arg;
     let bytes = arg.as_encoded_bytes();
     if bytes.iter().any(|b| matches!(b, b'\r' | b'\n' | b'%')) {
-        // \r and \n trunacte the rest of the arguments and % can expand environment variables
+        // \r and \n truncate the rest of the arguments and % can expand environment variables
         Err(ShellError::ExternalCommand {
             label:
                 "Arguments to CMD internal commands cannot contain new lines or percent signs '%'"

@@ -3,7 +3,7 @@ authors = ["The Nushell Project Developers", "procs creators"]
 description = "Nushell system querying"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-system"
 name = "nu-system"
-version = "0.98.1"
+version = "0.99.2"
 edition = "2021"
 license = "MIT"
 
@@ -34,7 +34,6 @@ mach2 = { workspace = true }
 [target.'cfg(target_os = "windows")'.dependencies]
 chrono = { workspace = true, default-features = false, features = ["clock"] }
 ntapi = "0.4"
-once_cell = { workspace = true }
 windows = { workspace = true, features = [
   "Wdk_System_SystemServices",
   "Wdk_System_Threading",

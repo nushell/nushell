@@ -39,9 +39,12 @@ impl PluginCommand for GetMinute {
     let df = ([$dt $dt] | polars into-df);
     $df | polars get-minute"#,
             result: Some(
-                NuDataFrame::try_from_series(Series::new("0", &[39i8, 39]), Span::test_data())
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                NuDataFrame::try_from_series(
+                    Series::new("0".into(), &[39i8, 39]),
+                    Span::test_data(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
             ),
         }]
     }

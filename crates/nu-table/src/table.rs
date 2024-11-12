@@ -272,8 +272,6 @@ fn set_indent(table: &mut Table, left: usize, right: usize) {
 }
 
 fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) {
-    let pad = wctrl.pad;
-
     if with_footer {
         let count_rows = table.count_rows();
         let last_row_index = count_rows - 1;
@@ -288,26 +286,25 @@ fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) 
         table.with(&mut head_settings);
         table.with(&mut last_row);
 
+        let head = first_row.1;
+        let footer = last_row.1;
+        let alignment = head_settings.1;
+        let head_color = head_settings.2.clone();
+        let footer_color = head_settings.2;
+
         table.with(
             Settings::default()
-                .with(wctrl)
                 .with(StripColorFromRow(0))
                 .with(StripColorFromRow(count_rows - 1))
+                .with(wctrl)
                 .with(MoveRowNext::new(0, 0))
                 .with(MoveRowPrev::new(last_row_index - 1, last_row_index))
-                .with(SetLineHeaders::new(
-                    0,
-                    first_row.1,
-                    head_settings.1,
-                    head_settings.2.clone(),
-                    pad,
-                ))
+                .with(SetLineHeaders::new(0, head, alignment, head_color))
                 .with(SetLineHeaders::new(
                     last_row_index - 1,
-                    last_row.1,
-                    head_settings.1,
-                    head_settings.2,
-                    pad,
+                    footer,
+                    alignment,
+                    footer_color,
                 )),
         );
     } else {
@@ -319,10 +316,10 @@ fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) 
 
         table.with(
             Settings::default()
-                .with(wctrl)
                 .with(StripColorFromRow(0))
+                .with(wctrl)
                 .with(MoveRowNext::new(0, 0))
-                .with(SetLineHeaders::new(0, row.1, row_opts.1, row_opts.2, pad)),
+                .with(SetLineHeaders::new(0, row.1, row_opts.1, row_opts.2)),
         );
     }
 }
@@ -469,10 +466,9 @@ fn trim_as_header(
 
     // even though it's safe to trim columns by header there might be left unused space
     // so we do use it if possible prioritizing left columns
-
+    let mut widths = vec![0; headers_widths.len()];
     for (i, head_width) in headers_widths.into_iter().enumerate() {
-        let head_width = head_width - trim.pad;
-        let column_width = trim.width[i] - trim.pad; // safe to assume width is bigger then paddding
+        let column_width = trim.width[i]; // safe to assume width is bigger then padding
 
         let mut use_width = head_width;
         if free_width > 0 {
@@ -484,15 +480,45 @@ fn trim_as_header(
             use_width += additional_width;
         }
 
+        widths[i] = use_width;
+    }
+
+    // make sure we are fit in;
+    // which is might not be the case where we need to truncate columns further then a column head width
+    let expected_width = get_total_width2(&widths, cfg);
+    if expected_width > trim.width_max {
+        let mut diff = expected_width - trim.width_max;
+        'out: loop {
+            let (biggest_column, &value) = widths
+                .iter()
+                .enumerate()
+                .max_by_key(|(_, &value)| value)
+                .expect("ok");
+            if value <= trim.pad {
+                unreachable!("theoretically must never happen at this point")
+            }
+
+            widths[biggest_column] -= 1;
+            diff -= 1;
+
+            if diff == 0 {
+                break 'out;
+            }
+        }
+    }
+
+    for (i, width) in widths.iter().cloned().enumerate() {
+        let width = width - trim.pad;
+
         match &trim.strategy {
             TrimStrategy::Wrap { try_to_keep_words } => {
-                let wrap = Width::wrap(use_width).keep_words(*try_to_keep_words);
+                let wrap = Width::wrap(width).keep_words(*try_to_keep_words);
 
                 let opt = Modify::new(Columns::single(i)).with(wrap);
                 TableOption::<VecRecords<Text<String>>, _, _>::change(opt, recs, cfg, dims);
             }
             TrimStrategy::Truncate { suffix } => {
-                let mut truncate = Width::truncate(use_width);
+                let mut truncate = Width::truncate(width);
                 if let Some(suffix) = suffix {
                     truncate = truncate.suffix(suffix).suffix_try_color(true);
                 }
@@ -502,6 +528,8 @@ fn trim_as_header(
             }
         }
     }
+
+    TableOption::change(SetDimensions(widths), recs, cfg, dims);
 }
 
 fn align_table(
@@ -982,12 +1010,13 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>>
     }
 }
 
+// It's laverages a use of guuaranted cached widths before hand
+// to speed up things a bit.
 struct SetLineHeaders {
     line: usize,
     columns: Vec<String>,
     alignment: AlignmentHorizontal,
     color: Option<Color>,
-    pad: usize,
 }
 
 impl SetLineHeaders {
@@ -996,14 +1025,12 @@ impl SetLineHeaders {
         columns: Vec<String>,
         alignment: AlignmentHorizontal,
         color: Option<Color>,
-        pad: usize,
     ) -> Self {
         Self {
             line,
             columns,
             alignment,
             color,
-            pad,
         }
     }
 }
@@ -1016,11 +1043,12 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
         dims: &mut CompleteDimensionVecRecords<'_>,
     ) {
         let mut columns = self.columns;
+
         match dims.get_widths() {
             Some(widths) => {
                 columns = columns
                     .into_iter()
-                    .zip(widths.iter().map(|w| w - self.pad)) // it must be always safe to do
+                    .zip(widths.iter().cloned()) // it must be always safe to do
                     .map(|(s, width)| Truncate::truncate(&s, width).into_owned())
                     .collect();
             }
@@ -1029,6 +1057,8 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
                 // which means we are OK to leave columns as they are.
                 //
                 // but we actually always have to have widths at this point
+
+                unreachable!("must never be the case");
             }
         };
 
@@ -1041,6 +1071,10 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
             self.alignment,
             self.color,
         )
+    }
+
+    fn hint_change(&self) -> Option<Entity> {
+        None
     }
 }
 
@@ -1075,6 +1109,10 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
     ) {
         row_shift_next(recs, cfg, self.row, self.line);
     }
+
+    fn hint_change(&self) -> Option<Entity> {
+        None
+    }
 }
 
 impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for MoveRowPrev {
@@ -1085,6 +1123,10 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
         _: &mut CompleteDimensionVecRecords<'_>,
     ) {
         row_shift_prev(recs, cfg, self.row, self.line);
+    }
+
+    fn hint_change(&self) -> Option<Entity> {
+        None
     }
 }
 

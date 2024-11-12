@@ -95,20 +95,27 @@ mod int_range {
 
         pub fn contains(&self, value: i64) -> bool {
             if self.step < 0 {
-                value <= self.start
-                    && match self.end {
-                        Bound::Included(end) => value >= end,
-                        Bound::Excluded(end) => value > end,
-                        Bound::Unbounded => true,
-                    }
+                // Decreasing range
+                if value > self.start {
+                    return false;
+                }
+                match self.end {
+                    Bound::Included(end) if value < end => return false,
+                    Bound::Excluded(end) if value <= end => return false,
+                    _ => {}
+                };
             } else {
-                self.start <= value
-                    && match self.end {
-                        Bound::Included(end) => value <= end,
-                        Bound::Excluded(end) => value < end,
-                        Bound::Unbounded => true,
-                    }
+                // Increasing range
+                if value < self.start {
+                    return false;
+                }
+                match self.end {
+                    Bound::Included(end) if value > end => return false,
+                    Bound::Excluded(end) if value >= end => return false,
+                    _ => {}
+                };
             }
+            (value - self.start) % self.step == 0
         }
 
         pub fn into_range_iter(self, signals: Signals) -> Iter {
@@ -330,20 +337,27 @@ mod float_range {
 
         pub fn contains(&self, value: f64) -> bool {
             if self.step < 0.0 {
-                value <= self.start
-                    && match self.end {
-                        Bound::Included(end) => value >= end,
-                        Bound::Excluded(end) => value > end,
-                        Bound::Unbounded => true,
-                    }
+                // Decreasing range
+                if value > self.start {
+                    return false;
+                }
+                match self.end {
+                    Bound::Included(end) if value <= end => return false,
+                    Bound::Excluded(end) if value < end => return false,
+                    _ => {}
+                };
             } else {
-                self.start <= value
-                    && match self.end {
-                        Bound::Included(end) => value <= end,
-                        Bound::Excluded(end) => value < end,
-                        Bound::Unbounded => true,
-                    }
+                // Increasing range
+                if value < self.start {
+                    return false;
+                }
+                match self.end {
+                    Bound::Included(end) if value >= end => return false,
+                    Bound::Excluded(end) if value > end => return false,
+                    _ => {}
+                };
             }
+            ((value - self.start) % self.step).abs() < f64::EPSILON
         }
 
         pub fn into_range_iter(self, signals: Signals) -> Iter {

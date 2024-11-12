@@ -59,7 +59,7 @@ fn command(
         .as_ref()
         .get_column_names()
         .iter()
-        .map(|v| Value::string(*v, call.head))
+        .map(|v| Value::string(v.as_str(), call.head))
         .collect();
 
     let names = Value::list(names, call.head);

@@ -1,5 +1,5 @@
 use nu_protocol::{ShellError, Span};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use std::{collections::HashMap, path::Path};
 
 // Attribution: Thanks exa. Most of this file is taken from around here
@@ -84,7 +84,7 @@ impl Icons {
 //         .unwrap_or_default()
 // }
 
-static MAP_BY_NAME: Lazy<HashMap<&'static str, char>> = Lazy::new(|| {
+static MAP_BY_NAME: LazyLock<HashMap<&'static str, char>> = LazyLock::new(|| {
     [
         (".Trash", '\u{f1f8}'),             // 
         (".atom", '\u{e764}'),              // 
@@ -201,6 +201,7 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "cc" => '\u{e61d}',             // 
             "cert" => '\u{eafa}',           // 
             "cfg" => '\u{e615}',            // 
+            "cjs" => '\u{e74e}',            // 
             "class" => '\u{e256}',          // 
             "clj" => '\u{e768}',            // 
             "cljs" => '\u{e76a}',           // 

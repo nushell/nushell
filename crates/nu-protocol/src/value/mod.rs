@@ -1,7 +1,6 @@
 mod custom_value;
 mod duration;
 mod filesize;
-mod from;
 mod from_value;
 mod glob;
 mod into_value;
@@ -68,6 +67,21 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    String {
+        val: String,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
+        internal_span: Span,
+    },
+    Glob {
+        val: String,
+        no_expand: bool,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
+        internal_span: Span,
+    },
     Filesize {
         val: i64,
         // note: spans are being refactored out of Value
@@ -96,21 +110,6 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
-    String {
-        val: String,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
-        #[serde(rename = "span")]
-        internal_span: Span,
-    },
-    Glob {
-        val: String,
-        no_expand: bool,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
-        #[serde(rename = "span")]
-        internal_span: Span,
-    },
     Record {
         val: SharedCow<Record>,
         // note: spans are being refactored out of Value
@@ -127,12 +126,6 @@ pub enum Value {
     },
     Closure {
         val: Box<Closure>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
-        #[serde(rename = "span")]
-        internal_span: Span,
-    },
-    Nothing {
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -161,6 +154,12 @@ pub enum Value {
     },
     Custom {
         val: Box<dyn CustomValue>,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        #[serde(rename = "span")]
+        internal_span: Span,
+    },
+    Nothing {
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -370,6 +369,7 @@ impl Value {
     /// - `Int`
     /// - `Float`
     /// - `String`
+    /// - `Glob`
     /// - `Binary` (only if valid utf-8)
     /// - `Date`
     ///
@@ -382,6 +382,7 @@ impl Value {
     ///             Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
+    ///                 | Value::Glob { .. }
     ///                 | Value::Binary { .. }
     ///                 | Value::Date { .. }
     ///         ),
@@ -394,6 +395,7 @@ impl Value {
             Value::Int { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::Float { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::String { val, .. } => Ok(Cow::Borrowed(val)),
+            Value::Glob { val, .. } => Ok(Cow::Borrowed(val)),
             Value::Binary { val, .. } => match std::str::from_utf8(val) {
                 Ok(s) => Ok(Cow::Borrowed(s)),
                 Err(_) => self.cant_convert_to("string"),
@@ -420,6 +422,7 @@ impl Value {
     /// - `Int`
     /// - `Float`
     /// - `String`
+    /// - `Glob`
     /// - `Binary` (only if valid utf-8)
     /// - `Date`
     ///
@@ -432,6 +435,7 @@ impl Value {
     ///             Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
+    ///                 | Value::Glob { .. }
     ///                 | Value::Binary { .. }
     ///                 | Value::Date { .. }
     ///         ),
@@ -449,6 +453,7 @@ impl Value {
     /// - `Int`
     /// - `Float`
     /// - `String`
+    /// - `Glob`
     /// - `Binary` (only if valid utf-8)
     /// - `Date`
     ///
@@ -461,6 +466,7 @@ impl Value {
     ///             Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
+    ///                 | Value::Glob { .. }
     ///                 | Value::Binary { .. }
     ///                 | Value::Date { .. }
     ///         ),
@@ -474,6 +480,7 @@ impl Value {
             Value::Int { val, .. } => Ok(val.to_string()),
             Value::Float { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val),
+            Value::Glob { val, .. } => Ok(val),
             Value::Binary { val, .. } => match String::from_utf8(val) {
                 Ok(s) => Ok(s),
                 Err(err) => Value::binary(err.into_bytes(), span).cant_convert_to("string"),
@@ -2073,183 +2080,183 @@ impl PartialOrd for Value {
                 Value::Bool { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Int { .. } => Some(Ordering::Less),
                 Value::Float { .. } => Some(Ordering::Less),
+                Value::String { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
-                Value::String { .. } => Some(Ordering::Less),
-                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::Int { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Float { val: rhs, .. } => compare_floats(*lhs as f64, *rhs),
+                Value::String { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
-                Value::String { .. } => Some(Ordering::Less),
-                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::Float { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { val: rhs, .. } => compare_floats(*lhs, *rhs as f64),
                 Value::Float { val: rhs, .. } => compare_floats(*lhs, *rhs),
+                Value::String { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
-                Value::String { .. } => Some(Ordering::Less),
-                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
-            },
-            (Value::Filesize { val: lhs, .. }, rhs) => match rhs {
-                Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::Duration { .. } => Some(Ordering::Less),
-                Value::Date { .. } => Some(Ordering::Less),
-                Value::Range { .. } => Some(Ordering::Less),
-                Value::String { .. } => Some(Ordering::Less),
-                Value::Glob { .. } => Some(Ordering::Less),
-                Value::Record { .. } => Some(Ordering::Less),
-                Value::List { .. } => Some(Ordering::Less),
-                Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
-                Value::Error { .. } => Some(Ordering::Less),
-                Value::Binary { .. } => Some(Ordering::Less),
-                Value::CellPath { .. } => Some(Ordering::Less),
-                Value::Custom { .. } => Some(Ordering::Less),
-            },
-            (Value::Duration { val: lhs, .. }, rhs) => match rhs {
-                Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::Date { .. } => Some(Ordering::Less),
-                Value::Range { .. } => Some(Ordering::Less),
-                Value::String { .. } => Some(Ordering::Less),
-                Value::Glob { .. } => Some(Ordering::Less),
-                Value::Record { .. } => Some(Ordering::Less),
-                Value::List { .. } => Some(Ordering::Less),
-                Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
-                Value::Error { .. } => Some(Ordering::Less),
-                Value::Binary { .. } => Some(Ordering::Less),
-                Value::CellPath { .. } => Some(Ordering::Less),
-                Value::Custom { .. } => Some(Ordering::Less),
-            },
-            (Value::Date { val: lhs, .. }, rhs) => match rhs {
-                Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::Range { .. } => Some(Ordering::Less),
-                Value::String { .. } => Some(Ordering::Less),
-                Value::Glob { .. } => Some(Ordering::Less),
-                Value::Record { .. } => Some(Ordering::Less),
-                Value::List { .. } => Some(Ordering::Less),
-                Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
-                Value::Error { .. } => Some(Ordering::Less),
-                Value::Binary { .. } => Some(Ordering::Less),
-                Value::CellPath { .. } => Some(Ordering::Less),
-                Value::Custom { .. } => Some(Ordering::Less),
-            },
-            (Value::Range { val: lhs, .. }, rhs) => match rhs {
-                Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { .. } => Some(Ordering::Greater),
-                Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::String { .. } => Some(Ordering::Less),
-                Value::Glob { .. } => Some(Ordering::Less),
-                Value::Record { .. } => Some(Ordering::Less),
-                Value::List { .. } => Some(Ordering::Less),
-                Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
-                Value::Error { .. } => Some(Ordering::Less),
-                Value::Binary { .. } => Some(Ordering::Less),
-                Value::CellPath { .. } => Some(Ordering::Less),
-                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::String { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { .. } => Some(Ordering::Greater),
-                Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Filesize { .. } => Some(Ordering::Less),
+                Value::Duration { .. } => Some(Ordering::Less),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::Glob { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { .. } => Some(Ordering::Greater),
-                Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Filesize { .. } => Some(Ordering::Less),
+                Value::Duration { .. } => Some(Ordering::Less),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+            },
+            (Value::Filesize { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
+                Value::Filesize { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Duration { .. } => Some(Ordering::Less),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Closure { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+            },
+            (Value::Duration { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Closure { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+            },
+            (Value::Date { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Closure { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+            },
+            (Value::Range { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Closure { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::Record { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { val: rhs, .. } => {
                     // reorder cols and vals to make more logically compare.
                     // more general, if two record have same col and values,
@@ -2279,127 +2286,127 @@ impl PartialOrd for Value {
                 }
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::List { vals: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { vals: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::Closure { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Closure { val: rhs, .. } => lhs.block_id.partial_cmp(&rhs.block_id),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
-                Value::Error { .. } => Some(Ordering::Less),
-                Value::Binary { .. } => Some(Ordering::Less),
-                Value::CellPath { .. } => Some(Ordering::Less),
-                Value::Custom { .. } => Some(Ordering::Less),
-            },
-            (Value::Nothing { .. }, rhs) => match rhs {
-                Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { .. } => Some(Ordering::Greater),
-                Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
-                Value::Record { .. } => Some(Ordering::Greater),
-                Value::List { .. } => Some(Ordering::Greater),
-                Value::Closure { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Equal),
-                Value::Error { .. } => Some(Ordering::Less),
-                Value::Binary { .. } => Some(Ordering::Less),
-                Value::CellPath { .. } => Some(Ordering::Less),
-                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Error { .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Equal),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::Binary { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
                 Value::Binary { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::CellPath { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
                 Value::Binary { .. } => Some(Ordering::Greater),
                 Value::CellPath { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::Custom { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
+            (Value::Nothing { .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { .. } => Some(Ordering::Greater),
+                Value::Record { .. } => Some(Ordering::Greater),
+                Value::List { .. } => Some(Ordering::Greater),
+                Value::Closure { .. } => Some(Ordering::Greater),
+                Value::Error { .. } => Some(Ordering::Greater),
+                Value::Binary { .. } => Some(Ordering::Greater),
+                Value::CellPath { .. } => Some(Ordering::Greater),
+                Value::Custom { .. } => Some(Ordering::Greater),
+                Value::Nothing { .. } => Some(Ordering::Equal),
+            },
         }
     }
 }
@@ -2417,7 +2424,11 @@ impl Value {
                 if let Some(val) = lhs.checked_add(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "add operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow {
+                        msg: "add operation overflowed".into(),
+                        span,
+                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                     })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2440,7 +2451,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "addition operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
@@ -2451,7 +2462,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "add operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
@@ -2462,7 +2473,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "add operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
@@ -2526,7 +2537,11 @@ impl Value {
                 if let Some(val) = lhs.checked_sub(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "subtraction operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow {
+                        msg: "subtraction operation overflowed".into(),
+                        span,
+                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                    })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2547,7 +2562,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "subtraction operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
@@ -2557,7 +2572,7 @@ impl Value {
                     _ => Err(ShellError::OperatorOverflow {
                         msg: "subtraction operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     }),
                 }
             }
@@ -2568,7 +2583,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "subtraction operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
@@ -2579,7 +2594,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "add operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
@@ -2604,7 +2619,11 @@ impl Value {
                 if let Some(val) = lhs.checked_mul(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "multiply operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow {
+                        msg: "multiply operation overflowed".into(),
+                        span,
+                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                    })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2656,14 +2675,10 @@ impl Value {
     pub fn div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    if lhs % rhs == 0 {
-                        Ok(Value::int(lhs / rhs, span))
-                    } else {
-                        Ok(Value::float((*lhs as f64) / (*rhs as f64), span))
-                    }
-                } else {
+                if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Ok(Value::float(*lhs as f64 / *rhs as f64, span))
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2688,57 +2703,73 @@ impl Value {
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    if lhs % rhs == 0 {
-                        Ok(Value::int(lhs / rhs, span))
-                    } else {
-                        Ok(Value::float((*lhs as f64) / (*rhs as f64), span))
-                    }
-                } else {
+                if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Ok(Value::float(*lhs as f64 / *rhs as f64, span))
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::filesize(
-                        ((*lhs as f64) / (*rhs as f64)) as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = lhs.checked_div(*rhs) {
+                    Ok(Value::filesize(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::filesize((*lhs as f64 / rhs) as i64, span))
+                    let val = *lhs as f64 / rhs;
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::filesize(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    if lhs % rhs == 0 {
-                        Ok(Value::int(lhs / rhs, span))
-                    } else {
-                        Ok(Value::float((*lhs as f64) / (*rhs as f64), span))
-                    }
-                } else {
+                if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Ok(Value::float(*lhs as f64 / *rhs as f64, span))
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::duration(
-                        ((*lhs as f64) / (*rhs as f64)) as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = lhs.checked_div(*rhs) {
+                    Ok(Value::duration(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::duration(((*lhs as f64) / rhs) as i64, span))
+                    let val = *lhs as f64 / rhs;
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::duration(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
@@ -2757,122 +2788,301 @@ impl Value {
         }
     }
 
-    pub fn floor_div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn modulo(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        // Based off the unstable `div_floor` function in the std library.
+        fn checked_mod_i64(dividend: i64, divisor: i64) -> Option<i64> {
+            let remainder = dividend.checked_rem(divisor)?;
+            if (remainder > 0 && divisor < 0) || (remainder < 0 && divisor > 0) {
+                // Note that `remainder + divisor` cannot overflow, because `remainder` and
+                // `divisor` have opposite signs.
+                Some(remainder + divisor)
+            } else {
+                Some(remainder)
+            }
+        }
+
+        fn checked_mod_f64(dividend: f64, divisor: f64) -> Option<f64> {
+            if divisor == 0.0 {
+                None
+            } else {
+                let remainder = dividend % divisor;
+                if (remainder > 0.0 && divisor < 0.0) || (remainder < 0.0 && divisor > 0.0) {
+                    Some(remainder + divisor)
+                } else {
+                    Some(remainder)
+                }
+            }
+        }
+
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(
-                        (*lhs as f64 / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::int(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "modulo operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::int(
-                        (*lhs as f64 / *rhs)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
+                if let Some(val) = checked_mod_f64(*lhs as f64, *rhs) {
+                    Ok(Value::float(val, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(
-                        (*lhs / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
+                if let Some(val) = checked_mod_f64(*lhs, *rhs as f64) {
+                    Ok(Value::float(val, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::int(
-                        (lhs / rhs).clamp(i64::MIN as f64, i64::MAX as f64).floor() as i64,
-                        span,
-                    ))
+                if let Some(val) = checked_mod_f64(*lhs, *rhs) {
+                    Ok(Value::float(val, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(
-                        (*lhs as f64 / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::filesize(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "modulo operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::filesize(
-                        ((*lhs as f64) / (*rhs as f64))
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::filesize(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "modulo operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::filesize(
-                        (*lhs as f64 / *rhs)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
+                if let Some(val) = checked_mod_f64(*lhs as f64, *rhs) {
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::filesize(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "modulo operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(
-                        (*lhs as f64 / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::duration(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::duration(
-                        (*lhs as f64 / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::duration(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
                         span,
-                    ))
+                        help: None,
+                    })
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_f64(*lhs as f64, *rhs) {
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::duration(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
-            (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::duration(
-                        (*lhs as f64 / *rhs)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Math(Math::Modulo), op, rhs)
+            }
+
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type().to_string(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type().to_string(),
+                rhs_span: rhs.span(),
+            }),
+        }
+    }
+
+    pub fn floor_div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        // Taken from the unstable `div_floor` function in the std library.
+        fn checked_div_floor_i64(dividend: i64, divisor: i64) -> Option<i64> {
+            let quotient = dividend.checked_div(divisor)?;
+            let remainder = dividend.checked_rem(divisor)?;
+            if (remainder > 0 && divisor < 0) || (remainder < 0 && divisor > 0) {
+                // Note that `quotient - 1` cannot overflow, because:
+                //     `quotient` would have to be `i64::MIN`
+                //     => `divisor` would have to be `1`
+                //     => `remainder` would have to be `0`
+                // But `remainder == 0` is excluded from the check above.
+                Some(quotient - 1)
+            } else {
+                Some(quotient)
+            }
+        }
+
+        fn checked_div_floor_f64(dividend: f64, divisor: f64) -> Option<f64> {
+            if divisor == 0.0 {
+                None
+            } else {
+                Some((dividend / divisor).floor())
+            }
+        }
+
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = checked_div_floor_i64(*lhs, *rhs) {
+                    Ok(Value::int(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
                         span,
-                    ))
+                        help: None,
+                    })
+                }
+            }
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_div_floor_f64(*lhs as f64, *rhs) {
+                    Ok(Value::float(val, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = checked_div_floor_f64(*lhs, *rhs as f64) {
+                    Ok(Value::float(val, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_div_floor_f64(*lhs, *rhs) {
+                    Ok(Value::float(val, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                if let Some(val) = checked_div_floor_i64(*lhs, *rhs) {
+                    Ok(Value::int(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = checked_div_floor_i64(*lhs, *rhs) {
+                    Ok(Value::filesize(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_div_floor_f64(*lhs as f64, *rhs) {
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::filesize(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                if let Some(val) = checked_div_floor_i64(*lhs, *rhs) {
+                    Ok(Value::int(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = checked_div_floor_i64(*lhs, *rhs) {
+                    Ok(Value::duration(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_div_floor_f64(*lhs as f64, *rhs) {
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::duration(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
@@ -2880,7 +3090,6 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
             }
-
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
@@ -3326,7 +3535,7 @@ impl Value {
                         msg: "right operand to bit-shl exceeds available bits in underlying data"
                             .into(),
                         span,
-                        help: format!("Limit operand to 0 <= rhs < {}", i64::BITS),
+                        help: Some(format!("Limit operand to 0 <= rhs < {}", i64::BITS)),
                     })
                 }
             }
@@ -3355,7 +3564,7 @@ impl Value {
                         msg: "right operand to bit-shr exceeds available bits in underlying data"
                             .into(),
                         span,
-                        help: format!("Limit operand to 0 <= rhs < {}", i64::BITS),
+                        help: Some(format!("Limit operand to 0 <= rhs < {}", i64::BITS)),
                     })
                 }
             }
@@ -3426,57 +3635,6 @@ impl Value {
         }
     }
 
-    pub fn modulo(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(lhs % rhs, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::float(*lhs as f64 % *rhs, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::float(*lhs % *rhs as f64, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::float(lhs % rhs, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::duration(lhs % rhs, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Math(Math::Modulo), op, rhs)
-            }
-
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
-        }
-    }
-
     pub fn and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
@@ -3537,7 +3695,11 @@ impl Value {
                 if let Some(val) = lhs.checked_pow(*rhs as u32) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "pow operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow {
+                        msg: "pow operation overflowed".into(),
+                        span,
+                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                    })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {

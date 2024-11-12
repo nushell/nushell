@@ -49,7 +49,7 @@ pub(super) fn compute_between_series(
                 inner: vec![],
             })?;
             let name = format!("sum_{}_{}", lhs.name(), rhs.name());
-            res.rename(&name);
+            res.rename(name.into());
             NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Math(Math::Minus) => {
@@ -61,7 +61,7 @@ pub(super) fn compute_between_series(
                 inner: vec![],
             })?;
             let name = format!("sub_{}_{}", lhs.name(), rhs.name());
-            res.rename(&name);
+            res.rename(name.into());
             NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Math(Math::Multiply) => {
@@ -73,7 +73,7 @@ pub(super) fn compute_between_series(
                 inner: vec![],
             })?;
             let name = format!("mul_{}_{}", lhs.name(), rhs.name());
-            res.rename(&name);
+            res.rename(name.into());
             NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Math(Math::Divide) => {
@@ -81,7 +81,7 @@ pub(super) fn compute_between_series(
             match res {
                 Ok(mut res) => {
                     let name = format!("div_{}_{}", lhs.name(), rhs.name());
-                    res.rename(&name);
+                    res.rename(name.into());
                     NuDataFrame::try_from_series(res, operation_span)
                 }
                 Err(e) => Err(ShellError::GenericError {
@@ -132,7 +132,7 @@ pub(super) fn compute_between_series(
                     (Ok(l), Ok(r)) => {
                         let mut res = l.bitand(r).into_series();
                         let name = format!("and_{}_{}", lhs.name(), rhs.name());
-                        res.rename(&name);
+                        res.rename(name.into());
                         NuDataFrame::try_from_series(res, operation_span)
                     }
                     _ => Err(ShellError::GenericError {
@@ -161,7 +161,7 @@ pub(super) fn compute_between_series(
                     (Ok(l), Ok(r)) => {
                         let mut res = l.bitor(r).into_series();
                         let name = format!("or_{}_{}", lhs.name(), rhs.name());
-                        res.rename(&name);
+                        res.rename(name.into());
                         NuDataFrame::try_from_series(res, operation_span)
                     }
                     _ => Err(ShellError::GenericError {
@@ -211,7 +211,7 @@ where
         })?
         .into_series();
 
-    res.rename(name);
+    res.rename(name.into());
     Ok(res)
 }
 
@@ -333,6 +333,10 @@ pub(super) fn compute_series_single_value(
             }
             Value::Float { val, .. } => {
                 compare_series_float(&lhs, *val, ChunkedArray::not_equal, lhs_span)
+            }
+            Value::String { val, .. } => {
+                let equal_pattern = format!("^{}$", fancy_regex::escape(val));
+                contains_series_pat(&lhs, &equal_pattern, lhs_span)
             }
             Value::Date { val, .. } => compare_series_i64(
                 &lhs,
@@ -815,7 +819,7 @@ mod test {
 
     #[test]
     fn test_compute_between_series_comparisons() {
-        let series = Series::new("c", &[1, 2]);
+        let series = Series::new("c".into(), &[1, 2]);
         let df = NuDataFrame::try_from_series_vec(vec![series], Span::test_data())
             .expect("should be able to create a simple dataframe");
 
@@ -848,7 +852,7 @@ mod test {
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
-        assert_eq!(result, Series::new("neq_c_c", &[false, false]));
+        assert_eq!(result, Series::new("neq_c_c".into(), &[false, false]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::Equal),
@@ -859,7 +863,7 @@ mod test {
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
-        assert_eq!(result, Series::new("eq_c_c", &[true, true]));
+        assert_eq!(result, Series::new("eq_c_c".into(), &[true, true]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::LessThan),
@@ -870,7 +874,7 @@ mod test {
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
-        assert_eq!(result, Series::new("lt_c_c", &[false, false]));
+        assert_eq!(result, Series::new("lt_c_c".into(), &[false, false]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::LessThanOrEqual),
@@ -881,7 +885,7 @@ mod test {
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
-        assert_eq!(result, Series::new("lte_c_c", &[true, true]));
+        assert_eq!(result, Series::new("lte_c_c".into(), &[true, true]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::GreaterThan),
@@ -892,7 +896,7 @@ mod test {
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
-        assert_eq!(result, Series::new("gt_c_c", &[false, false]));
+        assert_eq!(result, Series::new("gt_c_c".into(), &[false, false]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::GreaterThanOrEqual),
@@ -903,6 +907,6 @@ mod test {
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
-        assert_eq!(result, Series::new("gte_c_c", &[true, true]));
+        assert_eq!(result, Series::new("gte_c_c".into(), &[true, true]));
     }
 }

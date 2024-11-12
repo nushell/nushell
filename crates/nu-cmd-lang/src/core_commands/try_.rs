@@ -63,7 +63,7 @@ impl Command for Try {
         let eval_block = get_eval_block(engine_state);
 
         let result = eval_block(engine_state, stack, try_block, input)
-            .and_then(|pipeline| pipeline.write_to_out_dests(engine_state, stack));
+            .and_then(|pipeline| pipeline.drain_to_out_dests(engine_state, stack));
 
         match result {
             Err(err) => run_catch(err, head, catch_block, engine_state, stack, eval_block),
@@ -107,7 +107,11 @@ fn run_catch(
 
     if let Some(catch) = catch {
         stack.set_last_error(&error);
-        let error = error.into_value(span);
+        let fancy_errors = match engine_state.get_config().error_style {
+            nu_protocol::ErrorStyle::Fancy => true,
+            nu_protocol::ErrorStyle::Plain => false,
+        };
+        let error = error.into_value(span, fancy_errors);
         let block = engine_state.get_block(catch.block_id);
         // Put the error value in the positional closure var
         if let Some(var) = block.signature.get_positional(0) {

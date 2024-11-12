@@ -1021,6 +1021,21 @@ pub fn test_external_call_head_interpolated_string(
     r#"{a:1,b:c,c:d}"#,
     "value with single quote and double quote"
 )]
+#[case(
+    r#"^foo `hello world`"#,
+    r#"hello world"#,
+    "value is surrounded by backtick quote"
+)]
+#[case(
+    r#"^foo `"hello world"`"#,
+    "\"hello world\"",
+    "value is surrounded by backtick quote, with inner double quote"
+)]
+#[case(
+    r#"^foo `'hello world'`"#,
+    "'hello world'",
+    "value is surrounded by backtick quote, with inner single quote"
+)]
 pub fn test_external_call_arg_glob(#[case] input: &str, #[case] expected: &str, #[case] tag: &str) {
     test_external_call(input, tag, |name, args| {
         match &name.expr {
@@ -1226,6 +1241,18 @@ fn test_nothing_comparison_eq() {
     let element = &pipeline.elements[0];
     assert!(element.redirection.is_none());
     assert!(matches!(&element.expr.expr, Expr::BinaryOp(..)));
+}
+
+#[rstest]
+#[case(b"let a o> file = 1")]
+#[case(b"mut a o> file = 1")]
+fn test_redirection_inside_letmut_no_panic(#[case] phase: &[u8]) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(Let));
+    working_set.add_decl(Box::new(Mut));
+
+    parse(&mut working_set, None, phase, true);
 }
 
 #[rstest]

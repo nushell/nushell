@@ -120,7 +120,7 @@ pub const ENV_VARIABLE_ID: VarId = VarId::new(2);
 // NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
 
 // The first span is unknown span
-pub const UNKNOWN_SPAN_ID: SpanId = SpanId(0);
+pub const UNKNOWN_SPAN_ID: SpanId = SpanId::new(0);
 
 impl EngineState {
     pub fn new() -> Self {
@@ -319,6 +319,10 @@ impl EngineState {
                 }
             }
         }
+
+        let cwd = self.cwd(Some(stack))?;
+        // TODO: better error
+        std::env::set_current_dir(cwd)?;
 
         if let Some(config) = stack.config.take() {
             // If config was updated in the stack, replace it.
@@ -816,14 +820,14 @@ impl EngineState {
         }
     }
 
-    /// Get signatures of all commands within scope.
-    pub fn get_signatures(&self, include_hidden: bool) -> Vec<Signature> {
+    /// Get signatures of all commands within scope with their decl ids.
+    pub fn get_signatures_and_declids(&self, include_hidden: bool) -> Vec<(Signature, DeclId)> {
         self.get_decls_sorted(include_hidden)
             .into_iter()
             .map(|(_, id)| {
                 let decl = self.get_decl(id);
 
-                self.get_signature(decl).update_from_command(decl)
+                (self.get_signature(decl).update_from_command(decl), id)
             })
             .collect()
     }
@@ -935,14 +939,14 @@ impl EngineState {
         let pwd = if let Some(stack) = stack {
             stack.get_env_var(self, "PWD")
         } else {
-            self.get_env_var("PWD").cloned()
+            self.get_env_var("PWD")
         };
 
         let pwd = pwd.ok_or_else(|| error("$env.PWD not found", ""))?;
 
-        if let Value::String { val, .. } = pwd {
-            let path = AbsolutePathBuf::try_from(val)
-                .map_err(|path| error("$env.PWD is not an absolute path", path))?;
+        if let Ok(pwd) = pwd.as_str() {
+            let path = AbsolutePathBuf::try_from(pwd)
+                .map_err(|_| error("$env.PWD is not an absolute path", pwd))?;
 
             // Technically, a root path counts as "having trailing slashes", but
             // for the purpose of PWD, a root path is acceptable.
@@ -1027,12 +1031,15 @@ impl EngineState {
     /// Add new span and return its ID
     pub fn add_span(&mut self, span: Span) -> SpanId {
         self.spans.push(span);
-        SpanId(self.num_spans() - 1)
+        SpanId::new(self.num_spans() - 1)
     }
 
     /// Find ID of a span (should be avoided if possible)
     pub fn find_span_id(&self, span: Span) -> Option<SpanId> {
-        self.spans.iter().position(|sp| sp == &span).map(SpanId)
+        self.spans
+            .iter()
+            .position(|sp| sp == &span)
+            .map(SpanId::new)
     }
 }
 
@@ -1041,7 +1048,7 @@ impl<'a> GetSpan for &'a EngineState {
     fn get_span(&self, span_id: SpanId) -> Span {
         *self
             .spans
-            .get(span_id.0)
+            .get(span_id.get())
             .expect("internal error: missing span")
     }
 }

@@ -22,7 +22,8 @@ export-env {
 }
 
 # Add one or more directories to the list.
-# PWD becomes first of the newly added directories.
+# The first directory listed becomes the new
+# active directory.
 export def --env add [
     ...paths: string    # directory or directories to add to working list
     ] {
@@ -38,32 +39,33 @@ export def --env add [
 
         $env.DIRS_LIST = ($env.DIRS_LIST | insert ($env.DIRS_POSITION + 1) $abspaths | flatten)
 
-
     _fetch 1
 }
 
-export alias enter = add
-
-# Advance to the next directory in the list or wrap to beginning.
+# Make the next directory on the list the active directory.
+# If the currenta ctive directory is the last in the list, 
+# then cycle to the top of the list.
 export def --env next [
     N:int = 1   # number of positions to move.
 ] {
     _fetch $N
 }
 
-export alias n = next
-
-# Back up to the previous directory or wrap to the end.
+# Make the previous directory on the list the active directory.
+# If the current active directory is the first in the list, 
+# then cycle to the end of the list.
 export def --env prev [
     N:int = 1   # number of positions to move.
 ] {
     _fetch (-1 * $N)
 }
 
-export alias p = prev
-
-# Drop the current directory from the list, if it's not the only one.
-# PWD becomes the next working directory
+# Drop the current directory from the list.
+# The previous directory in the list becomes
+# the new active directory.
+#
+# If there is only one directory in the list,
+# then this command has no effect.
 export def --env drop [] {
     if ($env.DIRS_LIST | length) > 1 {
         $env.DIRS_LIST = ($env.DIRS_LIST | reject $env.DIRS_POSITION)
@@ -75,10 +77,8 @@ export def --env drop [] {
 
 }
 
-export alias dexit = drop
-
-# Display current working directories.
-export def --env show [] {
+# Display current working directories
+export def --env main [] {
     mut out = []
     for $p in ($env.DIRS_LIST | enumerate) {
         let is_act_slot = $p.index == $env.DIRS_POSITION
@@ -93,28 +93,25 @@ export def --env show [] {
     $out
 }
 
-export alias shells = show
-
-export def --env goto [shell?: int] {
-    if $shell == null {
-        return (show)
+# Jump to directory by index
+export def --env goto [dir_idx?: int] {
+    if $dir_idx == null {
+        return (main)
     }
 
-    if $shell < 0 or $shell >= ($env.DIRS_LIST | length) {
-        let span = (metadata $shell | get span)
+    if $dir_idx < 0 or $dir_idx >= ($env.DIRS_LIST | length) {
+        let span = (metadata $dir_idx | get span)
         error make {
-            msg: $"(ansi red_bold)invalid_shell_index(ansi reset)"
+            msg: $"(ansi red_bold)invalid_dirs_index(ansi reset)"
             label: {
-                text: $"`shell` should be between 0 and (($env.DIRS_LIST | length) - 1)"
+                text: $"`idx` should be between 0 and (($env.DIRS_LIST | length) - 1)"
                 span: $span
             }
         }
     }
 
-    _fetch ($shell - $env.DIRS_POSITION)
+    _fetch ($dir_idx - $env.DIRS_POSITION)
 }
-
-export alias g = goto
 
 # fetch item helper
 def --env _fetch [
@@ -139,4 +136,13 @@ def --env _fetch [
         $env.DIRS_POSITION = $pos
         cd ($env.DIRS_LIST | get $pos )
     }
+}
+
+export module shells-aliases {
+    export alias shells = main
+    export alias enter = add
+    export alias dexit = drop
+    export alias p = prev
+    export alias n = next
+    export alias g = goto
 }

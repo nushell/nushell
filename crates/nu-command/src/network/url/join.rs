@@ -1,5 +1,7 @@
 use nu_engine::command_prelude::*;
 
+use super::query::{record_to_query_string, table_to_query_string};
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -27,7 +29,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Outputs a url representing the contents of this record",
+                description: "Outputs a url representing the contents of this record, `params` and `query` fields must be equivalent",
                 example: r#"{
         "scheme": "http",
         "username": "",
@@ -45,6 +47,21 @@ impl Command for SubCommand {
     } | url join"#,
                 result: Some(Value::test_string(
                     "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=99260204",
+                )),
+            },
+            Example {
+                description: "Outputs a url representing the contents of this record, \"exploding\" the list in `params` into multiple parameters",
+                example: r#"{
+        "scheme": "http",
+        "username": "user",
+        "password": "pwd",
+        "host": "www.pixiv.net",
+        "port": "1234",
+        "params": {a: ["one", "two"], b: "three"},
+        "fragment": ""
+    } | url join"#,
+                result: Some(Value::test_string(
+                    "http://user:pwd@www.pixiv.net:1234?a=one&a=two&b=three",
                 )),
             },
             Example {
@@ -95,7 +112,7 @@ impl Command for SubCommand {
                             .into_owned()
                             .into_iter()
                             .try_fold(UrlComponents::new(), |url, (k, v)| {
-                                url.add_component(k, v, span, engine_state)
+                                url.add_component(k, v, head, engine_state)
                             });
 
                         url_components?.to_url(span)
@@ -138,7 +155,7 @@ impl UrlComponents {
         self,
         key: String,
         value: Value,
-        span: Span,
+        head: Span,
         engine_state: &EngineState,
     ) -> Result<Self, ShellError> {
         let value_span = value.span();
@@ -177,48 +194,41 @@ impl UrlComponents {
         }
 
         if key == "params" {
-            return match value {
-                Value::Record { val, .. } => {
-                    let mut qs = val
-                        .into_owned()
-                        .into_iter()
-                        .map(|(k, v)| match v.coerce_into_string() {
-                            Ok(val) => Ok(format!("{k}={val}")),
-                            Err(err) => Err(err),
-                        })
-                        .collect::<Result<Vec<String>, ShellError>>()?
-                        .join("&");
-
-                    qs = if !qs.trim().is_empty() {
-                        format!("?{qs}")
-                    } else {
-                        qs
-                    };
-
-                    if let Some(q) = self.query {
-                        if q != qs {
-                            // if query is present it means that also query_span is set.
-                            return Err(ShellError::IncompatibleParameters {
-                                left_message: format!("Mismatch, qs from params is: {qs}"),
-                                left_span: value_span,
-                                right_message: format!("instead query is: {q}"),
-                                right_span: self.query_span.unwrap_or(Span::unknown()),
-                            });
-                        }
-                    }
-
-                    Ok(Self {
-                        query: Some(qs),
-                        params_span: Some(value_span),
-                        ..self
+            let mut qs = match value {
+                Value::Record { ref val, .. } => record_to_query_string(val, value_span, head)?,
+                Value::List { ref vals, .. } => table_to_query_string(vals, value_span, head)?,
+                Value::Error { error, .. } => return Err(*error),
+                other => {
+                    return Err(ShellError::IncompatibleParametersSingle {
+                        msg: String::from("Key params has to be a record or a table"),
+                        span: other.span(),
                     })
                 }
-                Value::Error { error, .. } => Err(*error),
-                other => Err(ShellError::IncompatibleParametersSingle {
-                    msg: String::from("Key params has to be a record"),
-                    span: other.span(),
-                }),
             };
+
+            qs = if !qs.trim().is_empty() {
+                format!("?{qs}")
+            } else {
+                qs
+            };
+
+            if let Some(q) = self.query {
+                if q != qs {
+                    // if query is present it means that also query_span is set.
+                    return Err(ShellError::IncompatibleParameters {
+                        left_message: format!("Mismatch, query string from params is: {qs}"),
+                        left_span: value_span,
+                        right_message: format!("instead query is: {q}"),
+                        right_span: self.query_span.unwrap_or(Span::unknown()),
+                    });
+                }
+            }
+
+            return Ok(Self {
+                query: Some(qs),
+                params_span: Some(value_span),
+                ..self
+            });
         }
 
         // apart from port and params all other keys are strings.
@@ -258,7 +268,7 @@ impl UrlComponents {
                         return Err(ShellError::IncompatibleParameters {
                             left_message: format!("Mismatch, query param is: {s}"),
                             left_span: value_span,
-                            right_message: format!("instead qs from params is: {q}"),
+                            right_message: format!("instead query string from params is: {q}"),
                             right_span: self.params_span.unwrap_or(Span::unknown()),
                         });
                     }
@@ -284,7 +294,7 @@ impl UrlComponents {
                     &ShellError::GenericError {
                         error: format!("'{key}' is not a valid URL field"),
                         msg: format!("remove '{key}' col from input record"),
-                        span: Some(span),
+                        span: Some(value_span),
                         help: None,
                         inner: vec![],
                     },
@@ -300,14 +310,14 @@ impl UrlComponents {
             return Ok(true);
         }
         match key {
-            "host" => Err(ShellError::UnsupportedConfigValue {
-                expected: "non-empty string".into(),
-                value: "empty string".into(),
+            "host" => Err(ShellError::InvalidValue {
+                valid: "a non-empty string".into(),
+                actual: format!("'{s}'"),
                 span: value_span,
             }),
-            "scheme" => Err(ShellError::UnsupportedConfigValue {
-                expected: "non-empty string".into(),
-                value: "empty string".into(),
+            "scheme" => Err(ShellError::InvalidValue {
+                valid: "a non-empty string".into(),
+                actual: format!("'{s}'"),
                 span: value_span,
             }),
             _ => Ok(false),

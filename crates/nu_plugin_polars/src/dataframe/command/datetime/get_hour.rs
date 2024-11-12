@@ -41,9 +41,12 @@ impl PluginCommand for GetHour {
     let df = ([$dt $dt] | polars into-df);
     $df | polars get-hour"#,
             result: Some(
-                NuDataFrame::try_from_series(Series::new("0", &[16i8, 16]), Span::test_data())
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                NuDataFrame::try_from_series(
+                    Series::new("0".into(), &[16i8, 16]),
+                    Span::test_data(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
             ),
         }]
     }

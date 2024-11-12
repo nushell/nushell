@@ -11,7 +11,7 @@ use nu_utils::get_ls_colors;
 pub fn create_lscolors(engine_state: &EngineState, stack: &Stack) -> LsColors {
     let colors = stack
         .get_env_var(engine_state, "LS_COLORS")
-        .and_then(|v| env_to_string("LS_COLORS", &v, engine_state, stack).ok());
+        .and_then(|v| env_to_string("LS_COLORS", v, engine_state, stack).ok());
 
     get_ls_colors(colors)
 }

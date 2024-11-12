@@ -35,7 +35,7 @@ impl Completer for CustomCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        prefix: Vec<u8>,
+        prefix: &[u8],
         span: Span,
         offset: usize,
         pos: usize,
@@ -126,8 +126,8 @@ impl Completer for CustomCompletion {
         let options = custom_completion_options
             .as_ref()
             .unwrap_or(completion_options);
-        let suggestions = filter(&prefix, suggestions, options);
-        sort_suggestions(&String::from_utf8_lossy(&prefix), suggestions, options)
+        let suggestions = filter(prefix, suggestions, options);
+        sort_suggestions(&String::from_utf8_lossy(prefix), suggestions, options)
     }
 }
 

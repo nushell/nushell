@@ -1,45 +1,56 @@
 use std::any;
-use std::fmt::{Debug, Error, Formatter};
+use std::fmt::{Debug, Display, Error, Formatter};
 use std::marker::PhantomData;
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Id<T> {
-    inner: usize,
-    _phantom: PhantomData<T>,
+pub struct Id<M, V = usize> {
+    inner: V,
+    _phantom: PhantomData<M>,
 }
 
-impl<T> Id<T> {
+impl<M, V> Id<M, V> {
     /// Creates a new `Id`.
     ///
     /// Using a distinct type like `Id` instead of `usize` helps us avoid mixing plain integers
     /// with identifiers.
     #[inline]
-    pub const fn new(inner: usize) -> Self {
+    pub const fn new(inner: V) -> Self {
         Self {
             inner,
             _phantom: PhantomData,
         }
     }
+}
 
-    /// Returns the inner `usize` value.
+impl<M, V> Id<M, V>
+where
+    V: Copy,
+{
+    /// Returns the inner value.
     ///
     /// This requires an explicit call, ensuring we only use the raw value when intended.
     #[inline]
-    pub const fn get(self) -> usize {
+    pub const fn get(self) -> V {
         self.inner
     }
 }
 
-impl<T> Debug for Id<T> {
+impl<M, V> Debug for Id<M, V>
+where
+    V: Display,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let marker = any::type_name::<T>().split("::").last().expect("not empty");
+        let marker = any::type_name::<M>().split("::").last().expect("not empty");
         write!(f, "{marker}Id({})", self.inner)
     }
 }
 
-impl<T> Serialize for Id<T> {
+impl<M, V> Serialize for Id<M, V>
+where
+    V: Serialize,
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -48,12 +59,15 @@ impl<T> Serialize for Id<T> {
     }
 }
 
-impl<'de, T> Deserialize<'de> for Id<T> {
+impl<'de, M, V> Deserialize<'de> for Id<M, V>
+where
+    V: Deserialize<'de>,
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let inner = usize::deserialize(deserializer)?;
+        let inner = V::deserialize(deserializer)?;
         Ok(Self {
             inner,
             _phantom: PhantomData,
@@ -76,6 +90,10 @@ pub mod marker {
     pub struct File;
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct VirtualPath;
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct Span;
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct Reg;
 }
 
 pub type VarId = Id<marker::Var>;
@@ -85,19 +103,17 @@ pub type ModuleId = Id<marker::Module>;
 pub type OverlayId = Id<marker::Overlay>;
 pub type FileId = Id<marker::File>;
 pub type VirtualPathId = Id<marker::VirtualPath>;
+pub type SpanId = Id<marker::Span>;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct SpanId(pub usize); // more robust ID style used in the new parser
-
-/// An ID for an [IR](crate::ir) register. `%n` is a common shorthand for `RegId(n)`.
+/// An ID for an [IR](crate::ir) register.
+///
+/// `%n` is a common shorthand for `RegId(n)`.
 ///
 /// Note: `%0` is allocated with the block input at the beginning of a compiled block.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[repr(transparent)]
-pub struct RegId(pub u32);
+pub type RegId = Id<marker::Reg, u32>;
 
-impl std::fmt::Display for RegId {
+impl Display for RegId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "%{}", self.0)
+        write!(f, "%{}", self.get())
     }
 }

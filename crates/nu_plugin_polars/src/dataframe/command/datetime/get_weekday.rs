@@ -41,7 +41,7 @@ impl PluginCommand for GetWeekDay {
     let df = ([$dt $dt] | polars into-df);
     $df | polars get-weekday"#,
             result: Some(
-                NuDataFrame::try_from_series(Series::new("0", &[2i8, 2]), Span::test_data())
+                NuDataFrame::try_from_series(Series::new("0".into(), &[2i8, 2]), Span::test_data())
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
             ),

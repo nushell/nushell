@@ -169,12 +169,14 @@ impl Command for Glob {
             });
         }
 
+        // below we have to check / instead of MAIN_SEPARATOR because glob uses / as separator
+        // using a glob like **\*.rs should fail because it's not a valid glob pattern
         let folder_depth = if let Some(depth) = depth {
             depth
         } else if glob_pattern.contains("**") {
             usize::MAX
-        } else if glob_pattern.contains(std::path::MAIN_SEPARATOR) {
-            glob_pattern.split(std::path::MAIN_SEPARATOR).count() + 1
+        } else if glob_pattern.contains('/') {
+            glob_pattern.split('/').count() + 1
         } else {
             1
         };

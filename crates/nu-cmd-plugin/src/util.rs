@@ -6,18 +6,17 @@ use std::{
     path::PathBuf,
 };
 
-pub(crate) fn modify_plugin_file(
+fn get_plugin_registry_file_path(
     engine_state: &EngineState,
     stack: &mut Stack,
     span: Span,
-    custom_path: Option<Spanned<String>>,
-    operate: impl FnOnce(&mut PluginRegistryFile) -> Result<(), ShellError>,
-) -> Result<(), ShellError> {
+    custom_path: &Option<Spanned<String>>,
+) -> Result<PathBuf, ShellError> {
     #[allow(deprecated)]
     let cwd = current_dir(engine_state, stack)?;
 
-    let plugin_registry_file_path = if let Some(ref custom_path) = custom_path {
-        nu_path::expand_path_with(&custom_path.item, cwd, true)
+    if let Some(ref custom_path) = custom_path {
+        Ok(nu_path::expand_path_with(&custom_path.item, cwd, true))
     } else {
         engine_state
             .plugin_path
@@ -28,8 +27,53 @@ pub(crate) fn modify_plugin_file(
                 span: Some(span),
                 help: Some("you may be running `nu` with --no-config-file".into()),
                 inner: vec![],
-            })?
-    };
+            })
+    }
+}
+
+pub(crate) fn read_plugin_file(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    span: Span,
+    custom_path: &Option<Spanned<String>>,
+) -> Result<PluginRegistryFile, ShellError> {
+    let plugin_registry_file_path =
+        get_plugin_registry_file_path(engine_state, stack, span, custom_path)?;
+
+    let file_span = custom_path.as_ref().map(|p| p.span).unwrap_or(span);
+
+    // Try to read the plugin file if it exists
+    if fs::metadata(&plugin_registry_file_path).is_ok_and(|m| m.len() > 0) {
+        PluginRegistryFile::read_from(
+            File::open(&plugin_registry_file_path).map_err(|err| ShellError::IOErrorSpanned {
+                msg: format!(
+                    "failed to read `{}`: {}",
+                    plugin_registry_file_path.display(),
+                    err
+                ),
+                span: file_span,
+            })?,
+            Some(file_span),
+        )
+    } else if let Some(path) = custom_path {
+        Err(ShellError::FileNotFound {
+            file: path.item.clone(),
+            span: path.span,
+        })
+    } else {
+        Ok(PluginRegistryFile::default())
+    }
+}
+
+pub(crate) fn modify_plugin_file(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    span: Span,
+    custom_path: &Option<Spanned<String>>,
+    operate: impl FnOnce(&mut PluginRegistryFile) -> Result<(), ShellError>,
+) -> Result<(), ShellError> {
+    let plugin_registry_file_path =
+        get_plugin_registry_file_path(engine_state, stack, span, custom_path)?;
 
     let file_span = custom_path.as_ref().map(|p| p.span).unwrap_or(span);
 
@@ -95,8 +139,9 @@ pub(crate) fn get_plugin_dirs(
     let working_set = StateWorkingSet::new(engine_state);
     let value = working_set
         .find_variable(b"$NU_PLUGIN_DIRS")
-        .and_then(|var_id| working_set.get_constant(var_id).ok().cloned())
-        .or_else(|| stack.get_env_var(engine_state, "NU_PLUGIN_DIRS"));
+        .and_then(|var_id| working_set.get_constant(var_id).ok())
+        .or_else(|| stack.get_env_var(engine_state, "NU_PLUGIN_DIRS"))
+        .cloned(); // TODO: avoid this clone
 
     // Get all of the strings in the list, if possible
     value

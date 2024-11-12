@@ -1,6 +1,5 @@
-use std assert
-use std assert
-use std log
+use std/assert
+use std/log
 
 # A couple of nuances to understand when testing module that exports environment:
 # Each 'use' for that module in the test script will execute the def --env block.
@@ -48,7 +47,7 @@ def dirs_command [] {
 
     # must execute these uses for the UOT commands *after* the test and *not* just put them at top of test module.
     # the def --env gets messed up
-    use std dirs
+    use std/dirs
 
     # Stack: [BASE]
     assert equal [$c.base_path] $env.DIRS_LIST "list is just pwd after initialization"
@@ -80,7 +79,7 @@ def dirs_command [] {
     assert length $env.DIRS_LIST 2 "drop removes from list"
     assert equal $env.PWD $c.path_b "drop changes PWD to previous in list (before dropped element)"
 
-    assert equal (dirs show) [[active path]; [false $c.base_path] [true $c.path_b]] "show table contains expected information"
+    assert equal (dirs) [[active path]; [false $c.base_path] [true $c.path_b]] "show table contains expected information"
 
     # Stack becomes: [BASE]
     dirs drop
@@ -96,7 +95,7 @@ def dirs_next [] {
     cd $c.base_path
     assert equal $env.PWD $c.base_path "test setup"
 
-    use std dirs
+    use std/dirs
     cur_dir_check $c.base_path "use module test setup"
 
     dirs add $c.path_a $c.path_b
@@ -117,7 +116,7 @@ def dirs_cd [] {
     # must set PWD *before* doing `use` that will run the def --env block in dirs module.
     cd $c.base_path
 
-    use std dirs
+    use std/dirs
 
     cur_dir_check $c.base_path "use module test setup"
 
@@ -139,7 +138,7 @@ def dirs_cd [] {
 def dirs_goto_bug10696 [] {
     let $c = $in
     cd $c.base_path
-    use std dirs
+    use std/dirs
 
     dirs add $c.path_a
     cd $c.path_b
@@ -153,7 +152,7 @@ def dirs_goto_bug10696 [] {
 def dirs_goto [] {
     let $c = $in
     cd $c.base_path
-    use std dirs
+    use std/dirs
 
     # check that goto can move *from* any position in the ring *to* any other position (correctly)
 
@@ -174,4 +173,7 @@ def dirs_goto [] {
             assert equal $env.PWD ($exp_dir | get $other_pos) "goto changed working directory correctly"
         }
     }
+
+    # check that 'dirs goto' with no argument maps to `dirs` (main)
+    assert length (dirs goto) 3
 }

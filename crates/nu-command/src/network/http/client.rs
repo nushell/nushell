@@ -314,7 +314,7 @@ fn send_form_request(
         Value::List { ref vals, .. } => {
             if vals.len() % 2 != 0 {
                 return Err(ShellErrorOrRequestError::ShellError(ShellError::IncorrectValue {
-                    msg: "Body type 'list' for form requests requires paired values. E.g.: [foo, 10]".into(), 
+                    msg: "Body type 'list' for form requests requires paired values. E.g.: [foo, 10]".into(),
                     val_span: body.span(),
                     call_span: span,
                 }));
@@ -525,7 +525,7 @@ pub fn request_set_timeout(
     mut request: Request,
 ) -> Result<Request, ShellError> {
     if let Some(timeout) = timeout {
-        let val = timeout.as_i64()?;
+        let val = timeout.as_duration()?;
         if val.is_negative() || val < 1 {
             return Err(ShellError::TypeMismatch {
                 err_message: "Timeout value must be an int and larger than 0".to_string(),
@@ -533,7 +533,7 @@ pub fn request_set_timeout(
             });
         }
 
-        request = request.timeout(Duration::from_secs(val as u64));
+        request = request.timeout(Duration::from_nanos(val as u64));
     }
 
     Ok(request)
@@ -901,6 +901,7 @@ fn retrieve_http_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -
         .or(stack.get_env_var(engine_state, "https_proxy"))
         .or(stack.get_env_var(engine_state, "HTTPS_PROXY"))
         .or(stack.get_env_var(engine_state, "ALL_PROXY"))
+        .cloned()
         .and_then(|proxy| proxy.coerce_into_string().ok())
 }
 

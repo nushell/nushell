@@ -141,7 +141,7 @@ fn command_df(
     })?;
 
     let mut res = casted.to_uppercase();
-    res.rename(series.name());
+    res.rename(series.name().clone());
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)

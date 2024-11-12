@@ -1,6 +1,6 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
-use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
+use nu_parser::{lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::{
     cli_error::report_compile_error,
     debugger::WithoutDebug,
@@ -10,7 +10,7 @@ use nu_protocol::{
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
-use nu_utils::perf;
+use nu_utils::{escape_quote_string, perf};
 use std::path::Path;
 
 // This will collect environment variables from std::env and adds them to a stack.
@@ -221,7 +221,7 @@ pub fn eval_source(
             report_shell_error(engine_state, &err);
             let code = err.exit_code();
             stack.set_last_error(&err);
-            code
+            code.unwrap_or(0)
         }
     };
 
@@ -282,8 +282,22 @@ fn evaluate_source(
     }?;
 
     if let PipelineData::ByteStream(..) = pipeline {
-        pipeline.print(engine_state, stack, false, false)
-    } else if let Some(hook) = engine_state.get_config().hooks.display_output.clone() {
+        // run the display hook on bytestreams too
+        run_display_hook(engine_state, stack, pipeline, false)
+    } else {
+        run_display_hook(engine_state, stack, pipeline, true)
+    }?;
+
+    Ok(false)
+}
+
+fn run_display_hook(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    pipeline: PipelineData,
+    no_newline: bool,
+) -> Result<(), ShellError> {
+    if let Some(hook) = engine_state.get_config().hooks.display_output.clone() {
         let pipeline = eval_hook(
             engine_state,
             stack,
@@ -292,14 +306,11 @@ fn evaluate_source(
             &hook,
             "display_output",
         )?;
-        pipeline.print(engine_state, stack, false, false)
+        pipeline.print(engine_state, stack, no_newline, false)
     } else {
-        pipeline.print(engine_state, stack, true, false)
-    }?;
-
-    Ok(false)
+        pipeline.print(engine_state, stack, no_newline, false)
+    }
 }
-
 #[cfg(test)]
 mod test {
     use super::*;

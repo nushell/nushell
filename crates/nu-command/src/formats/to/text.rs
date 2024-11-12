@@ -3,6 +3,7 @@ use nu_engine::command_prelude::*;
 use nu_protocol::{
     format_duration, format_filesize_from_conf, ByteStream, Config, PipelineMetadata,
 };
+use std::io::Write;
 
 const LINE_ENDING: &str = if cfg!(target_os = "windows") {
     "\r\n"
@@ -21,6 +22,11 @@ impl Command for ToText {
     fn signature(&self) -> Signature {
         Signature::build("to text")
             .input_output_types(vec![(Type::Any, Type::String)])
+            .switch(
+                "no-newline",
+                "Do not append a newline to the end of the text",
+                Some('n'),
+            )
             .category(Category::Formats)
     }
 
@@ -35,36 +41,69 @@ impl Command for ToText {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
+        let head = call.head;
+        let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
         let input = input.try_expand_range()?;
         let config = stack.get_config(engine_state);
 
         match input {
-            PipelineData::Empty => Ok(Value::string(String::new(), span)
+            PipelineData::Empty => Ok(Value::string(String::new(), head)
                 .into_pipeline_data_with_metadata(update_metadata(None))),
             PipelineData::Value(value, ..) => {
-                let str = local_into_string(value, LINE_ENDING, &config);
+                let add_trailing = !no_newline
+                    && match &value {
+                        Value::List { vals, .. } => !vals.is_empty(),
+                        Value::Record { val, .. } => !val.is_empty(),
+                        _ => false,
+                    };
+                let mut str = local_into_string(value, LINE_ENDING, &config);
+                if add_trailing {
+                    str.push_str(LINE_ENDING);
+                }
                 Ok(
-                    Value::string(str, span)
+                    Value::string(str, head)
                         .into_pipeline_data_with_metadata(update_metadata(None)),
                 )
             }
             PipelineData::ListStream(stream, meta) => {
                 let span = stream.span();
-                let iter = stream.into_inner().map(move |value| {
-                    let mut str = local_into_string(value, LINE_ENDING, &config);
-                    str.push_str(LINE_ENDING);
-                    str
-                });
-                Ok(PipelineData::ByteStream(
-                    ByteStream::from_iter(
-                        iter,
+                let stream = if no_newline {
+                    let mut first = true;
+                    let mut iter = stream.into_inner();
+                    ByteStream::from_fn(
                         span,
                         engine_state.signals().clone(),
                         ByteStreamType::String,
-                    ),
-                    update_metadata(meta),
-                ))
+                        move |buf| {
+                            let Some(val) = iter.next() else {
+                                return Ok(false);
+                            };
+                            if first {
+                                first = false;
+                            } else {
+                                write!(buf, "{LINE_ENDING}").err_span(head)?;
+                            }
+                            // TODO: write directly into `buf` instead of creating an intermediate
+                            // string.
+                            let str = local_into_string(val, LINE_ENDING, &config);
+                            write!(buf, "{str}").err_span(head)?;
+                            Ok(true)
+                        },
+                    )
+                } else {
+                    ByteStream::from_iter(
+                        stream.into_inner().map(move |val| {
+                            let mut str = local_into_string(val, LINE_ENDING, &config);
+                            str.push_str(LINE_ENDING);
+                            str
+                        }),
+                        span,
+                        engine_state.signals().clone(),
+                        ByteStreamType::String,
+                    )
+                };
+
+                Ok(PipelineData::ByteStream(stream, update_metadata(meta)))
             }
             PipelineData::ByteStream(stream, meta) => {
                 Ok(PipelineData::ByteStream(stream, update_metadata(meta)))
@@ -75,8 +114,13 @@ impl Command for ToText {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Outputs data as simple text",
-                example: "1 | to text",
+                description: "Outputs data as simple text with a trailing newline",
+                example: "[1] | to text",
+                result: Some(Value::test_string("1".to_string() + LINE_ENDING)),
+            },
+            Example {
+                description: "Outputs data as simple text without a trailing newline",
+                example: "[1] | to text --no-newline",
                 result: Some(Value::test_string("1")),
             },
             Example {

@@ -50,7 +50,6 @@ use sysinfo::System;
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
     stack: Stack,
-    nushell_path: &str,
     prerun_command: Option<Spanned<String>>,
     load_std_lib: Option<Spanned<String>>,
     entire_start_time: Instant,
@@ -97,7 +96,7 @@ pub fn evaluate_repl(
 
     unique_stack.set_last_exit_code(0, Span::unknown());
 
-    let mut line_editor = get_line_editor(engine_state, nushell_path, use_color)?;
+    let mut line_editor = get_line_editor(engine_state, use_color)?;
     let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
 
     if let Some(s) = prerun_command {
@@ -132,15 +131,7 @@ pub fn evaluate_repl(
         // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
         let cmd_text = line_editor.current_buffer_contents().to_string();
 
-        let replaced_cmd_text = cmd_text
-            .chars()
-            .map(|c| match c {
-                '\n' => '\x0a',
-                '\r' => '\x0d',
-                '\x1b' => '\x1b',
-                _ => c,
-            })
-            .collect();
+        let replaced_cmd_text = escape_special_vscode_bytes(&cmd_text)?;
 
         run_shell_integration_osc633(
             engine_state,
@@ -159,7 +150,7 @@ pub fn evaluate_repl(
         eval_source(
             engine_state,
             &mut unique_stack,
-            r#"use std banner; banner"#.as_bytes(),
+            r#"banner"#.as_bytes(),
             "show_banner",
             PipelineData::empty(),
             false,
@@ -216,7 +207,7 @@ pub fn evaluate_repl(
             }
             Err(_) => {
                 // line_editor is lost in the error case so reconstruct a new one
-                line_editor = get_line_editor(engine_state, nushell_path, use_color)?;
+                line_editor = get_line_editor(engine_state, use_color)?;
             }
         }
     }
@@ -224,11 +215,44 @@ pub fn evaluate_repl(
     Ok(())
 }
 
-fn get_line_editor(
-    engine_state: &mut EngineState,
-    nushell_path: &str,
-    use_color: bool,
-) -> Result<Reedline> {
+fn escape_special_vscode_bytes(input: &str) -> Result<String, ShellError> {
+    let bytes = input
+        .chars()
+        .flat_map(|c| {
+            let mut buf = [0; 4]; // Buffer to hold UTF-8 bytes of the character
+            let c_bytes = c.encode_utf8(&mut buf); // Get UTF-8 bytes for the character
+
+            if c_bytes.len() == 1 {
+                let byte = c_bytes.as_bytes()[0];
+
+                match byte {
+                    // Escape bytes below 0x20
+                    b if b < 0x20 => format!("\\x{:02X}", byte).into_bytes(),
+                    // Escape semicolon as \x3B
+                    b';' => "\\x3B".to_string().into_bytes(),
+                    // Escape backslash as \\
+                    b'\\' => "\\\\".to_string().into_bytes(),
+                    // Otherwise, return the character unchanged
+                    _ => vec![byte],
+                }
+            } else {
+                // pass through multi-byte characters unchanged
+                c_bytes.bytes().collect()
+            }
+        })
+        .collect();
+
+    String::from_utf8(bytes).map_err(|err| ShellError::CantConvert {
+        to_type: "string".to_string(),
+        from_type: "bytes".to_string(),
+        span: Span::unknown(),
+        help: Some(format!(
+            "Error {err}, Unable to convert {input} to escaped bytes"
+        )),
+    })
+}
+
+fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Reedline> {
     let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
 
@@ -239,7 +263,7 @@ fn get_line_editor(
     if let Some(history) = engine_state.history_config() {
         start_time = std::time::Instant::now();
 
-        line_editor = setup_history(nushell_path, engine_state, line_editor, history)?;
+        line_editor = setup_history(engine_state, line_editor, history)?;
 
         perf!("setup history", start_time, use_color);
     }
@@ -357,7 +381,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 .to_string_lossy()
                 .to_string(),
         ))
-        .with_cursor_config(cursor_config);
+        .with_cursor_config(cursor_config)
+        .with_visual_selection_style(nu_ansi_term::Style {
+            is_reverse: true,
+            ..Default::default()
+        });
 
     perf!("reedline builder", start_time, use_color);
 
@@ -512,8 +540,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             drop(repl);
 
             if shell_integration_osc633 {
-                if stack.get_env_var(engine_state, "TERM_PROGRAM")
-                    == Some(Value::test_string("vscode"))
+                if stack
+                    .get_env_var(engine_state, "TERM_PROGRAM")
+                    .and_then(|v| v.as_str().ok())
+                    == Some("vscode")
                 {
                     start_time = Instant::now();
 
@@ -730,7 +760,7 @@ fn fill_in_result_related_history_metadata(
                 c.duration = Some(cmd_duration);
                 c.exit_status = stack
                     .get_env_var(engine_state, "LAST_EXIT_CODE")
-                    .and_then(|e| e.as_i64().ok());
+                    .and_then(|e| e.as_int().ok());
                 c
             })
             .into_diagnostic()?; // todo: don't stop repl if error here?
@@ -835,7 +865,7 @@ fn do_auto_cd(
 
     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
     let mut shells = if let Some(v) = shells {
-        v.into_list().unwrap_or_else(|_| vec![cwd])
+        v.clone().into_list().unwrap_or_else(|_| vec![cwd])
     } else {
         vec![cwd]
     };
@@ -1027,7 +1057,11 @@ fn run_shell_integration_osc633(
     if let Ok(path) = current_dir_str(engine_state, stack) {
         // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
         // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
             let start_time = Instant::now();
 
             // If we're in vscode, run their specific ansi escape sequence.
@@ -1045,16 +1079,8 @@ fn run_shell_integration_osc633(
 
             // escape a few things because this says so
             // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
-
-            let replaced_cmd_text: String = repl_cmd_line_text
-                .chars()
-                .map(|c| match c {
-                    '\n' => '\x0a',
-                    '\r' => '\x0d',
-                    '\x1b' => '\x1b',
-                    _ => c,
-                })
-                .collect();
+            let replaced_cmd_text =
+                escape_special_vscode_bytes(&repl_cmd_line_text).unwrap_or(repl_cmd_line_text);
 
             //OSC 633 ; E ; <commandline> [; <nonce] ST - Explicitly set the command line with an optional nonce.
             run_ansi_sequence(&format!(
@@ -1092,7 +1118,6 @@ fn flush_engine_state_repl_buffer(engine_state: &mut EngineState, line_editor: &
 /// Setup history management for Reedline
 ///
 fn setup_history(
-    nushell_path: &str,
     engine_state: &mut EngineState,
     line_editor: Reedline,
     history: HistoryConfig,
@@ -1104,7 +1129,7 @@ fn setup_history(
         None
     };
 
-    if let Some(path) = crate::config_files::get_history_path(nushell_path, history.file_format) {
+    if let Some(path) = history.file_path() {
         return update_line_editor_history(
             engine_state,
             path,
@@ -1222,10 +1247,14 @@ fn get_command_finished_marker(
 ) -> String {
     let exit_code = stack
         .get_env_var(engine_state, "LAST_EXIT_CODE")
-        .and_then(|e| e.as_i64().ok());
+        .and_then(|e| e.as_int().ok());
 
     if shell_integration_osc633 {
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
             // We're in vscode and we have osc633 enabled
             format!(
                 "{}{}{}",
@@ -1274,7 +1303,11 @@ fn run_finaliziation_ansi_sequence(
 ) {
     if shell_integration_osc633 {
         // Only run osc633 if we are in vscode
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
             let start_time = Instant::now();
 
             run_ansi_sequence(&get_command_finished_marker(
@@ -1325,10 +1358,9 @@ fn run_finaliziation_ansi_sequence(
 
 // Absolute paths with a drive letter, like 'C:', 'D:\', 'E:\foo'
 #[cfg(windows)]
-static DRIVE_PATH_REGEX: once_cell::sync::Lazy<fancy_regex::Regex> =
-    once_cell::sync::Lazy::new(|| {
-        fancy_regex::Regex::new(r"^[a-zA-Z]:[/\\]?").expect("Internal error: regex creation")
-    });
+static DRIVE_PATH_REGEX: std::sync::LazyLock<fancy_regex::Regex> = std::sync::LazyLock::new(|| {
+    fancy_regex::Regex::new(r"^[a-zA-Z]:[/\\]?").expect("Internal error: regex creation")
+});
 
 // A best-effort "does this string look kinda like a path?" function to determine whether to auto-cd
 fn looks_like_path(orig: &str) -> bool {
@@ -1372,8 +1404,7 @@ fn trailing_slash_looks_like_path() {
 fn are_session_ids_in_sync() {
     let engine_state = &mut EngineState::new();
     let history = engine_state.history_config().unwrap();
-    let history_path =
-        crate::config_files::get_history_path("nushell", history.file_format).unwrap();
+    let history_path = history.file_path().unwrap();
     let line_editor = reedline::Reedline::create();
     let history_session_id = reedline::Reedline::create_history_session_id();
     let line_editor = update_line_editor_history(
@@ -1391,7 +1422,7 @@ fn are_session_ids_in_sync() {
 
 #[cfg(test)]
 mod test_auto_cd {
-    use super::{do_auto_cd, parse_operation, ReplOperation};
+    use super::{do_auto_cd, escape_special_vscode_bytes, parse_operation, ReplOperation};
     use nu_path::AbsolutePath;
     use nu_protocol::engine::{EngineState, Stack};
     use tempfile::tempdir;
@@ -1540,5 +1571,44 @@ mod test_auto_cd {
         let dir = tempdir.join("foo");
         let input = if cfg!(windows) { r"foo\" } else { "foo/" };
         check(tempdir, input, dir);
+    }
+
+    #[test]
+    fn escape_vscode_semicolon_test() {
+        let input = r#"now;is"#;
+        let expected = r#"now\x3Bis"#;
+        let actual = escape_special_vscode_bytes(input).unwrap();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn escape_vscode_backslash_test() {
+        let input = r#"now\is"#;
+        let expected = r#"now\\is"#;
+        let actual = escape_special_vscode_bytes(input).unwrap();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn escape_vscode_linefeed_test() {
+        let input = "now\nis";
+        let expected = r#"now\x0Ais"#;
+        let actual = escape_special_vscode_bytes(input).unwrap();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn escape_vscode_tab_null_cr_test() {
+        let input = "now\t\0\ris";
+        let expected = r#"now\x09\x00\x0Dis"#;
+        let actual = escape_special_vscode_bytes(input).unwrap();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn escape_vscode_multibyte_ok() {
+        let input = "now🍪is";
+        let actual = escape_special_vscode_bytes(input).unwrap();
+        assert_eq!(input, actual);
     }
 }

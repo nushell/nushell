@@ -32,6 +32,7 @@ mod sort_by_expr;
 pub mod sql_context;
 pub mod sql_expr;
 mod take;
+mod unnest;
 mod unpivot;
 mod with_column;
 use filter::LazyFilter;
@@ -68,7 +69,6 @@ pub use slice::SliceDF;
 use sort_by_expr::LazySortBy;
 pub use take::TakeDF;
 pub use unique::Unique;
-pub use unpivot::UnpivotDF;
 pub use with_column::WithColumn;
 
 pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
@@ -83,7 +83,7 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(filter_with::FilterWith),
         Box::new(GetDF),
         Box::new(pivot::PivotDF),
-        Box::new(UnpivotDF),
+        Box::new(unpivot::Unpivot),
         Box::new(FirstDF),
         Box::new(LastDF),
         Box::new(len::ExprLen),
@@ -109,5 +109,6 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazyFilter),
         Box::new(Shift),
         Box::new(Unique),
+        Box::new(unnest::UnnestDF),
     ]
 }

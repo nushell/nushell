@@ -3,20 +3,21 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
-use polars::frame::explode::UnpivotArgs;
+use polars::{frame::explode::UnpivotArgsIR, prelude::UnpivotArgsDSL};
+use polars_ops::pivot::UnpivotDF;
 
 use crate::{
     dataframe::values::utils::convert_columns_string,
-    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject},
+    values::{utils::convert_columns_sm_str, CustomValueSupport, NuLazyFrame, PolarsPluginObject},
     PolarsPlugin,
 };
 
 use crate::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
-pub struct UnpivotDF;
+pub struct Unpivot;
 
-impl PluginCommand for UnpivotDF {
+impl PluginCommand for Unpivot {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
@@ -31,13 +32,13 @@ impl PluginCommand for UnpivotDF {
         Signature::build(self.name())
             .required_named(
                 "index",
-                SyntaxShape::Table(vec![]),
+                SyntaxShape::List(Box::new(SyntaxShape::Any)),
                 "column names for unpivoting",
                 Some('i'),
             )
             .required_named(
                 "on",
-                SyntaxShape::Table(vec![]),
+                SyntaxShape::List(Box::new(SyntaxShape::Any)),
                 "column names used as value columns",
                 Some('o'),
             )
@@ -56,11 +57,6 @@ impl PluginCommand for UnpivotDF {
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
-            )
-            .switch(
-                "streamable",
-                "Whether or not to use the polars streaming engine. Only valid for lazy dataframes",
-                Some('t'),
             )
             .category(Category::Custom("dataframe".into()))
     }
@@ -220,14 +216,11 @@ fn command_eager(
     check_column_datatypes(df.as_ref(), &index_col_string, index_col_span)?;
     check_column_datatypes(df.as_ref(), &on_col_string, on_col_span)?;
 
-    let streamable = call.has_flag("streamable")?;
-
-    let args = UnpivotArgs {
+    let args = UnpivotArgsIR {
         on: on_col_string.iter().map(Into::into).collect(),
         index: index_col_string.iter().map(Into::into).collect(),
         variable_name: variable_name.map(|s| s.item.into()),
         value_name: value_name.map(|s| s.item.into()),
-        streamable,
     };
 
     let res = df
@@ -254,20 +247,17 @@ fn command_lazy(
     let index_col: Vec<Value> = call.get_flag("index")?.expect("required value");
     let on_col: Vec<Value> = call.get_flag("on")?.expect("required value");
 
-    let (index_col_string, _index_col_span) = convert_columns_string(index_col, call.head)?;
-    let (on_col_string, _on_col_span) = convert_columns_string(on_col, call.head)?;
+    let (index_col_string, _index_col_span) = convert_columns_sm_str(index_col, call.head)?;
+    let (on_col_string, _on_col_span) = convert_columns_sm_str(on_col, call.head)?;
 
     let value_name: Option<String> = call.get_flag("value-name")?;
     let variable_name: Option<String> = call.get_flag("variable-name")?;
 
-    let streamable = call.has_flag("streamable")?;
-
-    let unpivot_args = UnpivotArgs {
-        on: on_col_string.iter().map(Into::into).collect(),
-        index: index_col_string.iter().map(Into::into).collect(),
+    let unpivot_args = UnpivotArgsDSL {
+        on: on_col_string.iter().cloned().map(Into::into).collect(),
+        index: index_col_string.iter().cloned().map(Into::into).collect(),
         value_name: value_name.map(Into::into),
         variable_name: variable_name.map(Into::into),
-        streamable,
     };
 
     let polars_df = df.to_polars().unpivot(unpivot_args);
@@ -341,6 +331,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&UnpivotDF)
+        test_polars_plugin_command(&Unpivot)
     }
 }

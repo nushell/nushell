@@ -202,8 +202,8 @@ impl ChildProcess {
         }
     }
 
-    pub fn ignore_error(&mut self) -> &mut Self {
-        self.ignore_error = true;
+    pub fn ignore_error(&mut self, ignore: bool) -> &mut Self {
+        self.ignore_error = ignore;
         self
     }
 
