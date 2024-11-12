@@ -987,7 +987,11 @@ fn read_dir(
                 .map_err(|e| ShellError::IOError { msg: e.to_string() })
         })
         .collect::<Vec<_>>();
-    items.sort_by(|a, b| a.as_ref().unwrap().cmp(b.as_ref().unwrap()));
+    items.sort_by(|a, b| {
+        let a = a.as_ref().expect("path should be valid");
+        let b = b.as_ref().expect("path should be valid");
+        a.cmp(b)
+    });
 
     Ok(Box::new(items.into_iter()))
 }
