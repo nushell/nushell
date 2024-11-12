@@ -39,6 +39,7 @@ impl Command for AggBy {
                 "Column name to calculate the average from",
                 Some('a'),
             )
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 
