@@ -25,11 +25,6 @@ impl Command for SeqChar {
                 SyntaxShape::String,
                 "End of character sequence (inclusive).",
             )
-            .switch(
-                "graphic",
-                "Only include ASCII graphic characters in the output",
-                Some('g'), // Optional short flag (e.g., `-g`)
-            )
             .category(Category::Generators)
     }
 
@@ -50,10 +45,9 @@ impl Command for SeqChar {
                 )),
             },
             Example {
-                description: "sequence a to e, and put the characters in a pipe-separated string",
+                description: "Sequence a to e, and join the characters with a pipe",
                 example: "seq char a e | str join '|'",
-                // TODO: it would be nice to test this example, but it currently breaks the input/output type tests
-                result: None,
+                result: Some(Value::test_string("a|b|c|d|e")),
             },
         ]
     }
@@ -65,20 +59,18 @@ impl Command for SeqChar {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let graphic_only = call.has_flag("graphic");
-        seq_char(engine_state, stack, call, graphic_only)
+        seq_char(engine_state, stack, call)
     }
 }
 
 fn is_single_character(ch: &str) -> bool {
-    ch.is_ascii() && ch.len() == 1
+    ch.is_ascii() && (ch.len() == 1) 
 }
 
 fn seq_char(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    graphic_only: bool,
 ) -> Result<PipelineData, ShellError> {
     let start: Spanned<String> = call.req(engine_state, stack, 0)?;
     let end: Spanned<String> = call.req(engine_state, stack, 1)?;
@@ -107,39 +99,39 @@ fn seq_char(
         .item
         .chars()
         .next()
-        .expect("seq char input must contain 2 inputs");
+        // expect is ok here, because we just checked the length
+        .expect("seq char input must contains 2 inputs");
 
     let end = end
         .item
         .chars()
         .next()
-        .expect("seq char input must contain 2 inputs");
+        // expect is ok here, because we just checked the length
+        .expect("seq char input must contains 2 inputs");
 
     let span = call.head;
-    run_seq_char(start, end, span, graphic_only)
+    run_seq_char(start, end, span)
 }
 
-fn run_seq_char(
-    start_ch: char,
-    end_ch: char,
-    span: Span,
-    graphic_only: bool,
-) -> Result<PipelineData, ShellError> {
-    let mut result_vec = vec![];
-    for current_ch in start_ch as u8..=end_ch as u8 {
-        let char_to_add = current_ch as char;
-        if !graphic_only || char_to_add.is_ascii_graphic() {
-            result_vec.push(char_to_add.to_string());
-        }
-    }
-
+fn run_seq_char(start_ch: char, end_ch: char, span: Span) -> Result<PipelineData, ShellError> {
+    let start = start_ch as u8;
+    let end = end_ch as u8;
+    let range = if start <= end {
+        start..=end
+    } else {
+        end..=start
+    };
+    let result_vec = if start <= end {
+        range.map(|c| (c as char).to_string()).collect::<Vec<_>>()
+    } else {
+        range.rev().map(|c| (c as char).to_string()).collect::<Vec<_>>()
+    };
     let result = result_vec
         .into_iter()
         .map(|x| Value::string(x, span))
         .collect::<Vec<Value>>();
     Ok(Value::list(result, span).into_pipeline_data())
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
