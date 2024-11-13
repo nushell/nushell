@@ -159,9 +159,9 @@ pub fn group_by(
     let mut groupers = groupers.into_iter();
 
     let grouped = if let Some(grouper) = groupers.next() {
-        let mut groups = Grouped::new(grouper, values, config, engine_state, stack)?;
+        let mut groups = Grouped::new(&grouper, values, config, engine_state, stack)?;
         for grouper in groupers {
-            groups.subgroup(grouper, config, engine_state, stack)?;
+            groups.subgroup(&grouper, config, engine_state, stack)?;
         }
         groups
     } else {
@@ -249,16 +249,18 @@ impl Grouped {
     }
 
     fn new(
-        grouper: Value,
+        grouper: &Value,
         values: Vec<Value>,
         config: &nu_protocol::Config,
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<Self, ShellError> {
         let span = grouper.span();
-        let groups = match grouper.clone() {
-            Value::CellPath { val, .. } => group_cell_path(val, values, config)?,
-            Value::Closure { val, .. } => group_closure(values, span, *val, engine_state, stack)?,
+        let groups = match grouper {
+            Value::CellPath { val, .. } => group_cell_path(val.clone(), values, config)?,
+            Value::Closure { val, .. } => {
+                group_closure(values, span, Closure::clone(val), engine_state, stack)?
+            }
             _ => {
                 return Err(ShellError::TypeMismatch {
                     err_message: "unsupported grouper type".to_string(),
@@ -275,7 +277,7 @@ impl Grouped {
 
     fn subgroup(
         &mut self,
-        grouper: Value,
+        grouper: &Value,
         config: &nu_protocol::Config,
         engine_state: &EngineState,
         stack: &mut Stack,
@@ -285,7 +287,7 @@ impl Grouped {
                 let gv = std::mem::take(gv);
                 gv.into_iter()
                     .map(|(key, values)| -> Result<_, ShellError> {
-                        let leaf = Self::new(grouper.clone(), values, config, engine_state, stack)?;
+                        let leaf = Self::new(grouper, values, config, engine_state, stack)?;
                         Ok((key, leaf))
                     })
                     .collect::<Result<IndexMap<_, _>, _>>()?
@@ -293,7 +295,7 @@ impl Grouped {
             Tree::Branch(gg) => {
                 let mut gg = std::mem::take(gg);
                 for v in gg.values_mut() {
-                    v.subgroup(grouper.clone(), config, engine_state, stack)?;
+                    v.subgroup(grouper, config, engine_state, stack)?;
                 }
                 gg
             }
