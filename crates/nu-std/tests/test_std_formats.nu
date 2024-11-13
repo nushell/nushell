@@ -103,3 +103,18 @@ def from_ndnuon_single_object [] {
 def from_ndnuon_invalid_object [] {
   assert error { '{"a":1' | formats from ndnuon }
 }
+
+
+#[test]
+def to_ndnuon_multiple_objects [] {
+  let result = [{a:1},{a:2},{a:3},{a:4},{a:5},{a:6}] | formats to ndnuon | str trim
+  let expect = test_data_multiline
+  assert equal $result $expect "could not convert to NDNUON"
+}
+
+#[test]
+def to_ndnuon_single_object [] {
+  let result = [{a:1}] | formats to ndnuon | str trim
+  let expect = "{a:1}"
+  assert equal $result $expect "could not convert to NDNUON"
+}
