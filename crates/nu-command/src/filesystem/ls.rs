@@ -981,20 +981,18 @@ fn read_dir(
     f: &Path,
     use_threads: bool,
 ) -> Result<Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send>, ShellError> {
-    let mut items = f
-        .read_dir()?
-        .map(|d| {
-            d.map(|r| r.path())
-                .map_err(|e| ShellError::IOError { msg: e.to_string() })
-        })
-        .collect::<Vec<_>>();
+    let items = f.read_dir()?.map(|d| {
+        d.map(|r| r.path())
+            .map_err(|e| ShellError::IOError { msg: e.to_string() })
+    });
     if !use_threads {
-        items.sort_by(|a, b| {
+        let mut collected = items.collect::<Vec<_>>();
+        collected.sort_by(|a, b| {
             let a = a.as_ref().expect("path should be valid");
             let b = b.as_ref().expect("path should be valid");
             a.cmp(b)
         });
+        return Ok(Box::new(collected.into_iter()));
     }
-
-    Ok(Box::new(items.into_iter()))
+    return Ok(Box::new(items));
 }
