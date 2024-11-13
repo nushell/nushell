@@ -152,6 +152,7 @@ $env.config = {
     ls: {
         use_ls_colors: true # use the LS_COLORS environment variable to colorize output
         clickable_links: true # enable or disable clickable links. Your terminal has to support links.
+        sort_by: [] # Adds sorting on the output of ls, Example: sort_by: ['name reverse natural', 'type'] would be similar to `ls | | sort-by name -rn | sort-by type`
     }
 
     rm: {
