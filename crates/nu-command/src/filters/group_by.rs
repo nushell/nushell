@@ -158,23 +158,20 @@ pub fn group_by(
 
     let mut groupers = groupers.into_iter();
 
-    let value = if let Some(grouper) = groupers.next() {
-        let mut groups = Grouped::new(grouper.clone(), values, config, engine_state, stack)?;
+    let grouped = if let Some(grouper) = groupers.next() {
+        let mut groups = Grouped::new(grouper, values, config, engine_state, stack)?;
         for grouper in groupers {
             groups.subgroup(grouper, config, engine_state, stack)?;
         }
-        if to_table {
-            groups.into_table(head)
-        } else {
-            groups.into_record(head)
-        }
+        groups
     } else {
-        let groups = group_no_grouper(values, config)?;
-        if to_table {
-            groups_to_table(groups, head)
-        } else {
-            groups_to_record(groups, head)
-        }
+        Grouped::empty(values, config)
+    };
+
+    let value = if to_table {
+        grouped.into_table(head)
+    } else {
+        grouped.into_record(head)
     };
 
     Ok(value.into_pipeline_data())
@@ -197,20 +194,6 @@ fn group_cell_path(
         }
 
         let key = key.to_abbreviated_string(config);
-        groups.entry(key).or_default().push(value);
-    }
-
-    Ok(groups)
-}
-
-fn group_no_grouper(
-    values: Vec<Value>,
-    config: &nu_protocol::Config,
-) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
-    let mut groups = IndexMap::<_, Vec<_>>::new();
-
-    for value in values.into_iter() {
-        let key = value.to_abbreviated_string(config);
         groups.entry(key).or_default().push(value);
     }
 
@@ -240,44 +223,31 @@ fn group_closure(
     Ok(groups)
 }
 
-fn groups_to_record(groups: IndexMap<String, Vec<Value>>, span: Span) -> Value {
-    Value::record(
-        groups
-            .into_iter()
-            .map(|(k, v)| (k, Value::list(v, span)))
-            .collect(),
-        span,
-    )
-}
-
-fn groups_to_table(groups: IndexMap<String, Vec<Value>>, span: Span) -> Value {
-    Value::list(
-        groups
-            .into_iter()
-            .map(|(group, items)| {
-                Value::record(
-                    record! {
-                        "group" => Value::string(group, span),
-                        "items" => Value::list(items, span),
-                    },
-                    span,
-                )
-            })
-            .collect(),
-        span,
-    )
-}
-
 struct Grouped {
     grouper: Option<String>,
     groups: Tree,
 }
+
 enum Tree {
     Leaf(IndexMap<String, Vec<Value>>),
     Branch(IndexMap<String, Grouped>),
 }
 
 impl Grouped {
+    fn empty(values: Vec<Value>, config: &nu_protocol::Config) -> Self {
+        let mut groups = IndexMap::<_, Vec<_>>::new();
+
+        for value in values.into_iter() {
+            let key = value.to_abbreviated_string(config);
+            groups.entry(key).or_default().push(value);
+        }
+
+        Self {
+            grouper: Some("group".into()),
+            groups: Tree::Leaf(groups),
+        }
+    }
+
     fn new(
         grouper: Value,
         values: Vec<Value>,
@@ -369,7 +339,12 @@ impl Grouped {
 
     fn into_record(self, head: Span) -> Value {
         match self.groups {
-            Tree::Leaf(leaf) => groups_to_record(leaf, head),
+            Tree::Leaf(leaf) => Value::record(
+                leaf.into_iter()
+                    .map(|(k, v)| (k, v.into_value(head)))
+                    .collect(),
+                head,
+            ),
             Tree::Branch(branch) => {
                 let values = branch
                     .into_iter()
