@@ -268,15 +268,13 @@ fn groups_to_table(groups: IndexMap<String, Vec<Value>>, span: Span) -> Value {
     )
 }
 
-type GroupedValues = IndexMap<String, Vec<Value>>;
 struct Grouped {
     grouper: Value,
     groups: Tree,
 }
-type GroupedGroups = IndexMap<String, Grouped>;
 enum Tree {
-    Leaf(GroupedValues),
-    Branch(GroupedGroups),
+    Leaf(IndexMap<String, Vec<Value>>),
+    Branch(IndexMap<String, Grouped>),
 }
 
 impl Grouped {
