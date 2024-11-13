@@ -98,7 +98,8 @@ jobs:
         TARGET: ${{ matrix.target }}
         _EXTRA_: ${{ matrix.extra }}
 
-    # REF: https://github.com/marketplace/actions/gh-release
+    # WARN: Don't upgrade this action due to the release per asset issue.
+    # See: https://github.com/softprops/action-gh-release/issues/445
     - name: Publish Archive
       uses: softprops/action-gh-release@v2.0.5
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
