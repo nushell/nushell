@@ -283,21 +283,19 @@ impl Grouped {
         stack: &mut Stack,
     ) -> Result<(), ShellError> {
         let groups = match &mut self.groups {
-            Tree::Leaf(gv) => {
-                let gv = std::mem::take(gv);
-                gv.into_iter()
-                    .map(|(key, values)| -> Result<_, ShellError> {
-                        let leaf = Self::new(grouper, values, config, engine_state, stack)?;
-                        Ok((key, leaf))
-                    })
-                    .collect::<Result<IndexMap<_, _>, _>>()?
-            }
-            Tree::Branch(gg) => {
-                let mut gg = std::mem::take(gg);
-                for v in gg.values_mut() {
+            Tree::Leaf(groups) => std::mem::take(groups)
+                .into_iter()
+                .map(|(key, values)| -> Result<_, ShellError> {
+                    let leaf = Self::new(grouper, values, config, engine_state, stack)?;
+                    Ok((key, leaf))
+                })
+                .collect::<Result<IndexMap<_, _>, _>>()?,
+            Tree::Branch(nested_groups) => {
+                let mut nested_groups = std::mem::take(nested_groups);
+                for v in nested_groups.values_mut() {
                     v.subgroup(grouper, config, engine_state, stack)?;
                 }
-                gg
+                nested_groups
             }
         };
         self.groups = Tree::Branch(groups);
