@@ -47,7 +47,9 @@ impl Command for SeqChar {
             Example {
                 description: "Sequence a to e, and join the characters with a pipe",
                 example: "seq char a e | str join '|'",
-                result: Some(Value::test_string("a|b|c|d|e")),
+                // TODO: it would be nice to test this example, but it currently breaks the input/output type tests
+                // result: Some(Value::test_string("a|b|c|d|e")),
+                result: None,
             },
         ]
     }
