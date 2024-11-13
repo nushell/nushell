@@ -1,16 +1,27 @@
 # Test std/formats when importing `use std *`
 use std *
 
-def test_data_multiline [] {
+def test_data_multiline [--nuon] {
   use std *
-  let lines = [
-    "{\"a\":1}",
-    "{\"a\":2}",
-    "{\"a\":3}",
-    "{\"a\":4}",
-    "{\"a\":5}",
-    "{\"a\":6}",
-  ]
+  let lines = if $nuon {
+    [
+      "{a: 1}",
+      "{a: 2}",
+      "{a: 3}",
+      "{a: 4}",
+      "{a: 5}",
+      "{a: 6}",
+    ]
+  } else {
+    [
+      "{\"a\":1}",
+      "{\"a\":2}",
+      "{\"a\":3}",
+      "{\"a\":4}",
+      "{\"a\":5}",
+      "{\"a\":6}",
+    ]
+  }
 
   if $nu.os-info.name == "windows" {
     $lines | str join "\r\n"
@@ -107,13 +118,13 @@ def from_ndnuon_invalid_object [] {
 #[test]
 def to_ndnuon_multiple_objects [] {
   let result = [{a:1},{a:2},{a:3},{a:4},{a:5},{a:6}] | formats to ndnuon | str trim
-  let expect = test_data_multiline
+  let expect = test_data_multiline --nuon
   assert equal $result $expect "could not convert to NDNUON"
 }
 
 #[test]
 def to_ndnuon_single_object [] {
   let result = [{a:1}] | formats to ndnuon | str trim
-  let expect = "{a:1}"
+  let expect = "{a: 1}"
   assert equal $result $expect "could not convert to NDNUON"
 }
