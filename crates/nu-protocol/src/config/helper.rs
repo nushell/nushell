@@ -105,6 +105,26 @@ impl UpdateFromValue for usize {
     }
 }
 
+impl UpdateFromValue for Vec<String> {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
+        if let Ok(val) = value.as_list() {
+            *self = val
+                .iter()
+                .map(|val| {
+                    if let Ok(val) = val.as_str() {
+                        val.into()
+                    } else {
+                        errors.type_mismatch(path, Type::String, val);
+                        "".into()
+                    }
+                })
+                .collect();
+        } else {
+            errors.type_mismatch(path, Type::String, value);
+        }
+    }
+}
+
 impl UpdateFromValue for String {
     fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
         if let Ok(val) = value.as_str() {

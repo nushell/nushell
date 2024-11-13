@@ -1,5 +1,5 @@
 use super::util::get_rest_for_glob_pattern;
-use crate::{DirBuilder, DirInfo};
+use crate::{compare_by, Comparator, DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::glob_from;
 #[allow(deprecated)]
@@ -120,8 +120,8 @@ impl Command for Ls {
         } else {
             Some(pattern_arg)
         };
-        match input_pattern_arg {
-            None => Ok(
+        let result: PipelineData = match input_pattern_arg {
+            None => Ok::<PipelineData, ShellError>(
                 ls_for_one_pattern(None, args, engine_state.signals().clone(), cwd)?
                     .into_pipeline_data_with_metadata(
                         call_span,
@@ -157,6 +157,12 @@ impl Command for Ls {
                         },
                     ))
             }
+        }?;
+
+        if stack.get_config(engine_state).ls.sort_by.is_empty() {
+            Ok(result)
+        } else {
+            Self::apply_post_sorting(engine_state, stack, call, result)
         }
     }
 
@@ -194,19 +200,19 @@ impl Command for Ls {
             },
             Example {
                 description:
-                    "List only the names (not paths) of all dirs in your home directory which have not been modified in 7 days",
+                "List only the names (not paths) of all dirs in your home directory which have not been modified in 7 days",
                 example: "ls -as ~ | where type == dir and modified < ((date now) - 7day)",
                 result: None,
             },
             Example {
                 description:
-                    "Recursively list all files and subdirectories under the current directory using a glob pattern",
+                "Recursively list all files and subdirectories under the current directory using a glob pattern",
                 example: "ls -a **/*",
                 result: None,
             },
             Example {
                 description:
-                    "Recursively list *.rs and *.toml files using the glob command",
+                "Recursively list *.rs and *.toml files using the glob command",
                 example: "ls ...(glob **/*.{rs,toml})",
                 result: None,
             },
@@ -216,6 +222,69 @@ impl Command for Ls {
                 result: None,
             },
         ]
+    }
+}
+
+impl Ls {
+    fn apply_post_sorting(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        result: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let sort_by_configs = stack.get_config(engine_state).ls.sort_by.clone();
+        let cloned_metadata = result.metadata().clone();
+        let mut comparator_vals: Vec<Value> = result.into_iter().collect();
+
+        for sort_by_config in sort_by_configs {
+            let compare_err =
+                Self::setup_and_sort_by_config(call, &mut comparator_vals, &sort_by_config);
+
+            if let Some(compare_err_unwrapped) = compare_err {
+                return Err(compare_err_unwrapped);
+            }
+        }
+
+        let val = Value::list(comparator_vals, call.head);
+        let data = val.into_pipeline_data_with_metadata(cloned_metadata);
+
+        Ok(data)
+    }
+
+    fn setup_and_sort_by_config(
+        call: &Call,
+        comparator_vals: &mut [Value],
+        sort_by_config: &str,
+    ) -> Option<ShellError> {
+        let words_in_sort_by_config: Vec<_> = sort_by_config.split_whitespace().collect();
+        let mut comparators = [Comparator::CellPath(CellPath {
+            members: vec![PathMember::string(
+                words_in_sort_by_config[0].to_string(),
+                false,
+                Span::unknown(),
+            )],
+        })];
+        let contains_insensitive = sort_by_config.contains("ignore-case"); // TODO expand
+        let contains_naturel = sort_by_config.contains("natural"); // TODO expand
+        let contains_reverse = sort_by_config.contains("reverse"); // TODO expand
+
+        let mut compare_err: Option<ShellError> = None;
+        comparator_vals.sort_by(|a, b| {
+            compare_by(
+                a,
+                b,
+                &mut comparators,
+                call.head,
+                contains_insensitive,
+                contains_naturel,
+                &mut compare_err,
+            )
+        });
+
+        if contains_reverse {
+            comparator_vals.reverse()
+        }
+        compare_err
     }
 }
 
@@ -420,13 +489,13 @@ fn ls_for_one_pattern(
                     } else {
                         Some(path.to_string_lossy().to_string())
                     }
-                    .ok_or_else(|| ShellError::GenericError {
-                        error: format!("Invalid file name: {:}", path.to_string_lossy()),
-                        msg: "invalid file name".into(),
-                        span: Some(call_span),
-                        help: None,
-                        inner: vec![],
-                    });
+                        .ok_or_else(|| ShellError::GenericError {
+                            error: format!("Invalid file name: {:}", path.to_string_lossy()),
+                            msg: "invalid file name".into(),
+                            span: Some(call_span),
+                            help: None,
+                            inner: vec![],
+                        });
 
                     match display_name {
                         Ok(name) => {
@@ -461,13 +530,13 @@ fn ls_for_one_pattern(
                 })
             })
     })
-    .map_err(|err| ShellError::GenericError {
-        error: "Unable to create a rayon pool".into(),
-        msg: err.to_string(),
-        span: Some(call_span),
-        help: None,
-        inner: vec![],
-    })?;
+        .map_err(|err| ShellError::GenericError {
+            error: "Unable to create a rayon pool".into(),
+            msg: err.to_string(),
+            span: Some(call_span),
+            help: None,
+            inner: vec![],
+        })?;
 
     Ok(rx
         .into_iter()
@@ -504,6 +573,7 @@ fn path_contains_hidden_folder(path: &Path, folders: &[PathBuf]) -> bool {
     false
 }
 
+use nu_protocol::ast::PathMember;
 #[cfg(unix)]
 use std::os::unix::fs::FileTypeExt;
 use std::path::Path;
@@ -598,7 +668,7 @@ pub(crate) fn dir_entry_dict(
                                         .expect("already check the filename have a parent"),
                                     true,
                                 )
-                                .to_string_lossy(),
+                                    .to_string_lossy(),
                                 span,
                             )
                         } else {
@@ -949,7 +1019,7 @@ fn read_dir(
     f: &Path,
     span: Span,
     use_threads: bool,
-) -> Result<Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send>, ShellError> {
+) -> Result<Box<dyn Iterator<Item=Result<PathBuf, ShellError>> + Send>, ShellError> {
     let items = f
         .read_dir()
         .map_err(|error| {
