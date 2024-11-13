@@ -269,7 +269,7 @@ fn groups_to_table(groups: IndexMap<String, Vec<Value>>, span: Span) -> Value {
 }
 
 struct Grouped {
-    grouper: Value,
+    grouper: Option<String>,
     groups: Tree,
 }
 enum Tree {
@@ -296,6 +296,7 @@ impl Grouped {
                 })
             }
         };
+        let grouper = grouper.as_cell_path().ok().map(CellPath::to_column_name);
         Ok(Self {
             grouper,
             groups: Tree::Leaf(groups),
@@ -340,12 +341,7 @@ impl Grouped {
     }
 
     fn _into_table(self, head: Span, index: usize) -> Vec<Record> {
-        let grouper = match self.grouper {
-            Value::CellPath { val, .. } => val.to_column_name(),
-            _ => {
-                format!("group{index}")
-            }
-        };
+        let grouper = self.grouper.unwrap_or_else(|| format!("group{index}"));
         match self.groups {
             Tree::Leaf(leaf) => leaf
                 .into_iter()
