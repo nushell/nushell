@@ -64,7 +64,7 @@ impl Command for SeqChar {
 }
 
 fn is_single_character(ch: &str) -> bool {
-    ch.is_ascii() && (ch.len() == 1) 
+    ch.is_ascii() && (ch.len() == 1)
 }
 
 fn seq_char(
@@ -124,7 +124,10 @@ fn run_seq_char(start_ch: char, end_ch: char, span: Span) -> Result<PipelineData
     let result_vec = if start <= end {
         range.map(|c| (c as char).to_string()).collect::<Vec<_>>()
     } else {
-        range.rev().map(|c| (c as char).to_string()).collect::<Vec<_>>()
+        range
+            .rev()
+            .map(|c| (c as char).to_string())
+            .collect::<Vec<_>>()
     };
     let result = result_vec
         .into_iter()
