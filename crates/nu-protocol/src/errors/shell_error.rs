@@ -1459,7 +1459,6 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     },
 }
 
-// TODO: Implement as From trait
 impl ShellError {
     pub fn external_exit_code(&self) -> Option<Spanned<i32>> {
         let (item, span) = match *self {
