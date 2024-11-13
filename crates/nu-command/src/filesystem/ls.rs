@@ -994,5 +994,5 @@ fn read_dir(
         });
         return Ok(Box::new(collected.into_iter()));
     }
-    return Ok(Box::new(items));
+    Ok(Box::new(items))
 }
