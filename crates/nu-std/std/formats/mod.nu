@@ -28,3 +28,13 @@ export def "to ndjson" []: any -> string {
 export def "to jsonl" []: any -> string {
     each { to json --raw } | to text
 }
+
+# Convert from NDNUON, i.e. newline-delimited NUON, to structured
+def "from ndnuon" []: [string -> any] {
+    lines | each { from nuon }
+}
+
+# Convert structured data to NDNUON, i.e. newline-delimited NUON
+def "to ndnuon" []: [any -> string] {
+    each { to nuon --raw } | to text
+}

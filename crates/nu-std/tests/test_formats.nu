@@ -84,3 +84,22 @@ def to_jsonl_single_object [] {
   let expect = "{\"a\":1}"
   assert equal $result $expect "could not convert to JSONL"
 }
+
+#[test]
+def from_ndnuon_multiple_objects [] {
+  let result = test_data_multiline | formats from ndnuon
+  let expect = [{a:1},{a:2},{a:3},{a:4},{a:5},{a:6}]
+  assert equal $result $expect "could not convert from NDNUON"
+}
+
+#[test]
+def from_ndnuon_single_object [] {
+  let result = '{a: 1}' | formats from ndnuon
+  let expect = [{a:1}]
+  assert equal $result $expect "could not convert from NDNUON"
+}
+
+#[test]
+def from_ndnuon_invalid_object [] {
+  assert error { '{"a":1' | formats from ndnuon }
+}
