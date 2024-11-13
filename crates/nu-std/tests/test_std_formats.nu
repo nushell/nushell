@@ -104,7 +104,6 @@ def from_ndnuon_invalid_object [] {
   assert error { '{"a":1' | formats from ndnuon }
 }
 
-
 #[test]
 def to_ndnuon_multiple_objects [] {
   let result = [{a:1},{a:2},{a:3},{a:4},{a:5},{a:6}] | formats to ndnuon | str trim
