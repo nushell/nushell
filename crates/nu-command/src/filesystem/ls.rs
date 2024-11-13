@@ -489,13 +489,13 @@ fn ls_for_one_pattern(
                     } else {
                         Some(path.to_string_lossy().to_string())
                     }
-                        .ok_or_else(|| ShellError::GenericError {
-                            error: format!("Invalid file name: {:}", path.to_string_lossy()),
-                            msg: "invalid file name".into(),
-                            span: Some(call_span),
-                            help: None,
-                            inner: vec![],
-                        });
+                    .ok_or_else(|| ShellError::GenericError {
+                        error: format!("Invalid file name: {:}", path.to_string_lossy()),
+                        msg: "invalid file name".into(),
+                        span: Some(call_span),
+                        help: None,
+                        inner: vec![],
+                    });
 
                     match display_name {
                         Ok(name) => {
@@ -530,13 +530,13 @@ fn ls_for_one_pattern(
                 })
             })
     })
-        .map_err(|err| ShellError::GenericError {
-            error: "Unable to create a rayon pool".into(),
-            msg: err.to_string(),
-            span: Some(call_span),
-            help: None,
-            inner: vec![],
-        })?;
+    .map_err(|err| ShellError::GenericError {
+        error: "Unable to create a rayon pool".into(),
+        msg: err.to_string(),
+        span: Some(call_span),
+        help: None,
+        inner: vec![],
+    })?;
 
     Ok(rx
         .into_iter()
@@ -668,7 +668,7 @@ pub(crate) fn dir_entry_dict(
                                         .expect("already check the filename have a parent"),
                                     true,
                                 )
-                                    .to_string_lossy(),
+                                .to_string_lossy(),
                                 span,
                             )
                         } else {
@@ -1019,7 +1019,7 @@ fn read_dir(
     f: &Path,
     span: Span,
     use_threads: bool,
-) -> Result<Box<dyn Iterator<Item=Result<PathBuf, ShellError>> + Send>, ShellError> {
+) -> Result<Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send>, ShellError> {
     let items = f
         .read_dir()
         .map_err(|error| {
