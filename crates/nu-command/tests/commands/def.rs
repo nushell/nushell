@@ -292,3 +292,37 @@ fn def_env_wrapped_no_help() {
     let actual = nu!("def --wrapped foo [...rest] { echo $rest }; foo -h | to json --raw");
     assert_eq!(actual.out, r#"["-h"]"#);
 }
+
+#[test]
+fn def_recursive_func_should_work() {
+    let actual = nu!("def bar [] { let x = 1; ($x | foo) }; def foo [] { foo }");
+    assert!(actual.err.is_empty());
+
+    let actual = nu!(r#"
+def recursive [c: int] {
+    if ($c == 0) { return }
+    if ($c mod 2 > 0) {
+        $in | recursive ($c - 1)
+    } else {
+        recursive ($c - 1)
+    }
+}"#);
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn export_def_recursive_func_should_work() {
+    let actual = nu!("export def bar [] { let x = 1; ($x | foo) }; export def foo [] { foo }");
+    assert!(actual.err.is_empty());
+
+    let actual = nu!(r#"
+export def recursive [c: int] {
+    if ($c == 0) { return }
+    if ($c mod 2 > 0) {
+        $in | recursive ($c - 1)
+    } else {
+        recursive ($c - 1)
+    }
+}"#);
+    assert!(actual.err.is_empty());
+}

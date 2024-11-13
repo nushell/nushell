@@ -472,9 +472,9 @@ dependencies = [
 
 [[package]]
 name = "bracoxide"
-version = "0.1.3"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ada7f35ca622a86a4d6c27be2633fc6c243ecc834859628fcce0681d8e76e1c8"
+checksum = "fbc0bcb5424e8e1f29c21a00f2d222df5e8e9779732ff03f840315d8fbac708e"
 
 [[package]]
 name = "brotli"
@@ -715,7 +715,7 @@ checksum = "d59ae0466b83e838b81a54256c39d5d7c20b9d7daa10510a242d9b75abd5936e"
 dependencies = [
  "chrono",
  "chrono-tz-build 0.2.1",
- "phf 0.11.2",
+ "phf",
 ]
 
 [[package]]
@@ -726,7 +726,7 @@ checksum = "cd6dd8046d00723a59a2f8c5f295c515b9bb9a331ee4f8f3d4dd49e428acd3b6"
 dependencies = [
  "chrono",
  "chrono-tz-build 0.4.0",
- "phf 0.11.2",
+ "phf",
 ]
 
 [[package]]
@@ -736,8 +736,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "433e39f13c9a060046954e0592a8d0a4bcb1040125cbf91cb8ee58964cfb350f"
 dependencies = [
  "parse-zoneinfo",
- "phf 0.11.2",
- "phf_codegen 0.11.2",
+ "phf",
+ "phf_codegen",
 ]
 
 [[package]]
@@ -747,7 +747,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e94fea34d77a245229e7746bd2beb786cd2a896f306ff491fb8cecb3074b10a7"
 dependencies = [
  "parse-zoneinfo",
- "phf_codegen 0.11.2",
+ "phf_codegen",
 ]
 
 [[package]]
@@ -1090,14 +1090,14 @@ dependencies = [
 
 [[package]]
 name = "cssparser"
-version = "0.31.2"
+version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b3df4f93e5fbbe73ec01ec8d3f68bba73107993a5b1e7519273c32db9b0d5be"
+checksum = "b7c66d1cd8ed61bf80b38432613a7a2f09401ab8d0501110655f8b341484a3e3"
 dependencies = [
  "cssparser-macros",
  "dtoa-short",
  "itoa",
- "phf 0.10.1",
+ "phf",
  "smallvec",
 ]
 
@@ -1341,9 +1341,9 @@ checksum = "0d6ef0072f8a535281e4876be788938b528e9a1d43900b82c2569af7da799125"
 
 [[package]]
 name = "ego-tree"
-version = "0.6.3"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12a0bb14ac04a9fcf170d0bbbef949b44cc492f4452bd20c095636956f653642"
+checksum = "7c6ba7d4eec39eaa9ab24d44a0e73a7949a1095a8b3f3abb11eddf27dbb56a53"
 
 [[package]]
 name = "either"
@@ -1939,7 +1939,21 @@ checksum = "c13771afe0e6e846f1e67d038d4cb29998a6779f93c809212e4e9c32efd244d4"
 dependencies = [
  "log",
  "mac",
- "markup5ever",
+ "markup5ever 0.12.1",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.75",
+]
+
+[[package]]
+name = "html5ever"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e15626aaf9c351bc696217cbe29cb9b5e86c43f8a46b5e2f5c6c5cf7cb904ce"
+dependencies = [
+ "log",
+ "mac",
+ "markup5ever 0.14.0",
  "proc-macro2",
  "quote",
  "syn 2.0.75",
@@ -2432,7 +2446,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -2626,8 +2640,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16ce3abbeba692c8b8441d036ef91aea6df8da2c6b6e21c7e14d3c18e526be45"
 dependencies = [
  "log",
- "phf 0.11.2",
- "phf_codegen 0.11.2",
+ "phf",
+ "phf_codegen",
+ "string_cache",
+ "string_cache_codegen",
+ "tendril",
+]
+
+[[package]]
+name = "markup5ever"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82c88c6129bd24319e62a0359cb6b958fa7e8be6e19bb1663bc396b90883aca5"
+dependencies = [
+ "log",
+ "phf",
+ "phf_codegen",
  "string_cache",
  "string_cache_codegen",
  "tendril",
@@ -2639,8 +2667,8 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edaa21ab3701bfee5099ade5f7e1f84553fd19228cf332f13cd6e964bf59be18"
 dependencies = [
- "html5ever",
- "markup5ever",
+ "html5ever 0.27.0",
+ "markup5ever 0.12.1",
  "tendril",
  "xml5ever",
 ]
@@ -2912,9 +2940,9 @@ dependencies = [
 
 [[package]]
 name = "notify-debouncer-full"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49f5dab59c348b9b50cf7f261960a20e389feb2713636399cd9082cd4b536154"
+checksum = "fb7fd166739789c9ff169e654dc1501373db9d80a4c3f972817c8a4d7cf8f34e"
 dependencies = [
  "file-id",
  "log",
@@ -2943,7 +2971,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "assert_cmd",
  "crossterm 0.28.1",
@@ -2998,7 +3026,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "chrono",
  "crossterm 0.28.1",
@@ -3032,7 +3060,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-base"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "indexmap",
  "miette",
@@ -3044,7 +3072,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-extra"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "fancy-regex",
  "heck",
@@ -3069,7 +3097,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-lang"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "itertools 0.13.0",
  "nu-engine",
@@ -3081,7 +3109,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-plugin"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "itertools 0.13.0",
  "nu-engine",
@@ -3092,7 +3120,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
@@ -3104,7 +3132,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "alphanumeric-sort",
  "base64 0.22.1",
@@ -3214,7 +3242,7 @@ dependencies = [
 
 [[package]]
 name = "nu-derive-value"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "heck",
  "proc-macro-error",
@@ -3225,7 +3253,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "log",
  "nu-glob",
@@ -3237,7 +3265,7 @@ dependencies = [
 
 [[package]]
 name = "nu-explore"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "ansi-str",
  "anyhow",
@@ -3262,14 +3290,14 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "doc-comment",
 ]
 
 [[package]]
 name = "nu-json"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "fancy-regex",
  "linked-hash-map",
@@ -3282,7 +3310,7 @@ dependencies = [
 
 [[package]]
 name = "nu-lsp"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
@@ -3303,7 +3331,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "bytesize",
  "chrono",
@@ -3320,7 +3348,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "dirs",
  "omnipath",
@@ -3329,7 +3357,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "log",
  "nix 0.29.0",
@@ -3345,7 +3373,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-core"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "interprocess",
  "log",
@@ -3359,7 +3387,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-engine"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "log",
  "nu-engine",
@@ -3375,7 +3403,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-protocol"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "nu-protocol",
  "nu-utils",
@@ -3387,7 +3415,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-test-support"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "nu-ansi-term",
  "nu-cmd-lang",
@@ -3405,7 +3433,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -3414,7 +3442,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "brotli",
  "byte-unit",
@@ -3452,7 +3480,7 @@ dependencies = [
 
 [[package]]
 name = "nu-std"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "log",
  "miette",
@@ -3463,7 +3491,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "chrono",
  "itertools 0.13.0",
@@ -3480,7 +3508,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "fancy-regex",
  "nu-ansi-term",
@@ -3494,7 +3522,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "nu-utils",
  "unicode-width",
@@ -3502,7 +3530,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "nu-glob",
  "nu-path",
@@ -3514,7 +3542,7 @@ dependencies = [
 
 [[package]]
 name = "nu-utils"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "crossterm_winapi",
  "fancy-regex",
@@ -3541,7 +3569,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "nu-cmd-lang",
  "nu-plugin",
@@ -3551,7 +3579,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_formats"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "chrono",
  "eml-parser",
@@ -3566,7 +3594,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "git2",
  "nu-plugin",
@@ -3575,7 +3603,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -3584,7 +3612,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_polars"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "chrono",
  "chrono-tz 0.10.0",
@@ -3619,7 +3647,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "gjson",
  "nu-plugin",
@@ -3634,7 +3662,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_stress_internals"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "interprocess",
  "serde",
@@ -3748,7 +3776,7 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "nuon"
-version = "0.99.2"
+version = "0.100.0"
 dependencies = [
  "chrono",
  "nu-engine",
@@ -3871,8 +3899,8 @@ version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330138902ab4dab09a86e6b7ab7ddeffb5f8435d52fe0df1bce8b06a17b10ee4"
 dependencies = [
- "phf 0.11.2",
- "phf_codegen 0.11.2",
+ "phf",
+ "phf_codegen",
  "serde",
  "serde_json",
 ]
@@ -4134,32 +4162,12 @@ dependencies = [
 
 [[package]]
 name = "phf"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fabbf1ead8a5bcbc20f5f8b939ee3f5b0f6f281b6ad3468b84656b658b455259"
-dependencies = [
- "phf_macros",
- "phf_shared 0.10.0",
- "proc-macro-hack",
-]
-
-[[package]]
-name = "phf"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ade2d8b8f33c7333b51bcf0428d37e217e9f32192ae4772156f65063b8ce03dc"
 dependencies = [
+ "phf_macros",
  "phf_shared 0.11.2",
-]
-
-[[package]]
-name = "phf_codegen"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fb1c3a8bc4dd4e5cfce29b44ffc14bedd2ee294559a294e2a4d4c9e9a6a13cd"
-dependencies = [
- "phf_generator 0.10.0",
- "phf_shared 0.10.0",
 ]
 
 [[package]]
@@ -4194,16 +4202,15 @@ dependencies = [
 
 [[package]]
 name = "phf_macros"
-version = "0.10.0"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58fdf3184dd560f160dd73922bea2d5cd6e8f064bf4b13110abd81b03697b4e0"
+checksum = "3444646e286606587e49f3bcf1679b8cef1dc2c5ecc29ddacaffc305180d464b"
 dependencies = [
- "phf_generator 0.10.0",
- "phf_shared 0.10.0",
- "proc-macro-hack",
+ "phf_generator 0.11.2",
+ "phf_shared 0.11.2",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.75",
 ]
 
 [[package]]
@@ -4872,12 +4879,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "proc-macro-hack"
-version = "0.5.20+deprecated"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5177,8 +5178,9 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.36.0"
-source = "git+https://github.com/nushell/reedline?branch=main#9cb1128aaab8f5c19ec37b94ac1a86a91915827f"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9834765acaa2deedf29197f2da3d309801683beb20e25775bc0249f97a7b9a74"
 dependencies = [
  "arboard",
  "chrono",
@@ -5538,15 +5540,15 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "scraper"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b90460b31bfe1fc07be8262e42c665ad97118d4585869de9345a84d501a9eaf0"
+checksum = "b0e749d29b2064585327af5038a5a8eb73aeebad4a3472e83531a436563f7208"
 dependencies = [
  "ahash 0.8.11",
  "cssparser",
  "ego-tree",
- "html5ever",
- "once_cell",
+ "html5ever 0.29.0",
+ "precomputed-hash",
  "selectors",
  "tendril",
 ]
@@ -5608,9 +5610,9 @@ dependencies = [
 
 [[package]]
 name = "selectors"
-version = "0.25.0"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4eb30575f3638fc8f6815f448d50cb1a2e255b0897985c8c59f4d37b72a07b06"
+checksum = "fd568a4c9bb598e291a08244a5c1f5a8a6650bee243b5b0f8dbb3d9cc1d87fe8"
 dependencies = [
  "bitflags 2.6.0",
  "cssparser",
@@ -5618,8 +5620,8 @@ dependencies = [
  "fxhash",
  "log",
  "new_debug_unreachable",
- "phf 0.10.1",
- "phf_codegen 0.10.0",
+ "phf",
+ "phf_codegen",
  "precomputed-hash",
  "servo_arc",
  "smallvec",
@@ -5736,9 +5738,9 @@ dependencies = [
 
 [[package]]
 name = "servo_arc"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d036d71a959e00c77a63538b90a6c2390969f9772b096ea837205c6bd0491a44"
+checksum = "ae65c4249478a2647db249fb43e23cec56a2c8974a427e7bd8cb5a1d0964921a"
 dependencies = [
  "stable_deref_trait",
 ]
@@ -7051,7 +7053,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "70862efc041d46e6bbaa82bb9c34ae0596d090e86cbd14bd9e93b36ee6802eac"
 dependencies = [
  "curl",
- "html5ever",
+ "html5ever 0.27.0",
  "markup5ever_rcdom",
  "serde",
  "serde_json",
@@ -7478,7 +7480,7 @@ checksum = "9bbb26405d8e919bc1547a5aa9abc95cbfa438f04844f5fdd9dc7596b748bf69"
 dependencies = [
  "log",
  "mac",
- "markup5ever",
+ "markup5ever 0.12.1",
 ]
 
 [[package]]
