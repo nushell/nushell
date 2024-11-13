@@ -289,7 +289,7 @@ impl Grouped {
                     let leaf = Self::new(grouper, values, config, engine_state, stack)?;
                     Ok((key, leaf))
                 })
-                .collect::<Result<IndexMap<_, _>, _>>()?,
+                .collect::<Result<IndexMap<_, _>, ShellError>>()?,
             Tree::Branch(nested_groups) => {
                 let mut nested_groups = std::mem::take(nested_groups);
                 for v in nested_groups.values_mut() {
