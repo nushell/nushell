@@ -31,7 +31,7 @@ impl Command for HelpOperators {
         let mut operators = [
             Operator::Assignment(Assignment::Assign),
             Operator::Assignment(Assignment::PlusAssign),
-            Operator::Assignment(Assignment::AppendAssign),
+            Operator::Assignment(Assignment::ConcatAssign),
             Operator::Assignment(Assignment::MinusAssign),
             Operator::Assignment(Assignment::MultiplyAssign),
             Operator::Assignment(Assignment::DivideAssign),
@@ -48,7 +48,7 @@ impl Command for HelpOperators {
             Operator::Comparison(Comparison::StartsWith),
             Operator::Comparison(Comparison::EndsWith),
             Operator::Math(Math::Plus),
-            Operator::Math(Math::Append),
+            Operator::Math(Math::Concat),
             Operator::Math(Math::Minus),
             Operator::Math(Math::Multiply),
             Operator::Math(Math::Divide),
@@ -144,7 +144,7 @@ fn description(operator: &Operator) -> &'static str {
         Operator::Comparison(Comparison::StartsWith) => "Checks if a string starts with another.",
         Operator::Comparison(Comparison::EndsWith) => "Checks if a string ends with another.",
         Operator::Math(Math::Plus) => "Adds two values.",
-        Operator::Math(Math::Append) => {
+        Operator::Math(Math::Concat) => {
             "Appends two lists, a list and a value, two strings, or two binary values."
         }
         Operator::Math(Math::Minus) => "Subtracts two values.",
@@ -163,7 +163,7 @@ fn description(operator: &Operator) -> &'static str {
         Operator::Bits(Bits::ShiftRight) => "Bitwise shifts a value right by another.",
         Operator::Assignment(Assignment::Assign) => "Assigns a value to a variable.",
         Operator::Assignment(Assignment::PlusAssign) => "Adds a value to a variable.",
-        Operator::Assignment(Assignment::AppendAssign) => {
+        Operator::Assignment(Assignment::ConcatAssign) => {
             "Appends a list, a value, a string, or a binary value to a variable."
         }
         Operator::Assignment(Assignment::MinusAssign) => "Subtracts a value from a variable.",
