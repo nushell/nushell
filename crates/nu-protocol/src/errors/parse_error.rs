@@ -515,6 +515,30 @@ pub enum ParseError {
         help("To spread arguments, the command needs to define a multi-positional parameter in its signature, such as ...rest")
     )]
     UnexpectedSpreadArg(String, #[label = "unexpected spread argument"] Span),
+
+    /// Invalid assignment left-hand side
+    ///
+    /// ## Resolution
+    ///
+    /// Assignment requires that you assign to a mutable variable or cell path.
+    #[error("Assignment to an immutable variable.")]
+    #[diagnostic(
+        code(nu::parser::assignment_requires_mutable_variable),
+        help("declare the variable with `mut`, or shadow it again with `let`")
+    )]
+    AssignmentRequiresMutableVar(#[label("needs to be a mutable variable")] Span),
+
+    /// Invalid assignment left-hand side
+    ///
+    /// ## Resolution
+    ///
+    /// Assignment requires that you assign to a variable or variable cell path.
+    #[error("Assignment operations require a variable.")]
+    #[diagnostic(
+        code(nu::parser::assignment_requires_variable),
+        help("try assigning to a variable or a cell path of a variable")
+    )]
+    AssignmentRequiresVar(#[label("needs to be a variable")] Span),
 }
 
 impl ParseError {
@@ -603,6 +627,8 @@ impl ParseError {
             ParseError::RedirectingBuiltinCommand(_, s, _) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,
             ParseError::ExtraTokensAfterClosingDelimiter(s) => *s,
+            ParseError::AssignmentRequiresVar(s) => *s,
+            ParseError::AssignmentRequiresMutableVar(s) => *s,
         }
     }
 }

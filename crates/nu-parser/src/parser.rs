@@ -4946,6 +4946,20 @@ pub fn parse_assignment_expression(
 
     // Parse the lhs and operator as usual for a math expression
     let mut lhs = parse_expression(working_set, lhs_spans);
+    // make sure that lhs is a mutable variable.
+    match &lhs.expr {
+        Expr::FullCellPath(p) => {
+            if let Expr::Var(var_id) = p.head.expr {
+                if var_id != nu_protocol::ENV_VARIABLE_ID
+                    && !working_set.get_variable(var_id).mutable
+                {
+                    working_set.error(ParseError::AssignmentRequiresMutableVar(lhs.span))
+                }
+            }
+        }
+        _ => working_set.error(ParseError::AssignmentRequiresVar(lhs.span)),
+    }
+
     let mut operator = parse_assignment_operator(working_set, op_span);
 
     // Re-parse the right-hand side as a subexpression
