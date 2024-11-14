@@ -1,7 +1,5 @@
 use super::prelude::*;
 use crate as nu_protocol;
-use crate::config::helper::ConfigPathScope;
-use crate::Record;
 
 #[derive(Clone, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LsConfig {
@@ -28,7 +26,7 @@ impl UpdateFromValue for Vec<LsConfigSortConfig> {
         if let Ok(value_list) = value.as_list() {
             *self = value_list
                 .iter()
-                .map(|value_record| {
+                .filter_map(|value_record| {
                     let Value::Record { val: record, .. } = value_record else {
                         errors.type_mismatch(path, Type::record(), value_record);
                         return None;
@@ -41,7 +39,9 @@ impl UpdateFromValue for Vec<LsConfigSortConfig> {
                         match col.as_str() {
                             "column" => ls_config_sort_config.column.update(val, path, errors),
                             "reverse" => ls_config_sort_config.reverse.update(val, path, errors),
-                            "ignore_case" => ls_config_sort_config.ignore_case.update(val, path, errors),
+                            "ignore_case" => {
+                                ls_config_sort_config.ignore_case.update(val, path, errors)
+                            }
                             "natural" => ls_config_sort_config.natural.update(val, path, errors),
                             _ => errors.unknown_option(path, val),
                         }
@@ -53,7 +53,6 @@ impl UpdateFromValue for Vec<LsConfigSortConfig> {
 
                     Some(ls_config_sort_config)
                 })
-                .filter_map(|x| x)
                 .collect();
         } else {
             errors.type_mismatch(path, Type::list(Type::record()), value);

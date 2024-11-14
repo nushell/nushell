@@ -1,5 +1,5 @@
 use super::util::get_rest_for_glob_pattern;
-use crate::{math, sort_utils, Comparator, DirBuilder, DirInfo};
+use crate::{sort_utils, Comparator, DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::glob_from;
 #[allow(deprecated)]
@@ -162,7 +162,7 @@ impl Command for Ls {
         if stack.get_config(engine_state).ls.sort_by.is_empty() {
             Ok(result)
         } else {
-            apply_post_sorting(engine_state, &stack, call, result)
+            apply_post_sorting(engine_state, stack, call, result)
         }
     }
 
@@ -236,7 +236,7 @@ fn apply_post_sorting(
     let mut comparator_vals: Vec<Value> = result.into_iter().collect();
 
     for sort_by_config in sort_by_configs {
-         setup_and_sort_by_config(&mut comparator_vals, &sort_by_config)?;
+        setup_and_sort_by_config(&mut comparator_vals, sort_by_config)?;
     }
 
     let val = Value::list(comparator_vals, call.head);
@@ -556,7 +556,6 @@ fn path_contains_hidden_folder(path: &Path, folders: &[PathBuf]) -> bool {
     false
 }
 
-use nix::libc::printf;
 use nu_protocol::ast::PathMember;
 #[cfg(unix)]
 use std::os::unix::fs::FileTypeExt;
