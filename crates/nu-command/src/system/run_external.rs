@@ -484,7 +484,7 @@ pub fn command_not_found(
     if Path::new(name).is_file() {
         return ShellError::ExternalCommand {
                         label: format!("Command `{name}` not found"),
-                        help: format!("`{name}` refers to a file that is not executable. Did you forget to to set execute permissions?"),
+                        help: format!("`{name}` refers to a file that is not executable. Did you forget to set execute permissions?"),
                         span,
                     };
     }
