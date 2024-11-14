@@ -2401,9 +2401,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.158"
+version = "0.2.162"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8adc4bb1803a324070e64a98ae98f38934d91957a99cfb3a43dcbc01bc56439"
+checksum = "18d287de67fe55fd7e1581fe933d965a5a9477b38e949cfa9f8574ef01506398"
 
 [[package]]
 name = "libflate"
@@ -2805,9 +2805,9 @@ dependencies = [
 
 [[package]]
 name = "mockito"
-version = "1.5.0"
+version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09b34bd91b9e5c5b06338d392463e1318d683cf82ec3d3af4014609be6e2108d"
+checksum = "652cd6d169a36eaf9d1e6bce1a221130439a966d7f27858af66a33a66e9c4ee2"
 dependencies = [
  "assert-json-diff",
  "bytes",
@@ -2971,7 +2971,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "assert_cmd",
  "crossterm 0.28.1",
@@ -3026,7 +3026,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "chrono",
  "crossterm 0.28.1",
@@ -3060,7 +3060,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-base"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "indexmap",
  "miette",
@@ -3072,7 +3072,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-extra"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "fancy-regex",
  "heck",
@@ -3097,7 +3097,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-lang"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "itertools 0.13.0",
  "nu-engine",
@@ -3109,7 +3109,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-plugin"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "itertools 0.13.0",
  "nu-engine",
@@ -3120,7 +3120,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
@@ -3132,7 +3132,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "alphanumeric-sort",
  "base64 0.22.1",
@@ -3242,7 +3242,7 @@ dependencies = [
 
 [[package]]
 name = "nu-derive-value"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "heck",
  "proc-macro-error",
@@ -3253,7 +3253,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "log",
  "nu-glob",
@@ -3265,7 +3265,7 @@ dependencies = [
 
 [[package]]
 name = "nu-explore"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "ansi-str",
  "anyhow",
@@ -3290,14 +3290,14 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "doc-comment",
 ]
 
 [[package]]
 name = "nu-json"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "fancy-regex",
  "linked-hash-map",
@@ -3310,7 +3310,7 @@ dependencies = [
 
 [[package]]
 name = "nu-lsp"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
@@ -3331,7 +3331,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "bytesize",
  "chrono",
@@ -3348,7 +3348,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "dirs",
  "omnipath",
@@ -3357,7 +3357,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "log",
  "nix 0.29.0",
@@ -3373,7 +3373,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-core"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "interprocess",
  "log",
@@ -3387,7 +3387,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-engine"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "log",
  "nu-engine",
@@ -3403,7 +3403,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-protocol"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "nu-protocol",
  "nu-utils",
@@ -3415,7 +3415,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-test-support"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "nu-ansi-term",
  "nu-cmd-lang",
@@ -3433,7 +3433,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -3442,7 +3442,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "brotli",
  "byte-unit",
@@ -3480,7 +3480,7 @@ dependencies = [
 
 [[package]]
 name = "nu-std"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "log",
  "miette",
@@ -3491,7 +3491,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "chrono",
  "itertools 0.13.0",
@@ -3508,7 +3508,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "fancy-regex",
  "nu-ansi-term",
@@ -3522,7 +3522,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "nu-utils",
  "unicode-width",
@@ -3530,7 +3530,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "nu-glob",
  "nu-path",
@@ -3542,7 +3542,7 @@ dependencies = [
 
 [[package]]
 name = "nu-utils"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "crossterm_winapi",
  "fancy-regex",
@@ -3569,7 +3569,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "nu-cmd-lang",
  "nu-plugin",
@@ -3579,7 +3579,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_formats"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "chrono",
  "eml-parser",
@@ -3594,7 +3594,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "git2",
  "nu-plugin",
@@ -3603,7 +3603,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -3612,7 +3612,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_polars"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "chrono",
  "chrono-tz 0.10.0",
@@ -3647,7 +3647,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "gjson",
  "nu-plugin",
@@ -3662,7 +3662,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_stress_internals"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "interprocess",
  "serde",
@@ -3776,7 +3776,7 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "nuon"
-version = "0.99.2"
+version = "0.100.1"
 dependencies = [
  "chrono",
  "nu-engine",
@@ -5178,8 +5178,9 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.36.0"
-source = "git+https://github.com/nushell/reedline?branch=main#7a1b344a9f6314bc801bf82f42bf739a11a78fe3"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9834765acaa2deedf29197f2da3d309801683beb20e25775bc0249f97a7b9a74"
 dependencies = [
  "arboard",
  "chrono",
@@ -5475,9 +5476,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.37"
+version = "0.38.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8acb788b847c24f28525660c4d7758620a7210875711f79e7f663cc152726811"
+checksum = "99e4ea3e1cdc4b559b8e5650f9c8e5998e3e5c1343b4eaf034565f32318d63c0"
 dependencies = [
  "bitflags 2.6.0",
  "errno",
@@ -5712,9 +5713,9 @@ dependencies = [
 
 [[package]]
 name = "serial_test"
-version = "3.1.1"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b4b487fe2acf240a021cf57c6b2b4903b1e78ca0ecd862a71b71d2a51fed77d"
+checksum = "1b258109f244e1d6891bf1053a55d63a5cd4f8f4c30cf9a1280989f80e7a1fa9"
 dependencies = [
  "futures",
  "log",
@@ -5726,9 +5727,9 @@ dependencies = [
 
 [[package]]
 name = "serial_test_derive"
-version = "3.1.1"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82fe9db325bcef1fbcde82e078a5cc4efdf787e96b3b9cf45b50b529f2083d67"
+checksum = "5d69265a08751de7844521fd15003ae0a888e035773ba05695c5c759a6f89eef"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6195,9 +6196,9 @@ checksum = "c1bbb9f3c5c463a01705937a24fdabc5047929ac764b2d5b9cf681c1f5041ed5"
 
 [[package]]
 name = "tempfile"
-version = "3.13.0"
+version = "3.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0f2c9fc62d0beef6951ccffd757e241266a2c833136efbe35af6cd2567dca5b"
+checksum = "28cce251fcbc87fac86a866eeb0d6c2d536fc16d06f184bb61aeae11aa4cee0c"
 dependencies = [
  "cfg-if",
  "fastrand",

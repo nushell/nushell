@@ -38,9 +38,21 @@ fn date_minus_duration() -> TestResult {
 }
 
 #[test]
+fn duration_minus_date_not_supported() -> TestResult {
+    fail_test("2day - 2023-04-22", "doesn't support these values")
+}
+
+#[test]
 fn date_plus_duration() -> TestResult {
     let input = "2023-04-18 + 2day | format date %Y-%m-%d";
     let expected = "2023-04-20";
+    run_test(input, expected)
+}
+
+#[test]
+fn duration_plus_date() -> TestResult {
+    let input = "2024-11-10T00:00:00-00:00 + 4hr | format date";
+    let expected = "Sun, 10 Nov 2024 04:00:00 +0000";
     run_test(input, expected)
 }
 

@@ -2444,6 +2444,17 @@ impl Value {
                 Ok(Value::string(lhs.to_string() + rhs, span))
             }
 
+            (Value::Duration { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
+                if let Some(val) = rhs.checked_add_signed(chrono::Duration::nanoseconds(*lhs)) {
+                    Ok(Value::date(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "addition operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_add_signed(chrono::Duration::nanoseconds(*rhs)) {
                     Ok(Value::date(val, span))
