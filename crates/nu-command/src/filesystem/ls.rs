@@ -1,12 +1,12 @@
 use super::util::get_rest_for_glob_pattern;
-use crate::{compare_by, Comparator, DirBuilder, DirInfo};
+use crate::{math, sort_utils, Comparator, DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::glob_from;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::{expand_path_with, expand_to_real_path};
-use nu_protocol::{DataSource, NuGlob, PipelineMetadata, Signals};
+use nu_protocol::{DataSource, LsConfigSortConfig, NuGlob, PipelineMetadata, Signals};
 use pathdiff::diff_paths;
 use rayon::prelude::*;
 
@@ -162,7 +162,7 @@ impl Command for Ls {
         if stack.get_config(engine_state).ls.sort_by.is_empty() {
             Ok(result)
         } else {
-            Self::apply_post_sorting(engine_state, stack, call, result)
+            apply_post_sorting(engine_state, &stack, call, result)
         }
     }
 
@@ -225,67 +225,50 @@ impl Command for Ls {
     }
 }
 
-impl Ls {
-    fn apply_post_sorting(
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        result: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let sort_by_configs = stack.get_config(engine_state).ls.sort_by.clone();
-        let cloned_metadata = result.metadata().clone();
-        let mut comparator_vals: Vec<Value> = result.into_iter().collect();
+fn apply_post_sorting(
+    engine_state: &EngineState,
+    stack: &Stack,
+    call: &Call,
+    result: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let sort_by_configs = &stack.get_config(engine_state).ls.sort_by;
+    let cloned_metadata = result.metadata().clone();
+    let mut comparator_vals: Vec<Value> = result.into_iter().collect();
 
-        for sort_by_config in sort_by_configs {
-            let compare_err =
-                Self::setup_and_sort_by_config(call, &mut comparator_vals, &sort_by_config);
-
-            if let Some(compare_err_unwrapped) = compare_err {
-                return Err(compare_err_unwrapped);
-            }
-        }
-
-        let val = Value::list(comparator_vals, call.head);
-        let data = val.into_pipeline_data_with_metadata(cloned_metadata);
-
-        Ok(data)
+    for sort_by_config in sort_by_configs {
+         setup_and_sort_by_config(&mut comparator_vals, &sort_by_config)?;
     }
 
-    fn setup_and_sort_by_config(
-        call: &Call,
-        comparator_vals: &mut [Value],
-        sort_by_config: &str,
-    ) -> Option<ShellError> {
-        let words_in_sort_by_config: Vec<_> = sort_by_config.split_whitespace().collect();
-        let mut comparators = [Comparator::CellPath(CellPath {
-            members: vec![PathMember::string(
-                words_in_sort_by_config[0].to_string(),
-                false,
-                Span::unknown(),
-            )],
-        })];
-        let contains_insensitive = sort_by_config.contains("ignore-case"); // TODO expand
-        let contains_naturel = sort_by_config.contains("natural"); // TODO expand
-        let contains_reverse = sort_by_config.contains("reverse"); // TODO expand
+    let val = Value::list(comparator_vals, call.head);
+    let data = val.into_pipeline_data_with_metadata(cloned_metadata);
 
-        let mut compare_err: Option<ShellError> = None;
-        comparator_vals.sort_by(|a, b| {
-            compare_by(
-                a,
-                b,
-                &mut comparators,
-                call.head,
-                contains_insensitive,
-                contains_naturel,
-                &mut compare_err,
-            )
-        });
+    Ok(data)
+}
 
-        if contains_reverse {
-            comparator_vals.reverse()
-        }
-        compare_err
+fn setup_and_sort_by_config(
+    comparator_vals: &mut [Value],
+    sort_by_config: &LsConfigSortConfig,
+) -> Result<(), ShellError> {
+    let comparators = Comparator::CellPath(CellPath {
+        members: vec![PathMember::string(
+            sort_by_config.column.clone(),
+            false,
+            Span::unknown(),
+        )],
+    });
+
+    sort_utils::sort_by(
+        comparator_vals,
+        vec![comparators],
+        Span::unknown(),
+        sort_by_config.ignore_case,
+        sort_by_config.natural,
+    )?;
+
+    if sort_by_config.reverse {
+        comparator_vals.reverse();
     }
+    Ok(())
 }
 
 fn ls_for_one_pattern(
@@ -573,6 +556,7 @@ fn path_contains_hidden_folder(path: &Path, folders: &[PathBuf]) -> bool {
     false
 }
 
+use nix::libc::printf;
 use nu_protocol::ast::PathMember;
 #[cfg(unix)]
 use std::os::unix::fs::FileTypeExt;

@@ -16,6 +16,7 @@ pub use helper::extract_value;
 pub use history::{HistoryConfig, HistoryFileFormat};
 pub use hooks::Hooks;
 pub use ls::LsConfig;
+pub use ls::LsConfigSortConfig;
 pub use output::ErrorStyle;
 pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use reedline::{CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu};
