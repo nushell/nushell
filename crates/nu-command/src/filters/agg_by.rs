@@ -188,7 +188,7 @@ fn groups_to_table(
                 record_map.insert("count".to_string(), Value::int(items.len() as i64, span));
 
                 if let Some(sum_col) = maybe_sum_column.clone() {
-                    match sum_celllpath(sum_col, &items, span) {
+                    match sum_celllpath(sum_col.clone(), &items, span) {
                         Ok((sum_col_name, sum)) => {
                             // add sum
                             record_map
@@ -200,6 +200,20 @@ fn groups_to_table(
                             };
                             // add avg
                             record_map.insert(sum_col_name + "_avg", Value::float(avg, span));
+                        }
+                        Err(err) => {
+                            // It seems a little odd to be adding an error to the record
+                            record_map.insert("error".to_string(), Value::error(err, span));
+                        }
+                    }
+
+                    match minmax_celllpath(sum_col, &items, span) {
+                        Ok((min_col_name, min, max)) => {
+                            // add min
+                            record_map
+                                .insert(min_col_name.clone() + "_min", Value::float(min, span));
+                            // add max
+                            record_map.insert(min_col_name + "_max", Value::float(max, span));
                         }
                         Err(err) => {
                             // It seems a little odd to be adding an error to the record
@@ -223,11 +237,47 @@ fn sum_celllpath(column: Value, items: &[Value], span: Span) -> Result<(String, 
                 v.clone()
                     .follow_cell_path(&val.members, false)
                     .unwrap_or_else(|_| Value::float(0.0, span))
-                    .as_float()
+                    .coerce_float()
                     .unwrap_or(0.0)
             })
             .sum();
         Ok((val.to_column_name(), sum))
+    } else {
+        Err(ShellError::TypeMismatch {
+            err_message: format!("Only CellPath's are allowed. Found {}.", column.get_type()),
+            span,
+        })
+    }
+}
+
+fn minmax_celllpath(
+    column: Value,
+    items: &[Value],
+    span: Span,
+) -> Result<(String, f64, f64), ShellError> {
+    if let Value::CellPath { val, .. } = column {
+        let collection = items
+            .iter()
+            .map(|v| {
+                v.clone()
+                    .follow_cell_path(&val.members, false)
+                    .unwrap_or_else(|_| Value::float(0.0, span))
+                    .coerce_float()
+                    .unwrap_or(0.0)
+            })
+            .collect::<Vec<f64>>();
+
+        Ok((
+            val.to_column_name(),
+            *collection
+                .iter()
+                .min_by(|a, b| a.total_cmp(b))
+                .unwrap_or(&0.0),
+            *collection
+                .iter()
+                .max_by(|a, b| a.total_cmp(b))
+                .unwrap_or(&0.0),
+        ))
     } else {
         Err(ShellError::TypeMismatch {
             err_message: format!("Only CellPath's are allowed. Found {}.", column.get_type()),
