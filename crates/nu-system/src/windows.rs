@@ -471,7 +471,6 @@ unsafe fn null_terminated_wchar_to_string(slice: &[u16]) -> String {
     }
 }
 
-// #[allow(clippy::uninit_vec)]
 unsafe fn get_process_data(
     handle: HANDLE,
     ptr: *const c_void,
@@ -518,7 +517,6 @@ unsafe fn get_region_size(handle: HANDLE, ptr: *const c_void) -> Result<usize, &
     Ok((meminfo.RegionSize as isize - ptr.offset_from(meminfo.BaseAddress)) as usize)
 }
 
-// #[allow(clippy::uninit_vec)]
 unsafe fn ph_query_process_variable_size(
     process_handle: HANDLE,
     process_information_class: PROCESSINFOCLASS,
