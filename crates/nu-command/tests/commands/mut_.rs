@@ -141,3 +141,10 @@ fn mut_raw_string() {
     let actual = nu!(r#"mut x = r#'abc'#; $x"#);
     assert_eq!(actual.out, "abc");
 }
+
+#[test]
+fn def_should_not_mutate_mut() {
+    let actual = nu!("mut a = 3; def foo [] { $a = 4}");
+    assert!(actual.err.contains("capture of mutable variable"));
+    assert!(!actual.status.success())
+}
