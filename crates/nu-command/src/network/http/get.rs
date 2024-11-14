@@ -1,7 +1,9 @@
+use std::time::Duration;
+
 use crate::network::http::client::{
     check_response_redirection, http_client, http_parse_redirect_mode, http_parse_url,
     request_add_authorization_header, request_add_custom_headers, request_handle_response,
-    request_set_timeout, send_request, RequestFlags,
+    request_headers, request_set_timeout, send_request, RequestFlags,
 };
 use nu_engine::command_prelude::*;
 
@@ -171,11 +173,38 @@ fn helper(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
-    let (requested_url, _) = http_parse_url(call, span, args.url)?;
+    let (requested_url_string, requested_url) = http_parse_url(call, span, args.url)?;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    if ["ws", "wss"].contains(&requested_url.scheme()) {
+        let timeout = args.timeout.clone().map(|ref val| {
+            Duration::from_nanos(
+                val.as_duration()
+                    .expect("Timeout should be set to duration") as u64,
+            )
+        });
+        if let Some(upgrade) = super::ws_client::upgrade(
+            requested_url,
+            timeout,
+            request_headers(args.headers.clone())?,
+        ) {
+            let reader = Box::new(upgrade);
+            return Ok(PipelineData::ByteStream(
+                ByteStream::read(
+                    reader,
+                    span,
+                    engine_state.signals().clone(),
+                    ByteStreamType::Unknown,
+                ),
+                None,
+            ));
+        }
+    }
+
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
     let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
-    let mut request = client.get(&requested_url);
+    let mut request = client.get(&requested_url_string);
 
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
@@ -196,11 +225,12 @@ fn helper(
     };
 
     check_response_redirection(redirect_mode, span, &response)?;
+
     request_handle_response(
         engine_state,
         stack,
         span,
-        &requested_url,
+        &requested_url_string,
         request_flags,
         response,
         request,

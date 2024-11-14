@@ -1,6 +1,6 @@
 use std::{thread, time::Duration};
 
-use mockito::Server;
+use mockito::{Matcher, Server};
 use nu_test_support::{nu, pipeline};
 
 #[test]
@@ -335,4 +335,28 @@ fn http_get_timeout() {
     ));
 
     assert!(&actual.err.contains("nu::shell::io_error"));
+}
+
+#[test]
+fn http_get_upgrade() {
+    let mut server = Server::new();
+
+    let mock = server
+        .mock("GET", "/")
+        .match_header("upgrade", Matcher::Exact(String::from("websocket")))
+        .match_header("connection", Matcher::Exact(String::from("Upgrade")))
+        .match_header("sec-websocket-key", Matcher::Any)
+        .match_header("sec-websocket-version", Matcher::Exact(String::from("13")))
+        .match_header("host", Matcher::Exact(server.host_with_port()))
+        .match_header(
+            "origin",
+            Matcher::Exact(format!("ws://{}", server.host_with_port())),
+        )
+        .create();
+
+    let _actual = nu!(pipeline(
+        format!("http get ws://{address}", address = server.socket_address()).as_str()
+    ));
+
+    mock.assert();
 }

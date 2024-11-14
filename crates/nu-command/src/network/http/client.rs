@@ -539,13 +539,10 @@ pub fn request_set_timeout(
     Ok(request)
 }
 
-pub fn request_add_custom_headers(
-    headers: Option<Value>,
-    mut request: Request,
-) -> Result<Request, ShellError> {
-    if let Some(headers) = headers {
-        let mut custom_headers: HashMap<String, Value> = HashMap::new();
+pub fn request_headers(headers: Option<Value>) -> Result<HashMap<String, String>, ShellError> {
+    let mut custom_headers: HashMap<String, Value> = HashMap::new();
 
+    if let Some(headers) = headers {
         match &headers {
             Value::Record { val, .. } => {
                 for (k, v) in &**val {
@@ -591,12 +588,24 @@ pub fn request_add_custom_headers(
                 });
             }
         };
+    }
 
-        for (k, v) in custom_headers {
-            if let Ok(s) = v.coerce_into_string() {
-                request = request.set(&k, &s);
-            }
+    let mut result = HashMap::new();
+    for (k, v) in custom_headers {
+        if let Ok(s) = v.coerce_into_string() {
+            result.insert(k, s);
         }
+    }
+
+    Ok(result)
+}
+
+pub fn request_add_custom_headers(
+    headers: Option<Value>,
+    mut request: Request,
+) -> Result<Request, ShellError> {
+    for (k, v) in request_headers(headers)? {
+        request = request.set(&k, &v);
     }
 
     Ok(request)

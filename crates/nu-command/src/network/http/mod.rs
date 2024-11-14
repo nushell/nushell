@@ -7,6 +7,7 @@ mod options;
 mod patch;
 mod post;
 mod put;
+mod ws_client;
 
 pub use delete::SubCommand as HttpDelete;
 pub use get::SubCommand as HttpGet;

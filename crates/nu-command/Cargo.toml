@@ -107,6 +107,9 @@ which = { workspace = true, optional = true }
 unicode-width = { workspace = true }
 data-encoding = { version = "2.6.0", features = ["alloc"] }
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tungstenite = { workspace = true, features = ["native-tls"] }
+
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }
 
