@@ -263,7 +263,23 @@ fn setup_and_sort_by_config(
         Span::unknown(),
         sort_by_config.ignore_case,
         sort_by_config.natural,
-    )?;
+    )
+    .map_err(|err| {
+        let ShellError::CantFindColumn {
+            col_name,
+            span,
+            src_span,
+        } = err
+        else {
+            return err;
+        };
+
+        ShellError::CantFindColumn {
+            col_name: format!("{} (from the ls configuration)", col_name),
+            span,
+            src_span,
+        }
+    })?;
 
     if sort_by_config.reverse {
         comparator_vals.reverse();

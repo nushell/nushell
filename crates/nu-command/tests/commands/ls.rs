@@ -436,28 +436,6 @@ fn lists_files_including_starting_with_dot() {
 }
 
 #[test]
-fn lists_regular_files_using_question_mark_wildcard_asdsad() {
-    Playground::setup("ls_test_3", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("yehuda.10.txt"),
-            EmptyFile("jt.10.txt"),
-            EmptyFile("andres.10.txt"),
-            EmptyFile("chicken_not_to_be_picked_up.100.txt"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls *.??.txt
-                | length
-            "
-        ));
-
-        assert_eq!(actual.out, "3");
-    })
-}
-
-#[test]
 fn list_all_columns() {
     Playground::setup("ls_test_all_columns", |dirs, sandbox| {
         sandbox.with_files(&[
