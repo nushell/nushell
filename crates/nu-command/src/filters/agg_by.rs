@@ -188,16 +188,24 @@ fn groups_to_table(
                 record_map.insert("count".to_string(), Value::int(items.len() as i64, span));
 
                 if let Some(sum_col) = maybe_sum_column.clone() {
-                    let (sum_col_name, sum) = sum_celllpath(sum_col, &items, span, true);
-                    // add sum
-                    record_map.insert(sum_col_name.clone() + "_sum", Value::float(sum, span));
-                    let avg = if !items.is_empty() {
-                        sum / items.len() as f64
-                    } else {
-                        0.0
-                    };
-                    // add avg
-                    record_map.insert(sum_col_name + "_avg", Value::float(avg, span));
+                    match sum_celllpath(sum_col, &items, span) {
+                        Ok((sum_col_name, sum)) => {
+                            // add sum
+                            record_map
+                                .insert(sum_col_name.clone() + "_sum", Value::float(sum, span));
+                            let avg = if !items.is_empty() {
+                                sum / items.len() as f64
+                            } else {
+                                0.0
+                            };
+                            // add avg
+                            record_map.insert(sum_col_name + "_avg", Value::float(avg, span));
+                        }
+                        Err(err) => {
+                            // It seems a little odd to be adding an error to the record
+                            record_map.insert("error".to_string(), Value::error(err, span));
+                        }
+                    }
                 }
 
                 Value::record(record_map, span)
@@ -207,7 +215,7 @@ fn groups_to_table(
     )
 }
 
-fn sum_celllpath(column: Value, items: &[Value], span: Span, is_sum: bool) -> (String, f64) {
+fn sum_celllpath(column: Value, items: &[Value], span: Span) -> Result<(String, f64), ShellError> {
     if let Value::CellPath { val, .. } = column {
         let sum: f64 = items
             .iter()
@@ -219,14 +227,12 @@ fn sum_celllpath(column: Value, items: &[Value], span: Span, is_sum: bool) -> (S
                     .unwrap_or(0.0)
             })
             .sum();
-        (val.to_column_name(), sum)
+        Ok((val.to_column_name(), sum))
     } else {
-        eprintln!("sum_col type: {:#?}", column.get_type());
-        if is_sum {
-            ("sum".to_string(), 0.0f64)
-        } else {
-            ("avg".to_string(), 0.0f64)
-        }
+        Err(ShellError::TypeMismatch {
+            err_message: format!("Only CellPath's are allowed. Found {}.", column.get_type()),
+            span,
+        })
     }
 }
 
