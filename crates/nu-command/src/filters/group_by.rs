@@ -135,7 +135,89 @@ impl Command for GroupBy {
                         Value::test_string("false"),
                     ]),
                 })),
-            }
+            },
+            Example {
+                description: "Group items by multiple columns' values",
+                example: r#"[
+        [name, lang, year];
+        [andres, rb, "2019"],
+        [jt, rs, "2019"],
+        [storm, rs, "2021"]
+    ]
+    | group-by lang year"#,
+                result: Some(Value::test_record(record! {
+                    "rb" => Value::test_record(record! {
+                        "2019" => Value::test_list(
+                            vec![Value::test_record(record! {
+                                    "name" => Value::test_string("andres"),
+                                    "lang" => Value::test_string("rb"),
+                                    "year" => Value::test_string("2019"),
+                            })],
+                        ),
+                    }),
+                    "rs" => Value::test_record(record! {
+                            "2019" => Value::test_list(
+                                vec![Value::test_record(record! {
+                                        "name" => Value::test_string("jt"),
+                                        "lang" => Value::test_string("rs"),
+                                        "year" => Value::test_string("2019"),
+                                })],
+                            ),
+                            "2021" => Value::test_list(
+                                vec![Value::test_record(record! {
+                                        "name" => Value::test_string("storm"),
+                                        "lang" => Value::test_string("rs"),
+                                        "year" => Value::test_string("2021"),
+                                })],
+                            ),
+                    }),
+                }))
+            },
+            Example {
+                description: "Group items by multiple columns' values",
+                example: r#"[
+        [name, lang, year];
+        [andres, rb, "2019"],
+        [jt, rs, "2019"],
+        [storm, rs, "2021"]
+    ]
+    | group-by lang year --to-table"#,
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "lang" => Value::test_string("rb"),
+                        "year" => Value::test_string("2019"),
+                        "items" => Value::test_list(vec![
+                            Value::test_record(record! {
+                                "name" => Value::test_string("andres"),
+                                "lang" => Value::test_string("rb"),
+                                "year" => Value::test_string("2019"),
+                            })
+                        ]),
+                    }),
+                    Value::test_record(record! {
+                        "lang" => Value::test_string("rs"),
+                        "year" => Value::test_string("2019"),
+                        "items" => Value::test_list(vec![
+                            Value::test_record(record! {
+                                "name" => Value::test_string("jt"),
+                                "lang" => Value::test_string("rs"),
+                                "year" => Value::test_string("2019"),
+                            })
+                        ]),
+                    }),
+                    Value::test_record(record! {
+                        "lang" => Value::test_string("rs"),
+                        "year" => Value::test_string("2021"),
+                        "items" => Value::test_list(vec![
+                            Value::test_record(record! {
+                                "name" => Value::test_string("storm"),
+                                "lang" => Value::test_string("rs"),
+                                "year" => Value::test_string("2021"),
+                            })
+                        ]),
+                    }),
+                ]))
+            },
         ]
     }
 }
