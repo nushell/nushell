@@ -17,12 +17,12 @@ impl Command for ConfigNu {
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .switch(
                 "default",
-                "Print default `config.nu` file instead.",
+                "Print the internal default `config.nu` file instead.",
                 Some('d'),
             )
             .switch(
                 "sample",
-                "Print sample `config.nu` file instead.",
+                "Print a commented, sample `config.nu` file instead.",
                 Some('s'),
             )
         // TODO: Signature narrower than what run actually supports theoretically
@@ -35,19 +35,19 @@ impl Command for ConfigNu {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "open user config.nu in the default editor",
+                description: "open user's config.nu in the default editor",
                 example: "config nu",
                 result: None,
             },
             Example {
-                description:
-                    "pretty-print the default `config.nu` file which is loaded before user's config",
-                example: "config nu --default | nu-highlight",
+                description: "pretty-print a commented, sample `config.nu` that explains common settings",
+                example: "config nu --sample | nu-highlight",
                 result: None,
             },
             Example {
-                description: "pretty-print a commented, sample `config.nu`",
-                example: "config nu --sample | nu-highlight",
+                description:
+                    "pretty-print the internal `config.nu` file which is loaded before user's config",
+                example: "config nu --default | nu-highlight",
                 result: None,
             },
         ]
