@@ -13,12 +13,7 @@ impl Command for AggBy {
     fn signature(&self) -> Signature {
         Signature::build("agg-by")
             .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Any)])
-            .switch(
-                "count",
-                "Add a count column to count the items grouped and aggregated",
-                Some('c'),
-            )
-            .optional(
+            .required(
                 "grouper",
                 SyntaxShape::OneOf(vec![
                     SyntaxShape::CellPath,
@@ -27,16 +22,10 @@ impl Command for AggBy {
                 ]),
                 "The path to the column to group on.",
             )
-            .named(
-                "sum",
+            .required_named(
+                "agg-column",
                 SyntaxShape::CellPath,
                 "Column name to calculate the sum from",
-                Some('s'),
-            )
-            .named(
-                "avg",
-                SyntaxShape::CellPath,
-                "Column name to calculate the average from",
                 Some('a'),
             )
             .allow_variants_without_examples(true)
@@ -67,23 +56,12 @@ impl Command for AggBy {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Aggregate the data by the Lead_Studio column, summing the Worldwide_Gross column",
-                example: r#"open ~/sample_data/movies.csv | agg-by Lead_Studio --sum Worldwide_Gross"#,
-                result: None,
-            },
-            Example {
-                description: "Aggregate the data by the Lead_Studio column, averaging the Worldwide_Gross column",
-                example: r#"open ~/sample_data/movies.csv | agg-by Lead_Studio --avg Worldwide_Gross"#,
-                result: None,
-            },
-            Example {
-                description: "Aggregate the data by the Lead_Studio column, summing, counting, and averaging the Worldwide_Gross column",
-                example: r#"open ~/sample_data/movies.csv | agg-by Lead_Studio --sum Worldwide_Gross --avg Worldwide_Gross --count"#,
-                result: None,
-            },
-        ]
+        vec![Example {
+            description:
+                "Aggregate the data by the Lead_Studio column, summing the Worldwide_Gross column",
+            example: r#"open ~/sample_data/movies.csv | agg-by Lead_Studio --agg-column Worldwide_Gross"#,
+            result: None,
+        }]
     }
 }
 
@@ -94,10 +72,8 @@ pub fn group_by(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head: Span = call.head;
-    let grouper: Option<Value> = call.opt(engine_state, stack, 0)?;
-    let has_count: bool = call.has_flag(engine_state, stack, "count")?;
-    let maybe_sum_column: Option<Value> = call.get_flag(engine_state, stack, "sum")?;
-    let maybe_avg_column: Option<Value> = call.get_flag(engine_state, stack, "avg")?;
+    let grouper: Option<Value> = call.req(engine_state, stack, 0)?;
+    let maybe_agg_column: Option<Value> = call.get_flag(engine_state, stack, "agg-column")?;
     let config = engine_state.get_config();
 
     let values: Vec<Value> = input.into_iter().collect();
@@ -129,14 +105,7 @@ pub fn group_by(
         _ => "group".to_string(),
     };
 
-    let value = groups_to_table(
-        groups,
-        has_count,
-        maybe_sum_column,
-        maybe_avg_column,
-        group_name,
-        head,
-    );
+    let value = groups_to_table(groups, maybe_agg_column, group_name, head);
 
     Ok(value.into_pipeline_data())
 }
@@ -203,9 +172,7 @@ fn group_closure(
 
 fn groups_to_table(
     groups: IndexMap<String, Vec<Value>>,
-    has_count: bool,
     maybe_sum_column: Option<Value>,
-    maybe_avg_column: Option<Value>,
     group_name: String,
     span: Span,
 ) -> Value {
@@ -215,26 +182,22 @@ fn groups_to_table(
             .into_iter()
             .map(|(group, items)| {
                 let mut record_map = Record::new();
+                // add group
                 record_map.insert(group_name.clone(), Value::string(group.clone(), span));
-
-                if has_count {
-                    record_map.insert("count".to_string(), Value::int(items.len() as i64, span));
-                }
+                // add count
+                record_map.insert("count".to_string(), Value::int(items.len() as i64, span));
 
                 if let Some(sum_col) = maybe_sum_column.clone() {
                     let (sum_col_name, sum) = sum_celllpath(sum_col, &items, span, true);
-                    record_map.insert(sum_col_name + "_sum", Value::float(sum, span));
-                }
-
-                if let Some(avg_col) = maybe_avg_column.clone() {
-                    let (avg_col_name, sum) = sum_celllpath(avg_col, &items, span, false);
+                    // add sum
+                    record_map.insert(sum_col_name.clone() + "_sum", Value::float(sum, span));
                     let avg = if !items.is_empty() {
                         sum / items.len() as f64
                     } else {
                         0.0
                     };
-
-                    record_map.insert(avg_col_name + "_avg", Value::float(avg, span));
+                    // add avg
+                    record_map.insert(sum_col_name + "_avg", Value::float(avg, span));
                 }
 
                 Value::record(record_map, span)
