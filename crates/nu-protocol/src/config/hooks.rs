@@ -1,5 +1,6 @@
 use super::prelude::*;
 use crate as nu_protocol;
+use crate::Record;
 
 /// Definition of a parsed hook from the config object
 #[derive(Clone, Debug, IntoValue, PartialEq, Serialize, Deserialize)]
@@ -14,14 +15,14 @@ pub struct Hooks {
 impl Hooks {
     pub fn new() -> Self {
         Self {
-            pre_prompt: None,
-            pre_execution: None,
-            env_change: None,
+            pre_prompt: Some(Value::list(vec![], Span::unknown())),
+            pre_execution: Some(Value::list(vec![], Span::unknown())),
+            env_change: Some(Value::record(Record::default(), Span::unknown())),
             display_output: Some(Value::string(
                 "if (term size).columns >= 100 { table -e } else { table }",
                 Span::unknown(),
             )),
-            command_not_found: None,
+            command_not_found: Some(Value::list(vec![], Span::unknown())),
         }
     }
 }
