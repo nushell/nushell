@@ -51,7 +51,6 @@ impl Command for External {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cwd = engine_state.cwd(Some(stack))?;
-
         let name: Value = call.req(engine_state, stack, 0)?;
 
         let name_str: Cow<str> = match &name {
@@ -68,10 +67,36 @@ impl Command for External {
             _ => Path::new(&*name_str).to_owned(),
         };
 
+        // On Windows, the user could have run the cmd.exe built-in "assoc" command
+        // Example: "assoc .nu=nuscript" and then run the cmd.exe built-in "ftype" command
+        // Example: "ftype nuscript=C:\path\to\nu.exe '%1' %*" and then added the nushell
+        // script extension ".NU" to the PATHEXT environment variable. In this case, we use
+        // the which command, which will find the executable with or without the extension.
+        // If it "which" returns true, that means that we've found the nushell script and we
+        // believe the user wants to use the windows association to run the script. The only
+        // easy way to do this is to run cmd.exe with the script as an argument.
+        let potential_nuscript_in_windows = if cfg!(windows) {
+            // let's make sure it's a .nu scrtipt
+            if let Some(executable) = which(&expanded_name, "", cwd.as_ref()) {
+                let ext = executable
+                    .extension()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_uppercase();
+                ext == "NU"
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
         // Find the absolute path to the executable. On Windows, set the
         // executable to "cmd.exe" if it's a CMD internal command. If the
         // command is not found, display a helpful error message.
-        let executable = if cfg!(windows) && is_cmd_internal_command(&name_str) {
+        let executable = if cfg!(windows)
+            && (is_cmd_internal_command(&name_str) || potential_nuscript_in_windows)
+        {
             PathBuf::from("cmd.exe")
         } else {
             // Determine the PATH to be used and then use `which` to find it - though this has no
@@ -97,7 +122,7 @@ impl Command for External {
         // Configure args.
         let args = eval_arguments_from_call(engine_state, stack, call)?;
         #[cfg(windows)]
-        if is_cmd_internal_command(&name_str) {
+        if is_cmd_internal_command(&name_str) || potential_nuscript_in_windows {
             use std::os::windows::process::CommandExt;
 
             // The /D flag disables execution of AutoRun commands from registry.
