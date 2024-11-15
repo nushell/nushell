@@ -378,32 +378,37 @@ fn glob_with_hidden_directory() {
 
 #[test]
 #[cfg(unix)]
-fn fails_with_ls_to_dir_without_permission() {
+fn fails_with_permission_denied() {
     Playground::setup("ls_test_1", |dirs, sandbox| {
         sandbox
             .within("dir_a")
             .with_files(&[EmptyFile("yehuda.11.txt"), EmptyFile("jt10.txt")]);
 
-        let actual = nu!(
+        let actual_with_path_arg = nu!(
             cwd: dirs.test(), pipeline(
             "
                 chmod 000 dir_a; ls dir_a
             "
         ));
 
-        let check_not_root = nu!(
+        let actual_in_cwd = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                chmod 100 dir_a; cd dir_a; ls
+            "
+        ));
+
+        let get_uid = nu!(
             cwd: dirs.test(), pipeline(
                 "
                     id -u
                 "
         ));
+        let is_root = get_uid.out == "0";
 
-        assert!(
-            actual
-                .err
-                .contains("The permissions of 0 do not allow access for this user")
-                || check_not_root.out == "0"
-        );
+        assert!(actual_with_path_arg.err.contains("Permission denied") || is_root);
+
+        assert!(actual_in_cwd.err.contains("Permission denied") || is_root);
     })
 }
 
