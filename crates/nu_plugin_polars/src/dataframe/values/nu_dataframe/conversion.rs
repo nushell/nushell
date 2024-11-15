@@ -1201,6 +1201,18 @@ fn series_to_values(
 
             Ok(values)
         }
+        DataType::Decimal(_precision, _scale) => {
+            let casted = series
+                .cast(&DataType::Float64)
+                .map_err(|e| ShellError::GenericError {
+                    error: "Errors casting decimal column to float".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(e.to_string()),
+                    inner: vec![],
+                })?;
+            series_to_values(&casted, maybe_from_row, maybe_size, span)
+        }
         e => Err(ShellError::GenericError {
             error: "Error creating Dataframe".into(),
             msg: "".to_string(),
