@@ -30,30 +30,21 @@ pub(crate) const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str =
 pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
 pub(crate) const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
 pub(crate) const PRE_EXECUTION_MARKER: &str = "\x1b]133;C\x1b\\";
-#[allow(dead_code)]
 pub(crate) const POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]133;D;";
-#[allow(dead_code)]
 pub(crate) const POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
 
 // OSC633 is the same as OSC133 but specifically for VSCode
 pub(crate) const VSCODE_PRE_PROMPT_MARKER: &str = "\x1b]633;A\x1b\\";
 pub(crate) const VSCODE_POST_PROMPT_MARKER: &str = "\x1b]633;B\x1b\\";
-#[allow(dead_code)]
 pub(crate) const VSCODE_PRE_EXECUTION_MARKER: &str = "\x1b]633;C\x1b\\";
-#[allow(dead_code)]
 //"\x1b]633;D;{}\x1b\\"
 pub(crate) const VSCODE_POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]633;D;";
-#[allow(dead_code)]
 pub(crate) const VSCODE_POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
-#[allow(dead_code)]
 //"\x1b]633;E;{}\x1b\\"
 pub(crate) const VSCODE_COMMANDLINE_MARKER_PREFIX: &str = "\x1b]633;E;";
-#[allow(dead_code)]
 pub(crate) const VSCODE_COMMANDLINE_MARKER_SUFFIX: &str = "\x1b\\";
-#[allow(dead_code)]
 // "\x1b]633;P;Cwd={}\x1b\\"
 pub(crate) const VSCODE_CWD_PROPERTY_MARKER_PREFIX: &str = "\x1b]633;P;Cwd=";
-#[allow(dead_code)]
 pub(crate) const VSCODE_CWD_PROPERTY_MARKER_SUFFIX: &str = "\x1b\\";
 
 pub(crate) const RESET_APPLICATION_MODE: &str = "\x1b[?1l";

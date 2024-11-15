@@ -45,11 +45,6 @@ impl NuProgressBar {
         self.pb.set_position(bytes_processed);
     }
 
-    #[allow(dead_code)]
-    pub fn finished_msg(&self, msg: String) {
-        self.pb.finish_with_message(msg);
-    }
-
     pub fn abandoned_msg(&self, msg: String) {
         self.pb.abandon_with_message(msg);
     }
