@@ -46,9 +46,6 @@ fn setup_stack_and_engine_from_command(command: &str) -> (Stack, EngineState) {
 
     let mut stack = Stack::new();
 
-    // Support running benchmarks without IR mode
-    stack.use_ir = std::env::var_os("NU_DISABLE_IR").is_none();
-
     evaluate_commands(
         &commands,
         &mut engine,
