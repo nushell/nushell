@@ -1,4 +1,4 @@
-use crate::util::eval_source;
+use crate::util::{eval_source, print_pipeline};
 use log::{info, trace};
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
@@ -119,7 +119,7 @@ pub fn evaluate_file(
             };
 
         // Print the pipeline output of the last command of the file.
-        pipeline.print(engine_state, stack, true, false)?;
+        print_pipeline(engine_state, stack, pipeline, true)?;
 
         // Invoke the main command with arguments.
         // Arguments with whitespaces are quoted, thus can be safely concatenated by whitespace.

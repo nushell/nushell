@@ -65,8 +65,12 @@ Since this command has no output, there is no point in piping it with other comm
                     arg.into_pipeline_data()
                         .print_raw(engine_state, no_newline, to_stderr)?;
                 } else {
-                    arg.into_pipeline_data()
-                        .print(engine_state, stack, no_newline, to_stderr)?;
+                    arg.into_pipeline_data().print_table(
+                        engine_state,
+                        stack,
+                        no_newline,
+                        to_stderr,
+                    )?;
                 }
             }
         } else if !input.is_nothing() {
@@ -78,7 +82,7 @@ Since this command has no output, there is no point in piping it with other comm
             if raw {
                 input.print_raw(engine_state, no_newline, to_stderr)?;
             } else {
-                input.print(engine_state, stack, no_newline, to_stderr)?;
+                input.print_table(engine_state, stack, no_newline, to_stderr)?;
             }
         }
 
