@@ -101,7 +101,7 @@ impl Command for GroupBy {
                 example: "['1' '3' '1' '3' '2' '1' '1'] | group-by --to-table",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
-                        "group" => Value::test_string("1"),
+                        "group0" => Value::test_string("1"),
                         "items" => Value::test_list(vec![
                             Value::test_string("1"),
                             Value::test_string("1"),
@@ -110,14 +110,14 @@ impl Command for GroupBy {
                         ]),
                     }),
                     Value::test_record(record! {
-                        "group" => Value::test_string("3"),
+                        "group0" => Value::test_string("3"),
                         "items" => Value::test_list(vec![
                             Value::test_string("3"),
                             Value::test_string("3"),
                         ]),
                     }),
                     Value::test_record(record! {
-                        "group" => Value::test_string("2"),
+                        "group0" => Value::test_string("2"),
                         "items" => Value::test_list(vec![Value::test_string("2")]),
                     }),
                 ])),
