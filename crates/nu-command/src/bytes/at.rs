@@ -175,7 +175,7 @@ fn map_value(input: &Value, args: &Arguments, head: Span) -> Value {
     }
 }
 
-fn resolve_relative_range(range: &Subbytes, len: &usize) -> (usize, usize) {
+fn resolve_relative_range(range: &Subbytes, len: usize) -> (usize, usize) {
     let start = match range.0 {
         start if start < 0 => len.checked_sub(start.unsigned_abs()).unwrap_or(0),
         start => start as usize,
