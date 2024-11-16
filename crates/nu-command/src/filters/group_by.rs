@@ -1,4 +1,4 @@
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::{engine::Closure, IntoValue};
 
@@ -261,6 +261,32 @@ pub fn group_by(
             }),
         })
         .collect::<Result<Vec<_>, ShellError>>()?;
+
+    if to_table {
+        let grouper_names = groupers
+            .iter()
+            .map(Grouper::to_column_name)
+            .collect::<IndexSet<_>>();
+
+        if grouper_names.len() != groupers.len() {
+            return Err(ShellError::GenericError {
+                error: "grouper arguments have duplicate names".into(),
+                msg: "contains duplicates".into(),
+                span: Some(call.arguments_span()),
+                help: Some("instead of a cell-path, try using a closure".into()),
+                inner: vec![],
+            });
+        } else if grouper_names.contains("items") {
+            return Err(ShellError::GenericError {
+                error: "grouper arguments can't be named `items`".into(),
+                msg: "contains `items`".into(),
+                span: Some(call.arguments_span()),
+                help: Some("instead of a cell-path, try using a closure".into()),
+                inner: vec![],
+            });
+        }
+    }
+
     let grouped = match &groupers[..] {
         [first, rest @ ..] => {
             let mut grouped = Grouped::new(first, values, config, engine_state, stack)?;
