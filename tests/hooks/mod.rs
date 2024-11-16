@@ -68,7 +68,7 @@ fn pre_prompt_hook(code: &str) -> String {
     format!(
         "$env.config = {{
             hooks: {{
-                pre_prompt: {code}
+                pre_prompt: [{code}]
             }}
         }}"
     )
@@ -78,9 +78,9 @@ fn pre_prompt_hook_code(code: &str) -> String {
     format!(
         "$env.config = {{
             hooks: {{
-                pre_prompt: {{
+                pre_prompt: [{{
                     code: {code}
-                }}
+                }}]
             }}
         }}"
     )
@@ -90,7 +90,7 @@ fn pre_execution_hook(code: &str) -> String {
     format!(
         "$env.config = {{
             hooks: {{
-                pre_execution: {code}
+                pre_execution: [{code}]
             }}
         }}"
     )
@@ -100,9 +100,9 @@ fn pre_execution_hook_code(code: &str) -> String {
     format!(
         "$env.config = {{
             hooks: {{
-                pre_execution: {{
+                pre_execution: [{{
                     code: {code}
-                }}
+                }}]
             }}
         }}"
     )
