@@ -306,7 +306,6 @@ fn group_closure(
 }
 
 struct Grouped {
-    grouper: Option<String>,
     groups: Tree,
 }
 
@@ -325,7 +324,6 @@ impl Grouped {
         }
 
         Self {
-            grouper: Some("group".into()),
             groups: Tree::Leaf(groups),
         }
     }
@@ -350,9 +348,7 @@ impl Grouped {
                 })
             }
         };
-        let grouper = grouper.as_cell_path().ok().map(CellPath::to_column_name);
         Ok(Self {
-            grouper,
             groups: Tree::Leaf(groups),
         })
     }
@@ -393,7 +389,7 @@ impl Grouped {
     }
 
     fn _into_table(self, head: Span, index: usize) -> Vec<Record> {
-        let grouper = self.grouper.unwrap_or_else(|| format!("group{index}"));
+        let grouper = format!("group{index}");
         match self.groups {
             Tree::Leaf(leaf) => leaf
                 .into_iter()
