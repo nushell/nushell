@@ -184,8 +184,8 @@ impl Command for GroupBy {
     | group-by lang year --to-table"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
-                        "lang" => Value::test_string("rb"),
-                        "year" => Value::test_string("2019"),
+                        "group0" => Value::test_string("rb"),
+                        "group1" => Value::test_string("2019"),
                         "items" => Value::test_list(vec![
                             Value::test_record(record! {
                                 "name" => Value::test_string("andres"),
@@ -195,8 +195,8 @@ impl Command for GroupBy {
                         ]),
                     }),
                     Value::test_record(record! {
-                        "lang" => Value::test_string("rs"),
-                        "year" => Value::test_string("2019"),
+                        "group0" => Value::test_string("rs"),
+                        "group1" => Value::test_string("2019"),
                         "items" => Value::test_list(vec![
                             Value::test_record(record! {
                                 "name" => Value::test_string("jt"),
@@ -206,8 +206,8 @@ impl Command for GroupBy {
                         ]),
                     }),
                     Value::test_record(record! {
-                        "lang" => Value::test_string("rs"),
-                        "year" => Value::test_string("2021"),
+                        "group0" => Value::test_string("rs"),
+                        "group1" => Value::test_string("2021"),
                         "items" => Value::test_list(vec![
                             Value::test_record(record! {
                                 "name" => Value::test_string("storm"),
