@@ -1,5 +1,4 @@
 
-use super::utils::chain_error_with_input;
 use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::engine::Closure;
 
@@ -15,27 +14,28 @@ impl Command for PartitionBy {
         Signature::build("partition-by")
             .input_output_types(
                 vec![
-                (Type::List(Box::new(Type::Any)), 
+                (Type::List(Box::new(Type::Any)),
                  Type::List(Box::new(Type::Any)))
                 ])
             .required(
                 "clsoure",
                 SyntaxShape::OneOf(vec![
-                    SyntaxShape::CellPath,
-                    SyntaxShape::Closure(None),
                     SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 ]),
-                "The closure to partition on",
+                "The closure to run.",
             )
             .category(Category::Filters)
     }
 
     fn description(&self) -> &str {
-        "Splits a list into partitions, and returns a list containing those partitions."
+        r#"Divides a sequence into sub-sequences based on function."#
     }
 
     fn extra_description(&self) -> &str {
-        r#"TODO"#
+        r#"partition-by applies the given closure to each value of the input list, and groups 
+           consecutive elements that share the same closure result key into partitions.
+
+           Some key values, such as closures, are not supported."#
     }
 
     fn run(
@@ -49,7 +49,41 @@ impl Command for PartitionBy {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+
+        vec![
+            Example {
+                description: "Chunk data into runs of larger than zero or not.",
+                example: "[1, 3, -2, -2, 1, 0, 1, 2] | partition-by {|it| $it >= 0 }",
+                result: Some(Value::test_list(
+                        vec![
+                        Value::test_list(vec![Value::test_int(1), Value::test_int(3)]),
+                        Value::test_list(vec![Value::test_int(-2), Value::test_int(-2)]),
+                        Value::test_list(vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)])
+                        ]
+                        ))
+            },
+            Example {
+                description: "Identify repetitions in a string",
+                example: "'abbccc' | split chars | partition-by { |it| $it }",
+                result: Some(Value::test_list(
+                        vec![
+                        Value::test_list(vec![
+                            Value::test_string("a"),
+                        ]),
+                        Value::test_list(vec![
+                            Value::test_string("b"),
+                            Value::test_string("b"),
+                        ]),
+                        Value::test_list(vec![
+                            Value::test_string("c"),
+                            Value::test_string("c"),
+                            Value::test_string("c"),
+                        ]),
+                        ]
+                )
+                ),
+            },
+        ]
     }
 }
 
@@ -60,7 +94,7 @@ struct Partition<I, T, F, K> {
     done: bool
 }
 
-impl<I,T,F,K> Iterator for Partition<I, T, F, K> where 
+impl<I,T,F,K> Iterator for Partition<I, T, F, K> where
     I : Iterator<Item=T>,
     F : FnMut(&T) -> K,
     K : PartialEq {
@@ -71,7 +105,7 @@ impl<I,T,F,K> Iterator for Partition<I, T, F, K> where
         if self.done {
             return None;
         }
-        
+
         let (head, head_key) = match self.last_value.take() {
             None => {
                 let head = self.iterator.next()?;
@@ -108,9 +142,11 @@ impl<I,T,F,K> Iterator for Partition<I, T, F, K> where
     }
 }
 
-fn partition_iter_by<I,T,F,K>(iterator: I, closure: F) -> Partition<I,T,F,K> 
+/// An iterator with the semantics of the partition_by operation.
+fn partition_iter_by<I,T,F,K>(iterator: I, closure: F) -> Partition<I,T,F,K>
     where I : Iterator<Item=T>,
-    F : FnMut(&T) -> K, {
+    F : FnMut(&T) -> K,
+    K : PartialEq {
 
     return Partition {
         closure,
@@ -137,50 +173,22 @@ pub fn partition_by(
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream(..) => {
 
-                let mut closure = ClosureEval::new(engine_state, stack, closure);
+                let closure = ClosureEval::new(engine_state, stack, closure);
 
-                let result = 
-                    partition_iter_by(input.into_iter(), 
-                        move |value| { 
-                            match closure.run_with_value(value.clone()) {
-                                Ok(data) => data.into_value(head).unwrap_or_else(|_| {
-                                    todo!("handle this")
-                                }),
-
-                                Err(_) =>  todo!("also handle this") 
-                            }
-                        })
-                    .map(move |it| Value::list(it, head));
+                let result = partition_value_stream(input.into_iter(), closure, head);
 
                 Ok(result.into_pipeline_data(head, engine_state.signals().clone()))
-                    
-
-
             }
         PipelineData::ByteStream(stream, ..) => {
             if let Some(chunks) = stream.chunks() {
-                let mut closure = ClosureEval::new(engine_state, stack, closure);
-                Ok(chunks
-                    .map_while(move |value| {
-                        let value = match value {
-                            Ok(value) => value,
-                            Err(err) => return Some(Value::error(err, head)),
-                        };
+                let closure = ClosureEval::new(engine_state, stack, closure);
 
-                        let span = value.span();
-                        let is_error = value.is_error();
-                        match closure
-                            .run_with_value(value)
-                            .and_then(|data| data.into_value(head))
-                            {
-                                Ok(value) => Some(value),
-                                Err(error) => {
-                                    let error = chain_error_with_input(error, is_error, span);
-                                    Some(Value::error(error, span))
-                                }
-                            }
-                    })
-                    .into_pipeline_data(head, engine_state.signals().clone()))
+                let mapped_chunks = chunks
+                    .map(move |value| value.unwrap_or_else(|err| Value::error(err, head)));
+
+                let result = partition_value_stream(mapped_chunks, closure, head);
+
+                Ok(result.into_pipeline_data(head, engine_state.signals().clone()))
             } else {
                 Ok(PipelineData::Empty)
             }
@@ -189,8 +197,24 @@ pub fn partition_by(
         PipelineData::Value(_, ..) => {
             todo!("raise nushell error");
         }
-    }
-    .map(|data| data.set_metadata(metadata))
+    }.map(|data| data.set_metadata(metadata))
+}
+
+fn partition_value_stream<I>(iterator: I, mut closure: ClosureEval, head: Span)
+    -> impl Iterator<Item=Value> + 'static + Send
+    where I: Iterator<Item=Value> + 'static + Send {
+
+    partition_iter_by(iterator, 
+        move |value| {
+            match closure.run_with_value(value.clone()) {
+                Ok(data) => data.into_value(head).unwrap_or_else(|_| {
+                    todo!("handle this")
+                }),
+
+                Err(_) =>  todo!("also handle this")
+            }
+        }
+    ).map(move |it| Value::list(it, head))
 }
 
 #[cfg(test)]
