@@ -1,5 +1,5 @@
 use crate::NushellPrompt;
-use log::trace;
+use log::{trace, warn};
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -80,8 +80,13 @@ fn get_prompt_string(
         })
         .and_then(|pipeline_data| {
             let output = pipeline_data.collect_string("", config).ok();
+            let ansi_output = output.map(|mut x| {
+                // Always reset the color at the start of the right prompt
+                // to ensure there is no ansi bleed over
+                if x.is_empty() && prompt == PROMPT_COMMAND_RIGHT {
+                    x.insert_str(0, "\x1b[0m")
+                };
 
-            output.map(|mut x| {
                 // Just remove the very last newline.
                 if x.ends_with('\n') {
                     x.pop();
@@ -91,7 +96,11 @@ fn get_prompt_string(
                     x.pop();
                 }
                 x
-            })
+            });
+            // Let's keep this for debugging purposes with nu --log-level warn
+            warn!("{}:{}:{} {:?}", file!(), line!(), column!(), ansi_output);
+
+            ansi_output
         })
 }
 
