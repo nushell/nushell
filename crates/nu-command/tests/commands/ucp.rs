@@ -48,6 +48,49 @@ fn copies_a_file_impl(progress: bool) {
 }
 
 #[test]
+fn copies_a_file_with_hardlink() {
+    copies_a_file_with_hardlink_impl(false);
+    copies_a_file_with_hardlink_impl(true);
+}
+
+fn copies_a_file_with_hardlink_impl(progress: bool) {
+    Playground::setup("ucp_test_1-hardlink", |dirs, _| {
+        let test_file = dirs.formats().join("sample.ini");
+        let progress_flag = if progress { "-p" } else { "" };
+
+        // Get the hash of the file content to check integrity after copy.
+        let first_hash = get_file_hash(test_file.display());
+
+        nu!(
+            cwd: dirs.root(),
+            "cp -l {} `{}` ucp_test_1-hardlink/sample.ini",
+            progress_flag,
+            test_file.display()
+        );
+
+        assert!(dirs.test().join("sample.ini").exists());
+
+        // Get the hash of the copied file content to check against first_hash.
+        let after_cp_hash = get_file_hash(dirs.test().join("sample.ini").display());
+        assert_eq!(first_hash, after_cp_hash);
+
+        // Modify file 1 by appending a line
+        nu!(
+            cwd: dirs.root(),
+            "echo 'new line' | save `{}` --append",
+            test_file.display()
+        );
+        // We will compare the contents of file 1 and file 2.
+        // Since we're using a hardlink, the updated hashes should be the same.
+        let first_hash_modified = get_file_hash(test_file.display());
+        assert_ne!(first_hash, first_hash_modified);
+        let after_cp_hash_modified = get_file_hash(dirs.test().join("sample.ini").display());
+        assert_eq!(first_hash_modified, after_cp_hash_modified);
+    });
+}
+
+
+#[test]
 fn copies_the_file_inside_directory_if_path_to_copy_is_directory() {
     copies_the_file_inside_directory_if_path_to_copy_is_directory_impl(false);
     copies_the_file_inside_directory_if_path_to_copy_is_directory_impl(true);
@@ -731,6 +774,44 @@ fn test_cp_recurse() {
         );
         let after_cp_hash = get_file_hash(dirs.test().join(TEST_COPY_TO_FOLDER_NEW_FILE).display());
         assert_eq!(src_hash, after_cp_hash);
+    });
+}
+
+#[test]
+fn test_cp_recurse_with_hardlink_flag() {
+    Playground::setup("ucp_test_22-hardlink", |dirs, sandbox| {
+        // Create the relevant target directories
+        sandbox.mkdir(TEST_COPY_FROM_FOLDER);
+        sandbox.mkdir(TEST_COPY_TO_FOLDER_NEW);
+        let src = dirs
+            .fixtures
+            .join("cp")
+            .join(TEST_COPY_FROM_FOLDER)
+            .join(TEST_COPY_FROM_FOLDER_FILE);
+
+        let src_hash = get_file_hash(src.display());
+        // Start test
+        nu!(
+            cwd: dirs.root(),
+            "cp -r -l {} ucp_test_22-hardlink/{}",
+            TEST_COPY_FROM_FOLDER,
+            TEST_COPY_TO_FOLDER_NEW,
+        );
+        let after_cp_hash = get_file_hash(dirs.test().join(TEST_COPY_TO_FOLDER_NEW_FILE).display());
+        assert_eq!(src_hash, after_cp_hash);
+
+        // Modify file 1 by appending a line
+        nu!(
+            cwd: dirs.root(),
+            "echo 'new line' | save `{}` --append",
+            src.display()
+        );
+        // We will compare the contents of file 1 and file 2.
+        // Since we're using a hardlink, the updated hashes should be the same.
+        let src_hash_modified = get_file_hash(src.display());
+        assert_ne!(src_hash, src_hash_modified);
+        let after_cp_hash_modified = get_file_hash(dirs.test().join(TEST_COPY_TO_FOLDER_NEW_FILE).display());
+        assert_eq!(src_hash_modified, after_cp_hash_modified);
     });
 }
 
