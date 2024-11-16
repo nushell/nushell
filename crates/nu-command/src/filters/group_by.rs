@@ -238,16 +238,16 @@ pub fn group_by(
         return Ok(Value::record(Record::new(), head).into_pipeline_data());
     }
 
-    let mut groupers = groupers.into_iter();
 
-    let grouped = if let Some(grouper) = groupers.next() {
-        let mut groups = Grouped::new(&grouper, values, config, engine_state, stack)?;
-        for grouper in groupers {
-            groups.subgroup(&grouper, config, engine_state, stack)?;
+    let grouped = match &groupers[..] {
+        [first, rest @ ..] => {
+            let mut grouped = Grouped::new(first, values, config, engine_state, stack)?;
+            for grouper in rest {
+                grouped.subgroup(grouper, config, engine_state, stack)?;
+            }
+            grouped
         }
-        groups
-    } else {
-        Grouped::empty(values, config)
+        [] => Grouped::empty(values, config),
     };
 
     let value = if to_table {
