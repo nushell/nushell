@@ -238,7 +238,29 @@ pub fn group_by(
         return Ok(Value::record(Record::new(), head).into_pipeline_data());
     }
 
+    let mut closure_idx = 0;
 
+    // Error early on unsupported types by collecting
+    let groupers = groupers
+        .into_iter()
+        .map(|val| match val {
+            Value::CellPath { val, .. } => Ok(Grouper::CellPath { val }),
+            Value::Closure {
+                val, internal_span, ..
+            } => {
+                closure_idx += 1;
+                Ok(Grouper::Closure {
+                    val,
+                    idx: closure_idx - 1,
+                    span: internal_span,
+                })
+            }
+            _ => Err(ShellError::TypeMismatch {
+                err_message: "unsupported grouper type".to_string(),
+                span: val.span(),
+            }),
+        })
+        .collect::<Result<Vec<_>, ShellError>>()?;
     let grouped = match &groupers[..] {
         [first, rest @ ..] => {
             let mut grouped = Grouped::new(first, values, config, engine_state, stack)?;
@@ -303,6 +325,17 @@ fn group_closure(
     }
 
     Ok(groups)
+}
+
+enum Grouper {
+    CellPath {
+        val: CellPath,
+    },
+    Closure {
+        val: Box<Closure>,
+        span: Span,
+        idx: usize,
+    },
 }
 
 struct Grouped {
