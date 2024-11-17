@@ -91,6 +91,21 @@ impl Command for UCp {
                 result: None,
             },
             Example {
+                description: "",
+                example: "cp -s a b",
+                result: None,
+            },
+            Example {
+                description: "",
+                example: "cp -l a b",
+                result: None,
+            },
+            Example {
+                description: "",
+                example: "cp -r -l a b",
+                result: None,
+            },
+            Example {
                 description: "Copy file preserving mode and timestamps attributes",
                 example: "cp --preserve [ mode timestamps ] a b",
                 result: None,
