@@ -2,7 +2,7 @@ use chrono::{DateTime, Days, Local, TimeDelta, Utc};
 use filetime::FileTime;
 use nu_test_support::fs::{files_exist_at, Stub};
 use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::playground::{Dirs, Playground};
 use std::path::Path;
 
 // Use 1 instead of 0 because 0 has a special meaning in Windows
@@ -13,6 +13,45 @@ fn file_times(file: impl AsRef<Path>) -> (FileTime, FileTime) {
         file.as_ref().metadata().unwrap().accessed().unwrap().into(),
         file.as_ref().metadata().unwrap().modified().unwrap().into(),
     )
+}
+
+fn symlink_times(path: &nu_path::AbsolutePath) -> (filetime::FileTime, filetime::FileTime) {
+    let metadata = path.symlink_metadata().unwrap();
+
+    (
+        filetime::FileTime::from_system_time(metadata.accessed().unwrap()),
+        filetime::FileTime::from_system_time(metadata.modified().unwrap()),
+    )
+}
+
+// From https://github.com/nushell/nushell/pull/14214
+fn setup_symlink_fs(dirs: &Dirs, sandbox: &mut Playground<'_>) {
+    sandbox.mkdir("d");
+    sandbox.with_files(&[Stub::EmptyFile("f"), Stub::EmptyFile("d/f")]);
+    sandbox.symlink("f", "fs");
+    sandbox.symlink("d", "ds");
+    sandbox.symlink("d/f", "fds");
+
+    // sandbox.symlink does not handle symlinks to missing files well. It panics
+    // But they are useful, and they should be tested.
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(dirs.test().join("m"), dirs.test().join("fms")).unwrap();
+    }
+
+    #[cfg(windows)]
+    {
+        std::os::windows::fs::symlink_file(dirs.test().join("m"), dirs.test().join("fms")).unwrap();
+    }
+
+    // Change the file times to a known "old" value for comparison
+    filetime::set_symlink_file_times(dirs.test().join("f"), TIME_ONE, TIME_ONE).unwrap();
+    filetime::set_symlink_file_times(dirs.test().join("d"), TIME_ONE, TIME_ONE).unwrap();
+    filetime::set_symlink_file_times(dirs.test().join("d/f"), TIME_ONE, TIME_ONE).unwrap();
+    filetime::set_symlink_file_times(dirs.test().join("ds"), TIME_ONE, TIME_ONE).unwrap();
+    filetime::set_symlink_file_times(dirs.test().join("fs"), TIME_ONE, TIME_ONE).unwrap();
+    filetime::set_symlink_file_times(dirs.test().join("fds"), TIME_ONE, TIME_ONE).unwrap();
+    filetime::set_symlink_file_times(dirs.test().join("fms"), TIME_ONE, TIME_ONE).unwrap();
 }
 
 #[test]
@@ -610,5 +649,92 @@ fn recognizes_stdout() {
     Playground::setup("utouch_recognizes_stdout", |dirs, _sandbox| {
         nu!(cwd: dirs.test(), "utouch -");
         assert!(!dirs.test().join("-").exists());
+    })
+}
+
+#[test]
+fn follow_symlinks() {
+    Playground::setup("touch_follows_symlinks", |dirs, sandbox| {
+        setup_symlink_fs(&dirs, sandbox);
+
+        let missing = dirs.test().join("m");
+        assert!(!missing.exists());
+
+        nu!(
+            cwd: dirs.test(),
+            "
+                touch fds
+                touch ds
+                touch fs
+                touch fms
+            "
+        );
+
+        // We created the missing symlink target
+        assert!(missing.exists());
+
+        // The timestamps for files and directories were changed from TIME_ONE
+        let file_times = symlink_times(&dirs.test().join("f"));
+        let dir_times = symlink_times(&dirs.test().join("d"));
+        let dir_file_times = symlink_times(&dirs.test().join("d/f"));
+
+        assert_ne!(file_times, (TIME_ONE, TIME_ONE));
+        assert_ne!(dir_times, (TIME_ONE, TIME_ONE));
+        assert_ne!(dir_file_times, (TIME_ONE, TIME_ONE));
+
+        // For symlinks, they remain (mostly) the same
+        // We can't test accessed times, since to reach the target file, the symlink must be accessed!
+        let file_symlink_times = symlink_times(&dirs.test().join("fs"));
+        let dir_symlink_times = symlink_times(&dirs.test().join("ds"));
+        let dir_file_symlink_times = symlink_times(&dirs.test().join("fds"));
+        let file_missing_symlink_times = symlink_times(&dirs.test().join("fms"));
+
+        assert_eq!(file_symlink_times.1, TIME_ONE);
+        assert_eq!(dir_symlink_times.1, TIME_ONE);
+        assert_eq!(dir_file_symlink_times.1, TIME_ONE);
+        assert_eq!(file_missing_symlink_times.1, TIME_ONE);
+    })
+}
+
+#[test]
+fn no_follow_symlinks() {
+    Playground::setup("touch_touches_symlinks", |dirs, sandbox| {
+        setup_symlink_fs(&dirs, sandbox);
+
+        let missing = dirs.test().join("m");
+        assert!(!missing.exists());
+
+        nu!(
+            cwd: dirs.test(),
+            "
+                touch fds -s
+                touch ds -s
+                touch fs -s
+                touch fms -s
+            "
+        );
+
+        // We did not create the missing symlink target
+        assert!(!missing.exists());
+
+        // The timestamps for files and directories remain the same
+        let file_times = symlink_times(&dirs.test().join("f"));
+        let dir_times = symlink_times(&dirs.test().join("d"));
+        let dir_file_times = symlink_times(&dirs.test().join("d/f"));
+
+        assert_eq!(file_times, (TIME_ONE, TIME_ONE));
+        assert_eq!(dir_times, (TIME_ONE, TIME_ONE));
+        assert_eq!(dir_file_times, (TIME_ONE, TIME_ONE));
+
+        // For symlinks, everything changed. (except their targets, and paths, and personality)
+        let file_symlink_times = symlink_times(&dirs.test().join("fs"));
+        let dir_symlink_times = symlink_times(&dirs.test().join("ds"));
+        let dir_file_symlink_times = symlink_times(&dirs.test().join("fds"));
+        let file_missing_symlink_times = symlink_times(&dirs.test().join("fms"));
+
+        assert_ne!(file_symlink_times, (TIME_ONE, TIME_ONE));
+        assert_ne!(dir_symlink_times, (TIME_ONE, TIME_ONE));
+        assert_ne!(dir_file_symlink_times, (TIME_ONE, TIME_ONE));
+        assert_ne!(file_missing_symlink_times, (TIME_ONE, TIME_ONE));
     })
 }

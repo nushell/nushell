@@ -69,9 +69,9 @@ impl Command for UTouch {
                 Some('c'),
             )
             .switch(
-                "no-dereference",
+                "no-deref",
                 "Affect each symbolic link instead of any referenced file (only for systems that can change the timestamps of a symlink). Ignored if touching stdout",
-                None
+                Some('s'),
             )
             .category(Category::FileSystem)
     }
