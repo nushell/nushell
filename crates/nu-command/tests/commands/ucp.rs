@@ -89,7 +89,6 @@ fn copies_a_file_with_hardlink_impl(progress: bool) {
     });
 }
 
-
 #[test]
 fn copies_the_file_inside_directory_if_path_to_copy_is_directory() {
     copies_the_file_inside_directory_if_path_to_copy_is_directory_impl(false);
@@ -810,7 +809,8 @@ fn test_cp_recurse_with_hardlink_flag() {
         // Since we're using a hardlink, the updated hashes should be the same.
         let src_hash_modified = get_file_hash(src.display());
         assert_ne!(src_hash, src_hash_modified);
-        let after_cp_hash_modified = get_file_hash(dirs.test().join(TEST_COPY_TO_FOLDER_NEW_FILE).display());
+        let after_cp_hash_modified =
+            get_file_hash(dirs.test().join(TEST_COPY_TO_FOLDER_NEW_FILE).display());
         assert_eq!(src_hash_modified, after_cp_hash_modified);
     });
 }
