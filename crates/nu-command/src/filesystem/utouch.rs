@@ -76,7 +76,7 @@ impl Command for UTouch {
             .category(Category::FileSystem)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates one or more files."
     }
 
