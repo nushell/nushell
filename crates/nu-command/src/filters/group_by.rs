@@ -12,10 +12,6 @@ impl Command for GroupBy {
 
     fn signature(&self) -> Signature {
         Signature::build("group-by")
-            // TODO: It accepts Table also, but currently there is no Table
-            // example. Perhaps Table should be a subtype of List, in which case
-            // the current signature would suffice even when a Table example
-            // exists.
             .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Any)])
             .switch(
                 "to-table",
