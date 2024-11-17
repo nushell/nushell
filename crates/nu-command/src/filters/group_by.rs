@@ -256,6 +256,10 @@ pub fn group_by(
 }
 
 fn groupers_to_column_names(groupers: &[Spanned<Grouper>]) -> Result<Vec<String>, ShellError> {
+    if groupers.is_empty() {
+        return Ok(vec!["group".into(), "items".into()]);
+    }
+
     let mut closure_idx: usize = 0;
     let grouper_names = groupers.iter().map(|grouper| {
         grouper.as_ref().map(move |item| match item {
