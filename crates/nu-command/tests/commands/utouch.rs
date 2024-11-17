@@ -388,7 +388,7 @@ fn change_file_times_to_timestamp() {
         sandbox.with_files(&[Stub::EmptyFile("target_file")]);
 
         let target = dirs.test().join("target_file");
-        let timestamp = DateTime::from_timestamp(TIME_ONE.seconds(), TIME_ONE.nanoseconds())
+        let timestamp = DateTime::from_timestamp(TIME_ONE.unix_seconds(), TIME_ONE.nanoseconds())
             .unwrap()
             .to_rfc3339();
 
