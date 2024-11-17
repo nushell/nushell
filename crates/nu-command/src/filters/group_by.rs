@@ -262,7 +262,7 @@ fn groupers_to_column_names(groupers: &[Spanned<Grouper>]) -> Result<Vec<String>
 
     let mut closure_idx: usize = 0;
     let grouper_names = groupers.iter().map(|grouper| {
-        grouper.as_ref().map(move |item| match item {
+        grouper.as_ref().map(|item| match item {
             Grouper::CellPath { val } => val.to_column_name(),
             Grouper::Closure { .. } => {
                 closure_idx += 1;
