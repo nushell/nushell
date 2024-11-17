@@ -768,7 +768,7 @@ fn filesize_math() {
         100 * 10kib
         ");
 
-    assert_eq!(actual.out, "1024.0 kB");
+    assert_eq!(actual.out, "1.024 MB");
 }
 
 #[test]
@@ -783,45 +783,27 @@ fn filesize_math2() {
 #[test]
 fn filesize_math3() {
     let actual = nu!("
-        100kib / 10
+        100kB / 10
         ");
 
-    assert_eq!(actual.out, "10.0 KiB");
+    assert_eq!(actual.out, "10 kB");
 }
 #[test]
 fn filesize_math4() {
     let actual = nu!("
-        100kib * 5
+        100kB * 5
         ");
 
-    assert_eq!(actual.out, "500.0 KiB");
+    assert_eq!(actual.out, "500 kB");
 }
 
 #[test]
 fn filesize_math5() {
     let actual = nu!("
-        1000 * 1kib
+        100 * 1kB
         ");
 
-    assert_eq!(actual.out, "1000.0 KiB");
-}
-
-#[test]
-fn filesize_math6() {
-    let actual = nu!("
-        1000 * 1mib
-        ");
-
-    assert_eq!(actual.out, "1000.0 MiB");
-}
-
-#[test]
-fn filesize_math7() {
-    let actual = nu!("
-        1000 * 1gib
-        ");
-
-    assert_eq!(actual.out, "1000.0 GiB");
+    assert_eq!(actual.out, "100 kB");
 }
 
 #[test]

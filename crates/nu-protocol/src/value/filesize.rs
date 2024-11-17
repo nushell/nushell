@@ -616,7 +616,7 @@ mod tests {
     #[rstest]
     #[case(999, "999 B")]
     #[case(1000, "1 kB")]
-    #[case(1024, "1.024 KB")]
+    #[case(1024, "1.024 kB")]
     fn display_auto_decimal(#[case] val: i64, #[case] exp: &str) {
         let filesize = Filesize::new(val);
         assert_eq!(

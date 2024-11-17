@@ -308,55 +308,55 @@ fn floor_div_mod_large_num() {
 fn unit_multiplication_math() {
     let actual = nu!(pipeline(
         r#"
-            1mb * 2
+            1MB * 2
         "#
     ));
 
-    assert_eq!(actual.out, "1.9 MiB");
+    assert_eq!(actual.out, "2 MB");
 }
 
 #[test]
 fn unit_multiplication_float_math() {
     let actual = nu!(pipeline(
         r#"
-            1mb * 1.2
+            1MB * 1.2
         "#
     ));
 
-    assert_eq!(actual.out, "1.1 MiB");
+    assert_eq!(actual.out, "1.2 MB");
 }
 
 #[test]
 fn unit_float_floor_division_math() {
     let actual = nu!(pipeline(
         r#"
-            1mb // 3.0
+            1MB // 3.0
         "#
     ));
 
-    assert_eq!(actual.out, "325.5 KiB");
+    assert_eq!(actual.out, "333.333 kB");
 }
 
 #[test]
 fn unit_division_math() {
     let actual = nu!(pipeline(
         r#"
-            1mb / 4
+            1MB / 4
         "#
     ));
 
-    assert_eq!(actual.out, "244.1 KiB");
+    assert_eq!(actual.out, "250 kB");
 }
 
 #[test]
 fn unit_float_division_math() {
     let actual = nu!(pipeline(
         r#"
-            1mb / 3.1
+            1MB / 3.2
         "#
     ));
 
-    assert_eq!(actual.out, "315.0 KiB");
+    assert_eq!(actual.out, "312.5 kB");
 }
 
 #[test]

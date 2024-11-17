@@ -1,53 +1,43 @@
 use nu_test_support::{nu, nu_repl_code};
 
 #[test]
-fn filesize_metric_true() {
+fn filesize_mb() {
     let code = &[
-        r#"$env.config = { filesize: { metric: true, format:"mb" } }"#,
-        r#"20mib | into string"#,
+        r#"$env.config = { filesize: { unit: MB } }"#,
+        r#"20MB | into string"#,
     ];
     let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, "21.0 MB");
+    assert_eq!(actual.out, "20 MB");
 }
 
 #[test]
-fn filesize_metric_false() {
+fn filesize_mib() {
     let code = &[
-        r#"$env.config = { filesize: { metric: false, format:"mib" } }"#,
-        r#"20mib | into string"#,
+        r#"$env.config = { filesize: { unit: MiB } }"#,
+        r#"20MiB | into string"#,
     ];
     let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, "20.0 MiB");
+    assert_eq!(actual.out, "20 MiB");
 }
 
 #[test]
-fn filesize_metric_overrides_format() {
+fn filesize_format_decimal() {
     let code = &[
-        r#"$env.config = { filesize: { metric: false, format:"mb" } }"#,
-        r#"20mib | into string"#,
+        r#"$env.config = { filesize: { unit: decimal } }"#,
+        r#"[2MB 2GB 2TB] | into string | to nuon"#,
     ];
     let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, "20.0 MiB");
+    assert_eq!(actual.out, r#"["2 MB", "2 GB", "2 TB"]"#);
 }
 
 #[test]
-fn filesize_format_auto_metric_true() {
+fn filesize_format_binary() {
     let code = &[
-        r#"$env.config = { filesize: { metric: true, format:"auto" } }"#,
-        r#"[2mb 2gb 2tb] | into string | to nuon"#,
+        r#"$env.config = { filesize: { unit: binary } }"#,
+        r#"[2MiB 2GiB 2TiB] | into string | to nuon"#,
     ];
     let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, r#"["2.0 MB", "2.0 GB", "2.0 TB"]"#);
-}
-
-#[test]
-fn filesize_format_auto_metric_false() {
-    let code = &[
-        r#"$env.config = { filesize: { metric: false, format:"auto" } }"#,
-        r#"[2mb 2gb 2tb] | into string | to nuon"#,
-    ];
-    let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, r#"["1.9 MiB", "1.9 GiB", "1.8 TiB"]"#);
+    assert_eq!(actual.out, r#"["2 MiB", "2 GiB", "2 TiB"]"#);
 }
 
 #[test]

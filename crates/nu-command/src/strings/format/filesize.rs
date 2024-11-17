@@ -107,8 +107,8 @@ impl Command for FormatFilesize {
             },
             Example {
                 description: "Convert the size data to MB",
-                example: "4Gb | format filesize MB",
-                result: Some(Value::test_string("4000.0 MB")),
+                example: "4GB | format filesize MB",
+                result: Some(Value::test_string("4000 MB")),
             },
         ]
     }
