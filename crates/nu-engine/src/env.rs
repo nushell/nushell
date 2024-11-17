@@ -240,7 +240,7 @@ pub fn path_str(
         }
     }?;
 
-    env_to_string(pathname, &pathval, engine_state, stack)
+    env_to_string(pathname, pathval, engine_state, stack)
 }
 
 pub const DIR_VAR_PARSER_INFO: &str = "dirs_var";
@@ -274,7 +274,7 @@ pub fn find_in_dirs_env(
 ) -> Result<Option<PathBuf>, ShellError> {
     // Choose whether to use file-relative or PWD-relative path
     let cwd = if let Some(pwd) = stack.get_env_var(engine_state, "FILE_PWD") {
-        match env_to_string("FILE_PWD", &pwd, engine_state, stack) {
+        match env_to_string("FILE_PWD", pwd, engine_state, stack) {
             Ok(cwd) => {
                 if Path::new(&cwd).is_absolute() {
                     cwd
@@ -294,7 +294,7 @@ pub fn find_in_dirs_env(
         engine_state.cwd_as_string(Some(stack))?
     };
 
-    let check_dir = |lib_dirs: Option<Value>| -> Option<PathBuf> {
+    let check_dir = |lib_dirs: Option<&Value>| -> Option<PathBuf> {
         if let Ok(p) = canonicalize_with(filename, &cwd) {
             return Some(p);
         }
@@ -316,7 +316,7 @@ pub fn find_in_dirs_env(
             .flatten()
     };
 
-    let lib_dirs = dirs_var.and_then(|var_id| engine_state.get_var(var_id).const_val.clone());
+    let lib_dirs = dirs_var.and_then(|var_id| engine_state.get_var(var_id).const_val.as_ref());
     // TODO: remove (see #8310)
     let lib_dirs_fallback = stack.get_env_var(engine_state, "NU_LIB_DIRS");
 

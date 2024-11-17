@@ -58,6 +58,7 @@ pub struct ViewConfig<'a> {
     pub explore_config: &'a ExploreConfig,
     pub style_computer: &'a StyleComputer<'a>,
     pub lscolors: &'a LsColors,
+    pub cwd: &'a str,
 }
 
 impl<'a> ViewConfig<'a> {
@@ -66,12 +67,14 @@ impl<'a> ViewConfig<'a> {
         explore_config: &'a ExploreConfig,
         style_computer: &'a StyleComputer<'a>,
         lscolors: &'a LsColors,
+        cwd: &'a str,
     ) -> Self {
         Self {
             nu_config,
             explore_config,
             style_computer,
             lscolors,
+            cwd,
         }
     }
 }

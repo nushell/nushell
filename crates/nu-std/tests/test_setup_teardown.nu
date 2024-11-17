@@ -1,5 +1,5 @@
-use std log
-use std assert
+use std/log
+use std/assert
 
 #[before-each]
 def before-each [] {

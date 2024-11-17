@@ -8,11 +8,11 @@ impl Command for SubCommand {
         "str expand"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Generates all possible combinations defined in brace expansion syntax."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This syntax may seem familiar with `glob {A,B}.C`. The difference is glob relies on filesystem, but str expand is not. Inside braces, we put variants. Then basically we're creating all possible outcomes."
     }
 
@@ -306,6 +306,20 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_outer_single_item() {
+        assert_eq!(
+            str_expand("{W{x,y}}", Span::test_data(), Span::test_data()),
+            Value::list(
+                vec![
+                    Value::string(String::from("Wx"), Span::test_data(),),
+                    Value::string(String::from("Wy"), Span::test_data(),)
+                ],
+                Span::test_data(),
+            )
+        );
+    }
 
     #[test]
     fn dots() {

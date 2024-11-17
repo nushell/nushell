@@ -1,11 +1,14 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_protocol::{
-    byte_stream::copy_with_signals, engine::Closure, process::ChildPipe, ByteStream,
-    ByteStreamSource, OutDest, PipelineMetadata, Signals,
+    byte_stream::copy_with_signals, engine::Closure, process::ChildPipe, report_shell_error,
+    ByteStream, ByteStreamSource, OutDest, PipelineMetadata, Signals,
 };
 use std::{
     io::{self, Read, Write},
-    sync::mpsc::{self, Sender},
+    sync::{
+        mpsc::{self, Sender},
+        Arc,
+    },
     thread::{self, JoinHandle},
 };
 
@@ -17,11 +20,11 @@ impl Command for Tee {
         "tee"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Copy a stream to another command in parallel."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This is useful for doing something else with a stream while still continuing to
 use it in your pipeline."#
     }
@@ -61,6 +64,11 @@ use it in your pipeline."#
                 description: "Print numbers and their sum",
                 result: None,
             },
+            Example {
+                example: "10000 | tee { 1..$in | print } | $in * 5",
+                description: "Do something with a value on another thread, while also passing through the value",
+                result: Some(Value::test_int(50000)),
+            }
         ]
     }
 
@@ -78,8 +86,10 @@ use it in your pipeline."#
         let closure_span = closure.span;
         let closure = closure.item;
 
+        let engine_state_arc = Arc::new(engine_state.clone());
+
         let mut eval_block = {
-            let closure_engine_state = engine_state.clone();
+            let closure_engine_state = engine_state_arc.clone();
             let mut closure_stack = stack
                 .captures_to_stack_preserve_out_dest(closure.captures)
                 .reset_pipes();
@@ -97,8 +107,15 @@ use it in your pipeline."#
             }
         };
 
+        // Convert values that can be represented as streams into streams. Streams can pass errors
+        // through later, so if we treat string/binary/list as a stream instead, it's likely that
+        // we can get the error back to the original thread.
+        let span = input.span().unwrap_or(head);
+        let input = input
+            .try_into_stream(engine_state)
+            .unwrap_or_else(|original_input| original_input);
+
         if let PipelineData::ByteStream(stream, metadata) = input {
-            let span = stream.span();
             let type_ = stream.type_();
 
             let info = StreamInfo {
@@ -141,12 +158,12 @@ use it in your pipeline."#
                             let tee_thread = spawn_tee(info.clone(), eval_block)?;
                             let tee = IoTee::new(stderr, tee_thread);
                             match stack.stderr() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stderr = Some(ChildPipe::Tee(Box::new(tee)));
                                     Ok(None)
                                 }
                                 OutDest::Null => copy_on_thread(tee, io::sink(), &info).map(Some),
-                                OutDest::Inherit => {
+                                OutDest::Print | OutDest::Inherit => {
                                     copy_on_thread(tee, io::stderr(), &info).map(Some)
                                 }
                                 OutDest::File(file) => {
@@ -159,12 +176,14 @@ use it in your pipeline."#
 
                         if let Some(stdout) = child.stdout.take() {
                             match stack.stdout() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stdout = Some(stdout);
                                     Ok(())
                                 }
                                 OutDest::Null => copy_pipe(stdout, io::sink(), &info),
-                                OutDest::Inherit => copy_pipe(stdout, io::stdout(), &info),
+                                OutDest::Print | OutDest::Inherit => {
+                                    copy_pipe(stdout, io::stdout(), &info)
+                                }
                                 OutDest::File(file) => copy_pipe(stdout, file.as_ref(), &info),
                             }?;
                         }
@@ -174,14 +193,14 @@ use it in your pipeline."#
                         let stderr_thread = if let Some(stderr) = child.stderr.take() {
                             let info = info.clone();
                             match stack.stderr() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stderr = Some(stderr);
                                     Ok(None)
                                 }
                                 OutDest::Null => {
                                     copy_pipe_on_thread(stderr, io::sink(), &info).map(Some)
                                 }
-                                OutDest::Inherit => {
+                                OutDest::Print | OutDest::Inherit => {
                                     copy_pipe_on_thread(stderr, io::stderr(), &info).map(Some)
                                 }
                                 OutDest::File(file) => {
@@ -196,12 +215,12 @@ use it in your pipeline."#
                             let tee_thread = spawn_tee(info.clone(), eval_block)?;
                             let tee = IoTee::new(stdout, tee_thread);
                             match stack.stdout() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stdout = Some(ChildPipe::Tee(Box::new(tee)));
                                     Ok(())
                                 }
                                 OutDest::Null => copy(tee, io::sink(), &info),
-                                OutDest::Inherit => copy(tee, io::stdout(), &info),
+                                OutDest::Print | OutDest::Inherit => copy(tee, io::stdout(), &info),
                                 OutDest::File(file) => copy(tee, file.as_ref(), &info),
                             }?;
                         }
@@ -228,27 +247,42 @@ use it in your pipeline."#
                 return stderr_misuse(input.span().unwrap_or(head), head);
             }
 
-            let span = input.span().unwrap_or(head);
             let metadata = input.metadata();
             let metadata_clone = metadata.clone();
-            let signals = engine_state.signals().clone();
 
-            Ok(tee(input.into_iter(), move |rx| {
-                let input = rx.into_pipeline_data_with_metadata(span, signals, metadata_clone);
-                eval_block(input)
-            })
-            .err_span(call.head)?
-            .map(move |result| result.unwrap_or_else(|err| Value::error(err, closure_span)))
-            .into_pipeline_data_with_metadata(
-                span,
-                engine_state.signals().clone(),
-                metadata,
-            ))
+            if matches!(input, PipelineData::ListStream(..)) {
+                // Only use the iterator implementation on lists / list streams. We want to be able
+                // to preserve errors as much as possible, and only the stream implementations can
+                // really do that
+                let signals = engine_state.signals().clone();
+
+                Ok(tee(input.into_iter(), move |rx| {
+                    let input = rx.into_pipeline_data_with_metadata(span, signals, metadata_clone);
+                    eval_block(input)
+                })
+                .err_span(call.head)?
+                .map(move |result| result.unwrap_or_else(|err| Value::error(err, closure_span)))
+                .into_pipeline_data_with_metadata(
+                    span,
+                    engine_state.signals().clone(),
+                    metadata,
+                ))
+            } else {
+                // Otherwise, we can spawn a thread with the input value, but we have nowhere to
+                // send an error to other than just trying to print it to stderr.
+                let value = input.into_value(span)?;
+                let value_clone = value.clone();
+                tee_once(engine_state_arc, move || {
+                    eval_block(value_clone.into_pipeline_data_with_metadata(metadata_clone))
+                })
+                .err_span(call.head)?;
+                Ok(value.into_pipeline_data_with_metadata(metadata))
+            }
         }
     }
 
     fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
-        (Some(OutDest::Capture), Some(OutDest::Capture))
+        (Some(OutDest::PipeSeparate), Some(OutDest::PipeSeparate))
     }
 }
 
@@ -312,6 +346,18 @@ where
             })
         }
     }))
+}
+
+/// "tee" for a single value. No stream handling, just spawns a thread, printing any resulting error
+fn tee_once(
+    engine_state: Arc<EngineState>,
+    on_thread: impl FnOnce() -> Result<(), ShellError> + Send + 'static,
+) -> Result<JoinHandle<()>, std::io::Error> {
+    thread::Builder::new().name("tee".into()).spawn(move || {
+        if let Err(err) = on_thread() {
+            report_shell_error(&engine_state, &err);
+        }
+    })
 }
 
 fn stderr_misuse<T>(span: Span, head: Span) -> Result<T, ShellError> {

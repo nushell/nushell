@@ -1,7 +1,5 @@
-use crate::{
-    byte_stream::convert_file, process::ExitStatus, ErrSpan, IntoSpanned, ShellError, Span,
-};
-use nu_system::ForegroundChild;
+use crate::{byte_stream::convert_file, ErrSpan, IntoSpanned, ShellError, Span};
+use nu_system::{ExitStatus, ForegroundChild};
 use os_pipe::PipeReader;
 use std::{
     fmt::Debug,
@@ -9,6 +7,49 @@ use std::{
     sync::mpsc::{self, Receiver, RecvError, TryRecvError},
     thread,
 };
+
+fn check_ok(status: ExitStatus, ignore_error: bool, span: Span) -> Result<(), ShellError> {
+    match status {
+        ExitStatus::Exited(exit_code) => {
+            if ignore_error {
+                Ok(())
+            } else if let Ok(exit_code) = exit_code.try_into() {
+                Err(ShellError::NonZeroExitCode { exit_code, span })
+            } else {
+                Ok(())
+            }
+        }
+        #[cfg(unix)]
+        ExitStatus::Signaled {
+            signal,
+            core_dumped,
+        } => {
+            use nix::sys::signal::Signal;
+
+            let sig = Signal::try_from(signal);
+
+            if sig == Ok(Signal::SIGPIPE) || (ignore_error && !core_dumped) {
+                // Processes often exit with SIGPIPE, but this is not an error condition.
+                Ok(())
+            } else {
+                let signal_name = sig.map(Signal::as_str).unwrap_or("unknown signal").into();
+                Err(if core_dumped {
+                    ShellError::CoreDumped {
+                        signal_name,
+                        signal,
+                        span,
+                    }
+                } else {
+                    ShellError::TerminatedBySignal {
+                        signal_name,
+                        signal,
+                        span,
+                    }
+                })
+            }
+        }
+    }
+}
 
 #[derive(Debug)]
 enum ExitStatusFuture {
@@ -23,21 +64,16 @@ impl ExitStatusFuture {
             ExitStatusFuture::Finished(Err(err)) => Err(err.as_ref().clone()),
             ExitStatusFuture::Running(receiver) => {
                 let code = match receiver.recv() {
-                    Ok(Ok(status)) => {
-                        #[cfg(unix)]
-                        if let ExitStatus::Signaled {
-                            signal,
-                            core_dumped: true,
-                        } = status
-                        {
-                            return Err(ShellError::CoredumpErrorSpanned {
-                                msg: format!("coredump detected. received signal: {signal}"),
-                                signal,
-                                span,
-                            });
-                        }
+                    #[cfg(unix)]
+                    Ok(Ok(
+                        status @ ExitStatus::Signaled {
+                            core_dumped: true, ..
+                        },
+                    )) => {
+                        check_ok(status, false, span)?;
                         Ok(status)
                     }
+                    Ok(Ok(status)) => Ok(status),
                     Ok(Err(err)) => Err(ShellError::IOErrorSpanned {
                         msg: format!("failed to get exit code: {err:?}"),
                         span,
@@ -114,6 +150,7 @@ pub struct ChildProcess {
     pub stdout: Option<ChildPipe>,
     pub stderr: Option<ChildPipe>,
     exit_status: ExitStatusFuture,
+    ignore_error: bool,
     span: Span,
 }
 
@@ -142,7 +179,7 @@ impl ChildProcess {
 
         thread::Builder::new()
             .name("exit status waiter".into())
-            .spawn(move || exit_status_sender.send(child.wait().map(Into::into)))
+            .spawn(move || exit_status_sender.send(child.wait()))
             .err_span(span)?;
 
         Ok(Self::from_raw(stdout, stderr, Some(exit_status), span))
@@ -160,12 +197,14 @@ impl ChildProcess {
             exit_status: exit_status
                 .map(ExitStatusFuture::Running)
                 .unwrap_or(ExitStatusFuture::Finished(Ok(ExitStatus::Exited(0)))),
+            ignore_error: false,
             span,
         }
     }
 
-    pub fn set_exit_code(&mut self, exit_code: i32) {
-        self.exit_status = ExitStatusFuture::Finished(Ok(ExitStatus::Exited(exit_code)));
+    pub fn ignore_error(&mut self, ignore: bool) -> &mut Self {
+        self.ignore_error = ignore;
+        self
     }
 
     pub fn span(&self) -> Span {
@@ -187,13 +226,16 @@ impl ChildProcess {
             Vec::new()
         };
 
-        // TODO: check exit_status
-        self.exit_status.wait(self.span)?;
+        check_ok(
+            self.exit_status.wait(self.span)?,
+            self.ignore_error,
+            self.span,
+        )?;
 
         Ok(bytes)
     }
 
-    pub fn wait(mut self) -> Result<ExitStatus, ShellError> {
+    pub fn wait(mut self) -> Result<(), ShellError> {
         if let Some(stdout) = self.stdout.take() {
             let stderr = self
                 .stderr
@@ -229,7 +271,11 @@ impl ChildProcess {
             consume_pipe(stderr).err_span(self.span)?;
         }
 
-        self.exit_status.wait(self.span)
+        check_ok(
+            self.exit_status.wait(self.span)?,
+            self.ignore_error,
+            self.span,
+        )
     }
 
     pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, ShellError> {

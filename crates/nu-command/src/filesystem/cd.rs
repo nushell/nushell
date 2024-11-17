@@ -1,4 +1,3 @@
-use nu_cmd_base::util::get_init_cwd;
 use nu_engine::command_prelude::*;
 use nu_utils::filesystem::{have_permission, PermissionResult};
 
@@ -10,7 +9,7 @@ impl Command for Cd {
         "cd"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Change directory."
     }
 
@@ -41,12 +40,14 @@ impl Command for Cd {
         let physical = call.has_flag(engine_state, stack, "physical")?;
         let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
 
-        // If getting PWD failed, default to the initial directory. This way, the
-        // user can use `cd` to recover PWD to a good state.
+        // If getting PWD failed, default to the home directory. The user can
+        // use `cd` to reset PWD to a good state.
         let cwd = engine_state
             .cwd(Some(stack))
             .ok()
-            .unwrap_or_else(get_init_cwd);
+            .or_else(nu_path::home_dir)
+            .map(|path| path.into_std_path_buf())
+            .unwrap_or_default();
 
         let path_val = {
             if let Some(path) = path_val {
@@ -65,7 +66,7 @@ impl Command for Cd {
                     if let Some(oldpwd) = stack.get_env_var(engine_state, "OLDPWD") {
                         oldpwd.to_path()?
                     } else {
-                        cwd.into()
+                        cwd
                     }
                 } else {
                     // Trim whitespace from the end of path.
@@ -106,7 +107,7 @@ impl Command for Cd {
         // Set OLDPWD.
         // We're using `Stack::get_env_var()` instead of `EngineState::cwd()` to avoid a conversion roundtrip.
         if let Some(oldpwd) = stack.get_env_var(engine_state, "PWD") {
-            stack.add_env_var("OLDPWD".into(), oldpwd)
+            stack.add_env_var("OLDPWD".into(), oldpwd.clone())
         }
 
         match have_permission(&path) {

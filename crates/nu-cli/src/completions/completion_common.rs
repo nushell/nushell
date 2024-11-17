@@ -1,3 +1,4 @@
+use super::MatchAlgorithm;
 use crate::{
     completions::{matches, CompletionOptions},
     SemanticSuggestion,
@@ -5,6 +6,7 @@ use crate::{
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
+use nu_path::dots::expand_ndots;
 use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
@@ -12,8 +14,6 @@ use nu_protocol::{
 };
 use nu_utils::get_ls_colors;
 use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
-
-use super::MatchAlgorithm;
 
 #[derive(Clone, Default)]
 pub struct PathBuiltFromString {
@@ -41,7 +41,7 @@ pub fn complete_rec(
     let mut completions = vec![];
 
     if let Some((&base, rest)) = partial.split_first() {
-        if (base == "." || base == "..") && (isdir || !rest.is_empty()) {
+        if base.chars().all(|c| c == '.') && (isdir || !rest.is_empty()) {
             let mut built = built.clone();
             built.parts.push(base.to_string());
             built.isdir = true;
@@ -156,22 +156,31 @@ pub fn complete_item(
     engine_state: &EngineState,
     stack: &Stack,
 ) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
-    let partial = surround_remove(partial);
-    let isdir = partial.ends_with(is_separator);
+    let cleaned_partial = surround_remove(partial);
+    let isdir = cleaned_partial.ends_with(is_separator);
+    let expanded_partial = expand_ndots(Path::new(&cleaned_partial));
+    let should_collapse_dots = expanded_partial != Path::new(&cleaned_partial);
+    let mut partial = expanded_partial.to_string_lossy().to_string();
 
     #[cfg(unix)]
     let path_separator = SEP;
     #[cfg(windows)]
-    let path_separator = partial
+    let path_separator = cleaned_partial
         .chars()
         .rfind(|c: &char| is_separator(*c))
         .unwrap_or(SEP);
+
+    // Handle the trailing dot case
+    if cleaned_partial.ends_with(&format!("{path_separator}.")) {
+        partial.push_str(&format!("{path_separator}."));
+    }
+
     let cwd_pathbuf = Path::new(cwd).to_path_buf();
-    let ls_colors = (engine_state.config.use_ls_colors_completions
+    let ls_colors = (engine_state.config.completions.use_ls_colors
         && engine_state.config.use_ansi_coloring)
         .then(|| {
             let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
-                Some(v) => env_to_string("LS_COLORS", &v, engine_state, stack).ok(),
+                Some(v) => env_to_string("LS_COLORS", v, engine_state, stack).ok(),
                 None => None,
             };
             get_ls_colors(ls_colors_env_str)
@@ -185,16 +194,11 @@ pub fn complete_item(
     match components.peek().cloned() {
         Some(c @ Component::Prefix(..)) => {
             // windows only by definition
-            components.next();
-            if let Some(Component::RootDir) = components.peek().cloned() {
-                components.next();
-            };
             cwd = [c, Component::RootDir].iter().collect();
             prefix_len = c.as_os_str().len();
             original_cwd = OriginalCwd::Prefix(c.as_os_str().to_string_lossy().into_owned());
         }
         Some(c @ Component::RootDir) => {
-            components.next();
             // This is kind of a hack. When joining an empty string with the rest,
             // we add the slash automagically
             cwd = PathBuf::from(c.as_os_str());
@@ -202,7 +206,6 @@ pub fn complete_item(
             original_cwd = OriginalCwd::Prefix(String::new());
         }
         Some(Component::Normal(home)) if home.to_string_lossy() == "~" => {
-            components.next();
             cwd = home_dir().map(Into::into).unwrap_or(cwd_pathbuf);
             prefix_len = 1;
             original_cwd = OriginalCwd::Home;
@@ -227,7 +230,10 @@ pub fn complete_item(
         isdir,
     )
     .into_iter()
-    .map(|p| {
+    .map(|mut p| {
+        if should_collapse_dots {
+            p = collapse_ndots(p);
+        }
         let path = original_cwd.apply(p, path_separator);
         let style = ls_colors.as_ref().map(|lsc| {
             lsc.style_for_path_with_metadata(
@@ -261,8 +267,10 @@ pub fn escape_path(path: String, dir: bool) -> String {
     let filename_contaminated = !dir && path.contains(['\'', '"', ' ', '#', '(', ')']);
     let dirname_contaminated = dir && path.contains(['\'', '"', ' ', '#']);
     let maybe_flag = path.starts_with('-');
+    let maybe_variable = path.starts_with('$');
     let maybe_number = path.parse::<f64>().is_ok();
-    if filename_contaminated || dirname_contaminated || maybe_flag || maybe_number {
+    if filename_contaminated || dirname_contaminated || maybe_flag || maybe_variable || maybe_number
+    {
         format!("`{path}`")
     } else {
         path
@@ -327,7 +335,7 @@ pub fn sort_completions<T>(
         } else {
             matcher = matcher.ignore_case();
         };
-        items.sort_by(|a, b| {
+        items.sort_unstable_by(|a, b| {
             let a_str = get_value(a);
             let b_str = get_value(b);
             let a_score = matcher.fuzzy_match(a_str, prefix).unwrap_or_default();
@@ -335,8 +343,42 @@ pub fn sort_completions<T>(
             b_score.cmp(&a_score).then(a_str.cmp(b_str))
         });
     } else {
-        items.sort_by(|a, b| get_value(a).cmp(get_value(b)));
+        items.sort_unstable_by(|a, b| get_value(a).cmp(get_value(b)));
     }
 
     items
+}
+
+/// Collapse multiple ".." components into n-dots.
+///
+/// It performs the reverse operation of `expand_ndots`, collapsing sequences of ".." into n-dots,
+/// such as "..." and "....".
+///
+/// The resulting path will use platform-specific path separators, regardless of what path separators were used in the input.
+fn collapse_ndots(path: PathBuiltFromString) -> PathBuiltFromString {
+    let mut result = PathBuiltFromString {
+        parts: Vec::with_capacity(path.parts.len()),
+        isdir: path.isdir,
+    };
+
+    let mut dot_count = 0;
+
+    for part in path.parts {
+        if part == ".." {
+            dot_count += 1;
+        } else {
+            if dot_count > 0 {
+                result.parts.push(".".repeat(dot_count + 1));
+                dot_count = 0;
+            }
+            result.parts.push(part);
+        }
+    }
+
+    // Add any remaining dots
+    if dot_count > 0 {
+        result.parts.push(".".repeat(dot_count + 1));
+    }
+
+    result
 }

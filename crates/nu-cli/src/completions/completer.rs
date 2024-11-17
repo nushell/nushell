@@ -1,6 +1,6 @@
 use crate::completions::{
     CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
-    DotNuCompletion, FileCompletion, FlagCompletion, VariableCompletion,
+    DotNuCompletion, FileCompletion, FlagCompletion, OperatorCompletion, VariableCompletion,
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
@@ -25,7 +25,7 @@ impl NuCompleter {
     pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
         Self {
             engine_state,
-            stack: Stack::with_parent(stack).reset_out_dest().capture(),
+            stack: Stack::with_parent(stack).reset_out_dest().collect_value(),
         }
     }
 
@@ -38,7 +38,7 @@ impl NuCompleter {
         &self,
         completer: &mut T,
         working_set: &StateWorkingSet,
-        prefix: Vec<u8>,
+        prefix: &[u8],
         new_span: Span,
         offset: usize,
         pos: usize,
@@ -46,16 +46,16 @@ impl NuCompleter {
         let config = self.engine_state.get_config();
 
         let options = CompletionOptions {
-            case_sensitive: config.case_sensitive_completions,
-            match_algorithm: config.completion_algorithm.into(),
-            sort: config.completion_sort,
+            case_sensitive: config.completions.case_sensitive,
+            match_algorithm: config.completions.algorithm.into(),
+            sort: config.completions.sort,
             ..Default::default()
         };
 
         completer.fetch(
             working_set,
             &self.stack,
-            prefix.clone(),
+            prefix,
             new_span,
             offset,
             pos,
@@ -170,23 +170,38 @@ impl NuCompleter {
                         let new_span = Span::new(flat.0.start, flat.0.end - 1);
 
                         // Parses the prefix. Completion should look up to the cursor position, not after.
-                        let mut prefix = working_set.get_span_contents(flat.0).to_vec();
+                        let mut prefix = working_set.get_span_contents(flat.0);
                         let index = pos - flat.0.start;
-                        prefix.drain(index..);
+                        prefix = &prefix[..index];
 
                         // Variables completion
                         if prefix.starts_with(b"$") || most_left_var.is_some() {
-                            let mut completer =
+                            let mut variable_names_completer =
                                 VariableCompletion::new(most_left_var.unwrap_or((vec![], vec![])));
 
-                            return self.process_completion(
-                                &mut completer,
+                            let mut variable_completions = self.process_completion(
+                                &mut variable_names_completer,
                                 &working_set,
                                 prefix,
                                 new_span,
                                 fake_offset,
                                 pos,
                             );
+
+                            let mut variable_operations_completer =
+                                OperatorCompletion::new(pipeline_element.expr.clone());
+
+                            let mut variable_operations_completions = self.process_completion(
+                                &mut variable_operations_completer,
+                                &working_set,
+                                prefix,
+                                new_span,
+                                fake_offset,
+                                pos,
+                            );
+
+                            variable_completions.append(&mut variable_operations_completions);
+                            return variable_completions;
                         }
 
                         // Flags completion
@@ -196,7 +211,7 @@ impl NuCompleter {
                             let result = self.process_completion(
                                 &mut completer,
                                 &working_set,
-                                prefix.clone(),
+                                prefix,
                                 new_span,
                                 fake_offset,
                                 pos,
@@ -208,7 +223,7 @@ impl NuCompleter {
 
                             // We got no results for internal completion
                             // now we can check if external completer is set and use it
-                            if let Some(closure) = config.external_completer.as_ref() {
+                            if let Some(closure) = config.completions.external.completer.as_ref() {
                                 if let Some(external_result) =
                                     self.external_completion(closure, &spans, fake_offset, new_span)
                                 {
@@ -261,6 +276,26 @@ impl NuCompleter {
                                     );
                                 } else if prev_expr_str == b"ls" {
                                     let mut completer = FileCompletion::new();
+
+                                    return self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix,
+                                        new_span,
+                                        fake_offset,
+                                        pos,
+                                    );
+                                } else if matches!(
+                                    previous_expr.1,
+                                    FlatShape::Float
+                                        | FlatShape::Int
+                                        | FlatShape::String
+                                        | FlatShape::List
+                                        | FlatShape::Bool
+                                        | FlatShape::Variable(_)
+                                ) {
+                                    let mut completer =
+                                        OperatorCompletion::new(pipeline_element.expr.clone());
 
                                     return self.process_completion(
                                         &mut completer,
@@ -327,7 +362,7 @@ impl NuCompleter {
                                 let mut out: Vec<_> = self.process_completion(
                                     &mut completer,
                                     &working_set,
-                                    prefix.clone(),
+                                    prefix,
                                     new_span,
                                     fake_offset,
                                     pos,
@@ -338,7 +373,9 @@ impl NuCompleter {
                                 }
 
                                 // Try to complete using an external completer (if set)
-                                if let Some(closure) = config.external_completer.as_ref() {
+                                if let Some(closure) =
+                                    config.completions.external.completer.as_ref()
+                                {
                                     if let Some(external_result) = self.external_completion(
                                         closure,
                                         &spans,
@@ -531,6 +568,11 @@ mod completer_tests {
 
         let mut completer = NuCompleter::new(engine_state.into(), Arc::new(Stack::new()));
         let dataset = [
+            ("1 bit-sh", true, "b", vec!["bit-shl", "bit-shr"]),
+            ("1.0 bit-sh", false, "b", vec![]),
+            ("1 m", true, "m", vec!["mod"]),
+            ("1.0 m", true, "m", vec!["mod"]),
+            ("\"a\" s", true, "s", vec!["starts-with"]),
             ("sudo", false, "", Vec::new()),
             ("sudo l", true, "l", vec!["ls", "let", "lines", "loop"]),
             (" sudo", false, "", Vec::new()),

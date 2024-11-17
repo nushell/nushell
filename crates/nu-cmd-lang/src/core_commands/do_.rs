@@ -1,7 +1,7 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
 use nu_protocol::{
     engine::Closure,
-    process::{ChildPipe, ChildProcess, ExitStatus},
+    process::{ChildPipe, ChildProcess},
     ByteStream, ByteStreamSource, OutDest,
 };
 use std::{
@@ -17,7 +17,7 @@ impl Command for Do {
         "do"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Run a closure, providing it with the pipeline input."
     }
 
@@ -82,9 +82,6 @@ impl Command for Do {
         bind_args_to(&mut callee_stack, &block.signature, rest, head)?;
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
-        // Applies to all block evaluation once set true
-        callee_stack.use_ir = caller_stack.has_env_var(engine_state, "NU_USE_IR");
-
         let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
 
         if has_env {
@@ -147,13 +144,8 @@ impl Command for Do {
                             None
                         };
 
-                        if child.wait()? != ExitStatus::Exited(0) {
-                            return Err(ShellError::ExternalCommand {
-                                label: "External command failed".to_string(),
-                                help: stderr_msg,
-                                span,
-                            });
-                        }
+                        child.ignore_error(false);
+                        child.wait()?;
 
                         let mut child = ChildProcess::from_raw(None, None, None, span);
                         if let Some(stdout) = stdout {
@@ -172,10 +164,13 @@ impl Command for Do {
             }
             Ok(PipelineData::ByteStream(mut stream, metadata))
                 if ignore_program_errors
-                    && !matches!(caller_stack.stdout(), OutDest::Pipe | OutDest::Capture) =>
+                    && !matches!(
+                        caller_stack.stdout(),
+                        OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
+                    ) =>
             {
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
-                    child.set_exit_code(0)
+                    child.ignore_error(true);
                 }
                 Ok(PipelineData::ByteStream(stream, metadata))
             }

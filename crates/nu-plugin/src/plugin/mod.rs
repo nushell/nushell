@@ -69,7 +69,7 @@ pub(crate) const OUTPUT_BUFFER_SIZE: usize = 16384;
 ///         "hello"
 ///     }
 ///
-///     fn usage(&self) -> &str {
+///     fn description(&self) -> &str {
 ///         "Every programmer's favorite greeting"
 ///     }
 ///
@@ -655,6 +655,15 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
 
     println!("Nushell Plugin");
     println!("Encoder: {}", encoder.name());
+    println!("Version: {}", plugin.version());
+
+    // Determine the plugin name
+    let exe = std::env::current_exe().ok();
+    let plugin_name: String = exe
+        .as_ref()
+        .map(|stem| stem.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "(unknown)".into());
+    println!("Plugin file path: {}", plugin_name);
 
     let mut help = String::new();
     let help_style = HelpStyle::default();
@@ -662,10 +671,14 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
     plugin.commands().into_iter().for_each(|command| {
         let signature = command.signature();
         let res = write!(help, "\nCommand: {}", command.name())
-            .and_then(|_| writeln!(help, "\nUsage:\n > {}", command.usage()))
+            .and_then(|_| writeln!(help, "\nDescription:\n > {}", command.description()))
             .and_then(|_| {
-                if !command.extra_usage().is_empty() {
-                    writeln!(help, "\nExtra usage:\n > {}", command.extra_usage())
+                if !command.extra_description().is_empty() {
+                    writeln!(
+                        help,
+                        "\nExtra description:\n > {}",
+                        command.extra_description()
+                    )
                 } else {
                     Ok(())
                 }

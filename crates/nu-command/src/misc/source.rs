@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
-use nu_protocol::engine::CommandType;
+use nu_protocol::{engine::CommandType, BlockId};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -21,11 +21,11 @@ impl Command for Source {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Runs a script file in the current context."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
@@ -44,7 +44,8 @@ impl Command for Source {
         // Note: this hidden positional is the block_id that corresponded to the 0th position
         // it is put here by the parser
         let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
-        let block = engine_state.get_block(block_id as usize).clone();
+        let block_id = BlockId::new(block_id as usize);
+        let block = engine_state.get_block(block_id).clone();
 
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 

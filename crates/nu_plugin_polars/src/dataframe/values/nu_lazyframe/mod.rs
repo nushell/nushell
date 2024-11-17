@@ -55,16 +55,21 @@ impl NuLazyFrame {
     }
 
     pub fn collect(self, span: Span) -> Result<NuDataFrame, ShellError> {
-        self.to_polars()
-            .collect()
-            .map_err(|e| ShellError::GenericError {
-                error: "Error collecting lazy frame".into(),
-                msg: e.to_string(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            })
-            .map(|df| NuDataFrame::new(true, df))
+        crate::handle_panic(
+            || {
+                self.to_polars()
+                    .collect()
+                    .map_err(|e| ShellError::GenericError {
+                        error: "Error collecting lazy frame".into(),
+                        msg: e.to_string(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    })
+                    .map(|df| NuDataFrame::new(true, df))
+            },
+            span,
+        )
     }
 
     pub fn apply_with_expr<F>(self, expr: NuExpression, f: F) -> Self
@@ -78,16 +83,15 @@ impl NuLazyFrame {
     }
 
     pub fn schema(&mut self) -> Result<NuSchema, ShellError> {
-        let internal_schema =
-            Arc::make_mut(&mut self.lazy)
-                .schema()
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error getting schema from lazy frame".into(),
-                    msg: e.to_string(),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                })?;
+        let internal_schema = Arc::make_mut(&mut self.lazy)
+            .collect_schema()
+            .map_err(|e| ShellError::GenericError {
+                error: "Error getting schema from lazy frame".into(),
+                msg: e.to_string(),
+                span: None,
+                help: None,
+                inner: vec![],
+            })?;
         Ok(internal_schema.into())
     }
 

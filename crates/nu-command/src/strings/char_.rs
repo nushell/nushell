@@ -2,8 +2,8 @@ use indexmap::{indexmap, IndexMap};
 use nu_engine::command_prelude::*;
 
 use nu_protocol::Signals;
-use once_cell::sync::Lazy;
 use std::collections::HashSet;
+use std::sync::LazyLock;
 
 // Character used to separate directories in a Path Environment variable on windows is ";"
 #[cfg(target_family = "windows")]
@@ -15,7 +15,7 @@ const ENV_PATH_SEPARATOR_CHAR: char = ':';
 #[derive(Clone)]
 pub struct Char;
 
-static CHAR_MAP: Lazy<IndexMap<&'static str, String>> = Lazy::new(|| {
+static CHAR_MAP: LazyLock<IndexMap<&'static str, String>> = LazyLock::new(|| {
     indexmap! {
         // These are some regular characters that either can't be used or
         // it's just easier to use them like this.
@@ -150,7 +150,7 @@ static CHAR_MAP: Lazy<IndexMap<&'static str, String>> = Lazy::new(|| {
     }
 });
 
-static NO_OUTPUT_CHARS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
+static NO_OUTPUT_CHARS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     [
         // If the character is in the this set, we don't output it to prevent
         // the broken of `char --list` command table format and alignment.
@@ -193,7 +193,7 @@ impl Command for Char {
         true
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Output special characters (e.g., 'newline')."
     }
 

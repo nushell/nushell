@@ -28,7 +28,7 @@ impl Command for ToJson {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts table data into JSON text."
     }
 
@@ -161,7 +161,7 @@ fn json_list(input: &[Value]) -> Result<Vec<nu_json::Value>, ShellError> {
 mod test {
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
-    use crate::Metadata;
+    use crate::{Get, Metadata};
 
     use super::*;
 
@@ -182,6 +182,7 @@ mod test {
 
             working_set.add_decl(Box::new(ToJson {}));
             working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
 
             working_set.render()
         };

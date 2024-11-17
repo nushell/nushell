@@ -32,11 +32,11 @@ impl Command for Select {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Select only these columns or rows from the input. Opposite of `reject`."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This differs from `get` in that, rather than accessing the given value in the data structure,
 it removes all non-selected values from the structure. Hence, using `select` on a table will
 produce a table, a list will produce a list, and a record will produce a record."#
@@ -64,12 +64,12 @@ produce a table, a list will produce a list, and a record will produce a record.
                 Value::String { val, .. } => {
                     let cv = CellPath {
                         members: vec![PathMember::String {
-                            val: val.clone(),
+                            val,
                             span: *col_span,
                             optional: false,
                         }],
                     };
-                    new_columns.push(cv.clone());
+                    new_columns.push(cv);
                 }
                 Value::Int { val, internal_span } => {
                     if val < 0 {
@@ -87,7 +87,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                             optional: false,
                         }],
                     };
-                    new_columns.push(cv.clone());
+                    new_columns.push(cv);
                 }
                 x => {
                     return Err(ShellError::CantConvert {
@@ -240,7 +240,7 @@ fn select(
                                 //FIXME: improve implementation to not clone
                                 match input_val.clone().follow_cell_path(&path.members, false) {
                                     Ok(fetcher) => {
-                                        record.push(path.to_string(), fetcher);
+                                        record.push(path.to_column_name(), fetcher);
                                         if !columns_with_value.contains(&path) {
                                             columns_with_value.push(path);
                                         }
@@ -271,7 +271,7 @@ fn select(
                             // FIXME: remove clone
                             match v.clone().follow_cell_path(&cell_path.members, false) {
                                 Ok(result) => {
-                                    record.push(cell_path.to_string(), result);
+                                    record.push(cell_path.to_column_name(), result);
                                 }
                                 Err(e) => return Err(e),
                             }
@@ -295,7 +295,7 @@ fn select(
                         //FIXME: improve implementation to not clone
                         match x.clone().follow_cell_path(&path.members, false) {
                             Ok(value) => {
-                                record.push(path.to_string(), value);
+                                record.push(path.to_column_name(), value);
                             }
                             Err(e) => return Err(e),
                         }

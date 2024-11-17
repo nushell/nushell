@@ -9,8 +9,8 @@ use nu_protocol::{
 pub struct KnownExternal {
     pub name: String,
     pub signature: Box<Signature>,
-    pub usage: String,
-    pub extra_usage: String,
+    pub description: String,
+    pub extra_description: String,
 }
 
 impl Command for KnownExternal {
@@ -22,8 +22,8 @@ impl Command for KnownExternal {
         *self.signature.clone()
     }
 
-    fn usage(&self) -> &str {
-        &self.usage
+    fn description(&self) -> &str {
+        &self.description
     }
 
     fn command_type(&self) -> CommandType {

@@ -18,11 +18,11 @@ impl Command for Values {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Given a record or table, produce a list of its columns' values."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This is a counterpart to `columns`, which produces a list of columns' names."
     }
 

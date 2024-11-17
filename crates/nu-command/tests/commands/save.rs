@@ -415,7 +415,7 @@ fn save_with_custom_converter() {
 
         nu!(cwd: dirs.test(), pipeline(
             r#"
-                def "to ndjson" []: any -> string { each { to json --raw } | to text } ;
+                def "to ndjson" []: any -> string { each { to json --raw } | to text --no-newline } ;
                 {a: 1, b: 2} | save test.ndjson
             "#
         ));

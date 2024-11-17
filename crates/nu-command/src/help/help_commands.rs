@@ -10,7 +10,7 @@ impl Command for HelpCommands {
         "help commands"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show help on nushell commands."
     }
 
@@ -25,7 +25,7 @@ impl Command for HelpCommands {
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in command names, usage, and search terms",
+                "string to find in command names, descriptions, and search terms",
                 Some('f'),
             )
             .input_output_types(vec![(Type::Nothing, Type::table())])
@@ -66,7 +66,7 @@ pub fn help_commands(
         let found_cmds_vec = highlight_search_in_table(
             all_cmds_vec,
             &f.item,
-            &["name", "usage", "search_terms"],
+            &["name", "description", "search_terms"],
             &string_style,
             &highlight_style,
         )?;
@@ -119,7 +119,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
         let sig = decl.signature().update_from_command(decl);
 
         let key = sig.name;
-        let usage = sig.usage;
+        let description = sig.description;
         let search_terms = sig.search_terms;
 
         let command_type = decl.command_type().to_string();
@@ -216,10 +216,11 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
             "name" => Value::string(key, span),
             "category" => Value::string(sig.category.to_string(), span),
             "command_type" => Value::string(command_type, span),
-            "usage" => Value::string(usage, span),
+            "description" => Value::string(description, span),
             "params" => param_table,
             "input_output" => input_output_table,
             "search_terms" => Value::string(search_terms.join(", "), span),
+            "is_const" => Value::bool(decl.is_const(), span),
         };
 
         found_cmds_vec.push(Value::record(record, span));

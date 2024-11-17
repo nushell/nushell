@@ -16,6 +16,7 @@ impl Command for StorInsert {
             .input_output_types(vec![
                 (Type::Nothing, Type::table()),
                 (Type::record(), Type::table()),
+                (Type::table(), Type::table()),
             ])
             .required_named(
                 "table-name",
@@ -33,7 +34,7 @@ impl Command for StorInsert {
             .category(Category::Database)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Insert information into a specified table in the in-memory sqlite database."
     }
 
@@ -43,13 +44,23 @@ impl Command for StorInsert {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-                description: "Insert data the in-memory sqlite database using a data-record of column-name and column-value pairs",
+                description: "Insert data in the in-memory sqlite database using a data-record of column-name and column-value pairs",
                 example: "stor insert --table-name nudb --data-record {bool1: true, int1: 5, float1: 1.1, str1: fdncred, datetime1: 2023-04-17}",
                 result: None,
             },
             Example {
                 description: "Insert data through pipeline input as a record of column-name and column-value pairs",
                 example: "{bool1: true, int1: 5, float1: 1.1, str1: fdncred, datetime1: 2023-04-17} | stor insert --table-name nudb",
+                result: None,
+            },
+            Example {
+                description: "Insert data through pipeline input as a table literal",
+                example: "[[bool1 int1 float1]; [true 5 1.1], [false 8 3.14]] | stor insert --table-name nudb",
+                result: None,
+            },
+            Example {
+                description: "Insert ls entries",
+                example: "ls | stor insert --table-name files",
                 result: None,
             },
         ]
@@ -71,10 +82,11 @@ impl Command for StorInsert {
             Signals::empty(),
         ));
 
-        // Check if the record is being passed as input or using the data record parameter
-        let columns = handle(span, data_record, input)?;
+        let records = handle(span, data_record, input)?;
 
-        process(table_name, span, &db, columns)?;
+        for record in records {
+            process(table_name.clone(), span, &db, record)?;
+        }
 
         Ok(Value::custom(db, span).into_pipeline_data())
     }
@@ -84,51 +96,54 @@ fn handle(
     span: Span,
     data_record: Option<Record>,
     input: PipelineData,
-) -> Result<Record, ShellError> {
-    match input {
-        PipelineData::Empty => data_record.ok_or_else(|| ShellError::MissingParameter {
-            param_name: "requires a record".into(),
-            span,
-        }),
-        PipelineData::Value(value, ..) => {
-            // Since input is being used, check if the data record parameter is used too
-            if data_record.is_some() {
-                return Err(ShellError::GenericError {
-                    error: "Pipeline and Flag both being used".into(),
-                    msg: "Use either pipeline input or '--data-record' parameter".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                });
-            }
-            match value {
-                Value::Record { val, .. } => Ok(val.into_owned()),
-                val => Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "record".into(),
-                    wrong_type: val.get_type().to_string(),
-                    dst_span: Span::unknown(),
-                    src_span: val.span(),
-                }),
-            }
+) -> Result<Vec<Record>, ShellError> {
+    // Check for conflicting use of both pipeline input and flag
+    if let Some(record) = data_record {
+        if !matches!(input, PipelineData::Empty) {
+            return Err(ShellError::GenericError {
+                error: "Pipeline and Flag both being used".into(),
+                msg: "Use either pipeline input or '--data-record' parameter".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            });
         }
+        return Ok(vec![record]);
+    }
+
+    // Handle the input types
+    let values = match input {
+        PipelineData::Empty => {
+            return Err(ShellError::MissingParameter {
+                param_name: "requires a table or a record".into(),
+                span,
+            })
+        }
+        PipelineData::ListStream(stream, ..) => stream.into_iter().collect::<Vec<_>>(),
+        PipelineData::Value(Value::List { vals, .. }, ..) => vals,
+        PipelineData::Value(val, ..) => vec![val],
         _ => {
-            if data_record.is_some() {
-                return Err(ShellError::GenericError {
-                    error: "Pipeline and Flag both being used".into(),
-                    msg: "Use either pipeline input or '--data-record' parameter".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                });
-            }
-            Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "record".into(),
+            return Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "list or record".into(),
                 wrong_type: "".into(),
                 dst_span: span,
                 src_span: span,
             })
         }
-    }
+    };
+
+    values
+        .into_iter()
+        .map(|val| match val {
+            Value::Record { val, .. } => Ok(val.into_owned()),
+            other => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "record".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: Span::unknown(),
+                src_span: other.span(),
+            }),
+        })
+        .collect()
 }
 
 fn process(

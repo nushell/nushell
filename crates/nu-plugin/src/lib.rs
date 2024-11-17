@@ -40,7 +40,7 @@
 //!         "my-command"
 //!     }
 //!
-//!     fn usage(&self) -> &str {
+//!     fn description(&self) -> &str {
 //!         todo!();
 //!     }
 //!

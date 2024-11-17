@@ -3,7 +3,7 @@ use nu_cli::NuCompleter;
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error_new, DeclId, ShellError, Span, Value, VarId,
+    report_shell_error, DeclId, ShellError, Span, Value, VarId,
 };
 use reedline::Completer;
 use serde_json::{json, Value as JsonValue};
@@ -27,7 +27,7 @@ fn find_id(
     let block = parse(working_set, Some(file_path), file, false);
     let flattened = flatten_block(working_set, &block);
 
-    if let Ok(location) = location.as_i64() {
+    if let Ok(location) = location.as_int() {
         let location = location as usize + offset;
         for item in flattened {
             if location >= item.0.start && location < item.0.end {
@@ -55,7 +55,7 @@ fn read_in_file<'a>(
     let file = std::fs::read(file_path)
         .into_diagnostic()
         .unwrap_or_else(|e| {
-            report_error_new(
+            report_shell_error(
                 engine_state,
                 &ShellError::FileNotFoundCustom {
                     msg: format!("Could not read file '{}': {:?}", file_path, e.to_string()),
@@ -80,7 +80,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value
     let mut working_set = StateWorkingSet::new(engine_state);
     let file = std::fs::read(file_path);
 
-    let max_errors = if let Ok(max_errors) = max_errors.as_i64() {
+    let max_errors = if let Ok(max_errors) = max_errors.as_int() {
         max_errors as usize
     } else {
         100
@@ -203,11 +203,11 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
             let mut description = String::new();
 
             // first description
-            description.push_str(&format!("{}\n", decl.usage()));
+            description.push_str(&format!("{}\n", decl.description()));
 
             // additional description
-            if !decl.extra_usage().is_empty() {
-                description.push_str(&format!("\n{}\n", decl.extra_usage()));
+            if !decl.extra_description().is_empty() {
+                description.push_str(&format!("\n{}\n", decl.extra_description()));
             }
 
             // Usage
@@ -603,7 +603,7 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &
             std::process::exit(1);
         });
 
-    if let Ok(location) = location.as_i64() {
+    if let Ok(location) = location.as_int() {
         let results = completer.complete(
             &String::from_utf8_lossy(&file)[..location as usize],
             location as usize,
@@ -642,8 +642,8 @@ pub fn ast(engine_state: &mut EngineState, file_path: &str) {
                 {
                     "type": "ast",
                     "span": {
-                        "start": span.start - offset,
-                        "end": span.end - offset,
+                        "start": span.start.checked_sub(offset),
+                        "end": span.end.checked_sub(offset),
                     },
                     "shape": shape.to_string(),
                     "content": content // may not be necessary, but helpful for debugging

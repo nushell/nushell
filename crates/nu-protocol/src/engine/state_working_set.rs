@@ -1,11 +1,11 @@
 use crate::{
     ast::Block,
     engine::{
-        usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
+        description::build_desc, CachedFile, Command, CommandType, EngineState, OverlayFrame,
         StateDelta, Variable, VirtualPath, Visibility,
     },
-    BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, ParseError,
-    ParseWarning, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, OverlayId,
+    ParseError, ParseWarning, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use core::panic;
 use std::{
@@ -92,7 +92,7 @@ impl<'a> StateWorkingSet<'a> {
             for overlay_id in scope_frame.active_overlays.iter().rev() {
                 let (overlay_name, _) = scope_frame
                     .overlays
-                    .get(*overlay_id)
+                    .get(overlay_id.get())
                     .expect("internal error: missing overlay");
 
                 names.insert(overlay_name);
@@ -112,6 +112,7 @@ impl<'a> StateWorkingSet<'a> {
 
         self.delta.decls.push(decl);
         let decl_id = self.num_decls() - 1;
+        let decl_id = DeclId::new(decl_id);
 
         self.last_overlay_mut().insert_decl(name, decl_id);
 
@@ -152,6 +153,7 @@ impl<'a> StateWorkingSet<'a> {
 
         self.delta.decls.push(decl);
         let decl_id = self.num_decls() - 1;
+        let decl_id = DeclId::new(decl_id);
 
         self.delta
             .last_scope_frame_mut()
@@ -268,7 +270,7 @@ impl<'a> StateWorkingSet<'a> {
 
         self.delta.blocks.push(block);
 
-        self.num_blocks() - 1
+        BlockId::new(self.num_blocks() - 1)
     }
 
     pub fn add_module(&mut self, name: &str, module: Module, comments: Vec<Span>) -> ModuleId {
@@ -276,9 +278,12 @@ impl<'a> StateWorkingSet<'a> {
 
         self.delta.modules.push(Arc::new(module));
         let module_id = self.num_modules() - 1;
+        let module_id = ModuleId::new(module_id);
 
         if !comments.is_empty() {
-            self.delta.usage.add_module_comments(module_id, comments);
+            self.delta
+                .doccomments
+                .add_module_comments(module_id, comments);
         }
 
         self.last_overlay_mut().modules.insert(name, module_id);
@@ -288,7 +293,7 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
         self.delta
-            .usage
+            .doccomments
             .get_module_comments(module_id)
             .or_else(|| self.permanent_state.get_module_comments(module_id))
     }
@@ -312,7 +317,7 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn get_contents_of_file(&self, file_id: FileId) -> Option<&[u8]> {
-        if let Some(cached_file) = self.permanent_state.get_file_contents().get(file_id) {
+        if let Some(cached_file) = self.permanent_state.get_file_contents().get(file_id.get()) {
             return Some(&cached_file.content);
         }
         // The index subtraction will not underflow, if we hit the permanent state first.
@@ -320,7 +325,7 @@ impl<'a> StateWorkingSet<'a> {
         if let Some(cached_file) = self
             .delta
             .get_file_contents()
-            .get(file_id - self.permanent_state.num_files())
+            .get(file_id.get() - self.permanent_state.num_files())
         {
             return Some(&cached_file.content);
         }
@@ -333,7 +338,7 @@ impl<'a> StateWorkingSet<'a> {
         // First, look for the file to see if we already have it
         for (idx, cached_file) in self.files().enumerate() {
             if *cached_file.name == filename && &*cached_file.content == contents {
-                return idx;
+                return FileId::new(idx);
             }
         }
 
@@ -348,18 +353,19 @@ impl<'a> StateWorkingSet<'a> {
             covered_span,
         });
 
-        self.num_files() - 1
+        FileId::new(self.num_files() - 1)
     }
 
     #[must_use]
     pub fn add_virtual_path(&mut self, name: String, virtual_path: VirtualPath) -> VirtualPathId {
         self.delta.virtual_paths.push((name, virtual_path));
 
-        self.num_virtual_paths() - 1
+        VirtualPathId::new(self.num_virtual_paths() - 1)
     }
 
     pub fn get_span_for_filename(&self, filename: &str) -> Option<Span> {
         let file_id = self.files().position(|file| &*file.name == filename)?;
+        let file_id = FileId::new(file_id);
 
         Some(self.get_span_for_file(file_id))
     }
@@ -371,7 +377,7 @@ impl<'a> StateWorkingSet<'a> {
     pub fn get_span_for_file(&self, file_id: FileId) -> Span {
         let result = self
             .files()
-            .nth(file_id)
+            .nth(file_id.get())
             .expect("internal error: could not find source for previously parsed file");
 
         result.covered_span
@@ -524,7 +530,7 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn next_var_id(&self) -> VarId {
         let num_permanent_vars = self.permanent_state.num_vars();
-        num_permanent_vars + self.delta.vars.len()
+        VarId::new(num_permanent_vars + self.delta.vars.len())
     }
 
     pub fn list_variables(&self) -> Vec<&[u8]> {
@@ -633,40 +639,40 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn set_variable_type(&mut self, var_id: VarId, ty: Type) {
         let num_permanent_vars = self.permanent_state.num_vars();
-        if var_id < num_permanent_vars {
+        if var_id.get() < num_permanent_vars {
             panic!("Internal error: attempted to set into permanent state from working set")
         } else {
-            self.delta.vars[var_id - num_permanent_vars].ty = ty;
+            self.delta.vars[var_id.get() - num_permanent_vars].ty = ty;
         }
     }
 
     pub fn set_variable_const_val(&mut self, var_id: VarId, val: Value) {
         let num_permanent_vars = self.permanent_state.num_vars();
-        if var_id < num_permanent_vars {
+        if var_id.get() < num_permanent_vars {
             panic!("Internal error: attempted to set into permanent state from working set")
         } else {
-            self.delta.vars[var_id - num_permanent_vars].const_val = Some(val);
+            self.delta.vars[var_id.get() - num_permanent_vars].const_val = Some(val);
         }
     }
 
     pub fn get_variable(&self, var_id: VarId) -> &Variable {
         let num_permanent_vars = self.permanent_state.num_vars();
-        if var_id < num_permanent_vars {
+        if var_id.get() < num_permanent_vars {
             self.permanent_state.get_var(var_id)
         } else {
             self.delta
                 .vars
-                .get(var_id - num_permanent_vars)
+                .get(var_id.get() - num_permanent_vars)
                 .expect("internal error: missing variable")
         }
     }
 
     pub fn get_variable_if_possible(&self, var_id: VarId) -> Option<&Variable> {
         let num_permanent_vars = self.permanent_state.num_vars();
-        if var_id < num_permanent_vars {
+        if var_id.get() < num_permanent_vars {
             Some(self.permanent_state.get_var(var_id))
         } else {
-            self.delta.vars.get(var_id - num_permanent_vars)
+            self.delta.vars.get(var_id.get() - num_permanent_vars)
         }
     }
 
@@ -685,12 +691,12 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn get_decl(&self, decl_id: DeclId) -> &dyn Command {
         let num_permanent_decls = self.permanent_state.num_decls();
-        if decl_id < num_permanent_decls {
+        if decl_id.get() < num_permanent_decls {
             self.permanent_state.get_decl(decl_id)
         } else {
             self.delta
                 .decls
-                .get(decl_id - num_permanent_decls)
+                .get(decl_id.get() - num_permanent_decls)
                 .expect("internal error: missing declaration")
                 .as_ref()
         }
@@ -698,13 +704,21 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn get_decl_mut(&mut self, decl_id: DeclId) -> &mut Box<dyn Command> {
         let num_permanent_decls = self.permanent_state.num_decls();
-        if decl_id < num_permanent_decls {
+        if decl_id.get() < num_permanent_decls {
             panic!("internal error: can only mutate declarations in working set")
         } else {
             self.delta
                 .decls
-                .get_mut(decl_id - num_permanent_decls)
+                .get_mut(decl_id.get() - num_permanent_decls)
                 .expect("internal error: missing declaration")
+        }
+    }
+
+    pub fn get_signature(&self, decl: &dyn Command) -> Signature {
+        if let Some(block_id) = decl.block_id() {
+            *self.get_block(block_id).signature.clone()
+        } else {
+            decl.signature()
         }
     }
 
@@ -727,7 +741,7 @@ impl<'a> StateWorkingSet<'a> {
                         }
                         output.push((
                             decl.0.clone(),
-                            Some(command.usage().to_string()),
+                            Some(command.description().to_string()),
                             command.command_type(),
                         ));
                     }
@@ -746,36 +760,36 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn get_block(&self, block_id: BlockId) -> &Arc<Block> {
         let num_permanent_blocks = self.permanent_state.num_blocks();
-        if block_id < num_permanent_blocks {
+        if block_id.get() < num_permanent_blocks {
             self.permanent_state.get_block(block_id)
         } else {
             self.delta
                 .blocks
-                .get(block_id - num_permanent_blocks)
+                .get(block_id.get() - num_permanent_blocks)
                 .expect("internal error: missing block")
         }
     }
 
     pub fn get_module(&self, module_id: ModuleId) -> &Module {
         let num_permanent_modules = self.permanent_state.num_modules();
-        if module_id < num_permanent_modules {
+        if module_id.get() < num_permanent_modules {
             self.permanent_state.get_module(module_id)
         } else {
             self.delta
                 .modules
-                .get(module_id - num_permanent_modules)
+                .get(module_id.get() - num_permanent_modules)
                 .expect("internal error: missing module")
         }
     }
 
     pub fn get_block_mut(&mut self, block_id: BlockId) -> &mut Block {
         let num_permanent_blocks = self.permanent_state.num_blocks();
-        if block_id < num_permanent_blocks {
+        if block_id.get() < num_permanent_blocks {
             panic!("Attempt to mutate a block that is in the permanent (immutable) state")
         } else {
             self.delta
                 .blocks
-                .get_mut(block_id - num_permanent_blocks)
+                .get_mut(block_id.get() - num_permanent_blocks)
                 .map(Arc::make_mut)
                 .expect("internal error: missing block")
         }
@@ -902,7 +916,7 @@ impl<'a> StateWorkingSet<'a> {
             last_scope_frame
                 .overlays
                 .push((name, OverlayFrame::from_origin(origin, prefixed)));
-            last_scope_frame.overlays.len() - 1
+            OverlayId::new(last_scope_frame.overlays.len() - 1)
         };
 
         last_scope_frame
@@ -952,12 +966,12 @@ impl<'a> StateWorkingSet<'a> {
         self.delta
     }
 
-    pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
+    pub fn build_desc(&self, spans: &[Span]) -> (String, String) {
         let comment_lines: Vec<&[u8]> = spans
             .iter()
             .map(|span| self.get_span_contents(*span))
             .collect();
-        build_usage(&comment_lines)
+        build_desc(&comment_lines)
     }
 
     pub fn find_block_by_span(&self, span: Span) -> Option<Arc<Block>> {
@@ -979,13 +993,13 @@ impl<'a> StateWorkingSet<'a> {
     pub fn find_module_by_span(&self, span: Span) -> Option<ModuleId> {
         for (id, module) in self.delta.modules.iter().enumerate() {
             if Some(span) == module.span {
-                return Some(self.permanent_state.num_modules() + id);
+                return Some(ModuleId::new(self.permanent_state.num_modules() + id));
             }
         }
 
         for (module_id, module) in self.permanent_state.modules.iter().enumerate() {
             if Some(span) == module.span {
-                return Some(module_id);
+                return Some(ModuleId::new(module_id));
             }
         }
 
@@ -993,14 +1007,17 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn find_virtual_path(&self, name: &str) -> Option<&VirtualPath> {
+        // Platform appropriate virtual path (slashes or backslashes)
+        let virtual_path_name = Path::new(name);
+
         for (virtual_name, virtual_path) in self.delta.virtual_paths.iter().rev() {
-            if virtual_name == name {
+            if Path::new(virtual_name) == virtual_path_name {
                 return Some(virtual_path);
             }
         }
 
         for (virtual_name, virtual_path) in self.permanent_state.virtual_paths.iter().rev() {
-            if virtual_name == name {
+            if Path::new(virtual_name) == virtual_path_name {
                 return Some(virtual_path);
             }
         }
@@ -1010,12 +1027,12 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn get_virtual_path(&self, virtual_path_id: VirtualPathId) -> &(String, VirtualPath) {
         let num_permanent_virtual_paths = self.permanent_state.num_virtual_paths();
-        if virtual_path_id < num_permanent_virtual_paths {
+        if virtual_path_id.get() < num_permanent_virtual_paths {
             self.permanent_state.get_virtual_path(virtual_path_id)
         } else {
             self.delta
                 .virtual_paths
-                .get(virtual_path_id - num_permanent_virtual_paths)
+                .get(virtual_path_id.get() - num_permanent_virtual_paths)
                 .expect("internal error: missing virtual path")
         }
     }
@@ -1023,20 +1040,20 @@ impl<'a> StateWorkingSet<'a> {
     pub fn add_span(&mut self, span: Span) -> SpanId {
         let num_permanent_spans = self.permanent_state.spans.len();
         self.delta.spans.push(span);
-        SpanId(num_permanent_spans + self.delta.spans.len() - 1)
+        SpanId::new(num_permanent_spans + self.delta.spans.len() - 1)
     }
 }
 
 impl<'a> GetSpan for &'a StateWorkingSet<'a> {
     fn get_span(&self, span_id: SpanId) -> Span {
         let num_permanent_spans = self.permanent_state.num_spans();
-        if span_id.0 < num_permanent_spans {
+        if span_id.get() < num_permanent_spans {
             self.permanent_state.get_span(span_id)
         } else {
             *self
                 .delta
                 .spans
-                .get(span_id.0 - num_permanent_spans)
+                .get(span_id.get() - num_permanent_spans)
                 .expect("internal error: missing span")
         }
     }

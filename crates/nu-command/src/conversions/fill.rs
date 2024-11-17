@@ -32,7 +32,7 @@ impl Command for Fill {
         "fill"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Fill and Align."
     }
 
@@ -108,7 +108,7 @@ impl Command for Fill {
             },
             Example {
                 description:
-                    "Fill a filesize on the left side to a width of 5 with the character '0'",
+                    "Fill a filesize on both sides to a width of 10 with the character '0'",
                 example: "1kib | fill --alignment middle --character '0' --width 10",
                 result: Some(Value::string("0001024000", Span::test_data())),
             },

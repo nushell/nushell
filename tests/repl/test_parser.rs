@@ -176,7 +176,14 @@ fn bad_var_name() -> TestResult {
 
 #[test]
 fn bad_var_name2() -> TestResult {
-    fail_test(r#"let $foo-bar = 4"#, "valid variable")
+    fail_test(r#"let $foo-bar = 4"#, "valid variable")?;
+    fail_test(r#"foo-bar=4 true"#, "Command `foo-bar=4` not found")
+}
+
+#[test]
+fn bad_var_name3() -> TestResult {
+    fail_test(r#"let $=foo = 4"#, "valid variable")?;
+    fail_test(r#"=foo=4 true"#, "Command `=foo=4` not found")
 }
 
 #[test]
@@ -189,7 +196,31 @@ fn assignment_with_no_var() -> TestResult {
         "mut = 'foo' | $in; $x | describe",
     ];
 
-    let expected = "valid variable";
+    let expecteds = [
+        "missing var_name",
+        "missing var_name",
+        "missing const_name",
+        "missing var_name",
+        "missing var_name",
+    ];
+
+    for (case, expected) in std::iter::zip(cases, expecteds) {
+        fail_test(case, expected)?;
+    }
+
+    Ok(())
+}
+
+#[test]
+fn too_few_arguments() -> TestResult {
+    // Test for https://github.com/nushell/nushell/issues/9072
+    let cases = [
+        "def a [b: bool, c: bool, d: float, e: float, f: float] {}; a true true 1 1",
+        "def a [b: bool, c: bool, d: float, e: float, f: float, g: float] {}; a true true 1 1",
+        "def a [b: bool, c: bool, d: float, e: float, f: float, g: float, h: float] {}; a true true 1 1",
+    ];
+
+    let expected = "missing f";
 
     for case in cases {
         fail_test(case, expected)?;
@@ -244,36 +275,64 @@ fn string_interp_with_equals() -> TestResult {
 }
 
 #[test]
+fn raw_string_with_equals() -> TestResult {
+    run_test(
+        r#"let query_prefix = r#'https://api.github.com/search/issues?q=repo:nushell/'#; $query_prefix"#,
+        "https://api.github.com/search/issues?q=repo:nushell/",
+    )
+}
+
+#[test]
+fn list_quotes_with_equals() -> TestResult {
+    run_test(
+        r#"["https://api.github.com/search/issues?q=repo:nushell/"] | get 0"#,
+        "https://api.github.com/search/issues?q=repo:nushell/",
+    )
+}
+
+#[test]
+fn record_quotes_with_equals() -> TestResult {
+    run_test(r#"{"a=":b} | get a="#, "b")?;
+    run_test(r#"{"=a":b} | get =a"#, "b")?;
+
+    run_test(r#"{a:"=b"} | get a"#, "=b")?;
+    run_test(r#"{a:"b="} | get a"#, "b=")?;
+
+    run_test(r#"{a:b,"=c":d} | get =c"#, "d")?;
+    run_test(r#"{a:b,"c=":d} | get c="#, "d")
+}
+
+#[test]
 fn recursive_parse() -> TestResult {
     run_test(r#"def c [] { c }; echo done"#, "done")
 }
 
 #[test]
-fn commands_have_usage() -> TestResult {
+fn commands_have_description() -> TestResult {
     run_test_contains(
         r#"
     # This is a test
     #
-    # To see if I have cool usage
+    # To see if I have cool description
     def foo [] {}
     help foo"#,
-        "cool usage",
+        "cool description",
     )
 }
 
 #[test]
-fn commands_from_crlf_source_have_short_usage() -> TestResult {
+fn commands_from_crlf_source_have_short_description() -> TestResult {
     run_test_contains(
-        "# This is a test\r\n#\r\n# To see if I have cool usage\r\ndef foo [] {}\r\nscope commands | where name == foo | get usage.0",
+        "# This is a test\r\n#\r\n# To see if I have cool description\r\ndef foo [] {}\r\nscope commands | where name == foo | get description.0",
         "This is a test",
     )
 }
 
 #[test]
-fn commands_from_crlf_source_have_extra_usage() -> TestResult {
+fn commands_from_crlf_source_have_extra_description() -> TestResult {
     run_test_contains(
-        "# This is a test\r\n#\r\n# To see if I have cool usage\r\ndef foo [] {}\r\nscope commands | where name == foo | get extra_usage.0",
-        "To see if I have cool usage",
+        "# This is a test\r\n#\r\n# To see if I have cool description\r\ndef foo [] {}\r\nscope commands | where name == foo | get extra_description.0",
+        "To see if I have cool description",
     )
 }
 

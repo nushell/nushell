@@ -23,7 +23,7 @@ impl Command for KeybindingsList {
             .category(Category::Platform)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "List available options that can be used to create keybindings."
     }
 

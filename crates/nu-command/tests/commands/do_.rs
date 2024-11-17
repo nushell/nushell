@@ -9,25 +9,28 @@ fn capture_errors_works() {
     assert!(actual.err.contains("column_not_found"));
 }
 
+// TODO: need to add tests under display_error.exit_code = true
 #[test]
 fn capture_errors_works_for_external() {
     let actual = nu!("do -c {nu --testbin fail}");
-    assert!(actual.err.contains("External command failed"));
-    assert_eq!(actual.out, "");
+    assert!(!actual.status.success());
+    assert!(!actual.err.contains("exited with code"));
 }
 
+// TODO: need to add tests under display_error.exit_code = true
 #[test]
 fn capture_errors_works_for_external_with_pipeline() {
     let actual = nu!("do -c {nu --testbin fail} | echo `text`");
-    assert!(actual.err.contains("External command failed"));
-    assert_eq!(actual.out, "");
+    assert!(!actual.status.success());
+    assert!(!actual.err.contains("exited with code"));
 }
 
+// TODO: need to add tests under display_error.exit_code = true
 #[test]
 fn capture_errors_works_for_external_with_semicolon() {
     let actual = nu!(r#"do -c {nu --testbin fail}; echo `text`"#);
-    assert!(actual.err.contains("External command failed"));
-    assert_eq!(actual.out, "");
+    assert!(!actual.status.success());
+    assert!(!actual.err.contains("exited with code"));
 }
 
 #[test]
@@ -72,4 +75,11 @@ fn run_closure_with_it_using() {
     let actual = nu!(r#"let x = {let it = 3; $it}; do $x"#);
     assert!(actual.err.is_empty());
     assert_eq!(actual.out, "3");
+}
+
+#[test]
+fn waits_for_external() {
+    let actual = nu!(r#"do -p { nu -c 'sleep 1sec; print before; exit 1'}; print after"#);
+    assert!(actual.err.is_empty());
+    assert_eq!(actual.out, "beforeafter");
 }

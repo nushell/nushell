@@ -20,12 +20,12 @@ impl Command for Range {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Return only the selected rows."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["filter", "head", "tail"]
+        vec!["filter", "head", "tail", "slice"]
     }
 
     fn examples(&self) -> Vec<Example> {

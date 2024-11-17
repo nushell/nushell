@@ -16,10 +16,6 @@ impl GStat {
         Default::default()
     }
 
-    pub fn usage() -> &'static str {
-        "Usage: gstat"
-    }
-
     pub fn gstat(
         &self,
         value: &Value,

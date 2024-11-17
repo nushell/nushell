@@ -71,6 +71,9 @@ pub(crate) fn compile_call(
             "return" => {
                 return compile_return(working_set, builder, call, redirect_modes, io_reg);
             }
+            "def" | "export def" => {
+                return builder.load_empty(io_reg);
+            }
             _ => (),
         }
     }
@@ -108,7 +111,7 @@ pub(crate) fn compile_call(
                     working_set,
                     builder,
                     expr,
-                    RedirectModes::capture_out(arg.span()),
+                    RedirectModes::value(arg.span()),
                     None,
                     arg_reg,
                 )?;

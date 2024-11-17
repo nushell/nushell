@@ -33,11 +33,11 @@ impl Command for PluginRm {
             .category(Category::Plugin)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Remove a plugin from the plugin registry file."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"
 This does not remove the plugin commands from the current scope or from `plugin
 list` in the current shell. It instead removes the plugin from the plugin
@@ -87,7 +87,7 @@ fixed with `plugin add`.
 
         let filename = canonicalize_possible_filename_arg(engine_state, stack, &name.item);
 
-        modify_plugin_file(engine_state, stack, call.head, custom_path, |contents| {
+        modify_plugin_file(engine_state, stack, call.head, &custom_path, |contents| {
             if let Some(index) = contents
                 .plugins
                 .iter()

@@ -123,6 +123,9 @@ pub enum Instruction {
     /// code, and invokes any available error handler with Empty, or if not available, returns an
     /// exit-code-only stream, leaving the block.
     Drain { src: RegId },
+    /// Drain the value/stream in a register and discard only if this is the last pipeline element.
+    // TODO: see if it's possible to remove this
+    DrainIfEnd { src: RegId },
     /// Load the value of a variable into the `dst` register
     LoadVariable { dst: RegId, var_id: VarId },
     /// Store the value of a variable from the `src` register
@@ -252,9 +255,6 @@ pub enum Instruction {
     /// Pop an error handler. This is not necessary when control flow is directed to the error
     /// handler due to an error.
     PopErrorHandler,
-    /// Check if an external command failed. Boolean value into `dst`. `src` is preserved, but it
-    /// does require waiting for the command to exit.
-    CheckExternalFailed { dst: RegId, src: RegId },
     /// Return early from the block, raising a `ShellError::Return` instead.
     ///
     /// Collecting the value is unavoidable.
@@ -290,6 +290,7 @@ impl Instruction {
             Instruction::Span { src_dst } => Some(src_dst),
             Instruction::Drop { .. } => None,
             Instruction::Drain { .. } => None,
+            Instruction::DrainIfEnd { .. } => None,
             Instruction::LoadVariable { dst, .. } => Some(dst),
             Instruction::StoreVariable { .. } => None,
             Instruction::DropVariable { .. } => None,
@@ -330,7 +331,6 @@ impl Instruction {
             Instruction::OnError { .. } => None,
             Instruction::OnErrorInto { .. } => None,
             Instruction::PopErrorHandler => None,
-            Instruction::CheckExternalFailed { dst, .. } => Some(dst),
             Instruction::ReturnEarly { .. } => None,
             Instruction::Return { .. } => None,
         }
@@ -446,9 +446,11 @@ pub enum Literal {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum RedirectMode {
     Pipe,
-    Capture,
+    PipeSeparate,
+    Value,
     Null,
     Inherit,
+    Print,
     /// Use the given numbered file.
     File {
         file_num: u32,

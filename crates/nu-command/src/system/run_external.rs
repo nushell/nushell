@@ -23,7 +23,7 @@ impl Command for External {
         "run-external"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Runs external command."
     }
 
@@ -51,7 +51,6 @@ impl Command for External {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cwd = engine_state.cwd(Some(stack))?;
-
         let name: Value = call.req(engine_state, stack, 0)?;
 
         let name_str: Cow<str> = match &name {
@@ -68,10 +67,36 @@ impl Command for External {
             _ => Path::new(&*name_str).to_owned(),
         };
 
+        // On Windows, the user could have run the cmd.exe built-in "assoc" command
+        // Example: "assoc .nu=nuscript" and then run the cmd.exe built-in "ftype" command
+        // Example: "ftype nuscript=C:\path\to\nu.exe '%1' %*" and then added the nushell
+        // script extension ".NU" to the PATHEXT environment variable. In this case, we use
+        // the which command, which will find the executable with or without the extension.
+        // If it "which" returns true, that means that we've found the nushell script and we
+        // believe the user wants to use the windows association to run the script. The only
+        // easy way to do this is to run cmd.exe with the script as an argument.
+        let potential_nuscript_in_windows = if cfg!(windows) {
+            // let's make sure it's a .nu script
+            if let Some(executable) = which(&expanded_name, "", cwd.as_ref()) {
+                let ext = executable
+                    .extension()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_uppercase();
+                ext == "NU"
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
         // Find the absolute path to the executable. On Windows, set the
-        // executable to "cmd.exe" if it's is a CMD internal command. If the
+        // executable to "cmd.exe" if it's a CMD internal command. If the
         // command is not found, display a helpful error message.
-        let executable = if cfg!(windows) && is_cmd_internal_command(&name_str) {
+        let executable = if cfg!(windows)
+            && (is_cmd_internal_command(&name_str) || potential_nuscript_in_windows)
+        {
             PathBuf::from("cmd.exe")
         } else {
             // Determine the PATH to be used and then use `which` to find it - though this has no
@@ -97,7 +122,7 @@ impl Command for External {
         // Configure args.
         let args = eval_arguments_from_call(engine_state, stack, call)?;
         #[cfg(windows)]
-        if is_cmd_internal_command(&name_str) {
+        if is_cmd_internal_command(&name_str) || potential_nuscript_in_windows {
             use std::os::windows::process::CommandExt;
 
             // The /D flag disables execution of AutoRun commands from registry.
@@ -114,7 +139,7 @@ impl Command for External {
         command.args(args.into_iter().map(|s| s.item));
 
         // Configure stdout and stderr. If both are set to `OutDest::Pipe`,
-        // we'll setup a pipe that merge two streams into one.
+        // we'll set up a pipe that merges two streams into one.
         let stdout = stack.stdout();
         let stderr = stack.stderr();
         let merged_stream = if matches!(stdout, OutDest::Pipe) && matches!(stderr, OutDest::Pipe) {
@@ -129,7 +154,7 @@ impl Command for External {
         };
 
         // Configure stdin. We'll try connecting input to the child process
-        // directly. If that's not possible, we'll setup a pipe and spawn a
+        // directly. If that's not possible, we'll set up a pipe and spawn a
         // thread to copy data into the child process.
         let data_to_copy_into_stdin = match input {
             PipelineData::ByteStream(stream, metadata) => match stream.into_stdio() {
@@ -180,12 +205,19 @@ impl Command for External {
         }
 
         // Wrap the output into a `PipelineData::ByteStream`.
-        let child = ChildProcess::new(
+        let mut child = ChildProcess::new(
             child,
             merged_stream,
             matches!(stderr, OutDest::Pipe),
             call.head,
         )?;
+
+        if matches!(stdout, OutDest::Pipe | OutDest::PipeSeparate)
+            || matches!(stderr, OutDest::Pipe | OutDest::PipeSeparate)
+        {
+            child.ignore_error(true);
+        }
+
         Ok(PipelineData::ByteStream(
             ByteStream::child(child, call.head),
             None,
@@ -340,7 +372,7 @@ fn write_pipeline_data(
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
         writer.write_all(&val)?;
     } else {
-        stack.start_capture();
+        stack.start_collect_value();
 
         // Turn off color as we pass data through
         Arc::make_mut(&mut engine_state.config).use_ansi_coloring = false;
@@ -367,7 +399,7 @@ pub fn command_not_found(
 ) -> ShellError {
     // Run the `command_not_found` hook if there is one.
     if let Some(hook) = &stack.get_config(engine_state).hooks.command_not_found {
-        let mut stack = stack.start_capture();
+        let mut stack = stack.start_collect_value();
         // Set a special environment variable to avoid infinite loops when the
         // `command_not_found` hook triggers itself.
         let canary = "ENTERED_COMMAND_NOT_FOUND";
@@ -442,8 +474,8 @@ pub fn command_not_found(
     }
 
     // Try to match the name with the search terms of existing commands.
-    let signatures = engine_state.get_signatures(false);
-    if let Some(sig) = signatures.iter().find(|sig| {
+    let signatures = engine_state.get_signatures_and_declids(false);
+    if let Some((sig, _)) = signatures.iter().find(|(sig, _)| {
         sig.search_terms
             .iter()
             .any(|term| term.to_folded_case() == name.to_folded_case())
@@ -456,7 +488,7 @@ pub fn command_not_found(
     }
 
     // Try a fuzzy search on the names of all existing commands.
-    if let Some(cmd) = did_you_mean(signatures.iter().map(|sig| &sig.name), name) {
+    if let Some(cmd) = did_you_mean(signatures.iter().map(|(sig, _)| &sig.name), name) {
         // The user is invoking an external command with the same name as a
         // built-in command. Remind them of this.
         if cmd == name {
@@ -477,7 +509,7 @@ pub fn command_not_found(
     if Path::new(name).is_file() {
         return ShellError::ExternalCommand {
                         label: format!("Command `{name}` not found"),
-                        help: format!("`{name}` refers to a file that is not executable. Did you forget to to set execute permissions?"),
+                        help: format!("`{name}` refers to a file that is not executable. Did you forget to set execute permissions?"),
                         span,
                     };
     }
@@ -506,7 +538,7 @@ pub fn which(name: impl AsRef<OsStr>, paths: &str, cwd: &Path) -> Option<PathBuf
 }
 
 /// Returns true if `name` is a (somewhat useful) CMD internal command. The full
-/// list can be found at https://ss64.com/nt/syntax-internal.html
+/// list can be found at <https://ss64.com/nt/syntax-internal.html>
 fn is_cmd_internal_command(name: &str) -> bool {
     const COMMANDS: &[&str] = &[
         "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
@@ -527,7 +559,7 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
     let Spanned { item: arg, span } = arg;
     let bytes = arg.as_encoded_bytes();
     if bytes.iter().any(|b| matches!(b, b'\r' | b'\n' | b'%')) {
-        // \r and \n trunacte the rest of the arguments and % can expand environment variables
+        // \r and \n truncate the rest of the arguments and % can expand environment variables
         Err(ShellError::ExternalCommand {
             label:
                 "Arguments to CMD internal commands cannot contain new lines or percent signs '%'"
@@ -623,8 +655,16 @@ mod test {
 
     #[test]
     fn test_write_pipeline_data() {
-        let engine_state = EngineState::new();
+        let mut engine_state = EngineState::new();
         let stack = Stack::new();
+        let cwd = std::env::current_dir()
+            .unwrap()
+            .into_os_string()
+            .into_string()
+            .unwrap();
+
+        // set the PWD environment variable as it's required now
+        engine_state.add_env_var("PWD".into(), Value::string(cwd, Span::test_data()));
 
         let mut buf = vec![];
         let input = PipelineData::Empty;

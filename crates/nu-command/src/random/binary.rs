@@ -14,11 +14,15 @@ impl Command for SubCommand {
         Signature::build("random binary")
             .input_output_types(vec![(Type::Nothing, Type::Binary)])
             .allow_variants_without_examples(true)
-            .required("length", SyntaxShape::Int, "Length of the output binary.")
+            .required(
+                "length",
+                SyntaxShape::OneOf(vec![SyntaxShape::Int, SyntaxShape::Filesize]),
+                "Length of the output binary.",
+            )
             .category(Category::Random)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Generate random bytes."
     }
 
@@ -43,11 +47,18 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Generate 16 random bytes",
-            example: "random binary 16",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Generate 16 random bytes",
+                example: "random binary 16",
+                result: None,
+            },
+            Example {
+                description: "Generate 1 random kilobyte",
+                example: "random binary 1kb",
+                result: None,
+            },
+        ]
     }
 }
 

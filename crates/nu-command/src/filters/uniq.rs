@@ -41,12 +41,12 @@ impl Command for Uniq {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Return the distinct values in the input."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["distinct", "deduplicate"]
+        vec!["distinct", "deduplicate", "count"]
     }
 
     fn run(

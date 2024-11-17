@@ -11,7 +11,7 @@ impl Command for Parse {
         "parse"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse columns from string data using a simple pattern or a supplied regular expression."
     }
 
@@ -19,7 +19,7 @@ impl Command for Parse {
         vec!["pattern", "match", "regex", "str extract"]
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "The parse command always uses regular expressions even when you use a simple pattern. If a simple pattern is supplied, parse will transform that pattern into a regular expression."
     }
 

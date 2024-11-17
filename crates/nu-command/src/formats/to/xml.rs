@@ -38,7 +38,7 @@ impl Command for ToXml {
             .category(Category::Formats)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Every XML entry is represented via a record with tag, attribute and content fields.
 To represent different types of entries different values must be written to this fields:
 1. Tag entry: `{tag: <tag name> attributes: {<attr name>: "<string value>" ...} content: [<entries>]}`
@@ -89,7 +89,7 @@ Additionally any field which is: empty record, empty list or null, can be omitte
         ]
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert special record structure into .xml text."
     }
 
@@ -514,7 +514,7 @@ impl Job {
 mod test {
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
-    use crate::Metadata;
+    use crate::{Get, Metadata};
 
     use super::*;
 
@@ -535,6 +535,7 @@ mod test {
 
             working_set.add_decl(Box::new(ToXml {}));
             working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
 
             working_set.render()
         };

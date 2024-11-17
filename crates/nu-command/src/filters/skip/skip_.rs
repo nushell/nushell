@@ -24,11 +24,11 @@ impl Command for Skip {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Skip the first several rows of the input. Counterpart of `drop`. Opposite of `first`."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"To skip specific numbered rows, try `drop nth`. To skip specific named columns, try `reject`."#
     }
 

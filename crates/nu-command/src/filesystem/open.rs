@@ -18,11 +18,11 @@ impl Command for Open {
         "open"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Load a file into a cell, converting to table if possible (avoid by appending '--raw')."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Support to automatically parse files with an extension `.xyz` can be provided by a `from xyz` command in scope."
     }
 
@@ -146,6 +146,9 @@ impl Command for Open {
                         }
                     };
 
+                    // Assigning content type should only happen in raw mode. Otherwise, the content
+                    // will potentially be in one of the built-in nushell `from xxx` formats and therefore
+                    // cease to be in the original content-type.... or so I'm told. :)
                     let content_type = if raw {
                         path.extension()
                             .map(|ext| ext.to_string_lossy().to_string())
@@ -283,6 +286,9 @@ fn detect_content_type(extension: &str) -> Option<String> {
     match extension {
         // Per RFC-9512, application/yaml should be used
         "yaml" | "yml" => Some("application/yaml".to_string()),
+        "nu" => Some("application/x-nuscript".to_string()),
+        "json" | "jsonl" | "ndjson" => Some("application/json".to_string()),
+        "nuon" => Some("application/x-nuon".to_string()),
         _ => mime_guess::from_ext(extension)
             .first()
             .map(|mime| mime.to_string()),

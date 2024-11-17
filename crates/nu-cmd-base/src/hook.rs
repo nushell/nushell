@@ -1,9 +1,8 @@
-use crate::util::get_guaranteed_cwd;
 use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
 use nu_protocol::{
-    cli_error::{report_error, report_error_new},
+    cli_error::{report_parse_error, report_shell_error},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
     PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
@@ -19,17 +18,12 @@ pub fn eval_env_change_hook(
         match hook {
             Value::Record { val, .. } => {
                 for (env_name, hook_value) in &*val {
-                    let before = engine_state
-                        .previous_env_vars
-                        .get(env_name)
-                        .cloned()
-                        .unwrap_or_default();
-
-                    let after = stack
-                        .get_env_var(engine_state, env_name)
-                        .unwrap_or_default();
-
+                    let before = engine_state.previous_env_vars.get(env_name);
+                    let after = stack.get_env_var(engine_state, env_name);
                     if before != after {
+                        let before = before.cloned().unwrap_or_default();
+                        let after = after.cloned().unwrap_or_default();
+
                         eval_hook(
                             engine_state,
                             stack,
@@ -40,7 +34,7 @@ pub fn eval_env_change_hook(
                         )?;
 
                         Arc::make_mut(&mut engine_state.previous_env_vars)
-                            .insert(env_name.to_string(), after);
+                            .insert(env_name.clone(), after);
                     }
                 }
             }
@@ -91,12 +85,13 @@ pub fn eval_hook(
                     false,
                 );
                 if let Some(err) = working_set.parse_errors.first() {
-                    report_error(&working_set, err);
-
-                    return Err(ShellError::UnsupportedConfigValue {
-                        expected: "valid source code".into(),
-                        value: "source code with syntax errors".into(),
-                        span,
+                    report_parse_error(&working_set, err);
+                    return Err(ShellError::GenericError {
+                        error: format!("Failed to run {hook_name} hook"),
+                        msg: "source code has errors".into(),
+                        span: Some(span),
+                        help: None,
+                        inner: Vec::new(),
                     });
                 }
 
@@ -123,7 +118,7 @@ pub fn eval_hook(
                     output = pipeline_data;
                 }
                 Err(err) => {
-                    report_error_new(engine_state, &err);
+                    report_shell_error(engine_state, &err);
                 }
             }
 
@@ -167,10 +162,10 @@ pub fn eval_hook(
                             {
                                 val
                             } else {
-                                return Err(ShellError::UnsupportedConfigValue {
-                                    expected: "boolean output".to_string(),
-                                    value: "other PipelineData variant".to_string(),
-                                    span: other_span,
+                                return Err(ShellError::RuntimeTypeMismatch {
+                                    expected: Type::Bool,
+                                    actual: pipeline_data.get_type(),
+                                    span: pipeline_data.span().unwrap_or(other_span),
                                 });
                             }
                         }
@@ -179,9 +174,9 @@ pub fn eval_hook(
                         }
                     }
                 } else {
-                    return Err(ShellError::UnsupportedConfigValue {
-                        expected: "block".to_string(),
-                        value: format!("{}", condition.get_type()),
+                    return Err(ShellError::RuntimeTypeMismatch {
+                        expected: Type::Closure,
+                        actual: condition.get_type(),
                         span: other_span,
                     });
                 }
@@ -223,12 +218,13 @@ pub fn eval_hook(
                                 false,
                             );
                             if let Some(err) = working_set.parse_errors.first() {
-                                report_error(&working_set, err);
-
-                                return Err(ShellError::UnsupportedConfigValue {
-                                    expected: "valid source code".into(),
-                                    value: "source code with syntax errors".into(),
-                                    span: source_span,
+                                report_parse_error(&working_set, err);
+                                return Err(ShellError::GenericError {
+                                    error: format!("Failed to run {hook_name} hook"),
+                                    msg: "source code has errors".into(),
+                                    span: Some(span),
+                                    help: None,
+                                    inner: Vec::new(),
                                 });
                             }
 
@@ -251,7 +247,7 @@ pub fn eval_hook(
                                 output = pipeline_data;
                             }
                             Err(err) => {
-                                report_error_new(engine_state, &err);
+                                report_shell_error(engine_state, &err);
                             }
                         }
 
@@ -263,9 +259,9 @@ pub fn eval_hook(
                         run_hook(engine_state, stack, val, input, arguments, source_span)?;
                     }
                     other => {
-                        return Err(ShellError::UnsupportedConfigValue {
-                            expected: "block or string".to_string(),
-                            value: format!("{}", other.get_type()),
+                        return Err(ShellError::RuntimeTypeMismatch {
+                            expected: Type::custom("string or closure"),
+                            actual: other.get_type(),
                             span: source_span,
                         });
                     }
@@ -276,16 +272,15 @@ pub fn eval_hook(
             output = run_hook(engine_state, stack, val, input, arguments, span)?;
         }
         other => {
-            return Err(ShellError::UnsupportedConfigValue {
-                expected: "string, block, record, or list of commands".into(),
-                value: format!("{}", other.get_type()),
+            return Err(ShellError::RuntimeTypeMismatch {
+                expected: Type::custom("string, closure, record, or list"),
+                actual: other.get_type(),
                 span: other.span(),
             });
         }
     }
 
-    let cwd = get_guaranteed_cwd(engine_state, stack);
-    engine_state.merge_env(stack, cwd)?;
+    engine_state.merge_env(stack)?;
 
     Ok(output)
 }

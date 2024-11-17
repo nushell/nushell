@@ -12,7 +12,7 @@ impl SimplePluginCommand for QueryJson {
         "query json"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "execute json query on json file (open --raw <file> | query json 'query string')"
     }
 

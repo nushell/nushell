@@ -31,7 +31,7 @@ impl Command for ToNuon {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts table data into Nuon (Nushell Object Notation) text."
     }
 
@@ -107,7 +107,7 @@ mod test {
     use super::*;
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
-    use crate::Metadata;
+    use crate::{Get, Metadata};
 
     #[test]
     fn test_examples() {
@@ -126,6 +126,7 @@ mod test {
 
             working_set.add_decl(Box::new(ToNuon {}));
             working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
 
             working_set.render()
         };

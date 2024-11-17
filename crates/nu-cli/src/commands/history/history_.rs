@@ -5,6 +5,8 @@ use reedline::{
     SqliteBackedHistory,
 };
 
+use super::fields;
+
 #[derive(Clone)]
 pub struct History;
 
@@ -13,7 +15,7 @@ impl Command for History {
         "history"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get the command history."
     }
 
@@ -42,91 +44,76 @@ impl Command for History {
         let Some(history) = engine_state.history_config() else {
             return Ok(PipelineData::empty());
         };
-
         // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
-        if let Some(config_path) = nu_path::config_dir() {
-            let clear = call.has_flag(engine_state, stack, "clear")?;
-            let long = call.has_flag(engine_state, stack, "long")?;
-            let signals = engine_state.signals().clone();
+        let Some(history_path) = history.file_path() else {
+            return Err(ShellError::ConfigDirNotFound { span: Some(head) });
+        };
 
-            let mut history_path = config_path;
-            history_path.push("nushell");
-            match history.file_format {
-                HistoryFileFormat::Sqlite => {
-                    history_path.push("history.sqlite3");
-                }
-                HistoryFileFormat::PlainText => {
-                    history_path.push("history.txt");
-                }
-            }
+        if call.has_flag(engine_state, stack, "clear")? {
+            let _ = std::fs::remove_file(history_path);
+            // TODO: FIXME also clear the auxiliary files when using sqlite
+            return Ok(PipelineData::empty());
+        }
 
-            if clear {
-                let _ = std::fs::remove_file(history_path);
-                // TODO: FIXME also clear the auxiliary files when using sqlite
-                Ok(PipelineData::empty())
-            } else {
-                let history_reader: Option<Box<dyn ReedlineHistory>> = match history.file_format {
-                    HistoryFileFormat::Sqlite => {
-                        SqliteBackedHistory::with_file(history_path.clone().into(), None, None)
-                            .map(|inner| {
-                                let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
-                                boxed
-                            })
-                            .ok()
-                    }
-
-                    HistoryFileFormat::PlainText => FileBackedHistory::with_file(
-                        history.max_size as usize,
-                        history_path.clone().into(),
-                    )
+        let long = call.has_flag(engine_state, stack, "long")?;
+        let signals = engine_state.signals().clone();
+        let history_reader: Option<Box<dyn ReedlineHistory>> = match history.file_format {
+            HistoryFileFormat::Sqlite => {
+                SqliteBackedHistory::with_file(history_path.clone(), None, None)
                     .map(|inner| {
                         let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
                         boxed
                     })
-                    .ok(),
-                };
-
-                match history.file_format {
-                    HistoryFileFormat::PlainText => Ok(history_reader
-                        .and_then(|h| {
-                            h.search(SearchQuery::everything(SearchDirection::Forward, None))
-                                .ok()
-                        })
-                        .map(move |entries| {
-                            entries.into_iter().enumerate().map(move |(idx, entry)| {
-                                Value::record(
-                                    record! {
-                                        "command" => Value::string(entry.command_line, head),
-                                        "index" => Value::int(idx as i64, head),
-                                    },
-                                    head,
-                                )
-                            })
-                        })
-                        .ok_or(ShellError::FileNotFound {
-                            file: history_path.display().to_string(),
-                            span: head,
-                        })?
-                        .into_pipeline_data(head, signals)),
-                    HistoryFileFormat::Sqlite => Ok(history_reader
-                        .and_then(|h| {
-                            h.search(SearchQuery::everything(SearchDirection::Forward, None))
-                                .ok()
-                        })
-                        .map(move |entries| {
-                            entries.into_iter().enumerate().map(move |(idx, entry)| {
-                                create_history_record(idx, entry, long, head)
-                            })
-                        })
-                        .ok_or(ShellError::FileNotFound {
-                            file: history_path.display().to_string(),
-                            span: head,
-                        })?
-                        .into_pipeline_data(head, signals)),
-                }
+                    .ok()
             }
-        } else {
-            Err(ShellError::ConfigDirNotFound { span: Some(head) })
+            HistoryFileFormat::Plaintext => {
+                FileBackedHistory::with_file(history.max_size as usize, history_path.clone())
+                    .map(|inner| {
+                        let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
+                        boxed
+                    })
+                    .ok()
+            }
+        };
+        match history.file_format {
+            HistoryFileFormat::Plaintext => Ok(history_reader
+                .and_then(|h| {
+                    h.search(SearchQuery::everything(SearchDirection::Forward, None))
+                        .ok()
+                })
+                .map(move |entries| {
+                    entries.into_iter().enumerate().map(move |(idx, entry)| {
+                        Value::record(
+                            record! {
+                                fields::COMMAND_LINE => Value::string(entry.command_line, head),
+                                // TODO: This name is inconsistent with create_history_record.
+                                "index" => Value::int(idx as i64, head),
+                            },
+                            head,
+                        )
+                    })
+                })
+                .ok_or(ShellError::FileNotFound {
+                    file: history_path.display().to_string(),
+                    span: head,
+                })?
+                .into_pipeline_data(head, signals)),
+            HistoryFileFormat::Sqlite => Ok(history_reader
+                .and_then(|h| {
+                    h.search(SearchQuery::everything(SearchDirection::Forward, None))
+                        .ok()
+                })
+                .map(move |entries| {
+                    entries
+                        .into_iter()
+                        .enumerate()
+                        .map(move |(idx, entry)| create_history_record(idx, entry, long, head))
+                })
+                .ok_or(ShellError::FileNotFound {
+                    file: history_path.display().to_string(),
+                    span: head,
+                })?
+                .into_pipeline_data(head, signals)),
         }
     }
 
@@ -192,13 +179,13 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
         Value::record(
             record! {
                 "item_id" => item_id_value,
-                "start_timestamp" => start_timestamp_value,
-                "command" => command_value,
-                "session_id" => session_id_value,
-                "hostname" => hostname_value,
-                "cwd" => cwd_value,
-                "duration" => duration_value,
-                "exit_status" => exit_status_value,
+                fields::START_TIMESTAMP => start_timestamp_value,
+                fields::COMMAND_LINE => command_value,
+                fields::SESSION_ID => session_id_value,
+                fields::HOSTNAME => hostname_value,
+                fields::CWD => cwd_value,
+                fields::DURATION => duration_value,
+                fields::EXIT_STATUS => exit_status_value,
                 "idx" => index_value,
             },
             head,
@@ -206,11 +193,11 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
     } else {
         Value::record(
             record! {
-                "start_timestamp" => start_timestamp_value,
-                "command" => command_value,
-                "cwd" => cwd_value,
-                "duration" => duration_value,
-                "exit_status" => exit_status_value,
+                fields::START_TIMESTAMP => start_timestamp_value,
+                fields::COMMAND_LINE => command_value,
+                fields::CWD => cwd_value,
+                fields::DURATION => duration_value,
+                fields::EXIT_STATUS => exit_status_value,
             },
             head,
         )

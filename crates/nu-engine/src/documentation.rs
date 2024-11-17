@@ -2,6 +2,7 @@ use crate::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
+    engine::CommandType,
     engine::{Command, EngineState, Stack, UNKNOWN_SPAN_ID},
     record, Category, Config, Example, IntoPipelineData, PipelineData, PositionalArg, Signature,
     Span, SpanId, Spanned, SyntaxShape, Type, Value,
@@ -23,9 +24,11 @@ pub fn get_full_help(
     // internally call several commands (`table`, `ansi`, `nu-highlight`) and get their
     // `PipelineData` using this `Stack`, any other output should not be redirected like the main
     // execution.
-    let stack = &mut stack.start_capture();
+    let stack = &mut stack.start_collect_value();
 
-    let signature = command.signature().update_from_command(command);
+    let signature = engine_state
+        .get_signature(command)
+        .update_from_command(command);
 
     get_documentation(
         &signature,
@@ -76,15 +79,15 @@ fn get_documentation(
     let cmd_name = &sig.name;
     let mut long_desc = String::new();
 
-    let usage = &sig.usage;
-    if !usage.is_empty() {
-        long_desc.push_str(usage);
+    let desc = &sig.description;
+    if !desc.is_empty() {
+        long_desc.push_str(desc);
         long_desc.push_str("\n\n");
     }
 
-    let extra_usage = &sig.extra_usage;
-    if !extra_usage.is_empty() {
-        long_desc.push_str(extra_usage);
+    let extra_desc = &sig.extra_description;
+    if !extra_desc.is_empty() {
+        long_desc.push_str(extra_desc);
         long_desc.push_str("\n\n");
     }
 
@@ -110,16 +113,29 @@ fn get_documentation(
     //   - https://github.com/nushell/nushell/issues/11447
     //   - https://github.com/nushell/nushell/issues/11625
     let mut subcommands = vec![];
-    let signatures = engine_state.get_signatures(true);
-    for sig in signatures {
+    let signatures = engine_state.get_signatures_and_declids(true);
+    for (sig, decl_id) in signatures {
+        let command_type = engine_state.get_decl(decl_id).command_type();
+
         // Don't display removed/deprecated commands in the Subcommands list
         if sig.name.starts_with(&format!("{cmd_name} "))
             && !matches!(sig.category, Category::Removed)
         {
-            subcommands.push(format!(
-                "  {help_subcolor_one}{}{RESET} - {}",
-                sig.name, sig.usage
-            ));
+            // If it's a plugin, alias, or custom command, display that information in the help
+            if command_type == CommandType::Plugin
+                || command_type == CommandType::Alias
+                || command_type == CommandType::Custom
+            {
+                subcommands.push(format!(
+                    "  {help_subcolor_one}{} {help_section_name}({}){RESET} - {}",
+                    sig.name, command_type, sig.description
+                ));
+            } else {
+                subcommands.push(format!(
+                    "  {help_subcolor_one}{}{RESET} - {}",
+                    sig.name, sig.description
+                ));
+            }
         }
     }
 
@@ -200,7 +216,7 @@ fn get_documentation(
                 ));
             }
 
-            let caller_stack = &mut Stack::new().capture();
+            let caller_stack = &mut Stack::new().collect_value();
             if let Ok(result) = eval_call::<WithoutDebug>(
                 engine_state,
                 caller_stack,
@@ -327,7 +343,7 @@ fn update_ansi_from_config(
     theme_component: &str,
 ) {
     if let Some(color) = &nu_config.color_config.get(theme_component) {
-        let caller_stack = &mut Stack::new().capture();
+        let caller_stack = &mut Stack::new().collect_value();
         let span = Span::unknown();
         let span_id = UNKNOWN_SPAN_ID;
 
@@ -570,7 +586,9 @@ where
                 document_shape(arg)
             );
         }
-        let _ = write!(long_desc, " - {}", flag.desc);
+        if !flag.desc.is_empty() {
+            let _ = write!(long_desc, ": {}", flag.desc);
+        }
         if let Some(value) = &flag.default_value {
             let _ = write!(long_desc, " (default: {})", &value_formatter(value));
         }

@@ -18,7 +18,7 @@ use expression::compile_expression;
 use operator::*;
 use redirect::*;
 
-const BLOCK_INPUT: RegId = RegId(0);
+const BLOCK_INPUT: RegId = RegId::new(0);
 
 /// Compile Nushell pipeline abstract syntax tree (AST) to internal representation (IR) instructions
 /// for evaluation.
@@ -43,8 +43,8 @@ pub fn compile(working_set: &StateWorkingSet, block: &Block) -> Result<IrBlock, 
 }
 
 /// Compiles a [`Block`] in-place into an IR block. This can be used in a nested manner, for example
-/// by [`compile_if()`], where the instructions for the blocks for the if/else are inlined into the
-/// top-level IR block.
+/// by [`compile_if()`][keyword::compile_if], where the instructions for the blocks for the if/else
+/// are inlined into the top-level IR block.
 fn compile_block(
     working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,

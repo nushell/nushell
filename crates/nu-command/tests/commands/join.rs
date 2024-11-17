@@ -355,7 +355,6 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(joi
     }
 }
 
-#[ignore]
 #[test]
 fn test_alternative_table_syntax() {
     let join_type = "--inner";

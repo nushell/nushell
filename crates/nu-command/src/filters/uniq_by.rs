@@ -43,7 +43,7 @@ impl Command for UniqBy {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Return the distinct values in the input by the given column(s)."
     }
 

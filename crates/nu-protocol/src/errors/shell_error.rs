@@ -1,12 +1,11 @@
+use crate::{
+    ast::Operator, engine::StateWorkingSet, format_shell_error, record, ConfigError, LabeledError,
+    ParseError, Span, Spanned, Type, Value,
+};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
-use std::io;
+use std::{io, num::NonZeroI32};
 use thiserror::Error;
-
-use crate::{
-    ast::Operator, engine::StateWorkingSet, format_error, LabeledError, ParseError, Span, Spanned,
-    Value,
-};
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -38,12 +37,13 @@ pub enum ShellError {
     /// Check the inputs to the operation and add guards for their sizes.
     /// Integers are generally of size i64, floats are generally f64.
     #[error("Operator overflow.")]
-    #[diagnostic(code(nu::shell::operator_overflow), help("{help}"))]
+    #[diagnostic(code(nu::shell::operator_overflow))]
     OperatorOverflow {
         msg: String,
         #[label = "{msg}"]
         span: Span,
-        help: String,
+        #[help]
+        help: Option<String>,
     },
 
     /// The pipelined input into a command was not of the expected type. For example, it might
@@ -105,6 +105,34 @@ pub enum ShellError {
     TypeMismatch {
         err_message: String,
         #[label = "{err_message}"]
+        span: Span,
+    },
+
+    /// A value's type did not match the expected type.
+    ///
+    /// ## Resolution
+    ///
+    /// Convert the value to the correct type or provide a value of the correct type.
+    #[error("Type mismatch")]
+    #[diagnostic(code(nu::shell::type_mismatch))]
+    RuntimeTypeMismatch {
+        expected: Type,
+        actual: Type,
+        #[label = "expected {expected}, but got {actual}"]
+        span: Span,
+    },
+
+    /// A value had the correct type but is otherwise invalid.
+    ///
+    /// ## Resolution
+    ///
+    /// Ensure the value meets the criteria in the error message.
+    #[error("Invalid value")]
+    #[diagnostic(code(nu::shell::invalid_value))]
+    InvalidValue {
+        valid: String,
+        actual: String,
+        #[label = "expected {valid}, but got {actual}"]
         span: Span,
     },
 
@@ -639,6 +667,49 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// An external command exited with a non-zero exit code.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the external command's error message.
+    #[error("External command had a non-zero exit code")]
+    #[diagnostic(code(nu::shell::non_zero_exit_code))]
+    NonZeroExitCode {
+        exit_code: NonZeroI32,
+        #[label("exited with code {exit_code}")]
+        span: Span,
+    },
+
+    #[cfg(unix)]
+    /// An external command exited due to a signal.
+    ///
+    /// ## Resolution
+    ///
+    /// Check why the signal was sent or triggered.
+    #[error("External command was terminated by a signal")]
+    #[diagnostic(code(nu::shell::terminated_by_signal))]
+    TerminatedBySignal {
+        signal_name: String,
+        signal: i32,
+        #[label("terminated by {signal_name} ({signal})")]
+        span: Span,
+    },
+
+    #[cfg(unix)]
+    /// An external command core dumped.
+    ///
+    /// ## Resolution
+    ///
+    /// Check why the core dumped was triggered.
+    #[error("External command core dumped")]
+    #[diagnostic(code(nu::shell::core_dumped))]
+    CoreDumped {
+        signal_name: String,
+        signal: i32,
+        #[label("core dumped with {signal_name} ({signal})")]
+        span: Span,
+    },
+
     /// An operation was attempted with an input unsupported for some reason.
     ///
     /// ## Resolution
@@ -876,21 +947,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    #[cfg(unix)]
-    /// An I/O operation failed.
-    ///
-    /// ## Resolution
-    ///
-    /// This is a generic error. Refer to the specific error message for further details.
-    #[error("program coredump error")]
-    #[diagnostic(code(nu::shell::coredump_error))]
-    CoredumpErrorSpanned {
-        msg: String,
-        signal: i32,
-        #[label("{msg}")]
-        span: Span,
-    },
-
     /// Tried to `cd` to a path that isn't a directory.
     ///
     /// ## Resolution
@@ -1057,30 +1113,28 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// The value given for this configuration is not supported.
+    /// Failed to update the config due to one or more errors.
     ///
     /// ## Resolution
     ///
-    /// Refer to the specific error message for details and convert values as needed.
-    #[error("Unsupported config value")]
-    #[diagnostic(code(nu::shell::unsupported_config_value))]
-    UnsupportedConfigValue {
-        expected: String,
-        value: String,
-        #[label("expected {expected}, got {value}")]
-        span: Span,
+    /// Refer to the error messages for specific details.
+    #[error("Encountered {} error(s) when updating config", errors.len())]
+    #[diagnostic(code(nu::shell::invalid_config))]
+    InvalidConfig {
+        #[related]
+        errors: Vec<ConfigError>,
     },
 
-    /// An expected configuration value is not present.
+    /// A value was missing a required column.
     ///
     /// ## Resolution
     ///
-    /// Refer to the specific error message and add the configuration value to your config file as needed.
-    #[error("Missing config value")]
-    #[diagnostic(code(nu::shell::missing_config_value))]
-    MissingConfigValue {
-        missing_value: String,
-        #[label("missing {missing_value}")]
+    /// Make sure the value has the required column.
+    #[error("Value is missing a required '{column}' column")]
+    #[diagnostic(code(nu::shell::missing_required_column))]
+    MissingRequiredColumn {
+        column: &'static str,
+        #[label("has no '{column}' column")]
         span: Span,
     },
 
@@ -1276,6 +1330,16 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
+    #[error("Deprecated: {old_command}")]
+    #[diagnostic(help("for more info see {url}"))]
+    Deprecated {
+        old_command: String,
+        new_suggestion: String,
+        #[label("`{old_command}` is deprecated and will be removed in a future release. Please {new_suggestion} instead.")]
+        span: Span,
+        url: String,
+    },
+
     /// Invalid glob pattern
     ///
     /// ## Resolution
@@ -1395,15 +1459,67 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     },
 }
 
-// TODO: Implement as From trait
 impl ShellError {
+    pub fn external_exit_code(&self) -> Option<Spanned<i32>> {
+        let (item, span) = match *self {
+            Self::NonZeroExitCode { exit_code, span } => (exit_code.into(), span),
+            #[cfg(unix)]
+            Self::TerminatedBySignal { signal, span, .. }
+            | Self::CoreDumped { signal, span, .. } => (-signal, span),
+            _ => return None,
+        };
+        Some(Spanned { item, span })
+    }
+
+    pub fn exit_code(&self) -> Option<i32> {
+        match self {
+            Self::Return { .. } | Self::Break { .. } | Self::Continue { .. } => None,
+            _ => self.external_exit_code().map(|e| e.item).or(Some(1)),
+        }
+    }
+
+    pub fn into_value(self, span: Span, fancy_errors: bool) -> Value {
+        let exit_code = self.external_exit_code();
+
+        let mut record = record! {
+            "msg" => Value::string(self.to_string(), span),
+            "debug" => Value::string(format!("{self:?}"), span),
+            "raw" => Value::error(self.clone(), span),
+            // "labeled_error" => Value::string(LabeledError::from_diagnostic_and_render(self.clone()), span),
+            "rendered" => Value::string(ShellError::render_error_to_string(self.clone(), fancy_errors), span),
+            "json" => Value::string(serde_json::to_string(&self).expect("Could not serialize error"), span),
+        };
+
+        if let Some(code) = exit_code {
+            record.push("exit_code", Value::int(code.item.into(), code.span));
+        }
+
+        Value::record(record, span)
+    }
+
+    // TODO: Implement as From trait
     pub fn wrap(self, working_set: &StateWorkingSet, span: Span) -> ParseError {
-        let msg = format_error(working_set, &self);
+        let msg = format_shell_error(working_set, &self);
         ParseError::LabeledError(
             msg,
             "Encountered error during parse-time evaluation".into(),
             span,
         )
+    }
+    pub fn render_error_to_string(diag: impl miette::Diagnostic, fancy_errors: bool) -> String {
+        let theme = if fancy_errors {
+            miette::GraphicalTheme::unicode()
+        } else {
+            miette::GraphicalTheme::none()
+        };
+        let mut out = String::new();
+        miette::GraphicalReportHandler::new()
+            .with_width(80)
+            .with_theme(theme)
+            .render_report(&mut out, &diag)
+            .unwrap_or_default();
+
+        out
     }
 }
 

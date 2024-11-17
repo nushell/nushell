@@ -6,6 +6,7 @@ use quickcheck_macros::quickcheck;
 
 mod commands;
 mod format_conversions;
+mod sort_utils;
 
 fn create_default_context() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
@@ -197,7 +198,7 @@ fn no_search_term_duplicates() {
 }
 
 #[test]
-fn usage_end_period() {
+fn description_end_period() {
     let ctx = crate::create_default_context();
     let decls = ctx.get_decls_sorted(true);
     let mut failures = Vec::new();
@@ -205,22 +206,22 @@ fn usage_end_period() {
     for (name_bytes, decl_id) in decls {
         let cmd = ctx.get_decl(decl_id);
         let cmd_name = String::from_utf8_lossy(&name_bytes);
-        let usage = cmd.usage();
+        let description = cmd.description();
 
-        if !usage.ends_with('.') {
-            failures.push(format!("{cmd_name}: \"{usage}\""));
+        if !description.ends_with('.') {
+            failures.push(format!("{cmd_name}: \"{description}\""));
         }
     }
 
     assert!(
         failures.is_empty(),
-        "Command usage does not end with a period:\n{}",
+        "Command description does not end with a period:\n{}",
         failures.join("\n")
     );
 }
 
 #[test]
-fn usage_start_uppercase() {
+fn description_start_uppercase() {
     let ctx = crate::create_default_context();
     let decls = ctx.get_decls_sorted(true);
     let mut failures = Vec::new();
@@ -228,19 +229,19 @@ fn usage_start_uppercase() {
     for (name_bytes, decl_id) in decls {
         let cmd = ctx.get_decl(decl_id);
         let cmd_name = String::from_utf8_lossy(&name_bytes);
-        let usage = cmd.usage();
+        let description = cmd.description();
 
-        // Check lowercase to allow usage to contain syntax like:
+        // Check lowercase to allow description to contain syntax like:
         //
         // "`$env.FOO = ...`"
-        if usage.starts_with(|u: char| u.is_lowercase()) {
-            failures.push(format!("{cmd_name}: \"{usage}\""));
+        if description.starts_with(|u: char| u.is_lowercase()) {
+            failures.push(format!("{cmd_name}: \"{description}\""));
         }
     }
 
     assert!(
         failures.is_empty(),
-        "Command usage does not start with an uppercase letter:\n{}",
+        "Command description does not start with an uppercase letter:\n{}",
         failures.join("\n")
     );
 }

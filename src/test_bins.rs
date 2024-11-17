@@ -2,10 +2,9 @@ use nu_cmd_base::hook::{eval_env_change_hook, eval_hook};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    cli_error::CliError,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, Value,
+    report_parse_error, report_shell_error, PipelineData, ShellError, Value,
 };
 use nu_std::load_standard_library;
 use std::{
@@ -209,20 +208,13 @@ pub fn chop() {
     std::process::exit(0);
 }
 
-fn outcome_err(
-    engine_state: &EngineState,
-    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
-) -> ! {
-    let working_set = StateWorkingSet::new(engine_state);
-
-    eprintln!("Error: {:?}", CliError(error, &working_set));
-
+fn outcome_err(engine_state: &EngineState, error: &ShellError) -> ! {
+    report_shell_error(engine_state, error);
     std::process::exit(1);
 }
 
 fn outcome_ok(msg: String) -> ! {
     println!("{msg}");
-
     std::process::exit(0);
 }
 
@@ -251,13 +243,9 @@ pub fn nu_repl() {
     for (i, line) in source_lines.iter().enumerate() {
         let mut stack = Stack::with_parent(top_stack.clone());
 
-        let cwd = engine_state
-            .cwd(Some(&stack))
-            .unwrap_or_else(|err| outcome_err(&engine_state, &err));
-
         // Before doing anything, merge the environment from the previous REPL iteration into the
         // permanent state.
-        if let Err(err) = engine_state.merge_env(&mut stack, &cwd) {
+        if let Err(err) = engine_state.merge_env(&mut stack) {
             outcome_err(&engine_state, &err);
         }
 
@@ -319,7 +307,8 @@ pub fn nu_repl() {
             );
 
             if let Some(err) = working_set.parse_errors.first() {
-                outcome_err(&engine_state, err);
+                report_parse_error(&working_set, err);
+                std::process::exit(1);
             }
             (block, working_set.render())
         };
@@ -332,7 +321,7 @@ pub fn nu_repl() {
         let config = engine_state.get_config();
 
         {
-            let stack = &mut stack.start_capture();
+            let stack = &mut stack.start_collect_value();
             match eval_block::<WithoutDebug>(&engine_state, stack, &block, input) {
                 Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
                     Ok(s) => last_output = s,
@@ -347,7 +336,7 @@ pub fn nu_repl() {
                 .coerce_str()
                 .unwrap_or_else(|err| outcome_err(&engine_state, &err));
             let _ = std::env::set_current_dir(path.as_ref());
-            engine_state.add_env_var("PWD".into(), cwd);
+            engine_state.add_env_var("PWD".into(), cwd.clone());
         }
         top_stack = Arc::new(Stack::with_changes_from_child(top_stack, stack));
     }

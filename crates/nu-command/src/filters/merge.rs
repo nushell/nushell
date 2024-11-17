@@ -8,11 +8,11 @@ impl Command for Merge {
         "merge"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Merge the input with a record or table, overwriting values in matching columns."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"You may provide a column structure to merge
 
 When merging tables, row 0 of the input table is overwritten
@@ -38,21 +38,21 @@ repeating this process with row 1, and so on."#
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[a b c] | wrap name | merge ( [1 2 3] | wrap index )",
-                description: "Add an 'index' column to the input table",
+                example: "[a b c] | wrap name | merge ( [47 512 618] | wrap id )",
+                description: "Add an 'id' column to the input table",
                 result: Some(Value::list(
                     vec![
                         Value::test_record(record! {
                             "name" => Value::test_string("a"),
-                            "index" => Value::test_int(1),
+                            "id" => Value::test_int(47),
                         }),
                         Value::test_record(record! {
                             "name" => Value::test_string("b"),
-                            "index" => Value::test_int(2),
+                            "id" => Value::test_int(512),
                         }),
                         Value::test_record(record! {
                             "name" => Value::test_string("c"),
-                            "index" => Value::test_int(3),
+                            "id" => Value::test_int(618),
                         }),
                     ],
                     Span::test_data(),

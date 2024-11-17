@@ -1,7 +1,7 @@
 use nix::sys::resource::{rlim_t, Resource, RLIM_INFINITY};
 use nu_engine::command_prelude::*;
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 /// An object contains resource related parameters
 struct ResourceInfo<'a> {
@@ -54,7 +54,7 @@ impl<'a> Default for ResourceInfo<'a> {
     }
 }
 
-static RESOURCE_ARRAY: Lazy<Vec<ResourceInfo>> = Lazy::new(|| {
+static RESOURCE_ARRAY: LazyLock<Vec<ResourceInfo>> = LazyLock::new(|| {
     let resources = [
         #[cfg(any(target_os = "freebsd", target_os = "dragonfly"))]
         (
@@ -502,7 +502,7 @@ impl Command for ULimit {
         "ulimit"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Set or get resource usage limits."
     }
 

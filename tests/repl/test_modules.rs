@@ -117,7 +117,16 @@ fn export_consts() -> TestResult {
     run_test(
         r#"module spam { export const b = 3; }; use spam b; $b"#,
         "3",
+    )?;
+    run_test(
+        r#"module spam { export const b: int = 3; }; use spam b; $b"#,
+        "3",
     )
+}
+
+#[test]
+fn dont_export_module_name_as_a_variable() -> TestResult {
+    fail_test(r#"module spam { }; use spam; $spam"#, "variable not found")
 }
 
 #[test]

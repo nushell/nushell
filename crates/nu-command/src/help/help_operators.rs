@@ -9,7 +9,7 @@ impl Command for HelpOperators {
         "help operators"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show help on nushell operators."
     }
 

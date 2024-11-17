@@ -2,7 +2,7 @@ use crossterm::event::{
     DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste,
     EnableMouseCapture, KeyCode, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
 };
-use crossterm::terminal;
+use crossterm::{execute, terminal};
 use nu_engine::command_prelude::*;
 
 use num_traits::AsPrimitive;
@@ -43,11 +43,11 @@ impl Command for InputListen {
             )])
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Listen for user interface event."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"There are 5 different type of events: focus, key, mouse, paste, resize. Each will produce a
 corresponding record, distinguished by type field:
 ```
@@ -81,8 +81,36 @@ There are 4 `key_type` variants:
         let head = call.head;
         let event_type_filter = get_event_type_filter(engine_state, stack, call, head)?;
         let add_raw = call.has_flag(engine_state, stack, "raw")?;
+        let config = engine_state.get_config();
 
         terminal::enable_raw_mode()?;
+
+        if config.use_kitty_protocol {
+            if let Ok(false) = crossterm::terminal::supports_keyboard_enhancement() {
+                println!("WARN: The terminal doesn't support use_kitty_protocol config.\r");
+            }
+
+            // enable kitty protocol
+            //
+            // Note that, currently, only the following support this protocol:
+            // * [kitty terminal](https://sw.kovidgoyal.net/kitty/)
+            // * [foot terminal](https://codeberg.org/dnkl/foot/issues/319)
+            // * [WezTerm terminal](https://wezfurlong.org/wezterm/config/lua/config/enable_kitty_keyboard.html)
+            // * [notcurses library](https://github.com/dankamongmen/notcurses/issues/2131)
+            // * [neovim text editor](https://github.com/neovim/neovim/pull/18181)
+            // * [kakoune text editor](https://github.com/mawww/kakoune/issues/4103)
+            // * [dte text editor](https://gitlab.com/craigbarnes/dte/-/issues/138)
+            // * [ghostty terminal](https://github.com/ghostty-org/ghostty/pull/317)
+            //
+            // Refer to https://sw.kovidgoyal.net/kitty/keyboard-protocol/ if you're curious.
+            let _ = execute!(
+                stdout(),
+                crossterm::event::PushKeyboardEnhancementFlags(
+                    crossterm::event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                )
+            );
+        }
+
         let console_state = event_type_filter.enable_events()?;
         loop {
             let event = crossterm::event::read().map_err(|_| ShellError::GenericError {
@@ -95,6 +123,13 @@ There are 4 `key_type` variants:
             let event = parse_event(head, &event, &event_type_filter, add_raw);
             if let Some(event) = event {
                 terminal::disable_raw_mode()?;
+                if config.use_kitty_protocol {
+                    let _ = execute!(
+                        std::io::stdout(),
+                        crossterm::event::PopKeyboardEnhancementFlags
+                    );
+                }
+
                 console_state.restore();
                 return Ok(event.into_pipeline_data());
             }

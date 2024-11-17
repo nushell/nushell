@@ -48,10 +48,15 @@ impl Command for Touch {
                 "do not create the file if it does not exist",
                 Some('c'),
             )
+            .switch(
+                "no-deref",
+                "do not follow symlinks",
+                Some('s')
+            )
             .category(Category::FileSystem)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates one or more files."
     }
 
@@ -64,6 +69,7 @@ impl Command for Touch {
     ) -> Result<PipelineData, ShellError> {
         let mut change_mtime: bool = call.has_flag(engine_state, stack, "modified")?;
         let mut change_atime: bool = call.has_flag(engine_state, stack, "access")?;
+        let no_follow_symlinks: bool = call.has_flag(engine_state, stack, "no-deref")?;
         let reference: Option<Spanned<String>> = call.get_flag(engine_state, stack, "reference")?;
         let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
         let files: Vec<Spanned<NuGlob>> = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
@@ -88,19 +94,29 @@ impl Command for Touch {
 
         if let Some(reference) = reference {
             let reference_path = nu_path::expand_path_with(reference.item, &cwd, true);
-            if !reference_path.exists() {
+            let exists = if no_follow_symlinks {
+                // There's no symlink_exists function, so we settle for
+                // getting direct metadata and if it's OK, it exists
+                reference_path.symlink_metadata().is_ok()
+            } else {
+                reference_path.exists()
+            };
+            if !exists {
                 return Err(ShellError::FileNotFoundCustom {
                     msg: "Reference path not found".into(),
                     span: reference.span,
                 });
             }
 
-            let metadata = reference_path
-                .metadata()
-                .map_err(|err| ShellError::IOErrorSpanned {
-                    msg: format!("Failed to read metadata: {err}"),
-                    span: reference.span,
-                })?;
+            let metadata = if no_follow_symlinks {
+                reference_path.symlink_metadata()
+            } else {
+                reference_path.metadata()
+            };
+            let metadata = metadata.map_err(|err| ShellError::IOErrorSpanned {
+                msg: format!("Failed to read metadata: {err}"),
+                span: reference.span,
+            })?;
             mtime = metadata
                 .modified()
                 .map_err(|err| ShellError::IOErrorSpanned {
@@ -117,14 +133,27 @@ impl Command for Touch {
 
         for glob in files {
             let path = expand_path_with(glob.item.as_ref(), &cwd, glob.item.is_expand());
+            let exists = if no_follow_symlinks {
+                path.symlink_metadata().is_ok()
+            } else {
+                path.exists()
+            };
 
             // If --no-create is passed and the file/dir does not exist there's nothing to do
-            if no_create && !path.exists() {
+            if no_create && !exists {
                 continue;
             }
 
-            // Create a file at the given path unless the path is a directory
-            if !path.is_dir() {
+            // If --no-deref was passed in, the behavior of touch is to error on missing
+            if no_follow_symlinks && !exists {
+                return Err(ShellError::FileNotFound {
+                    file: path.to_string_lossy().into_owned(),
+                    span: glob.span,
+                });
+            }
+
+            // Create a file at the given path unless the path is a directory (or a symlink with -d)
+            if !path.is_dir() && (!no_follow_symlinks || !path.is_symlink()) {
                 if let Err(err) = OpenOptions::new()
                     .write(true)
                     .create(true)
@@ -138,9 +167,31 @@ impl Command for Touch {
                 };
             }
 
+            // We have to inefficiently access the target metadata to not reset it
+            // in set_symlink_file_times, because the filetime doesn't expose individual methods for it
+            let get_target_metadata = || {
+                path.symlink_metadata()
+                    .map_err(|err| ShellError::IOErrorSpanned {
+                        msg: format!("Failed to read metadata: {err}"),
+                        span: glob.span,
+                    })
+            };
+
             if change_mtime {
-                if let Err(err) = filetime::set_file_mtime(&path, FileTime::from_system_time(mtime))
-                {
+                let result = if no_follow_symlinks {
+                    filetime::set_symlink_file_times(
+                        &path,
+                        if change_atime {
+                            FileTime::from_system_time(atime)
+                        } else {
+                            FileTime::from_system_time(get_target_metadata()?.accessed()?)
+                        },
+                        FileTime::from_system_time(mtime),
+                    )
+                } else {
+                    filetime::set_file_mtime(&path, FileTime::from_system_time(mtime))
+                };
+                if let Err(err) = result {
                     return Err(ShellError::ChangeModifiedTimeNotPossible {
                         msg: format!("Failed to change the modified time: {err}"),
                         span: glob.span,
@@ -149,8 +200,20 @@ impl Command for Touch {
             }
 
             if change_atime {
-                if let Err(err) = filetime::set_file_atime(&path, FileTime::from_system_time(atime))
-                {
+                let result = if no_follow_symlinks {
+                    filetime::set_symlink_file_times(
+                        &path,
+                        FileTime::from_system_time(atime),
+                        if change_mtime {
+                            FileTime::from_system_time(mtime)
+                        } else {
+                            FileTime::from_system_time(get_target_metadata()?.modified()?)
+                        },
+                    )
+                } else {
+                    filetime::set_file_atime(&path, FileTime::from_system_time(atime))
+                };
+                if let Err(err) = result {
                     return Err(ShellError::ChangeAccessTimeNotPossible {
                         msg: format!("Failed to change the access time: {err}"),
                         span: glob.span,

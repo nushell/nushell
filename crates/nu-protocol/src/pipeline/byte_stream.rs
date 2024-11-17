@@ -1,7 +1,7 @@
 //! Module managing the streaming of raw bytes between pipeline elements
 use crate::{
-    process::{ChildPipe, ChildProcess, ExitStatus},
-    ErrSpan, IntoSpanned, OutDest, PipelineData, ShellError, Signals, Span, Type, Value,
+    process::{ChildPipe, ChildProcess},
+    ErrSpan, IntoSpanned, PipelineData, ShellError, Signals, Span, Type, Value,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(unix)]
@@ -13,7 +13,6 @@ use std::{
     fs::File,
     io::{self, BufRead, BufReader, Cursor, ErrorKind, Read, Write},
     process::Stdio,
-    thread,
 };
 
 /// The source of bytes for a [`ByteStream`].
@@ -42,10 +41,7 @@ impl ByteStreamSource {
 
     /// Source is a `Child` or `File`, rather than `Read`. Currently affects trimming
     fn is_external(&self) -> bool {
-        matches!(
-            self,
-            ByteStreamSource::File(..) | ByteStreamSource::Child(..)
-        )
+        matches!(self, ByteStreamSource::Child(..))
     }
 }
 
@@ -548,25 +544,19 @@ impl ByteStream {
     }
 
     /// Consume and drop all bytes of the [`ByteStream`].
-    ///
-    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`],
-    /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
-    pub fn drain(self) -> Result<Option<ExitStatus>, ShellError> {
+    pub fn drain(self) -> Result<(), ShellError> {
         match self.stream {
             ByteStreamSource::Read(read) => {
                 copy_with_signals(read, io::sink(), self.span, &self.signals)?;
-                Ok(None)
+                Ok(())
             }
-            ByteStreamSource::File(_) => Ok(None),
-            ByteStreamSource::Child(child) => Ok(Some(child.wait()?)),
+            ByteStreamSource::File(_) => Ok(()),
+            ByteStreamSource::Child(child) => child.wait(),
         }
     }
 
     /// Print all bytes of the [`ByteStream`] to stdout or stderr.
-    ///
-    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`],
-    /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
-    pub fn print(self, to_stderr: bool) -> Result<Option<ExitStatus>, ShellError> {
+    pub fn print(self, to_stderr: bool) -> Result<(), ShellError> {
         if to_stderr {
             self.write_to(&mut io::stderr())
         } else {
@@ -575,24 +565,19 @@ impl ByteStream {
     }
 
     /// Write all bytes of the [`ByteStream`] to `dest`.
-    ///
-    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`],
-    /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
-    pub fn write_to(self, dest: impl Write) -> Result<Option<ExitStatus>, ShellError> {
+    pub fn write_to(self, dest: impl Write) -> Result<(), ShellError> {
         let span = self.span;
         let signals = &self.signals;
         match self.stream {
             ByteStreamSource::Read(read) => {
                 copy_with_signals(read, dest, span, signals)?;
-                Ok(None)
             }
             ByteStreamSource::File(file) => {
                 copy_with_signals(file, dest, span, signals)?;
-                Ok(None)
             }
             ByteStreamSource::Child(mut child) => {
-                // All `OutDest`s except `OutDest::Capture` will cause `stderr` to be `None`.
-                // Only `save`, `tee`, and `complete` set the stderr `OutDest` to `OutDest::Capture`,
+                // All `OutDest`s except `OutDest::PipeSeparate` will cause `stderr` to be `None`.
+                // Only `save`, `tee`, and `complete` set the stderr `OutDest` to `OutDest::PipeSeparate`,
                 // and those commands have proper simultaneous handling of stdout and stderr.
                 debug_assert!(child.stderr.is_none(), "stderr should not exist");
 
@@ -606,85 +591,10 @@ impl ByteStream {
                         }
                     }
                 }
-                Ok(Some(child.wait()?))
+                child.wait()?;
             }
         }
-    }
-
-    pub(crate) fn write_to_out_dests(
-        self,
-        stdout: &OutDest,
-        stderr: &OutDest,
-    ) -> Result<Option<ExitStatus>, ShellError> {
-        let span = self.span;
-        let signals = &self.signals;
-
-        match self.stream {
-            ByteStreamSource::Read(read) => {
-                write_to_out_dest(read, stdout, true, span, signals)?;
-                Ok(None)
-            }
-            ByteStreamSource::File(file) => {
-                match stdout {
-                    OutDest::Pipe | OutDest::Capture | OutDest::Null => {}
-                    OutDest::Inherit => {
-                        copy_with_signals(file, io::stdout(), span, signals)?;
-                    }
-                    OutDest::File(f) => {
-                        copy_with_signals(file, f.as_ref(), span, signals)?;
-                    }
-                }
-                Ok(None)
-            }
-            ByteStreamSource::Child(mut child) => {
-                match (child.stdout.take(), child.stderr.take()) {
-                    (Some(out), Some(err)) => {
-                        // To avoid deadlocks, we must spawn a separate thread to wait on stderr.
-                        thread::scope(|s| {
-                            let err_thread = thread::Builder::new()
-                                .name("stderr writer".into())
-                                .spawn_scoped(s, || match err {
-                                    ChildPipe::Pipe(pipe) => {
-                                        write_to_out_dest(pipe, stderr, false, span, signals)
-                                    }
-                                    ChildPipe::Tee(tee) => {
-                                        write_to_out_dest(tee, stderr, false, span, signals)
-                                    }
-                                })
-                                .err_span(span);
-
-                            match out {
-                                ChildPipe::Pipe(pipe) => {
-                                    write_to_out_dest(pipe, stdout, true, span, signals)
-                                }
-                                ChildPipe::Tee(tee) => {
-                                    write_to_out_dest(tee, stdout, true, span, signals)
-                                }
-                            }?;
-
-                            if let Ok(result) = err_thread?.join() {
-                                result?;
-                            } else {
-                                // thread panicked, which should not happen
-                                debug_assert!(false)
-                            }
-
-                            Ok::<_, ShellError>(())
-                        })?;
-                    }
-                    (Some(out), None) => {
-                        // single output stream, we can consume directly
-                        write_to_out_dest(out, stdout, true, span, signals)?;
-                    }
-                    (None, Some(err)) => {
-                        // single output stream, we can consume directly
-                        write_to_out_dest(err, stderr, false, span, signals)?;
-                    }
-                    (None, None) => {}
-                }
-                Ok(Some(child.wait()?))
-            }
-        }
+        Ok(())
     }
 }
 
@@ -972,23 +882,6 @@ fn trim_end_newline(string: &mut String) {
             string.pop();
         }
     }
-}
-
-fn write_to_out_dest(
-    read: impl Read,
-    stream: &OutDest,
-    stdout: bool,
-    span: Span,
-    signals: &Signals,
-) -> Result<(), ShellError> {
-    match stream {
-        OutDest::Pipe | OutDest::Capture => return Ok(()),
-        OutDest::Null => copy_with_signals(read, io::sink(), span, signals),
-        OutDest::Inherit if stdout => copy_with_signals(read, io::stdout(), span, signals),
-        OutDest::Inherit => copy_with_signals(read, io::stderr(), span, signals),
-        OutDest::File(file) => copy_with_signals(read, file.as_ref(), span, signals),
-    }?;
-    Ok(())
 }
 
 #[cfg(unix)]

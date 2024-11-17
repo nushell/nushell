@@ -1,9 +1,9 @@
 use crate::NushellPrompt;
-use log::trace;
+use log::{trace, warn};
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    report_error_new, Config, PipelineData, Value,
+    report_shell_error, Config, PipelineData, Value,
 };
 use reedline::Prompt;
 
@@ -30,30 +30,21 @@ pub(crate) const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str =
 pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
 pub(crate) const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
 pub(crate) const PRE_EXECUTION_MARKER: &str = "\x1b]133;C\x1b\\";
-#[allow(dead_code)]
 pub(crate) const POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]133;D;";
-#[allow(dead_code)]
 pub(crate) const POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
 
 // OSC633 is the same as OSC133 but specifically for VSCode
 pub(crate) const VSCODE_PRE_PROMPT_MARKER: &str = "\x1b]633;A\x1b\\";
 pub(crate) const VSCODE_POST_PROMPT_MARKER: &str = "\x1b]633;B\x1b\\";
-#[allow(dead_code)]
 pub(crate) const VSCODE_PRE_EXECUTION_MARKER: &str = "\x1b]633;C\x1b\\";
-#[allow(dead_code)]
 //"\x1b]633;D;{}\x1b\\"
 pub(crate) const VSCODE_POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]633;D;";
-#[allow(dead_code)]
 pub(crate) const VSCODE_POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
-#[allow(dead_code)]
 //"\x1b]633;E;{}\x1b\\"
 pub(crate) const VSCODE_COMMANDLINE_MARKER_PREFIX: &str = "\x1b]633;E;";
-#[allow(dead_code)]
 pub(crate) const VSCODE_COMMANDLINE_MARKER_SUFFIX: &str = "\x1b\\";
-#[allow(dead_code)]
 // "\x1b]633;P;Cwd={}\x1b\\"
 pub(crate) const VSCODE_CWD_PROPERTY_MARKER_PREFIX: &str = "\x1b]633;P;Cwd=";
-#[allow(dead_code)]
 pub(crate) const VSCODE_CWD_PROPERTY_MARKER_SUFFIX: &str = "\x1b\\";
 
 pub(crate) const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
@@ -68,7 +59,7 @@ fn get_prompt_string(
         .get_env_var(engine_state, prompt)
         .and_then(|v| match v {
             Value::Closure { val, .. } => {
-                let result = ClosureEvalOnce::new(engine_state, stack, *val)
+                let result = ClosureEvalOnce::new(engine_state, stack, val.as_ref().clone())
                     .run_with_input(PipelineData::Empty);
 
                 trace!(
@@ -80,7 +71,7 @@ fn get_prompt_string(
 
                 result
                     .map_err(|err| {
-                        report_error_new(engine_state, &err);
+                        report_shell_error(engine_state, &err);
                     })
                     .ok()
             }
@@ -89,8 +80,13 @@ fn get_prompt_string(
         })
         .and_then(|pipeline_data| {
             let output = pipeline_data.collect_string("", config).ok();
+            let ansi_output = output.map(|mut x| {
+                // Always reset the color at the start of the right prompt
+                // to ensure there is no ansi bleed over
+                if x.is_empty() && prompt == PROMPT_COMMAND_RIGHT {
+                    x.insert_str(0, "\x1b[0m")
+                };
 
-            output.map(|mut x| {
                 // Just remove the very last newline.
                 if x.ends_with('\n') {
                     x.pop();
@@ -100,7 +96,11 @@ fn get_prompt_string(
                     x.pop();
                 }
                 x
-            })
+            });
+            // Let's keep this for debugging purposes with nu --log-level warn
+            warn!("{}:{}:{} {:?}", file!(), line!(), column!(), ansi_output);
+
+            ansi_output
         })
 }
 
@@ -118,13 +118,17 @@ pub(crate) fn update_prompt(
 
     // Now that we have the prompt string lets ansify it.
     // <133 A><prompt><133 B><command><133 C><command output>
-    let left_prompt_string = if config.shell_integration_osc633 {
-        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+    let left_prompt_string = if config.shell_integration.osc633 {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
             // We're in vscode and we have osc633 enabled
             Some(format!(
                 "{VSCODE_PRE_PROMPT_MARKER}{configured_left_prompt_string}{VSCODE_POST_PROMPT_MARKER}"
             ))
-        } else if config.shell_integration_osc133 {
+        } else if config.shell_integration.osc133 {
             // If we're in VSCode but we don't find the env var, but we have osc133 set, then use it
             Some(format!(
                 "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
@@ -132,7 +136,7 @@ pub(crate) fn update_prompt(
         } else {
             configured_left_prompt_string.into()
         }
-    } else if config.shell_integration_osc133 {
+    } else if config.shell_integration.osc133 {
         Some(format!(
             "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
         ))

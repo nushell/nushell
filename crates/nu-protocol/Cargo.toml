@@ -5,32 +5,37 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-protocol"
 edition = "2021"
 license = "MIT"
 name = "nu-protocol"
-version = "0.96.2"
+version = "0.100.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 bench = false
 
+[lints]
+workspace = true
+
 [dependencies]
-nu-utils = { path = "../nu-utils", version = "0.96.2" }
-nu-path = { path = "../nu-path", version = "0.96.2" }
-nu-system = { path = "../nu-system", version = "0.96.2" }
-nu-derive-value = { path = "../nu-derive-value", version = "0.96.2" }
+nu-utils = { path = "../nu-utils", version = "0.100.1" }
+nu-path = { path = "../nu-path", version = "0.100.1" }
+nu-system = { path = "../nu-system", version = "0.100.1" }
+nu-derive-value = { path = "../nu-derive-value", version = "0.100.1" }
 
 brotli = { workspace = true, optional = true }
-byte-unit = { version = "5.1", features = [ "serde" ] }
+bytes = { workspace = true }
+byte-unit = { version = "5.1" }
 chrono = { workspace = true, features = [ "serde", "std", "unstable-locales" ], default-features = false }
 chrono-humanize = { workspace = true }
-convert_case = { workspace = true }
 dirs = { workspace = true }
 fancy-regex = { workspace = true }
+heck = { workspace = true }
 indexmap = { workspace = true }
 lru = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 num-format = { workspace = true }
 rmp-serde = { workspace = true, optional = true }
-serde = { workspace = true, default-features = false }
+serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = "1.0"
 typetag = "0.2"
 os_pipe = { workspace = true, features = ["io_safety"] }
@@ -53,7 +58,8 @@ plugin = [
 serde_json = { workspace = true }
 strum = "0.26"
 strum_macros = "0.26"
-nu-test-support = { path = "../nu-test-support", version = "0.96.2" }
+nu-test-support = { path = "../nu-test-support", version = "0.100.1" }
+nu-utils = { path = "../nu-utils", version = "0.100.1" }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 tempfile = { workspace = true }

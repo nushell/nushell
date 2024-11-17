@@ -45,8 +45,6 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
 
         bind_command!(
             strings::format::FormatPattern,
-            strings::encode_decode::EncodeHex,
-            strings::encode_decode::DecodeHex,
             strings::str_::case::Str,
             strings::str_::case::StrCamelCase,
             strings::str_::case::StrKebabCase,

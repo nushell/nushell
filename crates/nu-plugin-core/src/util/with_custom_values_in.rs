@@ -1,5 +1,8 @@
 use nu_protocol::{CustomValue, IntoSpanned, ShellError, Spanned, Value};
 
+#[allow(unused_imports)] // both are definitely used
+use nu_protocol::{BlockId, VarId};
+
 /// Do something with all [`CustomValue`]s recursively within a `Value`. This is not limited to
 /// plugin custom values.
 pub fn with_custom_values_in<E>(
@@ -36,8 +39,8 @@ fn find_custom_values() {
         ]),
         "closure" => Value::test_closure(
             Closure {
-                block_id: 0,
-                captures: vec![(0, cv.clone()), (1, Value::test_string("foo"))]
+                block_id: BlockId::new(0),
+                captures: vec![(VarId::new(0), cv.clone()), (VarId::new(1), Value::test_string("foo"))]
             }
         ),
     });

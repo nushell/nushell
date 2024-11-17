@@ -51,7 +51,9 @@ impl CommandCompletion {
                             if working_set
                                 .permanent_state
                                 .config
-                                .max_external_completion_results
+                                .completions
+                                .external
+                                .max_results
                                 > executables.len() as i64
                                 && !executables.contains(
                                     &item
@@ -156,7 +158,7 @@ impl Completer for CommandCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        prefix: Vec<u8>,
+        prefix: &[u8],
         span: Span,
         offset: usize,
         pos: usize,
@@ -193,7 +195,7 @@ impl Completer for CommandCompletion {
         };
 
         if !subcommands.is_empty() {
-            return sort_suggestions(&String::from_utf8_lossy(&prefix), subcommands, options);
+            return sort_suggestions(&String::from_utf8_lossy(prefix), subcommands, options);
         }
 
         let config = working_set.get_config();
@@ -211,14 +213,14 @@ impl Completer for CommandCompletion {
                 working_set,
                 span,
                 offset,
-                config.enable_external_completion,
+                config.completions.external.enable,
                 options.match_algorithm,
             )
         } else {
             vec![]
         };
 
-        sort_suggestions(&String::from_utf8_lossy(&prefix), commands, options)
+        sort_suggestions(&String::from_utf8_lossy(prefix), commands, options)
     }
 }
 

@@ -17,7 +17,7 @@ impl Command for Explore {
         "explore"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Explore acts as a table pager, just like `less` does for text."
     }
 
@@ -47,7 +47,7 @@ impl Command for Explore {
             .category(Category::Viewers)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Press `:` then `h` to get a help menu."#
     }
 
@@ -72,6 +72,9 @@ impl Command for Explore {
         explore_config.table.separator_style = lookup_color(&style_computer, "separator");
 
         let lscolors = create_lscolors(engine_state, stack);
+        let cwd = engine_state.cwd(Some(stack)).map_or(String::new(), |path| {
+            path.to_str().unwrap_or("").to_string()
+        });
 
         let config = PagerConfig::new(
             &nu_config,
@@ -80,6 +83,7 @@ impl Command for Explore {
             &lscolors,
             peek_value,
             tail,
+            &cwd,
         );
 
         let result = run_pager(engine_state, &mut stack.clone(), input, config);
@@ -177,8 +181,8 @@ impl ExploreConfig {
     pub fn from_nu_config(config: &Config) -> Self {
         let mut ret = Self::default();
 
-        ret.table.column_padding_left = config.table_indent.left;
-        ret.table.column_padding_right = config.table_indent.right;
+        ret.table.column_padding_left = config.table.padding.left;
+        ret.table.column_padding_right = config.table.padding.right;
 
         let explore_cfg_hash_map = config.explore.clone();
         let colors = get_color_map(&explore_cfg_hash_map);

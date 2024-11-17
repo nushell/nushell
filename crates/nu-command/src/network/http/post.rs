@@ -39,8 +39,8 @@ impl Command for SubCommand {
             )
             .named(
                 "max-time",
-                SyntaxShape::Int,
-                "timeout period in seconds",
+                SyntaxShape::Duration,
+                "max duration before timeout occurs",
                 Some('m'),
             )
             .named(
@@ -78,11 +78,11 @@ impl Command for SubCommand {
             .category(Category::Network)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Post a body to a URL."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Performs HTTP POST operation."
     }
 
@@ -124,12 +124,17 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Post JSON content from a pipeline to example.com",
-                example: "open foo.json | http post https://www.example.com",
+                example: "open --raw foo.json | http post https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Upload a file to example.com",
-                example: "http post --content-type multipart/form-data https://www.example.com { audio: (open -r file.mp3) }",
+                description: "Upload a binary file to example.com",
+                example: "http post --content-type multipart/form-data https://www.example.com { file: (open -r file.mp3) }",
+                result: None,
+            },
+            Example {
+                description: "Convert a text file into binary and upload it to example.com",
+                example: "http post --content-type multipart/form-data https://www.example.com { file: (open -r file.txt | into binary) }",
                 result: None,
             },
         ]

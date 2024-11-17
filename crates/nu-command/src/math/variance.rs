@@ -25,7 +25,7 @@ impl Command for SubCommand {
             .category(Category::Math)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns the variance of a list of numbers or of each column in a table."
     }
 

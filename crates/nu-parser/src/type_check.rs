@@ -88,6 +88,7 @@ pub fn math_result_type(
                 (Type::Float, Type::Number) => (Type::Number, None),
                 (Type::String, Type::String) => (Type::String, None),
                 (Type::Date, Type::Duration) => (Type::Date, None),
+                (Type::Duration, Type::Date) => (Type::Date, None),
                 (Type::Duration, Type::Duration) => (Type::Duration, None),
                 (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
 
@@ -280,15 +281,15 @@ pub fn math_result_type(
                 }
             },
             Operator::Math(Math::Divide) => match (&lhs.ty, &rhs.ty) {
-                (Type::Int, Type::Int) => (Type::Int, None),
+                (Type::Int, Type::Int) => (Type::Float, None),
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
-                (Type::Number, Type::Number) => (Type::Number, None),
-                (Type::Number, Type::Int) => (Type::Number, None),
-                (Type::Int, Type::Number) => (Type::Number, None),
-                (Type::Number, Type::Float) => (Type::Number, None),
-                (Type::Float, Type::Number) => (Type::Number, None),
+                (Type::Number, Type::Number) => (Type::Float, None),
+                (Type::Number, Type::Int) => (Type::Float, None),
+                (Type::Int, Type::Number) => (Type::Float, None),
+                (Type::Number, Type::Float) => (Type::Float, None),
+                (Type::Float, Type::Number) => (Type::Float, None),
                 (Type::Filesize, Type::Filesize) => (Type::Float, None),
                 (Type::Filesize, Type::Int) => (Type::Filesize, None),
                 (Type::Filesize, Type::Float) => (Type::Filesize, None),
@@ -379,9 +380,9 @@ pub fn math_result_type(
             },
             Operator::Math(Math::FloorDivision) => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
-                (Type::Float, Type::Int) => (Type::Int, None),
-                (Type::Int, Type::Float) => (Type::Int, None),
-                (Type::Float, Type::Float) => (Type::Int, None),
+                (Type::Float, Type::Int) => (Type::Float, None),
+                (Type::Int, Type::Float) => (Type::Float, None),
+                (Type::Float, Type::Float) => (Type::Float, None),
                 (Type::Number, Type::Number) => (Type::Number, None),
                 (Type::Number, Type::Int) => (Type::Number, None),
                 (Type::Int, Type::Number) => (Type::Number, None),
@@ -480,6 +481,7 @@ pub fn math_result_type(
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
                 (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
+                (Type::Bool, Type::Bool) => (Type::Bool, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
@@ -530,6 +532,7 @@ pub fn math_result_type(
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
                 (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
+                (Type::Bool, Type::Bool) => (Type::Bool, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
@@ -580,6 +583,7 @@ pub fn math_result_type(
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
                 (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
+                (Type::Bool, Type::Bool) => (Type::Bool, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
@@ -630,6 +634,7 @@ pub fn math_result_type(
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
                 (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
+                (Type::Bool, Type::Bool) => (Type::Bool, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.clone()), None),

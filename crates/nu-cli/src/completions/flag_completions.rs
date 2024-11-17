@@ -24,7 +24,7 @@ impl Completer for FlagCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        prefix: Vec<u8>,
+        prefix: &[u8],
         span: Span,
         offset: usize,
         _pos: usize,
@@ -44,7 +44,7 @@ impl Completer for FlagCompletion {
                     short.encode_utf8(&mut named);
                     named.insert(0, b'-');
 
-                    if options.match_algorithm.matches_u8(&named, &prefix) {
+                    if options.match_algorithm.matches_u8(&named, prefix) {
                         output.push(SemanticSuggestion {
                             suggestion: Suggestion {
                                 value: String::from_utf8_lossy(&named).to_string(),
@@ -70,7 +70,7 @@ impl Completer for FlagCompletion {
                 named.insert(0, b'-');
                 named.insert(0, b'-');
 
-                if options.match_algorithm.matches_u8(&named, &prefix) {
+                if options.match_algorithm.matches_u8(&named, prefix) {
                     output.push(SemanticSuggestion {
                         suggestion: Suggestion {
                             value: String::from_utf8_lossy(&named).to_string(),
@@ -88,7 +88,7 @@ impl Completer for FlagCompletion {
                 }
             }
 
-            return sort_suggestions(&String::from_utf8_lossy(&prefix), output, options);
+            return sort_suggestions(&String::from_utf8_lossy(prefix), output, options);
         }
 
         vec![]

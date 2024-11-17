@@ -1,3 +1,5 @@
+use std::io::Read;
+
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -8,13 +10,16 @@ impl Command for Length {
         "length"
     }
 
-    fn usage(&self) -> &str {
-        "Count the number of items in an input list or rows in a table."
+    fn description(&self) -> &str {
+        "Count the number of items in an input list, rows in a table, or bytes in binary data."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("length")
-            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Int)])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Any)), Type::Int),
+                (Type::Binary, Type::Int),
+            ])
             .category(Category::Filters)
     }
 
@@ -44,6 +49,11 @@ impl Command for Length {
                 example: "[{a:1 b:2}, {a:2 b:3}] | length",
                 result: Some(Value::test_int(2)),
             },
+            Example {
+                description: "Count the number of bytes in binary data",
+                example: "0x[01 02] | length",
+                result: Some(Value::test_int(2)),
+            },
         ]
     }
 }
@@ -63,6 +73,19 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
                 dst_span: call.head,
                 src_span: span,
             })
+        }
+        PipelineData::Value(Value::Binary { val, .. }, ..) => {
+            Ok(Value::int(val.len() as i64, call.head).into_pipeline_data())
+        }
+        PipelineData::ByteStream(stream, _) if stream.type_().is_binary_coercible() => {
+            Ok(Value::int(
+                match stream.reader() {
+                    Some(r) => r.bytes().count() as i64,
+                    None => 0,
+                },
+                call.head,
+            )
+            .into_pipeline_data())
         }
         _ => {
             let mut count: i64 = 0;
