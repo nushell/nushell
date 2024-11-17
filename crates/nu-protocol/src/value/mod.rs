@@ -837,7 +837,7 @@ impl Value {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
+            Value::Filesize { val, .. } => config.filesize.unit.display(*val).to_string(),
             Value::Duration { val, .. } => format_duration(*val),
             Value::Date { val, .. } => match &config.datetime_format.normal {
                 Some(format) => self.format_datetime(val, format),

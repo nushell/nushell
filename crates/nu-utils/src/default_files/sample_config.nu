@@ -120,7 +120,7 @@ $env.config.completions.algorithm = "prefix"
 $env.config.completions.sort = "smart"
 
 # case_sensitive (bool): true/false to enable/disable case-sensitive completions
-$env.config.completions.case_sensitive = false 
+$env.config.completions.case_sensitive = false
 
 # quick (bool):
 # true: auto-select the completion when only one remains
@@ -132,7 +132,7 @@ $env.config.completions.quick = true
 # false: Do not partially complete
 # Partial Example: If a directory contains only files named "forage", "food", and "forest",
 #                  then typing "ls " and pressing <Tab> will partially complete the first two
-#                  letters, "f" and "o". If the directory also includes a file named "faster", 
+#                  letters, "f" and "o". If the directory also includes a file named "faster",
 #                  then only "f" would be partially completed.
 $env.config.completions.partial = true
 
@@ -156,16 +156,16 @@ $env.config.completions.external.enable = true
 $env.config.completions.external.max_results = 50
 
 # completer (closure with a |spans| parameter): A command to call for *argument* completions
-# to commands (internal or external). 
+# to commands (internal or external).
 #
 # The |spans| parameter is a list of strings representing the tokens (spans)
-# on the current commandline. It is always a list of at least two strings - The 
+# on the current commandline. It is always a list of at least two strings - The
 # command being completed plus the first argument of that command ("" if no argument has
 # been partially typed yet), and additional strings for additional arguments beyond
 # the first.
 #
 # This setting is usually set to a closure which will call a third-party completion system, such
-# as Carapace. 
+# as Carapace.
 #
 # Note: The following is an over-simplified completer command that will call Carapace if it
 # is installed. Please use the official Carapace completer, which can be generated automatically
@@ -207,7 +207,7 @@ $env.config.shell_integration.osc9_9 = false
 # When true, the `ls` command will generate clickable links that can be launched in another
 # application by the terminal.
 # Note: This setting replaces the now deprecated `ls.show_clickable_links`
-$env.config.shell.integration.osc8: true
+$env.config.shell.integration.osc8 = true
 
 # Deprecated
 # $env.config.ls.clickable_links = true
@@ -229,13 +229,13 @@ $env.config.shell_integration.osc633 = true
 
 # reset_application_mode (bool):
 # true/false to enable/disable sending ESC[?1l to the terminal
-# This sequence is commonly used to keep cursor key modes in sync between the local 
+# This sequence is commonly used to keep cursor key modes in sync between the local
 # terminal and a remove SSH host.
 $env.config.shell_integration.reset_application_mode = true
 
 # bracketed_paste (bool):
 # true/false to enable/disable the bracketed-paste feature, which allows multiple-lines
-# to be pasted into Nushell at once without immediate execution. When disabled, 
+# to be pasted into Nushell at once without immediate execution. When disabled,
 # each pasted line is executed as it is received.
 # Note that bracketed paste is not currently supported on the Windows version of
 # Nushell.
@@ -266,7 +266,7 @@ $env.config.display_errors.exit_code = false
 
 # display_errors.termination_signal (bool):
 # true/false to enable/disable displaying a Nushell error when a child process is
-# terminated via any signal 
+# terminated via any signal
 $env.config.display_errors.termination_signal = true
 
 # -------------
@@ -282,7 +282,7 @@ $env.config.display_errors.termination_signal = true
 $env.config.footer_mode = 25
 
 # table.*
-# table_mode (string): 
+# table_mode (string):
 # One of: "default", "basic", "compact", "compact_double", "heavy", "light", "none", "reinforced",
 # "rounded", "thin", "with_love", "psql", "markdown", "dots", "restructured", "ascii_rounded",
 # or "basic_compact"
@@ -344,7 +344,7 @@ $env.config.table.footer_inheritance = false
 # Datetime Display
 # ----------------
 # datetime_format.* (string or nothing):
-# Format strings that will be used for datetime values. 
+# Format strings that will be used for datetime values.
 # When set to `null`, the default behavior is to "humanize" the value (e.g., "now" or "a day ago")
 
 # datetime_format.table (string or nothing):
@@ -360,17 +360,13 @@ $env.config.datetime_format.normal = "%m/%d/%y %I:%M:%S%p"
 # ----------------
 # Filesize Display
 # ----------------
-# filesize.metric (bool): When displaying filesize values ...
-# true: Use the ISO-standard KB, MB, GB
-# false: Use the Windows-standard KiB, MiB, GiB
-$env.config.filesize.metric = false
-
-# filesize.format (string): One of either:
-# - The filesize units such as "KB", "KiB", etc. In this case, filesize values always display using
-# this unit.
-# - Or "auto": Filesizes are displayed using the closest unit. For example, 1_000_000_000b will display
-#   as 953.7 MiB (when `metric = false`) or 1.0GB (when `metric = true`)
-$env.config.filesize.format = "auto"
+# filesize.unit (string): One of either:
+# - A filesize unit: "B", "kB", "KiB", "MB", "MiB", "GB", "GiB", "TB", "TiB", "PB", "PiB", "EB", or "EiB".
+# - An automatically scaled unit: "decimal" or "binary".
+# "decimal" will use units with metric (SI) decimal prefixes like kB, MB, or GB.
+# "binary" will use units with binary prefixes like KiB, MiB, or GiB.
+# Otherwise, setting this to one of the filesize units will use that particular unit when display all file sizes.
+$env.config.filesize.unit = 'decimal'
 
 # ---------------------
 # Miscellaneous Display
@@ -532,12 +528,12 @@ use std/config dark-theme
 $env.config.color_config = (dark-theme)
 
 # Or, individual color settings can be configured or overridden.
-# 
+#
 # Values can be one of:
 # - A color name such as "red" (see `ansi -l` for a list)
 # - A color RGB value in the form of "#C4C9C6"
 # - A record including:
-#   * `fg` (color) 
+#   * `fg` (color)
 #   * `bg` (color)
 #   * `attr`: a string with one or more of:
 #     - 'n': normal
@@ -547,7 +543,7 @@ $env.config.color_config = (dark-theme)
 #     - 'i': italics
 #     - 'd': dimmed
 
-# foreground, background, and cursor colors are not handled by Nushell, but can be used by 
+# foreground, background, and cursor colors are not handled by Nushell, but can be used by
 # custom-commands such as `theme` from the nu_scripts repository. That `theme` command can be
 # used to set the terminal foreground, background, and cursor colors.
 $env.config.color_config.foreground
@@ -557,7 +553,7 @@ $env.config.color_config.cursor
 # -------------------------------------------------------------------------------------------------
 # shape_: Applies syntax highlighting based on the "shape" (inferred or declared type) of an
 # element on the commandline. Nushell's parser can identify shapes based on many criteria, often
-# as the commandline is being typed. 
+# as the commandline is being typed.
 
 # shape_string: Can appear as a single-or-quoted value, a bareword string, the key of a record,
 # an argument which has been declared as a string, and other parsed strings.
@@ -733,7 +729,7 @@ $env.config.color_config.custom      # Custom value (often from a plugin)
 $env.config.color_config.nothing     # Not used, since a null is not displayed
 $env.config.color_config.date        # datetime value
 $env.config.color_config.filesize    # filesize value
-$env.config.color_config.list        # Not currently used. Lists are displayed using their 
+$env.config.color_config.list        # Not currently used. Lists are displayed using their
                                      # members' styles
 $env.config.color_config.record      # Not currently used. Records are displayed using their
                                      # member's styles

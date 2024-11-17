@@ -768,9 +768,7 @@ fn filesize_math() {
         100 * 10kib
         ");
 
-    assert_eq!(actual.out, "1000.0 KiB");
-    // why 1000.0 KB instead of 1.0 MB?
-    // looks like `byte.get_appropriate_unit(false)` behaves this way
+    assert_eq!(actual.out, "1024.0 kB");
 }
 
 #[test]
