@@ -2,30 +2,30 @@ use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
 use nu_protocol::{
-    cli_error::{report_parse_error, report_shell_error},
+    cli_error::report_parse_error,
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
-    PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
+    Hook, HookCode, PipelineData, PositionalArg, ShellError, Span, Spanned, Type, Value,
 };
 use std::{collections::HashMap, sync::Arc};
 
 pub fn eval_env_change_hook(
-    env_change_hook: &HashMap<String, Vec<Value>>,
+    hooks: &HashMap<String, Vec<Hook>>,
     engine_state: &mut EngineState,
     stack: &mut Stack,
 ) -> Result<(), ShellError> {
-    for (env, hooks) in env_change_hook {
+    for (env, hook) in hooks {
         let before = engine_state.previous_env_vars.get(env);
         let after = stack.get_env_var(engine_state, env);
         if before != after {
             let before = before.cloned().unwrap_or_default();
             let after = after.cloned().unwrap_or_default();
 
-            eval_hooks(
+            eval_hook_list(
                 engine_state,
                 stack,
                 vec![("$before".into(), before), ("$after".into(), after.clone())],
-                hooks,
+                hook,
                 "env_change",
             )?;
 
@@ -36,22 +36,23 @@ pub fn eval_env_change_hook(
     Ok(())
 }
 
-pub fn eval_hooks(
+pub fn eval_hook_list(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     arguments: Vec<(String, Value)>,
-    hooks: &[Value],
+    hooks: &[Hook],
     hook_name: &str,
 ) -> Result<(), ShellError> {
     for hook in hooks {
         eval_hook(
             engine_state,
             stack,
-            None,
+            PipelineData::Empty,
             arguments.clone(),
             hook,
-            &format!("{hook_name} list, recursive"),
-        )?;
+            hook_name,
+        )?
+        .drain()?;
     }
     Ok(())
 }
@@ -59,43 +60,98 @@ pub fn eval_hooks(
 pub fn eval_hook(
     engine_state: &mut EngineState,
     stack: &mut Stack,
-    input: Option<PipelineData>,
+    input: PipelineData,
     arguments: Vec<(String, Value)>,
-    value: &Value,
+    hook: &Hook,
     hook_name: &str,
 ) -> Result<PipelineData, ShellError> {
-    let mut output = PipelineData::empty();
+    // let span = value.span();
+    let output = match hook {
+        Hook::Unconditional(hook) => {
+            run_hook_code(engine_state, stack, hook, input, arguments, hook_name)
+        }
+        Hook::Conditional(hook) => {
+            // Hooks can optionally be a record in this form:
+            // {
+            //     condition: {|before, after| ... }  # block that evaluates to true/false
+            //     code: # block or a string
+            // }
+            // The condition block will be run to check whether the main hook (in `code`) should be run.
+            // If it returns true (the default if a condition block is not specified), the hook should be run.
+            let run_hook = if let Some(condition) = &hook.condition {
+                let data = run_hook_closure(
+                    engine_state,
+                    stack,
+                    &condition.item,
+                    PipelineData::Empty,
+                    arguments.clone(),
+                    condition.span,
+                )?;
+                if let PipelineData::Value(Value::Bool { val, .. }, ..) = data {
+                    val
+                } else {
+                    return Err(ShellError::RuntimeTypeMismatch {
+                        expected: Type::Bool,
+                        actual: data.get_type(),
+                        span: data.span().unwrap_or(condition.span),
+                    });
+                }
+            } else {
+                // always run the hook
+                true
+            };
 
-    let span = value.span();
-    match value {
-        Value::String { val, .. } => {
+            if run_hook {
+                run_hook_code(engine_state, stack, &hook.code, input, arguments, hook_name)
+            } else {
+                Ok(PipelineData::Empty)
+            }
+        }
+    }?;
+
+    engine_state.merge_env(stack)?;
+
+    Ok(output)
+}
+
+fn run_hook_code(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    hook: &Spanned<HookCode>,
+    input: PipelineData,
+    arguments: Vec<(String, Value)>,
+    hook_name: &str,
+) -> Result<PipelineData, ShellError> {
+    match &hook.item {
+        HookCode::Code(code) => {
             let (block, delta, vars) = {
                 let mut working_set = StateWorkingSet::new(engine_state);
-
-                let mut vars: Vec<(VarId, Value)> = vec![];
-
-                for (name, val) in arguments {
-                    let var_id = working_set.add_variable(
-                        name.as_bytes().to_vec(),
-                        val.span(),
-                        Type::Any,
-                        false,
-                    );
-                    vars.push((var_id, val));
-                }
+                let vars = arguments
+                    .into_iter()
+                    .map(|(name, val)| {
+                        let var_id = working_set.add_variable(
+                            name.into_bytes(),
+                            val.span(),
+                            Type::Any,
+                            false,
+                        );
+                        (var_id, val)
+                    })
+                    .collect::<Vec<_>>();
 
                 let output = parse(
                     &mut working_set,
                     Some(&format!("{hook_name} hook")),
-                    val.as_bytes(),
+                    code.as_bytes(),
                     false,
                 );
+
                 if let Some(err) = working_set.parse_errors.first() {
                     report_parse_error(&working_set, err);
                     return Err(ShellError::GenericError {
                         error: format!("Failed to run {hook_name} hook"),
                         msg: "source code has errors".into(),
-                        span: Some(span),
+                        span: Some(hook.span),
                         help: None,
                         inner: Vec::new(),
                     });
@@ -105,194 +161,38 @@ pub fn eval_hook(
             };
 
             engine_state.merge_delta(delta)?;
-            let input = if let Some(input) = input {
-                input
-            } else {
-                PipelineData::empty()
-            };
 
-            let var_ids: Vec<VarId> = vars
+            let var_ids = vars
                 .into_iter()
                 .map(|(var_id, val)| {
                     stack.add_var(var_id, val);
                     var_id
                 })
-                .collect();
+                .collect::<Vec<_>>();
 
-            match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
-                Ok(pipeline_data) => {
-                    output = pipeline_data;
-                }
-                Err(err) => {
-                    report_shell_error(engine_state, &err);
-                }
+            let result = eval_block::<WithoutDebug>(engine_state, stack, &block, input);
+
+            for &var_id in var_ids.iter().rev() {
+                stack.remove_var(var_id);
             }
 
-            for var_id in var_ids.iter() {
-                stack.remove_var(*var_id);
-            }
+            result
         }
-        Value::List { vals, .. } => {
-            eval_hooks(engine_state, stack, arguments, vals, hook_name)?;
-        }
-        Value::Record { val, .. } => {
-            // Hooks can optionally be a record in this form:
-            // {
-            //     condition: {|before, after| ... }  # block that evaluates to true/false
-            //     code: # block or a string
-            // }
-            // The condition block will be run to check whether the main hook (in `code`) should be run.
-            // If it returns true (the default if a condition block is not specified), the hook should be run.
-            let do_run_hook = if let Some(condition) = val.get("condition") {
-                let other_span = condition.span();
-                if let Ok(closure) = condition.as_closure() {
-                    match run_hook(
-                        engine_state,
-                        stack,
-                        closure,
-                        None,
-                        arguments.clone(),
-                        other_span,
-                    ) {
-                        Ok(pipeline_data) => {
-                            if let PipelineData::Value(Value::Bool { val, .. }, ..) = pipeline_data
-                            {
-                                val
-                            } else {
-                                return Err(ShellError::RuntimeTypeMismatch {
-                                    expected: Type::Bool,
-                                    actual: pipeline_data.get_type(),
-                                    span: pipeline_data.span().unwrap_or(other_span),
-                                });
-                            }
-                        }
-                        Err(err) => {
-                            return Err(err);
-                        }
-                    }
-                } else {
-                    return Err(ShellError::RuntimeTypeMismatch {
-                        expected: Type::Closure,
-                        actual: condition.get_type(),
-                        span: other_span,
-                    });
-                }
-            } else {
-                // always run the hook
-                true
-            };
-
-            if do_run_hook {
-                let Some(follow) = val.get("code") else {
-                    return Err(ShellError::CantFindColumn {
-                        col_name: "code".into(),
-                        span: Some(span),
-                        src_span: span,
-                    });
-                };
-                let source_span = follow.span();
-                match follow {
-                    Value::String { val, .. } => {
-                        let (block, delta, vars) = {
-                            let mut working_set = StateWorkingSet::new(engine_state);
-
-                            let mut vars: Vec<(VarId, Value)> = vec![];
-
-                            for (name, val) in arguments {
-                                let var_id = working_set.add_variable(
-                                    name.as_bytes().to_vec(),
-                                    val.span(),
-                                    Type::Any,
-                                    false,
-                                );
-                                vars.push((var_id, val));
-                            }
-
-                            let output = parse(
-                                &mut working_set,
-                                Some(&format!("{hook_name} hook")),
-                                val.as_bytes(),
-                                false,
-                            );
-                            if let Some(err) = working_set.parse_errors.first() {
-                                report_parse_error(&working_set, err);
-                                return Err(ShellError::GenericError {
-                                    error: format!("Failed to run {hook_name} hook"),
-                                    msg: "source code has errors".into(),
-                                    span: Some(span),
-                                    help: None,
-                                    inner: Vec::new(),
-                                });
-                            }
-
-                            (output, working_set.render(), vars)
-                        };
-
-                        engine_state.merge_delta(delta)?;
-                        let input = PipelineData::empty();
-
-                        let var_ids: Vec<VarId> = vars
-                            .into_iter()
-                            .map(|(var_id, val)| {
-                                stack.add_var(var_id, val);
-                                var_id
-                            })
-                            .collect();
-
-                        match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
-                            Ok(pipeline_data) => {
-                                output = pipeline_data;
-                            }
-                            Err(err) => {
-                                report_shell_error(engine_state, &err);
-                            }
-                        }
-
-                        for var_id in var_ids.iter() {
-                            stack.remove_var(*var_id);
-                        }
-                    }
-                    Value::Closure { val, .. } => {
-                        run_hook(engine_state, stack, val, input, arguments, source_span)?;
-                    }
-                    other => {
-                        return Err(ShellError::RuntimeTypeMismatch {
-                            expected: Type::custom("string or closure"),
-                            actual: other.get_type(),
-                            span: source_span,
-                        });
-                    }
-                }
-            }
-        }
-        Value::Closure { val, .. } => {
-            output = run_hook(engine_state, stack, val, input, arguments, span)?;
-        }
-        other => {
-            return Err(ShellError::RuntimeTypeMismatch {
-                expected: Type::custom("string, closure, record, or list"),
-                actual: other.get_type(),
-                span: other.span(),
-            });
+        HookCode::Closure(closure) => {
+            run_hook_closure(engine_state, stack, closure, input, arguments, hook.span)
         }
     }
-
-    engine_state.merge_env(stack)?;
-
-    Ok(output)
 }
 
-fn run_hook(
+fn run_hook_closure(
     engine_state: &EngineState,
     stack: &mut Stack,
     closure: &Closure,
-    optional_input: Option<PipelineData>,
+    input: PipelineData,
     arguments: Vec<(String, Value)>,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     let block = engine_state.get_block(closure.block_id);
-
-    let input = optional_input.unwrap_or_else(PipelineData::empty);
 
     let mut callee_stack = stack
         .captures_to_stack_preserve_out_dest(closure.captures.clone())
@@ -313,14 +213,14 @@ fn run_hook(
         }
     }
 
-    let pipeline_data = eval_block_with_early_return::<WithoutDebug>(
+    let data = eval_block_with_early_return::<WithoutDebug>(
         engine_state,
         &mut callee_stack,
         block,
         input,
     )?;
 
-    if let PipelineData::Value(Value::Error { error, .. }, _) = pipeline_data {
+    if let PipelineData::Value(Value::Error { error, .. }, _) = data {
         return Err(*error);
     }
 
@@ -339,5 +239,5 @@ fn run_hook(
     for (var, value) in callee_stack.get_stack_env_vars() {
         stack.add_env_var(var, value);
     }
-    Ok(pipeline_data)
+    Ok(data)
 }

@@ -322,7 +322,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = std::time::Instant::now();
     // Right before we start our prompt and take input from the user, fire the "pre_prompt" hook
-    if let Err(err) = hook::eval_hooks(
+    if let Err(err) = hook::eval_hook_list(
         engine_state,
         &mut stack,
         vec![],
@@ -333,7 +333,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     }
     perf!("pre-prompt hook", start_time, use_color);
 
-    start_time = std::time::Instant::now();
     // Next, check all the environment variables they ask for
     // fire the "env_change" hook
     if let Err(error) = hook::eval_env_change_hook(
@@ -531,7 +530,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 repl.buffer = repl_cmd_line_text.to_string();
                 drop(repl);
 
-                if let Err(err) = hook::eval_hooks(
+                if let Err(err) = hook::eval_hook_list(
                     engine_state,
                     &mut stack,
                     vec![],

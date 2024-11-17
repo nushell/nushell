@@ -1,4 +1,4 @@
-use crate::{ast::CellPath, engine::Closure, Range, Record, ShellError, Span, Value};
+use crate::{ast::CellPath, engine::Closure, Range, Record, ShellError, Span, Spanned, Value};
 use chrono::{DateTime, FixedOffset};
 use std::{borrow::Borrow, collections::HashMap};
 
@@ -224,6 +224,12 @@ where
 }
 
 // Nu Types
+
+impl<T: IntoValue> IntoValue for Spanned<T> {
+    fn into_value(self, _span: Span) -> Value {
+        self.item.into_value(self.span)
+    }
+}
 
 impl IntoValue for Range {
     fn into_value(self, span: Span) -> Value {

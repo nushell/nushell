@@ -2,7 +2,7 @@ use super::ConfigPath;
 use crate::{Config, ConfigError, ShellError, Span, Type, Value};
 
 #[derive(Debug)]
-pub(super) struct ConfigErrors<'a> {
+pub(crate) struct ConfigErrors<'a> {
     config: &'a Config,
     errors: Vec<ConfigError>,
 }

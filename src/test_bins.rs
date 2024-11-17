@@ -1,4 +1,4 @@
-use nu_cmd_base::hook::{eval_env_change_hook, eval_hooks};
+use nu_cmd_base::hook::{eval_env_change_hook, eval_hook_list};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
@@ -250,17 +250,16 @@ pub fn nu_repl() {
         }
 
         // Check for pre_prompt hook
-        let hook = engine_state.get_config().hooks.pre_prompt.clone();
-        if let Err(err) = eval_hooks(&mut engine_state, &mut stack, vec![], &hook, "pre_prompt") {
+        let hooks = engine_state.get_config().hooks.pre_prompt.clone();
+        if let Err(err) =
+            eval_hook_list(&mut engine_state, &mut stack, vec![], &hooks, "pre_prompt")
+        {
             outcome_err(&engine_state, &err);
         }
 
         // Check for env change hook
-        if let Err(err) = eval_env_change_hook(
-            &engine_state.get_config().hooks.env_change.clone(),
-            &mut engine_state,
-            &mut stack,
-        ) {
+        let hooks = engine_state.get_config().hooks.env_change.clone();
+        if let Err(err) = eval_env_change_hook(&hooks, &mut engine_state, &mut stack) {
             outcome_err(&engine_state, &err);
         }
 
@@ -272,12 +271,12 @@ pub fn nu_repl() {
             .expect("repl state mutex")
             .buffer = line.to_string();
 
-        let hook = engine_state.get_config().hooks.pre_execution.clone();
-        if let Err(err) = eval_hooks(
+        let hooks = engine_state.get_config().hooks.pre_execution.clone();
+        if let Err(err) = eval_hook_list(
             &mut engine_state,
             &mut stack,
             vec![],
-            &hook,
+            &hooks,
             "pre_execution",
         ) {
             outcome_err(&engine_state, &err);
