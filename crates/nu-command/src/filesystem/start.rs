@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::canonicalize_with;
+use nu_protocol::ShellError;
 use std::{
     ffi::{OsStr, OsString},
     path::Path,
@@ -16,7 +17,7 @@ impl Command for Start {
     }
 
     fn description(&self) -> &str {
-        "Open a folder, file or website in the default application or viewer."
+        "Open a folder, file, or website in the default application or viewer."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -26,7 +27,7 @@ impl Command for Start {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("start")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .required("path", SyntaxShape::String, "Path to open.")
+            .required("path", SyntaxShape::String, "Path or URL to open.")
             .category(Category::FileSystem)
     }
 
@@ -42,59 +43,61 @@ impl Command for Start {
             item: nu_utils::strip_ansi_string_unlikely(path.item),
             span: path.span,
         };
-        let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
-        // only check if file exists in current current directory
-        let file_path = Path::new(path_no_whitespace);
-        if file_path.exists() {
-            open_path(path_no_whitespace, engine_state, stack, path.span)?;
-        } else if file_path.starts_with("https://") || file_path.starts_with("http://") {
-            let url = url::Url::parse(&path.item).map_err(|_| ShellError::GenericError {
-                error: format!("Cannot parse url: {}", &path.item),
-                msg: "".to_string(),
-                span: Some(path.span),
-                help: Some("cannot parse".to_string()),
-                inner: vec![],
-            })?;
-            open_path(url.as_str(), engine_state, stack, path.span)?;
-        } else {
-            // try to distinguish between file not found and opening url without prefix
-            let cwd = engine_state.cwd(Some(stack))?;
-            if let Ok(canon_path) = canonicalize_with(path_no_whitespace, cwd) {
-                open_path(canon_path, engine_state, stack, path.span)?;
-            } else {
-                // open crate does not allow opening URL without prefix
-                let path_with_prefix = Path::new("https://").join(&path.item);
-                let common_domains = ["com", "net", "org", "edu", "sh"];
-                if let Some(url) = path_with_prefix.to_str() {
-                    let url = url::Url::parse(url).map_err(|_| ShellError::GenericError {
-                        error: format!("Cannot parse url: {}", &path.item),
-                        msg: "".into(),
-                        span: Some(path.span),
-                        help: Some("cannot parse".into()),
-                        inner: vec![],
-                    })?;
-                    if let Some(domain) = url.host() {
-                        let domain = domain.to_string();
-                        let ext = Path::new(&domain).extension().and_then(|s| s.to_str());
-                        if let Some(url_ext) = ext {
-                            if common_domains.contains(&url_ext) {
-                                open_path(url.as_str(), engine_state, stack, path.span)?;
-                            }
-                        }
-                    }
-                    return Err(ShellError::GenericError {
-                        error: format!("Cannot find file or url: {}", &path.item),
-                        msg: "".into(),
-                        span: Some(path.span),
-                        help: Some("Use prefix https:// to disambiguate URLs from files".into()),
-                        inner: vec![],
-                    });
+        let path_no_whitespace = path
+            .item
+            .trim_end_matches(|x| matches!(x, '\x09'..='\x0d'))
+            .to_string();
+        // Load allowed schemes from environment variable
+        let allowed_schemes = load_allowed_schemes_from_env(engine_state, stack);
+        // Attempt to parse the input as a URL
+        if let Ok(url) = url::Url::parse(&path_no_whitespace) {
+            let scheme = url.scheme().to_lowercase();
+            if allowed_schemes.contains(&scheme) {
+                // Warn if the scheme is unusual (not http or https)
+                if scheme != "http" && scheme != "https" {
+                    println!(
+                        "Warning: You are about to open a link with an unusual scheme '{}'. Proceed with caution.",
+                        scheme
+                    );
                 }
-            };
+                open_path(url.as_str(), engine_state, stack, path.span)?;
+                return Ok(PipelineData::Empty);
+            } else {
+                let allowed_schemes_str = allowed_schemes.join(", ");
+                return Err(ShellError::GenericError {
+                    error: format!(
+                        "URL scheme '{}' is not allowed. Allowed schemes: {}",
+                        scheme, allowed_schemes_str
+                    ),
+                    msg: "".into(),
+                    span: Some(path.span),
+                    help: Some(
+                        "Add the scheme to the ALLOWED_SCHEMES environment variable if you trust it."
+                            .into(),
+                    ),
+                    inner: vec![],
+                });
+            }
         }
-        Ok(PipelineData::Empty)
+        // If it's not a URL, treat it as a file path
+        let cwd = engine_state.cwd(Some(stack))?;
+        let path_buf = Path::new(&path_no_whitespace).to_path_buf();
+        let full_path = cwd.join(&path_buf);
+        // Check if the path exists or if it's a valid file/directory
+        if full_path.exists() || path_buf.components().count() == 1 {
+            // The path exists or is a single component (might be a new file)
+            open_path(full_path, engine_state, stack, path.span)?;
+            return Ok(PipelineData::Empty);
+        }
+        // If neither file nor URL, return an error
+        Err(ShellError::GenericError {
+            error: format!("Cannot find file or URL: {}", &path.item),
+            msg: "".into(),
+            span: Some(path.span),
+            help: Some("Ensure the path or URL is correct and try again.".into()),
+            inner: vec![],
+        })
     }
-
     fn examples(&self) -> Vec<nu_protocol::Example> {
         vec![
             Example {
@@ -113,13 +116,18 @@ impl Command for Start {
                 result: None,
             },
             Example {
-                description: "Open a pdf with the default pdf viewer",
+                description: "Open a PDF with the default PDF viewer",
                 example: "start file.pdf",
                 result: None,
             },
             Example {
-                description: "Open a website with default browser",
+                description: "Open a website with the default browser",
                 example: "start https://www.nushell.sh",
+                result: None,
+            },
+            Example {
+                description: "Open an application-registered protocol URL",
+                example: "start obsidian://open?vault=Test",
                 result: None,
             },
         ]
@@ -142,48 +150,70 @@ fn try_commands(
     span: Span,
 ) -> Result<(), ShellError> {
     let env_vars_str = env_to_strings(engine_state, stack)?;
-    let cmd_run_result = commands.into_iter().map(|mut cmd| {
+    let mut last_err = None;
+
+    for mut cmd in commands {
         let status = cmd
             .envs(&env_vars_str)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();
-        match status {
-            Ok(status) if status.success() => Ok(()),
-            Ok(status) => Err(format!(
-                "\nCommand `{}` failed with {}",
-                format_command(&cmd),
-                status
-            )),
-            Err(err) => Err(format!(
-                "\nCommand `{}` failed with {}",
-                format_command(&cmd),
-                err
-            )),
-        }
-    });
 
-    for one_result in cmd_run_result {
-        if let Err(err_msg) = one_result {
-            return Err(ShellError::ExternalCommand {
-                label: "No command found to start with this path".to_string(),
-                help: "Try different path or install appropriate command\n".to_string() + &err_msg,
-                span,
-            });
-        } else if one_result.is_ok() {
-            break;
+        match status {
+            Ok(status) if status.success() => return Ok(()),
+            Ok(status) => {
+                last_err = Some(format!(
+                    "Command `{}` failed with exit code: {}",
+                    format_command(&cmd),
+                    status.code().unwrap_or(-1)
+                ));
+            }
+            Err(err) => {
+                last_err = Some(format!(
+                    "Command `{}` failed with error: {}",
+                    format_command(&cmd),
+                    err
+                ));
+            }
         }
     }
-    Ok(())
+
+    Err(ShellError::ExternalCommand {
+        label: "Failed to start the specified path or URL".to_string(),
+        help: format!(
+            "Try a different path or install the appropriate application.\n{}",
+            last_err.unwrap_or_default()
+        ),
+        span,
+    })
 }
 
 fn format_command(command: &std::process::Command) -> String {
-    let parts_iter = std::iter::repeat(command.get_program())
-        .take(1)
-        .chain(command.get_args());
-    Itertools::intersperse(parts_iter, " ".as_ref())
+    let parts_iter = std::iter::once(command.get_program()).chain(command.get_args());
+    Itertools::intersperse(parts_iter, OsStr::new(" "))
         .collect::<OsString>()
         .to_string_lossy()
         .into_owned()
+}
+
+fn load_allowed_schemes_from_env(engine_state: &EngineState, stack: &Stack) -> Vec<String> {
+    // Attempt to get the "ALLOWED_SCHEMES" environment variable from Nushell's environment
+    if let Some(env_var) = stack.get_env_var(engine_state, "ALLOWED_SCHEMES") {
+        // Use `as_str()` which returns `Result<&str, ShellError>`
+        if let Ok(schemes_str) = env_var.as_str() {
+            // Split the schemes by commas and collect them into a vector
+            schemes_str
+                .split(',')
+                .map(|s| s.trim().to_lowercase())
+                .filter(|s| !s.is_empty())
+                .collect()
+        } else {
+            // If the variable exists but isn't a string, default to ["http", "https"]
+            vec!["http".to_string(), "https".to_string()]
+        }
+    } else {
+        // If the variable doesn't exist, default to ["http", "https"]
+        vec!["http".to_string(), "https".to_string()]
+    }
 }
