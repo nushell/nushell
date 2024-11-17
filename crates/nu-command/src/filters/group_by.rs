@@ -1,6 +1,6 @@
 use indexmap::{IndexMap, IndexSet};
 use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::{engine::Closure, IntoValue};
+use nu_protocol::{engine::Closure, FromValue, IntoValue};
 
 #[derive(Clone)]
 pub struct GroupBy;
@@ -229,7 +229,7 @@ pub fn group_by(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let groupers: Vec<Value> = call.rest(engine_state, stack, 0)?;
+    let groupers: Vec<Spanned<Grouper>> = call.rest(engine_state, stack, 0)?;
     let to_table = call.has_flag(engine_state, stack, "to-table")?;
     let config = engine_state.get_config();
 
@@ -354,14 +354,8 @@ fn group_closure(
 }
 
 enum Grouper {
-    CellPath {
-        val: CellPath,
-    },
-    Closure {
-        val: Box<Closure>,
-        span: Span,
-        idx: usize,
-    },
+    CellPath { val: CellPath },
+    Closure { val: Box<Closure> },
 }
 
 impl Grouper {
@@ -369,6 +363,19 @@ impl Grouper {
         match self {
             Grouper::CellPath { val, .. } => val.to_column_name(),
             Grouper::Closure { idx, .. } => format!("closure_{idx}"),
+        }
+    }
+}
+
+impl FromValue for Grouper {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        match v {
+            Value::CellPath { val, .. } => Ok(Grouper::CellPath { val }),
+            Value::Closure { val, .. } => Ok(Grouper::Closure { val }),
+            _ => Err(ShellError::TypeMismatch {
+                err_message: "unsupported grouper type".to_string(),
+                span: v.span(),
+            }),
         }
     }
 }
