@@ -1,4 +1,4 @@
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexMap;
 use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::{engine::Closure, FromValue, IntoValue};
 
@@ -238,55 +238,6 @@ pub fn group_by(
         return Ok(Value::record(Record::new(), head).into_pipeline_data());
     }
 
-    let mut closure_idx = 0;
-
-    // Error early on unsupported types by collecting
-    let groupers = groupers
-        .into_iter()
-        .map(|val| match val {
-            Value::CellPath { val, .. } => Ok(Grouper::CellPath { val }),
-            Value::Closure {
-                val, internal_span, ..
-            } => {
-                closure_idx += 1;
-                Ok(Grouper::Closure {
-                    val,
-                    idx: closure_idx - 1,
-                    span: internal_span,
-                })
-            }
-            _ => Err(ShellError::TypeMismatch {
-                err_message: "unsupported grouper type".to_string(),
-                span: val.span(),
-            }),
-        })
-        .collect::<Result<Vec<_>, ShellError>>()?;
-
-    if to_table {
-        let grouper_names = groupers
-            .iter()
-            .map(Grouper::to_column_name)
-            .collect::<IndexSet<_>>();
-
-        if grouper_names.len() != groupers.len() {
-            return Err(ShellError::GenericError {
-                error: "grouper arguments have duplicate names".into(),
-                msg: "contains duplicates".into(),
-                span: Some(call.arguments_span()),
-                help: Some("instead of a cell-path, try using a closure".into()),
-                inner: vec![],
-            });
-        } else if grouper_names.contains("items") {
-            return Err(ShellError::GenericError {
-                error: "grouper arguments can't be named `items`".into(),
-                msg: "contains `items`".into(),
-                span: Some(call.arguments_span()),
-                help: Some("instead of a cell-path, try using a closure".into()),
-                inner: vec![],
-            });
-        }
-    }
-
     let grouped = match &groupers[..] {
         [first, rest @ ..] => {
             let mut grouped = Grouped::new(first, values, config, engine_state, stack)?;
@@ -358,15 +309,6 @@ enum Grouper {
     Closure { val: Box<Closure> },
 }
 
-impl Grouper {
-    fn to_column_name(&self) -> String {
-        match self {
-            Grouper::CellPath { val, .. } => val.to_column_name(),
-            Grouper::Closure { idx, .. } => format!("closure_{idx}"),
-        }
-    }
-}
-
 impl FromValue for Grouper {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
@@ -381,7 +323,6 @@ impl FromValue for Grouper {
 }
 
 struct Grouped {
-    grouper: String,
     groups: Tree,
 }
 
@@ -400,13 +341,12 @@ impl Grouped {
         }
 
         Self {
-            grouper: "group".into(),
             groups: Tree::Leaf(groups),
         }
     }
 
     fn new(
-        grouper: &Grouper,
+        grouper: Spanned<&Grouper>,
         values: Vec<Value>,
         config: &nu_protocol::Config,
         engine_state: &EngineState,
@@ -418,16 +358,14 @@ impl Grouped {
                 group_closure(values, *span, Closure::clone(val), engine_state, stack)?
             }
         };
-        let grouper = grouper.to_column_name();
         Ok(Self {
-            grouper,
             groups: Tree::Leaf(groups),
         })
     }
 
     fn subgroup(
         &mut self,
-        grouper: &Grouper,
+        grouper: Spanned<&Grouper>,
         config: &nu_protocol::Config,
         engine_state: &EngineState,
         stack: &mut Stack,
@@ -452,33 +390,33 @@ impl Grouped {
         Ok(())
     }
 
-    fn into_table(self, head: Span) -> Value {
+    fn into_table(self, column_names: &[String], head: Span) -> Value {
         self._into_table(head)
             .into_iter()
-            .map(|row| row.into_iter().rev().collect::<Record>().into_value(head))
+            .map(|row| {
+                row.into_iter()
+                    .rev()
+                    .zip(column_names)
+                    .map(|(val, key)| (key.clone(), val))
+                    .collect::<Record>()
+                    .into_value(head)
+            })
             .collect::<Vec<_>>()
             .into_value(head)
     }
 
-    fn _into_table(self, head: Span) -> Vec<Record> {
+    fn _into_table(self, head: Span) -> Vec<Vec<Value>> {
         match self.groups {
             Tree::Leaf(leaf) => leaf
                 .into_iter()
-                .map(|(group, values)| {
-                    [
-                        ("items".to_string(), values.into_value(head)),
-                        (self.grouper.clone(), group.into_value(head)),
-                    ]
-                    .into_iter()
-                    .collect()
-                })
-                .collect::<Vec<Record>>(),
+                .map(|(group, values)| vec![(values.into_value(head)), (group.into_value(head))])
+                .collect::<Vec<Vec<Value>>>(),
             Tree::Branch(branch) => branch
                 .into_iter()
                 .flat_map(|(group, items)| {
                     let mut inner = items._into_table(head);
                     for row in &mut inner {
-                        row.insert(self.grouper.clone(), group.clone().into_value(head));
+                        row.push(group.clone().into_value(head));
                     }
                     inner
                 })
