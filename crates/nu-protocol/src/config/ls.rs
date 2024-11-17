@@ -65,7 +65,12 @@ impl Default for LsConfig {
         Self {
             use_ls_colors: true,
             clickable_links: true,
-            sort_by: vec![],
+            sort_by: vec![LsConfigSortConfig {
+                column: "name".to_string(),
+                reverse: false,
+                ignore_case: true,
+                natural: true,
+            }],
         }
     }
 }

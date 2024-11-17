@@ -355,10 +355,7 @@ fn ls_for_one_pattern(
                 nu_path::expand_path_with(pat.item.as_ref(), &cwd, pat.item.is_expand());
             // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
             if !directory && tmp_expanded.is_dir() {
-                if read_dir(&tmp_expanded, p_tag)?
-                    .next()
-                    .is_none()
-                {
+                if read_dir(&tmp_expanded, p_tag)?.next().is_none() {
                     return Ok(Value::test_nothing().into_pipeline_data());
                 }
                 just_read_dir = !(pat.item.is_expand() && pat.item.as_ref().contains(GLOB_CHARS));
