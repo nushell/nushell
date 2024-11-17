@@ -13,6 +13,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("path const")
             .input_output_type(Type::Nothing, Type::String)
+            .allow_variants_without_examples(true)
             .optional(
                 "path",
                 SyntaxShape::Filepath,
