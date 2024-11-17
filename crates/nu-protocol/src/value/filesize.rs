@@ -7,43 +7,70 @@ use std::{
     fmt,
     iter::Sum,
     ops::{Add, Mul, Neg, Sub},
+    str::FromStr,
 };
 use thiserror::Error;
 
+/// A signed number of bytes.
+///
+/// [`Filesize`] is a wrapper around [`i64`]. Whereas [`i64`] is a dimensionless value, [`Filesize`] represents a
+/// numerical value with a dimensional unit (byte).
+///
+/// A [`Filesize`] can be created from an [`i64`] using [`Filesize::new`] or the `From` or `Into` trait implementations.
+/// To get the underlying [`i64`] value, use [`Filesize::get`] or the `From` or `Into` trait implementations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[repr(transparent)]
 #[serde(transparent)]
 pub struct Filesize(i64);
 
 impl Filesize {
+    /// A [`Filesize`] of 0 bytes.
     pub const ZERO: Self = Self(0);
 
+    /// The smallest possible [`Filesize`] value.
+    pub const MIN: Self = Self(i64::MIN);
+
+    /// The largest possible [`Filesize`] value.
+    pub const MAX: Self = Self(i64::MAX);
+
+    /// Create a new [`Filesize`] from a [`i64`] number of bytes.
     pub const fn new(bytes: i64) -> Self {
         Self(bytes)
     }
 
-    pub const fn get(&self) -> i64 {
-        self.0
-    }
-
-    pub const fn is_positive(self) -> bool {
-        self.0.is_positive()
-    }
-
-    pub const fn is_negative(self) -> bool {
-        self.0.is_negative()
-    }
-
-    pub const fn signum(self) -> Self {
-        Self(self.0.signum())
-    }
-
+    /// Creates a [`Filesize`] from a signed multiple of a [`FilesizeUnit`].
+    ///
+    /// If the resulting number of bytes calculated by `value * unit.as_bytes()` overflows an
+    /// [`i64`], then `None` is returned.
     pub const fn from_unit(value: i64, unit: FilesizeUnit) -> Option<Self> {
         if let Some(bytes) = value.checked_mul(unit.as_bytes() as i64) {
             Some(Self(bytes))
         } else {
             None
         }
+    }
+
+    /// Returns the underlying [`i64`] number of bytes in a [`Filesize`].
+    pub const fn get(&self) -> i64 {
+        self.0
+    }
+
+    /// Returns true if a [`Filesize`] is positive and false if it is zero or negative.
+    pub const fn is_positive(self) -> bool {
+        self.0.is_positive()
+    }
+
+    /// Returns true if a [`Filesize`] is negative and false if it is zero or positive.
+    pub const fn is_negative(self) -> bool {
+        self.0.is_negative()
+    }
+
+    /// Returns a [`Filesize`] representing the sign of `self`.
+    /// - 0 if the filesize is zero
+    /// - 1 if the filesize is positive
+    /// - -1 if the filesize is negative
+    pub const fn signum(self) -> Self {
+        Self(self.0.signum())
     }
 }
 
@@ -75,6 +102,7 @@ impl TryFrom<Filesize> for u64 {
     }
 }
 
+/// The error type returned when a checked conversion from a floating point type fails.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Error)]
 pub struct TryFromFloatError(());
 
@@ -230,24 +258,45 @@ impl fmt::Display for Filesize {
     }
 }
 
+/// All the possible filesize units for a [`Filesize`].
+///
+/// This type contains both units with metric (SI) decimal prefixes which are powers of 10 (e.g., KB = 1000 bytes)
+/// and units with binary prefixes which are powers of 2 (e.g., KiB = 1024 bytes).
+///
+/// The number of bytes in a [`FilesizeUnit`] can be obtained using
+/// [`as_bytes`](FilesizeUnit::as_bytes).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FilesizeUnit {
+    /// One byte
     B,
+    /// Kilobyte = 1000 bytes
     KB,
+    /// Megabyte = 10<sup>6</sup> bytes
     MB,
+    /// Gigabyte = 10<sup>9</sup> bytes
     GB,
+    /// Terabyte = 10<sup>12</sup> bytes
     TB,
+    /// Petabyte = 10<sup>15</sup> bytes
     PB,
+    /// Exabyte = 10<sup>18</sup> bytes
     EB,
+    /// Kibibyte = 1024 bytes
     KiB,
+    /// Mebibyte = 2<sup>20</sup> bytes
     MiB,
+    /// Gibibyte = 2<sup>30</sup> bytes
     GiB,
+    /// Tebibyte = 2<sup>40</sup> bytes
     TiB,
+    /// Pebibyte = 2<sup>50</sup> bytes
     PiB,
+    /// Exbibyte = 2<sup>60</sup> bytes
     EiB,
 }
 
 impl FilesizeUnit {
+    /// Returns the number of bytes in a [`FilesizeUnit`].
     pub const fn as_bytes(&self) -> u64 {
         match self {
             Self::B => 1,
@@ -257,19 +306,33 @@ impl FilesizeUnit {
             Self::TB => 10_u64.pow(12),
             Self::PB => 10_u64.pow(15),
             Self::EB => 10_u64.pow(18),
-            Self::KiB => 1 << 10,
-            Self::MiB => 1 << 20,
-            Self::GiB => 1 << 30,
-            Self::TiB => 1 << 40,
-            Self::PiB => 1 << 50,
-            Self::EiB => 1 << 60,
+            Self::KiB => 2_u64.pow(10),
+            Self::MiB => 2_u64.pow(20),
+            Self::GiB => 2_u64.pow(30),
+            Self::TiB => 2_u64.pow(40),
+            Self::PiB => 2_u64.pow(50),
+            Self::EiB => 2_u64.pow(60),
         }
     }
 
+    /// Convert a [`FilesizeUnit`] to a [`Filesize`].
+    ///
+    /// To create a [`Filesize`] from a multiple of a [`FilesizeUnit`] use [`Filesize::from_unit`].
     pub const fn as_filesize(&self) -> Filesize {
         Filesize::new(self.as_bytes() as i64)
     }
 
+    /// Returns the abbreviated unit for a [`FilesizeUnit`] as a [`str`].
+    ///
+    /// The abbreviated unit is exactly the same as the enum case name in Rust code.
+    ///
+    /// # Examples
+    /// ```
+    /// # use nu_protocol::FilesizeUnit;
+    /// assert_eq!(FilesizeUnit::B.as_str(), "B");
+    /// assert_eq!(FilesizeUnit::KB.as_str(), "KB");
+    /// assert_eq!(FilesizeUnit::KiB.as_str(), "KiB");
+    /// ```
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::B => "B",
@@ -288,6 +351,9 @@ impl FilesizeUnit {
         }
     }
 
+    /// Returns `true` if a [`FilesizeUnit`] has a metric (SI) decimal prefix (a power of 10).
+    ///
+    /// Note that this returns `true` for [`FilesizeUnit::B`] as well.
     pub const fn is_decimal(&self) -> bool {
         match self {
             Self::B | Self::KB | Self::MB | Self::GB | Self::TB | Self::PB | Self::EB => true,
@@ -295,11 +361,56 @@ impl FilesizeUnit {
         }
     }
 
+    /// Returns `true` if a [`FilesizeUnit`] has a binary prefix (a power of 2).
+    ///
+    /// Note that this returns `true` for [`FilesizeUnit::B`] as well.
     pub const fn is_binary(&self) -> bool {
         match self {
             Self::KB | Self::MB | Self::GB | Self::TB | Self::PB | Self::EB => false,
             Self::B | Self::KiB | Self::MiB | Self::GiB | Self::TiB | Self::PiB | Self::EiB => true,
         }
+    }
+}
+
+impl From<FilesizeUnit> for Filesize {
+    fn from(unit: FilesizeUnit) -> Self {
+        unit.as_filesize()
+    }
+}
+
+/// An error returned when failing to parse a [`FilesizeUnit`].
+///
+/// This occurs when the string being parsed does not exactly match the name of one of the
+/// enum cases in [`FilesizeUnit`].
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Error)]
+pub struct ParseFilesizeUnitError(());
+
+impl fmt::Display for ParseFilesizeUnitError {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "invalid filesize unit")
+    }
+}
+
+impl FromStr for FilesizeUnit {
+    type Err = ParseFilesizeUnitError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "B" => Self::B,
+            "KB" => Self::KB,
+            "MB" => Self::MB,
+            "GB" => Self::GB,
+            "TB" => Self::TB,
+            "PB" => Self::PB,
+            "EB" => Self::EB,
+            "KiB" => Self::KiB,
+            "MiB" => Self::MiB,
+            "GiB" => Self::GiB,
+            "TiB" => Self::TiB,
+            "PiB" => Self::PiB,
+            "EiB" => Self::EiB,
+            _ => return Err(ParseFilesizeUnitError(())),
+        })
     }
 }
 
