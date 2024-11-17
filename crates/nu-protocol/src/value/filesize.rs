@@ -86,56 +86,6 @@ impl From<Filesize> for i64 {
     }
 }
 
-impl TryFrom<u64> for Filesize {
-    type Error = <u64 as TryInto<i64>>::Error;
-
-    fn try_from(value: u64) -> Result<Self, Self::Error> {
-        value.try_into().map(Self)
-    }
-}
-
-impl TryFrom<Filesize> for u64 {
-    type Error = <i64 as TryInto<u64>>::Error;
-
-    fn try_from(filesize: Filesize) -> Result<Self, Self::Error> {
-        filesize.0.try_into()
-    }
-}
-
-/// The error type returned when a checked conversion from a floating point type fails.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Error)]
-pub struct TryFromFloatError(());
-
-impl fmt::Display for TryFromFloatError {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "out of range float type conversion attempted")
-    }
-}
-
-impl TryFrom<f64> for Filesize {
-    type Error = TryFromFloatError;
-
-    fn try_from(value: f64) -> Result<Self, Self::Error> {
-        if i64::MIN as f64 <= value && value <= i64::MAX as f64 {
-            Ok(Self(value as i64))
-        } else {
-            Err(TryFromFloatError(()))
-        }
-    }
-}
-
-impl TryFrom<f32> for Filesize {
-    type Error = TryFromFloatError;
-
-    fn try_from(value: f32) -> Result<Self, Self::Error> {
-        if i64::MIN as f32 <= value && value <= i64::MAX as f32 {
-            Ok(Self(value as i64))
-        } else {
-            Err(TryFromFloatError(()))
-        }
-    }
-}
-
 macro_rules! impl_from {
     ($($ty:ty),* $(,)?) => {
         $(
@@ -159,6 +109,68 @@ macro_rules! impl_from {
 }
 
 impl_from!(u8, i8, u16, i16, u32, i32);
+
+macro_rules! impl_try_from {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl TryFrom<$ty> for Filesize {
+                type Error = <$ty as TryInto<i64>>::Error;
+
+                #[inline]
+                fn try_from(value: $ty) -> Result<Self, Self::Error> {
+                    value.try_into().map(Self)
+                }
+            }
+
+            impl TryFrom<Filesize> for $ty {
+                type Error = <i64 as TryInto<$ty>>::Error;
+
+                #[inline]
+                fn try_from(filesize: Filesize) -> Result<Self, Self::Error> {
+                    filesize.0.try_into()
+                }
+            }
+        )*
+    };
+}
+
+impl_try_from!(u64, usize, isize);
+
+/// The error type returned when a checked conversion from a floating point type fails.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Error)]
+pub struct TryFromFloatError(());
+
+impl fmt::Display for TryFromFloatError {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "out of range float type conversion attempted")
+    }
+}
+
+impl TryFrom<f64> for Filesize {
+    type Error = TryFromFloatError;
+
+    #[inline]
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        if i64::MIN as f64 <= value && value <= i64::MAX as f64 {
+            Ok(Self(value as i64))
+        } else {
+            Err(TryFromFloatError(()))
+        }
+    }
+}
+
+impl TryFrom<f32> for Filesize {
+    type Error = TryFromFloatError;
+
+    #[inline]
+    fn try_from(value: f32) -> Result<Self, Self::Error> {
+        if i64::MIN as f32 <= value && value <= i64::MAX as f32 {
+            Ok(Self(value as i64))
+        } else {
+            Err(TryFromFloatError(()))
+        }
+    }
+}
 
 impl FromValue for Filesize {
     fn from_value(value: Value) -> Result<Self, ShellError> {
@@ -260,7 +272,7 @@ impl fmt::Display for Filesize {
 
 /// All the possible filesize units for a [`Filesize`].
 ///
-/// This type contains both units with metric (SI) decimal prefixes which are powers of 10 (e.g., KB = 1000 bytes)
+/// This type contains both units with metric (SI) decimal prefixes which are powers of 10 (e.g., kB = 1000 bytes)
 /// and units with binary prefixes which are powers of 2 (e.g., KiB = 1024 bytes).
 ///
 /// The number of bytes in a [`FilesizeUnit`] can be obtained using
@@ -330,13 +342,13 @@ impl FilesizeUnit {
     /// ```
     /// # use nu_protocol::FilesizeUnit;
     /// assert_eq!(FilesizeUnit::B.as_str(), "B");
-    /// assert_eq!(FilesizeUnit::KB.as_str(), "KB");
+    /// assert_eq!(FilesizeUnit::KB.as_str(), "kB");
     /// assert_eq!(FilesizeUnit::KiB.as_str(), "KiB");
     /// ```
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::B => "B",
-            Self::KB => "KB",
+            Self::KB => "kB",
             Self::MB => "MB",
             Self::GB => "GB",
             Self::TB => "TB",
@@ -397,7 +409,7 @@ impl FromStr for FilesizeUnit {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
             "B" => Self::B,
-            "KB" => Self::KB,
+            "kB" => Self::KB,
             "MB" => Self::MB,
             "GB" => Self::GB,
             "TB" => Self::TB,

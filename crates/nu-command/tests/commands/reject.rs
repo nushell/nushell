@@ -141,7 +141,7 @@ fn reject_rows_with_list_spread() {
     let actual = nu!("let arg = [2 0]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject ...$arg | to nuon");
     assert_eq!(
         actual.out,
-        r#"[[name, type, size]; ["Cargo.lock", file, 10000000b]]"#
+        r#"[[name, type, size]; ["Cargo.lock", file, 10000000B]]"#
     );
 }
 
@@ -150,7 +150,7 @@ fn reject_mixed_with_list_spread() {
     let actual = nu!("let arg = [type 2]; [[name type size];[Cargp.toml file 10mb] [ Cargo.lock file 10mb] [src dir 100mb]] | reject ...$arg | to nuon");
     assert_eq!(
         actual.out,
-        r#"[[name, size]; ["Cargp.toml", 10000000b], ["Cargo.lock", 10000000b]]"#
+        r#"[[name, size]; ["Cargp.toml", 10000000B], ["Cargo.lock", 10000000B]]"#
     );
 }
 
