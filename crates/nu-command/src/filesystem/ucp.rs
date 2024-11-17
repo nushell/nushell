@@ -47,6 +47,8 @@ impl Command for UCp {
             )
             .switch("progress", "display a progress bar", Some('p'))
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
+            .switch("link", "hard-link files instead of copying", Some('l'))
+            .switch("symbolic-link", "make symbolic links instead of copying", Some('s'))
             .named(
                 "preserve",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
@@ -109,10 +111,19 @@ impl Command for UCp {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let interactive = call.has_flag(engine_state, stack, "interactive")?;
-        let (update, copy_mode) = if call.has_flag(engine_state, stack, "update")? {
-            (UpdateMode::ReplaceIfOlder, CopyMode::Update)
+        let update = if call.has_flag(engine_state, stack, "update")? {
+            UpdateMode::ReplaceIfOlder
         } else {
-            (UpdateMode::ReplaceAll, CopyMode::Copy)
+            UpdateMode::ReplaceAll
+        };
+        let copy_mode = if call.has_flag(engine_state, stack, "link")? {
+            CopyMode::Link
+        } else if call.has_flag(engine_state, stack, "symbolic-link")? {
+            CopyMode::SymLink
+        } else if call.has_flag(engine_state, stack, "update")? {
+            CopyMode::Update
+        } else {
+            CopyMode::Copy
         };
 
         let force = call.has_flag(engine_state, stack, "force")?;
