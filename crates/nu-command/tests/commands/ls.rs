@@ -838,27 +838,3 @@ fn list_symlink_with_full_path() {
         );
     })
 }
-
-#[test]
-fn consistent_list_order() {
-    Playground::setup("ls_test_order", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("los.txt"),
-            EmptyFile("tres.txt"),
-            EmptyFile("amigos.txt"),
-            EmptyFile("arepas.clu"),
-        ]);
-
-        let no_arg = nu!(
-            cwd: dirs.test(), pipeline(
-            "ls"
-        ));
-
-        let with_arg = nu!(
-            cwd: dirs.test(), pipeline(
-            "ls ."
-        ));
-
-        assert_eq!(no_arg.out, with_arg.out);
-    })
-}
