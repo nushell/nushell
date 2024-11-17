@@ -250,7 +250,58 @@ pub fn group_by(
     };
 
     let value = if to_table {
-        grouped.into_table(head)
+        let mut closure_idx: usize = 0;
+
+        let grouper_names = groupers.iter().map(|grouper| {
+            grouper.as_ref().map(move |item| match item {
+                Grouper::CellPath { val } => val.to_column_name(),
+                Grouper::Closure { .. } => {
+                    closure_idx += 1;
+                    format!("closure_{}", closure_idx - 1)
+                }
+            })
+        });
+
+        let mut name_set: Vec<Spanned<String>> = Vec::with_capacity(grouper_names.len());
+
+        for name in grouper_names {
+            if name.item == "items" {
+                return Err(ShellError::GenericError {
+                    error: "grouper arguments can't be named `items`".into(),
+                    msg: "here".into(),
+                    span: Some(name.span),
+                    help: Some("instead of a cell-path, try using a closure: { get items }".into()),
+                    inner: vec![],
+                });
+            }
+
+            if let Some(conflicting_name) = name_set
+                .iter()
+                .find(|elem| elem.as_ref().item == name.item.as_str())
+            {
+                return Err(ShellError::GenericError {
+                    error: "grouper arguments result in colliding column names".into(),
+                    msg: "duplicate column names".into(),
+                    span: Some(conflicting_name.span.append(name.span)),
+                    help: Some("instead of a cell-path, try using a closure or renaming columns".into()),
+                    inner: vec![ShellError::ColumnDefinedTwice {
+                        col_name: conflicting_name.item.clone(),
+                        first_use: conflicting_name.span,
+                        second_use: name.span,
+                    }],
+                });
+            }
+
+            name_set.push(name);
+        }
+
+        let column_names: Vec<String> = name_set
+            .into_iter()
+            .map(|elem| elem.item)
+            .chain(["items".into()])
+            .collect();
+
+        grouped.into_table(&column_names, head)
     } else {
         grouped.into_record(head)
     };
