@@ -240,9 +240,9 @@ pub fn group_by(
 
     let grouped = match &groupers[..] {
         [first, rest @ ..] => {
-            let mut grouped = Grouped::new(first, values, config, engine_state, stack)?;
+            let mut grouped = Grouped::new(first.as_ref(), values, config, engine_state, stack)?;
             for grouper in rest {
-                grouped.subgroup(grouper, config, engine_state, stack)?;
+                grouped.subgroup(grouper.as_ref(), config, engine_state, stack)?;
             }
             grouped
         }
@@ -352,11 +352,15 @@ impl Grouped {
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<Self, ShellError> {
-        let groups = match grouper {
-            Grouper::CellPath { val, .. } => group_cell_path(val, values, config)?,
-            Grouper::Closure { val, span, .. } => {
-                group_closure(values, *span, Closure::clone(val), engine_state, stack)?
-            }
+        let groups = match grouper.item {
+            Grouper::CellPath { val } => group_cell_path(val, values, config)?,
+            Grouper::Closure { val } => group_closure(
+                values,
+                grouper.span,
+                Closure::clone(val),
+                engine_state,
+                stack,
+            )?,
         };
         Ok(Self {
             groups: Tree::Leaf(groups),
