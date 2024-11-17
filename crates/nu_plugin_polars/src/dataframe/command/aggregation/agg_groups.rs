@@ -34,7 +34,7 @@ impl PluginCommand for ExprAggGroups {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Get the groiup index of the group by operations.",
+            description: "Get the group index of the group by operations.",
             example: r#"[[group value]; [one 94] [one 95] [one 96] [two 97] [two 98] [two 99]] 
                 | polars into-df 
                 | polars group-by group

@@ -76,7 +76,7 @@ impl Command for External {
         // believe the user wants to use the windows association to run the script. The only
         // easy way to do this is to run cmd.exe with the script as an argument.
         let potential_nuscript_in_windows = if cfg!(windows) {
-            // let's make sure it's a .nu scrtipt
+            // let's make sure it's a .nu script
             if let Some(executable) = which(&expanded_name, "", cwd.as_ref()) {
                 let ext = executable
                     .extension()
