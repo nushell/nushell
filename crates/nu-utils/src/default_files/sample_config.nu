@@ -278,6 +278,7 @@ $env.config.display_errors.termination_signal = true
 # "never"
 # "auto": When the length of the table would scroll the header past the first line of the terminal
 # (int): When the number of table rows meets or exceeds this value
+# Note: Does not take into account rows with multiple lines themselves
 $env.config.footer_mode = 25
 
 # table.*
@@ -285,60 +286,91 @@ $env.config.footer_mode = 25
 # One of: "default", "basic", "compact", "compact_double", "heavy", "light", "none", "reinforced",
 # "rounded", "thin", "with_love", "psql", "markdown", "dots", "restructured", "ascii_rounded",
 # or "basic_compact"
+# Can be overridden by passing a table to `| table --theme/-t`
 $env.config.table.mode = "default"
-$env.config.table.index_mode
-$env.config.table.show_empty
-$env.config.table.padding
-$env.config.table.padding.left
-$env.config.table.padding.right
-$env.config.table.trim
-$env.config.table.trim.methodology
-$env.config.table.trim.wrapping_try_keep_words
-$env.config.table.header_on_separator
-$env.config.table.abbreviated_row_count
-$env.config.table.footer_inheritance
 
-table: {
-    index_mode: always # "always" show indexes, "never" show indexes, "auto" = show indexes when a table has "index" column
-    show_empty: true # show 'empty list' and 'empty record' placeholders for command output
-    padding: { left: 1, right: 1 } # a left right padding of each column in a table
-    trim: {
-        methodology: wrapping # wrapping or truncating
-        wrapping_try_keep_words: true # A strategy used by the 'wrapping' methodology
-        truncating_suffix: "..." # A suffix used by the 'truncating' methodology
-    }
-    header_on_separator: false # show header text on separator/border line
-    footer_inheritance: false # render footer in parent table if child is big enough (extended table option)
-    # abbreviated_row_count: 10 # limit data rows from top and bottom after reaching a set point
+# index_mode (string) - One of:
+# "never": never show the index column in a table or list
+# "always": always show the index column in tables and lists
+# "auto": show the column only when there is an explicit "index" column in the table
+# Can be overriden by passing a table to `| table --index/-i`
+$env.config.table.index_mode = "always"
+
+# show_empty (bool):
+# true: show "empty list" or "empty table" when no values exist
+# false: display no output when no values exist
+$env.config.table.show_empty = true
+
+# padding.left/right (int): The number of spaces to pad around values in each column
+$env.config.table.padding.left = 1
+$env.config.table.padding.right = 1
+
+# trim.*: The rules that will be used to display content in a table row when it would cause the
+#         table to exceed the terminal width.
+# methodology (string): One of "wrapping" or "truncating"
+# truncating_suffix (string): The text to show at the end of the row to indicate that it has
+#                             been truncated. Only valid when `methodology = "truncating"`.
+# wrapping_try_keep_words (bool): true to keep words together based on whitespace
+#                                 false to allow wrapping in the middle of a word.
+#                                 Only valid when `methodology = wrapping`.
+$env.config.table.trim = {
+  methodology: "wrapping"
+  wrapping_try_keep_words: true
+}
+# or
+$env.config.table.trim = {
+  methodology: "truncating"
+  truncating_suffix: "..."
 }
 
-$env.config.float_precision
-    float_precision: 2 # the precision for displaying floats in tables
+# header_on_separator (bool):
+# true: Displays the column headers as part of the top (or bottom) border of the table
+# false: Displays the column header in its own row with a separator below.
+$env.config.table.header_on_separator = false
+
+# abbreviated_row_count (int or nothing):
+# If set to an int, all tables will be abbreviated to only show the first <n> and last <n> rows
+# If set to `null`, all table rows will be displayed
+# Can be overridden by passing a table to `| table --abbreviated/-a`
+$env.config.table.abbreviated_row_count
+
+# footer_inheritence (bool): Footer behavior in nested tables
+# true: If a nested table is long enough on its own to display a footer (per `footer_mode` above),
+#       then also display the footer for the parent table
+# false: Always apply `footer_mode` rules to the parent table
+$env.config.table.footer_inheritance = false
 
 # ----------------
 # Datetime Display
 # ----------------
-$env.config.datetime_format
-$env.config.datetime_format.normal
-$env.config.datetime_format.table
-    # datetime_format determines what a datetime rendered in the shell would look like.
-    # Behavior without this configuration point will be to "humanize" the datetime display,
-    # showing something like "a day ago."
-    datetime_format: {
-        # normal: '%a, %d %b %Y %H:%M:%S %z'    # shows up in displays of variables or other datetime's outside of tables
-        # table: '%m/%d/%y %I:%M:%S%p'          # generally shows up in tabular outputs such as ls. commenting this out will change it to the default human readable datetime format
-    }
+# datetime_format.* (string or nothing):
+# Format strings that will be used for datetime values. 
+# When set to `null`, the default behavior is to "humanize" the value (e.g., "now" or "a day ago")
+
+# datetime_format.table (string or nothing):
+# The format string (or `null`) that will be used to display a datetime value when it appears in a
+# structured value such as a table, list, or record.
+$env.config.datetime_format.table = null
+
+# datetime_format.normal (string or nothing):
+# The format string (or `null`) that will be used to display a datetime value when it appears as
+# a raw value.
+$env.config.datetime_format.normal = "%m/%d/%y %I:%M:%S%p"
 
 # ----------------
 # Filesize Display
 # ----------------
-$env.config.filesize
-$env.config.filesize.metric
-$env.config.filesize.format
-    filesize: {
-        metric: false # true => KB, MB, GB (ISO standard), false => KiB, MiB, GiB (Windows standard)
-        format: "auto" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, auto
-    }
+# filesize.metric (bool): When displaying filesize values ...
+# true: Use the ISO-standard KB, MB, GB
+# false: Use the Windows-standard KiB, MiB, GiB
+$env.config.filesize.metric = false
+
+# filesize.format (string): One of either:
+# - The filesize units such as "KB", "KiB", etc. In this case, filesize values always display using
+# this unit.
+# - Or "auto": Filesizes are displayed using the closest unit. For example, 1_000_000_000b will display
+#   as 953.7 MiB (when `metric = false`) or 1.0GB (when `metric = true`)
+$env.config.filesize.format = "auto"
 
 # ---------------------
 # Miscellaneous Display
@@ -349,48 +381,19 @@ $env.config.filesize.format
 # false: The right-prompt is displayed on the first line of the left-prompt
 $env.config.render_right_prompt_on_last_line = false
 
+# float_precision (int):
+# Float values will be rounded to this precision when displaying in structured values such as lists,
+# tables, or records.
+$env.config.float_precision = 2
 
-$env.config.ls
-$env.config.ls.use_ls_colors
-    ls: {
-        use_ls_colors: true # use the LS_COLORS environment variable to colorize output
-    }
-
-# $env.config.explore
-# -------------------
-$env.config.explore.status_bar_background
-$env.config.explore.command_bar_text
-$env.config.explore.highlight
-$env.config.explore.selected_cell
-$env.config.explore.status
-$env.config.explore.status.error
-$env.config.explore.status.warn
-$env.config.explore.status.info
-        status_bar_background: { fg: "#1D1F21", bg: "#C4C9C6" },
-        command_bar_text: { fg: "#C4C9C6" },
-        highlight: { fg: "black", bg: "yellow" },
-        status: {
-            error: { fg: "white", bg: "red" },
-            warn: {}
-            info: {}
-        },
-        selected_cell: { bg: light_blue },
-
-# Per-plugin configuration. See https://www.nushell.sh/contributor-book/plugins.html#configuration.
-plugins: {}
-$env.config.plugins
-$env.config.plugin_gc
-$env.config.plugin_gc.default
-$env.config.plugin_gc.default.enabled
-$env.config.plugin_gc.default.stop_after
-$env.config.plugin_gc.plugins
-
-$env.config.keybindings
-$env.config.menus
+# ls.use_ls_colors (bool):
+# true: The `ls` command will apply the $env.LS_COLORS standard to filenames
+# false: Filenames in the `ls` table will use the color_config for strings
+$env.config.ls = true
 
 # Hooks
 # -----
-# $env.config.hooks is a record containing # the five different types of Nushell hooks.
+# $env.config.hooks is a record containing the five different types of Nushell hooks.
 # See the Hooks documentation at https://www.nushell.sh/book/hooks for details
 #
 # Most hooks can accept a string, a closure, or a list containing strings and/or closures.
@@ -400,237 +403,90 @@ $env.config.menus
 #          It can be reset by assigning an empty string as below:
 
 $env.config.hooks.pre_prompt = []          # Before each prompt is displayed
-$env.config.hooks.pre_execution = []       # After <enter> is pressed; before the command is executed
+$env.config.hooks.pre_execution = []       # After <enter> is pressed; before the commandline
+                                           # is executed
 $env.config.hooks.env_change = []          # When a specified environment variable changes
 $env.config.hooks.display_output = ""      # Before Nushell output is displayed in the terminal
 $env.config.hooks.command_not_found = []   # When a command is not found
 
+# -----------
+# Keybindings
+# -----------
+# keybindings (list): A list of user-defined keybindings
+# Nushell/Reedline keybindings can be added or overridden using this setting.
+# See https://www.nushell.sh/book/line_editor.html#keybindings for details.
+#
+# Example - Add a new Alt+. keybinding to insert the last token used on the previous commandline
+$env.config.keybindings ++= [
+  {
+    name: insert_last_token
+    modifier: alt
+    keycode: char_.
+    mode: [emacs vi_normal vi_insert]
+    event: [
+      { edit: InsertString, value: "!$" }
+      { send: Enter }
+    ]
+  }
+]
 
+# Example: Override the F1 keybinding with a user-defined help menu (see "Menus" below):
+$env.config.keybindings ++= [
+  {
+    name: help_menu
+    modifier: none
+    keycode: f1
+    mode: [emacs, vi_insert, vi_normal]
+    event: { send: menu name: help_menu }
+  }
+]
 
-$env.config.highlight_resolved_externals
-
-$env.config.color_config
-$env.config.color_config.shape_filepath
-$env.config.color_config.shape_operator
-$env.config.color_config.shape_literal
-$env.config.color_config.shape_garbage
-$env.config.color_config.shape_garbage.fg
-$env.config.color_config.shape_garbage.bg
-$env.config.color_config.shape_garbage.attr
-$env.config.color_config.shape_datetime
-$env.config.color_config.shape_datetime.fg
-$env.config.color_config.shape_datetime.attr
-$env.config.color_config.shape_or
-$env.config.color_config.shape_or.fg
-$env.config.color_config.shape_or.attr
-$env.config.color_config.float
-$env.config.color_config.shape_string_interpolation
-$env.config.color_config.shape_string_interpolation.fg
-$env.config.color_config.shape_string_interpolation.attr
-$env.config.color_config.shape_and
-$env.config.color_config.shape_and.fg
-$env.config.color_config.shape_and.attr
-$env.config.color_config.closure
-$env.config.color_config.block
-$env.config.color_config.shape_list
-$env.config.color_config.shape_list.fg
-$env.config.color_config.shape_list.attr
-$env.config.color_config.hints
-$env.config.color_config.shape_table
-$env.config.color_config.shape_table.fg
-$env.config.color_config.shape_table.attr
-$env.config.color_config.shape_variable
-$env.config.color_config.shape_nothing
-$env.config.color_config.shape_glob_interpolation
-$env.config.color_config.shape_glob_interpolation.fg
-$env.config.color_config.shape_glob_interpolation.attr
-$env.config.color_config.glob
-$env.config.color_config.shape_raw_string
-$env.config.color_config.shape_raw_string.fg
-$env.config.color_config.shape_raw_string.attr
-$env.config.color_config.shape_record
-$env.config.color_config.shape_record.fg
-$env.config.color_config.shape_record.attr
-$env.config.color_config.shape_bool
-$env.config.color_config.binary
-$env.config.color_config.foreground
-$env.config.color_config.shape_string
-$env.config.color_config.shape_int
-$env.config.color_config.shape_int.fg
-$env.config.color_config.shape_int.attr
-$env.config.color_config.custom
-$env.config.color_config.leading_trailing_space_bg
-$env.config.color_config.leading_trailing_space_bg.attr
-$env.config.color_config.cursor
-$env.config.color_config.nothing
-$env.config.color_config.shape_match_pattern
-$env.config.color_config.search_result
-$env.config.color_config.search_result.fg
-$env.config.color_config.search_result.bg
-$env.config.color_config.shape_custom
-$env.config.color_config.shape_externalarg
-$env.config.color_config.shape_externalarg.fg
-$env.config.color_config.shape_externalarg.attr
-$env.config.color_config.int
-$env.config.color_config.date
-$env.config.color_config.shape_globpattern
-$env.config.color_config.shape_globpattern.fg
-$env.config.color_config.shape_globpattern.attr
-$env.config.color_config.shape_pipe
-$env.config.color_config.shape_pipe.fg
-$env.config.color_config.shape_pipe.attr
-$env.config.color_config.header
-$env.config.color_config.shape_block
-$env.config.color_config.shape_block.fg
-$env.config.color_config.shape_block.attr
-$env.config.color_config.shape_signature
-$env.config.color_config.shape_signature.fg
-$env.config.color_config.shape_signature.attr
-$env.config.color_config.shape_keyword
-$env.config.color_config.shape_keyword.fg
-$env.config.color_config.shape_keyword.attr
-$env.config.color_config.shape_directory
-$env.config.color_config.shape_closure
-$env.config.color_config.shape_closure.fg
-$env.config.color_config.shape_closure.attr
-$env.config.color_config.shape_internalcall
-$env.config.color_config.shape_internalcall.fg
-$env.config.color_config.shape_internalcall.attr
-$env.config.color_config.shape_float
-$env.config.color_config.shape_float.fg
-$env.config.color_config.shape_float.attr
-$env.config.color_config.filesize
-$env.config.color_config.bool
-$env.config.color_config.separator
-$env.config.color_config.list
-$env.config.color_config.range
-$env.config.color_config.shape_external_resolved
-$env.config.color_config.shape_range
-$env.config.color_config.shape_range.fg
-$env.config.color_config.shape_range.attr
-$env.config.color_config.shape_vardecl
-$env.config.color_config.shape_vardecl.fg
-$env.config.color_config.shape_vardecl.attr
-$env.config.color_config.duration
-$env.config.color_config.background
-$env.config.color_config.shape_redirection
-$env.config.color_config.shape_redirection.fg
-$env.config.color_config.shape_redirection.attr
-$env.config.color_config.shape_matching_brackets
-$env.config.color_config.shape_matching_brackets.attr
-$env.config.color_config.row_index
-$env.config.color_config.record
-$env.config.color_config.cell-path
-$env.config.color_config.shape_binary
-$env.config.color_config.shape_binary.fg
-$env.config.color_config.shape_binary.attr
-$env.config.color_config.shape_external
-$env.config.color_config.string
-$env.config.color_config.shape_flag
-$env.config.color_config.shape_flag.fg
-$env.config.color_config.shape_flag.attr
-$env.config.color_config.empty
-
-
-# For more information on defining custom themes, see
-# https://www.nushell.sh/book/coloring_and_theming.html
-# And here is the theme collection
-# https://github.com/nushell/nu_scripts/tree/main/themes
-    leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
-    header: green_bold
-    empty: blue
-    # Closures can be used to choose colors for specific values.
-    # The value (in this case, a bool) is piped into the closure.
-    # eg) {|| if $in { 'light_cyan' } else { 'light_gray' } }
-    bool: light_cyan
-    int: white
-    filesize: cyan
-    duration: white
-    date: purple
-    range: white
-    float: white
-    string: white
-    nothing: white
-    binary: white
-    cell-path: white
-    row_index: green_bold
-    record: white
-    list: white
-    block: white
-    hints: dark_gray
-    search_result: { bg: red fg: white }
-    shape_and: purple_bold
-    shape_binary: purple_bold
-    shape_block: blue_bold
-    shape_bool: light_cyan
-    shape_closure: green_bold
-    shape_custom: green
-    shape_datetime: cyan_bold
-    shape_directory: cyan
-    shape_external: cyan
-    shape_externalarg: green_bold
-    shape_external_resolved: light_yellow_bold
-    shape_filepath: cyan
-    shape_flag: blue_bold
-    shape_float: purple_bold
-    # shapes are used to change the cli syntax highlighting
-    shape_garbage: { fg: white bg: red attr: b }
-    shape_glob_interpolation: cyan_bold
-    shape_globpattern: cyan_bold
-    shape_int: purple_bold
-    shape_internalcall: cyan_bold
-    shape_keyword: cyan_bold
-    shape_list: cyan_bold
-    shape_literal: blue
-    shape_match_pattern: green
-    shape_matching_brackets: { attr: u }
-    shape_nothing: light_cyan
-    shape_operator: yellow
-    shape_or: purple_bold
-    shape_pipe: purple_bold
-    shape_range: yellow_bold
-    shape_record: cyan_bold
-    shape_redirection: purple_bold
-    shape_signature: green_bold
-    shape_string: green
-    shape_string_interpolation: cyan_bold
-    shape_table: blue_bold
-    shape_variable: purple
-    shape_vardecl: purple
-    shape_raw_string: light_purple
-}
-
-
-
-# The default config record. This is where much of your global configuration is setup.
-$env.config = {
-
-
-
-
-
-
-    explore: {
-        status_bar_background: { fg: "#1D1F21", bg: "#C4C9C6" },
-        command_bar_text: { fg: "#C4C9C6" },
-        highlight: { fg: "black", bg: "yellow" },
-        status: {
-            error: { fg: "white", bg: "red" },
-            warn: {}
-            info: {}
-        },
-        selected_cell: { bg: light_blue },
+# -----
+# Menus
+# -----
+# menus (list):
+#
+# Nushell/Reedline menus can be created and modified using this setting.
+# See https://www.nushell.sh/book/line_editor.html#menus for details.
+#
+# Note that menus are usually activated via keybindings, which are defined in
+# $env.config.keybindings (above).
+#
+# Simple example - Add a new Help menu to the list (note that a similar menu is already
+# defined internally):
+$env.config.menus ++= [
+    {
+        name: help_menu
+        only_buffer_difference: true
+        marker: "? "
+        type: {
+            layout: description
+            columns: 4
+            col_width: 20     # Optional value. If missing all the screen width is used to calculate column width
+            col_padding: 2
+            selection_rows: 4
+            description_rows: 10
+        }
+        style: {
+            text: green
+            selected_text: green_reverse
+            description_text: yellow
+        }
     }
+]
 
 
-
-
-
-    color_config: $dark_theme # if you want a more interesting theme, you can replace the empty record with `$dark_theme`, `$light_theme` or another custom record
-    }
-    highlight_resolved_externals: false # true enables highlighting of external commands in the repl resolved by which.
-
-
+# ---------------
+# Plugin behavior
+# ---------------
+# Per-plugin configuration. See https://www.nushell.sh/contributor-book/plugins.html#configuration.
+plugins: {}
+$env.config.plugins
+$env.config.plugin_gc
+$env.config.plugin_gc.default
+$env.config.plugin_gc.default.enabled
+$env.config.plugin_gc.default.stop_after
+$env.config.plugin_gc.plugins
     plugin_gc: {
         # Configuration for plugin garbage collection
         default: {
@@ -646,608 +502,291 @@ $env.config = {
         }
     }
 
-    hooks: {
-        pre_prompt: [{ null }] # run before the prompt is shown
-        pre_execution: [{ null }] # run before the repl input is run
-        env_change: {
-            PWD: [{|before, after| null }] # run if the PWD environment is different since the last repl input
-        }
-        display_output: "if (term size).columns >= 100 { table -e } else { table }" # run to display the output of a pipeline
-        command_not_found: { null } # return an error message when a command is not found
+
+# -------------------------------------
+# Themes/Colors and Syntax Highlighting
+# -------------------------------------
+# For more information on defining custom themes, see
+# https://www.nushell.sh/book/coloring_and_theming.html
+
+# Use and/or contribute to the theme collection at
+# https://github.com/nushell/nu_scripts/tree/main/themes
+
+# Values:
+
+# highlight_resolved_externals (bool):
+# true: Applies the `color_config.shape_external_resolved` color (below) to external commands
+#       which are found (resolved) on the path
+# false: Applies the `color_config.shape_external` color to *all* externals simply based on whether
+#        or not they would be *parsed* as an external command based on their position.
+# Defaults to false for systems with a slower search path
+$env.config.highlight_resolved_externals = true
+
+# color_config (record): A record of shapes, types, UI elements, etc. that can be styled (e.g.,
+# colorized) in Nushell, either on the commandline itself (shapes) or in output.
+#
+# Note that this is usually set through a theme provided by a record in a custom command. For
+# instance, the standard library contains two "starter" theme commands: "dark-theme" and
+# "light-theme". For example:
+use std/config dark-theme
+$env.config.color_config = (dark-theme)
+
+# Or, individual color settings can be configured or overridden.
+# 
+# Values can be one of:
+# - A color name such as "red" (see `ansi -l` for a list)
+# - A color RGB value in the form of "#C4C9C6"
+# - A record including:
+#   * `fg` (color) 
+#   * `bg` (color)
+#   * `attr`: a string with one or more of:
+#     - 'n': normal
+#     - 'b': bold
+#     - 'u': underline
+#     - 'r': reverse
+#     - 'i': italics
+#     - 'd': dimmed
+
+# foreground, background, and cursor colors are not handled by Nushell, but can be used by 
+# custom-commands such as `theme` from the nu_scripts repository. That `theme` command can be
+# used to set the terminal foreground, background, and cursor colors.
+$env.config.color_config.foreground
+$env.config.color_config.background
+$env.config.color_config.cursor
+
+# -------------------------------------------------------------------------------------------------
+# shape_: Applies syntax highlighting based on the "shape" (inferred or declared type) of an
+# element on the commandline. Nushell's parser can identify shapes based on many criteria, often
+# as the commandline is being typed. 
+
+# shape_string: Can appear as a single-or-quoted value, a bareword string, the key of a record,
+# an argument which has been declared as a string, and other parsed strings.
+$env.config.color_config.shape_string
+
+# shape_string_interpolation: A single-or-double-quoted string interpolation. This style
+# applies to the dollar sign and quotes of the string. The elements inside the string are
+# styled according to their own shape.
+$env.config.color_config.shape_string_interpolation
+
+# shape_raw_string: a raw string literal. E.g., r#'This is a raw string'#. This style applies
+# to the entire raw string.
+$env.config.color_config.shape_raw_string
+
+# shape_record: A record-literal. This style applies to the brackets around the record. The keys
+# and values will be styled according to their individual shapes.
+$env.config.color_config.shape_record
+
+# shape_list: A list-literal. This style applies to the brackets and list separator only. The
+# items in a list are styled accoring to their individual shapes.
+$env.config.color_config.shape_list
+
+# shape_table: A table-literl. Color applies to the brackets, semicolon, and list separators. The
+# items in the table are style according to their individual shapes.
+$env.config.color_config.shape_table
+
+# shape_bool: A boolean-literal `true` or `false` value
+$env.config.color_config.shape_bool
+
+# shape_int: Integer literals
+$env.config.color_config.shape_int
+
+# shape_float: Float literals. E.g., 5.4
+# Also integer literals in a float-argument position
+$env.config.color_config.shape_float
+
+# shape_range: Range literals
+$env.config.color_config.shape_range
+
+# shape_binary: Binary literals
+$env.config.color_config.shape_binary
+
+# shape_datetime: Datetime literals
+$env.config.color_config.shape_datetime
+
+# shape_custom: A custom value, usually from a plugin
+$env.config.color_config.shape_custom
+
+# shape_nothing: A literal `null`
+$env.config.color_config.shape_nothing
+
+# shape_literal: Not currently used
+$env.config.color_config.shape_literal
+
+# shape_operator: An operator such as +, -, ++, in, not-in, etc.
+$env.config.color_config.shape_operator
+
+# shape_filepath: An argument that appears in the position of a `path` shape for a command
+$env.config.color_config.shape_filepath
+
+# shape_directory: A more specific 'path' shape that only accepts a directory.
+$env.config.color_config.shape_directory
+
+# shape_globpattern: An argument in the position of a glob parameter. E.g., the asterisk (or any other string) in `ls *`.
+$env.config.color_config.shape_globpattern
+
+# shape_glob_interpolation: Deprecated
+$env.config.color_config.shape_glob_interpolation
+
+# shape_garbage: When an argument is of the wrong type or cannot otherwise be parsed.
+# E.g., `ls {a: 5}` - A record argument to `ls` is 'garbage'. Also applied in real-time when
+# an expression is not (yet) properly closed.
+$env.config.color_config.shape_garbage
+
+# shape_or and shape_and: The and and or operators.
+# Note: Not currently implemented.
+$env.config.color_config.shape_or
+$env.config.color_config.shape_and
+
+# shape_variable: The *use* of a variable. E.g., `$env` or `$a`.
+$env.config.color_config.shape_variable
+
+# shape_vardecl: The *declaration* of a varible. E.g. the "a" in `let a = 5`.
+$env.config.color_config.shape_vardecl
+
+# shape_matching_brackets: When the cursor is positioned on an opening or closing bracket (e.g,
+# braces, curly braces, or parenthesis), and there is a matching opening/closing bracket, both will
+# temporarily have this style applied.
+$env.config.color_config.shape_matching_brackets
+
+# shape_pipe: The pipe `|` when used to separate expressions in a pipeline
+$env.config.color_config.shape_pipe
+
+# shape_internalcall: A known Nushell built-in or custom command in the "command position" (usually
+# the first bare word of an expression).
+$env.config.color_config.shape_internalcall
+
+# shape_external: A token in the "command position" (see above) that is not a known Nushell
+# built-in or custom command. This is assumed to be an external command.
+$env.config.color_config.shape_external
+
+# shape_external_resolved: Requires "highlight_resolved_externals" (above) to be enabled.
+# When a token matches the "external" requirement (above) and is also a *confirmed* external
+# command, this style will be applied.
+$env.config.color_config.shape_external_resolved
+
+# shape_externalarg: Arguments to an external command (whether resolved or not)
+$env.config.color_config.shape_externalarg
+
+# shape_match_pattern: The matching pattern for each arm in a match expression. Does not
+# include the guard expression (if present).
+$env.config.color_config.shape_match_pattern
+
+# shape_block: The curly-braces around a block. Expressions within the block will have their
+# their own shapes' styles applied.
+$env.config.color_config.shape_block
+
+# shape_signature: The parameter definitions and input/output types for a command signature.
+$env.config.color_config.shape_signature
+
+# shape_keyword: Not current used
+$env.config.color_config.shape_keyword
+
+# shape_closure: Styles the brackets and arguments of a closure.
+$env.config.color_config.shape_closure
+
+# shape_direction: The redirection symbols such as `o>`, `error>`, `e>|`, etc.
+$env.config.color_config.shape_redirection
+
+# shape_flag: Flags and switches to internal and custom-commands. Only the `--flag` (`-f`) portion
+# is styled. The argument to a flag will be styled using its own shape.
+$env.config.color_config.shape_flag
+
+# -------------------------------------------------------------------------------------------------
+# color.config.<type>
+# *Values* of a particular *type* can be styled differently than the *shape*.
+# Note that the style is applied only when this type is displayed in *structured* data (list,
+# record, or table). It is not currently applied to basic raw values.
+#
+# Note that some types are rarely or never seen in a context in which styling would be applied.
+# For example, a cell-path *value* is unlikely to (but can) appear in a list, record, or table.
+#
+# Tip: In addition to the styles above (fg, bg, attr), types typically accept a closure which can
+# dynamically change the style based on the *value*. For instance, the themes in the nu_scripts
+# repository will style filesizes difference in an `ls` (or other table) differently depending on
+# their magnitude.
+
+# Simple examples:
+
+# bool: A boolean value
+$env.config.color_config.bool = {||
+  if $in {
+    {
+      bg: 'light_green'
+      fg: 'white'
+      attr: 'b'
     }
+  } else {
+    {
+      bg: 'yellow'
+      fg: 'black'
+      attr: 'b'
+    }
+  }
+}
 
-    menus: [
-        # Configuration for default nushell menus
-        # Note the lack of source parameter
-        {
-            name: completion_menu
-            only_buffer_difference: false
-            marker: "| "
-            type: {
-                layout: columnar
-                columns: 4
-                col_width: 20     # Optional value. If missing all the screen width is used to calculate column width
-                col_padding: 2
-            }
-            style: {
-                text: green
-                selected_text: { attr: r }
-                description_text: yellow
-                match_text: { attr: u }
-                selected_match_text: { attr: ur }
-            }
-        }
-        {
-            name: ide_completion_menu
-            only_buffer_difference: false
-            marker: "| "
-            type: {
-                layout: ide
-                min_completion_width: 0,
-                max_completion_width: 50,
-                max_completion_height: 10, # will be limited by the available lines in the terminal
-                padding: 0,
-                border: true,
-                cursor_offset: 0,
-                description_mode: "prefer_right"
-                min_description_width: 0
-                max_description_width: 50
-                max_description_height: 10
-                description_offset: 1
-                # If true, the cursor pos will be corrected, so the suggestions match up with the typed text
-                #
-                # C:\> str
-                #      str join
-                #      str trim
-                #      str split
-                correct_cursor_pos: false
-            }
-            style: {
-                text: green
-                selected_text: { attr: r }
-                description_text: yellow
-                match_text: { attr: u }
-                selected_match_text: { attr: ur }
-            }
-        }
-        {
-            name: history_menu
-            only_buffer_difference: true
-            marker: "? "
-            type: {
-                layout: list
-                page_size: 10
-            }
-            style: {
-                text: green
-                selected_text: green_reverse
-                description_text: yellow
-            }
-        }
-        {
-            name: help_menu
-            only_buffer_difference: true
-            marker: "? "
-            type: {
-                layout: description
-                columns: 4
-                col_width: 20     # Optional value. If missing all the screen width is used to calculate column width
-                col_padding: 2
-                selection_rows: 4
-                description_rows: 10
-            }
-            style: {
-                text: green
-                selected_text: green_reverse
-                description_text: yellow
-            }
-        }
-    ]
+# int: An integer value
+$env.config.color_config.int = {||
+  if $in == 42 { 'green' } else { 'red' }
+}
 
-    keybindings: [
-        {
-            name: completion_menu
-            modifier: none
-            keycode: tab
-            mode: [emacs vi_normal vi_insert]
-            event: {
-                until: [
-                    { send: menu name: completion_menu }
-                    { send: menunext }
-                    { edit: complete }
-                ]
-            }
-        }
-        {
-            name: completion_previous_menu
-            modifier: shift
-            keycode: backtab
-            mode: [emacs, vi_normal, vi_insert]
-            event: { send: menuprevious }
-        }
-        {
-            name: ide_completion_menu
-            modifier: control
-            keycode: space
-            mode: [emacs vi_normal vi_insert]
-            event: {
-                until: [
-                    { send: menu name: ide_completion_menu }
-                    { send: menunext }
-                    { edit: complete }
-                ]
-            }
-        }
-        {
-            name: history_menu
-            modifier: control
-            keycode: char_r
-            mode: [emacs, vi_insert, vi_normal]
-            event: { send: menu name: history_menu }
-        }
-        {
-            name: help_menu
-            modifier: none
-            keycode: f1
-            mode: [emacs, vi_insert, vi_normal]
-            event: { send: menu name: help_menu }
-        }
-        {
-            name: next_page_menu
-            modifier: control
-            keycode: char_x
-            mode: emacs
-            event: { send: menupagenext }
-        }
-        {
-            name: undo_or_previous_page_menu
-            modifier: control
-            keycode: char_z
-            mode: emacs
-            event: {
-                until: [
-                    { send: menupageprevious }
-                    { edit: undo }
-                ]
-            }
-        }
-        {
-            name: escape
-            modifier: none
-            keycode: escape
-            mode: [emacs, vi_normal, vi_insert]
-            event: { send: esc }    # NOTE: does not appear to work
-        }
-        {
-            name: cancel_command
-            modifier: control
-            keycode: char_c
-            mode: [emacs, vi_normal, vi_insert]
-            event: { send: ctrlc }
-        }
-        {
-            name: quit_shell
-            modifier: control
-            keycode: char_d
-            mode: [emacs, vi_normal, vi_insert]
-            event: { send: ctrld }
-        }
-        {
-            name: clear_screen
-            modifier: control
-            keycode: char_l
-            mode: [emacs, vi_normal, vi_insert]
-            event: { send: clearscreen }
-        }
-        {
-            name: search_history
-            modifier: control
-            keycode: char_q
-            mode: [emacs, vi_normal, vi_insert]
-            event: { send: searchhistory }
-        }
-        {
-            name: open_command_editor
-            modifier: control
-            keycode: char_o
-            mode: [emacs, vi_normal, vi_insert]
-            event: { send: openeditor }
-        }
-        {
-            name: move_up
-            modifier: none
-            keycode: up
-            mode: [emacs, vi_normal, vi_insert]
-            event: {
-                until: [
-                    { send: menuup }
-                    { send: up }
-                ]
-            }
-        }
-        {
-            name: move_down
-            modifier: none
-            keycode: down
-            mode: [emacs, vi_normal, vi_insert]
-            event: {
-                until: [
-                    { send: menudown }
-                    { send: down }
-                ]
-            }
-        }
-        {
-            name: move_left
-            modifier: none
-            keycode: left
-            mode: [emacs, vi_normal, vi_insert]
-            event: {
-                until: [
-                    { send: menuleft }
-                    { send: left }
-                ]
-            }
-        }
-        {
-            name: move_right_or_take_history_hint
-            modifier: none
-            keycode: right
-            mode: [emacs, vi_normal, vi_insert]
-            event: {
-                until: [
-                    { send: historyhintcomplete }
-                    { send: menuright }
-                    { send: right }
-                ]
-            }
-        }
-        {
-            name: move_one_word_left
-            modifier: control
-            keycode: left
-            mode: [emacs, vi_normal, vi_insert]
-            event: { edit: movewordleft }
-        }
-        {
-            name: move_one_word_right_or_take_history_hint
-            modifier: control
-            keycode: right
-            mode: [emacs, vi_normal, vi_insert]
-            event: {
-                until: [
-                    { send: historyhintwordcomplete }
-                    { edit: movewordright }
-                ]
-            }
-        }
-        {
-            name: move_to_line_start
-            modifier: none
-            keycode: home
-            mode: [emacs, vi_normal, vi_insert]
-            event: { edit: movetolinestart }
-        }
-        {
-            name: move_to_line_start
-            modifier: control
-            keycode: char_a
-            mode: [emacs, vi_normal, vi_insert]
-            event: { edit: movetolinestart }
-        }
-        {
-            name: move_to_line_end_or_take_history_hint
-            modifier: none
-            keycode: end
-            mode: [emacs, vi_normal, vi_insert]
-            event: {
-                until: [
-                    { send: historyhintcomplete }
-                    { edit: movetolineend }
-                ]
-            }
-        }
-        {
-            name: move_to_line_end_or_take_history_hint
-            modifier: control
-            keycode: char_e
-            mode: [emacs, vi_normal, vi_insert]
-            event: {
-                until: [
-                    { send: historyhintcomplete }
-                    { edit: movetolineend }
-                ]
-            }
-        }
-        {
-            name: move_to_line_start
-            modifier: control
-            keycode: home
-            mode: [emacs, vi_normal, vi_insert]
-            event: { edit: movetolinestart }
-        }
-        {
-            name: move_to_line_end
-            modifier: control
-            keycode: end
-            mode: [emacs, vi_normal, vi_insert]
-            event: { edit: movetolineend }
-        }
-        {
-            name: move_down
-            modifier: control
-            keycode: char_n
-            mode: [emacs, vi_normal, vi_insert]
-            event: {
-                until: [
-                    { send: menudown }
-                    { send: down }
-                ]
-            }
-        }
-        {
-            name: move_up
-            modifier: control
-            keycode: char_p
-            mode: [emacs, vi_normal, vi_insert]
-            event: {
-                until: [
-                    { send: menuup }
-                    { send: up }
-                ]
-            }
-        }
-        {
-            name: delete_one_character_backward
-            modifier: none
-            keycode: backspace
-            mode: [emacs, vi_insert]
-            event: { edit: backspace }
-        }
-        {
-            name: delete_one_word_backward
-            modifier: control
-            keycode: backspace
-            mode: [emacs, vi_insert]
-            event: { edit: backspaceword }
-        }
-        {
-            name: delete_one_character_forward
-            modifier: none
-            keycode: delete
-            mode: [emacs, vi_insert]
-            event: { edit: delete }
-        }
-        {
-            name: delete_one_character_forward
-            modifier: control
-            keycode: delete
-            mode: [emacs, vi_insert]
-            event: { edit: delete }
-        }
-        {
-            name: delete_one_character_backward
-            modifier: control
-            keycode: char_h
-            mode: [emacs, vi_insert]
-            event: { edit: backspace }
-        }
-        {
-            name: delete_one_word_backward
-            modifier: control
-            keycode: char_w
-            mode: [emacs, vi_insert]
-            event: { edit: backspaceword }
-        }
-        {
-            name: move_left
-            modifier: none
-            keycode: backspace
-            mode: vi_normal
-            event: { edit: moveleft }
-        }
-        {
-            name: newline_or_run_command
-            modifier: none
-            keycode: enter
-            mode: emacs
-            event: { send: enter }
-        }
-        {
-            name: move_left
-            modifier: control
-            keycode: char_b
-            mode: emacs
-            event: {
-                until: [
-                    { send: menuleft }
-                    { send: left }
-                ]
-            }
-        }
-        {
-            name: move_right_or_take_history_hint
-            modifier: control
-            keycode: char_f
-            mode: emacs
-            event: {
-                until: [
-                    { send: historyhintcomplete }
-                    { send: menuright }
-                    { send: right }
-                ]
-            }
-        }
-        {
-            name: redo_change
-            modifier: control
-            keycode: char_g
-            mode: emacs
-            event: { edit: redo }
-        }
-        {
-            name: undo_change
-            modifier: control
-            keycode: char_z
-            mode: emacs
-            event: { edit: undo }
-        }
-        {
-            name: paste_before
-            modifier: control
-            keycode: char_y
-            mode: emacs
-            event: { edit: pastecutbufferbefore }
-        }
-        {
-            name: cut_word_left
-            modifier: control
-            keycode: char_w
-            mode: emacs
-            event: { edit: cutwordleft }
-        }
-        {
-            name: cut_line_to_end
-            modifier: control
-            keycode: char_k
-            mode: emacs
-            event: { edit: cuttolineend }
-        }
-        {
-            name: cut_line_from_start
-            modifier: control
-            keycode: char_u
-            mode: emacs
-            event: { edit: cutfromstart }
-        }
-        {
-            name: swap_graphemes
-            modifier: control
-            keycode: char_t
-            mode: emacs
-            event: { edit: swapgraphemes }
-        }
-        {
-            name: move_one_word_left
-            modifier: alt
-            keycode: left
-            mode: emacs
-            event: { edit: movewordleft }
-        }
-        {
-            name: move_one_word_right_or_take_history_hint
-            modifier: alt
-            keycode: right
-            mode: emacs
-            event: {
-                until: [
-                    { send: historyhintwordcomplete }
-                    { edit: movewordright }
-                ]
-            }
-        }
-        {
-            name: move_one_word_left
-            modifier: alt
-            keycode: char_b
-            mode: emacs
-            event: { edit: movewordleft }
-        }
-        {
-            name: move_one_word_right_or_take_history_hint
-            modifier: alt
-            keycode: char_f
-            mode: emacs
-            event: {
-                until: [
-                    { send: historyhintwordcomplete }
-                    { edit: movewordright }
-                ]
-            }
-        }
-        {
-            name: delete_one_word_forward
-            modifier: alt
-            keycode: delete
-            mode: emacs
-            event: { edit: deleteword }
-        }
-        {
-            name: delete_one_word_backward
-            modifier: alt
-            keycode: backspace
-            mode: emacs
-            event: { edit: backspaceword }
-        }
-        {
-            name: delete_one_word_backward
-            modifier: alt
-            keycode: char_m
-            mode: emacs
-            event: { edit: backspaceword }
-        }
-        {
-            name: cut_word_to_right
-            modifier: alt
-            keycode: char_d
-            mode: emacs
-            event: { edit: cutwordright }
-        }
-        {
-            name: upper_case_word
-            modifier: alt
-            keycode: char_u
-            mode: emacs
-            event: { edit: uppercaseword }
-        }
-        {
-            name: lower_case_word
-            modifier: alt
-            keycode: char_l
-            mode: emacs
-            event: { edit: lowercaseword }
-        }
-        {
-            name: capitalize_char
-            modifier: alt
-            keycode: char_c
-            mode: emacs
-            event: { edit: capitalizechar }
-        }
-        # The following bindings with `*system` events require that Nushell has
-        # been compiled with the `system-clipboard` feature.
-        # If you want to use the system clipboard for visual selection or to
-        # paste directly, uncomment the respective lines and replace the version
-        # using the internal clipboard.
-        {
-            name: copy_selection
-            modifier: control_shift
-            keycode: char_c
-            mode: emacs
-            event: { edit: copyselection }
-            # event: { edit: copyselectionsystem }
-        }
-        {
-            name: cut_selection
-            modifier: control_shift
-            keycode: char_x
-            mode: emacs
-            event: { edit: cutselection }
-            # event: { edit: cutselectionsystem }
-        }
-        # {
-        #     name: paste_system
-        #     modifier: control_shift
-        #     keycode: char_v
-        #     mode: emacs
-        #     event: { edit: pastesystem }
-        # }
-        {
-            name: select_all
-            modifier: control_shift
-            keycode: char_a
-            mode: emacs
-            event: { edit: selectall }
-        }
-    ]
+# Additional type values (without examples):
+$env.config.color_config.string      # String
+$env.config.color_config.float       # Float value
+$env.config.color_config.glob        # Glob value (must be declared)
+$env.config.color_config.binary      # Binary value
+$env.config.color_config.custom      # Custom value (often from a plugin)
+$env.config.color_config.nothing     # Not used, since a null is not displayed
+$env.config.color_config.date        # datetime value
+$env.config.color_config.filesize    # filesize value
+$env.config.color_config.list        # Not currently used. Lists are displayed using their 
+                                     # members' styles
+$env.config.color_config.record      # Not currently used. Records are displayed using their
+                                     # member's styles
+$env.config.color_config.duration    # Duration type
+$env.config.color_config.range       # Range value
+$env.config.color_config.cell-path   # Cell-path value
+$env.config.color_config.closure     # Not currently used
+$env.config.color_config.block       # Not currently used
+
+# Additional UI elements
+# hints: The (usually dimmed) style in which completion hints are displayed
+$env.config.color_config.hints
+
+# search_result: The style applied to `find` search results
+$env.config.color_config.search_result
+
+# header: The column names in a table header
+$env.config.color_config.header
+
+# separator: Used for table/list/record borders
+$env.config.color_config.separator
+
+# row_index: The `#` or `index` column of a table or list
+$env.config.color_config.row_index
+
+# empty: This style is applied to empty/missing values in a table. However, since the ❎
+# emoji is used for this purpose, there is limited styling that can be applied.
+$env.config.color_config.empty
+
+# leading_trailing_space_bg: When a string value inside structured data has leading or trailing
+# whitespace, that whitespace will be displayed using this style.
+# Use { attr: n } to disable.
+$env.config.color_config.leading_trailing_space_bg = { bg: 'red' }
+
+# ------------------------
+# `explore` command colors
+# ------------------------
+# Configure the UI colors of the `explore` command
+# Allowed values are the same as for the `color_config` options above.
+# Example:
+$env.config.explore = {
+    status_bar_background: { fg: "#1D1F21", bg: "#C4C9C6" },
+    command_bar_text: { fg: "#C4C9C6" },
+    highlight: { fg: "black", bg: "yellow" },
+    status: {
+        error: { fg: "white", bg: "red" },
+        warn: {}
+        info: {}
+    },
+    selected_cell: { bg: light_blue },
 }
