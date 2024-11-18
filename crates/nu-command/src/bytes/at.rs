@@ -1,15 +1,14 @@
-use nu_cmd_base::{
-    input_handler::{operate, CmdArgument},
-    util,
-};
+use std::ops::Bound;
+
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::Range;
+use nu_protocol::{IntRange, Range};
 
 #[derive(Clone)]
 pub struct BytesAt;
 
 struct Arguments {
-    indexes: Subbytes,
+    range: IntRange,
     cell_paths: Option<Vec<CellPath>>,
 }
 
@@ -18,15 +17,6 @@ impl CmdArgument for Arguments {
         self.cell_paths.take()
     }
 }
-
-impl From<(isize, isize)> for Subbytes {
-    fn from(input: (isize, isize)) -> Self {
-        Self(input.0, input.1)
-    }
-}
-
-#[derive(Clone, Copy)]
-struct Subbytes(isize, isize);
 
 impl Command for BytesAt {
     fn name(&self) -> &str {
@@ -69,32 +59,32 @@ impl Command for BytesAt {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let range: Range = call.req(engine_state, stack, 0)?;
-        let indexes: Subbytes = match util::process_range(&range) {
-            Ok(idxs) => idxs.into(),
-            Err(processing_error) => {
-                return Err(processing_error("could not perform subbytes", call.head));
+        let range = match call.req(engine_state, stack, 0)? {
+            Range::IntRange(range) => range,
+            _ => {
+                return Err(ShellError::UnsupportedInput {
+                    msg: "Float ranges are not supported for byte streams".into(),
+                    input: "value originates from here".into(),
+                    msg_span: call.head,
+                    input_span: call.head,
+                })
             }
         };
 
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let args = Arguments {
-            indexes,
-            cell_paths,
-        };
 
         if let PipelineData::ByteStream(stream, metadata) = input {
-            let stream = stream.slice(
-                call.head,
-                call.arguments_span(),
-                args.indexes.0,
-                args.indexes.1,
-            )?;
-
+            let stream = stream.slice(call.head, call.arguments_span(), range)?;
             Ok(PipelineData::ByteStream(stream, metadata))
         } else {
-            operate(map_value, args, input, call.head, engine_state.signals())
+            operate(
+                map_value,
+                Arguments { range, cell_paths },
+                input,
+                call.head,
+                engine_state.signals(),
+            )
         }
     }
 
@@ -109,7 +99,7 @@ impl Command for BytesAt {
             },
             Example {
                 description: "Slice out `0x[10 01 13]` from `0x[33 44 55 10 01 13]`",
-                example: "0x[33 44 55 10 01 13] | bytes at 3..6",
+                example: "0x[33 44 55 10 01 13] | bytes at 3..5",
                 result: Some(Value::test_binary(vec![0x10, 0x01, 0x13])),
             },
             Example {
@@ -146,18 +136,15 @@ impl Command for BytesAt {
 }
 
 fn map_value(input: &Value, args: &Arguments, head: Span) -> Value {
-    let range = &args.indexes;
+    let range = &args.range;
     match input {
         Value::Binary { val, .. } => {
-            let (start, end) = resolve_relative_range(range, &val.len());
-            let iter = val.iter().copied();
-
-            let bytes: Vec<u8> = if start > end {
-                vec![]
-            } else if end == usize::MAX {
-                iter.skip(start).collect()
-            } else {
-                iter.skip(start).take(end - start + 1).collect()
+            let len = val.len() as u64;
+            let start: usize = range.absolute_start(len).try_into().unwrap();
+            let bytes: Vec<u8> = match range.absolute_end(len) {
+                Bound::Unbounded => val[start..].into(),
+                Bound::Included(end) => val[start..=end as usize].into(),
+                Bound::Excluded(end) => val[start..end as usize].into(),
             };
 
             Value::binary(bytes, head)
@@ -173,20 +160,6 @@ fn map_value(input: &Value, args: &Arguments, head: Span) -> Value {
             head,
         ),
     }
-}
-
-fn resolve_relative_range(range: &Subbytes, len: usize) -> (usize, usize) {
-    let start = match range.0 {
-        start if start < 0 => len.checked_sub(start.unsigned_abs()).unwrap_or(0),
-        start => start as usize,
-    };
-
-    let end = match range.1 {
-        end if end < 0 => len.checked_sub(end.unsigned_abs()).unwrap_or(0),
-        end => end as usize,
-    };
-
-    (start, end)
 }
 
 #[cfg(test)]
