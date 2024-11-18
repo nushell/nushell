@@ -43,6 +43,12 @@ impl Command for Input {
                 "number of characters to read; suppresses output",
                 Some('n'),
             )
+            .named(
+                "default",
+                SyntaxShape::String,
+                "default value if just press enter",
+                Some('d'),
+            )
             .switch("suppress-output", "don't print keystroke values", Some('s'))
             .category(Category::Platform)
     }
@@ -72,8 +78,12 @@ impl Command for Input {
             });
         }
 
+        let default_val: Option<String> = call.get_flag(engine_state, stack, "default")?;
         if let Some(prompt) = &prompt {
-            print!("{prompt}");
+            match &default_val {
+                None => print!("{prompt}"),
+                Some(val) => print!("{prompt} (default: {val})"),
+            }
             let _ = std::io::stdout().flush();
         }
 
@@ -149,7 +159,10 @@ impl Command for Input {
         if !suppress_output {
             std::io::stdout().write_all(b"\n")?;
         }
-        Ok(Value::string(buf, call.head).into_pipeline_data())
+        match default_val {
+            Some(val) if buf.is_empty() => Ok(Value::string(val, call.head).into_pipeline_data()),
+            _ => Ok(Value::string(buf, call.head).into_pipeline_data()),
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
