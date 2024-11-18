@@ -177,6 +177,11 @@ impl Command for Input {
                 example: "let user_input = (input --numchar 2)",
                 result: None,
             },
+            Example {
+                description: "Get input from the user with default value, and assign to a variable",
+                example: "let user_input = (input --default 10)",
+                result: None,
+            },
         ]
     }
 }
