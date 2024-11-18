@@ -3,7 +3,7 @@
 # version = "0.99.2"
 #
 # A `config.nu` file is used to override default Nushell settings,
-# define # (or import) custom commands, or run any other startup tasks.
+# define (or import) custom commands, or run any other startup tasks.
 # See https://www.nushell.sh/book/configuration.html
 #
 # Nushell sets "sensible defaults" for most configuration settings, so
@@ -42,7 +42,7 @@
 $env.config.history.file_format = "sqlite"
 
 # max_size (int): The maximum number of entries allowed in the history.
-# After # exceeding this value, the oldest history items will be removed
+# After exceeding this value, the oldest history items will be removed
 # as new commands are added.
 $env.config.history.max_size = 5_000_000
 
