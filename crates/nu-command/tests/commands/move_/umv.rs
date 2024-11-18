@@ -513,6 +513,13 @@ fn test_mv_no_clobber() {
         sandbox.with_files(&[EmptyFile(file_a)]);
         sandbox.with_files(&[EmptyFile(file_b)]);
 
+        let _ = nu!(
+            cwd: dirs.test(),
+            "mv -n {} {}",
+            file_a,
+            file_b,
+        );
+
         let file_count = nu!(
             cwd: dirs.test(),
             "ls test_mv* | length | to nuon"
