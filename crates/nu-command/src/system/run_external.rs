@@ -5,6 +5,8 @@ use nu_protocol::{did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDe
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::{
     borrow::Cow,
     ffi::{OsStr, OsString},
@@ -91,6 +93,19 @@ impl Command for External {
             false
         };
 
+        // let's make sure it's a .ps1 script
+        let potential_powershell_script =
+            if let Some(executable) = which(&expanded_name, "", cwd.as_ref()) {
+                let ext = executable
+                    .extension()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_uppercase();
+                ext == "PS1"
+            } else {
+                false
+            };
+
         // Find the absolute path to the executable. On Windows, set the
         // executable to "cmd.exe" if it's a CMD internal command. If the
         // command is not found, display a helpful error message.
@@ -98,6 +113,20 @@ impl Command for External {
             && (is_cmd_internal_command(&name_str) || potential_nuscript_in_windows)
         {
             PathBuf::from("cmd.exe")
+        } else if cfg!(windows) && potential_powershell_script {
+            // If we're on Windows and we're trying to run a PowerShell script, we'll use
+            // `powershell.exe` to run it. We shouldn't have to check for powershell.exe because
+            // it's automatically installed on all modern windows systems.
+            PathBuf::from("powershell.exe")
+        } else if cfg!(not(target_os = "windows")) && potential_powershell_script {
+            // If we're not on Windows and we're trying to run a PowerShell script, first check
+            // to see if we can find `pwsh` and if we have it installed use it to run the ps1 file.
+            // Otherwise, show an error.
+            which("pwsh", "", cwd.as_ref()).ok_or(ShellError::ExternalCommand {
+                label: "`pwsh` not found".to_string(),
+                help: "Failed to find the powershell core executable".into(),
+                span: call.head,
+            })?
         } else {
             // Determine the PATH to be used and then use `which` to find it - though this has no
             // effect if it's an absolute path already
@@ -123,14 +152,19 @@ impl Command for External {
         let args = eval_arguments_from_call(engine_state, stack, call)?;
         #[cfg(windows)]
         if is_cmd_internal_command(&name_str) || potential_nuscript_in_windows {
-            use std::os::windows::process::CommandExt;
-
             // The /D flag disables execution of AutoRun commands from registry.
             // The /C flag followed by a command name instructs CMD to execute
             // that command and quit.
             command.args(["/D", "/C", &name_str]);
             for arg in &args {
                 command.raw_arg(escape_cmd_argument(arg)?);
+            }
+        } else if potential_powershell_script {
+            // The -Command flag followed by a script name instructs PowerShell to
+            // execute that script and quit.
+            command.args(["-Command", &name_str]);
+            for arg in &args {
+                command.raw_arg(arg.item.clone());
             }
         } else {
             command.args(args.into_iter().map(|s| s.item));
