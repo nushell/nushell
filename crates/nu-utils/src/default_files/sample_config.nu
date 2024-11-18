@@ -116,7 +116,7 @@ $env.config.completions.algorithm = "prefix"
 # sort (string): One of "smart" or "alphabetical"
 # In "smart" mode sort order is based on the "algorithm" setting.
 # When using the "prefix" algorithm, results are alphabetically sorted.
-# When using the "fuzzy" algoritm, results are sorted based on their fuzzy score.
+# When using the "fuzzy" algorithm, results are sorted based on their fuzzy score.
 $env.config.completions.sort = "smart"
 
 # case_sensitive (bool): true/false to enable/disable case-sensitive completions
@@ -234,7 +234,7 @@ $env.config.shell_integration.osc633 = true
 $env.config.shell_integration.reset_application_mode = true
 
 # bracketed_paste (bool):
-# true/false to enable/disable the bracketed-paste feature, which allows mutiple-lines
+# true/false to enable/disable the bracketed-paste feature, which allows multiple-lines
 # to be pasted into Nushell at once without immediate execution. When disabled, 
 # each pasted line is executed as it is received.
 # Note that bracketed paste is not currently supported on the Windows version of
@@ -293,7 +293,7 @@ $env.config.table.mode = "default"
 # "never": never show the index column in a table or list
 # "always": always show the index column in tables and lists
 # "auto": show the column only when there is an explicit "index" column in the table
-# Can be overriden by passing a table to `| table --index/-i`
+# Can be overridden by passing a table to `| table --index/-i`
 $env.config.table.index_mode = "always"
 
 # show_empty (bool):
@@ -334,7 +334,7 @@ $env.config.table.header_on_separator = false
 # Can be overridden by passing a table to `| table --abbreviated/-a`
 $env.config.table.abbreviated_row_count
 
-# footer_inheritence (bool): Footer behavior in nested tables
+# footer_inheritance (bool): Footer behavior in nested tables
 # true: If a nested table is long enough on its own to display a footer (per `footer_mode` above),
 #       then also display the footer for the parent table
 # false: Always apply `footer_mode` rules to the parent table
@@ -577,7 +577,7 @@ $env.config.color_config.shape_raw_string
 $env.config.color_config.shape_record
 
 # shape_list: A list-literal. This style applies to the brackets and list separator only. The
-# items in a list are styled accoring to their individual shapes.
+# items in a list are styled according to their individual shapes.
 $env.config.color_config.shape_list
 
 # shape_table: A table-literl. Color applies to the brackets, semicolon, and list separators. The
@@ -640,7 +640,7 @@ $env.config.color_config.shape_and
 # shape_variable: The *use* of a variable. E.g., `$env` or `$a`.
 $env.config.color_config.shape_variable
 
-# shape_vardecl: The *declaration* of a varible. E.g. the "a" in `let a = 5`.
+# shape_vardecl: The *declaration* of a variable. E.g. the "a" in `let a = 5`.
 $env.config.color_config.shape_vardecl
 
 # shape_matching_brackets: When the cursor is positioned on an opening or closing bracket (e.g,
