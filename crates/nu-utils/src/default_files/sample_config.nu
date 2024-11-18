@@ -131,9 +131,9 @@ $env.config.completions.quick = true
 # true: Partially complete up to the best possible match
 # false: Do not partially complete
 # Partial Example: If a directory contains only files named "forage", "food", and "forest",
-#                  then typing "ls " and pressing <Tab> will partially complete "fo". If
-#                  the directory also includes a file named "faster", then only "f" would
-#                  be partially completed.
+#                  then typing "ls " and pressing <Tab> will partially complete the first two
+#                  letters, "f" and "o". If the directory also includes a file named "faster", 
+#                  then only "f" would be partially completed.
 $env.config.completions.partial = true
 
 # use_ls_colors (bool): When true, apply LS_COLORS to file/path/directory matches
