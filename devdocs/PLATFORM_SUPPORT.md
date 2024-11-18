@@ -56,7 +56,7 @@ Help from the community to make sure they get tested and improved so they can be
 The Nushell team only provides a select few distribution sources and so far encourages community members to maintain the individual packages for particular package managers:
 
 We provide:
-- source code distribution via `crates.io` -> `cargo install nu`
+- source code distribution via `crates.io` -> `cargo install nu --locked`
 - GitHub builds with each release: (following the build matrix of the nightly builds)
 - the setup for `winget` packaging
 

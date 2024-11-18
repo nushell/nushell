@@ -30,5 +30,5 @@ do
     echo "----------------------------------------------"
     echo "Install plugin $plugin from local..."
     echo "----------------------------------------------"
-    cargo install --force --path "$REPO_ROOT/crates/$plugin"
+    cargo install --force --path "$REPO_ROOT/crates/$plugin" --locked
 done

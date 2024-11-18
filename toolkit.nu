@@ -373,7 +373,7 @@ def install-plugin [] {
     print $'(char nl)Installing ($plugin)'
     print '----------------------------'
 
-    ^cargo install --path $"crates/($plugin)"
+    ^cargo install --path $"crates/($plugin) --locked"
 }
 
 # install Nushell and features you want
@@ -461,7 +461,7 @@ def compute-coverage [] {
 #
 # Output: `lcov.info` file
 #
-# Relies on `cargo-llvm-cov`. Install via `cargo install cargo-llvm-cov`
+# Relies on `cargo-llvm-cov`. Install via `cargo install cargo-llvm-cov --locked`
 # https://github.com/taiki-e/cargo-llvm-cov
 #
 # You probably have to run `cargo llvm-cov clean` once manually,

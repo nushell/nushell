@@ -5,7 +5,7 @@ Note: this requires Nushell 0.60 or later
 To install:
 
 ```
-cargo install --path .
+cargo install --path . --locked
 ```
 
 To add the plugin (from inside Nushell):

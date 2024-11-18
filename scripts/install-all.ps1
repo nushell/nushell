@@ -26,7 +26,7 @@ foreach ( $plugin in $NU_PLUGINS) {
     Write-Output "Install plugin $plugin from local..."
     Write-Output "----------------------------------------------"
     Set-Location crates/$plugin
-    cargo install --force --path .
+    cargo install --force --path . --locked
     Set-Location ../../
 }
 

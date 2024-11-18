@@ -7,7 +7,7 @@ REPO_ROOT=$(dirname $DIR)
 #
 # Output: `lcov.info` file
 #
-# Relies on `cargo-llvm-cov`. Install via `cargo install cargo-llvm-cov`
+# Relies on `cargo-llvm-cov`. Install via `cargo install cargo-llvm-cov --locked`
 # https://github.com/taiki-e/cargo-llvm-cov
 
 # You probably have to run `cargo llvm-cov clean` once manually,
