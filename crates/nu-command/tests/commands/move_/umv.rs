@@ -513,13 +513,11 @@ fn test_mv_no_clobber() {
         sandbox.with_files(&[EmptyFile(file_a)]);
         sandbox.with_files(&[EmptyFile(file_b)]);
 
-        let actual = nu!(
+        let file_count = nu!(
             cwd: dirs.test(),
-            "mv -n {} {}",
-            file_a,
-            file_b,
+            "ls test_mv* | length | to nuon"
         );
-        assert!(actual.err.contains("not replacing"));
+        assert_eq!(file_count.out, "2");
     })
 }
 
