@@ -68,6 +68,11 @@ impl Command for Table {
                 "set a table mode/theme",
                 Some('t'),
             )
+            .switch(
+                "nocolor",
+                "remove color from table",
+                None,
+            )
             .named(
                 "index",
                 SyntaxShape::Any,
@@ -200,6 +205,11 @@ impl Command for Table {
                 result: None,
             },
             Example {
+                description: "Remove color from table",
+                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --nocolor"#,
+                result: None,
+            },
+            Example {
                 description: "Force showing of the #/index column for a single run",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i true"#,
                 result: None,
@@ -226,6 +236,7 @@ struct TableConfig {
     term_width: usize,
     theme: TableMode,
     abbreviation: Option<usize>,
+    color: bool,
 }
 
 impl TableConfig {
@@ -235,6 +246,7 @@ impl TableConfig {
         theme: TableMode,
         abbreviation: Option<usize>,
         index: Option<usize>,
+        color: bool,
     ) -> Self {
         Self {
             index,
@@ -242,6 +254,7 @@ impl TableConfig {
             term_width,
             abbreviation,
             theme,
+            color,
         }
     }
 }
@@ -257,6 +270,7 @@ fn parse_table_config(
     let collapse: bool = call.has_flag(state, stack, "collapse")?;
     let flatten: bool = call.has_flag(state, stack, "flatten")?;
     let flatten_separator: Option<String> = call.get_flag(state, stack, "flatten-separator")?;
+    let color = !call.has_flag(state, stack, "nocolor")?;
     let abbrivation: Option<usize> = call
         .get_flag(state, stack, "abbreviated")?
         .or_else(|| stack.get_config(state).table.abbreviated_row_count);
@@ -281,6 +295,7 @@ fn parse_table_config(
         theme,
         abbrivation,
         index,
+        color,
     ))
 }
 
@@ -537,7 +552,7 @@ fn handle_record(
     let result = build_table_kv(record, cfg.table_view, opts, span)?;
 
     let result = match result {
-        Some(output) => maybe_strip_color(output, &config),
+        Some(output) => maybe_strip_color(output, &config, cfg.color),
         None => report_unsuccessful_output(input.engine_state.signals(), cfg.term_width),
     };
 
@@ -907,6 +922,7 @@ impl Iterator for PagingTableCreator {
             &config,
             self.engine_state.signals(),
             self.cfg.term_width,
+            self.cfg.color,
         )
     }
 }
@@ -1062,9 +1078,9 @@ enum TableView {
     },
 }
 
-fn maybe_strip_color(output: String, config: &Config) -> String {
+fn maybe_strip_color(output: String, config: &Config, color: bool) -> String {
     // the terminal is for when people do ls from vim, there should be no coloring there
-    if !config.use_ansi_coloring || !std::io::stdout().is_terminal() {
+    if !config.use_ansi_coloring || !std::io::stdout().is_terminal() || !color {
         // Draw the table without ansi colors
         nu_utils::strip_ansi_string_likely(output)
     } else {
@@ -1103,10 +1119,11 @@ fn convert_table_to_output(
     config: &Config,
     signals: &Signals,
     term_width: usize,
+    color: bool,
 ) -> Option<Result<Vec<u8>, ShellError>> {
     match table {
         Ok(Some(table)) => {
-            let table = maybe_strip_color(table, config);
+            let table = maybe_strip_color(table, config, color);
 
             let mut bytes = table.as_bytes().to_vec();
             bytes.push(b'\n'); // nu-table tables don't come with a newline on the end
