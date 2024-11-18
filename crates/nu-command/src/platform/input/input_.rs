@@ -46,7 +46,7 @@ impl Command for Input {
             .named(
                 "default",
                 SyntaxShape::String,
-                "default value if just press enter",
+                "default value if no input is provided",
                 Some('d'),
             )
             .switch("suppress-output", "don't print keystroke values", Some('s'))
