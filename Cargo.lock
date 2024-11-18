@@ -3229,6 +3229,7 @@ dependencies = [
  "uu_mkdir",
  "uu_mktemp",
  "uu_mv",
+ "uu_touch",
  "uu_uname",
  "uu_whoami",
  "uucore",
@@ -4078,6 +4079,17 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f2a05b18d44e2957b88f96ba460715e295bc1d7510468a2f3d3b44535d26c24"
 dependencies = [
+ "regex",
+]
+
+[[package]]
+name = "parse_datetime"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8720474e3dd4af20cea8716703498b9f3b690f318fa9d9d9e2e38eaf44b96d0"
+dependencies = [
+ "chrono",
+ "nom",
  "regex",
 ]
 
@@ -6743,6 +6755,20 @@ dependencies = [
  "fs_extra",
  "indicatif",
  "uucore",
+]
+
+[[package]]
+name = "uu_touch"
+version = "0.0.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55476bec11d5b70c578233a2e94f685058e0d65fc5d66c7ed465877c15124c7c"
+dependencies = [
+ "chrono",
+ "clap",
+ "filetime",
+ "parse_datetime",
+ "uucore",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
