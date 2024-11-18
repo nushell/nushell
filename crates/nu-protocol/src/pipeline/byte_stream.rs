@@ -1,8 +1,9 @@
 //! Module managing the streaming of raw bytes between pipeline elements
 #[cfg(feature = "os")]
 use crate::process::{ChildPipe, ChildProcess};
-use crate::{ErrSpan, IntoSpanned, PipelineData, ShellError, Signals, Span, Type, Value};
+use crate::{ErrSpan, IntRange, IntoSpanned, PipelineData, ShellError, Signals, Span, Type, Value};
 use serde::{Deserialize, Serialize};
+use std::ops::Bound;
 #[cfg(unix)]
 use std::os::fd::OwnedFd;
 #[cfg(windows)]
@@ -256,42 +257,46 @@ impl ByteStream {
 
     pub fn slice(
         self,
-        val_span: Span,
+        range_span: Span,
         call_span: Span,
-        start: isize,
-        end: isize,
+        range: IntRange,
     ) -> Result<Self, ShellError> {
         match self.known_size {
             Some(len) => {
-                let absolute_start = match start {
-                    start if start < 0 => (len as isize + start).max(0) as usize,
-                    start => start.min(len as isize) as usize,
-                };
-
-                self.skip(val_span, absolute_start as u64)
-                    .and_then(|stream| {
-                        let absolute_end = match end {
-                            end if end < 0 => (len as isize + end).max(0) as usize,
-                            end => end.min(len as isize) as usize,
-                        };
-
-                        if absolute_end < absolute_start {
-                            stream.take(val_span, 0)
-                        } else {
-                            stream.take(val_span, (absolute_end - absolute_start) as u64)
-                        }
-                    })
+                let absolute_start = range.absolute_start(len);
+                match range.absolute_end(len) {
+                    Bound::Unbounded => self.skip(range_span, absolute_start),
+                    Bound::Included(end) => self.skip(range_span, absolute_start)
+                        .and_then(|stream| stream.take(range_span, end.saturating_sub(absolute_start) + 1)),
+                    Bound::Excluded(end) => self.skip(range_span, absolute_start)
+                        .and_then(|stream| stream.take(range_span, end.saturating_sub(absolute_start))),
+                }
             }
-            None if start < 0 || end < 0 => Err(ShellError::IncorrectValue {
-                msg:
-                    "Relative range values cannot be used with streams that don't specify a length"
-                        .into(),
-                val_span,
-                call_span,
-            }),
-            None => self
-                .skip(val_span, start as u64)
-                .and_then(|stream| stream.take(val_span, end as u64)),
+            None => match range.is_relative() {
+                true => Err(ShellError::IncorrectValue {
+                    msg:
+                        "Relative range values cannot be used with streams that don't specify a length"
+                            .into(),
+                    val_span: range_span,
+                    call_span,
+                }),
+                false => {
+                    let skip = range.start();
+                    match range.end() {
+                        std::ops::Bound::Unbounded => self.skip(range_span, skip as u64),
+                        std::ops::Bound::Included(end) => match end - skip {
+                            take if take < 0 => self.take(range_span, 0),
+                            take => self.skip(range_span, skip as u64)
+                                .and_then(|stream| stream.take(range_span, take as u64 + 1)),
+                        },
+                        std::ops::Bound::Excluded(end) => match end - skip {
+                            take if take < 0 => self.take(range_span, 0),
+                            take => self.skip(range_span, skip as u64)
+                                .and_then(|stream| stream.take(range_span, take as u64)),
+                        },
+                    }
+                }
+            }
         }
     }
 
