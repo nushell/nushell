@@ -89,7 +89,7 @@ pub fn evaluate_file(
 
     if let Some(err) = working_set.compile_errors.first() {
         report_compile_error(&working_set, err);
-        // Not a fatal error, for now
+        std::process::exit(1);
     }
 
     // Look for blocks whose name starts with "main" and replace it with the filename.
