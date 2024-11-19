@@ -3392,6 +3392,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
         Arg,
         AfterCommaArg,
         Type,
+        AfterType,
         DefaultValue,
     }
 
@@ -3425,7 +3426,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
     let mut args: Vec<Arg> = vec![];
     let mut parse_mode = ParseMode::Arg;
 
-    for token in &output {
+    for (index, token) in output.iter().enumerate() {
+        let last_token = index == output.len() - 1;
+
         match token {
             Token {
                 contents: crate::TokenContents::Item | crate::TokenContents::AssignmentOperator,
@@ -3437,10 +3440,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                 // The : symbol separates types
                 if contents == b":" {
                     match parse_mode {
+                        ParseMode::Arg if last_token => working_set
+                            .error(ParseError::Expected("type", Span::new(span.end, span.end))),
                         ParseMode::Arg => {
                             parse_mode = ParseMode::Type;
                         }
-                        ParseMode::AfterCommaArg => {
+                        ParseMode::AfterCommaArg | ParseMode::AfterType => {
                             working_set.error(ParseError::Expected("parameter or flag", span));
                         }
                         ParseMode::Type | ParseMode::DefaultValue => {
@@ -3452,8 +3457,14 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                 // The = symbol separates a variable from its default value
                 else if contents == b"=" {
                     match parse_mode {
-                        ParseMode::Type | ParseMode::Arg => {
+                        ParseMode::Arg | ParseMode::AfterType if last_token => working_set.error(
+                            ParseError::Expected("default value", Span::new(span.end, span.end)),
+                        ),
+                        ParseMode::Arg | ParseMode::AfterType => {
                             parse_mode = ParseMode::DefaultValue;
+                        }
+                        ParseMode::Type => {
+                            working_set.error(ParseError::Expected("type", span));
                         }
                         ParseMode::AfterCommaArg => {
                             working_set.error(ParseError::Expected("parameter or flag", span));
@@ -3467,7 +3478,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                 // The , symbol separates params only
                 else if contents == b"," {
                     match parse_mode {
-                        ParseMode::Arg => parse_mode = ParseMode::AfterCommaArg,
+                        ParseMode::Arg | ParseMode::AfterType => {
+                            parse_mode = ParseMode::AfterCommaArg
+                        }
                         ParseMode::AfterCommaArg => {
                             working_set.error(ParseError::Expected("parameter or flag", span));
                         }
@@ -3480,7 +3493,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                     }
                 } else {
                     match parse_mode {
-                        ParseMode::Arg | ParseMode::AfterCommaArg => {
+                        ParseMode::Arg | ParseMode::AfterCommaArg | ParseMode::AfterType => {
                             // Long flag with optional short form following with no whitespace, e.g. --output, --age(-a)
                             if contents.starts_with(b"--") && contents.len() > 2 {
                                 // Split the long flag from the short flag with the ( character as delimiter.
@@ -3790,7 +3803,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     }
                                 }
                             }
-                            parse_mode = ParseMode::Arg;
+                            parse_mode = ParseMode::AfterType;
                         }
                         ParseMode::DefaultValue => {
                             if let Some(last) = args.last_mut() {
