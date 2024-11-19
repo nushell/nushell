@@ -38,8 +38,7 @@ impl CommandCompletion {
     ) -> Vec<String> {
         let mut executables = vec![];
 
-        // os agnostic way to get the PATH env var
-        let paths = working_set.permanent_state.get_path_env_var();
+        let paths = working_set.permanent_state.get_env_var_insensitive("path");
 
         if let Some(paths) = paths {
             if let Ok(paths) = paths.as_list() {

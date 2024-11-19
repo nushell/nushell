@@ -479,6 +479,48 @@ impl Stack {
         None
     }
 
+    // Case-Insensitve version of get_env_var
+    pub fn get_env_var_insensitive<'a>(
+        &'a self,
+        engine_state: &'a EngineState,
+        name: &str,
+    ) -> Option<&'a Value> {
+        let name_lower = name.to_lowercase();
+
+        for scope in self.env_vars.iter().rev() {
+            for active_overlay in self.active_overlays.iter().rev() {
+                if let Some(env_vars) = scope.get(active_overlay) {
+                    if let Some(v) = env_vars
+                        .iter()
+                        .find(|(k, _)| k.to_lowercase() == name_lower)
+                    {
+                        return Some(v.1);
+                    }
+                }
+            }
+        }
+
+        for active_overlay in self.active_overlays.iter().rev() {
+            let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
+                env_hidden.iter().any(|k| k.to_lowercase() == name_lower)
+            } else {
+                false
+            };
+
+            if !is_hidden {
+                if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
+                    if let Some(v) = env_vars
+                        .iter()
+                        .find(|(k, _)| k.to_lowercase() == name_lower)
+                    {
+                        return Some(v.1);
+                    }
+                }
+            }
+        }
+        None
+    }
+
     pub fn has_env_var(&self, engine_state: &EngineState, name: &str) -> bool {
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {

@@ -1612,13 +1612,3 @@ fn alias_offset_bug_7754() {
     // This crashes before PR #7756
     let _suggestions = completer.complete("ll -a | c", 9);
 }
-
-#[test]
-fn get_path_env_var_8003() {
-    // Create a new engine
-    let (_, _, engine, _) = new_engine();
-    // Get the path env var in a platform agnostic way
-    let the_path = engine.get_path_env_var();
-    // Make sure it's not empty
-    assert!(the_path.is_some());
-}

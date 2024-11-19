@@ -1,4 +1,7 @@
-use nu_protocol::{Config, Span, Value};
+use nu_protocol::{
+    engine::{EngineState, Stack},
+    Config, Span, Value,
+};
 use rstest::rstest;
 
 #[test]
@@ -45,4 +48,28 @@ fn test_duration_to_string(#[case] in_ns: i64, #[case] expected: &str) {
         dur.to_expanded_string("", &Config::default()),
         "expected != observed"
     );
+}
+
+#[test]
+fn test_case_insensitive_env_var() {
+    let mut engine_state = EngineState::new();
+    let stack = Stack::new();
+
+    for (name, value) in std::env::vars() {
+        engine_state.add_env_var(name, Value::test_string(value));
+    }
+
+    let path_lower = engine_state.get_env_var_insensitive("path");
+    let path_upper = engine_state.get_env_var_insensitive("PATH");
+    let path_mixed = engine_state.get_env_var_insensitive("PaTh");
+
+    assert_eq!(path_lower, path_upper);
+    assert_eq!(path_lower, path_mixed);
+
+    let stack_path_lower = stack.get_env_var_insensitive(&engine_state, "path");
+    let stack_path_upper = stack.get_env_var_insensitive(&engine_state, "PATH");
+    let stack_path_mixed = stack.get_env_var_insensitive(&engine_state, "PaTh");
+
+    assert_eq!(stack_path_lower, stack_path_upper);
+    assert_eq!(stack_path_lower, stack_path_mixed);
 }
