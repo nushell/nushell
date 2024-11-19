@@ -65,12 +65,7 @@ impl Default for LsConfig {
         Self {
             use_ls_colors: true,
             clickable_links: true,
-            sort_by: vec![LsConfigSortConfig {
-                column: "name".to_string(),
-                reverse: false,
-                ignore_case: true,
-                natural: true,
-            }],
+            sort_by: vec![LsConfigSortConfig::default()],
         }
     }
 }
@@ -78,10 +73,10 @@ impl Default for LsConfig {
 impl Default for LsConfigSortConfig {
     fn default() -> Self {
         Self {
-            column: "".to_string(),
+            column: "name".to_string(),
             reverse: false,
-            ignore_case: false,
-            natural: false,
+            ignore_case: true,
+            natural: true,
         }
     }
 }

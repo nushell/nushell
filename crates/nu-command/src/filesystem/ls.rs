@@ -264,27 +264,45 @@ fn setup_and_sort_by_config(
         sort_by_config.ignore_case,
         sort_by_config.natural,
     )
-    .map_err(|err| {
-        let ShellError::CantFindColumn {
-            col_name,
-            span,
-            src_span,
-        } = err
-        else {
-            return err;
-        };
-
-        ShellError::CantFindColumn {
-            col_name: format!("{} (from the ls configuration)", col_name),
-            span,
-            src_span,
-        }
-    })?;
+    .map_err(|err| handle_err_sort_by_config(comparator_vals, err))?;
 
     if sort_by_config.reverse {
         comparator_vals.reverse();
     }
     Ok(())
+}
+
+fn handle_err_sort_by_config(comparator_vals: &mut [Value], err: ShellError) -> ShellError {
+    let ShellError::CantFindColumn {
+        col_name,
+        span,
+        src_span,
+    } = err
+    else {
+        return err;
+    };
+
+    let list_column_names_names = comparator_vals
+        .first()
+        .map(|v| match v {
+            Value::Record { val, .. } => val.clone().columns().join(", "),
+            _ => {
+                ", getting column names depends on the data being vector of records: it were not ;("
+                    .to_string()
+            }
+        })
+        .map_or(", no columns in output.".to_string(), |columns: String| {
+            format!(", possible columns are {}.", columns.as_str())
+        });
+
+    ShellError::CantFindColumn {
+        col_name: format!(
+            "{} (from the ls configuration{})",
+            col_name, list_column_names_names
+        ),
+        span,
+        src_span,
+    }
 }
 
 fn ls_for_one_pattern(
@@ -569,6 +587,7 @@ fn path_contains_hidden_folder(path: &Path, folders: &[PathBuf]) -> bool {
     false
 }
 
+use itertools::Itertools;
 use nu_protocol::ast::PathMember;
 #[cfg(unix)]
 use std::os::unix::fs::FileTypeExt;

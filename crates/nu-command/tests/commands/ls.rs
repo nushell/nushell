@@ -1,6 +1,6 @@
-use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::fs::Stub::{EmptyFile, FileWithContent};
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{nu, nu_repl_code, pipeline, Outcome};
 
 #[test]
 fn lists_regular_files() {
@@ -21,6 +21,699 @@ fn lists_regular_files() {
 
         assert_eq!(actual.out, "3");
     })
+}
+
+#[test]
+fn lists_regular_sort_by_files_name_order() {
+    Playground::setup("ls_test_sort_by_files_name_order", |dirs, sandbox| {
+        setup_files_to_test_ls_sortby_config(sandbox);
+        let inp = &[
+            "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"name\", \
+                    }] \
+                } \
+            }",
+            "ls",
+        ];
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            nu_repl_code(inp)
+        );
+
+        let expected_sorted_order_by_name = vec![
+            "2_small_natural.txt",
+            "10_small_natural.txt",
+            "A_DIRECTORY",
+            "a_directory",
+            "A_LARGE.TXT",
+            "a_large.txt",
+            "A_MEDIUM.TXT",
+            "a_medium.txt",
+            "A_SMALL.TXT",
+            "a_small.txt",
+            "b_directory",
+            "b_large.txt",
+            "b_medium.txt",
+            "b_small.txt",
+        ];
+        let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+        assert_eq!(actual_output, expected_sorted_order_by_name);
+    })
+}
+
+#[test]
+fn lists_regular_sort_by_files_name_order_reversed() {
+    Playground::setup(
+        "ls_test_sort_by_files_name_order_reversed",
+        |dirs, sandbox| {
+            setup_files_to_test_ls_sortby_config(sandbox);
+            let inp = &[
+                "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"name\", \
+                        reverse: true, \
+                    }] \
+                } \
+            }",
+                "ls",
+            ];
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                nu_repl_code(inp)
+            );
+
+            let expected_sorted_order_by_name = vec![
+                "b_small.txt",
+                "b_medium.txt",
+                "b_large.txt",
+                "b_directory",
+                "a_small.txt",
+                "A_SMALL.TXT",
+                "a_medium.txt",
+                "A_MEDIUM.TXT",
+                "a_large.txt",
+                "A_LARGE.TXT",
+                "a_directory",
+                "A_DIRECTORY",
+                "10_small_natural.txt",
+                "2_small_natural.txt",
+            ];
+            let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+            assert_eq!(actual_output, expected_sorted_order_by_name);
+        },
+    )
+}
+
+#[test]
+fn lists_regular_sort_by_files_name_order_dont_ignore_case() {
+    Playground::setup(
+        "ls_test_sort_by_files_name_order_dont_ignore_case",
+        |dirs, sandbox| {
+            setup_files_to_test_ls_sortby_config(sandbox);
+            let inp = &[
+                "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"name\", \
+                        ignore_case: false, \
+                    }] \
+                } \
+            }",
+                "ls",
+            ];
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                nu_repl_code(inp)
+            );
+
+            let expected_sorted_order_by_name = vec![
+                "2_small_natural.txt",
+                "10_small_natural.txt",
+                "A_DIRECTORY",
+                "A_LARGE.TXT",
+                "A_MEDIUM.TXT",
+                "A_SMALL.TXT",
+                "a_directory",
+                "a_large.txt",
+                "a_medium.txt",
+                "a_small.txt",
+                "b_directory",
+                "b_large.txt",
+                "b_medium.txt",
+                "b_small.txt",
+            ];
+            let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+            assert_eq!(actual_output, expected_sorted_order_by_name);
+        },
+    )
+}
+
+#[test]
+fn lists_regular_sort_by_files_name_order_dont_ignore_case_not_natural() {
+    Playground::setup(
+        "ls_test_sort_by_files_name_order_dont_ignore_case_not_natural",
+        |dirs, sandbox| {
+            setup_files_to_test_ls_sortby_config(sandbox);
+            let inp = &[
+                "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"name\", \
+                        ignore_case: false, \
+                        natural: false, \
+                    }] \
+                } \
+            }",
+                "ls",
+            ];
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                nu_repl_code(inp)
+            );
+
+            let expected_sorted_order_by_name = vec![
+                "10_small_natural.txt",
+                "2_small_natural.txt",
+                "A_DIRECTORY",
+                "A_LARGE.TXT",
+                "A_MEDIUM.TXT",
+                "A_SMALL.TXT",
+                "a_directory",
+                "a_large.txt",
+                "a_medium.txt",
+                "a_small.txt",
+                "b_directory",
+                "b_large.txt",
+                "b_medium.txt",
+                "b_small.txt",
+            ];
+            let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+            assert_eq!(actual_output, expected_sorted_order_by_name);
+        },
+    )
+}
+
+#[test]
+fn lists_regular_sorty_by_type() {
+    Playground::setup("ls_test_sorty_by_type", |dirs, sandbox| {
+        setup_files_to_test_ls_sortby_config(sandbox);
+        let inp = &[
+            "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"type\", \
+                    }] \
+                } \
+            }",
+            "ls",
+        ];
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            nu_repl_code(inp)
+        );
+
+        let expected_sorted_order_by_name = vec![
+            "A_DIRECTORY",
+            "a_directory",
+            "b_directory",
+            "10_small_natural.txt",
+            "2_small_natural.txt",
+            "A_LARGE.TXT",
+            "A_MEDIUM.TXT",
+            "A_SMALL.TXT",
+            "a_large.txt",
+            "a_medium.txt",
+            "a_small.txt",
+            "b_large.txt",
+            "b_medium.txt",
+            "b_small.txt",
+        ];
+        let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+        assert_eq!(actual_output, expected_sorted_order_by_name);
+    })
+}
+
+#[test]
+fn lists_regular_sorty_by_type_reversed() {
+    Playground::setup("ls_test_sorty_by_type_reversed", |dirs, sandbox| {
+        setup_files_to_test_ls_sortby_config(sandbox);
+        let inp = &[
+            "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"type\", \
+                        reverse: true, \
+                    }] \
+                } \
+            }",
+            "ls",
+        ];
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            nu_repl_code(inp)
+        );
+
+        let expected_sorted_order_by_name = vec![
+            "b_small.txt",
+            "b_medium.txt",
+            "b_large.txt",
+            "a_small.txt",
+            "a_medium.txt",
+            "a_large.txt",
+            "A_SMALL.TXT",
+            "A_MEDIUM.TXT",
+            "A_LARGE.TXT",
+            "2_small_natural.txt",
+            "10_small_natural.txt",
+            "b_directory",
+            "a_directory",
+            "A_DIRECTORY",
+        ];
+        let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+        assert_eq!(actual_output, expected_sorted_order_by_name);
+    })
+}
+
+#[test]
+fn lists_regular_sort_by_type_reversed_no_effect_natural_and_case() {
+    Playground::setup(
+        "ls_test_sort_by_type_reversed_no_effect_natural_and_case",
+        |dirs, sandbox| {
+            setup_files_to_test_ls_sortby_config(sandbox);
+            let inp = &[
+                "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"type\", \
+                        reverse: true, \
+                        natural: false, \
+                        ignore_case: false, \
+                    }] \
+                } \
+            }",
+                "ls",
+            ];
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                nu_repl_code(inp)
+            );
+
+            let expected_sorted_order_by_name = vec![
+                "b_small.txt",
+                "b_medium.txt",
+                "b_large.txt",
+                "a_small.txt",
+                "a_medium.txt",
+                "a_large.txt",
+                "A_SMALL.TXT",
+                "A_MEDIUM.TXT",
+                "A_LARGE.TXT",
+                "2_small_natural.txt",
+                "10_small_natural.txt",
+                "b_directory",
+                "a_directory",
+                "A_DIRECTORY",
+            ];
+            let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+            assert_eq!(actual_output, expected_sorted_order_by_name);
+        },
+    )
+}
+
+#[test]
+fn lists_regular_sort_by_size() {
+    Playground::setup("ls_test_sort_by_size", |dirs, sandbox| {
+        setup_files_to_test_ls_sortby_config(sandbox);
+        let inp = &[
+            "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"size\", \
+                    }] \
+                } \
+            }",
+            "ls",
+        ];
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            nu_repl_code(inp)
+        );
+
+        let expected_sorted_order_by_name = vec![
+            "10_small_natural.txt",
+            "2_small_natural.txt",
+            "A_SMALL.TXT",
+            "a_small.txt",
+            "b_small.txt",
+            "A_MEDIUM.TXT",
+            "a_medium.txt",
+            "b_medium.txt",
+            "A_LARGE.TXT",
+            "a_large.txt",
+            "b_large.txt",
+            "A_DIRECTORY",
+            "a_directory",
+            "b_directory",
+        ];
+        let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+        assert_eq!(actual_output, expected_sorted_order_by_name);
+    })
+}
+
+#[test]
+fn lists_regular_sort_by_size_reversed() {
+    Playground::setup("ls_testsort_by_size_reversed", |dirs, sandbox| {
+        setup_files_to_test_ls_sortby_config(sandbox);
+        let inp = &[
+            "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"size\", \
+                        reverse: true, \
+                    }] \
+                } \
+            }",
+            "ls",
+        ];
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            nu_repl_code(inp)
+        );
+
+        let expected_sorted_order_by_name = vec![
+            "b_directory",
+            "a_directory",
+            "A_DIRECTORY",
+            "b_large.txt",
+            "a_large.txt",
+            "A_LARGE.TXT",
+            "b_medium.txt",
+            "a_medium.txt",
+            "A_MEDIUM.TXT",
+            "b_small.txt",
+            "a_small.txt",
+            "A_SMALL.TXT",
+            "2_small_natural.txt",
+            "10_small_natural.txt",
+        ];
+        let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+        assert_eq!(actual_output, expected_sorted_order_by_name);
+    })
+}
+
+#[test]
+fn lists_regular_sort_by_size_reversed_no_effect_natural_and_case() {
+    Playground::setup(
+        "ls_test_sort_by_size_reversed_no_effect_natural_and_case",
+        |dirs, sandbox| {
+            setup_files_to_test_ls_sortby_config(sandbox);
+            let inp = &[
+                "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"size\", \
+                        reverse: true, \
+                        natural: false, \
+                        ignore_case: false, \
+                    }] \
+                } \
+            }",
+                "ls",
+            ];
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                nu_repl_code(inp)
+            );
+
+            let expected_sorted_order_by_name = vec![
+                "b_directory",
+                "a_directory",
+                "A_DIRECTORY",
+                "b_large.txt",
+                "a_large.txt",
+                "A_LARGE.TXT",
+                "b_medium.txt",
+                "a_medium.txt",
+                "A_MEDIUM.TXT",
+                "b_small.txt",
+                "a_small.txt",
+                "A_SMALL.TXT",
+                "2_small_natural.txt",
+                "10_small_natural.txt",
+            ];
+            let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+            assert_eq!(actual_output, expected_sorted_order_by_name);
+        },
+    )
+}
+
+#[test]
+#[ignore] // Because all the files and dirs are created at the same time then this test will be flaky
+fn lists_regular_sort_by_modified() {
+    Playground::setup("ls_test_sort_by_modified", |dirs, sandbox| {
+        setup_files_to_test_ls_sortby_config(sandbox);
+        let inp = &[
+            "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"modified\", \
+                    }] \
+                } \
+            }",
+            "ls",
+        ];
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            nu_repl_code(inp)
+        );
+
+        let expected_sorted_order_by_name = vec![
+            "10_small_natural.txt",
+            "2_small_natural.txt",
+            "A_DIRECTORY",
+            "A_LARGE.TXT",
+            "A_MEDIUM.TXT",
+            "A_SMALL.TXT",
+            "a_directory",
+            "a_large.txt",
+            "a_medium.txt",
+            "a_small.txt",
+            "b_directory",
+            "b_large.txt",
+            "b_medium.txt",
+            "b_small.txt",
+        ];
+        let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+        assert_eq!(actual_output, expected_sorted_order_by_name);
+    })
+}
+
+#[test]
+fn lists_regular_sort_by_name_reversed_size_type() {
+    Playground::setup(
+        "ls_test_sort_by_name_reversed_size_type",
+        |dirs, sandbox| {
+            setup_files_to_test_ls_sortby_config(sandbox);
+            let inp = &[
+                "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"name\", \
+                        reverse: true, \
+                    },{ \
+                        column: \"size\", \
+                    },{ \
+                        column: \"type\", \
+                    }] \
+                } \
+            }",
+                "ls",
+            ];
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                nu_repl_code(inp)
+            );
+
+            let expected_sorted_order_by_name = vec![
+                "b_directory",
+                "a_directory",
+                "A_DIRECTORY",
+                "b_small.txt",
+                "a_small.txt",
+                "A_SMALL.TXT",
+                "10_small_natural.txt",
+                "2_small_natural.txt",
+                "b_medium.txt",
+                "a_medium.txt",
+                "A_MEDIUM.TXT",
+                "b_large.txt",
+                "a_large.txt",
+                "A_LARGE.TXT",
+            ];
+            let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+            assert_eq!(actual_output, expected_sorted_order_by_name);
+        },
+    )
+}
+
+#[test]
+fn lists_regular_sort_by_no_files() {
+    Playground::setup("ls_test_sort_by_no_files", |dirs, sandbox| {
+        let inp = &[
+            "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"name\", \
+                    }] \
+                } \
+            }",
+            "ls",
+        ];
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            nu_repl_code(inp)
+        );
+
+        let expected_sorted_order_by_name: Vec<String> = vec![];
+        let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+        assert_eq!(actual_output, expected_sorted_order_by_name);
+
+        let error_message = actual.err.as_str();
+        assert_eq!("", error_message);
+    })
+}
+
+#[test]
+fn lists_regular_sort_by_unknown_column() {
+    Playground::setup("ls_test_sort_by_unknown_column", |dirs, sandbox| {
+        setup_files_to_test_ls_sortby_config(sandbox);
+        let inp = &[
+            "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"unknown_column\", \
+                    }] \
+                } \
+            }",
+            "ls",
+        ];
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            nu_repl_code(inp)
+        );
+
+        let expected_sorted_order_by_name: Vec<String> = vec![];
+        let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+        assert_eq!(actual_output, expected_sorted_order_by_name);
+
+        let error_message = actual.err.as_str();
+        assert!(error_message.contains("cannot find column 'unknown_column (from the ls configuration, possible columns are name, type, size, modified.)'"));
+    })
+}
+
+#[test]
+fn lists_regular_sort_by_unknown_option() {
+    Playground::setup("ls_test_sort_by_unknown_option", |dirs, sandbox| {
+        setup_files_to_test_ls_sortby_config(sandbox);
+        let inp = &[
+            "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"name\", \
+                        unknown_option: true, \
+                    }] \
+                } \
+            }",
+            "ls",
+        ];
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            nu_repl_code(inp)
+        );
+
+        let expected_sorted_order_by_name: Vec<String> = vec![];
+        let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+        assert_eq!(actual_output, expected_sorted_order_by_name);
+
+        let error_message = actual.err.as_str();
+        assert!(
+            error_message.contains("Unknown config option: $env.config.ls.sort_by.unknown_option")
+        );
+    })
+}
+
+#[test]
+fn lists_regular_sort_by_files_name_order_not_natural() {
+    Playground::setup(
+        "ls_test_sort_by_files_name_order_not_natural",
+        |dirs, sandbox| {
+            setup_files_to_test_ls_sortby_config(sandbox);
+            let inp = &[
+                "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"name\", \
+                        reverse: false, \
+                        ignore_case: false, \
+                        natural: false, \
+                    }] \
+                } \
+            }",
+                "ls",
+            ];
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                nu_repl_code(inp)
+            );
+
+            let expected_sorted_order_by_name = vec![
+                "10_small_natural.txt",
+                "2_small_natural.txt",
+                "A_DIRECTORY",
+                "A_LARGE.TXT",
+                "A_MEDIUM.TXT",
+                "A_SMALL.TXT",
+                "a_directory",
+                "a_large.txt",
+                "a_medium.txt",
+                "a_small.txt",
+                "b_directory",
+                "b_large.txt",
+                "b_medium.txt",
+                "b_small.txt",
+            ];
+            let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+            assert_eq!(actual_output, expected_sorted_order_by_name);
+        },
+    )
+}
+
+fn get_file_order_by_name_for_ls_sorby_config(actual: &Outcome) -> Vec<&str> {
+    let mut actual_output: Vec<&str> = vec![];
+    for string in actual.out.split("name:").skip(1) {
+        let file_name = string.split(',').next().unwrap().trim();
+        actual_output.push(file_name);
+    }
+    actual_output
+}
+
+fn setup_files_to_test_ls_sortby_config(sandbox: &mut Playground) {
+    let files = [
+        FileWithContent("a_small.txt", "small"),
+        FileWithContent("A_SMALL.TXT", "small"),
+        FileWithContent("b_small.txt", "small"),
+        FileWithContent("a_medium.txt", "medium"),
+        FileWithContent("A_MEDIUM.TXT", "medium"),
+        FileWithContent("b_medium.txt", "medium"),
+        FileWithContent("a_large.txt", "largelargelarge"),
+        FileWithContent("A_LARGE.TXT", "largelargelarge"),
+        FileWithContent("b_large.txt", "largelargelarge"),
+        FileWithContent("10_small_natural.txt", "small"),
+        FileWithContent("2_small_natural.txt", "small"),
+    ];
+    sandbox.with_files(&files);
+    sandbox.mkdir("a_directory");
+    sandbox.mkdir("A_DIRECTORY");
+    sandbox.mkdir("b_directory");
 }
 
 #[test]
