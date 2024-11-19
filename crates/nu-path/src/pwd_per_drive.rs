@@ -341,7 +341,10 @@ pub mod pwd_per_drive_singleton {
 
         // Expand a relative path
         let expanded = expand_pwd_per_drive(Path::new("C:test"));
+        #[cfg(target_os = "windows")]
         assert_eq!(expanded, Some(PathBuf::from("C:\\Users\\Home\\test")));
+        #[cfg(not(target_os = "windows"))]
+        assert_eq!(expanded, None);
 
         // Will NOT expand an absolute path
         let expanded = expand_pwd_per_drive(Path::new("C:\\absolute\\path"));
@@ -353,6 +356,9 @@ pub mod pwd_per_drive_singleton {
 
         // Expand with no PWD set for the drive
         let expanded = expand_pwd_per_drive(Path::new("D:test"));
+        #[cfg(target_os = "windows")]
         assert_eq!(expanded, Some(PathBuf::from("D:\\test")));
+        #[cfg(not(target_os = "windows"))]
+        assert_eq!(expanded, None);
     }
 }
