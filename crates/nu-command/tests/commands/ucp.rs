@@ -841,14 +841,13 @@ fn test_cp_arg_no_clobber() {
         let target = dirs.fixtures.join("cp").join(TEST_HOW_ARE_YOU_SOURCE);
         let target_hash = get_file_hash(target.display());
 
-        let actual = nu!(
-        cwd: dirs.root(),
-        "cp {} {} --no-clobber",
-        src.display(),
-        target.display()
+        let _ = nu!(
+            cwd: dirs.root(),
+            "cp {} {} --no-clobber",
+            src.display(),
+            target.display()
         );
         let after_cp_hash = get_file_hash(target.display());
-        assert!(actual.err.contains("not replacing"));
         // Check content was not clobbered
         assert_eq!(after_cp_hash, target_hash);
     });

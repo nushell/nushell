@@ -45,8 +45,6 @@ pub struct Stack {
     pub arguments: ArgumentStack,
     /// Error handler stack for IR evaluation
     pub error_handlers: ErrorHandlerStack,
-    /// Set true to always use IR mode
-    pub use_ir: bool,
     pub recursion_count: u64,
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
@@ -78,7 +76,6 @@ impl Stack {
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            use_ir: true,
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
@@ -99,7 +96,6 @@ impl Stack {
             active_overlays: parent.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            use_ir: parent.use_ir,
             recursion_count: parent.recursion_count,
             vars: vec![],
             parent_deletions: vec![],
@@ -317,7 +313,6 @@ impl Stack {
             active_overlays: self.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            use_ir: self.use_ir,
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
@@ -351,7 +346,6 @@ impl Stack {
             active_overlays: self.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            use_ir: self.use_ir,
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],

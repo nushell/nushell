@@ -28,7 +28,7 @@ impl PluginCommand for ValueCount {
             .named(
                 "column",
                 SyntaxShape::String,
-                "Provide a custom name for the coutn column",
+                "Provide a custom name for the count column",
                 Some('c'),
             )
             .switch("sort", "Whether or not values should be sorted", Some('s'))

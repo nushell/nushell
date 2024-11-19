@@ -3,6 +3,13 @@ use nu_test_support::playground::Playground;
 use std::fs;
 
 #[test]
+fn def_with_trailing_comma() {
+    let actual = nu!("def test-command [ foo: int, ] { $foo }; test-command 1");
+
+    assert!(actual.out == "1");
+}
+
+#[test]
 fn def_with_comment() {
     Playground::setup("def_with_comment", |dirs, _| {
         let data = r#"
@@ -73,6 +80,13 @@ fn def_errors_with_comma_before_equals() {
 }
 
 #[test]
+fn def_errors_with_colon_before_equals() {
+    let actual = nu!("def test-command [ foo: = 1 ] {}");
+
+    assert!(actual.err.contains("expected type"));
+}
+
+#[test]
 fn def_errors_with_comma_before_colon() {
     let actual = nu!("def test-command [ foo, : int ] {}");
 
@@ -85,12 +99,25 @@ fn def_errors_with_multiple_colons() {
     assert!(actual.err.contains("expected type"));
 }
 
-#[ignore = "This error condition is not implemented yet"]
 #[test]
 fn def_errors_with_multiple_types() {
     let actual = nu!("def test-command [ foo:int:string ] {}");
 
     assert!(actual.err.contains("expected parameter"));
+}
+
+#[test]
+fn def_errors_with_trailing_colon() {
+    let actual = nu!("def test-command [ foo: int: ] {}");
+
+    assert!(actual.err.contains("expected parameter"));
+}
+
+#[test]
+fn def_errors_with_trailing_default_value() {
+    let actual = nu!("def test-command [ foo: int = ] {}");
+
+    assert!(actual.err.contains("expected default value"));
 }
 
 #[test]
