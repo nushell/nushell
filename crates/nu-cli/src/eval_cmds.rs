@@ -9,6 +9,8 @@ use nu_protocol::{
 };
 use std::sync::Arc;
 
+use crate::util::print_pipeline;
+
 #[derive(Default)]
 pub struct EvaluateCommandsOpts {
     pub table_mode: Option<Value>,
@@ -93,7 +95,7 @@ pub fn evaluate_commands(
             t_mode.coerce_str()?.parse().unwrap_or_default();
     }
 
-    pipeline.print(engine_state, stack, no_newline, false)?;
+    print_pipeline(engine_state, stack, pipeline, no_newline)?;
 
     info!("evaluate {}:{}:{}", file!(), line!(), column!());
 
