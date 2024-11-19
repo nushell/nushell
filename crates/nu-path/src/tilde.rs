@@ -21,21 +21,11 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
     let path = path.as_ref();
 
     if !path.starts_with("~") {
-        use crate::state_driver_pwd:: {
-            current_directory_specific::need_expand_current_directory_per_drive,
-            //current_directory_specific::get_windows_absolute_path,
-            get_drive_pwd_map
+        use crate::pwd_per_drive:: {
+            pwd_per_drive::expand_pwd_per_drive,
         };
-        if need_expand_current_directory_per_drive(path) {
-            if let Some(expanded_dir) = get_drive_pwd_map().lock().unwrap().expand_path(path) {
-                return PathBuf::from(&expanded_dir)
-            }
-            // if let Some(current_dir) = get_windows_absolute_path(path) {
-            //     //println!("Absolute path for {} is: {}", path.display(), current_dir);
-            //     return PathBuf::from(&current_dir)
-            // } else {
-            //     println!("Failed to get absolute path for {}", path.display());
-            // }
+        if let Some(expanded_dir) = expand_pwd_per_drive(path) {
+            return expanded_dir;
         }
         let string = path.to_string_lossy();
         let mut path_as_string = string.as_ref().bytes();

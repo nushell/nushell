@@ -4,11 +4,12 @@ mod components;
 pub mod dots;
 pub mod expansions;
 pub mod form;
+#[cfg(target_os="windows")]
+pub mod pwd_per_drive;
 mod helpers;
 mod path;
 mod tilde;
 mod trailing_slash;
-pub mod state_driver_pwd;
 
 pub use components::components;
 pub use expansions::{canonicalize_with, expand_path_with, expand_to_real_path, locate_in_dirs};
