@@ -1,6 +1,6 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
-use nu_path::{dots::expand_ndots, expand_tilde};
+use nu_path::{canonicalize_with, dots::expand_ndots, expand_tilde};
 use nu_protocol::{did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
@@ -131,7 +131,7 @@ impl Command for External {
             // Determine the PATH to be used and then use `which` to find it - though this has no
             // effect if it's an absolute path already
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
-            let Some(executable) = which(expanded_name, &paths, cwd.as_ref()) else {
+            let Some(executable) = which(expanded_name.clone(), &paths, cwd.as_ref()) else {
                 return Err(command_not_found(&name_str, call.head, engine_state, stack));
             };
             executable
@@ -155,14 +155,21 @@ impl Command for External {
             // The /D flag disables execution of AutoRun commands from registry.
             // The /C flag followed by a command name instructs CMD to execute
             // that command and quit.
-            command.args(["/D", "/C", &name_str]);
+            command.args(["/D", "/C", &expanded_name.to_string_lossy()]);
             for arg in &args {
                 command.raw_arg(escape_cmd_argument(arg)?);
             }
         } else if potential_powershell_script {
+            // canonicalize the path to the script so that tests pass
+            let canon_path = if let Ok(cwd) = engine_state.cwd_as_string(None) {
+                canonicalize_with(&expanded_name, cwd)?
+            } else {
+                // If we can't get the current working directory, just provide the expanded name
+                expanded_name
+            };
             // The -Command flag followed by a script name instructs PowerShell to
             // execute that script and quit.
-            command.args(["-Command", &name_str]);
+            command.args(["-Command", &canon_path.to_string_lossy()]);
             for arg in &args {
                 command.raw_arg(arg.item.clone());
             }
