@@ -4,10 +4,10 @@ mod components;
 pub mod dots;
 pub mod expansions;
 pub mod form;
-#[cfg(target_os="windows")]
-pub mod pwd_per_drive;
 mod helpers;
 mod path;
+#[cfg(target_os = "windows")]
+pub mod pwd_per_drive;
 mod tilde;
 mod trailing_slash;
 

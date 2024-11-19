@@ -71,7 +71,7 @@ impl DrivePWDmap {
     /// Helper to convert a drive letter to an array index
     fn drive_to_index(drive: char) -> Option<usize> {
         let drive = drive.to_ascii_uppercase();
-        if ('A'..='Z').contains(&drive) {
+        if drive.is_ascii_uppercase() {
             Some((drive as usize) - ('A' as usize))
         } else {
             None
@@ -270,16 +270,20 @@ mod tests {
 ///         let expanded = expand_pwd_per_drive(Path::new("D:test"));
 ///         assert_eq!(expanded, Some(PathBuf::from("D:\\test")));
 /// ```
-pub mod pwd_per_drive {
-    use std::path::{ Path, PathBuf };
-    use super::{get_drive_pwd_map};
+pub mod pwd_per_drive_singleton {
+    use super::get_drive_pwd_map;
+    use std::path::{Path, PathBuf};
 
     /// set_pwd_per_drive
     /// record PWD for drive, path must be absolute path
     /// return Ok(()) if succeeded, otherwise error message
     #[cfg(target_os = "windows")]
     pub fn set_pwd_per_drive(path: &Path) -> Result<(), String> {
-        get_drive_pwd_map().lock().unwrap().set_pwd(path)
+        if let Ok(mut pwd_per_drive) = get_drive_pwd_map().lock() {
+            pwd_per_drive.set_pwd(path)
+        } else {
+            Err("Failed to lock DrivePWDmap".to_string())
+        }
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -293,10 +297,11 @@ pub mod pwd_per_drive {
     #[cfg(target_os = "windows")]
     pub fn expand_pwd_per_drive(path: &Path) -> Option<PathBuf> {
         if need_expand_pwd_per_drive(path) {
-            get_drive_pwd_map().lock().unwrap().expand_path(path)
-        } else {
-            None
+            if let Ok(mut pwd_per_drive) = get_drive_pwd_map().lock() {
+                return pwd_per_drive.expand_path(path);
+            }
         }
+        None
     }
 
     /// expand_pwd_per_drive will return None on non-windows platform
@@ -312,7 +317,8 @@ pub mod pwd_per_drive {
         if let Some(path_str) = path.to_str() {
             let chars: Vec<char> = path_str.chars().collect();
             if chars.len() >= 2 {
-                return chars[1] == ':' && (chars.len() == 2 || (chars[2] != '/' && chars[2] != '\\'));
+                return chars[1] == ':'
+                    && (chars.len() == 2 || (chars[2] != '/' && chars[2] != '\\'));
             }
         }
         false

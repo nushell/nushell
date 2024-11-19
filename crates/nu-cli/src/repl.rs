@@ -858,7 +858,7 @@ fn do_auto_cd(
         report_shell_error(engine_state, &err);
         return;
     };
-    use nu_path::pwd_per_drive::pwd_per_drive::set_pwd_per_drive;
+    use nu_path::pwd_per_drive::pwd_per_drive_singleton::set_pwd_per_drive;
     let _as_is = set_pwd_per_drive(PathBuf::from(path.clone()).as_path());
     let cwd = Value::string(cwd, span);
 

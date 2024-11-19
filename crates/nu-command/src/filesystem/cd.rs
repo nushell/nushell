@@ -114,7 +114,7 @@ impl Command for Cd {
             //FIXME: this only changes the current scope, but instead this environment variable
             //should probably be a block that loads the information from the state in the overlay
             PermissionResult::PermissionOk => {
-                use nu_path::pwd_per_drive::pwd_per_drive::set_pwd_per_drive;
+                use nu_path::pwd_per_drive::pwd_per_drive_singleton::set_pwd_per_drive;
                 let _as_is = set_pwd_per_drive(path.as_path());
                 stack.set_cwd(path)?;
                 Ok(PipelineData::empty())
