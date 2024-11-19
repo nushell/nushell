@@ -1,11 +1,10 @@
-use std::path::Path;
+use std::path::{ Path, PathBuf };
 
 pub struct DrivePwdMap {
     map: [Option<String>; 26], // Fixed-size array for A-Z
 }
 
 impl DrivePwdMap {
-    /// Create a new DrivePwdMap
     pub fn new() -> Self {
         DrivePwdMap {
             map: Default::default(), // Initialize all to `None`
@@ -16,7 +15,8 @@ impl DrivePwdMap {
     pub fn set_pwd(&mut self, path: &Path) -> Result<(), String> {
         if let Some(drive_letter) = Self::extract_drive_letter(path) {
             if let Some(index) = Self::drive_to_index(drive_letter) {
-                self.map[index] = Some(path.to_string_lossy().into_owned());
+                let normalized = Self::normalize_path(path);
+                self.map[index] = Some(normalized.to_string_lossy().into_owned());
                 Ok(())
             } else {
                 Err(format!("Invalid drive letter: {}", drive_letter))
@@ -27,7 +27,6 @@ impl DrivePwdMap {
     }
 
     /// Get the current working directory for a drive letter
-    /// If no PWD is set, return the root of the drive (e.g., `C:\`)
     pub fn get_pwd(&self, drive: char) -> Option<String> {
         Self::drive_to_index(drive).map(|index| {
             self.map[index]
@@ -43,10 +42,10 @@ impl DrivePwdMap {
             let is_absolute = path_str.contains(":\\") || path_str.starts_with("\\");
             if is_absolute {
                 // Already an absolute path
-                Some(PathBuf::from(path_str))
+                Some(PathBuf::from(Self::ensure_trailing_separator(path_str)))
             } else if let Some(pwd) = self.get_pwd(drive_letter) {
                 // Combine current PWD with the relative path
-                let mut base = PathBuf::from(pwd);
+                let mut base = PathBuf::from(Self::ensure_trailing_separator(&pwd));
                 base.push(path_str.split_at(2).1); // Skip the "C:" part of the relative path
                 Some(base)
             } else {
@@ -67,17 +66,35 @@ impl DrivePwdMap {
         }
     }
 
-    /// Extract the drive letter from a path (e.g., `C:\Users` -> `C`)
+    /// Extract the drive letter from a path (e.g., `C:test` -> `C`)
     fn extract_drive_letter(path: &Path) -> Option<char> {
         path.to_str()
             .and_then(|s| s.chars().next())
             .filter(|c| c.is_ascii_alphabetic())
     }
+
+    /// Normalize a path by removing any trailing `\` or `/`
+    fn normalize_path(path: &Path) -> PathBuf {
+        let mut normalized = path.to_path_buf();
+        while normalized.to_string_lossy().ends_with(&['\\', '/'][..]) {
+            normalized.pop();
+        }
+        normalized
+    }
+
+    /// Ensure a path has a trailing `\`
+    fn ensure_trailing_separator(path: &str) -> String {
+        if !path.ends_with('\\') && !path.ends_with('/') {
+            format!("{}\\", path)
+        } else {
+            path.to_string()
+        }
+    }
 }
 
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
-use crate::ShellError;
+//use nu_protocol::errors::shell_error::ShellError;
 
 /// Global singleton instance of DrivePwdMap
 static DRIVE_PWD_MAP: Lazy<Mutex<DrivePwdMap>> = Lazy::new(|| Mutex::new(DrivePwdMap::new()));
@@ -192,12 +209,11 @@ mod tests {
     }
 }
 
-mod current_directory_specific {
-    use crate::ShellError;
+pub mod current_directory_specific {
     use std::path::Path;
 
     #[cfg(target_os = "windows")]
-    fn need_expand_current_directory(path: &Path) -> bool {
+    pub fn need_expand_current_directory_per_drive(path: &Path) -> bool {
         if let Some(path_str) = path.to_str() {
             let chars: Vec<char> = path_str.chars().collect();
             if chars.len() >= 2 {
@@ -208,12 +224,12 @@ mod current_directory_specific {
     }
 
     #[cfg(not(target_os = "windows"))]
-    fn need_expand_current_directory(path: &Path) -> bool {
+    pub fn need_expand_current_directory(path: &Path) -> bool {
         false
     }
 
     #[cfg(target_os = "windows")]
-    fn get_windows_absolute_path(path: &Path) -> Option<String> {
+    pub fn get_windows_absolute_path(path: &Path) -> Option<String> {
         use std::ffi::OsString;
         use std::os::windows::ffi::OsStringExt;
         use std::os::windows::ffi::OsStrExt;
@@ -247,12 +263,16 @@ mod current_directory_specific {
         None
     }
 
+    pub enum DrivePwdError {
+        InvalidPath,
+        SystemError,
+    }
     #[cfg(not(target_os = "windows"))]
     fn get_windows_absolute_path(path: &Path) -> Option<String> {
         None
     }
     #[cfg(target_os = "windows")]
-    pub fn set_current_directory_windows(path: &Path) -> Result<(), ShellError> {
+    pub fn set_current_directory_windows(path: &Path) -> Result<(), DrivePwdError> {
         use std::ffi::OsString;
         use std::os::windows::ffi::OsStrExt;
         use windows_sys::Win32::System::Environment::SetCurrentDirectoryW;
@@ -266,27 +286,16 @@ mod current_directory_specific {
                     return Ok(())
                 } else {
                     return
-                        Err(ShellError::GenericError {
-                            error: "Failed to set current directory".into(),
-                            msg: "SetCurrentDirectoryW() failed".into(),
-                            span: None,
-                            help: None,
-                            inner: vec![],
-                        })
+                        Err(DrivePwdError::SystemError)
+
                 };
             }
         }
-        Err(ShellError::GenericError {
-            error: "Failed to set current directory".into(),
-            msg: "Invalid path".into(),
-            span: None,
-            help: None,
-            inner: vec![],
-        })
+        Err(DrivePwdError::InvalidPath)
     }
 
     #[cfg(not(target_os = "windows"))]
-    pub fn set_current_directory_windows(_path: &Path) -> Result<(), ShellError>{
+    pub fn set_current_directory_windows(_path: &Path) -> Result<(), Error>{
         Ok(())
     }
 }

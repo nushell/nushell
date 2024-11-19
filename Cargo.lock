@@ -3352,7 +3352,10 @@ version = "0.100.1"
 dependencies = [
  "dirs",
  "omnipath",
+ "once_cell",
  "pwd",
+ "winapi",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

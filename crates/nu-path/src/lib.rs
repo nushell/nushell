@@ -8,6 +8,7 @@ mod helpers;
 mod path;
 mod tilde;
 mod trailing_slash;
+pub mod state_driver_pwd;
 
 pub use components::components;
 pub use expansions::{canonicalize_with, expand_path_with, expand_to_real_path, locate_in_dirs};

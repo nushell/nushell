@@ -321,3 +321,6 @@ bench = false
 [[bench]]
 name = "benchmarks"
 harness = false
+
+[profile.dev]
+incremental = true
