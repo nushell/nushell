@@ -1,6 +1,6 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
-use nu_path::{canonicalize_with, dots::expand_ndots, expand_tilde};
+use nu_path::{dots::expand_ndots, expand_tilde};
 use nu_protocol::{did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
@@ -160,6 +160,8 @@ impl Command for External {
                 command.raw_arg(escape_cmd_argument(arg)?);
             }
         } else if potential_powershell_script {
+            use nu_path::canonicalize_with;
+
             // canonicalize the path to the script so that tests pass
             let canon_path = if let Ok(cwd) = engine_state.cwd_as_string(None) {
                 canonicalize_with(&expanded_name, cwd)?
