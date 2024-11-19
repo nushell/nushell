@@ -222,15 +222,14 @@ impl ByteStream {
     }
 
     pub fn skip(self, span: Span, n: u64) -> Result<Self, ShellError> {
+        let known_size = self.known_size.map(|len| len.saturating_sub(n));
         if let Some(mut reader) = self.reader() {
             // Copy the number of skipped bytes into the sink before proceeding
             io::copy(&mut (&mut reader).take(n), &mut io::sink()).err_span(span)?;
-            Ok(ByteStream::read(
-                reader,
-                span,
-                Signals::empty(),
-                ByteStreamType::Binary,
-            ))
+            Ok(
+                ByteStream::read(reader, span, Signals::empty(), ByteStreamType::Binary)
+                    .with_known_size(known_size),
+            )
         } else {
             Err(ShellError::TypeMismatch {
                 err_message: "expected readable stream".into(),
@@ -240,13 +239,15 @@ impl ByteStream {
     }
 
     pub fn take(self, span: Span, n: u64) -> Result<Self, ShellError> {
+        let known_size = self.known_size.map(|s| s.min(n));
         if let Some(reader) = self.reader() {
             Ok(ByteStream::read(
                 reader.take(n),
                 span,
                 Signals::empty(),
                 ByteStreamType::Binary,
-            ))
+            )
+            .with_known_size(known_size))
         } else {
             Err(ShellError::TypeMismatch {
                 err_message: "expected readable stream".into(),
@@ -257,45 +258,38 @@ impl ByteStream {
 
     pub fn slice(
         self,
-        range_span: Span,
+        val_span: Span,
         call_span: Span,
         range: IntRange,
     ) -> Result<Self, ShellError> {
-        match self.known_size {
-            Some(len) => {
-                let absolute_start = range.absolute_start(len);
-                match range.absolute_end(len) {
-                    Bound::Unbounded => self.skip(range_span, absolute_start),
-                    Bound::Included(end) => self.skip(range_span, absolute_start)
-                        .and_then(|stream| stream.take(range_span, end.saturating_sub(absolute_start) + 1)),
-                    Bound::Excluded(end) => self.skip(range_span, absolute_start)
-                        .and_then(|stream| stream.take(range_span, end.saturating_sub(absolute_start))),
+        if let Some(len) = self.known_size {
+            let start = range.absolute_start(len);
+            let stream = self.skip(val_span, start);
+
+            match range.absolute_end(len) {
+                Bound::Unbounded => stream,
+                Bound::Included(end) | Bound::Excluded(end) if end < start => {
+                    stream.and_then(|s| s.take(val_span, 0))
+                }
+                Bound::Included(end) => {
+                    let distance = end - start + 1;
+                    stream.and_then(|s| s.take(val_span, distance.min(len)))
+                }
+                Bound::Excluded(end) => {
+                    let distance = end - start;
+                    stream.and_then(|s| s.take(val_span, distance.min(len)))
                 }
             }
-            None => match range.is_relative() {
-                true => Err(ShellError::IncorrectValue {
-                    msg:
-                        "Relative range values cannot be used with streams that don't specify a length"
-                            .into(),
-                    val_span: range_span,
-                    call_span,
-                }),
-                false => {
-                    let skip = range.start();
-                    match range.end() {
-                        std::ops::Bound::Unbounded => self.skip(range_span, skip as u64),
-                        std::ops::Bound::Included(end) => match end - skip {
-                            take if take < 0 => self.take(range_span, 0),
-                            take => self.skip(range_span, skip as u64)
-                                .and_then(|stream| stream.take(range_span, take as u64 + 1)),
-                        },
-                        std::ops::Bound::Excluded(end) => match end - skip {
-                            take if take < 0 => self.take(range_span, 0),
-                            take => self.skip(range_span, skip as u64)
-                                .and_then(|stream| stream.take(range_span, take as u64)),
-                        },
-                    }
-                }
+        } else if range.is_relative() {
+            Err(ShellError::RelativeRangeOnInfiniteStream { span: call_span })
+        } else {
+            let start = range.start() as u64;
+            let stream = self.skip(val_span, start);
+
+            match range.distance() {
+                Bound::Unbounded => stream,
+                Bound::Included(distance) => stream.and_then(|s| s.take(val_span, distance)),
+                Bound::Excluded(distance) => stream.and_then(|s| s.take(val_span, distance - 1)),
             }
         }
     }

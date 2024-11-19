@@ -12,7 +12,8 @@ pub fn test_simple_positive_slice_exclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, b"Hello");
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "Hello");
 }
 
 #[test]
@@ -27,7 +28,8 @@ pub fn test_negative_start_exclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, b"World");
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "World");
 }
 
 #[test]
@@ -42,7 +44,8 @@ pub fn test_negative_end_exclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, b"Hello");
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "Hello");
 }
 
 #[test]
@@ -57,7 +60,8 @@ pub fn test_negative_start_and_end_exclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, b"Wor");
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "Wor");
 }
 
 #[test]
@@ -72,7 +76,8 @@ pub fn test_empty_slice_exclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, Vec::<u8>::new());
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "");
 }
 
 #[test]
@@ -87,7 +92,8 @@ pub fn test_out_of_bounds_exclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, b"Hello World");
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "Hello World");
 }
 
 #[test]
@@ -102,7 +108,8 @@ pub fn test_invalid_range_exclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, Vec::<u8>::new());
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "");
 }
 
 #[test]
@@ -117,7 +124,8 @@ pub fn test_max_end_exclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, b"World");
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "World");
 }
 
 #[test]
@@ -132,7 +140,8 @@ pub fn test_simple_positive_slice_inclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, b"Hello");
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "Hello");
 }
 
 #[test]
@@ -147,7 +156,8 @@ pub fn test_negative_start_inclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, b"World");
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "World");
 }
 
 #[test]
@@ -162,7 +172,8 @@ pub fn test_negative_end_inclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, b"Hello");
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "Hello");
 }
 
 #[test]
@@ -177,7 +188,8 @@ pub fn test_negative_start_and_end_inclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, b"World");
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "World");
 }
 
 #[test]
@@ -192,7 +204,8 @@ pub fn test_empty_slice_inclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, b" ");
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, " ");
 }
 
 #[test]
@@ -207,7 +220,8 @@ pub fn test_out_of_bounds_inclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, b"Hello World");
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "Hello World");
 }
 
 #[test]
@@ -222,7 +236,8 @@ pub fn test_invalid_range_inclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, Vec::<u8>::new());
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "");
 }
 
 #[test]
@@ -237,7 +252,8 @@ pub fn test_max_end_inclusive() {
         )
         .unwrap();
     let result = sliced.into_bytes().unwrap();
-    assert_eq!(result, b"World");
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "World");
 }
 
 fn create_range(start: i64, end: i64, inclusion: RangeInclusion) -> IntRange {

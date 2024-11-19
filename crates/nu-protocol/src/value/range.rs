@@ -82,9 +82,22 @@ mod int_range {
         }
 
         pub fn absolute_start(&self, len: u64) -> u64 {
+            let max_index = len - 1;
             match self.start {
                 start if start < 0 => len.saturating_sub(start.unsigned_abs().into()),
-                start => start as u64,
+                start => max_index.min(start as u64),
+            }
+        }
+
+        /// Returns the distance between the start and end of the range
+        /// The result will always be 0 or positive
+        pub fn distance(&self) -> Bound<u64> {
+            match self.end {
+                Bound::Unbounded => Bound::Unbounded,
+                Bound::Included(end) if self.start > end => Bound::Included(0),
+                Bound::Excluded(end) if self.start > end => Bound::Excluded(0),
+                Bound::Included(end) => Bound::Included((end - self.start) as u64),
+                Bound::Excluded(end) => Bound::Excluded((end - self.start) as u64),
             }
         }
 
@@ -93,15 +106,16 @@ mod int_range {
         }
 
         pub fn absolute_end(&self, len: u64) -> Bound<u64> {
+            let max_index = len - 1;
             match self.end {
                 Bound::Unbounded => Bound::Unbounded,
                 Bound::Included(i) => Bound::Included(match i {
                     i if i < 0 => len.saturating_sub(i.unsigned_abs() as u64),
-                    i => i as u64,
+                    i => max_index.min(i as u64),
                 }),
                 Bound::Excluded(i) => Bound::Excluded(match i {
                     i if i < 0 => len.saturating_sub(i.unsigned_abs() as u64),
-                    i => i as u64,
+                    i => len.min(i as u64),
                 }),
             }
         }
