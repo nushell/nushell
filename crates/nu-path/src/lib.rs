@@ -4,9 +4,9 @@ mod components;
 pub mod dots;
 pub mod expansions;
 pub mod form;
-pub mod pwd_per_drive;
 mod helpers;
 mod path;
+pub mod pwd_per_drive;
 mod tilde;
 mod trailing_slash;
 
