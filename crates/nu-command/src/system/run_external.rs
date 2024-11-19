@@ -93,8 +93,8 @@ impl Command for External {
             false
         };
 
-        // let's make sure it's a .ps1 script
-        let potential_powershell_script =
+        // let's make sure it's a .ps1 script, but only on Windows
+        let potential_powershell_script = if cfg!(windows) {
             if let Some(executable) = which(&expanded_name, "", cwd.as_ref()) {
                 let ext = executable
                     .extension()
@@ -104,7 +104,10 @@ impl Command for External {
                 ext == "PS1"
             } else {
                 false
-            };
+            }
+        } else {
+            false
+        };
 
         // Find the absolute path to the executable. On Windows, set the
         // executable to "cmd.exe" if it's a CMD internal command. If the
@@ -118,15 +121,6 @@ impl Command for External {
             // `powershell.exe` to run it. We shouldn't have to check for powershell.exe because
             // it's automatically installed on all modern windows systems.
             PathBuf::from("powershell.exe")
-        } else if cfg!(not(target_os = "windows")) && potential_powershell_script {
-            // If we're not on Windows and we're trying to run a PowerShell script, first check
-            // to see if we can find `pwsh` and if we have it installed use it to run the ps1 file.
-            // Otherwise, show an error.
-            which("pwsh", "", cwd.as_ref()).ok_or(ShellError::ExternalCommand {
-                label: "`pwsh` not found".to_string(),
-                help: "Failed to find the powershell core executable".into(),
-                span: call.head,
-            })?
         } else {
             // Determine the PATH to be used and then use `which` to find it - though this has no
             // effect if it's an absolute path already
