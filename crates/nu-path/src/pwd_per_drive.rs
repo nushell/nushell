@@ -271,6 +271,7 @@ mod tests {
 ///         assert_eq!(expanded, Some(PathBuf::from("D:\\test")));
 /// ```
 pub mod pwd_per_drive_singleton {
+    #[cfg(target_os = "windows")]
     use super::get_drive_pwd_map;
     use std::path::{Path, PathBuf};
 
@@ -287,7 +288,7 @@ pub mod pwd_per_drive_singleton {
     }
 
     #[cfg(not(target_os = "windows"))]
-    pub fn set_pwd_per_drive(path: &Path) -> Result<(), String> {
+    pub fn set_pwd_per_drive(_path: &Path) -> Result<(), String> {
         Ok(())
     }
 
@@ -307,6 +308,9 @@ pub mod pwd_per_drive_singleton {
     /// expand_pwd_per_drive will return None on non-windows platform
     #[cfg(not(target_os = "windows"))]
     pub fn expand_pwd_per_drive(_path: &Path) -> Option<PathBuf> {
+        if need_expand_pwd_per_drive(_path) {
+            // To DO
+        }
         None
     }
 
@@ -326,7 +330,7 @@ pub mod pwd_per_drive_singleton {
 
     /// On non-windows platform, will not expand
     #[cfg(not(target_os = "windows"))]
-    fn need_expand_pwd_per_drive(path: &Path) -> bool {
+    fn need_expand_pwd_per_drive(_path: &Path) -> bool {
         false
     }
 
