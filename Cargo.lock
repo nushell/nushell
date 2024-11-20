@@ -3333,7 +3333,7 @@ dependencies = [
  "sysinfo 0.32.0",
  "tabled",
  "tempfile",
- "terminal_size 0.3.0",
+ "terminal_size 0.4.0",
  "titlecase",
  "toml 0.8.19",
  "trash",
@@ -3378,7 +3378,7 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-utils",
- "terminal_size 0.3.0",
+ "terminal_size 0.4.0",
 ]
 
 [[package]]
@@ -3402,7 +3402,7 @@ dependencies = [
  "nu-utils",
  "ratatui",
  "strip-ansi-escapes",
- "terminal_size 0.3.0",
+ "terminal_size 0.4.0",
  "unicode-width 0.1.11",
 ]
 
@@ -3635,7 +3635,7 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "tabled",
- "terminal_size 0.3.0",
+ "terminal_size 0.4.0",
 ]
 
 [[package]]
