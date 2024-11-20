@@ -43,7 +43,7 @@ fn lists_regular_sort_by_files_name_order() {
             nu_repl_code(inp)
         );
 
-        let expected_sorted_order_by_name = vec![
+        let mut expected_sorted_order_by_name = vec![
             "2_small_natural.txt",
             "10_small_natural.txt",
             "A_DIRECTORY",
@@ -59,9 +59,17 @@ fn lists_regular_sort_by_files_name_order() {
             "b_medium.txt",
             "b_small.txt",
         ];
+        handle_case_insentive_os(&mut expected_sorted_order_by_name);
         let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
         assert_eq!(actual_output, expected_sorted_order_by_name);
     })
+}
+
+fn handle_case_insentive_os(expected_sorted_order_by_name: &mut Vec<&str>) {
+    if cfg!(target_os = "macos") {
+        expected_sorted_order_by_name
+            .retain(|x| ["A_DIRECTORY", "A_LARGE.TXT", "A_MEDIUM.TXT", "A_SMALL.TXT"].contains(x));
+    }
 }
 
 #[test]
@@ -87,7 +95,7 @@ fn lists_regular_sort_by_files_name_order_reversed() {
                 nu_repl_code(inp)
             );
 
-            let expected_sorted_order_by_name = vec![
+            let mut expected_sorted_order_by_name = vec![
                 "b_small.txt",
                 "b_medium.txt",
                 "b_large.txt",
@@ -103,6 +111,7 @@ fn lists_regular_sort_by_files_name_order_reversed() {
                 "10_small_natural.txt",
                 "2_small_natural.txt",
             ];
+            handle_case_insentive_os(&mut expected_sorted_order_by_name);
             let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
             assert_eq!(actual_output, expected_sorted_order_by_name);
         },
@@ -132,7 +141,7 @@ fn lists_regular_sort_by_files_name_order_dont_ignore_case() {
                 nu_repl_code(inp)
             );
 
-            let expected_sorted_order_by_name = vec![
+            let mut expected_sorted_order_by_name = vec![
                 "2_small_natural.txt",
                 "10_small_natural.txt",
                 "A_DIRECTORY",
@@ -148,6 +157,7 @@ fn lists_regular_sort_by_files_name_order_dont_ignore_case() {
                 "b_medium.txt",
                 "b_small.txt",
             ];
+            handle_case_insentive_os(&mut expected_sorted_order_by_name);
             let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
             assert_eq!(actual_output, expected_sorted_order_by_name);
         },
@@ -178,7 +188,7 @@ fn lists_regular_sort_by_files_name_order_dont_ignore_case_not_natural() {
                 nu_repl_code(inp)
             );
 
-            let expected_sorted_order_by_name = vec![
+            let mut expected_sorted_order_by_name = vec![
                 "10_small_natural.txt",
                 "2_small_natural.txt",
                 "A_DIRECTORY",
@@ -194,6 +204,7 @@ fn lists_regular_sort_by_files_name_order_dont_ignore_case_not_natural() {
                 "b_medium.txt",
                 "b_small.txt",
             ];
+            handle_case_insentive_os(&mut expected_sorted_order_by_name);
             let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
             assert_eq!(actual_output, expected_sorted_order_by_name);
         },
@@ -220,7 +231,7 @@ fn lists_regular_sorty_by_type() {
             nu_repl_code(inp)
         );
 
-        let expected_sorted_order_by_name = vec![
+        let mut expected_sorted_order_by_name = vec![
             "A_DIRECTORY",
             "a_directory",
             "b_directory",
@@ -236,6 +247,7 @@ fn lists_regular_sorty_by_type() {
             "b_medium.txt",
             "b_small.txt",
         ];
+        handle_case_insentive_os(&mut expected_sorted_order_by_name);
         let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
         assert_eq!(actual_output, expected_sorted_order_by_name);
     })
@@ -262,7 +274,7 @@ fn lists_regular_sorty_by_type_reversed() {
             nu_repl_code(inp)
         );
 
-        let expected_sorted_order_by_name = vec![
+        let mut expected_sorted_order_by_name = vec![
             "b_small.txt",
             "b_medium.txt",
             "b_large.txt",
@@ -278,6 +290,7 @@ fn lists_regular_sorty_by_type_reversed() {
             "a_directory",
             "A_DIRECTORY",
         ];
+        handle_case_insentive_os(&mut expected_sorted_order_by_name);
         let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
         assert_eq!(actual_output, expected_sorted_order_by_name);
     })
@@ -308,7 +321,7 @@ fn lists_regular_sort_by_type_reversed_no_effect_natural_and_case() {
                 nu_repl_code(inp)
             );
 
-            let expected_sorted_order_by_name = vec![
+            let mut expected_sorted_order_by_name = vec![
                 "b_small.txt",
                 "b_medium.txt",
                 "b_large.txt",
@@ -324,6 +337,7 @@ fn lists_regular_sort_by_type_reversed_no_effect_natural_and_case() {
                 "a_directory",
                 "A_DIRECTORY",
             ];
+            handle_case_insentive_os(&mut expected_sorted_order_by_name);
             let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
             assert_eq!(actual_output, expected_sorted_order_by_name);
         },
@@ -350,7 +364,7 @@ fn lists_regular_sort_by_size() {
             nu_repl_code(inp)
         );
 
-        let expected_sorted_order_by_name = vec![
+        let mut expected_sorted_order_by_name = vec![
             "10_small_natural.txt",
             "2_small_natural.txt",
             "A_SMALL.TXT",
@@ -366,6 +380,7 @@ fn lists_regular_sort_by_size() {
             "a_directory",
             "b_directory",
         ];
+        handle_case_insentive_os(&mut expected_sorted_order_by_name);
         let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
         assert_eq!(actual_output, expected_sorted_order_by_name);
     })
@@ -392,7 +407,7 @@ fn lists_regular_sort_by_size_reversed() {
             nu_repl_code(inp)
         );
 
-        let expected_sorted_order_by_name = vec![
+        let mut expected_sorted_order_by_name = vec![
             "b_directory",
             "a_directory",
             "A_DIRECTORY",
@@ -408,6 +423,7 @@ fn lists_regular_sort_by_size_reversed() {
             "2_small_natural.txt",
             "10_small_natural.txt",
         ];
+        handle_case_insentive_os(&mut expected_sorted_order_by_name);
         let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
         assert_eq!(actual_output, expected_sorted_order_by_name);
     })
@@ -438,7 +454,7 @@ fn lists_regular_sort_by_size_reversed_no_effect_natural_and_case() {
                 nu_repl_code(inp)
             );
 
-            let expected_sorted_order_by_name = vec![
+            let mut expected_sorted_order_by_name = vec![
                 "b_directory",
                 "a_directory",
                 "A_DIRECTORY",
@@ -454,6 +470,7 @@ fn lists_regular_sort_by_size_reversed_no_effect_natural_and_case() {
                 "2_small_natural.txt",
                 "10_small_natural.txt",
             ];
+            handle_case_insentive_os(&mut expected_sorted_order_by_name);
             let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
             assert_eq!(actual_output, expected_sorted_order_by_name);
         },
@@ -481,7 +498,7 @@ fn lists_regular_sort_by_modified() {
             nu_repl_code(inp)
         );
 
-        let expected_sorted_order_by_name = vec![
+        let mut expected_sorted_order_by_name = vec![
             "10_small_natural.txt",
             "2_small_natural.txt",
             "A_DIRECTORY",
@@ -497,6 +514,7 @@ fn lists_regular_sort_by_modified() {
             "b_medium.txt",
             "b_small.txt",
         ];
+        handle_case_insentive_os(&mut expected_sorted_order_by_name);
         let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
         assert_eq!(actual_output, expected_sorted_order_by_name);
     })
@@ -529,7 +547,7 @@ fn lists_regular_sort_by_name_reversed_size_type() {
                 nu_repl_code(inp)
             );
 
-            let expected_sorted_order_by_name = vec![
+            let mut expected_sorted_order_by_name = vec![
                 "b_directory",
                 "a_directory",
                 "A_DIRECTORY",
@@ -545,6 +563,57 @@ fn lists_regular_sort_by_name_reversed_size_type() {
                 "a_large.txt",
                 "A_LARGE.TXT",
             ];
+            handle_case_insentive_os(&mut expected_sorted_order_by_name);
+            let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
+            assert_eq!(actual_output, expected_sorted_order_by_name);
+        },
+    )
+}
+
+#[test]
+fn lists_regular_sort_by_name_reversed_size_type_with_l_flag() {
+    Playground::setup(
+        "ls_test_sort_by_name_reversed_size_type",
+        |dirs, sandbox| {
+            setup_files_to_test_ls_sortby_config(sandbox);
+            let inp = &[
+                "$env.config = { \
+                ls: { \
+                    sort_by: [{ \
+                        column: \"name\", \
+                        reverse: true, \
+                    },{ \
+                        column: \"size\", \
+                    },{ \
+                        column: \"type\", \
+                    }] \
+                } \
+            }",
+                "ls -l",
+            ];
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                nu_repl_code(inp)
+            );
+
+            let mut expected_sorted_order_by_name = vec![
+                "b_directory",
+                "a_directory",
+                "A_DIRECTORY",
+                "b_small.txt",
+                "a_small.txt",
+                "A_SMALL.TXT",
+                "10_small_natural.txt",
+                "2_small_natural.txt",
+                "b_medium.txt",
+                "a_medium.txt",
+                "A_MEDIUM.TXT",
+                "b_large.txt",
+                "a_large.txt",
+                "A_LARGE.TXT",
+            ];
+            handle_case_insentive_os(&mut expected_sorted_order_by_name);
             let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
             assert_eq!(actual_output, expected_sorted_order_by_name);
         },
@@ -599,7 +668,7 @@ fn lists_regular_sort_by_unknown_column() {
             nu_repl_code(inp)
         );
 
-        let expected_sorted_order_by_name = vec![
+        let mut expected_sorted_order_by_name = vec![
             "10_small_natural.txt",
             "2_small_natural.txt",
             "A_DIRECTORY",
@@ -615,12 +684,14 @@ fn lists_regular_sort_by_unknown_column() {
             "b_medium.txt",
             "b_small.txt",
         ];
+        handle_case_insentive_os(&mut expected_sorted_order_by_name);
         let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
         assert_eq!(actual_output, expected_sorted_order_by_name);
 
         // Technically this is a warning and not an error.
         let error_message = actual.err.as_str();
-        assert!(error_message.contains("cannot find column 'unknown_column (from the ls configuration, possible columns are name, type, size, modified. Will ignore that misconfigured sort.)'"));
+        assert!(error_message.contains("Cannot find column 'unknown_column"));
+        assert!(error_message.contains("name, type, size, modified"));
     })
 }
 
@@ -681,7 +752,7 @@ fn lists_regular_sort_by_files_name_order_not_natural() {
                 nu_repl_code(inp)
             );
 
-            let expected_sorted_order_by_name = vec![
+            let mut expected_sorted_order_by_name = vec![
                 "10_small_natural.txt",
                 "2_small_natural.txt",
                 "A_DIRECTORY",
@@ -697,6 +768,7 @@ fn lists_regular_sort_by_files_name_order_not_natural() {
                 "b_medium.txt",
                 "b_small.txt",
             ];
+            handle_case_insentive_os(&mut expected_sorted_order_by_name);
             let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
             assert_eq!(actual_output, expected_sorted_order_by_name);
         },
@@ -713,22 +785,26 @@ fn get_file_order_by_name_for_ls_sorby_config(actual: &Outcome) -> Vec<&str> {
 }
 
 fn setup_files_to_test_ls_sortby_config(sandbox: &mut Playground) {
-    let files = [
+    let mut files = vec![
         FileWithContent("a_small.txt", "small"),
-        FileWithContent("A_SMALL.TXT", "small"),
         FileWithContent("b_small.txt", "small"),
         FileWithContent("a_medium.txt", "medium"),
-        FileWithContent("A_MEDIUM.TXT", "medium"),
         FileWithContent("b_medium.txt", "medium"),
         FileWithContent("a_large.txt", "largelargelarge"),
-        FileWithContent("A_LARGE.TXT", "largelargelarge"),
         FileWithContent("b_large.txt", "largelargelarge"),
         FileWithContent("10_small_natural.txt", "small"),
         FileWithContent("2_small_natural.txt", "small"),
     ];
+
+    // Add case-sensitive files and directories for OSs that can handle them
+    if !cfg!(target_os = "macos") {
+        files.push(FileWithContent("A_SMALL.TXT", "small"));
+        files.push(FileWithContent("A_MEDIUM.TXT", "medium"));
+        files.push(FileWithContent("A_LARGE.TXT", "largelargelarge"));
+        sandbox.mkdir("A_DIRECTORY");
+    }
     sandbox.with_files(&files);
     sandbox.mkdir("a_directory");
-    sandbox.mkdir("A_DIRECTORY");
     sandbox.mkdir("b_directory");
 }
 
