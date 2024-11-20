@@ -74,7 +74,7 @@ pub fn evaluate_commands(
 
         if let Some(err) = working_set.compile_errors.first() {
             report_compile_error(&working_set, err);
-            // Not a fatal error, for now
+            std::process::exit(1);
         }
 
         (output, working_set.render())

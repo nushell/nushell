@@ -296,7 +296,7 @@ fn evaluate_source(
 
         if let Some(err) = working_set.compile_errors.first() {
             report_compile_error(&working_set, err);
-            // Not a fatal error, for now
+            return Ok(true);
         }
 
         (output, working_set.render())

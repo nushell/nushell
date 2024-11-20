@@ -5,7 +5,7 @@ use crate::{
         NuText, StringResult, TableResult, INDEX_COLUMN_NAME,
     },
     string_width,
-    types::{has_footer, has_index},
+    types::has_index,
     NuTable, NuTableCell, TableOpts, TableOutput,
 };
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
@@ -63,22 +63,22 @@ struct Cfg<'a> {
 struct CellOutput {
     text: String,
     style: TextStyle,
-    is_big: bool,
+    size: usize,
     is_expanded: bool,
 }
 
 impl CellOutput {
-    fn new(text: String, style: TextStyle, is_big: bool, is_expanded: bool) -> Self {
+    fn new(text: String, style: TextStyle, size: usize, is_expanded: bool) -> Self {
         Self {
             text,
             style,
-            is_big,
+            size,
             is_expanded,
         }
     }
 
-    fn clean(text: String, is_big: bool, is_expanded: bool) -> Self {
-        Self::new(text, Default::default(), is_big, is_expanded)
+    fn clean(text: String, size: usize, is_expanded: bool) -> Self {
+        Self::new(text, Default::default(), size, is_expanded)
     }
 
     fn text(text: String) -> Self {
@@ -86,7 +86,7 @@ impl CellOutput {
     }
 
     fn styled(text: NuText) -> Self {
-        Self::new(text.0, text.1, false, false)
+        Self::new(text.0, text.1, 1, false)
     }
 }
 
@@ -117,7 +117,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
     let with_index = has_index(&cfg.opts, &headers);
     let row_offset = cfg.opts.index_offset;
-    let mut is_footer_used = false;
+    let mut rows_count = 0usize;
 
     // The header with the INDEX is removed from the table headers since
     // it is added to the natural table index
@@ -199,9 +199,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             data[row].push(value);
             data_styles.insert((row, with_index as usize), cell.style);
 
-            if cell.is_big {
-                is_footer_used = cell.is_big;
-            }
+            rows_count = rows_count.saturating_add(cell.size);
         }
 
         let mut table = NuTable::from(data);
@@ -209,12 +207,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         table.set_index_style(get_index_style(cfg.opts.style_computer));
         set_data_styles(&mut table, data_styles);
 
-        return Ok(Some(TableOutput::new(
-            table,
-            false,
-            with_index,
-            is_footer_used,
-        )));
+        return Ok(Some(TableOutput::new(table, false, with_index, rows_count)));
     }
 
     if !headers.is_empty() {
@@ -269,6 +262,8 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             }
         }
 
+        let mut column_rows = 0usize;
+
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(cfg.opts.span)?;
 
@@ -294,9 +289,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             data[row + 1].push(value);
             data_styles.insert((row + 1, col + with_index as usize), cell.style);
 
-            if cell.is_big {
-                is_footer_used = cell.is_big;
-            }
+            column_rows = column_rows.saturating_add(cell.size);
         }
 
         let head_cell = NuTableCell::new(header);
@@ -316,6 +309,8 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         available_width -= pad_space + column_width;
         rendered_column += 1;
+
+        rows_count = std::cmp::max(rows_count, column_rows);
     }
 
     if truncate && rendered_column == 0 {
@@ -374,9 +369,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
     set_data_styles(&mut table, data_styles);
 
-    let has_footer = is_footer_used || has_footer(&cfg.opts, table.count_rows() as u64);
-
-    Ok(Some(TableOutput::new(table, true, with_index, has_footer)))
+    Ok(Some(TableOutput::new(table, true, with_index, rows_count)))
 }
 
 fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
@@ -395,7 +388,7 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
 
     let value_width = cfg.opts.width - key_width - count_borders - padding - padding;
 
-    let mut with_footer = false;
+    let mut count_rows = 0usize;
 
     let mut data = Vec::with_capacity(record.len());
     for (key, value) in record {
@@ -420,19 +413,17 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
 
         data.push(row);
 
-        if cell.is_big {
-            with_footer = cell.is_big;
-        }
+        count_rows = count_rows.saturating_add(cell.size);
     }
 
     let mut table = NuTable::from(data);
     table.set_index_style(get_key_style(&cfg));
     table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
 
-    let out = TableOutput::new(table, false, true, with_footer);
+    let out = TableOutput::new(table, false, true, count_rows);
 
     maybe_expand_table(out, cfg.opts.width, &cfg.opts)
-        .map(|value| value.map(|value| CellOutput::clean(value, with_footer, false)))
+        .map(|value| value.map(|value| CellOutput::clean(value, count_rows, false)))
 }
 
 // the flag is used as an optimization to not do `value.lines().count()` search.
@@ -441,7 +432,7 @@ fn expand_table_value(value: &Value, value_width: usize, cfg: &Cfg<'_>) -> CellR
     if is_limited {
         return Ok(Some(CellOutput::clean(
             value_to_string_clean(value, cfg),
-            false,
+            1,
             false,
         )));
     }
@@ -457,7 +448,7 @@ fn expand_table_value(value: &Value, value_width: usize, cfg: &Cfg<'_>) -> CellR
                     let cfg = create_table_cfg(cfg, &out);
                     let value = out.table.draw(cfg, value_width);
                     match value {
-                        Some(value) => Ok(Some(CellOutput::clean(value, out.with_footer, true))),
+                        Some(value) => Ok(Some(CellOutput::clean(value, out.count_rows, true))),
                         None => Ok(None),
                     }
                 }
@@ -484,7 +475,7 @@ fn expand_table_value(value: &Value, value_width: usize, cfg: &Cfg<'_>) -> CellR
             let inner_cfg = update_config(dive_options(cfg, span), value_width);
             let result = expanded_table_kv(record, inner_cfg)?;
             match result {
-                Some(result) => Ok(Some(CellOutput::clean(result.text, result.is_big, true))),
+                Some(result) => Ok(Some(CellOutput::clean(result.text, result.size, true))),
                 None => Ok(Some(CellOutput::text(value_to_wrapped_string(
                     value,
                     cfg,
@@ -575,7 +566,7 @@ fn expanded_table_entry2(item: &Value, cfg: Cfg<'_>) -> CellOutput {
             let table_config = create_table_cfg(&cfg, &out);
             let table = out.table.draw(table_config, usize::MAX);
             match table {
-                Some(table) => CellOutput::clean(table, out.with_footer, false),
+                Some(table) => CellOutput::clean(table, out.count_rows, false),
                 None => CellOutput::styled(nu_value_to_string(
                     item,
                     cfg.opts.config,
