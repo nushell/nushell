@@ -17,7 +17,10 @@ impl Command for Ast {
 
     fn signature(&self) -> Signature {
         Signature::build("ast")
-            .input_output_types(vec![(Type::String, Type::record())])
+            .input_output_types(vec![
+                (Type::String, Type::record()),
+                (Type::String, Type::String),
+            ])
             .required(
                 "pipeline",
                 SyntaxShape::String,
@@ -59,18 +62,70 @@ impl Command for Ast {
                 result: None,
             },
             Example {
+                description: "Print the ast of a string flattened",
+                example: "ast 'hello' --flatten",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "content" => Value::test_string("hello"),
+                    "shape" => Value::test_string("shape_external"),
+                    "span" => Value::test_record(record! {
+                        "start" => Value::test_int(0),
+                        "end" => Value::test_int(5),}),
+                })])),
+            },
+            Example {
                 description: "Print the ast of a string flattened, as json, minified",
                 example: "ast 'hello' --flatten --json --minify",
                 result: Some(Value::test_string(
-                    r#"[{"content":"hello","shape":"shape_external","span":{"start":0,"end":5}}]"#,
+                    r#"{"content":"hello","shape":"shape_external","span":{"start":0,"end":5}}"#,
                 )),
             },
             Example {
-                description: "Print the ast of a pipeline flattened, as json, minified",
-                example: "ast 'ls | sort-by type name -i' --flatten --json --minify",
-                result: Some(Value::test_string(
-                    r#"[{"content":"ls","shape":"shape_internalcall","span":{"start":0,"end":2}},{"content":"|","shape":"shape_pipe","span":{"start":3,"end":4}},{"content":"sort-by","shape":"shape_internalcall","span":{"start":5,"end":12}},{"content":"type","shape":"shape_string","span":{"start":13,"end":17}},{"content":"name","shape":"shape_string","span":{"start":18,"end":22}},{"content":"-i","shape":"shape_flag","span":{"start":23,"end":25}}]"#,
-                )),
+                description: "Print the ast of a pipeline flattened",
+                example: "ast 'ls | sort-by type name -i' --flatten",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "content" => Value::test_string("ls"),
+                        "shape" => Value::test_string("shape_internalcall"),
+                        "span" => Value::test_record(record! {
+                            "start" => Value::test_int(0),
+                            "end" => Value::test_int(2),}),
+                    }),
+                    Value::test_record(record! {
+                        "content" => Value::test_string("|"),
+                        "shape" => Value::test_string("shape_pipe"),
+                        "span" => Value::test_record(record! {
+                            "start" => Value::test_int(3),
+                            "end" => Value::test_int(4),}),
+                    }),
+                    Value::test_record(record! {
+                        "content" => Value::test_string("sort-by"),
+                        "shape" => Value::test_string("shape_internalcall"),
+                        "span" => Value::test_record(record! {
+                            "start" => Value::test_int(5),
+                            "end" => Value::test_int(12),}),
+                    }),
+                    Value::test_record(record! {
+                        "content" => Value::test_string("type"),
+                        "shape" => Value::test_string("shape_string"),
+                        "span" => Value::test_record(record! {
+                            "start" => Value::test_int(13),
+                            "end" => Value::test_int(17),}),
+                    }),
+                    Value::test_record(record! {
+                        "content" => Value::test_string("name"),
+                        "shape" => Value::test_string("shape_string"),
+                        "span" => Value::test_record(record! {
+                            "start" => Value::test_int(18),
+                            "end" => Value::test_int(22),}),
+                    }),
+                    Value::test_record(record! {
+                        "content" => Value::test_string("-i"),
+                        "shape" => Value::test_string("shape_flag"),
+                        "span" => Value::test_record(record! {
+                            "start" => Value::test_int(23),
+                            "end" => Value::test_int(25),}),
+                    }),
+                ])),
             },
         ]
     }
