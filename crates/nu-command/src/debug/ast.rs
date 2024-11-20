@@ -18,8 +18,9 @@ impl Command for Ast {
     fn signature(&self) -> Signature {
         Signature::build("ast")
             .input_output_types(vec![
-                (Type::String, Type::record()),
-                (Type::String, Type::String),
+                (Type::Nothing, Type::table()),
+                (Type::Nothing, Type::record()),
+                (Type::Nothing, Type::String),
             ])
             .required(
                 "pipeline",
@@ -63,29 +64,29 @@ impl Command for Ast {
             },
             Example {
                 description: "Print the ast of a string flattened",
-                example: "ast 'hello' --flatten",
+                example: r#"ast "'hello'" --flatten"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "content" => Value::test_string("hello"),
-                    "shape" => Value::test_string("shape_external"),
+                    "content" => Value::test_string("'hello'"),
+                    "shape" => Value::test_string("shape_string"),
                     "span" => Value::test_record(record! {
                         "start" => Value::test_int(0),
-                        "end" => Value::test_int(5),}),
+                        "end" => Value::test_int(7),}),
                 })])),
             },
             Example {
                 description: "Print the ast of a string flattened, as json, minified",
-                example: "ast 'hello' --flatten --json --minify",
+                example: r#"ast "'hello'" --flatten --json --minify"#,
                 result: Some(Value::test_string(
-                    r#"{"content":"hello","shape":"shape_external","span":{"start":0,"end":5}}"#,
+                    r#"[{"content":"'hello'","shape":"shape_string","span":{"start":0,"end":7}}]"#,
                 )),
             },
             Example {
                 description: "Print the ast of a pipeline flattened",
-                example: "ast 'ls | sort-by type name -i' --flatten",
+                example: r#"ast 'ls | sort-by type name -i' --flatten"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "content" => Value::test_string("ls"),
-                        "shape" => Value::test_string("shape_internalcall"),
+                        "shape" => Value::test_string("shape_external"),
                         "span" => Value::test_record(record! {
                             "start" => Value::test_int(0),
                             "end" => Value::test_int(2),}),
