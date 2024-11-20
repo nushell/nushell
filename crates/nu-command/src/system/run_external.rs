@@ -125,7 +125,7 @@ impl Command for External {
             // Determine the PATH to be used and then use `which` to find it - though this has no
             // effect if it's an absolute path already
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
-            let Some(executable) = which(expanded_name.clone(), &paths, cwd.as_ref()) else {
+            let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) else {
                 return Err(command_not_found(&name_str, call.head, engine_state, stack));
             };
             executable
