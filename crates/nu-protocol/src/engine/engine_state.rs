@@ -14,6 +14,7 @@ use crate::{
 use fancy_regex::Regex;
 use lru::LruCache;
 use nu_path::AbsolutePathBuf;
+use nu_utils::IgnoreCaseExt;
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -466,15 +467,10 @@ impl EngineState {
     }
 
     pub fn get_env_var_insensitive(&self, name: &str) -> Option<&Value> {
-        let name_lower = name.to_lowercase();
-
         for overlay_id in self.scope.active_overlays.iter().rev() {
             let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
             if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
-                if let Some(v) = env_vars
-                    .iter()
-                    .find(|(k, _)| k.to_lowercase() == name_lower)
-                {
+                if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
                     return Some(v.1);
                 }
             }
