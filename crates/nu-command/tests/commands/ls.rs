@@ -68,7 +68,7 @@ fn lists_regular_sort_by_files_name_order() {
 fn handle_case_insentive_os(expected_sorted_order_by_name: &mut Vec<&str>) {
     if cfg!(target_os = "macos") {
         expected_sorted_order_by_name
-            .retain(|x| ["A_DIRECTORY", "A_LARGE.TXT", "A_MEDIUM.TXT", "A_SMALL.TXT"].contains(x));
+            .retain(|x| !["A_DIRECTORY", "A_LARGE.TXT", "A_MEDIUM.TXT", "A_SMALL.TXT"].contains(x));
     }
 }
 
