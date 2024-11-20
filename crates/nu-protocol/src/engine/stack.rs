@@ -480,7 +480,7 @@ impl Stack {
         None
     }
 
-    // Case-Insensitve version of get_env_var
+    // Case-Insensitive version of get_env_var
     pub fn get_env_var_insensitive<'a>(
         &'a self,
         engine_state: &'a EngineState,
