@@ -3351,12 +3351,9 @@ dependencies = [
 name = "nu-path"
 version = "0.100.1"
 dependencies = [
- "cfg-if",
  "dirs",
  "omnipath",
- "once_cell",
  "pwd",
- "winapi",
 ]
 
 [[package]]
