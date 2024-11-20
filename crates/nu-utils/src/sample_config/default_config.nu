@@ -142,7 +142,22 @@ let light_theme = {
 
 # External completer example
 # let carapace_completer = {|spans|
-#     carapace $spans.0 nushell ...$spans | from json
+#     # carapace doesn't give completions if you don't give it any additional
+#     # args
+#     mut spans = $spans
+#     if ($spans | is-empty) {
+#         $spans = [""]
+#     }
+#     
+#     carapace $spans.0 nushell ...$spans | from json 
+#         # sort by color
+#         | sort-by {
+#             let fg = $in | get -i style.fg
+#             let attr = $in | get -i style.attr
+#             
+#             # the ~ there to make "empty" results appear at the end
+#             $"($fg)~($attr)"
+#         }
 # }
 
 # The default config record. This is where much of your global configuration is setup.
