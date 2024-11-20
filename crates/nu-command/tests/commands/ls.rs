@@ -599,12 +599,28 @@ fn lists_regular_sort_by_unknown_column() {
             nu_repl_code(inp)
         );
 
-        let expected_sorted_order_by_name: Vec<String> = vec![];
+        let expected_sorted_order_by_name = vec![
+            "10_small_natural.txt",
+            "2_small_natural.txt",
+            "A_DIRECTORY",
+            "A_LARGE.TXT",
+            "A_MEDIUM.TXT",
+            "A_SMALL.TXT",
+            "a_directory",
+            "a_large.txt",
+            "a_medium.txt",
+            "a_small.txt",
+            "b_directory",
+            "b_large.txt",
+            "b_medium.txt",
+            "b_small.txt",
+        ];
         let actual_output = get_file_order_by_name_for_ls_sorby_config(&actual);
         assert_eq!(actual_output, expected_sorted_order_by_name);
 
+        // Technically this is a warning and not an error.
         let error_message = actual.err.as_str();
-        assert!(error_message.contains("cannot find column 'unknown_column (from the ls configuration, possible columns are name, type, size, modified.)'"));
+        assert!(error_message.contains("cannot find column 'unknown_column (from the ls configuration, possible columns are name, type, size, modified. Will ignore that misconfigured sort.)'"));
     })
 }
 

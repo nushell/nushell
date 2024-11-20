@@ -6,7 +6,9 @@ use nu_engine::glob_from;
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::{expand_path_with, expand_to_real_path};
-use nu_protocol::{DataSource, LsConfigSortConfig, NuGlob, PipelineMetadata, Signals};
+use nu_protocol::{
+    report_shell_warning, DataSource, LsConfigSortConfig, NuGlob, PipelineMetadata, Signals,
+};
 use pathdiff::diff_paths;
 use rayon::prelude::*;
 
@@ -236,7 +238,7 @@ fn apply_post_sorting(
     let mut comparator_vals: Vec<Value> = result.into_iter().collect();
 
     for sort_by_config in sort_by_configs {
-        setup_and_sort_by_config(&mut comparator_vals, sort_by_config)?;
+        setup_and_sort_by_config(engine_state, &mut comparator_vals, sort_by_config)?;
     }
 
     let val = Value::list(comparator_vals, call.head);
@@ -246,6 +248,7 @@ fn apply_post_sorting(
 }
 
 fn setup_and_sort_by_config(
+    engine_state: &EngineState,
     comparator_vals: &mut [Value],
     sort_by_config: &LsConfigSortConfig,
 ) -> Result<(), ShellError> {
@@ -257,14 +260,19 @@ fn setup_and_sort_by_config(
         )],
     });
 
-    sort_utils::sort_by(
+    if let Some(error) = sort_utils::sort_by(
         comparator_vals,
         vec![comparators],
         Span::unknown(),
         sort_by_config.ignore_case,
         sort_by_config.natural,
     )
-    .map_err(|err| handle_err_sort_by_config(comparator_vals, err))?;
+    .map_or_else(
+        |err| handle_err_sort_by_config(engine_state, comparator_vals, err),
+        |_| None,
+    ) {
+        return Err(error);
+    }
 
     if sort_by_config.reverse {
         comparator_vals.reverse();
@@ -272,14 +280,18 @@ fn setup_and_sort_by_config(
     Ok(())
 }
 
-fn handle_err_sort_by_config(comparator_vals: &mut [Value], err: ShellError) -> ShellError {
+fn handle_err_sort_by_config(
+    engine_state: &EngineState,
+    comparator_vals: &mut [Value],
+    err: ShellError,
+) -> Option<ShellError> {
     let ShellError::CantFindColumn {
         col_name,
         span,
         src_span,
     } = err
     else {
-        return err;
+        return Some(err);
     };
 
     let list_column_names_names = comparator_vals
@@ -295,14 +307,17 @@ fn handle_err_sort_by_config(comparator_vals: &mut [Value], err: ShellError) -> 
             format!(", possible columns are {}.", columns.as_str())
         });
 
-    ShellError::CantFindColumn {
+    let cant_find_column_error = ShellError::CantFindColumn {
         col_name: format!(
-            "{} (from the ls configuration{})",
+            "{} (from the ls configuration{} Will ignore that misconfigured sort.)",
             col_name, list_column_names_names
         ),
         span,
         src_span,
-    }
+    };
+
+    report_shell_warning(engine_state, &cant_find_column_error);
+    None
 }
 
 fn ls_for_one_pattern(
