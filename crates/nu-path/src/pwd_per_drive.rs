@@ -137,7 +137,7 @@ fn get_drive_pwd_map() -> &'static Mutex<Drive2PWDmap> {
     &DRIVE_PWD_MAP
 }
 
-/// Test for DrivePWD map
+/// Test for Drive2PWD map
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,6 +162,7 @@ mod tests {
             assert_eq!(map.get_pwd('E'), Some("E:\\".to_string()));
         }
     }
+
     #[test]
     fn test_expand_path() {
         let mut drive_map = Drive2PWDmap::new();
@@ -232,10 +233,11 @@ mod tests {
 ///
 /// Call expand_pwd_per_drive() with relative path to get absolution path
 ///
-/// Doctest
-/// ```Rust
-/// use pwd_per_drive::pwd_per_drive_singleton::*;
+/// ```
+/// use std::path::{Path, PathBuf};
+/// use nu_path::pwd_per_drive::pwd_per_drive_singleton::*;
 ///
+/// //assert!(false); // Comment out to verify really tested
 /// if cfg!(windows) {
 ///     // Set PWD for drive C
 ///     set_pwd_per_drive(Path::new("C:\\Users\\Home")).unwrap();
@@ -286,12 +288,12 @@ pub mod pwd_per_drive_singleton {
     /// On windows, input relative path, expand PWD-per-drive to construct absolute path
     /// return PathBuf for absolute path, None if input path is invalid.
     /// Otherwise, return None.
-    pub fn expand_pwd_per_drive(path: &Path) -> Option<PathBuf> {
+    pub fn expand_pwd_per_drive(_path: &Path) -> Option<PathBuf> {
         cfg_if::cfg_if! { if #[cfg(target_os="windows")] {
 
-        if need_expand_pwd_per_drive(path) {
+        if need_expand_pwd_per_drive(_path) {
             if let Ok(mut pwd_per_drive) = get_drive_pwd_map().lock() {
-                return pwd_per_drive.expand_path(path);
+                return pwd_per_drive.expand_path(_path);
             }
         }
 
@@ -300,24 +302,24 @@ pub mod pwd_per_drive_singleton {
         None
     }
 
-    /// On windows, if input path is relative path with drive letter,
-    /// it can be expanded with PWD-per-drive.
-    /// On other platforms return false.
+    cfg_if::cfg_if! { if #[cfg(target_os="windows")] {
+    /// Helper only used on windows, if input path is relative path
+    /// with drive letter, it can be expanded with PWD-per-drive.
     fn need_expand_pwd_per_drive(_path: &Path) -> bool {
-        cfg_if::cfg_if! { if #[cfg(target_os="windows")] {
-
         if let Some(path_str) = _path.to_str() {
             let chars: Vec<char> = path_str.chars().collect();
             if chars.len() >= 2 {
-                return chars[1] == ':'
-                    && (chars.len() == 2 || (chars[2] != '/' && chars[2] != '\\'));
+                return chars[1] == ':' &&
+                        (chars.len() == 2 ||
+                            (chars[2] != '/' &&
+                             chars[2] != '\\'
+                            )
+                        );
             }
         }
-
-        }}
-
         false
     }
+    }}
 
     #[test]
     fn test_usage_for_pwd_per_drive() {
