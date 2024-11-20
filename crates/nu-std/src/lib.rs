@@ -54,6 +54,7 @@ pub fn load_standard_library(
         ("mod.nu", "std/math", include_str!("../std/math/mod.nu")),
         ("mod.nu", "std/util", include_str!("../std/util/mod.nu")),
         ("mod.nu", "std/xml", include_str!("../std/xml/mod.nu")),
+        ("mod.nu", "std/config", include_str!("../std/config/mod.nu")),
     ];
 
     for (filename, std_subdir_name, content) in std_submodules.drain(..) {

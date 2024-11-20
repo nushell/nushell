@@ -35,7 +35,7 @@ fn config_affected_when_mutated() {
 
 #[test]
 fn config_affected_when_deep_mutated() {
-    let actual = nu!(cwd: "crates/nu-utils/src/sample_config", nu_repl_code(&[
+    let actual = nu!(cwd: "crates/nu-utils/src/default_files", nu_repl_code(&[
         r#"source default_config.nu"#,
         r#"$env.config.filesize.metric = true"#,
         r#"20mib | into string"#]));
@@ -45,7 +45,7 @@ fn config_affected_when_deep_mutated() {
 
 #[test]
 fn config_add_unsupported_key() {
-    let actual = nu!(cwd: "crates/nu-utils/src/sample_config", nu_repl_code(&[
+    let actual = nu!(cwd: "crates/nu-utils/src/default_files", nu_repl_code(&[
         r#"source default_config.nu"#,
         r#"$env.config.foo = 2"#,
         r#";"#]));
@@ -57,7 +57,7 @@ fn config_add_unsupported_key() {
 
 #[test]
 fn config_add_unsupported_type() {
-    let actual = nu!(cwd: "crates/nu-utils/src/sample_config", nu_repl_code(&[r#"source default_config.nu"#,
+    let actual = nu!(cwd: "crates/nu-utils/src/default_files", nu_repl_code(&[r#"source default_config.nu"#,
         r#"$env.config.ls = '' "#,
         r#";"#]));
 
@@ -66,7 +66,7 @@ fn config_add_unsupported_type() {
 
 #[test]
 fn config_add_unsupported_value() {
-    let actual = nu!(cwd: "crates/nu-utils/src/sample_config", nu_repl_code(&[r#"source default_config.nu"#,
+    let actual = nu!(cwd: "crates/nu-utils/src/default_files", nu_repl_code(&[r#"source default_config.nu"#,
         r#"$env.config.history.file_format = ''"#,
         r#";"#]));
 
@@ -77,7 +77,7 @@ fn config_add_unsupported_value() {
 #[test]
 #[ignore = "Figure out how to make test_bins::nu_repl() continue execution after shell errors"]
 fn config_unsupported_key_reverted() {
-    let actual = nu!(cwd: "crates/nu-utils/src/sample_config", nu_repl_code(&[r#"source default_config.nu"#,
+    let actual = nu!(cwd: "crates/nu-utils/src/default_files", nu_repl_code(&[r#"source default_config.nu"#,
         r#"$env.config.foo = 1"#,
         r#"'foo' in $env.config"#]));
 
@@ -87,7 +87,7 @@ fn config_unsupported_key_reverted() {
 #[test]
 #[ignore = "Figure out how to make test_bins::nu_repl() continue execution after shell errors"]
 fn config_unsupported_type_reverted() {
-    let actual = nu!(cwd: "crates/nu-utils/src/sample_config", nu_repl_code(&[r#" source default_config.nu"#,
+    let actual = nu!(cwd: "crates/nu-utils/src/default_files", nu_repl_code(&[r#" source default_config.nu"#,
         r#"$env.config.ls = ''"#,
         r#"$env.config.ls | describe"#]));
 
@@ -97,7 +97,7 @@ fn config_unsupported_type_reverted() {
 #[test]
 #[ignore = "Figure out how to make test_bins::nu_repl() continue execution after errors"]
 fn config_unsupported_value_reverted() {
-    let actual = nu!(cwd: "crates/nu-utils/src/sample_config", nu_repl_code(&[r#" source default_config.nu"#,
+    let actual = nu!(cwd: "crates/nu-utils/src/default_files", nu_repl_code(&[r#" source default_config.nu"#,
         r#"$env.config.history.file_format = 'plaintext'"#,
         r#"$env.config.history.file_format = ''"#,
         r#"$env.config.history.file_format | to json"#]));
