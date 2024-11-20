@@ -368,6 +368,10 @@ $env.config.datetime_format.normal = "%m/%d/%y %I:%M:%S%p"
 # Otherwise, setting this to one of the filesize units will use that particular unit when display all file sizes.
 $env.config.filesize.unit = 'decimal'
 
+# filesize.precision (int):
+# The number of digits to display after the decimal point for file sizes.
+$env.config.filesize.precision = 1
+
 # ---------------------
 # Miscellaneous Display
 # ---------------------

@@ -141,7 +141,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
         Value::Bool { val, .. } => val.to_string(),
         Value::Int { val, .. } => val.to_string(),
         Value::Float { val, .. } => val.to_string(),
-        Value::Filesize { val, .. } => config.filesize.unit.display(val).to_string(),
+        Value::Filesize { val, .. } => config.filesize.display(val).to_string(),
         Value::Duration { val, .. } => format_duration(val),
         Value::Date { val, .. } => {
             format!("{} ({})", val.to_rfc2822(), HumanTime::from(val))

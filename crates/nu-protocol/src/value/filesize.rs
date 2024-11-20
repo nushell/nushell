@@ -162,6 +162,7 @@ impl Filesize {
         DisplayFilesize {
             filesize: *self,
             unit,
+            precision: None,
         }
     }
 }
@@ -529,11 +530,24 @@ impl fmt::Display for FilesizeUnit {
 pub struct DisplayFilesize {
     filesize: Filesize,
     unit: FilesizeUnit,
+    precision: Option<usize>,
+}
+
+impl DisplayFilesize {
+    pub fn precision(mut self, precision: usize) -> Self {
+        self.precision = Some(precision);
+        self
+    }
 }
 
 impl fmt::Display for DisplayFilesize {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { filesize, unit } = *self;
+        let Self {
+            filesize,
+            unit,
+            precision,
+        } = *self;
+        let precision = precision.or(f.precision());
         match unit {
             FilesizeUnit::B => write!(f, "{} B", filesize.0),
             FilesizeUnit::KiB
@@ -542,8 +556,13 @@ impl fmt::Display for DisplayFilesize {
             | FilesizeUnit::TiB
             | FilesizeUnit::PiB
             | FilesizeUnit::EiB => {
+                let val = filesize.0 as f64 / unit.as_bytes() as f64;
                 // This won't give exact results for large filesizes and/or units.
-                write!(f, "{} {unit}", filesize.0 as f64 / unit.as_bytes() as f64)
+                if let Some(precision) = precision {
+                    write!(f, "{val:.precision$} {unit}")
+                } else {
+                    write!(f, "{val} {unit}")
+                }
             }
             FilesizeUnit::KB
             | FilesizeUnit::GB
@@ -554,31 +573,37 @@ impl fmt::Display for DisplayFilesize {
                 // Format an exact, possibly fractional, string representation of `filesize`.
                 let bytes = unit.as_bytes() as i64;
                 let whole = filesize.0 / bytes;
-                let mut fract = (filesize.0 % bytes).unsigned_abs();
-                if fract == 0 || f.precision() == Some(0) {
+                let fract = (filesize.0 % bytes).unsigned_abs();
+                if fract == 0 || precision == Some(0) {
                     write!(f, "{whole} {unit}")
                 } else {
                     // fract <= bytes by nature of `%` and bytes <= EB = 10 ^ 18
                     // So, the longest string for the fractional portion can be 18 characters.
                     let buf = &mut [b'0'; 18];
-                    for d in buf.iter_mut().rev() {
-                        *d += (fract % 10) as u8;
-                        fract /= 10;
-                        if fract == 0 {
+                    let stop = precision.unwrap_or(buf.len());
+                    let mut fract = fract;
+                    let mut power = bytes.unsigned_abs() / 10;
+                    let mut i = 0;
+                    loop {
+                        let q = fract / power;
+                        let r = fract % power;
+                        debug_assert!(q < 10);
+                        buf[i] += q as u8;
+                        i += 1;
+                        if r == 0 || i >= stop {
                             break;
                         }
+                        fract = r;
+                        power /= 10;
                     }
 
-                    let power = bytes.ilog10() as usize;
-                    debug_assert_eq!(bytes, 10_i64.pow(power as u32), "an exact power of 10");
                     // Safety: all the characters in `buf` are valid UTF-8.
-                    let fract =
-                        unsafe { std::str::from_utf8_unchecked(&buf[(buf.len() - power)..]) };
+                    let fract = unsafe { std::str::from_utf8_unchecked(&buf[..i]) };
 
-                    match f.precision() {
-                        Some(p) if p <= power => write!(f, "{whole}.{} {unit}", &fract[..p]),
-                        Some(p) => write!(f, "{whole}.{fract:0<p$} {unit}"),
-                        None => write!(f, "{whole}.{} {unit}", fract.trim_end_matches('0')),
+                    if let Some(p) = precision {
+                        write!(f, "{whole}.{fract:0<p$} {unit}")
+                    } else {
+                        write!(f, "{whole}.{fract} {unit}")
                     }
                 }
             }

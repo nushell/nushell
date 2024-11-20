@@ -1,22 +1,11 @@
 use super::{config_update_string_enum, prelude::*};
-use crate::{self as nu_protocol, DisplayFilesize, Filesize, FilesizeUnit};
+use crate::{DisplayFilesize, Filesize, FilesizeUnit};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FilesizeFormatUnit {
     Decimal,
     Binary,
     Unit(FilesizeUnit),
-}
-
-impl FilesizeFormatUnit {
-    pub fn display(&self, filesize: Filesize) -> DisplayFilesize {
-        let unit = match self {
-            Self::Decimal => filesize.largest_decimal_unit(),
-            Self::Binary => filesize.largest_binary_unit(),
-            Self::Unit(unit) => *unit,
-        };
-        filesize.display(unit)
-    }
 }
 
 impl From<FilesizeUnit> for FilesizeFormatUnit {
@@ -54,15 +43,28 @@ impl IntoValue for FilesizeFormatUnit {
     }
 }
 
-#[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FilesizeConfig {
     pub unit: FilesizeFormatUnit,
+    pub precision: u64,
+}
+
+impl FilesizeConfig {
+    pub fn display(&self, filesize: Filesize) -> DisplayFilesize {
+        let unit = match self.unit {
+            FilesizeFormatUnit::Decimal => filesize.largest_decimal_unit(),
+            FilesizeFormatUnit::Binary => filesize.largest_binary_unit(),
+            FilesizeFormatUnit::Unit(unit) => unit,
+        };
+        filesize.display(unit).precision(self.precision as usize)
+    }
 }
 
 impl Default for FilesizeConfig {
     fn default() -> Self {
         Self {
             unit: FilesizeFormatUnit::Decimal,
+            precision: 1,
         }
     }
 }
@@ -83,6 +85,7 @@ impl UpdateFromValue for FilesizeConfig {
             let path = &mut path.push(col);
             match col.as_str() {
                 "unit" => config_update_string_enum(&mut self.unit, val, path, errors),
+                "precision" => self.precision.update(value, path, errors),
                 "format" | "metric" => {
                     // TODO: remove after next release
                     errors.deprecated_option(path, "set $env.config.filesize.unit", val.span())
@@ -90,5 +93,15 @@ impl UpdateFromValue for FilesizeConfig {
                 _ => errors.unknown_option(path, val),
             }
         }
+    }
+}
+
+impl IntoValue for FilesizeConfig {
+    fn into_value(self, span: Span) -> Value {
+        record! {
+            "unit" => self.unit.into_value(span),
+            "precision" => (self.precision as i64).into_value(span),
+        }
+        .into_value(span)
     }
 }
