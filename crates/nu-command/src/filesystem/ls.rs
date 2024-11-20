@@ -287,7 +287,7 @@ fn handle_err_sort_by_config(
 ) -> Option<ShellError> {
     let ShellError::CantFindColumn {
         col_name,
-        span,
+        span: _,
         src_span,
     } = err
     else {
@@ -312,7 +312,7 @@ fn handle_err_sort_by_config(
             "{} (from the ls configuration{} Will ignore that misconfigured sort.)",
             col_name, list_column_names_names
         ),
-        span,
+        span: None,
         src_span,
     };
 
