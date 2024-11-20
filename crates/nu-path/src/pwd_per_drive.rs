@@ -154,7 +154,7 @@ mod tests {
         }
 
         {
-            let map = drive_pwd_map.lock().unwrap();
+            let mut map = drive_pwd_map.lock().unwrap();
 
             // Get PWD for drive C
             assert_eq!(map.get_pwd('C'), Some("C:\\Users\\Example".to_string()));
@@ -215,7 +215,7 @@ mod tests {
 
     #[test]
     fn test_get_pwd_invalid_drive() {
-        let drive_map = DrivePWDmap::new();
+        let mut drive_map = DrivePWDmap::new();
 
         // Get PWD for a drive not set (e.g., Z)
         assert_eq!(drive_map.get_pwd('Z'), Some("Z:\\".to_string()));
