@@ -36,21 +36,36 @@ pub(crate) fn read_config_file(
 
     if is_env_config {
         eval_default_config(engine_state, stack, get_default_env(), is_env_config);
+
+        let start_time = std::time::Instant::now();
         let config = engine_state.get_config();
         let use_color = config.use_ansi_coloring;
-        let start_time = std::time::Instant::now();
         // Translate environment variables from Strings to Values
         if let Err(e) = convert_env_values(engine_state, stack) {
             report_shell_error(engine_state, &e);
         }
+
         perf!(
             "translate env vars after default_env.nu",
             start_time,
             use_color
         );
     } else {
+        let start_time = std::time::Instant::now();
+        let config = engine_state.get_config();
+        let use_color = config.use_ansi_coloring;
+        if let Err(e) = convert_env_values(engine_state, stack) {
+            report_shell_error(engine_state, &e);
+        }
+        perf!(
+            "translate env vars before default_config.nu",
+            start_time,
+            use_color
+        );
+
         eval_default_config(engine_state, stack, get_default_config(), is_env_config);
     };
+
     warn!("read_config_file() loading_defaults is_env_config: {is_env_config}");
 
     // Load config startup file

@@ -59,36 +59,35 @@ $env.TRANSIENT_PROMPT_COMMAND_RIGHT = ""
 
 # ENV_CONVERSIONS
 # ---------------
-# Certain variables, such as the PATH, are often stored as a colon-separated
-# string in other shells. Nushell can convert these automatically to a more-
-# convenient Nushell list.  The ENV_CONVERSIONS variable specifies how environment
+# Certain variables, such as those containing multiple paths, are often stored as a
+# colon-separated # string in other shells. Nushell can convert these automatically to a
+# more convenient Nushell list.  The ENV_CONVERSIONS variable specifies how environment
 # variables are:
 # - converted from a string to a value on Nushell startup (from_string)
 # - converted from a value back to a string when running external commands (to_string)
 #
 # Note: The OS Path variable is automatically converted before env.nu loads, so it can
-# be treated a list.
+# be treated a list in this file.
 # 
 # Note: Environment variables are not case-sensitive, so the following will work
-# for both Windows and Unix-like platforms:
+# for both Windows and Unix-like platforms.
 # 
-# By default, the conversions looks something like:
+# By default, the internal conversion looks something like the following, so there
+# is no need to add this in your actual env.nu:
 $env.ENV_CONVERSIONS = {
     "Path": {
         from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
         to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
     }
 }
-# WARNING: Because ENV_CONVERSIONS is already populated with defaults at startup,
-# it should typically be *modified*, rather than overridden. Example:
+
+# Here's an example converts the XDG_DATA_DIRS variable to and from a list:
 $env.ENV_CONVERSIONS = $env.ENV_CONVERSIONS | merge {
     "XDG_DATA_DIRS": {
-        from_string: $env.ENV_CONVERSIONS.PATH.from_string
-        to_string: $env.ENV_CONVERSIONS.PATH.to_string
+        from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
+        to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
     }
 }
-# Note that the above reuses the same closures that were already present in the existing
-# defaults. You are, of course, free to create your own.
 #
 # Other common directory-lists for conversion: TERMINFO_DIRS.
 # Note that other variable conversions take place after `config.nu` is loaded.
