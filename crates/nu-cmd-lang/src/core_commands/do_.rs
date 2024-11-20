@@ -71,7 +71,7 @@ impl Command for Do {
         let ignore_all_errors = call.has_flag(engine_state, caller_stack, "ignore-errors")?;
 
         if call.has_flag(engine_state, caller_stack, "ignore-shell-errors")? {
-            nu_protocol::report_shell_error(
+            nu_protocol::report_shell_warning(
                 engine_state,
                 &ShellError::GenericError {
                     error: "Deprecated option".into(),
@@ -84,7 +84,7 @@ impl Command for Do {
             );
         }
         if call.has_flag(engine_state, caller_stack, "ignore-program-errors")? {
-            nu_protocol::report_shell_error(
+            nu_protocol::report_shell_warning(
                 engine_state,
                 &ShellError::GenericError {
                     error: "Deprecated option".into(),
@@ -233,16 +233,6 @@ impl Command for Do {
             Example {
                 description: "Run the closure and ignore both shell and external program errors",
                 example: r#"do --ignore-errors { thisisnotarealcommand }"#,
-                result: None,
-            },
-            Example {
-                description: "Run the closure and ignore shell errors",
-                example: r#"do --ignore-shell-errors { thisisnotarealcommand }"#,
-                result: None,
-            },
-            Example {
-                description: "Run the closure and ignore external program errors",
-                example: r#"do --ignore-program-errors { nu --commands 'exit 1' }; echo "I'll still run""#,
                 result: None,
             },
             Example {
