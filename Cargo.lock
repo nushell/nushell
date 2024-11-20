@@ -3485,7 +3485,7 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "typetag",
 ]
 
@@ -3591,7 +3591,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "typetag",
  "windows-sys 0.48.0",
 ]
