@@ -30,6 +30,51 @@ impl Command for Ast {
             .category(Category::Debug)
     }
 
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Print the ast of a string",
+                example: "ast 'hello'",
+                result: None,
+            },
+            Example {
+                description: "Print the ast of a pipeline",
+                example: "ast 'ls | where name =~ README'",
+                result: None,
+            },
+            Example {
+                description: "Print the ast of a pipeline with an error",
+                example: "ast 'for x in 1..10 { echo $x '",
+                result: None,
+            },
+            Example {
+                description:
+                    "Print the ast of a pipeline with an error, as json, in a nushell table",
+                example: "ast 'for x in 1..10 { echo $x ' --json | get block | from json",
+                result: None,
+            },
+            Example {
+                description: "Print the ast of a pipeline with an error, as json, minified",
+                example: "ast 'for x in 1..10 { echo $x ' --json --minify",
+                result: None,
+            },
+            Example {
+                description: "Print the ast of a string flattened, as json, minified",
+                example: "ast 'hello' --flatten --json --minify",
+                result: Some(Value::test_string(
+                    r#"[{"content":"hello","shape":"shape_external","span":{"start":0,"end":5}}]"#,
+                )),
+            },
+            Example {
+                description: "Print the ast of a pipeline flattened, as json, minified",
+                example: "ast 'ls | sort-by type name -i' --flatten --json --minify",
+                result: Some(Value::test_string(
+                    r#"[{"content":"ls","shape":"shape_internalcall","span":{"start":0,"end":2}},{"content":"|","shape":"shape_pipe","span":{"start":3,"end":4}},{"content":"sort-by","shape":"shape_internalcall","span":{"start":5,"end":12}},{"content":"type","shape":"shape_string","span":{"start":13,"end":17}},{"content":"name","shape":"shape_string","span":{"start":18,"end":22}},{"content":"-i","shape":"shape_flag","span":{"start":23,"end":25}}]"#,
+                )),
+            },
+        ]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -182,37 +227,6 @@ impl Command for Ast {
                 Ok(output_record.into_pipeline_data())
             }
         }
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Print the ast of a string",
-                example: "ast 'hello'",
-                result: None,
-            },
-            Example {
-                description: "Print the ast of a pipeline",
-                example: "ast 'ls | where name =~ README'",
-                result: None,
-            },
-            Example {
-                description: "Print the ast of a pipeline with an error",
-                example: "ast 'for x in 1..10 { echo $x '",
-                result: None,
-            },
-            Example {
-                description:
-                    "Print the ast of a pipeline with an error, as json, in a nushell table",
-                example: "ast 'for x in 1..10 { echo $x ' --json | get block | from json",
-                result: None,
-            },
-            Example {
-                description: "Print the ast of a pipeline with an error, as json, minified",
-                example: "ast 'for x in 1..10 { echo $x ' --json --minify",
-                result: None,
-            },
-        ]
     }
 }
 
