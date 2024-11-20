@@ -60,7 +60,7 @@ $env.TRANSIENT_PROMPT_COMMAND_RIGHT = ""
 # ENV_CONVERSIONS
 # ---------------
 # Certain variables, such as those containing multiple paths, are often stored as a
-# colon-separated # string in other shells. Nushell can convert these automatically to a
+# colon-separated string in other shells. Nushell can convert these automatically to a
 # more convenient Nushell list.  The ENV_CONVERSIONS variable specifies how environment
 # variables are:
 # - converted from a string to a value on Nushell startup (from_string)
