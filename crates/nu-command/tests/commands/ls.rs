@@ -553,7 +553,7 @@ fn lists_regular_sort_by_name_reversed_size_type() {
 
 #[test]
 fn lists_regular_sort_by_no_files() {
-    Playground::setup("ls_test_sort_by_no_files", |dirs, sandbox| {
+    Playground::setup("ls_test_sort_by_no_files", |dirs, _| {
         let inp = &[
             "$env.config = { \
                 ls: { \
