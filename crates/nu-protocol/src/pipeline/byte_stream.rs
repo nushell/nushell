@@ -1,8 +1,9 @@
 //! Module managing the streaming of raw bytes between pipeline elements
 use crate::{
-    process::{ChildPipe, ChildProcess},
     ErrSpan, IntoSpanned, PipelineData, ShellError, Signals, Span, Type, Value,
 };
+#[cfg(feature = "os")]
+use crate::process::{ChildPipe, ChildProcess};
 use serde::{Deserialize, Serialize};
 #[cfg(unix)]
 use std::os::fd::OwnedFd;
@@ -24,6 +25,7 @@ use std::{
 pub enum ByteStreamSource {
     Read(Box<dyn Read + Send + 'static>),
     File(File),
+    #[cfg(feature = "os")]
     Child(Box<ChildProcess>),
 }
 
@@ -32,6 +34,7 @@ impl ByteStreamSource {
         match self {
             ByteStreamSource::Read(read) => Some(SourceReader::Read(read)),
             ByteStreamSource::File(file) => Some(SourceReader::File(file)),
+            #[cfg(feature = "os")]
             ByteStreamSource::Child(mut child) => child.stdout.take().map(|stdout| match stdout {
                 ChildPipe::Pipe(pipe) => SourceReader::File(convert_file(pipe)),
                 ChildPipe::Tee(tee) => SourceReader::Read(tee),
@@ -40,8 +43,15 @@ impl ByteStreamSource {
     }
 
     /// Source is a `Child` or `File`, rather than `Read`. Currently affects trimming
+    #[cfg(feature = "os")]
     fn is_external(&self) -> bool {
-        matches!(self, ByteStreamSource::Child(..))
+        matches!(self, ByteStreamSource::Child(..)) 
+    }
+
+    #[cfg(not(feature = "os"))]
+    fn is_external(&self) -> bool {
+        // without os support we never have externals
+        false
     }
 }
 
@@ -50,6 +60,7 @@ impl Debug for ByteStreamSource {
         match self {
             ByteStreamSource::Read(_) => f.debug_tuple("Read").field(&"..").finish(),
             ByteStreamSource::File(file) => f.debug_tuple("File").field(file).finish(),
+            #[cfg(feature = "os")]
             ByteStreamSource::Child(child) => f.debug_tuple("Child").field(child).finish(),
         }
     }
@@ -247,6 +258,7 @@ impl ByteStream {
     ///
     /// The type is implicitly `Unknown`, as it's not typically known whether child processes will
     /// return text or binary.
+    #[cfg(feature = "os")]
     pub fn child(child: ChildProcess, span: Span) -> Self {
         Self::new(
             ByteStreamSource::Child(Box::new(child)),
@@ -260,6 +272,7 @@ impl ByteStream {
     ///
     /// The type is implicitly `Unknown`, as it's not typically known whether stdin is text or
     /// binary.
+    #[cfg(feature = "os")]
     pub fn stdin(span: Span) -> Result<Self, ShellError> {
         let stdin = os_pipe::dup_stdin().err_span(span)?;
         let source = ByteStreamSource::File(convert_file(stdin));
@@ -269,6 +282,11 @@ impl ByteStream {
             Signals::empty(),
             ByteStreamType::Unknown,
         ))
+    }
+
+    #[cfg(not(feature = "os"))]
+    pub fn stdin(span: Span) -> Result<Self, ShellError> {
+        Err(ShellError::DisabledOsSupport { msg: "Stdin is not supported".to_string(), span: Some(span) })
     }
 
     /// Create a [`ByteStream`] from a generator function that writes data to the given buffer
@@ -432,6 +450,7 @@ impl ByteStream {
         match self.stream {
             ByteStreamSource::Read(..) => Err(self),
             ByteStreamSource::File(file) => Ok(file.into()),
+            #[cfg(feature = "os")]
             ByteStreamSource::Child(child) => {
                 if let ChildProcess {
                     stdout: Some(ChildPipe::Pipe(stdout)),
@@ -453,6 +472,7 @@ impl ByteStream {
     ///
     /// This will only succeed if the [`ByteStreamSource`] of the [`ByteStream`] is [`Child`](ByteStreamSource::Child).
     /// All other cases return an `Err` with the original [`ByteStream`] in it.
+    #[cfg(feature = "os")]
     pub fn into_child(self) -> Result<ChildProcess, Self> {
         if let ByteStreamSource::Child(child) = self.stream {
             Ok(*child)
@@ -477,6 +497,7 @@ impl ByteStream {
                 file.read_to_end(&mut buf).err_span(self.span)?;
                 Ok(buf)
             }
+            #[cfg(feature = "os")]
             ByteStreamSource::Child(child) => child.into_bytes(),
         }
     }
@@ -551,6 +572,7 @@ impl ByteStream {
                 Ok(())
             }
             ByteStreamSource::File(_) => Ok(()),
+            #[cfg(feature = "os")]
             ByteStreamSource::Child(child) => child.wait(),
         }
     }
@@ -575,6 +597,7 @@ impl ByteStream {
             ByteStreamSource::File(file) => {
                 copy_with_signals(file, dest, span, signals)?;
             }
+            #[cfg(feature = "os")]
             ByteStreamSource::Child(mut child) => {
                 // All `OutDest`s except `OutDest::PipeSeparate` will cause `stderr` to be `None`.
                 // Only `save`, `tee`, and `complete` set the stderr `OutDest` to `OutDest::PipeSeparate`,
