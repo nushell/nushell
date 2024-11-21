@@ -50,10 +50,7 @@ windows-sys = { workspace = true }
 
 [features]
 default = ["os"]
-os = [
-  # "miette/fancy-no-backtrace",
-  "os_pipe"
-]
+os = ["os_pipe"]
 
 plugin = [
   "brotli",
