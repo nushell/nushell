@@ -15,6 +15,7 @@ pub struct DuArgs {
     path: Option<Spanned<NuGlob>>,
     all: bool,
     deref: bool,
+    long: bool,
     exclude: Option<Spanned<NuGlob>>,
     #[serde(rename = "max-depth")]
     max_depth: Option<Spanned<i64>>,
@@ -49,6 +50,11 @@ impl Command for Du {
                 "deref",
                 "Dereference symlinks to their targets for size",
                 Some('r'),
+            )
+            .switch(
+                "long",
+                "Get underlying directories and files for each entry",
+                Some('l'),
             )
             .named(
                 "exclude",
@@ -97,6 +103,7 @@ impl Command for Du {
         }
         let all = call.has_flag(engine_state, stack, "all")?;
         let deref = call.has_flag(engine_state, stack, "deref")?;
+        let long = call.has_flag(engine_state, stack, "long")?;
         let exclude = call.get_flag(engine_state, stack, "exclude")?;
         #[allow(deprecated)]
         let current_dir = current_dir(engine_state, stack)?;
@@ -114,6 +121,7 @@ impl Command for Du {
                     path: None,
                     all,
                     deref,
+                    long,
                     exclude,
                     max_depth,
                     min_size,
@@ -130,6 +138,7 @@ impl Command for Du {
                         path: Some(p),
                         all,
                         deref,
+                        long,
                         exclude: exclude.clone(),
                         max_depth,
                         min_size,
@@ -200,6 +209,7 @@ fn du_for_one_pattern(
 
     let all = args.all;
     let deref = args.deref;
+    let long = args.long;
     let max_depth = args.max_depth.map(|f| f.item as u64);
     let min_size = args.min_size.map(|f| f.item as u64);
 
@@ -209,6 +219,7 @@ fn du_for_one_pattern(
         deref,
         exclude,
         all,
+        long,
     };
 
     let mut output: Vec<Value> = vec![];
@@ -217,7 +228,7 @@ fn du_for_one_pattern(
             Ok(a) => {
                 if a.is_dir() {
                     output.push(DirInfo::new(a, &params, max_depth, span, signals)?.into());
-                } else if let Ok(v) = FileInfo::new(a, deref, span) {
+                } else if let Ok(v) = FileInfo::new(a, deref, span, params.long) {
                     output.push(v.into());
                 }
             }
