@@ -15,7 +15,16 @@ impl Command for ConfigEnv {
         Signature::build(self.name())
             .category(Category::Env)
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .switch("default", "Print default `env.nu` file instead.", Some('d'))
+            .switch(
+                "default",
+                "Print the internal default `env.nu` file instead.",
+                Some('d'),
+            )
+            .switch(
+                "sample",
+                "Print a commented, sample `env.nu` file instead.",
+                Some('s'),
+            )
         // TODO: Signature narrower than what run actually supports theoretically
     }
 
@@ -26,18 +35,18 @@ impl Command for ConfigEnv {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "allow user to open and update nu env",
+                description: "open user's env.nu in the default editor",
                 example: "config env",
                 result: None,
             },
             Example {
-                description: "allow user to print default `env.nu` file",
-                example: "config env --default,",
+                description: "pretty-print a commented, sample `env.nu` that explains common settings",
+                example: "config env --sample | nu-highlight,",
                 result: None,
             },
             Example {
-                description: "allow saving the default `env.nu` locally",
-                example: "config env --default | save -f ~/.config/nushell/default_env.nu",
+                description: "pretty-print the internal `env.nu` file which is loaded before the user's environment",
+                example: "config env --default | nu-highlight,",
                 result: None,
             },
         ]
@@ -50,10 +59,26 @@ impl Command for ConfigEnv {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let default_flag = call.has_flag(engine_state, stack, "default")?;
+        let sample_flag = call.has_flag(engine_state, stack, "sample")?;
+        if default_flag && sample_flag {
+            return Err(ShellError::IncompatibleParameters {
+                left_message: "can't use `--default` at the same time".into(),
+                left_span: call.get_flag_span(stack, "default").expect("has flag"),
+                right_message: "because of `--sample`".into(),
+                right_span: call.get_flag_span(stack, "sample").expect("has flag"),
+            });
+        }
         // `--default` flag handling
         if call.has_flag(engine_state, stack, "default")? {
             let head = call.head;
             return Ok(Value::string(nu_utils::get_default_env(), head).into_pipeline_data());
+        }
+
+        // `--sample` flag handling
+        if sample_flag {
+            let head = call.head;
+            return Ok(Value::string(nu_utils::get_sample_env(), head).into_pipeline_data());
         }
 
         // Find the editor executable.

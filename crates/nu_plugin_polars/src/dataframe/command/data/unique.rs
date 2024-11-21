@@ -1,5 +1,8 @@
 use crate::{
-    dataframe::{utils::extract_strings, values::NuLazyFrame},
+    dataframe::{
+        utils::{extract_sm_strs, extract_strings},
+        values::NuLazyFrame,
+    },
     values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };
@@ -179,12 +182,7 @@ fn command_lazy(
 ) -> Result<PipelineData, ShellError> {
     let last = call.has_flag("last")?;
     let maintain = call.has_flag("maintain-order")?;
-
     let subset: Option<Value> = call.get_flag("subset")?;
-    let subset = match subset {
-        Some(value) => Some(extract_strings(value)?),
-        None => None,
-    };
 
     let strategy = if last {
         UniqueKeepStrategy::Last
@@ -194,8 +192,16 @@ fn command_lazy(
 
     let lazy = lazy.to_polars();
     let lazy: NuLazyFrame = if maintain {
+        let subset = match subset {
+            Some(value) => Some(extract_strings(value)?),
+            None => None,
+        };
         lazy.unique(subset, strategy).into()
     } else {
+        let subset = match subset {
+            Some(value) => Some(extract_sm_strs(value)?),
+            None => None,
+        };
         lazy.unique_stable(subset, strategy).into()
     };
     lazy.to_pipeline_data(plugin, engine, call.head)

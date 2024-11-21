@@ -234,7 +234,8 @@ macro_rules! nu_with_plugins {
 }
 
 use crate::{Outcome, NATIVE_PATH_ENV_VAR};
-use nu_path::{AbsolutePath, AbsolutePathBuf, Path};
+use nu_path::{AbsolutePath, AbsolutePathBuf, Path, PathBuf};
+use nu_utils::escape_quote_string;
 use std::{
     ffi::OsStr,
     process::{Command, Stdio},
@@ -247,7 +248,10 @@ pub struct NuOpts {
     pub locale: Option<String>,
     pub envs: Option<Vec<(String, String)>>,
     pub collapse_output: Option<bool>,
-    pub use_ir: Option<bool>,
+    // Note: At the time this was added, passing in a file path was more convenient. However,
+    // passing in file contents seems like a better API - consider this when adding new uses of
+    // this field.
+    pub env_config: Option<PathBuf>,
 }
 
 pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> Outcome {
@@ -278,8 +282,14 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         command.envs(envs);
     }
 
-    // Ensure that the user's config doesn't interfere with the tests
-    command.arg("--no-config-file");
+    match opts.env_config {
+        Some(path) => command.arg("--env-config").arg(path),
+        // TODO: This seems unnecessary: the code that runs for integration tests
+        // (run_commands) loads startup configs only if they are specified via flags explicitly or
+        // the shell is started as logging shell (which it is not in this case).
+        None => command.arg("--no-config-file"),
+    };
+
     if !with_std {
         command.arg("--no-std-lib");
     }
@@ -289,15 +299,6 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         .arg(format!("-c {}", escape_quote_string(&commands)))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-
-    // Explicitly set NU_DISABLE_IR
-    if let Some(use_ir) = opts.use_ir {
-        if !use_ir {
-            command.env("NU_DISABLE_IR", "1");
-        } else {
-            command.env_remove("NU_DISABLE_IR");
-        }
-    }
 
     // Uncomment to debug the command being run:
     // println!("=== command\n{command:?}\n");
@@ -409,21 +410,6 @@ where
     println!("=== stderr\n{}", err);
 
     Outcome::new(out, err.into_owned(), output.status)
-}
-
-fn escape_quote_string(input: &str) -> String {
-    let mut output = String::with_capacity(input.len() + 2);
-    output.push('"');
-
-    for c in input.chars() {
-        if c == '"' || c == '\\' {
-            output.push('\\');
-        }
-        output.push(c);
-    }
-
-    output.push('"');
-    output
 }
 
 fn with_exe(name: &str) -> String {

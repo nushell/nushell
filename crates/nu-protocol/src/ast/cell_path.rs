@@ -1,5 +1,6 @@
 use super::Expression;
 use crate::Span;
+use nu_utils::{escape_quote_string, needs_quoting};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display};
 
@@ -173,17 +174,47 @@ impl CellPath {
             member.make_optional();
         }
     }
+
+    // Formats the cell-path as a column name, i.e. without quoting and optional markers ('?').
+    pub fn to_column_name(&self) -> String {
+        let mut s = String::new();
+
+        for member in &self.members {
+            match member {
+                PathMember::Int { val, .. } => {
+                    s += &val.to_string();
+                }
+                PathMember::String { val, .. } => {
+                    s += val;
+                }
+            }
+
+            s.push('.');
+        }
+
+        s.pop(); // Easier than checking whether to insert the '.' on every iteration.
+        s
+    }
 }
 
 impl Display for CellPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (idx, elem) in self.members.iter().enumerate() {
-            if idx > 0 {
-                write!(f, ".")?;
-            }
-            match elem {
-                PathMember::Int { val, .. } => write!(f, "{val}")?,
-                PathMember::String { val, .. } => write!(f, "{val}")?,
+        write!(f, "$")?;
+        for member in self.members.iter() {
+            match member {
+                PathMember::Int { val, optional, .. } => {
+                    let question_mark = if *optional { "?" } else { "" };
+                    write!(f, ".{val}{question_mark}")?
+                }
+                PathMember::String { val, optional, .. } => {
+                    let question_mark = if *optional { "?" } else { "" };
+                    let val = if needs_quoting(val) {
+                        &escape_quote_string(val)
+                    } else {
+                        val
+                    };
+                    write!(f, ".{val}{question_mark}")?
+                }
             }
         }
         Ok(())

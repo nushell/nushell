@@ -131,9 +131,9 @@ fn command_not_found_error_suggests_typo_fix() {
 #[test]
 fn command_not_found_error_recognizes_non_executable_file() {
     let actual = nu!("./Cargo.toml");
-    assert!(actual
-        .err
-        .contains("is neither a Nushell built-in or a known external command"));
+    assert!(actual.err.contains(
+        "refers to a file that is not executable. Did you forget to set execute permissions?"
+    ));
 }
 
 #[test]
@@ -627,16 +627,28 @@ fn exit_code_stops_execution_closure() {
     assert!(actual.err.contains("exited with code 1"));
 }
 
+// TODO: need to add tests under display_error.exit_code = true
 #[test]
 fn exit_code_stops_execution_custom_command() {
     let actual = nu!("def cmd [] { nu -c 'exit 42'; 'ok1' }; cmd; print 'ok2'");
     assert!(actual.out.is_empty());
-    assert!(actual.err.contains("exited with code 42"));
+    assert!(!actual.err.contains("exited with code 42"));
 }
 
+// TODO: need to add tests under display_error.exit_code = true
 #[test]
 fn exit_code_stops_execution_for_loop() {
     let actual = nu!("for x in [0 1] { nu -c 'exit 42'; print $x }");
     assert!(actual.out.is_empty());
-    assert!(actual.err.contains("exited with code 42"));
+    assert!(!actual.err.contains("exited with code 42"));
+}
+
+#[test]
+fn arg_dont_run_subcommand_if_surrounded_with_quote() {
+    let actual = nu!("nu --testbin cococo `(echo aa)`");
+    assert_eq!(actual.out, "(echo aa)");
+    let actual = nu!("nu --testbin cococo \"(echo aa)\"");
+    assert_eq!(actual.out, "(echo aa)");
+    let actual = nu!("nu --testbin cococo '(echo aa)'");
+    assert_eq!(actual.out, "(echo aa)");
 }

@@ -41,7 +41,7 @@ impl PluginCommand for GetDay {
     let df = ([$dt $dt] | polars into-df);
     $df | polars get-day"#,
             result: Some(
-                NuDataFrame::try_from_series(Series::new("0", &[4i8, 4]), Span::test_data())
+                NuDataFrame::try_from_series(Series::new("0".into(), &[4i8, 4]), Span::test_data())
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
             ),

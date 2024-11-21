@@ -25,6 +25,7 @@ pub struct ProcessInfo {
     pub curr_res: Option<RUsageInfoV2>,
     pub prev_res: Option<RUsageInfoV2>,
     pub interval: Duration,
+    pub start_time: i64,
 }
 
 pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> {
@@ -94,6 +95,7 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
         let curr_time = Instant::now();
         let interval = curr_time.saturating_duration_since(prev_time);
         let ppid = curr_task.pbsd.pbi_ppid as i32;
+        let start_time = curr_task.pbsd.pbi_start_tvsec as i64;
 
         let proc = ProcessInfo {
             pid,
@@ -107,6 +109,7 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
             curr_res,
             prev_res,
             interval,
+            start_time,
         };
 
         ret.push(proc);

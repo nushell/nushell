@@ -163,18 +163,18 @@ impl PluginCommand for ToDataFrame {
                 example: "[[a b c]; [1 {d: [1 2 3]} [10 11 12] ]]| polars into-df -s {a: u8, b: {d: list<u64>}, c: list<u8>}",
                 result: Some(
                     NuDataFrame::try_from_series_vec(vec![
-                        Series::new("a", &[1u8]),
+                        Series::new("a".into(), &[1u8]),
                         {
-                            let dtype = DataType::Struct(vec![Field::new("a", DataType::List(Box::new(DataType::UInt64)))]);
+                            let dtype = DataType::Struct(vec![Field::new("a".into(), DataType::List(Box::new(DataType::UInt64)))]);
                             let vals = vec![AnyValue::StructOwned(
-                                Box::new((vec![AnyValue::List(Series::new("a", &[1u64, 2, 3]))], vec![Field::new("a", DataType::String)]))); 1];
-                            Series::from_any_values_and_dtype("b", &vals, &dtype, false)
+                                Box::new((vec![AnyValue::List(Series::new("a".into(), &[1u64, 2, 3]))], vec![Field::new("a".into(), DataType::String)]))); 1];
+                            Series::from_any_values_and_dtype("b".into(), &vals, &dtype, false)
                                 .expect("Struct series should not fail")
                         },
                         {
                             let dtype = DataType::List(Box::new(DataType::String));
-                            let vals = vec![AnyValue::List(Series::new("c", &[10, 11, 12]))];
-                            Series::from_any_values_and_dtype("c", &vals, &dtype, false)
+                            let vals = vec![AnyValue::List(Series::new("c".into(), &[10, 11, 12]))];
+                            Series::from_any_values_and_dtype("c".into(), &vals, &dtype, false)
                                 .expect("List series should not fail")
                         }
                     ], Span::test_data())
@@ -186,9 +186,9 @@ impl PluginCommand for ToDataFrame {
                 description: "Convert to a dataframe and provide a schema that adds a new column",
                 example: r#"[[a b]; [1 "foo"] [2 "bar"]] | polars into-df -s {a: u8, b:str, c:i64} | polars fill-null 3"#,
                 result: Some(NuDataFrame::try_from_series_vec(vec![
-                        Series::new("a", [1u8, 2]),
-                        Series::new("b", ["foo", "bar"]),
-                        Series::new("c", [3i64, 3]),
+                        Series::new("a".into(), [1u8, 2]),
+                        Series::new("b".into(), ["foo", "bar"]),
+                        Series::new("c".into(), [3i64, 3]),
                     ], Span::test_data())
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

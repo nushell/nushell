@@ -441,7 +441,7 @@ fn err_hook_wrong_env_type_1() {
     let actual_repl = nu!(nu_repl_code(inp));
     dbg!(&actual_repl.err);
 
-    assert!(actual_repl.err.contains("unsupported_config_value"));
+    assert!(actual_repl.err.contains("Type mismatch"));
     assert_eq!(actual_repl.out, "");
 }
 
@@ -458,7 +458,7 @@ fn err_hook_wrong_env_type_2() {
 
     let actual_repl = nu!(nu_repl_code(inp));
 
-    assert!(actual_repl.err.contains("type_mismatch"));
+    assert!(actual_repl.err.contains("Type mismatch"));
     assert_eq!(actual_repl.out, "");
 }
 
@@ -480,7 +480,7 @@ fn err_hook_wrong_env_type_3() {
 
     let actual_repl = nu!(nu_repl_code(inp));
 
-    assert!(actual_repl.err.contains("unsupported_config_value"));
+    assert!(actual_repl.err.contains("Type mismatch"));
     assert_eq!(actual_repl.out, "");
 }
 
@@ -503,7 +503,7 @@ fn err_hook_non_boolean_condition_output() {
 
     let actual_repl = nu!(nu_repl_code(inp));
 
-    assert!(actual_repl.err.contains("unsupported_config_value"));
+    assert!(actual_repl.err.contains("Type mismatch"));
     assert_eq!(actual_repl.out, "");
 }
 
@@ -526,7 +526,7 @@ fn err_hook_non_condition_not_a_block() {
 
     let actual_repl = nu!(nu_repl_code(inp));
 
-    assert!(actual_repl.err.contains("unsupported_config_value"));
+    assert!(actual_repl.err.contains("Type mismatch"));
     assert_eq!(actual_repl.out, "");
 }
 
@@ -548,7 +548,7 @@ fn err_hook_parse_error() {
 
     let actual_repl = nu!(nu_repl_code(inp));
 
-    assert!(actual_repl.err.contains("unsupported_config_value"));
+    assert!(actual_repl.err.contains("source code has errors"));
     assert_eq!(actual_repl.out, "");
 }
 

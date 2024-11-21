@@ -84,7 +84,7 @@ fn command(
 
     match columns.first() {
         Some(column) => {
-            let expression = arg_where(col(column).eq(true)).alias("arg_true");
+            let expression = arg_where(col((*column).clone()).eq(true)).alias("arg_true");
             let res: NuDataFrame = df
                 .as_ref()
                 .clone()

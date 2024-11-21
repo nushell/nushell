@@ -80,16 +80,16 @@ impl PluginCommand for ExprDatePart {
                 result: Some(
                     NuDataFrame::try_from_series_vec(
                         vec![
-                            Series::new("datetime", &[dt.timestamp_nanos_opt()])
+                            Series::new("datetime".into(), &[dt.timestamp_nanos_opt()])
                                 .cast(&DataType::Datetime(TimeUnit::Nanoseconds, None))
                                 .expect("Error casting to datetime type"),
-                            Series::new("datetime_year", &[2021_i64]), // i32 was coerced to i64
-                            Series::new("datetime_month", &[12_i8]),
-                            Series::new("datetime_day", &[30_i8]),
-                            Series::new("datetime_hour", &[1_i8]),
-                            Series::new("datetime_minute", &[2_i8]),
-                            Series::new("datetime_second", &[3_i8]),
-                            Series::new("datetime_ns", &[123456789_i64]), // i32 was coerced to i64
+                            Series::new("datetime_year".into(), &[2021_i64]), // i32 was coerced to i64
+                            Series::new("datetime_month".into(), &[12_i8]),
+                            Series::new("datetime_day".into(), &[30_i8]),
+                            Series::new("datetime_hour".into(), &[1_i8]),
+                            Series::new("datetime_minute".into(), &[2_i8]),
+                            Series::new("datetime_second".into(), &[3_i8]),
+                            Series::new("datetime_ns".into(), &[123456789_i64]), // i32 was coerced to i64
                         ],
                         Span::test_data(),
                     )

@@ -188,6 +188,7 @@ impl Command for UMv {
             target_dir: None,
             no_target_dir: false,
             strip_slashes: false,
+            debug: false,
         };
         if let Err(error) = uu_mv::mv(&files, &options) {
             return Err(ShellError::GenericError {

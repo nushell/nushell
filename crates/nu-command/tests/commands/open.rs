@@ -394,7 +394,7 @@ fn test_content_types_with_open_raw() {
         let result = nu!(cwd: dirs.formats(), "open --raw sample_data.xlsx | metadata");
         assert!(result.out.contains("vnd.openxmlformats-officedocument"));
         let result = nu!(cwd: dirs.formats(), "open --raw sample_def.nu | metadata");
-        assert!(!result.out.contains("content_type"));
+        assert!(result.out.contains("application/x-nuscript"));
         let result = nu!(cwd: dirs.formats(), "open --raw sample.eml | metadata");
         assert!(result.out.contains("message/rfc822"));
         let result = nu!(cwd: dirs.formats(), "open --raw cargo_sample.toml | metadata");

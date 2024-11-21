@@ -269,6 +269,42 @@ fn modulo() {
 }
 
 #[test]
+fn floor_div_mod() {
+    let actual = nu!("let q = 8 // -3; let r = 8 mod -3; 8 == $q * -3 + $r");
+    assert_eq!(actual.out, "true");
+
+    let actual = nu!("let q = -8 // 3; let r = -8 mod 3; -8 == $q * 3 + $r");
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn floor_div_mod_overflow() {
+    let actual = nu!(format!("{} // -1", i64::MIN));
+    assert!(actual.err.contains("overflow"));
+
+    let actual = nu!(format!("{} mod -1", i64::MIN));
+    assert!(actual.err.contains("overflow"));
+}
+
+#[test]
+fn floor_div_mod_zero() {
+    let actual = nu!("1 // 0");
+    assert!(actual.err.contains("zero"));
+
+    let actual = nu!("1 mod 0");
+    assert!(actual.err.contains("zero"));
+}
+
+#[test]
+fn floor_div_mod_large_num() {
+    let actual = nu!(format!("{} // {}", i64::MAX, i64::MAX / 2));
+    assert_eq!(actual.out, "2");
+
+    let actual = nu!(format!("{} mod {}", i64::MAX, i64::MAX / 2));
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
 fn unit_multiplication_math() {
     let actual = nu!(pipeline(
         r#"

@@ -1,8 +1,8 @@
 use nu_ansi_term::*;
 use nu_engine::command_prelude::*;
 use nu_protocol::{engine::StateWorkingSet, Signals};
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 #[derive(Clone)]
 pub struct AnsiCommand;
@@ -14,7 +14,7 @@ struct AnsiCode {
 }
 
 #[rustfmt::skip]
-static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
+static CODE_LIST: LazyLock<Vec<AnsiCode>> = LazyLock::new(|| { vec![
     AnsiCode{ short_name: Some("g"), long_name: "green", code: Color::Green.prefix().to_string()},
     AnsiCode{ short_name: Some("gb"), long_name: "green_bold", code: Color::Green.bold().prefix().to_string()},
     AnsiCode{ short_name: Some("gu"), long_name: "green_underline", code: Color::Green.underline().prefix().to_string()},
@@ -425,8 +425,6 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode { short_name: Some("grey89"), long_name: "xterm_grey89", code: Color::Fixed(254).prefix().to_string()},
     AnsiCode { short_name: Some("grey93"), long_name: "xterm_grey93", code: Color::Fixed(255).prefix().to_string()},
 
-    AnsiCode{ short_name: None, long_name: "reset", code: "\x1b[0m".to_owned()},
-
     // Attributes
     AnsiCode { short_name: Some("n"), long_name: "attr_normal", code: Color::Green.suffix().to_string()},
     AnsiCode { short_name: Some("bo"), long_name: "attr_bold", code: Style::new().bold().prefix().to_string()},
@@ -436,6 +434,8 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode { short_name: Some("bl"), long_name: "attr_blink", code: Style::new().blink().prefix().to_string()},
     AnsiCode { short_name: Some("h"), long_name: "attr_hidden", code: Style::new().hidden().prefix().to_string()},
     AnsiCode { short_name: Some("s"), long_name: "attr_strike", code: Style::new().strikethrough().prefix().to_string()},
+
+    AnsiCode{ short_name: None, long_name: "reset", code: "\x1b[0m".to_owned()},
 
     // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
     // Another good reference http://ascii-table.com/ansi-escape-sequences.php
@@ -448,7 +448,8 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode{ short_name: None, long_name:"clear_screen_from_cursor_to_end", code: "\x1b[0J".to_string()}, // clears from cursor until end of screen
     AnsiCode{ short_name: None, long_name:"clear_screen_from_cursor_to_beginning", code: "\x1b[1J".to_string()}, // clears from cursor to beginning of screen
     AnsiCode{ short_name: Some("cls"), long_name:"clear_entire_screen", code: "\x1b[2J".to_string()}, // clears the entire screen
-    AnsiCode{ short_name: Some("clsb"), long_name:"clear_entire_screen_plus_buffer", code: "\x1b[3J".to_string()}, // clear entire screen and delete all lines saved in the scrollback buffer
+    AnsiCode{ short_name: Some("clsb"), long_name:"clear_entire_screen_plus_buffer", code: "\x1b[2J\x1b[3J".to_string()}, // clear entire screen and delete all lines saved in the scrollback buffer
+    AnsiCode{ short_name: Some("clb"), long_name:"clear_scrollback_buffer", code: "\x1b[3J".to_string()}, // clear entire screen and delete all lines saved in the scrollback buffer
     AnsiCode{ short_name: None, long_name:"erase_line", code: "\x1b[K".to_string()},                   // clears the current line
     AnsiCode{ short_name: None, long_name:"erase_line_from_cursor_to_end", code: "\x1b[0K".to_string()}, // clears from cursor to end of line
     AnsiCode{ short_name: None, long_name:"erase_line_from_cursor_to_beginning", code: "\x1b[1K".to_string()}, // clears from cursor to start of line
@@ -493,8 +494,8 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     ]
 });
 
-static CODE_MAP: Lazy<HashMap<&'static str, &'static str>> =
-    Lazy::new(|| build_ansi_hashmap(&CODE_LIST));
+static CODE_MAP: LazyLock<HashMap<&'static str, &'static str>> =
+    LazyLock::new(|| build_ansi_hashmap(&CODE_LIST));
 
 impl Command for AnsiCommand {
     fn name(&self) -> &str {
@@ -841,15 +842,19 @@ fn generate_ansi_code_list(
         .map(move |(i, ansi_code)| {
             let name = Value::string(ansi_code.long_name, call_span);
             let short_name = Value::string(ansi_code.short_name.unwrap_or(""), call_span);
-            // The first 102 items in the ansi array are colors
-            let preview = if i < 389 {
-                Value::string(format!("{}NUSHELL\u{1b}[0m", &ansi_code.code), call_span)
-            } else {
-                Value::string("\u{1b}[0m", call_span)
-            };
             let code = Value::string(ansi_code.code.replace('\u{1b}', "\\e"), call_span);
 
             let record = if use_ansi_coloring {
+                // The first 397 items in the ansi array are previewable
+                let preview = if i < 397 {
+                    Value::string(
+                        format!("\u{1b}[0m{}NUSHELL\u{1b}[0m", &ansi_code.code),
+                        call_span,
+                    )
+                } else {
+                    Value::string("\u{1b}[0m", call_span)
+                };
+
                 record! {
                     "name" => name,
                     "preview" => preview,

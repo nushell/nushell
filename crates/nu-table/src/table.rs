@@ -468,7 +468,7 @@ fn trim_as_header(
     // so we do use it if possible prioritizing left columns
     let mut widths = vec![0; headers_widths.len()];
     for (i, head_width) in headers_widths.into_iter().enumerate() {
-        let column_width = trim.width[i]; // safe to assume width is bigger then paddding
+        let column_width = trim.width[i]; // safe to assume width is bigger then padding
 
         let mut use_width = head_width;
         if free_width > 0 {
@@ -615,12 +615,15 @@ fn load_theme(
     if let Some(style) = sep_color {
         let color = convert_style(style);
         let color = ANSIBuf::from(color);
+        // todo: use .modify(Segment::all(), color) --> it has this optimization
         table.get_config_mut().set_border_color_default(color);
     }
 
     if !with_header {
+        // todo: remove and use theme.remove_horizontal_lines();
         table.with(RemoveHorizontalLine);
     } else if with_footer {
+        // todo: remove and set it on theme rather then here...
         table.with(CopyFirstHorizontalLineAtLast);
     }
 }
@@ -1257,6 +1260,7 @@ fn remove_row(recs: &mut NuRecords, row: usize) -> Vec<String> {
     columns
 }
 
+// todo; use Format?
 struct StripColorFromRow(usize);
 
 impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for StripColorFromRow {

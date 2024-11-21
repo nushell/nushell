@@ -24,7 +24,7 @@ use polars::{
     lazy::frame::LazyJsonLineReader,
     prelude::{
         CsvEncoding, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader,
-        LazyFrame, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
+        LazyFrame, ParquetReader, PlSmallStr, ScanArgsIpc, ScanArgsParquet, SerReader,
     },
 };
 
@@ -190,6 +190,7 @@ fn from_parquet(
             use_statistics: false,
             hive_options: HiveOptions::default(),
             glob: true,
+            include_file_paths: None,
         };
 
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
@@ -286,8 +287,9 @@ fn from_arrow(
             cache: true,
             rechunk: false,
             row_index: None,
-            memory_map: true,
             cloud_options: None,
+            include_file_paths: None,
+            hive_options: HiveOptions::default(),
         };
 
         let df: NuLazyFrame = LazyFrame::scan_ipc(file, args)
@@ -530,7 +532,11 @@ fn from_csv(
             .with_infer_schema_length(Some(infer_schema))
             .with_skip_rows(skip_rows.unwrap_or_default())
             .with_schema(maybe_schema.map(|s| s.into()))
-            .with_columns(columns.map(|v| Arc::from(v.into_boxed_slice())))
+            .with_columns(
+                columns
+                    .map(|v| v.iter().map(PlSmallStr::from).collect::<Vec<PlSmallStr>>())
+                    .map(|v| Arc::from(v.into_boxed_slice())),
+            )
             .map_parse_options(|options| {
                 options
                     .with_separator(

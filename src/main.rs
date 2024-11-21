@@ -98,14 +98,7 @@ fn main() -> Result<()> {
     // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If
     // the env.nu file exists, these values will be overwritten, if it does not exist, or
     // there is an error reading it, these values will be used.
-    let nushell_config_path = if let Some(mut path) = nu_path::config_dir() {
-        path.push("nushell");
-        path.into()
-    } else {
-        // Not really sure what to default this to if nu_path::config_dir() returns None
-        std::path::PathBuf::new()
-    };
-
+    let nushell_config_path: PathBuf = nu_path::nu_config_dir().map(Into::into).unwrap_or_default();
     if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
         if !xdg_config_home.is_empty() {
             if nushell_config_path

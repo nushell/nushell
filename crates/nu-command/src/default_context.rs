@@ -46,7 +46,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             First,
             Flatten,
             Get,
-            Group,
             GroupBy,
             Headers,
             Insert,
@@ -231,6 +230,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Rm,
             Save,
             Touch,
+            UTouch,
             Glob,
             Watch,
         };
@@ -388,6 +388,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             HttpOptions,
             Url,
             UrlBuildQuery,
+            UrlSplitQuery,
             UrlDecode,
             UrlEncode,
             UrlJoin,

@@ -2905,3 +2905,159 @@ fn table_general_header_on_separator_issue1() {
     let actual = nu!("$env.config.table.header_on_separator = true; [['Llll oo Bbbbbbbb' 'Bbbbbbbb Aaaa' Nnnnnn Ggggg 'Xxxxx Llllllll #' Bbb 'Pppp Ccccc' 'Rrrrrrrr Dddd' Rrrrrr 'Rrrrrr Ccccc II' 'Rrrrrr Ccccc Ppppppp II' 'Pppppp Dddddddd Tttt' 'Pppppp Dddddddd Dddd' 'Rrrrrrrrr Trrrrrr' 'Pppppp Ppppp Dddd' 'Ppppp Dddd' Hhhh]; [RRRRRRR FFFFFFFF UUUU VV 202407160001 BBB 1 '7/16/2024' '' AAA-1111 AAA-1111-11 '7 YEARS' 2555 'RRRRRRRR DDDD' '7/16/2031' '7/16/2031' NN]] | table --width=87 --theme basic");
     assert_eq!(actual.out, "+-#-+-Llll oo Bbbbbbbb-+-Bbbbbbbb Aaaa-+-Nnnnnn-+-Ggggg-+-Xxxxx Llllllll #-+-...-+| 0 | RRRRRRR          | FFFFFFFF      | UUUU   | VV    |     202407160001 | ... |+---+------------------+---------------+--------+-------+------------------+-----+");
 }
+
+#[test]
+fn table_footer_inheritance() {
+    let table1 = format!(
+        "[ [ head1, head2, head3 ]; {} ]",
+        (0..212)
+            .map(|_| "[ 79 79 79 ]")
+            .collect::<Vec<_>>()
+            .join(" ")
+    );
+
+    let structure = format!(
+        "{{\
+        field0: [ [ y1, y2, y3 ]; [ 1 2 3 ] [ 79 79 79 ] [ {{ f1: 'a string', f2: 1000 }}, 1, 2 ] ],\
+        field1: [ a, b, c ],\
+        field2: [ 123, 234, 345 ],\
+        field3: {},\
+        field4: {{ f1: 1, f2: 3, f3: {{ f1: f1, f2: f2, f3: f3 }} }},\
+        field5: [ [ x1, x2, x3 ]; [ 1 2 3 ] [ 79 79 79 ] [ {{ f1: 'a string', f2: 1000 }}, 1, 2 ] ],\
+    }}",
+        table1
+    );
+    let actual = nu!(format!(
+        "$env.config.table.footer_inheritance = true; {structure} | table --width=80 --expand"
+    ));
+
+    assert_eq!(actual.out.match_indices("head1").count(), 2);
+    assert_eq!(actual.out.match_indices("head2").count(), 2);
+    assert_eq!(actual.out.match_indices("head3").count(), 2);
+    assert_eq!(actual.out.match_indices("y1").count(), 1);
+    assert_eq!(actual.out.match_indices("y2").count(), 1);
+    assert_eq!(actual.out.match_indices("y3").count(), 1);
+    assert_eq!(actual.out.match_indices("x1").count(), 1);
+    assert_eq!(actual.out.match_indices("x2").count(), 1);
+    assert_eq!(actual.out.match_indices("x3").count(), 1);
+}
+
+#[test]
+fn table_footer_inheritance_kv_rows() {
+    let actual = nu!(
+        concat!(
+            "$env.config.table.footer_inheritance = true;",
+            "$env.config.footer_mode = 7;",
+            "[[a b]; ['kv' {0: 0, 1: 1, 2: 2, 3: 3, 4: 4} ], ['data' 0], ['data' 0] ] | table --expand --width=80",
+        )
+    );
+
+    assert_eq!(
+        actual.out,
+        "╭───┬──────┬───────────╮\
+         │ # │  a   │     b     │\
+         ├───┼──────┼───────────┤\
+         │ 0 │ kv   │ ╭───┬───╮ │\
+         │   │      │ │ 0 │ 0 │ │\
+         │   │      │ │ 1 │ 1 │ │\
+         │   │      │ │ 2 │ 2 │ │\
+         │   │      │ │ 3 │ 3 │ │\
+         │   │      │ │ 4 │ 4 │ │\
+         │   │      │ ╰───┴───╯ │\
+         │ 1 │ data │         0 │\
+         │ 2 │ data │         0 │\
+         ╰───┴──────┴───────────╯"
+    );
+
+    let actual = nu!(
+        concat!(
+            "$env.config.table.footer_inheritance = true;",
+            "$env.config.footer_mode = 7;",
+            "[[a b]; ['kv' {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5} ], ['data' 0], ['data' 0] ] | table --expand --width=80",
+        )
+    );
+
+    assert_eq!(
+        actual.out,
+        "╭───┬──────┬───────────╮\
+         │ # │  a   │     b     │\
+         ├───┼──────┼───────────┤\
+         │ 0 │ kv   │ ╭───┬───╮ │\
+         │   │      │ │ 0 │ 0 │ │\
+         │   │      │ │ 1 │ 1 │ │\
+         │   │      │ │ 2 │ 2 │ │\
+         │   │      │ │ 3 │ 3 │ │\
+         │   │      │ │ 4 │ 4 │ │\
+         │   │      │ │ 5 │ 5 │ │\
+         │   │      │ ╰───┴───╯ │\
+         │ 1 │ data │         0 │\
+         │ 2 │ data │         0 │\
+         ├───┼──────┼───────────┤\
+         │ # │  a   │     b     │\
+         ╰───┴──────┴───────────╯"
+    );
+}
+
+#[test]
+fn table_footer_inheritance_list_rows() {
+    let actual = nu!(
+        concat!(
+            "$env.config.table.footer_inheritance = true;",
+            "$env.config.footer_mode = 7;",
+            "[[a b]; ['kv' {0: [[field]; [0] [1] [2] [3] [4]]} ], ['data' 0], ['data' 0] ] | table --expand --width=80",
+        )
+    );
+
+    assert_eq!(
+        actual.out,
+        "╭───┬──────┬───────────────────────╮\
+         │ # │  a   │           b           │\
+         ├───┼──────┼───────────────────────┤\
+         │ 0 │ kv   │ ╭───┬───────────────╮ │\
+         │   │      │ │   │ ╭───┬───────╮ │ │\
+         │   │      │ │ 0 │ │ # │ field │ │ │\
+         │   │      │ │   │ ├───┼───────┤ │ │\
+         │   │      │ │   │ │ 0 │     0 │ │ │\
+         │   │      │ │   │ │ 1 │     1 │ │ │\
+         │   │      │ │   │ │ 2 │     2 │ │ │\
+         │   │      │ │   │ │ 3 │     3 │ │ │\
+         │   │      │ │   │ │ 4 │     4 │ │ │\
+         │   │      │ │   │ ╰───┴───────╯ │ │\
+         │   │      │ ╰───┴───────────────╯ │\
+         │ 1 │ data │                     0 │\
+         │ 2 │ data │                     0 │\
+         ╰───┴──────┴───────────────────────╯"
+    );
+
+    let actual = nu!(
+        concat!(
+            "$env.config.table.footer_inheritance = true;",
+            "$env.config.footer_mode = 7;",
+            "[[a b]; ['kv' {0: [[field]; [0] [1] [2] [3] [4] [5]]} ], ['data' 0], ['data' 0] ] | table --expand --width=80",
+        )
+    );
+
+    assert_eq!(
+        actual.out,
+        "╭───┬──────┬───────────────────────╮\
+         │ # │  a   │           b           │\
+         ├───┼──────┼───────────────────────┤\
+         │ 0 │ kv   │ ╭───┬───────────────╮ │\
+         │   │      │ │   │ ╭───┬───────╮ │ │\
+         │   │      │ │ 0 │ │ # │ field │ │ │\
+         │   │      │ │   │ ├───┼───────┤ │ │\
+         │   │      │ │   │ │ 0 │     0 │ │ │\
+         │   │      │ │   │ │ 1 │     1 │ │ │\
+         │   │      │ │   │ │ 2 │     2 │ │ │\
+         │   │      │ │   │ │ 3 │     3 │ │ │\
+         │   │      │ │   │ │ 4 │     4 │ │ │\
+         │   │      │ │   │ │ 5 │     5 │ │ │\
+         │   │      │ │   │ ╰───┴───────╯ │ │\
+         │   │      │ ╰───┴───────────────╯ │\
+         │ 1 │ data │                     0 │\
+         │ 2 │ data │                     0 │\
+         ├───┼──────┼───────────────────────┤\
+         │ # │  a   │           b           │\
+         ╰───┴──────┴───────────────────────╯"
+    );
+}

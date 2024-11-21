@@ -1,6 +1,6 @@
 use super::prelude::*;
 use crate as nu_protocol;
-use crate::ShellError;
+use crate::Record;
 
 /// Definition of a parsed hook from the config object
 #[derive(Clone, Debug, IntoValue, PartialEq, Serialize, Deserialize)]
@@ -15,14 +15,14 @@ pub struct Hooks {
 impl Hooks {
     pub fn new() -> Self {
         Self {
-            pre_prompt: None,
-            pre_execution: None,
-            env_change: None,
+            pre_prompt: Some(Value::list(vec![], Span::unknown())),
+            pre_execution: Some(Value::list(vec![], Span::unknown())),
+            env_change: Some(Value::record(Record::default(), Span::unknown())),
             display_output: Some(Value::string(
                 "if (term size).columns >= 100 { table -e } else { table }",
                 Span::unknown(),
             )),
-            command_not_found: None,
+            command_not_found: Some(Value::list(vec![], Span::unknown())),
         }
     }
 }
@@ -33,36 +33,36 @@ impl Default for Hooks {
     }
 }
 
-/// Parse the hooks to find the blocks to run when the hooks fire
-pub(super) fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
-    let span = value.span();
-    match value {
-        Value::Record { val, .. } => {
-            let mut hooks = Hooks::new();
-
-            for (col, val) in &**val {
-                match col.as_str() {
-                    "pre_prompt" => hooks.pre_prompt = Some(val.clone()),
-                    "pre_execution" => hooks.pre_execution = Some(val.clone()),
-                    "env_change" => hooks.env_change = Some(val.clone()),
-                    "display_output" => hooks.display_output = Some(val.clone()),
-                    "command_not_found" => hooks.command_not_found = Some(val.clone()),
-                    x => {
-                        return Err(ShellError::UnsupportedConfigValue {
-                            expected: "'pre_prompt', 'pre_execution', 'env_change', 'display_output', 'command_not_found'".into(),
-                            value: x.into(),
-                            span
-                        });
-                    }
-                }
+impl UpdateFromValue for Hooks {
+    fn update<'a>(
+        &mut self,
+        value: &'a Value,
+        path: &mut ConfigPath<'a>,
+        errors: &mut ConfigErrors,
+    ) {
+        fn update_option(field: &mut Option<Value>, value: &Value) {
+            if value.is_nothing() {
+                *field = None;
+            } else {
+                *field = Some(value.clone());
             }
-
-            Ok(hooks)
         }
-        _ => Err(ShellError::UnsupportedConfigValue {
-            expected: "record for 'hooks' config".into(),
-            value: "non-record value".into(),
-            span,
-        }),
+
+        let Value::Record { val: record, .. } = value else {
+            errors.type_mismatch(path, Type::record(), value);
+            return;
+        };
+
+        for (col, val) in record.iter() {
+            let path = &mut path.push(col);
+            match col.as_str() {
+                "pre_prompt" => update_option(&mut self.pre_prompt, val),
+                "pre_execution" => update_option(&mut self.pre_execution, val),
+                "env_change" => update_option(&mut self.env_change, val),
+                "display_output" => update_option(&mut self.display_output, val),
+                "command_not_found" => update_option(&mut self.command_not_found, val),
+                _ => errors.unknown_option(path, val),
+            }
+        }
     }
 }

@@ -1,3 +1,8 @@
+use nu_color_config::StyleComputer;
+use nu_protocol::{Config, Signals, Span, TableIndexMode, TableMode};
+
+use crate::{common::INDEX_COLUMN_NAME, NuTable};
+
 mod collapse;
 mod expanded;
 mod general;
@@ -6,22 +11,20 @@ pub use collapse::CollapsedTable;
 pub use expanded::ExpandedTable;
 pub use general::JustTable;
 
-use crate::{common::INDEX_COLUMN_NAME, NuTable};
-use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Signals, Span, TableIndexMode, TableMode};
-
 pub struct TableOutput {
     pub table: NuTable,
     pub with_header: bool,
     pub with_index: bool,
+    pub count_rows: usize,
 }
 
 impl TableOutput {
-    pub fn new(table: NuTable, with_header: bool, with_index: bool) -> Self {
+    pub fn new(table: NuTable, with_header: bool, with_index: bool, count_rows: usize) -> Self {
         Self {
             table,
             with_header,
             with_index,
+            count_rows,
         }
     }
 }

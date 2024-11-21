@@ -25,7 +25,7 @@ impl Command for Range {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["filter", "head", "tail"]
+        vec!["filter", "head", "tail", "slice"]
     }
 
     fn examples(&self) -> Vec<Example> {

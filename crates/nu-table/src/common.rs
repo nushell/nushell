@@ -3,6 +3,7 @@ use crate::{
 };
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_protocol::{Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value};
+use terminal_size::{terminal_size, Height, Width};
 
 pub type NuText = (String, TextStyle);
 pub type TableResult = Result<Option<TableOutput>, ShellError>;
@@ -17,9 +18,16 @@ pub fn create_nu_table_config(
     expand: bool,
     mode: TableMode,
 ) -> NuTableConfig {
+    let mut count_rows = out.table.count_rows();
+    if config.table.footer_inheritance {
+        count_rows = out.count_rows;
+    }
+
+    let with_footer = with_footer(config, out.with_header, count_rows);
+
     NuTableConfig {
         theme: load_theme(mode),
-        with_footer: with_footer(config, out.with_header, out.table.count_rows()),
+        with_footer,
         with_index: out.with_index,
         with_header: out.with_header,
         split_color: Some(lookup_separator_color(comp)),
@@ -194,6 +202,21 @@ fn with_footer(config: &Config, with_header: bool, count_records: usize) -> bool
 }
 
 fn need_footer(config: &Config, count_records: u64) -> bool {
-    matches!(config.footer_mode, FooterMode::RowCount(limit) if count_records > limit)
-        || matches!(config.footer_mode, FooterMode::Always)
+    match config.footer_mode {
+        // Only show the footer if there are more than RowCount rows
+        FooterMode::RowCount(limit) => count_records > limit,
+        // Always show the footer
+        FooterMode::Always => true,
+        // Never show the footer
+        FooterMode::Never => false,
+        // Calculate the screen height and row count, if screen height is larger than row count, don't show footer
+        FooterMode::Auto => {
+            let (_width, height) = match terminal_size() {
+                Some((w, h)) => (Width(w.0).0 as u64, Height(h.0).0 as u64),
+                None => (Width(0).0 as u64, Height(0).0 as u64),
+            };
+
+            height <= count_records
+        }
+    }
 }

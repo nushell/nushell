@@ -41,9 +41,12 @@ impl PluginCommand for GetWeek {
     let df = ([$dt $dt] | polars into-df);
     $df | polars get-week"#,
             result: Some(
-                NuDataFrame::try_from_series(Series::new("0", &[32i8, 32]), Span::test_data())
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                NuDataFrame::try_from_series(
+                    Series::new("0".into(), &[32i8, 32]),
+                    Span::test_data(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
             ),
         }]
     }

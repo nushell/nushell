@@ -28,7 +28,7 @@ impl PluginCommand for ValueCount {
             .named(
                 "column",
                 SyntaxShape::String,
-                "Provide a custom name for the coutn column",
+                "Provide a custom name for the count column",
                 Some('c'),
             )
             .switch("sort", "Whether or not values should be sorted", Some('s'))
@@ -92,7 +92,7 @@ fn command(
     let series = df.as_series(call.head)?;
 
     let res = series
-        .value_counts(sort, parallel, column, normalize)
+        .value_counts(sort, parallel, column.into(), normalize)
         .map_err(|e| ShellError::GenericError {
             error: "Error calculating value counts values".into(),
             msg: e.to_string(),

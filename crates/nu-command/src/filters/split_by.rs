@@ -93,16 +93,16 @@ pub fn split_by(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
-
+    let config = engine_state.get_config();
     let splitter: Option<Value> = call.opt(engine_state, stack, 0)?;
 
     match splitter {
         Some(v) => {
             let splitter = Some(Spanned {
-                item: v.coerce_into_string()?,
+                item: v.to_abbreviated_string(config),
                 span: name,
             });
-            Ok(split(splitter.as_ref(), input, name)?)
+            Ok(split(splitter.as_ref(), input, name, config)?)
         }
         // This uses the same format as the 'requires a column name' error in sort_utils.rs
         None => Err(ShellError::GenericError {
@@ -119,6 +119,7 @@ pub fn split(
     column_name: Option<&Spanned<String>>,
     values: PipelineData,
     span: Span,
+    config: &nu_protocol::Config,
 ) -> Result<PipelineData, ShellError> {
     let grouper = if let Some(column_name) = column_name {
         Grouper::ByColumn(Some(column_name.clone()))
@@ -136,7 +137,7 @@ pub fn split(
                 };
 
                 match group_key {
-                    Some(group_key) => Ok(group_key.coerce_string()?),
+                    Some(group_key) => Ok(group_key.to_abbreviated_string(config)),
                     None => Err(ShellError::CantFindColumn {
                         col_name: column_name.item.to_string(),
                         span: Some(column_name.span),
@@ -145,12 +146,12 @@ pub fn split(
                 }
             };
 
-            data_split(values, Some(&block), span)
+            data_split(values, Some(&block), span, config)
         }
         Grouper::ByColumn(None) => {
-            let block = move |_, row: &Value| row.coerce_string();
+            let block = move |_, row: &Value| Ok(row.to_abbreviated_string(config));
 
-            data_split(values, Some(&block), span)
+            data_split(values, Some(&block), span, config)
         }
     }
 }
@@ -160,6 +161,7 @@ fn data_group(
     values: &Value,
     grouper: Option<&dyn Fn(usize, &Value) -> Result<String, ShellError>>,
     span: Span,
+    config: &nu_protocol::Config,
 ) -> Result<Value, ShellError> {
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
 
@@ -167,7 +169,7 @@ fn data_group(
         let group_key = if let Some(ref grouper) = grouper {
             grouper(idx, &value)
         } else {
-            value.coerce_string()
+            Ok(value.to_abbreviated_string(config))
         };
 
         let group = groups.entry(group_key?).or_default();
@@ -188,6 +190,7 @@ pub fn data_split(
     value: PipelineData,
     splitter: Option<&dyn Fn(usize, &Value) -> Result<String, ShellError>>,
     dst_span: Span,
+    config: &nu_protocol::Config,
 ) -> Result<PipelineData, ShellError> {
     let mut splits = indexmap::IndexMap::new();
 
@@ -197,7 +200,7 @@ pub fn data_split(
             match v {
                 Value::Record { val: grouped, .. } => {
                     for (outer_key, list) in grouped.into_owned() {
-                        match data_group(&list, splitter, span) {
+                        match data_group(&list, splitter, span, config) {
                             Ok(grouped_vals) => {
                                 if let Value::Record { val: sub, .. } = grouped_vals {
                                     for (inner_key, subset) in sub.into_owned() {

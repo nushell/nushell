@@ -1,6 +1,6 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
-use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
+use nu_parser::{lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::{
     cli_error::report_compile_error,
     debugger::WithoutDebug,
@@ -10,7 +10,7 @@ use nu_protocol::{
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
-use nu_utils::perf;
+use nu_utils::{escape_quote_string, perf};
 use std::path::Path;
 
 // This will collect environment variables from std::env and adds them to a stack.
@@ -201,6 +201,35 @@ fn gather_env_vars(
     }
 }
 
+/// Print a pipeline with formatting applied based on display_output hook.
+///
+/// This function should be preferred when printing values resulting from a completed evaluation.
+/// For values printed as part of a command's execution, such as values printed by the `print` command,
+/// the `PipelineData::print_table` function should be preferred instead as it is not config-dependent.
+///
+/// `no_newline` controls if we need to attach newline character to output.
+pub fn print_pipeline(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    pipeline: PipelineData,
+    no_newline: bool,
+) -> Result<(), ShellError> {
+    if let Some(hook) = engine_state.get_config().hooks.display_output.clone() {
+        let pipeline = eval_hook(
+            engine_state,
+            stack,
+            Some(pipeline),
+            vec![],
+            &hook,
+            "display_output",
+        )?;
+        pipeline.print_raw(engine_state, no_newline, false)
+    } else {
+        // if display_output isn't set, we should still prefer to print with some formatting
+        pipeline.print_table(engine_state, stack, no_newline, false)
+    }
+}
+
 pub fn eval_source(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -221,7 +250,7 @@ pub fn eval_source(
             report_shell_error(engine_state, &err);
             let code = err.exit_code();
             stack.set_last_error(&err);
-            code
+            code.unwrap_or(0)
         }
     };
 
@@ -267,7 +296,7 @@ fn evaluate_source(
 
         if let Some(err) = working_set.compile_errors.first() {
             report_compile_error(&working_set, err);
-            // Not a fatal error, for now
+            return Ok(true);
         }
 
         (output, working_set.render())
@@ -281,21 +310,8 @@ fn evaluate_source(
         eval_block::<WithoutDebug>(engine_state, stack, &block, input)
     }?;
 
-    if let PipelineData::ByteStream(..) = pipeline {
-        pipeline.print(engine_state, stack, false, false)
-    } else if let Some(hook) = engine_state.get_config().hooks.display_output.clone() {
-        let pipeline = eval_hook(
-            engine_state,
-            stack,
-            Some(pipeline),
-            vec![],
-            &hook,
-            "display_output",
-        )?;
-        pipeline.print(engine_state, stack, false, false)
-    } else {
-        pipeline.print(engine_state, stack, true, false)
-    }?;
+    let no_newline = matches!(&pipeline, &PipelineData::ByteStream(..));
+    print_pipeline(engine_state, stack, pipeline, no_newline)?;
 
     Ok(false)
 }

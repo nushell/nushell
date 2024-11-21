@@ -140,8 +140,8 @@ fn test_config_path_helper(
 #[test]
 fn test_default_config_path() {
     Playground::setup("default_config_path", |_, playground| {
-        let config_dir = nu_path::config_dir().expect("Could not get config directory");
-        test_config_path_helper(playground, config_dir.join("nushell"));
+        let config_dir = nu_path::nu_config_dir().expect("Could not get config directory");
+        test_config_path_helper(playground, config_dir);
     });
 }
 
@@ -221,8 +221,8 @@ fn test_default_config_path_symlinked_config_files() {
 
 #[test]
 fn test_alternate_config_path() {
-    let config_file = "crates/nu-utils/src/sample_config/default_config.nu";
-    let env_file = "crates/nu-utils/src/sample_config/default_env.nu";
+    let config_file = "crates/nu-utils/src/default_files/scaffold_config.nu";
+    let env_file = "crates/nu-utils/src/default_files/scaffold_env.nu";
 
     let cwd = std::env::current_dir().expect("Could not get current working directory");
 

@@ -64,20 +64,27 @@ impl LanguageServer {
         if let Ok(file_path) = params.text_document.uri.to_file_path() {
             for content_change in params.content_changes.into_iter() {
                 let entry = self.ropes.entry(file_path.clone());
-                match (content_change.range, content_change.range) {
-                    (Some(range), _) => {
+                match content_change.range {
+                    Some(range) => {
                         entry.and_modify(|rope| {
-                            let start = Self::lsp_position_to_location(&range.start, rope);
-                            let end = Self::lsp_position_to_location(&range.end, rope);
+                            let start = Self::lsp_position_to_location(
+                                &range.start,
+                                rope,
+                                &self.position_encoding,
+                            );
+                            let end = Self::lsp_position_to_location(
+                                &range.end,
+                                rope,
+                                &self.position_encoding,
+                            );
 
                             rope.remove(start..end);
                             rope.insert(start, &content_change.text);
                         });
                     }
-                    (None, None) => {
+                    None => {
                         entry.and_modify(|r| *r = Rope::from_str(&content_change.text));
                     }
-                    _ => {}
                 }
             }
 
@@ -99,7 +106,7 @@ mod tests {
 
     #[test]
     fn hover_correct_documentation_on_let() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -129,7 +136,7 @@ mod tests {
 
     #[test]
     fn hover_on_command_after_full_content_change() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -170,7 +177,7 @@ hello"#,
 
     #[test]
     fn hover_on_command_after_partial_content_change() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -215,7 +222,7 @@ hello"#,
 
     #[test]
     fn open_document_with_utf_char() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");

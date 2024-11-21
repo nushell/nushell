@@ -3,6 +3,13 @@ use nu_test_support::playground::Playground;
 use std::fs;
 
 #[test]
+fn def_with_trailing_comma() {
+    let actual = nu!("def test-command [ foo: int, ] { $foo }; test-command 1");
+
+    assert!(actual.out == "1");
+}
+
+#[test]
 fn def_with_comment() {
     Playground::setup("def_with_comment", |dirs, _| {
         let data = r#"
@@ -73,6 +80,13 @@ fn def_errors_with_comma_before_equals() {
 }
 
 #[test]
+fn def_errors_with_colon_before_equals() {
+    let actual = nu!("def test-command [ foo: = 1 ] {}");
+
+    assert!(actual.err.contains("expected type"));
+}
+
+#[test]
 fn def_errors_with_comma_before_colon() {
     let actual = nu!("def test-command [ foo, : int ] {}");
 
@@ -85,12 +99,25 @@ fn def_errors_with_multiple_colons() {
     assert!(actual.err.contains("expected type"));
 }
 
-#[ignore = "This error condition is not implemented yet"]
 #[test]
 fn def_errors_with_multiple_types() {
     let actual = nu!("def test-command [ foo:int:string ] {}");
 
     assert!(actual.err.contains("expected parameter"));
+}
+
+#[test]
+fn def_errors_with_trailing_colon() {
+    let actual = nu!("def test-command [ foo: int: ] {}");
+
+    assert!(actual.err.contains("expected parameter"));
+}
+
+#[test]
+fn def_errors_with_trailing_default_value() {
+    let actual = nu!("def test-command [ foo: int = ] {}");
+
+    assert!(actual.err.contains("expected default value"));
 }
 
 #[test]
@@ -291,4 +318,38 @@ fn def_env_wrapped() {
 fn def_env_wrapped_no_help() {
     let actual = nu!("def --wrapped foo [...rest] { echo $rest }; foo -h | to json --raw");
     assert_eq!(actual.out, r#"["-h"]"#);
+}
+
+#[test]
+fn def_recursive_func_should_work() {
+    let actual = nu!("def bar [] { let x = 1; ($x | foo) }; def foo [] { foo }");
+    assert!(actual.err.is_empty());
+
+    let actual = nu!(r#"
+def recursive [c: int] {
+    if ($c == 0) { return }
+    if ($c mod 2 > 0) {
+        $in | recursive ($c - 1)
+    } else {
+        recursive ($c - 1)
+    }
+}"#);
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn export_def_recursive_func_should_work() {
+    let actual = nu!("export def bar [] { let x = 1; ($x | foo) }; export def foo [] { foo }");
+    assert!(actual.err.is_empty());
+
+    let actual = nu!(r#"
+export def recursive [c: int] {
+    if ($c == 0) { return }
+    if ($c mod 2 > 0) {
+        $in | recursive ($c - 1)
+    } else {
+        recursive ($c - 1)
+    }
+}"#);
+    assert!(actual.err.is_empty());
 }

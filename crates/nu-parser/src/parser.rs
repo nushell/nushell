@@ -240,34 +240,21 @@ fn parse_unknown_arg(
 /// string, where each balanced pair of quotes is parsed as a separate part of the string, and then
 /// concatenated together.
 ///
-/// `keep_surround_backtick_quote` should be true when parsing it as command name.  Or else it
-/// should be false.
-///
 /// For example, `-foo="bar\nbaz"` becomes `$"-foo=bar\nbaz"`
-fn parse_external_string(
-    working_set: &mut StateWorkingSet,
-    mut span: Span,
-    keep_surround_bakctick_quote: bool,
-) -> Expression {
-    let mut contents = working_set.get_span_contents(span);
+fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    let contents = working_set.get_span_contents(span);
 
-    if !keep_surround_bakctick_quote
-        && contents.len() > 1
-        && contents.starts_with(b"`")
-        && contents.ends_with(b"`")
-    {
-        contents = &contents[1..contents.len() - 1];
-        // backtick quote is useless in this case, so span is required to updated.
-        span = Span::new(span.start + 1, span.end - 1);
-    }
     if contents.starts_with(b"r#") {
         parse_raw_string(working_set, span)
     } else if contents
         .iter()
-        .any(|b| matches!(b, b'"' | b'\'' | b'(' | b')'))
+        .any(|b| matches!(b, b'"' | b'\'' | b'(' | b')' | b'`'))
     {
         enum State {
             Bare {
+                from: usize,
+            },
+            BackTickQuote {
                 from: usize,
             },
             Quote {
@@ -320,6 +307,12 @@ fn parse_external_string(
                             continue;
                         }
                     }
+                    b'`' => {
+                        if index != *from {
+                            spans.push(make_span(*from, index))
+                        }
+                        state = State::BackTickQuote { from: index }
+                    }
                     // Continue to consume
                     _ => (),
                 },
@@ -342,13 +335,21 @@ fn parse_external_string(
                         *escaped = false;
                     }
                 },
+                State::BackTickQuote { from } => {
+                    if ch == b'`' {
+                        spans.push(make_span(*from, index + 1));
+                        state = State::Bare { from: index + 1 };
+                    }
+                }
             }
             index += 1;
         }
 
         // Add the final span
         match state {
-            State::Bare { from } | State::Quote { from, .. } => {
+            State::Bare { from }
+            | State::Quote { from, .. }
+            | State::BackTickQuote { from, .. } => {
                 if from < contents.len() {
                     spans.push(make_span(from, contents.len()));
                 }
@@ -457,7 +458,7 @@ fn parse_regular_external_arg(working_set: &mut StateWorkingSet, span: Span) -> 
     } else if contents.starts_with(b"[") {
         parse_list_expression(working_set, span, &SyntaxShape::Any)
     } else {
-        parse_external_string(working_set, span, false)
+        parse_external_string(working_set, span)
     }
 }
 
@@ -479,7 +480,7 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) ->
         let arg = parse_expression(working_set, &[head_span]);
         Box::new(arg)
     } else {
-        Box::new(parse_external_string(working_set, head_span, true))
+        Box::new(parse_external_string(working_set, head_span))
     };
 
     let args = spans[1..]
@@ -1067,30 +1068,27 @@ pub fn parse_internal_call(
                     if let Some(arg_shape) = flag.arg {
                         if let Some(arg) = spans.get(spans_idx + 1) {
                             let arg = parse_value(working_set, *arg, &arg_shape);
+                            let (arg_name, val_expression) = ensure_flag_arg_type(
+                                working_set,
+                                flag.long.clone(),
+                                arg.clone(),
+                                &arg_shape,
+                                spans[spans_idx],
+                            );
 
                             if flag.long.is_empty() {
                                 if let Some(short) = flag.short {
                                     call.add_named((
-                                        Spanned {
-                                            item: String::new(),
-                                            span: spans[spans_idx],
-                                        },
+                                        arg_name,
                                         Some(Spanned {
                                             item: short.to_string(),
                                             span: spans[spans_idx],
                                         }),
-                                        Some(arg),
+                                        Some(val_expression),
                                     ));
                                 }
                             } else {
-                                call.add_named((
-                                    Spanned {
-                                        item: flag.long.clone(),
-                                        span: spans[spans_idx],
-                                    },
-                                    None,
-                                    Some(arg),
-                                ));
+                                call.add_named((arg_name, None, Some(val_expression)));
                             }
                             spans_idx += 1;
                         } else {
@@ -1345,10 +1343,10 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 trace!("parsing: alias of external call");
 
                 let mut head = head.clone();
-                head.span = spans[0]; // replacing the spans preserves syntax highlighting
+                head.span = Span::concat(&spans[cmd_start..pos]); // replacing the spans preserves syntax highlighting
 
                 let mut final_args = args.clone().into_vec();
-                for arg_span in &spans[1..] {
+                for arg_span in &spans[pos..] {
                     let arg = parse_external_arg(working_set, *arg_span);
                     final_args.push(arg);
                 }
@@ -2314,7 +2312,7 @@ pub fn parse_full_cell_path(
         } else if bytes.starts_with(b"[") {
             trace!("parsing: table head of full cell path");
 
-            let output = parse_table_expression(working_set, head.span);
+            let output = parse_table_expression(working_set, head.span, &SyntaxShape::Any);
 
             tokens.next();
 
@@ -2943,6 +2941,10 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
             working_set.error(ParseError::Unclosed("\'".into(), span));
             return garbage(working_set, span);
         }
+        if bytes.starts_with(b"r#") && (bytes.len() == 1 || !bytes.ends_with(b"#")) {
+            working_set.error(ParseError::Unclosed("r#".into(), span));
+            return garbage(working_set, span);
+        }
     }
 
     let (bytes, quoted) = if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
@@ -3112,7 +3114,8 @@ pub fn parse_var_with_opt_type(
     spans_idx: &mut usize,
     mutable: bool,
 ) -> (Expression, Option<Type>) {
-    let bytes = working_set.get_span_contents(spans[*spans_idx]).to_vec();
+    let name_span = spans[*spans_idx];
+    let bytes = working_set.get_span_contents(name_span).to_vec();
 
     if bytes.contains(&b' ')
         || bytes.contains(&b'"')
@@ -3124,9 +3127,11 @@ pub fn parse_var_with_opt_type(
     }
 
     if bytes.ends_with(b":") {
+        let name_span = Span::new(name_span.start, name_span.end - 1);
+        let var_name = bytes[0..(bytes.len() - 1)].to_vec();
+
         // We end with colon, so the next span should be the type
         if *spans_idx + 1 < spans.len() {
-            let span_beginning = *spans_idx;
             *spans_idx += 1;
             // signature like record<a: int b: int> is broken into multiple spans due to
             // whitespaces. Collect the rest into one span and work on it
@@ -3143,8 +3148,6 @@ pub fn parse_var_with_opt_type(
             let ty = parse_type(working_set, &type_bytes, tokens[0].span);
             *spans_idx = spans.len() - 1;
 
-            let var_name = bytes[0..(bytes.len() - 1)].to_vec();
-
             if !is_variable(&var_name) {
                 working_set.error(ParseError::Expected(
                     "valid variable name",
@@ -3156,17 +3159,10 @@ pub fn parse_var_with_opt_type(
             let id = working_set.add_variable(var_name, spans[*spans_idx - 1], ty.clone(), mutable);
 
             (
-                Expression::new(
-                    working_set,
-                    Expr::VarDecl(id),
-                    Span::concat(&spans[span_beginning..*spans_idx + 1]),
-                    ty.clone(),
-                ),
+                Expression::new(working_set, Expr::VarDecl(id), name_span, ty.clone()),
                 Some(ty),
             )
         } else {
-            let var_name = bytes[0..(bytes.len() - 1)].to_vec();
-
             if !is_variable(&var_name) {
                 working_set.error(ParseError::Expected(
                     "valid variable name",
@@ -3396,6 +3392,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
         Arg,
         AfterCommaArg,
         Type,
+        AfterType,
         DefaultValue,
     }
 
@@ -3429,7 +3426,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
     let mut args: Vec<Arg> = vec![];
     let mut parse_mode = ParseMode::Arg;
 
-    for token in &output {
+    for (index, token) in output.iter().enumerate() {
+        let last_token = index == output.len() - 1;
+
         match token {
             Token {
                 contents: crate::TokenContents::Item | crate::TokenContents::AssignmentOperator,
@@ -3441,10 +3440,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                 // The : symbol separates types
                 if contents == b":" {
                     match parse_mode {
+                        ParseMode::Arg if last_token => working_set
+                            .error(ParseError::Expected("type", Span::new(span.end, span.end))),
                         ParseMode::Arg => {
                             parse_mode = ParseMode::Type;
                         }
-                        ParseMode::AfterCommaArg => {
+                        ParseMode::AfterCommaArg | ParseMode::AfterType => {
                             working_set.error(ParseError::Expected("parameter or flag", span));
                         }
                         ParseMode::Type | ParseMode::DefaultValue => {
@@ -3456,8 +3457,14 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                 // The = symbol separates a variable from its default value
                 else if contents == b"=" {
                     match parse_mode {
-                        ParseMode::Type | ParseMode::Arg => {
+                        ParseMode::Arg | ParseMode::AfterType if last_token => working_set.error(
+                            ParseError::Expected("default value", Span::new(span.end, span.end)),
+                        ),
+                        ParseMode::Arg | ParseMode::AfterType => {
                             parse_mode = ParseMode::DefaultValue;
+                        }
+                        ParseMode::Type => {
+                            working_set.error(ParseError::Expected("type", span));
                         }
                         ParseMode::AfterCommaArg => {
                             working_set.error(ParseError::Expected("parameter or flag", span));
@@ -3471,7 +3478,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                 // The , symbol separates params only
                 else if contents == b"," {
                     match parse_mode {
-                        ParseMode::Arg => parse_mode = ParseMode::AfterCommaArg,
+                        ParseMode::Arg | ParseMode::AfterType => {
+                            parse_mode = ParseMode::AfterCommaArg
+                        }
                         ParseMode::AfterCommaArg => {
                             working_set.error(ParseError::Expected("parameter or flag", span));
                         }
@@ -3484,7 +3493,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                     }
                 } else {
                     match parse_mode {
-                        ParseMode::Arg | ParseMode::AfterCommaArg => {
+                        ParseMode::Arg | ParseMode::AfterCommaArg | ParseMode::AfterType => {
                             // Long flag with optional short form following with no whitespace, e.g. --output, --age(-a)
                             if contents.starts_with(b"--") && contents.len() > 2 {
                                 // Split the long flag from the short flag with the ( character as delimiter.
@@ -3794,7 +3803,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     }
                                 }
                             }
-                            parse_mode = ParseMode::Arg;
+                            parse_mode = ParseMode::AfterType;
                         }
                         ParseMode::DefaultValue => {
                             if let Some(last) = args.last_mut() {
@@ -4124,7 +4133,11 @@ fn parse_table_row(
         .map(|exprs| (exprs, span))
 }
 
-fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+fn parse_table_expression(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    list_element_shape: &SyntaxShape,
+) -> Expression {
     let bytes = working_set.get_span_contents(span);
     let inner_span = {
         let start = if bytes.starts_with(b"[") {
@@ -4153,13 +4166,13 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
     // Check that we have all arguments first, before trying to parse the first
     // in order to avoid exponential parsing time
     let [first, second, rest @ ..] = &tokens[..] else {
-        return parse_list_expression(working_set, span, &SyntaxShape::Any);
+        return parse_list_expression(working_set, span, list_element_shape);
     };
     if !working_set.get_span_contents(first.span).starts_with(b"[")
         || second.contents != TokenContents::Semicolon
         || rest.is_empty()
     {
-        return parse_list_expression(working_set, span, &SyntaxShape::Any);
+        return parse_list_expression(working_set, span, list_element_shape);
     };
     let head = parse_table_row(working_set, first.span);
 
@@ -4599,7 +4612,7 @@ pub fn parse_closure_expression(
                 } = token.1
                 {
                     end_span = Some(span);
-                    amt_to_skip = token.0;
+                    amt_to_skip += token.0;
                     break;
                 }
             }
@@ -4607,6 +4620,7 @@ pub fn parse_closure_expression(
             let end_point = if let Some(span) = end_span {
                 span.end
             } else {
+                working_set.error(ParseError::Unclosed("|".into(), Span::new(end, end)));
                 end
             };
 
@@ -4774,7 +4788,7 @@ pub fn parse_value(
         }
         SyntaxShape::List(elem) => {
             if bytes.starts_with(b"[") {
-                parse_list_expression(working_set, span, elem)
+                parse_table_expression(working_set, span, elem)
             } else {
                 working_set.error(ParseError::Expected("list", span));
 
@@ -4783,7 +4797,7 @@ pub fn parse_value(
         }
         SyntaxShape::Table(_) => {
             if bytes.starts_with(b"[") {
-                parse_table_expression(working_set, span)
+                parse_table_expression(working_set, span, &SyntaxShape::Any)
             } else {
                 working_set.error(ParseError::Expected("table", span));
 
@@ -5017,8 +5031,8 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         b"<=" => Operator::Comparison(Comparison::LessThanOrEqual),
         b">" => Operator::Comparison(Comparison::GreaterThan),
         b">=" => Operator::Comparison(Comparison::GreaterThanOrEqual),
-        b"=~" => Operator::Comparison(Comparison::RegexMatch),
-        b"!~" => Operator::Comparison(Comparison::NotRegexMatch),
+        b"=~" | b"like" => Operator::Comparison(Comparison::RegexMatch),
+        b"!~" | b"not-like" => Operator::Comparison(Comparison::NotRegexMatch),
         b"+" => Operator::Math(Math::Plus),
         b"++" => Operator::Math(Math::Append),
         b"-" => Operator::Math(Math::Minus),
@@ -5396,10 +5410,12 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
 
             let starting_error_count = working_set.parse_errors.len();
 
-            let lhs = parse_string_strict(
-                working_set,
-                Span::new(spans[pos].start, spans[pos].start + point - 1),
-            );
+            let lhs_span = Span::new(spans[pos].start, spans[pos].start + point - 1);
+            if !is_identifier(working_set.get_span_contents(lhs_span)) {
+                break;
+            }
+
+            let lhs = parse_string_strict(working_set, lhs_span);
             let rhs = if spans[pos].start + point < spans[pos].end {
                 let rhs_span = Span::new(spans[pos].start + point, spans[pos].end);
 
@@ -5612,7 +5628,7 @@ pub fn parse_builtin_commands(
                 .parts_including_redirection()
                 .collect::<Vec<Span>>(),
         ),
-        b"const" => parse_const(working_set, &lite_command.parts),
+        b"const" => parse_const(working_set, &lite_command.parts).0,
         b"mut" => parse_mut(
             working_set,
             &lite_command

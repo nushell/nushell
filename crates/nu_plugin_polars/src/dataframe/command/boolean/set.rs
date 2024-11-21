@@ -175,7 +175,7 @@ fn command(
             })?;
 
             let mut res = res.into_series();
-            res.rename("string");
+            res.rename("string".into());
 
             NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)
         }
