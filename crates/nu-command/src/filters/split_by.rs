@@ -31,9 +31,10 @@ impl Command for SplitBy {
         report_shell_warning(
             engine_state,
             &ShellError::Deprecated {
-                command: "split_by",
+                deprecated: "The `split_by` command",
+                suggestion: "Please use the `group-by` command instead.",
                 span: call.head,
-                help: "If you want this command to stay, please provide feedback at https://github.com/nushell/nushell/pull/14019",
+                help: None,
             },
         );
         split_by(engine_state, stack, call, input)
