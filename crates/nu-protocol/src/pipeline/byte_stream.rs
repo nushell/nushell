@@ -44,12 +44,12 @@ impl ByteStreamSource {
 
     /// Source is a `Child` or `File`, rather than `Read`. Currently affects trimming
     #[cfg(feature = "os")]
-    fn is_external(&self) -> bool {
+    pub fn is_external(&self) -> bool {
         matches!(self, ByteStreamSource::Child(..)) 
     }
 
     #[cfg(not(feature = "os"))]
-    fn is_external(&self) -> bool {
+    pub fn is_external(&self) -> bool {
         // without os support we never have externals
         false
     }

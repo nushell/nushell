@@ -6,7 +6,7 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    ByteStreamSource, DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream,
+    DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream,
     OutDest, PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError,
     Signals, Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
@@ -486,8 +486,9 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::CheckErrRedirected { src } => match ctx.borrow_reg(*src) {
+            #[cfg(feature = "os")]
             PipelineData::ByteStream(stream, _)
-                if matches!(stream.source(), ByteStreamSource::Child(_)) =>
+                if matches!(stream.source(), nu_protocol::ByteStreamSource::Child(_)) =>
             {
                 Ok(Continue)
             }
@@ -521,7 +522,7 @@ fn eval_instruction<D: DebugContext>(
                     span: Some(*span),
                 })?;
             let is_external = if let PipelineData::ByteStream(stream, ..) = &src {
-                matches!(stream.source(), ByteStreamSource::Child(..))
+                stream.source().is_external()
             } else {
                 false
             };
