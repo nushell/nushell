@@ -22,7 +22,7 @@ use log::{trace, Level};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_lsp::LanguageServer;
-use nu_path::canonicalize_with;
+use nu_path::{canonicalize_with, set_pwd_per_drive};
 use nu_protocol::{
     engine::EngineState, report_shell_error, ByteStream, PipelineData, ShellError, Span, Spanned,
     Value,
@@ -78,6 +78,8 @@ fn main() -> Result<()> {
 
     // Get the current working directory from the environment.
     let init_cwd = current_dir_from_environment();
+    // Let PWD-per-drive sync from startup
+    let _ = set_pwd_per_drive(init_cwd.as_ref());
 
     // Custom additions
     let delta = {

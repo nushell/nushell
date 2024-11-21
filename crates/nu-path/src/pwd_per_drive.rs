@@ -159,7 +159,15 @@ mod tests {
             assert_eq!(map.get_pwd('C'), Some("C:\\Users\\Example".to_string()));
 
             // Get PWD for drive E (not set, should return E:\)
-            assert_eq!(map.get_pwd('E'), Some("E:\\".to_string()));
+            // 11-21-2024 happened to start nushell from drive E:,
+            // run toolkit test 'toolkit check pr' then this test failed
+            // since the singleton has its own state, so this type of test ('not set,
+            // should return ...') must be more careful to avoid accidentally fail.
+            if let Some(pwd_on_e) = get_full_path_name_w("E:") {
+                assert_eq!(map.get_pwd('E'), Some(pwd_on_e));
+            } else {
+                assert_eq!(map.get_pwd('E'), Some("E:\\".to_string()));
+            }
         }
     }
 
@@ -200,7 +208,16 @@ mod tests {
         assert_eq!(drive_map.get_pwd('D'), Some("D:\\Projects".to_string()));
 
         // Get PWD for drive E (not set, should return E:\)
-        assert_eq!(drive_map.get_pwd('E'), Some("E:\\".to_string()));
+        // 11-21-2024 happened to start nushell from drive E:,
+        // run toolkit test 'toolkit check pr' then this test failed
+        // if a drive has not been set PWD, it will ask system to get
+        // current directory, so this type of test ('not set, should
+        // return ...') must be more careful to avoid accidentally fail.
+        if let Some(pwd_on_e) = get_full_path_name_w("E:") {
+            assert_eq!(drive_map.get_pwd('E'), Some(pwd_on_e));
+        } else {
+            assert_eq!(drive_map.get_pwd('E'), Some("E:\\".to_string()));
+        }
     }
 
     #[test]
