@@ -235,7 +235,7 @@ mod tests {
 ///
 /// ```
 /// use std::path::{Path, PathBuf};
-/// use nu_path::{set_pwd_per_drive, expand_pwd_per_drive};
+/// use nu_path::{expand_pwd_per_drive, set_pwd_per_drive};
 ///
 /// //assert!(false); // Comment out to verify really tested
 /// if cfg!(windows) {
