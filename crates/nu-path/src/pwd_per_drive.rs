@@ -261,9 +261,7 @@ mod tests {
 /// ```
 pub mod pwd_per_drive_singleton {
     #[cfg(windows)]
-    use super::get_drive_pwd_map;
-
-    use std::path::{Path, PathBuf};
+    use super::{get_drive_pwd_map, Path, PathBuf};
 
     /// set_pwd_per_drive
     /// record PWD for drive, path must be absolute path
