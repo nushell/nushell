@@ -139,7 +139,6 @@ impl LabeledError {
         self
     }
 
-    #[cfg(feature = "os")]
     pub fn render_error_to_string(diag: impl miette::Diagnostic, fancy_errors: bool) -> String {
         let theme = if fancy_errors {
             miette::GraphicalTheme::unicode()

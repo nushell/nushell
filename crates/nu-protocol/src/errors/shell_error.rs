@@ -1499,13 +1499,7 @@ impl ShellError {
             "debug" => Value::string(format!("{self:?}"), span),
             "raw" => Value::error(self.clone(), span),
             // "labeled_error" => Value::string(LabeledError::from_diagnostic_and_render(self.clone()), span),
-            "rendered" => Value::string(
-                #[cfg(feature = "os")]
-                ShellError::render_error_to_string(self.clone(), fancy_errors),
-                #[cfg(not(feature = "os"))]
-                "",
-                span
-            ),
+            "rendered" => Value::string(ShellError::render_error_to_string(self.clone(), fancy_errors), span),
             "json" => Value::string(serde_json::to_string(&self).expect("Could not serialize error"), span),
         };
 
@@ -1525,8 +1519,6 @@ impl ShellError {
             span,
         )
     }
-
-    #[cfg(feature = "os")]
     pub fn render_error_to_string(diag: impl miette::Diagnostic, fancy_errors: bool) -> String {
         let theme = if fancy_errors {
             miette::GraphicalTheme::unicode()

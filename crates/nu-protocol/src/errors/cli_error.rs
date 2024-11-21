@@ -6,11 +6,9 @@ use crate::{
     CompileError, ErrorStyle, ParseError, ParseWarning, ShellError,
 };
 use miette::{
-    LabeledSpan, NarratableReportHandler, ReportHandler, Severity,
+    LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler, RgbColors, Severity,
     SourceCode,
 };
-#[cfg(feature = "os")]
-use miette::{MietteHandlerOpts, RgbColors};
 use thiserror::Error;
 
 /// This error exists so that we can defer SourceCode handling. It simply
@@ -76,7 +74,6 @@ impl std::fmt::Debug for CliError<'_> {
 
         let error_style = &config.error_style;
 
-        #[cfg(feature = "os")]
         let miette_handler: Box<dyn ReportHandler> = match error_style {
             ErrorStyle::Plain => Box::new(NarratableReportHandler::new()),
             ErrorStyle::Fancy => Box::new(
@@ -90,9 +87,6 @@ impl std::fmt::Debug for CliError<'_> {
                     .build(),
             ),
         };
-
-        #[cfg(not(feature = "os"))]
-        let miette_handler = Box::new(NarratableReportHandler::new());
 
         // Ignore error to prevent format! panics. This can happen if span points at some
         // inaccessible location, for example by calling `report_error()` with wrong working set.

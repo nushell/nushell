@@ -31,7 +31,7 @@ fancy-regex = { workspace = true }
 heck = { workspace = true }
 indexmap = { workspace = true }
 lru = { workspace = true }
-miette = { workspace = true }
+miette = { workspace = true, features = ["fancy-no-backtrace"]}
 num-format = { workspace = true }
 rmp-serde = { workspace = true, optional = true }
 serde = { workspace = true }
@@ -51,7 +51,7 @@ windows-sys = { workspace = true }
 [features]
 default = ["os"]
 os = [
-  "miette/fancy-no-backtrace",
+  # "miette/fancy-no-backtrace",
   "os_pipe"
 ]
 
