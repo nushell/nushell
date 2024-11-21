@@ -268,11 +268,11 @@ pub mod pwd_per_drive_singleton {
     /// set_pwd_per_drive
     /// record PWD for drive, path must be absolute path
     /// return Ok(()) if succeeded, otherwise error message
-    pub fn set_pwd_per_drive(path: &Path) -> Result<(), String> {
+    pub fn set_pwd_per_drive(_path: &Path) -> Result<(), String> {
         cfg_if::cfg_if! { if #[cfg(target_os="windows")] {
 
             if let Ok(mut pwd_per_drive) = get_drive_pwd_map().lock() {
-                pwd_per_drive.set_pwd(path)
+                pwd_per_drive.set_pwd(_path)
             } else {
                 Err("Failed to lock map".to_string())
             }
