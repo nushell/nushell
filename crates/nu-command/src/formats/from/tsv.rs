@@ -80,6 +80,21 @@ impl Command for FromTsv {
                 ))
             },
             Example {
+                description: "Convert comma-separated data to a table, allowing variable number of columns per row and ignoring headers",
+                example: "\"value 1\nvalue 2\tdescription 2\" | from tsv --flexible --noheaders",
+                result: Some(Value::test_list (
+                    vec![
+                        Value::test_record(record! {
+                            "column0" => Value::test_string("value 1"),
+                        }),
+                        Value::test_record(record! {
+                            "column0" => Value::test_string("value 2"),
+                            "column1" => Value::test_string("description 2"),
+                        }),
+                    ],
+                ))
+            },
+            Example {
                 description: "Create a tsv file with header columns and open it",
                 example: r#"$'c1(char tab)c2(char tab)c3(char nl)1(char tab)2(char tab)3' | save tsv-data | open tsv-data | from tsv"#,
                 result: None,
