@@ -235,7 +235,7 @@ mod tests {
 ///
 /// ```
 /// use std::path::{Path, PathBuf};
-/// use nu_path::pwd_per_drive::pwd_per_drive_singleton::*;
+/// use nu_path::{set_pwd_per_drive, expand_pwd_per_drive};
 ///
 /// //assert!(false); // Comment out to verify really tested
 /// if cfg!(windows) {
@@ -323,10 +323,10 @@ pub mod pwd_per_drive_singleton {
 
     #[test]
     fn test_usage_for_pwd_per_drive() {
-        if cfg!(windows) {
-            // Set PWD for drive C
-            set_pwd_per_drive(Path::new("C:\\Users\\Home")).unwrap();
+        // Set PWD for drive C
+        assert_eq!(Ok(()), set_pwd_per_drive(Path::new("C:\\Users\\Home")));
 
+        if cfg!(windows) {
             // Expand a relative path
             let expanded = expand_pwd_per_drive(Path::new("C:test"));
             assert_eq!(expanded, Some(PathBuf::from("C:\\Users\\Home\\test")));
@@ -342,6 +342,9 @@ pub mod pwd_per_drive_singleton {
             // Expand with no PWD set for the drive
             let expanded = expand_pwd_per_drive(Path::new("D:test"));
             assert_eq!(expanded, Some(PathBuf::from("D:\\test")));
+        } else {
+            // None always
+            assert_eq!(None, expand_pwd_per_drive(Path::new("C:test")));
         }
     }
 }
