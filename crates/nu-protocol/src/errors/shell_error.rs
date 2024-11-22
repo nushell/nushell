@@ -1464,7 +1464,6 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         code(nu::shell::os_disabled),
         help("You're probably running outside an OS like a browser, we cannot support this")
     )]
-    #[cfg(not(feature = "os"))]
     DisabledOsSupport {
         msg: String,
         #[label = "while running this code"]
