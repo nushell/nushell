@@ -1,3 +1,4 @@
+#![cfg_attr(not(feature = "os"), allow(unused))]
 #![doc = include_str!("../README.md")]
 mod bytes;
 mod charting;
@@ -8,6 +9,7 @@ mod default_context;
 mod env;
 mod example_test;
 mod experimental;
+#[cfg(feature = "os")]
 mod filesystem;
 mod filters;
 mod formats;
@@ -27,6 +29,7 @@ mod sort_utils;
 #[cfg(feature = "sqlite")]
 mod stor;
 mod strings;
+#[cfg(feature = "os")]
 mod system;
 mod viewers;
 
@@ -40,6 +43,7 @@ pub use env::*;
 #[cfg(test)]
 pub use example_test::{test_examples, test_examples_with_commands};
 pub use experimental::*;
+#[cfg(feature = "os")]
 pub use filesystem::*;
 pub use filters::*;
 pub use formats::*;
@@ -58,6 +62,7 @@ pub use sort_utils::*;
 #[cfg(feature = "sqlite")]
 pub use stor::*;
 pub use strings::*;
+#[cfg(feature = "os")]
 pub use system::*;
 pub use viewers::*;
 

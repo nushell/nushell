@@ -1,6 +1,5 @@
 use nu_cmd_base::util::get_editor;
 use nu_engine::{command_prelude::*, env_to_strings};
-use nu_protocol::{process::ChildProcess, ByteStream};
 use nu_system::ForegroundChild;
 
 #[derive(Clone)]
@@ -81,6 +80,31 @@ impl Command for ConfigEnv {
             return Ok(Value::string(nu_utils::get_sample_env(), head).into_pipeline_data());
         }
 
+        super::config_::start_editor("env-path", engine_state, stack, call)
+    }
+}
+
+impl ConfigEnv {
+    #[cfg(not(feature = "os"))]
+    fn start_editor(
+        &self,
+        _: &EngineState,
+        _: &mut Stack,
+        call: &Call,
+    ) -> Result<PipelineData, ShellError> {
+        Err(ShellError::DisabledOsSupport {
+            msg: "Running external commands is not available without OS support.".to_string(),
+            span: Some(call.head),
+        })
+    }
+
+    #[cfg(feature = "os")]
+    fn start_editor(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+    ) -> Result<PipelineData, ShellError> {
         // Find the editor executable.
         let (editor_name, editor_args) = get_editor(engine_state, stack, call.head)?;
         let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
@@ -131,7 +155,7 @@ impl Command for ConfigEnv {
         )?;
 
         // Wrap the output into a `PipelineData::ByteStream`.
-        let child = ChildProcess::new(child, None, false, call.head)?;
+        let child = nu_protocol::process::ChildProcess::new(child, None, false, call.head)?;
         Ok(PipelineData::ByteStream(
             ByteStream::child(child, call.head),
             None,

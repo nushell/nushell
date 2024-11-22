@@ -1,9 +1,7 @@
 //! Module managing the streaming of raw bytes between pipeline elements
-use crate::{
-    ErrSpan, IntoSpanned, PipelineData, ShellError, Signals, Span, Type, Value,
-};
 #[cfg(feature = "os")]
 use crate::process::{ChildPipe, ChildProcess};
+use crate::{ErrSpan, IntoSpanned, PipelineData, ShellError, Signals, Span, Type, Value};
 use serde::{Deserialize, Serialize};
 #[cfg(unix)]
 use std::os::fd::OwnedFd;
@@ -45,7 +43,7 @@ impl ByteStreamSource {
     /// Source is a `Child` or `File`, rather than `Read`. Currently affects trimming
     #[cfg(feature = "os")]
     pub fn is_external(&self) -> bool {
-        matches!(self, ByteStreamSource::Child(..)) 
+        matches!(self, ByteStreamSource::Child(..))
     }
 
     #[cfg(not(feature = "os"))]
@@ -286,7 +284,10 @@ impl ByteStream {
 
     #[cfg(not(feature = "os"))]
     pub fn stdin(span: Span) -> Result<Self, ShellError> {
-        Err(ShellError::DisabledOsSupport { msg: "Stdin is not supported".to_string(), span: Some(span) })
+        Err(ShellError::DisabledOsSupport {
+            msg: "Stdin is not supported".to_string(),
+            span: Some(span),
+        })
     }
 
     /// Create a [`ByteStream`] from a generator function that writes data to the given buffer

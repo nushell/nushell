@@ -135,6 +135,7 @@ features = [
 workspace = true
 
 [features]
+os = ["nu-protocol/os"]
 plugin = ["nu-parser/plugin"]
 sqlite = ["rusqlite"]
 trash-support = ["trash"]

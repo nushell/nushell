@@ -6,9 +6,9 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream,
-    OutDest, PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError,
-    Signals, Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
+    PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
+    Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 

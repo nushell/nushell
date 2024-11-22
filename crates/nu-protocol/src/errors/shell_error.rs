@@ -1469,7 +1469,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         msg: String,
         #[label = "while running this code"]
         span: Option<Span>,
-    }
+    },
 }
 
 impl ShellError {
