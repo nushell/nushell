@@ -116,6 +116,9 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
         Value::string(features_enabled().join(", "), span),
     );
 
+    #[cfg(not(feature = "plugin"))]
+    let _ = engine_state;
+    
     #[cfg(feature = "plugin")]
     {
         // Get a list of plugin names and versions if present
