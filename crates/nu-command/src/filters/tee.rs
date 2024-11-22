@@ -1,10 +1,10 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
-use nu_protocol::{
-    byte_stream::copy_with_signals, engine::Closure, report_shell_error,
-    ByteStream, ByteStreamSource, OutDest, PipelineMetadata, Signals,
-};
 #[cfg(feature = "os")]
 use nu_protocol::process::ChildPipe;
+use nu_protocol::{
+    byte_stream::copy_with_signals, engine::Closure, report_shell_error, ByteStream,
+    ByteStreamSource, OutDest, PipelineMetadata, Signals,
+};
 use std::{
     io::{self, Read, Write},
     sync::{

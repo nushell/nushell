@@ -53,6 +53,7 @@ os = ["os_pipe"]
 
 plugin = [
   "brotli",
+  "os",
   "rmp-serde",
 ]
 

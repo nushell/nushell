@@ -14,11 +14,11 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.100.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.100.1", features = ["os"] }
 nu-parser = { path = "../nu-parser", version = "0.100.1" }
 nu-path = { path = "../nu-path", version = "0.100.1" }
 nu-color-config = { path = "../nu-color-config", version = "0.100.1" }
-nu-engine = { path = "../nu-engine", version = "0.100.1" }
+nu-engine = { path = "../nu-engine", version = "0.100.1", features = ["os"] }
 nu-table = { path = "../nu-table", version = "0.100.1" }
 nu-json = { path = "../nu-json", version = "0.100.1" }
 nu-utils = { path = "../nu-utils", version = "0.100.1" }

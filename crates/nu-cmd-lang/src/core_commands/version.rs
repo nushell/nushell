@@ -118,8 +118,8 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
 
     #[cfg(feature = "plugin")]
     {
-            // Get a list of plugin names and versions if present
-            let installed_plugins = engine_state
+        // Get a list of plugin names and versions if present
+        let installed_plugins = engine_state
             .plugins()
             .iter()
             .map(|x| {

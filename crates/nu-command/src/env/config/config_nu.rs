@@ -1,6 +1,5 @@
 use nu_engine::command_prelude::*;
 
-
 #[derive(Clone)]
 pub struct ConfigNu;
 

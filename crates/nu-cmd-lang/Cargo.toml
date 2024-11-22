@@ -28,8 +28,8 @@ shadow-rs = { version = "0.36", default-features = false }
 
 [features]
 os = [
-  "nu-protocol/os",
   "nu-engine/os",
+  "nu-protocol/os",
 ]
 plugin = ["nu-protocol/plugin"]
 

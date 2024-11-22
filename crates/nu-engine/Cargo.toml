@@ -23,4 +23,7 @@ terminal_size = { workspace = true }
 
 [features]
 os = ["nu-protocol/os"]
-plugin = ["nu-protocol/plugin"]
+plugin = [
+  "nu-protocol/plugin",
+  "os",
+]

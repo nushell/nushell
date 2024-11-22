@@ -28,7 +28,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
 
         // Filters
         #[cfg(feature = "rand")]
-        bind_command! { 
+        bind_command! {
             Shuffle
         }
         bind_command! {
@@ -167,15 +167,18 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         #[cfg(all(feature = "os", windows))]
         bind_command! { RegistryQuery }
 
-        #[cfg(all(feature = "os", any(
-            target_os = "android",
-            target_os = "linux",
-            target_os = "freebsd",
-            target_os = "netbsd",
-            target_os = "openbsd",
-            target_os = "macos",
-            target_os = "windows"
-        )))]
+        #[cfg(all(
+            feature = "os",
+            any(
+                target_os = "android",
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "netbsd",
+                target_os = "openbsd",
+                target_os = "macos",
+                target_os = "windows"
+            )
+        ))]
         bind_command! { Ps };
 
         // Strings
