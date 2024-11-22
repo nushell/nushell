@@ -29,10 +29,8 @@ impl Command for PartitionBy {
     }
 
     fn extra_description(&self) -> &str {
-        r#"partition-by applies the given closure to each value of the input list, and groups 
-           consecutive elements that share the same closure result key into partitions.
-
-           Some key values, such as closures, are not supported."#
+        r#"partition-by applies the given closure to each value of the input list, and groups
+consecutive elements that share the same closure result value into lists."#
     }
 
     fn run(
