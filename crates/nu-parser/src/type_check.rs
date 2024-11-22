@@ -29,8 +29,6 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
 
     match (lhs, rhs) {
         (Type::List(c), Type::List(d)) => type_compatible(c, d),
-        (Type::ListStream, Type::List(_)) => true,
-        (Type::List(_), Type::ListStream) => true,
         (Type::List(c), Type::Table(table_fields)) => {
             if matches!(**c, Type::Any) {
                 return true;

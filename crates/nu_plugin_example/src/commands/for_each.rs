@@ -23,7 +23,7 @@ impl PluginCommand for ForEach {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(Type::ListStream, Type::Nothing)
+            .input_output_type(Type::list(Type::Any), Type::Nothing)
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),

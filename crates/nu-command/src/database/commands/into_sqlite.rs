@@ -359,7 +359,6 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         | Type::Custom(_)
         | Type::Error
         | Type::List(_)
-        | Type::ListStream
         | Type::Range
         | Type::Record(_)
         | Type::Signature
