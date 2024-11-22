@@ -26,7 +26,7 @@ impl UnstructuredTable {
 
     pub fn truncate(&mut self, theme: &TableTheme, width: usize) -> bool {
         let mut available = width;
-        let has_vertical = theme.has_left();
+        let has_vertical = theme.as_base().borders_has_left();
         if has_vertical {
             available = available.saturating_sub(2);
         }
@@ -52,7 +52,7 @@ fn build_table(
 ) -> String {
     let mut table = PoolTable::from(val);
 
-    let mut theme = theme.get_theme_full();
+    let mut theme = theme.as_full().clone();
     theme.set_horizontal_lines(Default::default());
 
     table.with(Padding::new(indent.0, indent.1, 0, 0));

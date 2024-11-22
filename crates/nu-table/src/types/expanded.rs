@@ -374,13 +374,15 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
 fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
     let theme = load_theme(cfg.opts.mode);
+    let theme = theme.as_base();
     let key_width = record
         .columns()
         .map(|col| string_width(col))
         .max()
         .unwrap_or(0);
-    let count_borders =
-        theme.has_inner() as usize + theme.has_right() as usize + theme.has_left() as usize;
+    let count_borders = theme.borders_has_vertical() as usize
+        + theme.borders_has_right() as usize
+        + theme.borders_has_left() as usize;
     let padding = 2;
     if key_width + count_borders + padding + padding > cfg.opts.width {
         return Ok(None);
@@ -403,7 +405,8 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
         // we could use Padding for it but,
         // the easiest way to do so is just push a new_line char before
         let mut key = key.to_owned();
-        if !key.is_empty() && cell.is_expanded && theme.has_top() {
+        let is_key_on_next_line = !key.is_empty() && cell.is_expanded && theme.borders_has_top();
+        if is_key_on_next_line {
             key.insert(0, '\n');
         }
 

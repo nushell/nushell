@@ -1,13 +1,16 @@
-use crate::debug::inspect_table::{
-    global_horizontal_char::SetHorizontalChar, set_widths::SetWidths,
-};
+// note: Seems like could be simplified
+//       IMHO: it shall not take 300+ lines :)
+
 use nu_protocol::Value;
 use nu_table::{string_width, string_wrap};
+
 use tabled::{
     grid::config::ColoredConfig,
-    settings::{peaker::PriorityMax, width::Wrap, Settings, Style},
+    settings::{peaker::Priority, width::Wrap, Settings, Style},
     Table,
 };
+
+use self::{global_horizontal_char::SetHorizontalChar, set_widths::SetWidths};
 
 pub fn build_table(value: Value, description: String, termsize: usize) -> String {
     let (head, mut data) = util::collect_input(value);
@@ -57,7 +60,7 @@ pub fn build_table(value: Value, description: String, termsize: usize) -> String
         Settings::default()
             .with(Style::rounded().corner_top_left('├').corner_top_right('┤'))
             .with(SetWidths(widths))
-            .with(Wrap::new(width).priority(PriorityMax))
+            .with(Wrap::new(width).priority(Priority::max(true)))
             .with(SetHorizontalChar::new('┼', '┴', 11 + 2 + 1)),
     );
 
