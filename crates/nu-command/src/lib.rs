@@ -22,6 +22,7 @@ mod network;
 mod path;
 mod platform;
 mod progress_bar;
+#[cfg(feature = "rand")]
 mod random;
 mod removed;
 mod shells;
@@ -55,6 +56,7 @@ pub use misc::*;
 pub use network::*;
 pub use path::*;
 pub use platform::*;
+#[cfg(feature = "rand")]
 pub use random::*;
 pub use removed::*;
 pub use shells::*;

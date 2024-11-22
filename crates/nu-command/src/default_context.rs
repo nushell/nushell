@@ -27,6 +27,10 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         }
 
         // Filters
+        #[cfg(feature = "rand")]
+        bind_command! { 
+            Shuffle
+        }
         bind_command! {
             All,
             Any,
@@ -71,7 +75,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Rename,
             Reverse,
             Select,
-            Shuffle,
             Skip,
             SkipUntil,
             SkipWhile,
@@ -402,6 +405,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         }
 
         // Random
+        #[cfg(feature = "rand")]
         bind_command! {
             Random,
             RandomBool,

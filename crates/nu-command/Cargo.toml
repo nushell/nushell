@@ -73,7 +73,8 @@ pathdiff = { workspace = true }
 percent-encoding = { workspace = true }
 print-positions = { workspace = true }
 quick-xml = { workspace = true }
-rand = { workspace = true }
+rand = { workspace = true, optional = true }
+getrandom = { workspace = true, optional = true }
 rayon = { workspace = true }
 regex = { workspace = true }
 roxmltree = { workspace = true }
@@ -92,13 +93,13 @@ toml = { workspace = true, features = ["preserve_order"] }
 unicode-segmentation = { workspace = true }
 ureq = { workspace = true, default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
 url = { workspace = true }
-uu_cp = { workspace = true }
-uu_mkdir = { workspace = true }
-uu_mktemp = { workspace = true }
-uu_mv = { workspace = true }
-uu_touch = { workspace = true }
-uu_uname = { workspace = true }
-uu_whoami = { workspace = true }
+uu_cp = { workspace = true, optional = true }
+uu_mkdir = { workspace = true, optional = true }
+uu_mktemp = { workspace = true, optional = true }
+uu_mv = { workspace = true, optional = true }
+uu_touch = { workspace = true, optional = true }
+uu_uname = { workspace = true, optional = true }
+uu_whoami = { workspace = true, optional = true }
 uuid = { workspace = true, features = ["v4"] }
 v_htmlescape = { workspace = true }
 wax = { workspace = true }
@@ -135,7 +136,18 @@ features = [
 workspace = true
 
 [features]
-os = ["nu-protocol/os"]
+os = [
+	"nu-protocol/os", 
+	"rand",
+	"uu_cp",
+	"uu_mkdir",
+	"uu_mktemp",
+	"uu_mv",
+	"uu_touch",
+	"uu_uname",
+	"uu_whoami"
+]
+js = ["rand", "getrandom", "getrandom/js"]
 plugin = ["nu-parser/plugin"]
 sqlite = ["rusqlite"]
 trash-support = ["trash"]
