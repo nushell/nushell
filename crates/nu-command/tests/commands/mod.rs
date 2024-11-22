@@ -73,6 +73,7 @@ mod nu_check;
 mod open;
 mod par_each;
 mod parse;
+mod partition_by;
 mod path;
 mod platform;
 mod prepend;

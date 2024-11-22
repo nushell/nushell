@@ -1,4 +1,5 @@
 
+use super::utils::chain_error_with_input;
 use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::engine::Closure;
 
@@ -18,10 +19,8 @@ impl Command for PartitionBy {
                  Type::List(Box::new(Type::Any)))
                 ])
             .required(
-                "clsoure",
-                SyntaxShape::OneOf(vec![
-                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                ]),
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run.",
             )
             .category(Category::Filters)
@@ -52,8 +51,8 @@ impl Command for PartitionBy {
 
         vec![
             Example {
-                description: "Chunk data into runs of larger than zero or not.",
-                example: "[1, 3, -2, -2, 1, 0, 1, 2] | partition-by {|it| $it >= 0 }",
+                description: "Partition data into runs of larger than zero or not.",
+                example: "[1, 3, -2, -2, 0, 1, 2] | partition-by {|it| $it >= 0 }",
                 result: Some(Value::test_list(
                         vec![
                         Value::test_list(vec![Value::test_int(1), Value::test_int(3)]),
@@ -64,7 +63,7 @@ impl Command for PartitionBy {
             },
             Example {
                 description: "Identify repetitions in a string",
-                example: "'abbccc' | split chars | partition-by { |it| $it }",
+                example: r#"[a b b c c c] | partition-by { |it| $it }"#,
                 result: Some(Value::test_list(
                         vec![
                         Value::test_list(vec![
@@ -195,7 +194,7 @@ pub fn partition_by(
         }
 
         PipelineData::Value(_, ..) => {
-            todo!("raise nushell error");
+            Err(input.unsupported_input_error("list", head))
         }
     }.map(|data| data.set_metadata(metadata))
 }
@@ -207,11 +206,12 @@ fn partition_value_stream<I>(iterator: I, mut closure: ClosureEval, head: Span)
     partition_iter_by(iterator, 
         move |value| {
             match closure.run_with_value(value.clone()) {
-                Ok(data) => data.into_value(head).unwrap_or_else(|_| {
-                    todo!("handle this")
+                Ok(data) => data.into_value(head).unwrap_or_else(|error| {
+                    Value::error(chain_error_with_input(error, value.is_error(), head), head)
                 }),
 
-                Err(_) =>  todo!("also handle this")
+                Err(error) => 
+                    Value::error(chain_error_with_input(error, value.is_error(), head), head)
             }
         }
     ).map(move |it| Value::list(it, head))
