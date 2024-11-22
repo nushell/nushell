@@ -1102,12 +1102,13 @@ fn check_concat(
         (Type::String, Type::String) => (Type::String, None),
         (Type::Binary, Type::Binary) => (Type::Binary, None),
         (Type::Any, _) | (_, Type::Any) => (Type::Any, None),
-        (Type::Table(_) | Type::String | Type::Binary, _) => {
+        (Type::Table(_) | Type::List(_) | Type::String | Type::Binary, _)
+        | (_, Type::Table(_) | Type::List(_) | Type::String | Type::Binary) => {
             *op = Expression::garbage(working_set, op.span);
             (
                 Type::Any,
                 Some(ParseError::UnsupportedOperationRHS(
-                    "concat".into(),
+                    "concatenation".into(),
                     op.span,
                     lhs.span,
                     lhs.ty.clone(),
@@ -1121,7 +1122,7 @@ fn check_concat(
             (
                 Type::Any,
                 Some(ParseError::UnsupportedOperationLHS(
-                    "concat".into(),
+                    "concatenation".into(),
                     op.span,
                     lhs.span,
                     lhs.ty.clone(),
