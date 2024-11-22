@@ -14,8 +14,8 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.100.1" }
-nu-engine = { path = "../nu-engine", version = "0.100.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.100.1", default-features = false }
+nu-engine = { path = "../nu-engine", version = "0.100.1", default-features = false }
 nu-json = { path = "../nu-json", version = "0.100.1" }
 nu-ansi-term = { workspace = true }
 

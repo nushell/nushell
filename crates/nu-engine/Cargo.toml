@@ -22,6 +22,7 @@ log = { workspace = true }
 terminal_size = { workspace = true }
 
 [features]
+default = ["os"]
 os = ["nu-protocol/os"]
 plugin = [
   "nu-protocol/plugin",

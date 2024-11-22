@@ -49,6 +49,7 @@ dirs-sys = { workspace = true }
 windows-sys = { workspace = true }
 
 [features]
+default = ["os"]
 os = ["os_pipe"]
 
 plugin = [
