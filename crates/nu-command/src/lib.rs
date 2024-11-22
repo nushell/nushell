@@ -20,6 +20,7 @@ mod math;
 mod misc;
 mod network;
 mod path;
+#[cfg(feature = "os")]
 mod platform;
 mod progress_bar;
 #[cfg(feature = "rand")]
@@ -55,6 +56,7 @@ pub use math::*;
 pub use misc::*;
 pub use network::*;
 pub use path::*;
+#[cfg(feature = "os")]
 pub use platform::*;
 #[cfg(feature = "rand")]
 pub use random::*;

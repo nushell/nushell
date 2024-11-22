@@ -177,4 +177,9 @@ fn get_thread_id() -> u64 {
     {
         nix::sys::pthread::pthread_self() as u64
     }
+    #[cfg(target_arch = "wasm32")]
+    {
+        // wasm doesn't have any threads accessible, so we return 0 as a fallback
+        0
+    }
 }

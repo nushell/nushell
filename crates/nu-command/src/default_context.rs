@@ -243,13 +243,11 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Platform
         #[cfg(feature = "os")]
         bind_command! {
-            Du,
-        }
-        bind_command! {
             Ansi,
             AnsiLink,
             AnsiStrip,
             Clear,
+            Du,
             Input,
             InputList,
             InputListen,
@@ -385,6 +383,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         }
 
         // Network
+        #[cfg(feature = "network")]
         bind_command! {
             Http,
             HttpDelete,
@@ -394,6 +393,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             HttpPost,
             HttpPut,
             HttpOptions,
+            Port,
+        }
+        bind_command! {
             Url,
             UrlBuildQuery,
             UrlSplitQuery,
@@ -401,7 +403,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             UrlEncode,
             UrlJoin,
             UrlParse,
-            Port,
         }
 
         // Random

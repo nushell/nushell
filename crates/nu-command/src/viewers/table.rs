@@ -712,6 +712,13 @@ fn make_clickable_link(
 ) -> String {
     // uri's based on this https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
 
+    #[cfg(any(
+        unix,
+        windows,
+        target_os = "redox",
+        target_os = "wasi",
+        target_os = "hermit"
+    ))]
     if show_clickable_links {
         format!(
             "\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\",
@@ -726,6 +733,18 @@ fn make_clickable_link(
             Some(link_name) => link_name.to_string(),
             None => full_path,
         }
+    }
+
+    #[cfg(not(any(
+        unix,
+        windows,
+        target_os = "redox",
+        target_os = "wasi",
+        target_os = "hermit"
+    )))]
+    match link_name {
+        Some(link_name) => link_name.to_string(),
+        None => full_path,
     }
 }
 
