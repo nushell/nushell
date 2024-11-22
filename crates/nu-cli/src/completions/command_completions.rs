@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use crate::{
     completions::{Completer, CompletionOptions},
@@ -36,10 +36,10 @@ impl CommandCompletion {
         &self,
         working_set: &StateWorkingSet,
         sugg_span: reedline::Span,
-        matched_internal: &HashSet<String>,
-        matcher: &mut NuMatcher<SemanticSuggestion>,
-    ) {
-        let mut executables = HashSet::new();
+        matched_internal: impl Fn(&str) -> bool,
+        matcher: &mut NuMatcher<String>,
+    ) -> HashMap<String, SemanticSuggestion> {
+        let mut suggs = HashMap::new();
 
         // os agnostic way to get the PATH env var
         let paths = working_set.permanent_state.get_path_env_var();
@@ -57,27 +57,25 @@ impl CommandCompletion {
                                 .completions
                                 .external
                                 .max_results
-                                > executables.len() as i64
+                                > suggs.len() as i64
                             {
                                 break;
                             }
                             let Ok(name) = item.file_name().into_string() else {
                                 continue;
                             };
-                            if executables.contains(&name) {
+                            if suggs.contains_key(&name) {
                                 continue;
                             }
-                            let value = if matched_internal.contains(&name) {
+                            let value = if matched_internal(&name) {
                                 format!("^{}", name)
                             } else {
                                 name.clone()
                             };
                             if matcher.matches(&name) && is_executable::is_executable(item.path()) {
-                                executables.insert(name.clone());
-                                // This causes the matcher to match the executable name twice,
-                                // but it's likely a cost we can eat
-                                matcher.add(
-                                    name,
+                                matcher.add(&name, value.clone());
+                                suggs.insert(
+                                    value.clone(),
                                     SemanticSuggestion {
                                         suggestion: Suggestion {
                                             value,
@@ -95,6 +93,8 @@ impl CommandCompletion {
                 }
             }
         }
+
+        suggs
     }
 
     fn complete_commands(
@@ -110,34 +110,52 @@ impl CommandCompletion {
 
         let sugg_span = reedline::Span::new(span.start - offset, span.end - offset);
 
-        let mut matched_internal = HashSet::new();
-        for (name, description, typ) in working_set.find_commands_by_predicate(|_| true, true) {
+        let mut internal_suggs = HashMap::new();
+        let filtered_commands = working_set.find_commands_by_predicate(
+            |name| {
+                let name = String::from_utf8_lossy(name);
+                matcher.add(&name, name.to_string())
+            },
+            true,
+        );
+        for (name, description, typ) in filtered_commands {
             let name = String::from_utf8_lossy(&name);
-            let matched = matcher.add_semantic_suggestion(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: name.to_string(),
-                    description,
-                    span: sugg_span,
-                    append_whitespace: true,
-                    ..Suggestion::default()
+            internal_suggs.insert(
+                name.to_string(),
+                SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: name.to_string(),
+                        description,
+                        span: sugg_span,
+                        append_whitespace: true,
+                        ..Suggestion::default()
+                    },
+                    kind: Some(SuggestionKind::Command(typ)),
                 },
-                kind: Some(SuggestionKind::Command(typ)),
-            });
-            if matched {
-                matched_internal.insert(name.to_string());
-            }
-        }
-
-        if find_externals {
-            self.external_command_completion(
-                working_set,
-                sugg_span,
-                &matched_internal,
-                &mut matcher,
             );
         }
 
-        matcher.results()
+        let mut external_suggs = if find_externals {
+            self.external_command_completion(
+                working_set,
+                sugg_span,
+                |name| internal_suggs.contains_key(name),
+                &mut matcher,
+            )
+        } else {
+            HashMap::new()
+        };
+
+        let mut res = Vec::new();
+        for cmd_name in matcher.results() {
+            if let Some(sugg) = internal_suggs
+                .remove(&cmd_name)
+                .or_else(|| external_suggs.remove(&cmd_name))
+            {
+                res.push(sugg);
+            }
+        }
+        res
     }
 }
 
