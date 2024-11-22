@@ -1,5 +1,5 @@
 use crate::completions::{
-    Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion, SuggestionKind,
+    completion_options::NuMatcher, Completer, CompletionOptions, SemanticSuggestion, SuggestionKind,
 };
 use nu_protocol::{
     ast::{Expr, Expression},
@@ -28,7 +28,7 @@ impl Completer for OperatorCompletion {
         span: Span,
         offset: usize,
         _pos: usize,
-        _options: &CompletionOptions,
+        options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         //Check if int, float, or string
         let partial = std::str::from_utf8(working_set.get_span_contents(span)).unwrap_or("");
@@ -129,17 +129,12 @@ impl Completer for OperatorCompletion {
             _ => vec![],
         };
 
-        let match_algorithm = MatchAlgorithm::Prefix;
-        let input_fuzzy_search =
-            |(operator, _): &(&str, &str)| match_algorithm.matches_str(operator, partial);
-
-        possible_operations
-            .into_iter()
-            .filter(input_fuzzy_search)
-            .map(move |x| SemanticSuggestion {
+        let mut matcher = NuMatcher::new(partial, options.clone());
+        for (symbol, desc) in possible_operations.into_iter() {
+            matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {
-                    value: x.0.to_string(),
-                    description: Some(x.1.to_string()),
+                    value: symbol.to_string(),
+                    description: Some(desc.to_string()),
                     span: reedline::Span::new(span.start - offset, span.end - offset),
                     append_whitespace: true,
                     ..Suggestion::default()
@@ -147,8 +142,9 @@ impl Completer for OperatorCompletion {
                 kind: Some(SuggestionKind::Command(
                     nu_protocol::engine::CommandType::Builtin,
                 )),
-            })
-            .collect()
+            });
+        }
+        matcher.results()
     }
 }
 
