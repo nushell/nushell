@@ -282,6 +282,16 @@ fn main() -> Result<()> {
         Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
     );
 
+    // Add SHLVL if interactive
+    if engine_state.is_interactive {
+        let mut shlvl = engine_state
+            .get_env_var("SHLVL")
+            .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
+            .unwrap_or(0);
+        shlvl += 1;
+        engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
+    }
+
     if parsed_nu_cli_args.no_std_lib.is_none() {
         load_standard_library(&mut engine_state)?;
     }

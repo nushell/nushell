@@ -56,8 +56,9 @@ fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
 
     let mut table = NuTable::from(data);
     table.set_index_style(TextStyle::default_field());
+    let count_rows = table.count_rows();
 
-    let mut out = TableOutput::new(table, false, true, false);
+    let mut out = TableOutput::new(table, false, true, count_rows);
 
     let left = opts.config.table.padding.left;
     let right = opts.config.table.padding.right;
@@ -82,7 +83,10 @@ fn table(input: &[Value], opts: &TableOpts<'_>) -> TableResult {
     let with_header = !headers.is_empty();
     if !with_header {
         let table = to_table_with_no_header(input, with_index, row_offset, opts)?;
-        let table = table.map(|table| TableOutput::new(table, false, with_index, false));
+        let table = table.map(|table| {
+            let count_rows = table.count_rows();
+            TableOutput::new(table, false, with_index, count_rows)
+        });
         return Ok(table);
     }
 
@@ -98,7 +102,10 @@ fn table(input: &[Value], opts: &TableOpts<'_>) -> TableResult {
         .collect();
 
     let table = to_table_with_header(input, &headers, with_index, row_offset, opts)?;
-    let table = table.map(|table| TableOutput::new(table, true, with_index, false));
+    let table = table.map(|table| {
+        let count_rows = table.count_rows();
+        TableOutput::new(table, true, with_index, count_rows)
+    });
 
     Ok(table)
 }

@@ -39,12 +39,7 @@ fn from_delimited_stream(
         .from_reader(input_reader);
 
     let headers = if noheaders {
-        (0..reader
-            .headers()
-            .map_err(|err| from_csv_error(err, span))?
-            .len())
-            .map(|i| format!("column{i}"))
-            .collect::<Vec<String>>()
+        vec![]
     } else {
         reader
             .headers()
@@ -54,32 +49,28 @@ fn from_delimited_stream(
             .collect()
     };
 
+    let n = headers.len();
+    let columns = headers
+        .into_iter()
+        .chain((n..).map(|i| format!("column{i}")));
     let iter = reader.into_records().map(move |row| {
         let row = match row {
             Ok(row) => row,
             Err(err) => return Value::error(from_csv_error(err, span), span),
         };
-        let columns = headers.iter().cloned();
-        let values = row
-            .into_iter()
-            .map(|s| {
-                if no_infer {
-                    Value::string(s, span)
-                } else if let Ok(i) = s.parse() {
-                    Value::int(i, span)
-                } else if let Ok(f) = s.parse() {
-                    Value::float(f, span)
-                } else {
-                    Value::string(s, span)
-                }
-            })
-            .chain(std::iter::repeat(Value::nothing(span)));
+        let columns = columns.clone();
+        let values = row.into_iter().map(|s| {
+            if no_infer {
+                Value::string(s, span)
+            } else if let Ok(i) = s.parse() {
+                Value::int(i, span)
+            } else if let Ok(f) = s.parse() {
+                Value::float(f, span)
+            } else {
+                Value::string(s, span)
+            }
+        });
 
-        // If there are more values than the number of headers,
-        // then the remaining values are ignored.
-        //
-        // Otherwise, if there are less values than headers,
-        // then `Value::nothing(span)` is used to fill the remaining columns.
         Value::record(columns.zip(values).collect(), span)
     });
 

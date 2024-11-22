@@ -2,12 +2,13 @@ use log::warn;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
+use nu_engine::convert_env_values;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     report_parse_error, report_shell_error, Config, ParseError, PipelineData, Spanned,
 };
-use nu_utils::{get_default_config, get_default_env};
+use nu_utils::{get_default_config, get_default_env, get_scaffold_config, get_scaffold_env, perf};
 use std::{
     fs,
     fs::File,
@@ -26,12 +27,47 @@ pub(crate) fn read_config_file(
     stack: &mut Stack,
     config_file: Option<Spanned<String>>,
     is_env_config: bool,
-    ask_to_create: bool,
+    create_scaffold: bool,
 ) {
     warn!(
         "read_config_file() config_file_specified: {:?}, is_env_config: {is_env_config}",
         &config_file
     );
+
+    if is_env_config {
+        eval_default_config(engine_state, stack, get_default_env(), is_env_config);
+
+        let start_time = std::time::Instant::now();
+        let config = engine_state.get_config();
+        let use_color = config.use_ansi_coloring;
+        // Translate environment variables from Strings to Values
+        if let Err(e) = convert_env_values(engine_state, stack) {
+            report_shell_error(engine_state, &e);
+        }
+
+        perf!(
+            "translate env vars after default_env.nu",
+            start_time,
+            use_color
+        );
+    } else {
+        let start_time = std::time::Instant::now();
+        let config = engine_state.get_config();
+        let use_color = config.use_ansi_coloring;
+        if let Err(e) = convert_env_values(engine_state, stack) {
+            report_shell_error(engine_state, &e);
+        }
+        perf!(
+            "translate env vars before default_config.nu",
+            start_time,
+            use_color
+        );
+
+        eval_default_config(engine_state, stack, get_default_config(), is_env_config);
+    };
+
+    warn!("read_config_file() loading_defaults is_env_config: {is_env_config}");
+
     // Load config startup file
     if let Some(file) = config_file {
         match engine_state.cwd_as_string(Some(stack)) {
@@ -59,41 +95,16 @@ pub(crate) fn read_config_file(
         config_path.push(if is_env_config { ENV_FILE } else { CONFIG_FILE });
 
         if !config_path.exists() {
-            let file_msg = if is_env_config {
-                "environment config"
+            let scaffold_config_file = if is_env_config {
+                get_scaffold_env()
             } else {
-                "config"
+                get_scaffold_config()
             };
 
-            let will_create_file = match ask_to_create {
-                true => {
-                    println!(
-                        "No {} file found at {}",
-                        file_msg,
-                        config_path.to_string_lossy()
-                    );
-                    println!("Would you like to create one with defaults (Y/n): ");
-
-                    let mut answer = String::new();
-                    std::io::stdin()
-                        .read_line(&mut answer)
-                        .expect("Failed to read user input");
-
-                    matches!(answer.trim(), "y" | "Y" | "")
-                }
-                _ => false,
-            };
-
-            let config_file = if is_env_config {
-                get_default_env()
-            } else {
-                get_default_config()
-            };
-
-            match will_create_file {
+            match create_scaffold {
                 true => {
                     if let Ok(mut output) = File::create(&config_path) {
-                        if write!(output, "{config_file}").is_ok() {
+                        if write!(output, "{scaffold_config_file}").is_ok() {
                             let config_type = if is_env_config {
                                 "Environment config"
                             } else {
@@ -109,17 +120,14 @@ pub(crate) fn read_config_file(
                                 "Unable to write to {}, sourcing default file instead",
                                 config_path.to_string_lossy(),
                             );
-                            eval_default_config(engine_state, stack, config_file, is_env_config);
                             return;
                         }
                     } else {
-                        eprintln!("Unable to create {config_file}, sourcing default file instead");
-                        eval_default_config(engine_state, stack, config_file, is_env_config);
+                        eprintln!("Unable to create {scaffold_config_file}");
                         return;
                     }
                 }
                 _ => {
-                    eval_default_config(engine_state, stack, config_file, is_env_config);
                     return;
                 }
             }
@@ -227,11 +235,7 @@ fn eval_default_config(
     config_file: &str,
     is_env_config: bool,
 ) {
-    warn!(
-        "eval_default_config() config_file_specified: {:?}, is_env_config: {}",
-        &config_file, is_env_config
-    );
-    // Just use the contents of "default_config.nu" or "default_env.nu"
+    warn!("eval_default_config() is_env_config: {}", is_env_config);
     eval_source(
         engine_state,
         stack,
@@ -264,20 +268,14 @@ pub(crate) fn setup_config(
         &config_file, &env_file, is_login_shell
     );
 
-    let ask_to_create_config = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
+    let create_scaffold = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
 
     let result = catch_unwind(AssertUnwindSafe(|| {
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, plugin_file);
 
-        read_config_file(engine_state, stack, env_file, true, ask_to_create_config);
-        read_config_file(
-            engine_state,
-            stack,
-            config_file,
-            false,
-            ask_to_create_config,
-        );
+        read_config_file(engine_state, stack, env_file, true, create_scaffold);
+        read_config_file(engine_state, stack, config_file, false, create_scaffold);
 
         if is_login_shell {
             read_loginshell_file(engine_state, stack);

@@ -221,8 +221,8 @@ fn test_default_config_path_symlinked_config_files() {
 
 #[test]
 fn test_alternate_config_path() {
-    let config_file = "crates/nu-utils/src/sample_config/default_config.nu";
-    let env_file = "crates/nu-utils/src/sample_config/default_env.nu";
+    let config_file = "crates/nu-utils/src/default_files/scaffold_config.nu";
+    let env_file = "crates/nu-utils/src/default_files/scaffold_env.nu";
 
     let cwd = std::env::current_dir().expect("Could not get current working directory");
 

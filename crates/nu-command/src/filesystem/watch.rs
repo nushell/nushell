@@ -194,7 +194,7 @@ impl Command for Watch {
 
                 match result {
                     Ok(val) => {
-                        val.print(engine_state, stack, false, false)?;
+                        val.print_table(engine_state, stack, false, false)?;
                     }
                     Err(err) => {
                         let working_set = StateWorkingSet::new(engine_state);
