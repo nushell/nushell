@@ -150,11 +150,12 @@ impl CommandCompletion {
 
         let mut res = Vec::new();
         for cmd_name in matcher.results() {
-            let sugg = internal_suggs
+            if let Some(sugg) = internal_suggs
                 .remove(&cmd_name)
                 .or_else(|| external_suggs.remove(&cmd_name))
-                .expect("Command should have existed in either internal or external map");
-            res.push(sugg);
+            {
+                res.push(sugg);
+            }
         }
         res
     }
