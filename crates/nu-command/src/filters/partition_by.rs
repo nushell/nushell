@@ -182,7 +182,7 @@ pub fn partition_by(
             }
         }
 
-        PipelineData::Value(_, ..) => Err(input.unsupported_input_error("list", head)),
+        PipelineData::Value(..) => Err(input.unsupported_input_error("list", head)),
     }
     .map(|data| data.set_metadata(metadata))
 }
