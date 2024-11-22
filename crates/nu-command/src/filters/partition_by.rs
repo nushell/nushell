@@ -137,12 +137,12 @@ where
     F: FnMut(&T) -> K,
     K: PartialEq,
 {
-    return Partition {
+    Partition {
         closure,
         iterator,
         last_value: None,
         done: false,
-    };
+    }
 }
 
 pub fn partition_by(
