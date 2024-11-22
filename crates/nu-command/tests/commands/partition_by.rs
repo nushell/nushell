@@ -1,6 +1,5 @@
 use nu_test_support::{nu, pipeline};
 
-
 #[test]
 fn partition_by_on_empty_input_returns_empty_list() {
     let actual = nu!("[] | partition-by {|it| $it} | to nuon");
@@ -54,8 +53,6 @@ fn partition_by_field_works() {
            | partition-by {{|it| $it.cool}}
            | length"#
     )));
-
-
 
     assert_eq!(actual.out, "2");
 }
