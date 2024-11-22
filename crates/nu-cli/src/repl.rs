@@ -858,8 +858,6 @@ fn do_auto_cd(
         report_shell_error(engine_state, &err);
         return;
     };
-    // Let PWD-per-drive sync with auto_cd target
-    let _ = nu_path::set_pwd_per_drive(PathBuf::from(path.clone()).as_path());
     let cwd = Value::string(cwd, span);
 
     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");

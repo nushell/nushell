@@ -726,6 +726,8 @@ impl Stack {
             let path = nu_path::strip_trailing_slash(path);
             let value = Value::string(path.to_string_lossy(), Span::unknown());
             self.add_env_var("PWD".into(), value);
+            // Sync with PWD-per-drive
+            let _ = nu_path::set_pwd_per_drive(&path);
             Ok(())
         }
     }

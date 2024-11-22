@@ -280,8 +280,9 @@ pub mod pwd_per_drive_singleton {
     use super::*;
 
     /// set_pwd_per_drive
-    /// record PWD for drive, path must be absolute path
+    /// On Windows, record PWD for drive, path must be absolute path
     /// return Ok(()) if succeeded, otherwise error message
+    /// Other platforms, return Ok(())
     pub fn set_pwd_per_drive(_path: &Path) -> Result<(), String> {
         cfg_if::cfg_if! { if #[cfg(target_os="windows")] {
 
@@ -317,7 +318,7 @@ pub mod pwd_per_drive_singleton {
     }
 
     cfg_if::cfg_if! { if #[cfg(target_os="windows")] {
-    /// Helper only used on windows, if input path is relative path
+    /// Helper only used on Windows, if input path is relative path
     /// with drive letter, it can be expanded with PWD-per-drive.
     fn need_expand_pwd_per_drive(_path: &Path) -> bool {
         if let Some(path_str) = _path.to_str() {
