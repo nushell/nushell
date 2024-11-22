@@ -57,22 +57,24 @@ impl CommandCompletion {
                                 .completions
                                 .external
                                 .max_results
-                                > suggs.len() as i64
+                                <= suggs.len() as i64
                             {
                                 break;
                             }
                             let Ok(name) = item.file_name().into_string() else {
                                 continue;
                             };
-                            if suggs.contains_key(&name) {
-                                continue;
-                            }
                             let value = if matched_internal(&name) {
                                 format!("^{}", name)
                             } else {
                                 name.clone()
                             };
+                            if suggs.contains_key(&value) {
+                                continue;
+                            }
                             if matcher.matches(&name) && is_executable::is_executable(item.path()) {
+                                // If there's an internal command with the same name, adds ^cmd to the
+                                // matcher so that both the internal and external command are included
                                 matcher.add(&name, value.clone());
                                 suggs.insert(
                                     value.clone(),
@@ -148,12 +150,11 @@ impl CommandCompletion {
 
         let mut res = Vec::new();
         for cmd_name in matcher.results() {
-            if let Some(sugg) = internal_suggs
+            let sugg = internal_suggs
                 .remove(&cmd_name)
                 .or_else(|| external_suggs.remove(&cmd_name))
-            {
-                res.push(sugg);
-            }
+                .expect("Command should have existed in either internal or external map");
+            res.push(sugg);
         }
         res
     }
