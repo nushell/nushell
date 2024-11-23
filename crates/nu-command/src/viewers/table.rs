@@ -2,6 +2,7 @@
 //        overall reduce the redundant calls to StyleComputer etc.
 //        the goal is to configure it once...
 
+use crossterm::terminal::size;
 use lscolors::{LsColors, Style};
 use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
 use nu_engine::{command_prelude::*, env_to_string};
@@ -22,7 +23,6 @@ use std::{
     str::FromStr,
     time::Instant,
 };
-use terminal_size::{Height, Width};
 use url::Url;
 
 const STREAM_PAGE_SIZE: usize = 1000;
@@ -30,7 +30,7 @@ const STREAM_PAGE_SIZE: usize = 1000;
 fn get_width_param(width_param: Option<i64>) -> usize {
     if let Some(col) = width_param {
         col as usize
-    } else if let Some((Width(w), Height(_))) = terminal_size::terminal_size() {
+    } else if let Ok((w, _h)) = size() {
         w as usize
     } else {
         80

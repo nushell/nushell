@@ -19,7 +19,7 @@ nu-path = { path = "../nu-path", version = "0.100.1" }
 nu-glob = { path = "../nu-glob", version = "0.100.1" }
 nu-utils = { path = "../nu-utils", version = "0.100.1" }
 log = { workspace = true }
-terminal_size = { workspace = true }
+terminal_size = "0.4"
 
 [features]
 plugin = []

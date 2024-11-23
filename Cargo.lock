@@ -3358,7 +3358,6 @@ dependencies = [
  "sysinfo 0.32.0",
  "tabled",
  "tempfile",
- "terminal_size 0.4.0",
  "titlecase",
  "toml 0.8.19",
  "trash",
@@ -3427,7 +3426,6 @@ dependencies = [
  "nu-utils",
  "ratatui",
  "strip-ansi-escapes",
- "terminal_size 0.4.0",
  "unicode-width 0.1.11",
 ]
 
