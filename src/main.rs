@@ -78,8 +78,6 @@ fn main() -> Result<()> {
 
     // Get the current working directory from the environment.
     let init_cwd = current_dir_from_environment();
-    // Sync with PWD-per-drive
-    let _ = nu_path::set_pwd_per_drive(init_cwd.as_ref());
 
     // Custom additions
     let delta = {

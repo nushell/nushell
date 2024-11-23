@@ -2,8 +2,6 @@ use std::path::{Path, PathBuf};
 
 cfg_if::cfg_if! { if #[cfg(windows)] {
 
-use once_cell::sync::Lazy;
-use std::sync::Mutex;
 
 struct Drive2PWDmap {
     map: [Option<String>; 26], // Fixed-size array for A-Z
@@ -29,20 +27,20 @@ impl Drive2PWDmap {
         Err(format!("Invalid path: {}", path.display()))
     }
 
-    /// Get the PWD for drive, if not yet, ask GetFullPathNameW,
-    /// or else return default "X:/".
+    /// Get the PWD for drive, if not yet, ask GetFullPathNameW(),
+    /// or else return default r"X:\".
     fn get_pwd(&mut self, drive: char) -> Option<String> {
-        if drive.is_ascii_alphabetic() && drive.is_ascii_uppercase() {
+        if drive.is_ascii_alphabetic() {
+            let drive = drive.to_ascii_uppercase();
             let index = drive as usize - 'A' as usize;
-            Some(
-                self.map[index]
+            Some(self.map[index]
                 .clone()
                 .unwrap_or_else(||
-                    if let Some(system_pwd) = get_full_path_name_w(&format!("{}:", drive.to_ascii_uppercase())) {
+                    if let Some(system_pwd) = get_full_path_name_w(&format!("{}:", drive)) {
                         self.map[index] = Some(system_pwd.clone());
                         system_pwd
                     } else {
-                        format!("{}:/", drive.to_ascii_uppercase())
+                        format!(r"{}:\", drive)
                     }
                 )
             )
@@ -67,29 +65,18 @@ impl Drive2PWDmap {
         None // Invalid path or has no drive letter
     }
 
-    /// Helper to convert a drive letter to an array index
-    // fn drive_to_index(drive: char) -> Option<usize> {
-    //     let drive = drive.to_ascii_uppercase();
-    //     if drive.is_ascii_uppercase() {
-    //         Some((drive as usize) - ('A' as usize))
-    //     } else {
-    //         None
-    //     }
-    // }
-
     /// Extract the drive letter from a path (e.g., `C:test` -> `C`)
     fn extract_drive_letter(path: &Path) -> Option<char> {
         Some(path.to_str()
             .and_then(|s| s.chars().next())
             .filter(|c| c.is_ascii_alphabetic())?
-            .to_ascii_uppercase()
         )
     }
 
     /// Ensure a path has a trailing `\`
     fn ensure_trailing_separator(path: &str) -> String {
         if !path.ends_with('\\') && !path.ends_with('/') {
-            format!("{}/", path)
+            format!(r"{}\", path)
         } else {
             path.to_string()
         }
@@ -130,11 +117,19 @@ fn get_full_path_name_w(path_str: &str) -> Option<String> {
 }
 
 /// Global singleton instance of DrivePwdMap
-static DRIVE_PWD_MAP: Lazy<Mutex<Drive2PWDmap >> = Lazy::new(|| Mutex::new(Drive2PWDmap::new()));
+use std::sync::{Once, Mutex};
 
-/// Public API to access the singleton instance
+static INIT: Once = Once::new();
+static mut DRIVE_PWD_MAP: Option<Mutex<Drive2PWDmap>> = None;
+
+/// Access the singleton instance
 fn get_drive_pwd_map() -> &'static Mutex<Drive2PWDmap> {
-    &DRIVE_PWD_MAP
+    unsafe {
+        INIT.call_once(|| {
+            DRIVE_PWD_MAP = Some(Mutex::new(Drive2PWDmap::new()));
+        });
+        DRIVE_PWD_MAP.as_ref().unwrap()
+    }
 }
 
 /// Test for Drive2PWD map
@@ -144,21 +139,23 @@ mod tests {
 
     #[test]
     fn test_singleton_set_and_get_pwd() {
+        // To avoid conflict with other test threads (on testing result),
+        // use different drive set in multiple singleton tests
         let drive_pwd_map = get_drive_pwd_map();
         {
             let mut map = drive_pwd_map.lock().unwrap();
 
-            // Set PWD for drive C
-            assert!(map.set_pwd(Path::new("C:\\Users\\Example")).is_ok());
+            // Set PWD for drive X
+            assert!(map.set_pwd(Path::new(r"X:\Users\Example")).is_ok());
         }
 
         {
             let mut map = drive_pwd_map.lock().unwrap();
 
-            // Get PWD for drive C
-            assert_eq!(map.get_pwd('C'), Some("C:\\Users\\Example".to_string()));
+            // Get PWD for drive X
+            assert_eq!(map.get_pwd('X'), Some(r"X:\Users\Example".to_string()));
 
-            // Get PWD for drive E (not set, should return E:\)
+            // Get PWD for drive E (not set, should return E:\) ???
             // 11-21-2024 happened to start nushell from drive E:,
             // run toolkit test 'toolkit check pr' then this test failed
             // since the singleton has its own state, so this type of test ('not set,
@@ -166,7 +163,7 @@ mod tests {
             if let Some(pwd_on_e) = get_full_path_name_w("E:") {
                 assert_eq!(map.get_pwd('E'), Some(pwd_on_e));
             } else {
-                assert_eq!(map.get_pwd('E'), Some("E:\\".to_string()));
+                assert_eq!(map.get_pwd('E'), Some(r"E:\".to_string()));
             }
         }
     }
@@ -176,23 +173,27 @@ mod tests {
         let mut drive_map = Drive2PWDmap::new();
 
         // Set PWD for drive C
-        drive_map.set_pwd(Path::new("C:\\Users\\Home")).unwrap();
+        assert_eq!(drive_map.set_pwd(Path::new(r"C:\Users\Home")), Ok(()));
 
         // Expand a relative path
-        let expanded = drive_map.expand_path(Path::new("C:test"));
-        assert_eq!(expanded, Some(PathBuf::from("C:\\Users\\Home\\test")));
+        let expanded = drive_map.expand_path(Path::new(r"C:test"));
+        assert_eq!(expanded, Some(PathBuf::from(r"C:\Users\Home\test")));
 
         // Expand an absolute path
-        let expanded = drive_map.expand_path(Path::new("C:\\absolute\\path"));
-        assert_eq!(expanded, Some(PathBuf::from("C:\\absolute\\path")));
+        let expanded = drive_map.expand_path(Path::new(r"C:\absolute\path"));
+        assert_eq!(expanded, Some(PathBuf::from(r"C:\absolute\path")));
 
         // Expand with no drive letter
-        let expanded = drive_map.expand_path(Path::new("\\no_drive"));
+        let expanded = drive_map.expand_path(Path::new(r"\no_drive"));
         assert_eq!(expanded, None);
 
         // Expand with no PWD set for the drive
         let expanded = drive_map.expand_path(Path::new("D:test"));
-        assert_eq!(expanded, Some(PathBuf::from("D:\\test")));
+        if let Some(pwd_on_d) = get_full_path_name_w("D:") {
+            assert_eq!(expanded, Some(PathBuf::from(format!(r"{}test", Drive2PWDmap::ensure_trailing_separator(&pwd_on_d)))));
+        } else {
+            assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
+        }
     }
 
     #[test]
@@ -200,12 +201,12 @@ mod tests {
         let mut drive_map = Drive2PWDmap::new();
 
         // Set PWD for drive C
-        assert!(drive_map.set_pwd(Path::new("C:\\Users\\Example")).is_ok());
-        assert_eq!(drive_map.get_pwd('C'), Some("C:\\Users\\Example".to_string()));
+        assert!(drive_map.set_pwd(Path::new(r"C:\Users\Example")).is_ok());
+        assert_eq!(drive_map.get_pwd('C'), Some(r"C:\Users\Example".to_string()));
 
         // Set PWD for drive D
-        assert!(drive_map.set_pwd(Path::new("D:\\Projects")).is_ok());
-        assert_eq!(drive_map.get_pwd('D'), Some("D:\\Projects".to_string()));
+        assert!(drive_map.set_pwd(Path::new(r"D:\Projects")).is_ok());
+        assert_eq!(drive_map.get_pwd('D'), Some(r"D:\Projects".to_string()));
 
         // Get PWD for drive E (not set, should return E:\)
         // 11-21-2024 happened to start nushell from drive E:,
@@ -216,7 +217,7 @@ mod tests {
         if let Some(pwd_on_e) = get_full_path_name_w("E:") {
             assert_eq!(drive_map.get_pwd('E'), Some(pwd_on_e));
         } else {
-            assert_eq!(drive_map.get_pwd('E'), Some("E:\\".to_string()));
+            assert_eq!(drive_map.get_pwd('E'), Some(r"E:\".to_string()));
         }
     }
 
@@ -225,9 +226,9 @@ mod tests {
         let mut drive_map = Drive2PWDmap::new();
 
         // Invalid path (no drive letter)
-        let result = drive_map.set_pwd(Path::new("\\InvalidPath"));
+        let result = drive_map.set_pwd(Path::new(r"\InvalidPath"));
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "Invalid path: \\InvalidPath");
+        assert_eq!(result.unwrap_err(), r"Invalid path: \InvalidPath");
     }
 
     #[test]
@@ -235,7 +236,7 @@ mod tests {
         let mut drive_map = Drive2PWDmap::new();
 
         // Get PWD for a drive not set (e.g., Z)
-        assert_eq!(drive_map.get_pwd('Z'), Some("Z:\\".to_string()));
+        assert_eq!(drive_map.get_pwd('Z'), Some(r"Z:\".to_string()));
 
         // Invalid drive letter (non-alphabetic)
         assert_eq!(drive_map.get_pwd('1'), None);
@@ -257,23 +258,23 @@ mod tests {
 /// //assert!(false); // Comment out to verify really tested
 /// if cfg!(windows) {
 ///     // Set PWD for drive C
-///     set_pwd_per_drive(Path::new("C:\\Users\\Home")).unwrap();
+///     set_pwd_per_drive(Path::new(r"C:\Users\Home")).unwrap();
 ///
 ///     // Expand a relative path
 ///     let expanded = expand_pwd_per_drive(Path::new("C:test"));
-///     assert_eq!(expanded, Some(PathBuf::from("C:\\Users\\Home\\test")));
+///     assert_eq!(expanded, Some(PathBuf::from(r"C:\Users\Home\test")));
 ///
 ///     // Will NOT expand an absolute path
-///     let expanded = expand_pwd_per_drive(Path::new("C:\\absolute\\path"));
+///     let expanded = expand_pwd_per_drive(Path::new(r"C:\absolute\path"));
 ///     assert_eq!(expanded, None);
 ///
 ///     // Expand with no drive letter
-///     let expanded = expand_pwd_per_drive(Path::new("\\no_drive"));
+///     let expanded = expand_pwd_per_drive(Path::new(r"\no_drive"));
 ///     assert_eq!(expanded, None);
 ///
 ///     // Expand with no PWD set for the drive
 ///     let expanded = expand_pwd_per_drive(Path::new("D:test"));
-///     assert_eq!(expanded, Some(PathBuf::from("D:\\test")));
+///     assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
 /// }
 /// ```
 pub mod pwd_per_drive_singleton {
@@ -338,28 +339,28 @@ pub mod pwd_per_drive_singleton {
 
     #[test]
     fn test_usage_for_pwd_per_drive() {
-        // Set PWD for drive C
-        assert_eq!(Ok(()), set_pwd_per_drive(Path::new("C:\\Users\\Home")));
+        // Set PWD for drive F
+        assert!(set_pwd_per_drive(Path::new(r"F:\Users\Home")).is_ok());
 
         if cfg!(windows) {
             // Expand a relative path
-            let expanded = expand_pwd_per_drive(Path::new("C:test"));
-            assert_eq!(expanded, Some(PathBuf::from("C:\\Users\\Home\\test")));
+            let expanded = expand_pwd_per_drive(Path::new("f:test"));
+            assert_eq!(expanded, Some(PathBuf::from(r"F:\Users\Home\test")));
 
             // Will NOT expand an absolute path
-            let expanded = expand_pwd_per_drive(Path::new("C:\\absolute\\path"));
+            let expanded = expand_pwd_per_drive(Path::new(r"F:\absolute\path"));
             assert_eq!(expanded, None);
 
             // Expand with no drive letter
-            let expanded = expand_pwd_per_drive(Path::new("\\no_drive"));
+            let expanded = expand_pwd_per_drive(Path::new(r"\no_drive"));
             assert_eq!(expanded, None);
 
             // Expand with no PWD set for the drive
-            let expanded = expand_pwd_per_drive(Path::new("D:test"));
-            assert_eq!(expanded, Some(PathBuf::from("D:\\test")));
+            let expanded = expand_pwd_per_drive(Path::new("G:test"));
+            assert_eq!(expanded, Some(PathBuf::from(r"G:\test")));
         } else {
             // None always
-            assert_eq!(None, expand_pwd_per_drive(Path::new("C:test")));
+            assert_eq!(None, expand_pwd_per_drive(Path::new("F:test")));
         }
     }
 }
