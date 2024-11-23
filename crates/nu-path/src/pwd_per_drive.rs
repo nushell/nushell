@@ -79,40 +79,14 @@ pub mod _impl {
         }
     }
 
-    // Wrapper of Win32 API GetFullPathW()
+    use path_abs::{PathAbs, PathInfo};
+
     fn get_full_path_name_w(path_str: &str) -> Option<String> {
-        use std::ffi::OsString;
-        use std::os::windows::ffi::OsStrExt;
-        use std::os::windows::ffi::OsStringExt;
-        use winapi::um::fileapi::GetFullPathNameW;
-
-        const MAX_PATH: usize = 260;
-        let mut buffer: [u16; MAX_PATH] = [0; MAX_PATH];
-
-        unsafe {
-            // Convert input to wide string.
-            let wide_path: Vec<u16> = OsString::from(path_str)
-                .encode_wide()
-                .chain(Some(0))
-                .collect();
-            let length = GetFullPathNameW(
-                wide_path.as_ptr(),
-                buffer.len() as u32,
-                buffer.as_mut_ptr(),
-                std::ptr::null_mut(),
-            );
-
-            if length > 0 && (length as usize) < MAX_PATH {
-                let path = OsString::from_wide(&buffer[..length as usize]);
-                if let Some(path_str) = path.to_str() {
-                    let path_string = path_str.to_string();
-                    {
-                        return Some(path_string);
-                    }
-                }
-            }
+        if let Ok(path_abs) = PathAbs::new(path_str) {
+            Some(path_abs.to_str()?.to_string())
+        } else {
+            None
         }
-        None
     }
 
     /// Global singleton instance of DrivePwdMap
