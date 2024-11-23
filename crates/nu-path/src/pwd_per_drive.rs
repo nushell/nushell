@@ -79,14 +79,16 @@ pub mod _impl {
         }
     }
 
-    use path_abs::{PathAbs, PathInfo};
-
     fn get_full_path_name_w(path_str: &str) -> Option<String> {
+        use path_abs::PathAbs;
         if let Ok(path_abs) = PathAbs::new(path_str) {
-            Some(path_abs.to_str()?.to_string())
-        } else {
-            None
+            let full_path = path_abs.as_path().to_str()?;
+            // Remove the preceding \\?\ characters
+            if full_path.starts_with(r"\\?\") {
+                return Some(full_path[4..].to_string());
+            }
         }
+        None
     }
 
     /// Global singleton instance of DrivePwdMap
