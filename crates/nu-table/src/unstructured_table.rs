@@ -3,7 +3,7 @@ use nu_protocol::{Config, Record, Span, TableIndent, Value};
 
 use tabled::{
     grid::{
-        ansi::{ANSIBuf, ANSIStr},
+        ansi::ANSIStr,
         config::{AlignmentHorizontal, Borders, CompactMultilineConfig},
         dimension::{DimensionPriority, PoolTableDimension},
     },
@@ -28,7 +28,7 @@ impl UnstructuredTable {
 
     pub fn truncate(&mut self, theme: &TableTheme, width: usize) -> bool {
         let mut available = width;
-        let has_vertical = theme.as_base().borders_has_left();
+        let has_vertical = theme.as_full().borders_has_left();
         if has_vertical {
             available = available.saturating_sub(2);
         }
@@ -65,10 +65,18 @@ fn build_table(
     let color = color.paint(" ").to_string();
     if let Ok(color) = Color::try_from(color) {
         if !is_color_empty(&color) {
-            table.with(SetBorderColor(color_into_ansistr(color)));
+            return build_table_with_border_color(table, color);
         }
     }
 
+    table.to_string()
+}
+
+fn build_table_with_border_color(mut table: PoolTable, color: Color) -> String {
+    // NOTE: We have this function presizely because of color_into_ansistr internals
+    // color must be alive  why we build table
+
+    table.with(SetBorderColor(color_into_ansistr(&color)));
     table.to_string()
 }
 
@@ -333,14 +341,13 @@ fn truncate_table_value(
     }
 }
 
-fn color_into_ansistr(color: Color) -> ANSIStr<'static> {
+fn color_into_ansistr(color: &Color) -> ANSIStr<'static> {
     // # SAFETY
     //
     // It's perfectly save to do cause table does not store the reference internally.
     // We just need this unsafe section to cope with some limitations of [`PoolTable`].
     // Mitigation of this is definitely on a todo list.
 
-    let color: ANSIBuf = color.into();
     let prefix = color.get_prefix();
     let suffix = color.get_suffix();
     let prefix: &'static str = unsafe { std::mem::transmute(prefix) };

@@ -631,8 +631,9 @@ fn load_theme(
     let mut theme = theme.as_base().clone();
 
     if !structure.with_header {
-        theme.set_horizontal_lines(Default::default());
+        let borders = *theme.get_borders();
         theme.remove_horizontal_lines();
+        theme.set_borders(borders);
     } else if structure.with_footer {
         theme_copy_horizontal_line(&mut theme, 1, table.count_rows() - 1);
     }
