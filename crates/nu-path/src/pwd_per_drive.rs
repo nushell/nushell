@@ -89,8 +89,11 @@ pub mod _impl {
         assert_eq!(expanded, None);
 
         // Expand with no PWD set for the drive
-        let expanded = expand_pwd(Path::new("G:test"));
-        assert_eq!(expanded, Some(PathBuf::from(r"G:\test")));
+        let expanded = expand_pwd(Path::new("D:test"));
+        if let Some(sys_abs) = get_full_path_name_w("D:") {
+            assert_eq!(expanded, Some(PathBuf::from(format!("{}test", Drive2PWD::ensure_trailing_separator(&sys_abs)))));
+        }
+        assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
     }
 
     struct Drive2PWD {
