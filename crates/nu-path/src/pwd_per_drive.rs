@@ -1,6 +1,97 @@
 #[cfg(windows)]
 pub mod _impl {
     use std::path::{Path, PathBuf};
+    /// Usage for pwd_per_drive on windows
+    ///
+    /// Upon change PWD, call set_pwd_per_drive() with absolute path
+    ///
+    /// Call expand_pwd_per_drive() with relative path to get absolution path
+    ///
+    /// ```
+    /// use std::path::{Path, PathBuf};
+    /// use nu_path::{expand_pwd, set_pwd};
+    ///
+    /// // Set PWD for drive C
+    /// set_pwd(Path::new(r"C:\Users\Home")).unwrap();
+    ///
+    /// // Expand a relative path
+    /// let expanded = expand_pwd(Path::new("C:test"));
+    /// assert_eq!(expanded, Some(PathBuf::from(r"C:\Users\Home\test")));
+    ///
+    /// // Will NOT expand an absolute path
+    /// let expanded = expand_pwd(Path::new(r"C:\absolute\path"));
+    /// assert_eq!(expanded, None);
+    ///
+    /// // Expand with no drive letter
+    /// let expanded = expand_pwd(Path::new(r"\no_drive"));
+    /// assert_eq!(expanded, None);
+    ///
+    /// // Expand with no PWD set for the drive
+    /// let expanded = expand_pwd(Path::new("D:test"));
+    /// assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
+    /// ```
+    pub mod singleton {
+        use super::*;
+
+        /// set_pwd_per_drive
+        /// Record PWD for drive, path must be absolute path
+        /// return Ok(()) if succeeded, otherwise error message
+        pub fn set_pwd(_path: &Path) -> Result<(), String> {
+            if let Ok(mut pwd_per_drive) = get_drive_pwd_map().lock() {
+                pwd_per_drive.set_pwd(_path)
+            } else {
+                Err("Failed to lock map".to_string())
+            }
+        }
+
+        /// expand_pwe_per_drive
+        /// Input relative path, expand PWD-per-drive to construct absolute path
+        /// return PathBuf for absolute path, None if input path is invalid.
+        pub fn expand_pwd(_path: &Path) -> Option<PathBuf> {
+            if need_expand_pwd_per_drive(_path) {
+                if let Ok(mut pwd_per_drive) = get_drive_pwd_map().lock() {
+                    return pwd_per_drive.expand_path(_path);
+                }
+            }
+            None
+        }
+
+        /// Helper only used on Windows, if input path is relative path
+        /// with drive letter, it can be expanded with PWD-per-drive.
+        fn need_expand_pwd_per_drive(_path: &Path) -> bool {
+            if let Some(path_str) = _path.to_str() {
+                let chars: Vec<char> = path_str.chars().collect();
+                if chars.len() >= 2 {
+                    return chars[1] == ':'
+                        && (chars.len() == 2 || (chars[2] != '/' && chars[2] != '\\'));
+                }
+            }
+            false
+        }
+    }
+
+    #[test]
+    fn test_usage_for_pwd_per_drive() {
+        use super::_impl::singleton::{expand_pwd, set_pwd};
+        // Set PWD for drive F
+        assert!(set_pwd(Path::new(r"F:\Users\Home")).is_ok());
+
+        // Expand a relative path
+        let expanded = expand_pwd(Path::new("f:test"));
+        assert_eq!(expanded, Some(PathBuf::from(r"F:\Users\Home\test")));
+
+        // Will NOT expand an absolute path
+        let expanded = expand_pwd(Path::new(r"F:\absolute\path"));
+        assert_eq!(expanded, None);
+
+        // Expand with no drive letter
+        let expanded = expand_pwd(Path::new(r"\no_drive"));
+        assert_eq!(expanded, None);
+
+        // Expand with no PWD set for the drive
+        let expanded = expand_pwd(Path::new("G:test"));
+        assert_eq!(expanded, Some(PathBuf::from(r"G:\test")));
+    }
 
     struct Drive2PWD {
         map: [Option<String>; 26], // Fixed-size array for A-Z
@@ -91,20 +182,14 @@ pub mod _impl {
         None
     }
 
-    /// Global singleton instance of DrivePwdMap
-    use std::sync::{Mutex, Once};
+    use std::sync::{Mutex, OnceLock};
 
-    static INIT: Once = Once::new();
-    static mut DRIVE_PWD_MAP: Option<Mutex<Drive2PWD>> = None;
+    /// Global singleton instance of DrivePwdMap
+    static DRIVE_PWD_MAP: OnceLock<Mutex<Drive2PWD>> = OnceLock::new();
 
     /// Access the singleton instance
     fn get_drive_pwd_map() -> &'static Mutex<Drive2PWD> {
-        unsafe {
-            INIT.call_once(|| {
-                DRIVE_PWD_MAP = Some(Mutex::new(Drive2PWD::new()));
-            });
-            DRIVE_PWD_MAP.as_ref().unwrap()
-        }
+        DRIVE_PWD_MAP.get_or_init(|| Mutex::new(Drive2PWD::new()))
     }
 
     /// Test for Drive2PWD map
@@ -224,97 +309,6 @@ pub mod _impl {
 
             // Invalid drive letter (non-alphabetic)
             assert_eq!(drive_map.get_pwd('1'), None);
-        }
-    }
-
-    /// Usage for pwd_per_drive on windows
-    ///
-    /// Upon change PWD, call set_pwd_per_drive() with absolute path
-    ///
-    /// Call expand_pwd_per_drive() with relative path to get absolution path
-    ///
-    /// ```
-    /// use std::path::{Path, PathBuf};
-    /// use nu_path::{expand_pwd, set_pwd};
-    ///
-    /// // Set PWD for drive C
-    /// set_pwd(Path::new(r"C:\Users\Home")).unwrap();
-    ///
-    /// // Expand a relative path
-    /// let expanded = expand_pwd(Path::new("C:test"));
-    /// assert_eq!(expanded, Some(PathBuf::from(r"C:\Users\Home\test")));
-    ///
-    /// // Will NOT expand an absolute path
-    /// let expanded = expand_pwd(Path::new(r"C:\absolute\path"));
-    /// assert_eq!(expanded, None);
-    ///
-    /// // Expand with no drive letter
-    /// let expanded = expand_pwd(Path::new(r"\no_drive"));
-    /// assert_eq!(expanded, None);
-    ///
-    /// // Expand with no PWD set for the drive
-    /// let expanded = expand_pwd(Path::new("D:test"));
-    /// assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
-    /// ```
-    pub mod singleton {
-        use super::*;
-
-        /// set_pwd_per_drive
-        /// Record PWD for drive, path must be absolute path
-        /// return Ok(()) if succeeded, otherwise error message
-        pub fn set_pwd(_path: &Path) -> Result<(), String> {
-            if let Ok(mut pwd_per_drive) = get_drive_pwd_map().lock() {
-                pwd_per_drive.set_pwd(_path)
-            } else {
-                Err("Failed to lock map".to_string())
-            }
-        }
-
-        /// expand_pwe_per_drive
-        /// Input relative path, expand PWD-per-drive to construct absolute path
-        /// return PathBuf for absolute path, None if input path is invalid.
-        pub fn expand_pwd(_path: &Path) -> Option<PathBuf> {
-            if need_expand_pwd_per_drive(_path) {
-                if let Ok(mut pwd_per_drive) = get_drive_pwd_map().lock() {
-                    return pwd_per_drive.expand_path(_path);
-                }
-            }
-            None
-        }
-
-        /// Helper only used on Windows, if input path is relative path
-        /// with drive letter, it can be expanded with PWD-per-drive.
-        fn need_expand_pwd_per_drive(_path: &Path) -> bool {
-            if let Some(path_str) = _path.to_str() {
-                let chars: Vec<char> = path_str.chars().collect();
-                if chars.len() >= 2 {
-                    return chars[1] == ':'
-                        && (chars.len() == 2 || (chars[2] != '/' && chars[2] != '\\'));
-                }
-            }
-            false
-        }
-
-        #[test]
-        fn test_usage_for_pwd_per_drive() {
-            // Set PWD for drive F
-            assert!(set_pwd(Path::new(r"F:\Users\Home")).is_ok());
-
-            // Expand a relative path
-            let expanded = expand_pwd(Path::new("f:test"));
-            assert_eq!(expanded, Some(PathBuf::from(r"F:\Users\Home\test")));
-
-            // Will NOT expand an absolute path
-            let expanded = expand_pwd(Path::new(r"F:\absolute\path"));
-            assert_eq!(expanded, None);
-
-            // Expand with no drive letter
-            let expanded = expand_pwd(Path::new(r"\no_drive"));
-            assert_eq!(expanded, None);
-
-            // Expand with no PWD set for the drive
-            let expanded = expand_pwd(Path::new("G:test"));
-            assert_eq!(expanded, Some(PathBuf::from(r"G:\test")));
         }
     }
 }
