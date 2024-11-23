@@ -23,6 +23,11 @@ pub fn string_wrap(text: &str, width: usize, keep_words: bool) -> String {
         return String::new();
     }
 
+    let text_width = string_width(text);
+    if text_width <= width {
+        return text.to_owned();
+    }
+
     Wrap::wrap(text, width, keep_words)
 }
 
@@ -46,7 +51,7 @@ pub fn clean_charset(text: &str) -> String {
     // allocating at least the text size,
     // in most cases the buf will be a copy of text anyhow.
     //
-    // but yes sometimes we will alloc more then nessary.
+    // but yes sometimes we will alloc more then necessary.
     // We could shrink it but...it will be another realloc which make no scense.
     let mut buf = String::with_capacity(text.len());
 

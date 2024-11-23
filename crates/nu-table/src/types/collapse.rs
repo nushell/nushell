@@ -1,10 +1,11 @@
+use nu_color_config::StyleComputer;
+use nu_protocol::{Config, Record, Value};
+use nu_utils::SharedCow;
+
 use crate::{
     common::{get_index_style, load_theme, nu_value_to_string_clean},
     StringResult, TableOpts, UnstructuredTable,
 };
-use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Record, Value};
-use nu_utils::SharedCow;
 
 pub struct CollapsedTable;
 

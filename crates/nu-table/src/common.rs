@@ -1,9 +1,11 @@
+use nu_color_config::{Alignment, StyleComputer, TextStyle};
+use nu_protocol::{Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value};
+
+use terminal_size::{terminal_size, Height, Width};
+
 use crate::{
     clean_charset, colorize_space_str, string_wrap, NuTableConfig, TableOutput, TableTheme,
 };
-use nu_color_config::{Alignment, StyleComputer, TextStyle};
-use nu_protocol::{Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value};
-use terminal_size::{terminal_size, Height, Width};
 
 pub type NuText = (String, TextStyle);
 pub type TableResult = Result<Option<TableOutput>, ShellError>;
@@ -37,15 +39,20 @@ pub fn create_nu_table_config(
     }
 }
 
-pub fn nu_value_to_string_colored(val: &Value, cfg: &Config, style: &StyleComputer) -> String {
-    let (mut text, value_style) = nu_value_to_string(val, cfg, style);
-    if let Some(color) = value_style.color_style {
+pub fn nu_value_to_string_colored(val: &Value, cfg: &Config, comp: &StyleComputer) -> String {
+    let (mut text, style) = nu_value_to_string(val, cfg, comp);
+
+    let is_string = matches!(val, Value::String { .. });
+    if is_string {
+        text = clean_charset(&text);
+    }
+
+    if let Some(color) = style.color_style {
         text = color.paint(text).to_string();
     }
 
-    if matches!(val, Value::String { .. }) {
-        text = clean_charset(&text);
-        colorize_space_str(&mut text, style);
+    if is_string {
+        colorize_space_str(&mut text, comp);
     }
 
     text

@@ -264,7 +264,7 @@ fn draw_table(
 ) -> Option<String> {
     let structure = get_table_structure(&data, &cfg);
     let sep_color = cfg.split_color;
-    let border_header = cfg.header_on_border;
+    let border_header = structure.with_header && cfg.header_on_border;
 
     let data: Vec<Vec<_>> = data.into();
     let mut table = Builder::from(data).build();
@@ -277,13 +277,7 @@ fn draw_table(
     let pad = indent.0 + indent.1;
     let width_ctrl = WidthCtrl::new(widths, cfg, termwidth, pad);
 
-    let need_border_header = structure.with_header && border_header;
-    adjust_table(
-        &mut table,
-        width_ctrl,
-        need_border_header,
-        structure.with_footer,
-    );
+    adjust_table(&mut table, width_ctrl, border_header, structure.with_footer);
 
     table_to_string(table, termwidth)
 }

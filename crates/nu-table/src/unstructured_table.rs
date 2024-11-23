@@ -15,7 +15,7 @@ use crate::{is_color_empty, string_width, string_wrap, TableTheme};
 
 /// UnstructuredTable has a recursive table representation of nu_protocol::Value.
 ///
-/// It doesn't support alignment and a proper width control (allthough it's possible to achieve).
+/// It doesn't support alignment and a proper width control (although it's possible to achieve).
 pub struct UnstructuredTable {
     value: TableValue,
 }

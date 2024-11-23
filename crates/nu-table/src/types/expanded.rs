@@ -1,3 +1,11 @@
+use std::{cmp::max, collections::HashMap};
+
+use nu_color_config::{Alignment, StyleComputer, TextStyle};
+use nu_engine::column::get_columns;
+use nu_protocol::{Config, Record, ShellError, Span, Value};
+
+use tabled::grid::config::Position;
+
 use crate::{
     common::{
         check_value, create_nu_table_config, error_sign, get_header_style, get_index_style,
@@ -8,11 +16,6 @@ use crate::{
     types::has_index,
     NuRecordsValue, NuTable, TableOpts, TableOutput,
 };
-use nu_color_config::{Alignment, StyleComputer, TextStyle};
-use nu_engine::column::get_columns;
-use nu_protocol::{Config, Record, ShellError, Span, Value};
-use std::{cmp::max, collections::HashMap};
-use tabled::grid::config::Position;
 
 #[derive(Debug, Clone)]
 pub struct ExpandedTable {
@@ -31,12 +34,14 @@ impl ExpandedTable {
     }
 
     pub fn build_value(self, item: &Value, opts: TableOpts<'_>) -> NuText {
-        let cell = expanded_table_entry2(item, Cfg { opts, format: self });
+        let cfg = Cfg { opts, format: self };
+        let cell = expanded_table_entry2(item, cfg);
         (cell.text, cell.style)
     }
 
     pub fn build_map(self, record: &Record, opts: TableOpts<'_>) -> StringResult {
-        expanded_table_kv(record, Cfg { opts, format: self }).map(|cell| cell.map(|cell| cell.text))
+        let cfg = Cfg { opts, format: self };
+        expanded_table_kv(record, cfg).map(|cell| cell.map(|cell| cell.text))
     }
 
     pub fn build_list(self, vals: &[Value], opts: TableOpts<'_>) -> StringResult {
@@ -387,7 +392,7 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
     for (key, value) in record {
         cfg.opts.signals.check(cfg.opts.span)?;
 
-        let cell = match expand_table_value(value, value_width, &cfg)? {
+        let cell = match expand_value(value, value_width, &cfg)? {
             Some(val) => val,
             None => return Ok(None),
         };
@@ -421,14 +426,11 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
 }
 
 // the flag is used as an optimization to not do `value.lines().count()` search.
-fn expand_table_value(value: &Value, value_width: usize, cfg: &Cfg<'_>) -> CellResult {
+fn expand_value(value: &Value, value_width: usize, cfg: &Cfg<'_>) -> CellResult {
     let is_limited = matches!(cfg.format.expand_limit, Some(0));
     if is_limited {
-        return Ok(Some(CellOutput::clean(
-            value_to_string_clean(value, cfg),
-            1,
-            false,
-        )));
+        let value = value_to_string_clean(value, cfg);
+        return Ok(Some(CellOutput::clean(value, 1, false)));
     }
 
     let span = value.span();
@@ -448,40 +450,32 @@ fn expand_table_value(value: &Value, value_width: usize, cfg: &Cfg<'_>) -> CellR
                 }
                 None => {
                     // it means that the list is empty
-                    Ok(Some(CellOutput::text(value_to_wrapped_string(
-                        value,
-                        cfg,
-                        value_width,
-                    ))))
+                    let value = value_to_wrapped_string(value, cfg, value_width);
+                    Ok(Some(CellOutput::text(value)))
                 }
             }
         }
         Value::Record { val: record, .. } => {
             if record.is_empty() {
                 // Like list case return styled string instead of empty value
-                return Ok(Some(CellOutput::text(value_to_wrapped_string(
-                    value,
-                    cfg,
-                    value_width,
-                ))));
+                let value = value_to_wrapped_string(value, cfg, value_width);
+                return Ok(Some(CellOutput::text(value)));
             }
 
             let inner_cfg = update_config(dive_options(cfg, span), value_width);
             let result = expanded_table_kv(record, inner_cfg)?;
             match result {
                 Some(result) => Ok(Some(CellOutput::clean(result.text, result.size, true))),
-                None => Ok(Some(CellOutput::text(value_to_wrapped_string(
-                    value,
-                    cfg,
-                    value_width,
-                )))),
+                None => {
+                    let value = value_to_wrapped_string(value, cfg, value_width);
+                    Ok(Some(CellOutput::text(value)))
+                }
             }
         }
-        _ => Ok(Some(CellOutput::text(value_to_wrapped_string_clean(
-            value,
-            cfg,
-            value_width,
-        )))),
+        _ => {
+            let value = value_to_wrapped_string_clean(value, cfg, value_width);
+            Ok(Some(CellOutput::text(value)))
+        }
     }
 }
 
