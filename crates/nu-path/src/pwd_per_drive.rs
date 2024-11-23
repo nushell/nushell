@@ -153,11 +153,9 @@ pub mod _impl {
 
         /// Extract the drive letter from a path (e.g., `C:test` -> `C`)
         fn extract_drive_letter(path: &Path) -> Option<char> {
-            Some(
-                path.to_str()
+            path.to_str()
                     .and_then(|s| s.chars().next())
-                    .filter(|c| c.is_ascii_alphabetic())?,
-            )
+                    .filter(|c| c.is_ascii_alphabetic())
         }
 
         /// Ensure a path has a trailing `\`
