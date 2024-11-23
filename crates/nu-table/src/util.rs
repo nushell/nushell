@@ -1,12 +1,15 @@
 use nu_color_config::StyleComputer;
+
 use tabled::{
-    builder::Builder,
     grid::{
         ansi::{ANSIBuf, ANSIStr},
         records::vec_records::Text,
         util::string::get_text_width,
     },
-    settings::{width::Truncate, Color, Modify, Padding, Style, Width},
+    settings::{
+        width::{Truncate, Wrap},
+        Color,
+    },
 };
 
 use crate::common::get_leading_trailing_space_style;
@@ -16,34 +19,16 @@ pub fn string_width(text: &str) -> usize {
 }
 
 pub fn string_wrap(text: &str, width: usize, keep_words: bool) -> String {
-    // todo: change me...
-    //
-    // well... it's not efficient to build a table to wrap a string,
-    // but ... it's better than a copy paste (is it?)
-
     if text.is_empty() {
         return String::new();
     }
 
-    let wrap = if keep_words {
-        Width::wrap(width).keep_words(true)
-    } else {
-        Width::wrap(width)
-    };
-
-    Builder::from_iter([[text]])
-        .build()
-        .with(Style::empty())
-        .with(Padding::zero())
-        .with(Modify::new((0, 0)).with(wrap))
-        .to_string()
+    Wrap::wrap(text, width, keep_words)
 }
 
 pub fn string_truncate(text: &str, width: usize) -> String {
-    // todo: change me...
-
     let line = match text.lines().next() {
-        Some(first_line) => first_line,
+        Some(line) => line,
         None => return String::new(),
     };
 
@@ -51,35 +36,75 @@ pub fn string_truncate(text: &str, width: usize) -> String {
 }
 
 pub fn clean_charset(text: &str) -> String {
-    // todo: optimize, I bet it can be done in 1 path
-    text.replace('\t', "    ").replace('\r', "")
+    // TODO: We could make an optimization to take a String and modify it
+    //       We could check if there was any changes and if not make no allocations at all and don't change the origin.
+    //       Why it's not done...
+    //       Cause I am not sure how the `if` in a loop will affect performance.
+    //       So it's better be profiled, but likely the optimization be worth it.
+    //       At least because it's a base case where we won't change anything....
+
+    // allocating at least the text size,
+    // in most cases the buf will be a copy of text anyhow.
+    //
+    // but yes sometimes we will alloc more then nessary.
+    // We could shrink it but...it will be another realloc which make no scense.
+    let mut buf = String::with_capacity(text.len());
+
+    for c in text.chars() {
+        if c == '\n' {
+            buf.push(c);
+            continue;
+        }
+
+        if c == '\t' {
+            buf.push(' ');
+            buf.push(' ');
+            buf.push(' ');
+            buf.push(' ');
+            continue;
+        }
+
+        if c < ' ' {
+            continue;
+        }
+
+        buf.push(c);
+    }
+
+    buf
 }
 
 pub fn colorize_space(data: &mut [Vec<Text<String>>], style_computer: &StyleComputer<'_>) {
-    if let Some(style) = get_leading_trailing_space_style(style_computer).color_style {
-        let style = ANSIBuf::from(convert_style(style));
-        let style = style.as_ref();
-        colorize_lead_trail_space(data, Some(style), Some(style));
-    }
-}
+    let style = match get_leading_trailing_space_style(style_computer).color_style {
+        Some(color) => color,
+        None => return,
+    };
 
-pub fn colorize_space_str(text: &mut String, style_computer: &StyleComputer<'_>) {
-    if let Some(style) = get_leading_trailing_space_style(style_computer).color_style {
-        let style = ANSIBuf::from(convert_style(style));
-        let style = style.as_ref();
-        *text = colorize_space_one(text, Some(style), Some(style));
-    }
-}
-
-fn colorize_lead_trail_space(
-    data: &mut [Vec<Text<String>>],
-    lead: Option<ANSIStr<'_>>,
-    trail: Option<ANSIStr<'_>>,
-) {
-    if lead.is_none() && trail.is_none() {
+    let style = ANSIBuf::from(convert_style(style));
+    let style = style.as_ref();
+    if style.is_empty() {
         return;
     }
 
+    colorize_list(data, style, style);
+}
+
+pub fn colorize_space_str(text: &mut String, style_computer: &StyleComputer<'_>) {
+    let style = match get_leading_trailing_space_style(style_computer).color_style {
+        Some(color) => color,
+        None => return,
+    };
+
+    let style = ANSIBuf::from(convert_style(style));
+    let style = style.as_ref();
+    if style.is_empty() {
+        return;
+    }
+
+    *text = colorize_space_one(text, style, style);
+}
+
+fn colorize_list(data: &mut [Vec<Text<String>>], lead: ANSIStr<'_>, trail: ANSIStr<'_>) {
     for row in data.iter_mut() {
         for cell in row {
             let buf = colorize_space_one(cell.as_ref(), lead, trail);
@@ -88,7 +113,7 @@ fn colorize_lead_trail_space(
     }
 }
 
-fn colorize_space_one(text: &str, lead: Option<ANSIStr<'_>>, trail: Option<ANSIStr<'_>>) -> String {
+fn colorize_space_one(text: &str, lead: ANSIStr<'_>, trail: ANSIStr<'_>) -> String {
     use fancy_regex::Captures;
     use fancy_regex::Regex;
     use std::sync::LazyLock;
@@ -102,20 +127,20 @@ fn colorize_space_one(text: &str, lead: Option<ANSIStr<'_>>, trail: Option<ANSIS
 
     let mut buf = text.to_owned();
 
-    if let Some(color) = &lead {
+    if !lead.is_empty() {
         buf = RE_LEADING
             .replace_all(&buf, |cap: &Captures| {
                 let spaces = cap.get(1).expect("valid").as_str();
-                format!("{}{}{}", color.get_prefix(), spaces, color.get_suffix())
+                format!("{}{}{}", lead.get_prefix(), spaces, lead.get_suffix())
             })
             .into_owned();
     }
 
-    if let Some(color) = &trail {
+    if !trail.is_empty() {
         buf = RE_TRAILING
             .replace_all(&buf, |cap: &Captures| {
                 let spaces = cap.get(1).expect("valid").as_str();
-                format!("{}{}{}", color.get_prefix(), spaces, color.get_suffix())
+                format!("{}{}{}", trail.get_prefix(), spaces, trail.get_suffix())
             })
             .into_owned();
     }
@@ -125,4 +150,8 @@ fn colorize_space_one(text: &str, lead: Option<ANSIStr<'_>>, trail: Option<ANSIS
 
 pub fn convert_style(style: nu_ansi_term::Style) -> Color {
     Color::new(style.prefix().to_string(), style.suffix().to_string())
+}
+
+pub fn is_color_empty(c: &Color) -> bool {
+    c.get_prefix().is_empty() && c.get_suffix().is_empty()
 }

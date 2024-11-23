@@ -29,7 +29,10 @@ use tabled::{
     Table,
 };
 
-use crate::{convert_style, table_theme::TableTheme};
+use crate::{convert_style, is_color_empty, table_theme::TableTheme};
+
+pub type NuRecords = VecRecords<NuRecordsValue>;
+pub type NuRecordsValue = Text<String>;
 
 /// NuTable is a table rendering implementation.
 #[derive(Debug, Clone)]
@@ -40,27 +43,18 @@ pub struct NuTable {
     indent: (usize, usize),
 }
 
-pub type NuRecords = VecRecords<NuTableCell>;
-pub type NuTableCell = Text<String>;
-
 #[derive(Debug, Default, Clone)]
-struct Styles {
-    data: Color,
-    index: Color,
-    header: Color,
-    columns: HashMap<usize, Color>,
-    cells: HashMap<Position, Color>,
+struct TableConfig<Value> {
+    data: Value,
+    index: Value,
+    header: Value,
+    columns: HashMap<usize, Value>,
+    cells: HashMap<Position, Value>,
 }
 
-// todo: generic
-#[derive(Debug, Clone)]
-struct Alignments {
-    data: AlignmentHorizontal,
-    index: AlignmentHorizontal,
-    header: AlignmentHorizontal,
-    columns: HashMap<usize, AlignmentHorizontal>,
-    cells: HashMap<Position, AlignmentHorizontal>,
-}
+type Alignments = TableConfig<AlignmentHorizontal>;
+
+type Styles = TableConfig<Color>;
 
 impl NuTable {
     /// Creates an empty [`NuTable`] instance.
@@ -91,6 +85,14 @@ impl NuTable {
 
     pub fn insert(&mut self, pos: Position, text: String) {
         self.data[pos.0][pos.1] = Text::new(text);
+    }
+
+    pub fn insert_row(&mut self, index: usize, row: Vec<String>) {
+        let data = &mut self.data[index];
+
+        for (col, text) in row.into_iter().enumerate() {
+            data[col] = Text::new(text);
+        }
     }
 
     pub fn set_column_style(&mut self, column: usize, style: TextStyle) {
@@ -411,8 +413,8 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
             return;
         }
 
-        let need_expantion = self.cfg.expand && self.width_max > total_width;
-        if need_expantion {
+        let need_expansion = self.cfg.expand && self.width_max > total_width;
+        if need_expansion {
             let opt = (SetDimensions(self.width), Width::increase(self.width_max));
             TableOption::<VecRecords<_>, _, _>::change(opt, rec, cfg, dim);
             return;
@@ -1241,8 +1243,4 @@ fn strip_color_from_row(row: usize) -> ModifyList<Row, FormatContent<fn(&str) ->
     }
 
     Modify::new(Rows::single(row)).with(Format::content(foo))
-}
-
-fn is_color_empty(c: &Color) -> bool {
-    c.get_prefix().is_empty() && c.get_suffix().is_empty()
 }

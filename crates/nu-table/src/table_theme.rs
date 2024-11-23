@@ -10,7 +10,7 @@ pub struct TableTheme {
 }
 
 impl TableTheme {
-    pub fn new(base: impl Into<Theme>, full: impl Into<Theme>) -> Self {
+    fn new(base: impl Into<Theme>, full: impl Into<Theme>) -> Self {
         Self {
             base: base.into(),
             full: full.into(),
@@ -159,26 +159,6 @@ impl TableTheme {
     pub fn none() -> TableTheme {
         Self::new(Style::blank(), Style::blank())
     }
-
-    // pub fn has_top(&self) -> bool {
-    //     self.theme.borders_has_top()
-    // }
-
-    // pub fn has_left(&self) -> bool {
-    //     self.theme.borders_has_left()
-    // }
-
-    // pub fn has_right(&self) -> bool {
-    //     self.theme.borders_has_right()
-    // }
-
-    // pub fn has_inner(&self) -> bool {
-    //     self.has_inner
-    // }
-
-    // pub fn has_horizontals(&self) -> bool {
-    //     self.full_theme.get_borders().has_horizontal()
-    // }
 
     pub fn as_full(&self) -> &Theme {
         &self.full

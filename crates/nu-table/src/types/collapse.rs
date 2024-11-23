@@ -3,46 +3,36 @@ use crate::{
     StringResult, TableOpts, UnstructuredTable,
 };
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Record, TableMode, Value};
+use nu_protocol::{Config, Record, Value};
 use nu_utils::SharedCow;
 
 pub struct CollapsedTable;
 
 impl CollapsedTable {
     pub fn build(value: Value, opts: TableOpts<'_>) -> StringResult {
-        collapsed_table(
-            value,
-            opts.config,
-            opts.width,
-            opts.style_computer,
-            opts.mode,
-        )
+        collapsed_table(value, opts)
     }
 }
 
-fn collapsed_table(
-    mut value: Value,
-    config: &Config,
-    term_width: usize,
-    style_computer: &StyleComputer,
-    mode: TableMode,
-) -> StringResult {
-    colorize_value(&mut value, config, style_computer);
+fn collapsed_table(mut value: Value, opts: TableOpts<'_>) -> StringResult {
+    colorize_value(&mut value, opts.config, opts.style_computer);
 
-    let theme = load_theme(mode);
-    let mut table = UnstructuredTable::new(value, config);
-    let is_empty = table.truncate(&theme, term_width);
+    let mut table = UnstructuredTable::new(value, opts.config);
+
+    let theme = load_theme(opts.mode);
+    let is_empty = table.truncate(&theme, opts.width);
     if is_empty {
         return Ok(None);
     }
 
-    let indent = (config.table.padding.left, config.table.padding.right);
-    let table = table.draw(style_computer, &theme, indent);
+    let table = table.draw(&theme, opts.config.table.padding, opts.style_computer);
 
     Ok(Some(table))
 }
 
 fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComputer) {
+    // todo: Remove recursion?
+
     match value {
         Value::Record { ref mut val, .. } => {
             let style = get_index_style(style_computer);

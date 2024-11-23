@@ -1,6 +1,6 @@
-use crate::{string_width, string_wrap, TableTheme};
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Record, Span, Value};
+use nu_protocol::{Config, Record, Span, TableIndent, Value};
+
 use tabled::{
     grid::{
         ansi::{ANSIBuf, ANSIStr},
@@ -11,9 +11,11 @@ use tabled::{
     tables::{PoolTable, TableValue},
 };
 
+use crate::{is_color_empty, string_width, string_wrap, TableTheme};
+
 /// UnstructuredTable has a recursive table representation of nu_protocol::Value.
 ///
-/// It doesn't support alignment and a proper width control.
+/// It doesn't support alignment and a proper width control (allthough it's possible to achieve).
 pub struct UnstructuredTable {
     value: TableValue,
 }
@@ -34,28 +36,23 @@ impl UnstructuredTable {
         truncate_table_value(&mut self.value, has_vertical, available).is_none()
     }
 
-    pub fn draw(
-        self,
-        style_computer: &StyleComputer,
-        theme: &TableTheme,
-        indent: (usize, usize),
-    ) -> String {
-        build_table(self.value, style_computer, theme, indent)
+    pub fn draw(self, theme: &TableTheme, indent: TableIndent, style: &StyleComputer) -> String {
+        build_table(self.value, style, theme, indent)
     }
 }
 
 fn build_table(
     val: TableValue,
-    style_computer: &StyleComputer,
+    style: &StyleComputer,
     theme: &TableTheme,
-    indent: (usize, usize),
+    indent: TableIndent,
 ) -> String {
     let mut table = PoolTable::from(val);
 
     let mut theme = theme.as_full().clone();
     theme.set_horizontal_lines(Default::default());
 
-    table.with(Padding::new(indent.0, indent.1, 0, 0));
+    table.with(Padding::new(indent.left, indent.right, 0, 0));
     table.with(SetRawStyle(theme));
     table.with(SetAlignment(AlignmentHorizontal::Left));
     table.with(PoolTableDimension::new(
@@ -64,25 +61,12 @@ fn build_table(
     ));
 
     // color_config closures for "separator" are just given a null.
-    let color = style_computer.compute("separator", &Value::nothing(Span::unknown()));
+    let color = style.compute("separator", &Value::nothing(Span::unknown()));
     let color = color.paint(" ").to_string();
     if let Ok(color) = Color::try_from(color) {
-        // # SAFETY
-        //
-        // It's perfectly save to do cause table does not store the reference internally.
-        // We just need this unsafe section to cope with some limitations of [`PoolTable`].
-        // Mitigation of this is definitely on a todo list.
-
-        let color: ANSIBuf = color.into();
-        let prefix = color.get_prefix();
-        let suffix = color.get_suffix();
-        let prefix: &'static str = unsafe { std::mem::transmute(prefix) };
-        let suffix: &'static str = unsafe { std::mem::transmute(suffix) };
-
-        table.with(SetBorderColor(ANSIStr::new(prefix, suffix)));
-        let table = table.to_string();
-
-        return table;
+        if !is_color_empty(&color) {
+            table.with(SetBorderColor(color_into_ansistr(color)));
+        }
     }
 
     table.to_string()
@@ -347,4 +331,20 @@ fn truncate_table_value(
             }
         }
     }
+}
+
+fn color_into_ansistr(color: Color) -> ANSIStr<'static> {
+    // # SAFETY
+    //
+    // It's perfectly save to do cause table does not store the reference internally.
+    // We just need this unsafe section to cope with some limitations of [`PoolTable`].
+    // Mitigation of this is definitely on a todo list.
+
+    let color: ANSIBuf = color.into();
+    let prefix = color.get_prefix();
+    let suffix = color.get_suffix();
+    let prefix: &'static str = unsafe { std::mem::transmute(prefix) };
+    let suffix: &'static str = unsafe { std::mem::transmute(suffix) };
+
+    ANSIStr::new(prefix, suffix)
 }

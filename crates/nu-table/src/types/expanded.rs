@@ -1,12 +1,12 @@
 use crate::{
     common::{
-        create_nu_table_config, error_sign, get_header_style, get_index_style, load_theme,
-        nu_value_to_string, nu_value_to_string_clean, nu_value_to_string_colored, wrap_text,
-        NuText, StringResult, TableResult, INDEX_COLUMN_NAME,
+        check_value, create_nu_table_config, error_sign, get_header_style, get_index_style,
+        load_theme, nu_value_to_string, nu_value_to_string_clean, nu_value_to_string_colored,
+        wrap_text, NuText, StringResult, TableResult, INDEX_COLUMN_NAME,
     },
     string_width,
     types::has_index,
-    NuTable, NuTableCell, TableOpts, TableOutput,
+    NuRecordsValue, NuTable, TableOpts, TableOutput,
 };
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
@@ -133,15 +133,12 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
     if with_index {
         if with_header {
-            data[0].push(NuTableCell::exact(String::from("#"), 1, vec![]));
+            data[0].push(NuRecordsValue::exact(String::from("#"), 1, vec![]));
         }
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(cfg.opts.span)?;
-
-            if let Value::Error { error, .. } = item {
-                return Err(*error.clone());
-            }
+            check_value(item)?;
 
             let index = row + row_offset;
             let text = item
@@ -152,7 +149,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 .unwrap_or_else(|| index.to_string());
 
             let row = row + with_header as usize;
-            let value = NuTableCell::new(text);
+            let value = NuRecordsValue::new(text);
             data[row].push(value);
         }
 
@@ -177,10 +174,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(cfg.opts.span)?;
-
-            if let Value::Error { error, .. } = item {
-                return Err(*error.clone());
-            }
+            check_value(item)?;
 
             let inner_cfg = update_config(cfg.clone(), available_width);
             let mut cell = expanded_table_entry2(item, inner_cfg);
@@ -195,7 +189,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 cell.text = wrap_text(&cell.text, available_width, cfg.opts.config);
             }
 
-            let value = NuTableCell::new(cell.text);
+            let value = NuRecordsValue::new(cell.text);
             data[row].push(value);
             data_styles.insert((row, with_index as usize), cell.style);
 
@@ -203,7 +197,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         }
 
         let mut table = NuTable::from(data);
-        table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
+        table.set_indent(cfg.opts.indent.left, cfg.opts.indent.right);
         table.set_index_style(get_index_style(cfg.opts.style_computer));
         set_data_styles(&mut table, data_styles);
 
@@ -266,10 +260,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(cfg.opts.span)?;
-
-            if let Value::Error { error, .. } = item {
-                return Err(*error.clone());
-            }
+            check_value(item)?;
 
             let inner_cfg = update_config(cfg.clone(), available);
             let mut cell = expanded_table_entry(item, header.as_str(), inner_cfg);
@@ -285,14 +276,14 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
             column_width = max(column_width, value_width);
 
-            let value = NuTableCell::new(cell.text);
+            let value = NuRecordsValue::new(cell.text);
             data[row + 1].push(value);
             data_styles.insert((row + 1, col + with_index as usize), cell.style);
 
             column_rows = column_rows.saturating_add(cell.size);
         }
 
-        let head_cell = NuTableCell::new(header);
+        let head_cell = NuRecordsValue::new(header);
         data[0].push(head_cell);
 
         if column_width > available {
@@ -354,7 +345,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         let is_last_column = widths.len() == count_columns;
         if !is_last_column {
-            let shift = NuTableCell::exact(String::from("..."), 3, vec![]);
+            let shift = NuRecordsValue::exact(String::from("..."), 3, vec![]);
             for row in &mut data {
                 row.push(shift.clone());
             }
@@ -366,7 +357,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     let mut table = NuTable::from(data);
     table.set_index_style(get_index_style(cfg.opts.style_computer));
     table.set_header_style(get_header_style(cfg.opts.style_computer));
-    table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
+    table.set_indent(cfg.opts.indent.left, cfg.opts.indent.right);
     set_data_styles(&mut table, data_styles);
 
     Ok(Some(TableOutput::new(table, true, with_index, rows_count)))
@@ -410,8 +401,8 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
             key.insert(0, '\n');
         }
 
-        let key = NuTableCell::new(key);
-        let val = NuTableCell::new(cell.text);
+        let key = NuRecordsValue::new(key);
+        let val = NuRecordsValue::new(cell.text);
         let row = vec![key, val];
 
         data.push(row);
@@ -421,7 +412,7 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
 
     let mut table = NuTable::from(data);
     table.set_index_style(get_key_style(&cfg));
-    table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
+    table.set_indent(cfg.opts.indent.left, cfg.opts.indent.right);
 
     let out = TableOutput::new(table, false, true, count_rows);
 

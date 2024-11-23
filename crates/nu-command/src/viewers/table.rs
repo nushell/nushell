@@ -11,8 +11,8 @@ use nu_protocol::{
     ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode, ValueIterator,
 };
 use nu_table::{
-    common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,
-    StringResult, TableOpts, TableOutput,
+    common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuRecordsValue,
+    NuTable, StringResult, TableOpts, TableOutput,
 };
 use nu_utils::get_ls_colors;
 use std::{
@@ -522,14 +522,13 @@ fn handle_record(
         }
     }
 
-    let indent = (config.table.padding.left, config.table.padding.right);
     let opts = TableOpts::new(
         &config,
         styles,
         input.engine_state.signals(),
         span,
         cfg.term_width,
-        indent,
+        config.table.padding,
         cfg.theme,
         cfg.index.unwrap_or(0),
         cfg.index.is_none(),
@@ -826,7 +825,7 @@ impl PagingTableCreator {
             self.engine_state.signals(),
             self.head,
             self.cfg.term_width,
-            (cfg.table.padding.left, cfg.table.padding.right),
+            cfg.table.padding,
             self.cfg.theme,
             self.cfg.index.unwrap_or(0) + self.row_offset,
             self.cfg.index.is_none(),
@@ -1084,11 +1083,11 @@ fn create_empty_placeholder(
         return String::new();
     }
 
-    let cell = NuTableCell::new(format!("empty {}", value_type_name));
+    let cell = NuRecordsValue::new(format!("empty {}", value_type_name));
     let data = vec![vec![cell]];
     let mut table = NuTable::from(data);
     table.set_data_style(TextStyle::default().dimmed());
-    let out = TableOutput::new(table, false, false, 1);
+    let out = TableOutput::from_table(table, false, false);
 
     let style_computer = &StyleComputer::from_config(engine_state, stack);
     let config = create_nu_table_config(&config, style_computer, &out, false, TableMode::default());
