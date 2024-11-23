@@ -171,15 +171,12 @@ pub mod _impl {
     }
 
     fn get_full_path_name_w(path_str: &str) -> Option<String> {
-        use path_abs::PathAbs;
-        if let Ok(path_abs) = PathAbs::new(path_str) {
-            let full_path = path_abs.as_path().to_str()?;
-            // Remove the preceding \\?\ characters
-            if full_path.starts_with(r"\\?\") {
-                return Some(full_path[4..].to_string());
-            }
+        use omnipath::sys_absolute;
+        if let Ok(path_sys_abs) = sys_absolute(PathBuf::from(path_str).as_path()) {
+            Some(path_sys_abs.to_str()?.to_string())
+        } else {
+            None
         }
-        None
     }
 
     use std::sync::{Mutex, OnceLock};

@@ -16,7 +16,6 @@ dirs = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 omnipath = { workspace = true }
-path_abs = "0.5.1"
 
 [target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))'.dependencies]
 pwd = { workspace = true }
