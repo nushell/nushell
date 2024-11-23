@@ -91,7 +91,13 @@ pub mod _impl {
         // Expand with no PWD set for the drive
         let expanded = expand_pwd(Path::new("D:test"));
         if let Some(sys_abs) = get_full_path_name_w("D:") {
-            assert_eq!(expanded, Some(PathBuf::from(format!("{}test", Drive2PWD::ensure_trailing_separator(&sys_abs)))));
+            assert_eq!(
+                expanded,
+                Some(PathBuf::from(format!(
+                    "{}test",
+                    Drive2PWD::ensure_trailing_separator(&sys_abs)
+                )))
+            );
         }
         assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
     }
@@ -157,8 +163,8 @@ pub mod _impl {
         /// Extract the drive letter from a path (e.g., `C:test` -> `C`)
         fn extract_drive_letter(path: &Path) -> Option<char> {
             path.to_str()
-                    .and_then(|s| s.chars().next())
-                    .filter(|c| c.is_ascii_alphabetic())
+                .and_then(|s| s.chars().next())
+                .filter(|c| c.is_ascii_alphabetic())
         }
 
         /// Ensure a path has a trailing `\`
