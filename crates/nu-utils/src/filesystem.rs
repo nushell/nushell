@@ -31,8 +31,13 @@ pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
     }
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "android")))]
 pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
+    check_unix_permission(dir)
+}
+
+#[cfg(unix)]
+fn check_unix_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
     match dir.as_ref().metadata() {
         Ok(metadata) => {
             let mode = Mode::from_bits_truncate(metadata.mode() as mode_t);
@@ -80,6 +85,35 @@ pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
             }
         }
         Err(_) => PermissionResult::PermissionDenied("Could not retrieve file metadata"),
+    }
+}
+
+#[cfg(all(unix, target_os = "android"))]
+pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
+    // on android checking access to a directory by userid and group is not
+    // enough, it is also granted by android NDK, so to check if a user has
+    // permission just cd to that directory and check
+    let old_pwd = std::env::current_dir();
+
+    if let Err(_e) = std::env::set_current_dir(&dir) {
+        // get the possible reason of failure
+        let cause = check_unix_permission(dir);
+
+        match &cause {
+            PermissionResult::PermissionDenied(_) => cause,
+            PermissionResult::PermissionOk => PermissionResult::PermissionDenied(
+                "You don't have permission to read this directory",
+            ),
+        }
+    } else {
+        // this could be Err() if the current_dir is deleted `std::env::current_dir()` will yield error
+        // if thats the case should we return to last pwd or keep the current_dir, or should we return to home dir?
+        if let Ok(old_pwd) = old_pwd {
+            // this is unlikely to happen, but if it errors
+            // should this error be ignored?
+            let _ = std::env::set_current_dir(old_pwd);
+        }
+        PermissionResult::PermissionOk
     }
 }
 
