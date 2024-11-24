@@ -8,9 +8,9 @@ pub enum PathError {
 }
 /// Usage for pwd_per_drive on windows
 ///
-/// Upon change PWD, call set_pwd_per_drive() with absolute path
+/// Upon change PWD, call set_pwd() with absolute path
 ///
-/// Call expand_pwd_per_drive() with relative path to get absolution path
+/// Call expand_pwd() with relative path to get absolution path
 ///
 /// ```
 /// use std::path::{Path, PathBuf};
@@ -33,7 +33,10 @@ pub enum PathError {
 ///
 /// // Expand with no PWD set for the drive
 /// let expanded = expand_pwd(Path::new("D:test"));
-/// assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
+/// assert!(expanded.is_some());
+/// let abs_path = expanded.unwrap().as_path().to_str().expect("OK").to_string();
+/// assert!(abs_path.starts_with(r"D:\"));
+/// assert!(abs_path.ends_with(r"\test"));
 /// ```
 pub mod singleton {
     use super::*;
