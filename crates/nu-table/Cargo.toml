@@ -21,7 +21,7 @@ nu-color-config = { path = "../nu-color-config", version = "0.100.1" }
 nu-ansi-term = { workspace = true }
 fancy-regex = { workspace = true }
 tabled = { workspace = true, features = ["ansi"], default-features = false }
-terminal_size = "0.4"
+terminal_size = { workspace = true }
 
 [dev-dependencies]
 # nu-test-support = { path="../nu-test-support", version = "0.100.1"  }
