@@ -32,7 +32,10 @@ os = [
   "nu-engine/os",
   "nu-protocol/os",
 ]
-plugin = ["nu-protocol/plugin"]
+plugin = [
+  "nu-protocol/plugin",
+  "os",
+]
 
 mimalloc = []
 trash-support = []

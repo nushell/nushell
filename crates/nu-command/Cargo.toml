@@ -165,6 +165,7 @@ js = [
 	"getrandom", 
 	"getrandom/js", 
 	"rand", 
+	"uuid",
 ]
 
 # These dependencies require networking capabilities, especially the http
@@ -177,7 +178,10 @@ network = [
 	"uuid",
 ]
 
-plugin = ["nu-parser/plugin"]
+plugin = [
+	"nu-parser/plugin",
+	"os", 
+]
 sqlite = ["rusqlite"]
 trash-support = ["trash"]
 
