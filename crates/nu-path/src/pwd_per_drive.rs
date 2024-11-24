@@ -101,7 +101,7 @@ fn test_usage_for_pwd_per_drive() {
             expanded,
             Some(PathBuf::from(format!(
                 "{}test",
-                DriveToPwdMap::ensure_trailing_delimitor(&sys_abs)
+                DriveToPwdMap::ensure_trailing_delimiter(&sys_abs)
             )))
         );
     }
@@ -172,7 +172,7 @@ impl DriveToPwdMap {
             if let Some(drive_letter) = Self::extract_drive_letter(path) {
                 if let Ok(pwd) = self.get_pwd(drive_letter) {
                     // Combine current PWD with the relative path
-                    let mut base = PathBuf::from(Self::ensure_trailing_delimitor(&pwd));
+                    let mut base = PathBuf::from(Self::ensure_trailing_delimiter(&pwd));
                     base.push(path_str.split_at(2).1); // Skip the "C:" part of the relative path
                     return Some(base);
                 }
@@ -189,7 +189,7 @@ impl DriveToPwdMap {
     }
 
     /// Ensure a path has a trailing `\`
-    fn ensure_trailing_delimitor(path: &str) -> String {
+    fn ensure_trailing_delimiter(path: &str) -> String {
         if !path.ends_with('\\') && !path.ends_with('/') {
             format!(r"{}\", path)
         } else {
@@ -284,7 +284,7 @@ mod tests {
                 expanded,
                 Some(PathBuf::from(format!(
                     r"{}test",
-                    DriveToPwdMap::ensure_trailing_delimitor(&pwd_on_d)
+                    DriveToPwdMap::ensure_trailing_delimiter(&pwd_on_d)
                 )))
             );
         } else {
