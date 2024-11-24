@@ -261,7 +261,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Whoami,
         };
 
-        #[cfg(unix)]
+        #[cfg(all(unix, feature = "os"))]
         bind_command! { ULimit };
 
         // Date
