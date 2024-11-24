@@ -120,10 +120,13 @@ impl DriveToPwdMap {
             if drive_letter.is_ascii_alphabetic() {
                 let drive_letter = drive_letter.to_ascii_uppercase();
                 self.map[drive_letter as usize - 'A' as usize] = Some(path_str.to_string());
-                return Ok(());
+                Ok(())
+            } else {
+                Err(format!("Invalid drive letter: {}", drive_letter))
             }
+        } else {
+            Err(format!("Invalid path: {}", path.display()))
         }
-        Err(format!("Invalid path: {}", path.display()))
     }
 
     /// Get the PWD for drive, if not yet, ask GetFullPathNameW(),
