@@ -111,25 +111,36 @@ pub enum ParseError {
         span: Span,
     },
 
-    #[error("{0} is not supported on values of type {3}")]
-    #[diagnostic(code(nu::parser::unsupported_operation))]
-    UnsupportedOperationLHS(
-        String,
-        #[label = "doesn't support this value"] Span,
-        #[label("{3}")] Span,
-        Type,
-    ),
+    /// One or more of the values have types not supported by the operator.
+    #[error("{op} is not supported on values of type {unsupported}.")]
+    #[diagnostic(code(nu::parser::operator_unsupported_type))]
+    OperatorUnsupportedType {
+        op: &'static str,
+        unsupported: Type,
+        #[label = "does support this type"]
+        op_span: Span,
+        #[label("{unsupported}")]
+        unsupported_span: Span,
+        #[help]
+        help: Option<&'static str>,
+    },
 
-    #[error("{0} is not supported between {3} and {5}.")]
-    #[diagnostic(code(nu::parser::unsupported_operation))]
-    UnsupportedOperationRHS(
-        String,
-        #[label = "doesn't support these values"] Span,
-        #[label("{3}")] Span,
-        Type,
-        #[label("{5}")] Span,
-        Type,
-    ),
+    /// The operator supports the types of both values, but not the specific combination of their types.
+    #[error("{op} is not supported between types {lhs} and {rhs}.")]
+    #[diagnostic(code(nu::parser::operator_type_mismatch))]
+    OperatorTypeMismatch {
+        op: &'static str,
+        lhs: Type,
+        rhs: Type,
+        #[label = "does not operate between these two types"]
+        op_span: Span,
+        #[label("{lhs}")]
+        lhs_span: Span,
+        #[label("{rhs}")]
+        rhs_span: Span,
+        #[help]
+        help: Option<&'static str>,
+    },
 
     #[error("{0} is not supported between {3}, {5}, and {7}.")]
     #[diagnostic(code(nu::parser::unsupported_operation))]
@@ -528,8 +539,8 @@ impl ParseError {
             ParseError::Expected(_, s) => *s,
             ParseError::ExpectedWithStringMsg(_, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
-            ParseError::UnsupportedOperationLHS(_, _, s, _) => *s,
-            ParseError::UnsupportedOperationRHS(_, _, _, _, s, _) => *s,
+            ParseError::OperatorUnsupportedType { op_span, .. } => *op_span,
+            ParseError::OperatorTypeMismatch { op_span, .. } => *op_span,
             ParseError::UnsupportedOperationTernary(_, _, _, _, _, _, s, _) => *s,
             ParseError::ExpectedKeyword(_, s) => *s,
             ParseError::UnexpectedKeyword(_, s) => *s,

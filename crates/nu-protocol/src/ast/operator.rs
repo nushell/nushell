@@ -5,7 +5,7 @@ use std::fmt::Display;
 
 use super::{Expr, Expression};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Comparison {
     Equal,
     NotEqual,
@@ -21,7 +21,7 @@ pub enum Comparison {
     EndsWith,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Math {
     Plus,
     Concat,
@@ -33,14 +33,14 @@ pub enum Math {
     Pow,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Boolean {
     And,
     Or,
     Xor,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Bits {
     BitOr,
     BitXor,
@@ -49,7 +49,7 @@ pub enum Bits {
     ShiftRight,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Assignment {
     Assign,
     PlusAssign,
@@ -59,7 +59,7 @@ pub enum Assignment {
     DivideAssign,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Operator {
     Comparison(Comparison),
     Math(Math),
@@ -170,7 +170,7 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
         Expression {
             expr: Expr::Operator(operator),
             ..
-        } => Ok(operator.clone()),
+        } => Ok(*operator),
         Expression { span, expr, .. } => Err(ShellError::UnknownOperator {
             op_token: format!("{expr:?}"),
             span: *span,
