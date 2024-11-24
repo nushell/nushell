@@ -157,30 +157,6 @@ pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut S
     }
 }
 
-pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut Stack) {
-    let config_file = get_default_env();
-    eval_source(
-        engine_state,
-        stack,
-        config_file.as_bytes(),
-        "default_env.nu",
-        PipelineData::empty(),
-        false,
-    );
-
-    warn!(
-        "read_default_env_file() env_file_contents: {config_file} {}:{}:{}",
-        file!(),
-        line!(),
-        column!()
-    );
-
-    // Merge the environment in case env vars changed in the config
-    if let Err(e) = engine_state.merge_env(stack) {
-        report_shell_error(engine_state, &e);
-    }
-}
-
 /// Get files sorted lexicographically
 ///
 /// uses `impl Ord for String`

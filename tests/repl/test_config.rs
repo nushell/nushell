@@ -1,4 +1,5 @@
 use crate::repl::tests::{fail_test, run_test, run_test_std, TestResult};
+use nu_test_support::nu;
 
 #[test]
 fn mutate_nu_config() -> TestResult {
@@ -167,4 +168,19 @@ fn mutate_nu_config_plugin_gc_plugins() -> TestResult {
         "#,
         "0sec",
     )
+}
+
+#[test]
+fn env_is_not_loaded_by_commandstring() {
+    // Neither default_env.nu nor user's env.nu should be loaded
+    // when using `nu -c`
+    let nu = nu_test_support::fs::executable_path().display().to_string();
+    let cmd = format!(
+        r#"
+            {nu} -c "view files | where filename =~ 'env\\.nu$' | length"
+        "#
+    );
+    let actual = nu!(cmd);
+
+    assert_eq!(actual.out, "0");
 }

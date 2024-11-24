@@ -48,10 +48,7 @@ pub(crate) fn run_commands(
                 true,
                 create_scaffold,
             );
-        } else {
-            config_files::read_default_env_file(engine_state, &mut stack)
         }
-
         perf!("read env.nu", start_time, use_color);
 
         let start_time = std::time::Instant::now();
@@ -138,8 +135,6 @@ pub(crate) fn run_file(
                 true,
                 create_scaffold,
             );
-        } else {
-            config_files::read_default_env_file(engine_state, &mut stack)
         }
         perf!("read env.nu", start_time, use_color);
 
