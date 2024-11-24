@@ -367,12 +367,50 @@ pub fn math_result_type(
             (Type::Any, _) | (_, Type::Any) => (Type::Any, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error("concatenation", op, lhs, rhs, |ty| {
+                let is_supported = |ty: &Type| {
                     matches!(
                         ty,
-                        Type::List(_) | Type::Table(_) | Type::String | Type::Binary
+                        Type::List(_)
+                            | Type::Table(_)
+                            | Type::String
+                            | Type::Binary
+                            | Type::Any
+                            | Type::Custom(_)
                     )
-                })
+                };
+                let help = if matches!(lhs.ty, Type::List(_) | Type::Table(_))
+                    || matches!(rhs.ty, Type::List(_) | Type::Table(_))
+                {
+                    Some("if you meant to append a value to a list or a record to a table, use the `append` command or wrap the value in a list. For example: `$list ++ $value` should be `$list ++ [$value]` or `$list | append $value`.")
+                } else {
+                    None
+                };
+                let err = match (is_supported(&lhs.ty), is_supported(&rhs.ty)) {
+                    (true, true) => ParseError::OperatorTypeMismatch {
+                        op: "concatentation",
+                        lhs: lhs.ty.clone(),
+                        rhs: rhs.ty.clone(),
+                        op_span: op.span,
+                        lhs_span: lhs.span,
+                        rhs_span: rhs.span,
+                        help,
+                    },
+                    (true, false) => ParseError::OperatorUnsupportedType {
+                        op: "concatentation",
+                        unsupported: rhs.ty.clone(),
+                        op_span: op.span,
+                        unsupported_span: rhs.span,
+                        help,
+                    },
+                    (false, _) => ParseError::OperatorUnsupportedType {
+                        op: "concatentation",
+                        unsupported: lhs.ty.clone(),
+                        op_span: op.span,
+                        unsupported_span: lhs.span,
+                        help,
+                    },
+                };
+                (Type::Any, Some(err))
             }
         },
         Operator::Boolean(operator) => match (&lhs.ty, &rhs.ty) {
