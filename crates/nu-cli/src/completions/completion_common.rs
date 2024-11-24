@@ -158,6 +158,12 @@ pub fn complete_item(
 ) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
     let cleaned_partial = surround_remove(partial);
     let isdir = cleaned_partial.ends_with(is_separator);
+    #[cfg(windows)]
+    let cleaned_partial = if let Some(absoluted_partial) = nu_path::expand_pwd(PathBuf::from(cleaned_partial.clone()).as_path()) {
+        absoluted_partial.display().to_string()
+    } else {
+        cleaned_partial
+    };
     let expanded_partial = expand_ndots(Path::new(&cleaned_partial));
     let should_collapse_dots = expanded_partial != Path::new(&cleaned_partial);
     let mut partial = expanded_partial.to_string_lossy().to_string();
