@@ -43,7 +43,10 @@ fn date_minus_duration() -> TestResult {
 
 #[test]
 fn duration_minus_date_not_supported() -> TestResult {
-    fail_test("2day - 2023-04-22", "doesn't support these values")
+    fail_test(
+        "2day - 2023-04-22",
+        "nu::parser::operator_incompatible_types",
+    )
 }
 
 #[test]
