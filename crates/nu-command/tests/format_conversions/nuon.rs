@@ -211,7 +211,7 @@ fn to_nuon_filesize() {
         "#
     ));
 
-    assert_eq!(actual.out, "1024B");
+    assert_eq!(actual.out, "1024b");
 }
 
 #[test]

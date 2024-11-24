@@ -110,7 +110,7 @@ fn value_to_string(
         // Propagate existing errors
         Value::Error { error, .. } => Err(*error.clone()),
         // FIXME: make filesizes use the shortest lossless representation.
-        Value::Filesize { val, .. } => Ok(format!("{}B", val.get())),
+        Value::Filesize { val, .. } => Ok(format!("{}b", val.get())),
         Value::Float { val, .. } => {
             // This serialises these as 'nan', 'inf' and '-inf', respectively.
             if &val.round() == val && val.is_finite() {
