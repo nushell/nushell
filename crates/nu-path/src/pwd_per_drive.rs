@@ -145,7 +145,8 @@ impl DriveToPwdMap {
                 if let Ok(pwd) = self.get_pwd(drive_letter) {
                     // Combine current PWD with the relative path
                     let mut base = PathBuf::from(Self::ensure_trailing_delimiter(&pwd));
-                    base.push(path_str.split_at(2).1); // Skip the "C:" part of the relative path
+                    // need_expand() and extract_drive_letter() all ensure path_str.len() >= 2
+                    base.push(&path_str[2..]); // Join PWD with path parts after "C:"
                     return Some(base);
                 }
             }
