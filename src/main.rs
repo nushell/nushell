@@ -21,11 +21,12 @@ use command::gather_commandline_args;
 use log::{trace, Level};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
+use nu_engine::convert_env_values;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, report_shell_error, ByteStream, PipelineData, ShellError, Span, Spanned,
-    Value,
+    engine::{EngineState, Stack},
+    report_shell_error, ByteStream, PipelineData, ShellError, Span, Spanned, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -274,6 +275,17 @@ fn main() -> Result<()> {
     // First, set up env vars as strings only
     gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
     perf!("gather env vars", start_time, use_color);
+
+    start_time = std::time::Instant::now();
+    let stack = Stack::new();
+    let config = engine_state.get_config();
+    let use_color = config.use_ansi_coloring;
+    // First pass of this will essentially convert Path-only
+    if let Err(e) = convert_env_values(&mut engine_state, &stack) {
+        report_shell_error(&engine_state, &e);
+    }
+
+    perf!("translate path env", start_time, use_color);
 
     engine_state.add_env_var(
         "NU_VERSION".to_string(),
