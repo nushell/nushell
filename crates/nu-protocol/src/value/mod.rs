@@ -3165,18 +3165,49 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Concatenate), op, rhs)
             }
-            _ => Err(operator_type_error(
-                Operator::Math(Math::Concatenate),
-                op,
-                self,
-                rhs,
-                |val| {
+            _ => {
+                let help = if matches!(self, Value::List { .. })
+                    || matches!(rhs, Value::List { .. })
+                {
+                    Some("if you meant to append a value to a list or a record to a table, use the `append` command or wrap the value in a list. For example: `$list ++ $value` should be `$list ++ [$value]` or `$list | append $value`.")
+                } else {
+                    None
+                };
+                let is_supported = |val: &Value| {
                     matches!(
                         val,
-                        Value::List { .. } | Value::String { .. } | Value::Binary { .. },
+                        Value::List { .. }
+                            | Value::String { .. }
+                            | Value::Binary { .. }
+                            | Value::Custom { .. }
                     )
-                },
-            )),
+                };
+                Err(match (is_supported(self), is_supported(rhs)) {
+                    (true, true) => ShellError::OperatorIncompatibleTypes {
+                        op: Operator::Math(Math::Concatenate),
+                        lhs: self.get_type(),
+                        rhs: rhs.get_type(),
+                        op_span: op,
+                        lhs_span: self.span(),
+                        rhs_span: rhs.span(),
+                        help,
+                    },
+                    (true, false) => ShellError::OperatorUnsupportedType {
+                        op: Operator::Math(Math::Concatenate),
+                        unsupported: rhs.get_type(),
+                        op_span: op,
+                        unsupported_span: rhs.span(),
+                        help,
+                    },
+                    (false, _) => ShellError::OperatorUnsupportedType {
+                        op: Operator::Math(Math::Concatenate),
+                        unsupported: self.get_type(),
+                        op_span: op,
+                        unsupported_span: self.span(),
+                        help,
+                    },
+                })
+            }
         }
     }
 
