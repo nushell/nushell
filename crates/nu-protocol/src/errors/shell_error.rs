@@ -27,7 +27,7 @@ pub enum ShellError {
     },
 
     /// The operator supports the types of both values, but not the specific combination of their types.
-    #[error("Types '{lhs}' and '{rhs}' are not compatiable for the '{op}' operator.")]
+    #[error("Types '{lhs}' and '{rhs}' are not compatible for the '{op}' operator.")]
     #[diagnostic(code(nu::shell::operator_incompatible_types))]
     OperatorIncompatibleTypes {
         op: Operator,
