@@ -144,18 +144,18 @@ fn description(operator: &Operator) -> &'static str {
         Operator::Comparison(Comparison::StartsWith) => "Checks if a string starts with another.",
         Operator::Comparison(Comparison::EndsWith) => "Checks if a string ends with another.",
         Operator::Math(Math::Add) => "Adds two values.",
-        Operator::Math(Math::Concatenate) => {
-            "Concatenates two lists, two strings, or two binary values."
-        }
         Operator::Math(Math::Subtract) => "Subtracts two values.",
         Operator::Math(Math::Multiply) => "Multiplies two values.",
         Operator::Math(Math::Divide) => "Divides two values.",
-        Operator::Math(Math::Modulo) => "Divides two values and returns the remainder.",
         Operator::Math(Math::FloorDivide) => "Divides two values and floors the result.",
+        Operator::Math(Math::Modulo) => "Divides two values and returns the remainder.",
         Operator::Math(Math::Pow) => "Raises one value to the power of another.",
-        Operator::Boolean(Boolean::And) => "Checks if both values are true.",
+        Operator::Math(Math::Concatenate) => {
+            "Concatenates two lists, two strings, or two binary values."
+        }
         Operator::Boolean(Boolean::Or) => "Checks if either value is true.",
         Operator::Boolean(Boolean::Xor) => "Checks if one value is true and the other is false.",
+        Operator::Boolean(Boolean::And) => "Checks if both values are true.",
         Operator::Bits(Bits::BitOr) => "Performs a bitwise OR on two values.",
         Operator::Bits(Bits::BitXor) => "Performs a bitwise XOR on two values.",
         Operator::Bits(Bits::BitAnd) => "Performs a bitwise AND on two values.",
@@ -163,12 +163,12 @@ fn description(operator: &Operator) -> &'static str {
         Operator::Bits(Bits::ShiftRight) => "Bitwise shifts a value right by another.",
         Operator::Assignment(Assignment::Assign) => "Assigns a value to a variable.",
         Operator::Assignment(Assignment::AddAssign) => "Adds a value to a variable.",
-        Operator::Assignment(Assignment::ConcatenateAssign) => {
-            "Concatenates a list, a string, or a binary value to a variable of the same type."
-        }
         Operator::Assignment(Assignment::SubtractAssign) => "Subtracts a value from a variable.",
         Operator::Assignment(Assignment::MultiplyAssign) => "Multiplies a variable by a value.",
         Operator::Assignment(Assignment::DivideAssign) => "Divides a variable by a value.",
+        Operator::Assignment(Assignment::ConcatenateAssign) => {
+            "Concatenates a list, a string, or a binary value to a variable of the same type."
+        }
     }
 }
 

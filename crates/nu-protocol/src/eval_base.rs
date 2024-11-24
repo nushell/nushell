@@ -238,10 +238,10 @@ pub trait Eval {
                             Math::Subtract => lhs.sub(op_span, &rhs, expr_span),
                             Math::Multiply => lhs.mul(op_span, &rhs, expr_span),
                             Math::Divide => lhs.div(op_span, &rhs, expr_span),
-                            Math::Concatenate => lhs.concat(op_span, &rhs, expr_span),
-                            Math::Modulo => lhs.modulo(op_span, &rhs, expr_span),
                             Math::FloorDivide => lhs.floor_div(op_span, &rhs, expr_span),
+                            Math::Modulo => lhs.modulo(op_span, &rhs, expr_span),
                             Math::Pow => lhs.pow(op_span, &rhs, expr_span),
+                            Math::Concatenate => lhs.concat(op_span, &rhs, expr_span),
                         }
                     }
                     Operator::Comparison(comparison) => {
