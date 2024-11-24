@@ -476,10 +476,10 @@ macro_rules! perf {
 }
 
 /// Returns the terminal size (columns, rows).
-/// 
+///
 /// This utility variant allows getting a fallback value when compiling for wasm32 without having
 /// to rearrange other bits of the codebase.
-/// 
+///
 /// See [`crossterm::terminal::size`].
 pub fn terminal_size() -> io::Result<(u16, u16)> {
     #[cfg(feature = "os")]

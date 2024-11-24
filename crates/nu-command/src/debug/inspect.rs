@@ -1,6 +1,6 @@
 use super::inspect_table;
-use nu_utils::terminal_size;
 use nu_engine::command_prelude::*;
+use nu_utils::terminal_size;
 
 #[derive(Clone)]
 pub struct Inspect;
