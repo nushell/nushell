@@ -1,6 +1,6 @@
 use nu_protocol::{
     ast::{self, Math, Operator},
-    CustomValue, ShellError, Span, Value,
+    CustomValue, ShellError, Span, Type, Value,
 };
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -108,7 +108,7 @@ impl CustomValue for CoolCustomValue {
 
     fn operation(
         &self,
-        _lhs_span: Span,
+        lhs_span: Span,
         operator: ast::Operator,
         op_span: Span,
         right: &Value,
@@ -137,9 +137,12 @@ impl CustomValue for CoolCustomValue {
                     })
                 }
             }
-            _ => Err(ShellError::UnsupportedOperator {
-                operator,
-                span: op_span,
+            _ => Err(ShellError::OperatorUnsupportedType {
+                op: Operator::Math(Math::Concatenate),
+                unsupported: Type::Custom(self.type_name().into()),
+                op_span,
+                unsupported_span: lhs_span,
+                help: None,
             }),
         }
     }

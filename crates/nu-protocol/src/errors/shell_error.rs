@@ -164,20 +164,6 @@ pub enum ShellError {
         call_span: Span,
     },
 
-    /// This value cannot be used with this operator.
-    ///
-    /// ## Resolution
-    ///
-    /// Not all values, for example custom values, can be used with all operators. Either
-    /// implement support for the operator on this type, or convert the type to a supported one.
-    #[error("Unsupported operator: {operator}.")]
-    #[diagnostic(code(nu::shell::unsupported_operator))]
-    UnsupportedOperator {
-        operator: Operator,
-        #[label = "unsupported operator"]
-        span: Span,
-    },
-
     /// Invalid assignment left-hand side
     ///
     /// ## Resolution
