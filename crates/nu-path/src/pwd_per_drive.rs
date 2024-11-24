@@ -137,6 +137,7 @@ impl DriveToPwdMap {
                     Some(_) => {
                         let drive_index = drive_letter as usize - 'A' as usize;
                         self.map[drive_index] = Some(drive_letter.to_string() + c.as_str());
+                        let _ = std::env::set_current_dir(path_str);
                         Ok(())
                     }
                 }
