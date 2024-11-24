@@ -63,7 +63,7 @@ mime = { workspace = true }
 mime_guess = { workspace = true }
 multipart-rs = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
-notify-debouncer-full = { workspace = true, default-features = false, optional = true}
+notify-debouncer-full = { workspace = true, default-features = false, optional = true }
 num-format = { workspace = true }
 num-traits = { workspace = true }
 oem_cp = { workspace = true }
