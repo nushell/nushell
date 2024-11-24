@@ -164,7 +164,7 @@ fn description(operator: &Operator) -> &'static str {
         Operator::Assignment(Assignment::Assign) => "Assigns a value to a variable.",
         Operator::Assignment(Assignment::AddAssign) => "Adds a value to a variable.",
         Operator::Assignment(Assignment::ConcatenateAssign) => {
-            "Concatenates two lists, two strings, or two binary values."
+            "Concatenates a list, a string, or a binary value to a variable of the same type."
         }
         Operator::Assignment(Assignment::SubtractAssign) => "Subtracts a value from a variable.",
         Operator::Assignment(Assignment::MultiplyAssign) => "Multiplies a variable by a value.",
