@@ -19,7 +19,7 @@ pub use input::InputListen;
 pub use is_terminal::IsTerminal;
 pub use kill::Kill;
 pub use sleep::Sleep;
-pub use term::TermSize;
+pub use term::{TermSize, TermQuery};
 #[cfg(unix)]
 pub use ulimit::ULimit;
 pub use whoami::Whoami;
