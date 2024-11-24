@@ -13,7 +13,10 @@ fn type_in_list_of_this_type() -> TestResult {
 
 #[test]
 fn type_in_list_of_non_this_type() -> TestResult {
-    fail_test(r#"'hello' in [41 42 43]"#, "is not supported")
+    fail_test(
+        r#"'hello' in [41 42 43]"#,
+        "nu::parser::operator_incompatible_types",
+    )
 }
 
 #[test]

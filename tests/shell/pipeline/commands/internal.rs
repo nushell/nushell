@@ -779,7 +779,9 @@ fn filesize_math2() {
         100 / 10kb
         ");
 
-    assert!(actual.err.contains("doesn't support"));
+    assert!(actual
+        .err
+        .contains("nu::parser::operator_incompatible_types"));
 }
 
 #[test]
