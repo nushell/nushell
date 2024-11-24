@@ -2488,7 +2488,7 @@ impl Value {
                 }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(self.span(), Operator::Math(Math::Plus), op, rhs)
+                lhs.operation(self.span(), Operator::Math(Math::Add), op, rhs)
             }
             _ => Err(operator_type_error("addition", op, self, rhs, |val| {
                 matches!(
@@ -2571,7 +2571,7 @@ impl Value {
                 }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(self.span(), Operator::Math(Math::Minus), op, rhs)
+                lhs.operation(self.span(), Operator::Math(Math::Subtract), op, rhs)
             }
             _ => Err(operator_type_error("subtraction", op, self, rhs, |val| {
                 matches!(
@@ -3104,7 +3104,7 @@ impl Value {
                 span,
             )),
             (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(self.span(), Operator::Math(Math::Concat), op, rhs)
+                lhs.operation(self.span(), Operator::Math(Math::Concatenate), op, rhs)
             }
             _ => Err(operator_type_error(
                 "concatentation",

@@ -4886,11 +4886,11 @@ pub fn parse_assignment_operator(working_set: &mut StateWorkingSet, span: Span) 
 
     let operator = match contents {
         b"=" => Operator::Assignment(Assignment::Assign),
-        b"+=" => Operator::Assignment(Assignment::PlusAssign),
-        b"++=" => Operator::Assignment(Assignment::ConcatAssign),
-        b"-=" => Operator::Assignment(Assignment::MinusAssign),
+        b"+=" => Operator::Assignment(Assignment::AddAssign),
+        b"-=" => Operator::Assignment(Assignment::SubtractAssign),
         b"*=" => Operator::Assignment(Assignment::MultiplyAssign),
         b"/=" => Operator::Assignment(Assignment::DivideAssign),
+        b"++=" => Operator::Assignment(Assignment::ConcatenateAssign),
         _ => {
             working_set.error(ParseError::Expected("assignment operator", span));
             return garbage(working_set, span);
@@ -5012,26 +5012,26 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         b">=" => Operator::Comparison(Comparison::GreaterThanOrEqual),
         b"=~" | b"like" => Operator::Comparison(Comparison::RegexMatch),
         b"!~" | b"not-like" => Operator::Comparison(Comparison::NotRegexMatch),
-        b"+" => Operator::Math(Math::Plus),
-        b"++" => Operator::Math(Math::Concat),
-        b"-" => Operator::Math(Math::Minus),
-        b"*" => Operator::Math(Math::Multiply),
-        b"/" => Operator::Math(Math::Divide),
-        b"//" => Operator::Math(Math::FloorDivision),
         b"in" => Operator::Comparison(Comparison::In),
         b"not-in" => Operator::Comparison(Comparison::NotIn),
+        b"starts-with" => Operator::Comparison(Comparison::StartsWith),
+        b"ends-with" => Operator::Comparison(Comparison::EndsWith),
+        b"+" => Operator::Math(Math::Add),
+        b"-" => Operator::Math(Math::Subtract),
+        b"*" => Operator::Math(Math::Multiply),
+        b"/" => Operator::Math(Math::Divide),
+        b"//" => Operator::Math(Math::FloorDivide),
         b"mod" => Operator::Math(Math::Modulo),
+        b"**" => Operator::Math(Math::Pow),
+        b"++" => Operator::Math(Math::Concatenate),
         b"bit-or" => Operator::Bits(Bits::BitOr),
         b"bit-xor" => Operator::Bits(Bits::BitXor),
         b"bit-and" => Operator::Bits(Bits::BitAnd),
         b"bit-shl" => Operator::Bits(Bits::ShiftLeft),
         b"bit-shr" => Operator::Bits(Bits::ShiftRight),
-        b"starts-with" => Operator::Comparison(Comparison::StartsWith),
-        b"ends-with" => Operator::Comparison(Comparison::EndsWith),
-        b"and" => Operator::Boolean(Boolean::And),
         b"or" => Operator::Boolean(Boolean::Or),
         b"xor" => Operator::Boolean(Boolean::Xor),
-        b"**" => Operator::Math(Math::Pow),
+        b"and" => Operator::Boolean(Boolean::And),
         // WARNING: not actual operators below! Error handling only
         pow @ (b"^" | b"pow") => {
             working_set.error(ParseError::UnknownOperator(

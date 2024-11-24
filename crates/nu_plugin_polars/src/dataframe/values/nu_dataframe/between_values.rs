@@ -18,7 +18,7 @@ pub(super) fn between_dataframes(
     rhs: &NuDataFrame,
 ) -> Result<NuDataFrame, ShellError> {
     match operator.item {
-        Operator::Math(Math::Plus) => {
+        Operator::Math(Math::Add) => {
             lhs.append_df(rhs, Axis::Row, Span::merge(left.span(), right.span()))
         }
         _ => Err(ShellError::OperatorMismatch {
@@ -40,7 +40,7 @@ pub(super) fn compute_between_series(
 ) -> Result<NuDataFrame, ShellError> {
     let operation_span = Span::merge(left.span(), right.span());
     match operator.item {
-        Operator::Math(Math::Plus) => {
+        Operator::Math(Math::Add) => {
             let mut res = (lhs + rhs).map_err(|e| ShellError::GenericError {
                 error: format!("Addition error: {e}"),
                 msg: "".into(),
@@ -52,7 +52,7 @@ pub(super) fn compute_between_series(
             res.rename(name.into());
             NuDataFrame::try_from_series(res, operation_span)
         }
-        Operator::Math(Math::Minus) => {
+        Operator::Math(Math::Subtract) => {
             let mut res = (lhs - rhs).map_err(|e| ShellError::GenericError {
                 error: format!("Subtraction error: {e}"),
                 msg: "".into(),
@@ -235,7 +235,7 @@ pub(super) fn compute_series_single_value(
     let lhs = lhs.as_series(lhs_span)?;
 
     match operator.item {
-        Operator::Math(Math::Plus) => match &right {
+        Operator::Math(Math::Add) => match &right {
             Value::Int { val, .. } => {
                 compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::add, lhs_span)
             }
@@ -251,7 +251,7 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span(),
             }),
         },
-        Operator::Math(Math::Minus) => match &right {
+        Operator::Math(Math::Subtract) => match &right {
             Value::Int { val, .. } => {
                 compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::sub, lhs_span)
             }

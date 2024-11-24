@@ -81,14 +81,14 @@ fn with_operator(
     left: &NuExpression,
     right: &NuExpression,
     lhs_span: Span,
-    rhs_span: Span,
+    _rhs_span: Span,
     op_span: Span,
 ) -> Result<Value, ShellError> {
     match operator {
-        Operator::Math(Math::Plus) => {
+        Operator::Math(Math::Add) => {
             apply_arithmetic(plugin, engine, left, right, lhs_span, Add::add)
         }
-        Operator::Math(Math::Minus) => {
+        Operator::Math(Math::Subtract) => {
             apply_arithmetic(plugin, engine, left, right, lhs_span, Sub::sub)
         }
         Operator::Math(Math::Multiply) => {
@@ -100,7 +100,7 @@ fn with_operator(
         Operator::Math(Math::Modulo) => {
             apply_arithmetic(plugin, engine, left, right, lhs_span, Rem::rem)
         }
-        Operator::Math(Math::FloorDivision) => {
+        Operator::Math(Math::FloorDivide) => {
             apply_arithmetic(plugin, engine, left, right, lhs_span, Div::div)
         }
         Operator::Comparison(Comparison::Equal) => Ok(left
@@ -133,13 +133,23 @@ fn with_operator(
             .apply_with_expr(right.clone(), Expr::lt_eq)
             .cache(plugin, engine, lhs_span)?
             .into_value(lhs_span)),
-        _ => Err(ShellError::OperatorMismatch {
-            op_span,
-            lhs_ty: Type::Custom(TYPE_NAME.into()).to_string(),
-            lhs_span,
-            rhs_ty: Type::Custom(TYPE_NAME.into()).to_string(),
-            rhs_span,
-        }),
+        _ =>
+        // Err(ShellError::OperatorMismatch {
+        //     op_span,
+        //     lhs_ty: Type::Custom(TYPE_NAME.into()).to_string(),
+        //     lhs_span,
+        //     rhs_ty: Type::Custom(TYPE_NAME.into()).to_string(),
+        //     rhs_span,
+        // }),
+        {
+            Err(ShellError::OperatorUnsupportedType {
+                op: "TODO",
+                unsupported: Type::Custom(TYPE_NAME.into()),
+                op_span,
+                unsupported_span: lhs_span,
+                help: None,
+            })
+        }
     }
 }
 

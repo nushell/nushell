@@ -1,9 +1,7 @@
-use crate::{ShellError, Span};
-
-use serde::{Deserialize, Serialize};
-use std::fmt::Display;
-
 use super::{Expr, Expression};
+use crate::{ShellError, Span};
+use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Comparison {
@@ -21,23 +19,85 @@ pub enum Comparison {
     EndsWith,
 }
 
+impl Comparison {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Equal => "==",
+            Self::NotEqual => "!=",
+            Self::LessThan => "<",
+            Self::GreaterThan => ">",
+            Self::LessThanOrEqual => "<=",
+            Self::GreaterThanOrEqual => ">=",
+            Self::RegexMatch => "=~",
+            Self::NotRegexMatch => "!~",
+            Self::In => "in",
+            Self::NotIn => "not-in",
+            Self::StartsWith => "starts-with",
+            Self::EndsWith => "ends-with",
+        }
+    }
+}
+
+impl fmt::Display for Comparison {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Math {
-    Plus,
-    Concat,
-    Minus,
+    Add,
+    Subtract,
     Multiply,
     Divide,
+    FloorDivide,
     Modulo,
-    FloorDivision,
     Pow,
+    Concatenate,
+}
+
+impl Math {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Add => "+",
+            Self::Subtract => "-",
+            Self::Multiply => "*",
+            Self::Divide => "/",
+            Self::FloorDivide => "//",
+            Self::Modulo => "mod",
+            Self::Pow => "**",
+            Self::Concatenate => "++",
+        }
+    }
+}
+
+impl fmt::Display for Math {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Boolean {
-    And,
     Or,
     Xor,
+    And,
+}
+
+impl Boolean {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Or => "or",
+            Self::Xor => "xor",
+            Self::And => "and",
+        }
+    }
+}
+
+impl fmt::Display for Boolean {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,14 +109,51 @@ pub enum Bits {
     ShiftRight,
 }
 
+impl Bits {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::BitOr => "bit-or",
+            Self::BitXor => "bit-xor",
+            Self::BitAnd => "bit-and",
+            Self::ShiftLeft => "bit-shl",
+            Self::ShiftRight => "bit-shr",
+        }
+    }
+}
+
+impl fmt::Display for Bits {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Assignment {
     Assign,
-    PlusAssign,
-    ConcatAssign,
-    MinusAssign,
+    AddAssign,
+    SubtractAssign,
     MultiplyAssign,
     DivideAssign,
+    ConcatenateAssign,
+}
+
+impl Assignment {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Assign => "=",
+            Self::AddAssign => "+=",
+            Self::SubtractAssign => "-=",
+            Self::MultiplyAssign => "*=",
+            Self::DivideAssign => "/=",
+            Self::ConcatenateAssign => "++=",
+        }
+    }
+}
+
+impl fmt::Display for Assignment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -69,14 +166,24 @@ pub enum Operator {
 }
 
 impl Operator {
-    pub fn precedence(&self) -> u8 {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Comparison(comparison) => comparison.as_str(),
+            Self::Math(math) => math.as_str(),
+            Self::Boolean(boolean) => boolean.as_str(),
+            Self::Bits(bits) => bits.as_str(),
+            Self::Assignment(assignment) => assignment.as_str(),
+        }
+    }
+
+    pub const fn precedence(&self) -> u8 {
         match self {
             Self::Math(Math::Pow) => 100,
             Self::Math(Math::Multiply)
             | Self::Math(Math::Divide)
             | Self::Math(Math::Modulo)
-            | Self::Math(Math::FloorDivision) => 95,
-            Self::Math(Math::Plus) | Self::Math(Math::Minus) => 90,
+            | Self::Math(Math::FloorDivide) => 95,
+            Self::Math(Math::Add) | Self::Math(Math::Subtract) => 90,
             Self::Bits(Bits::ShiftLeft) | Self::Bits(Bits::ShiftRight) => 85,
             Self::Comparison(Comparison::NotRegexMatch)
             | Self::Comparison(Comparison::RegexMatch)
@@ -90,7 +197,7 @@ impl Operator {
             | Self::Comparison(Comparison::NotEqual)
             | Self::Comparison(Comparison::In)
             | Self::Comparison(Comparison::NotIn)
-            | Self::Math(Math::Concat) => 80,
+            | Self::Math(Math::Concatenate) => 80,
             Self::Bits(Bits::BitAnd) => 75,
             Self::Bits(Bits::BitXor) => 70,
             Self::Bits(Bits::BitOr) => 60,
@@ -102,44 +209,9 @@ impl Operator {
     }
 }
 
-impl Display for Operator {
+impl fmt::Display for Operator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Operator::Assignment(Assignment::Assign) => write!(f, "="),
-            Operator::Assignment(Assignment::PlusAssign) => write!(f, "+="),
-            Operator::Assignment(Assignment::ConcatAssign) => write!(f, "++="),
-            Operator::Assignment(Assignment::MinusAssign) => write!(f, "-="),
-            Operator::Assignment(Assignment::MultiplyAssign) => write!(f, "*="),
-            Operator::Assignment(Assignment::DivideAssign) => write!(f, "/="),
-            Operator::Comparison(Comparison::Equal) => write!(f, "=="),
-            Operator::Comparison(Comparison::NotEqual) => write!(f, "!="),
-            Operator::Comparison(Comparison::LessThan) => write!(f, "<"),
-            Operator::Comparison(Comparison::GreaterThan) => write!(f, ">"),
-            Operator::Comparison(Comparison::RegexMatch) => write!(f, "=~ or like"),
-            Operator::Comparison(Comparison::NotRegexMatch) => write!(f, "!~ or not-like"),
-            Operator::Comparison(Comparison::LessThanOrEqual) => write!(f, "<="),
-            Operator::Comparison(Comparison::GreaterThanOrEqual) => write!(f, ">="),
-            Operator::Comparison(Comparison::StartsWith) => write!(f, "starts-with"),
-            Operator::Comparison(Comparison::EndsWith) => write!(f, "ends-with"),
-            Operator::Comparison(Comparison::In) => write!(f, "in"),
-            Operator::Comparison(Comparison::NotIn) => write!(f, "not-in"),
-            Operator::Math(Math::Plus) => write!(f, "+"),
-            Operator::Math(Math::Concat) => write!(f, "++"),
-            Operator::Math(Math::Minus) => write!(f, "-"),
-            Operator::Math(Math::Multiply) => write!(f, "*"),
-            Operator::Math(Math::Divide) => write!(f, "/"),
-            Operator::Math(Math::Modulo) => write!(f, "mod"),
-            Operator::Math(Math::FloorDivision) => write!(f, "//"),
-            Operator::Math(Math::Pow) => write!(f, "**"),
-            Operator::Boolean(Boolean::And) => write!(f, "and"),
-            Operator::Boolean(Boolean::Or) => write!(f, "or"),
-            Operator::Boolean(Boolean::Xor) => write!(f, "xor"),
-            Operator::Bits(Bits::BitOr) => write!(f, "bit-or"),
-            Operator::Bits(Bits::BitXor) => write!(f, "bit-xor"),
-            Operator::Bits(Bits::BitAnd) => write!(f, "bit-and"),
-            Operator::Bits(Bits::ShiftLeft) => write!(f, "bit-shl"),
-            Operator::Bits(Bits::ShiftRight) => write!(f, "bit-shr"),
-        }
+        f.write_str(self.as_str())
     }
 }
 
@@ -156,7 +228,7 @@ pub struct RangeOperator {
     pub next_op_span: Span,
 }
 
-impl Display for RangeOperator {
+impl fmt::Display for RangeOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.inclusion {
             RangeInclusion::Inclusive => write!(f, ".."),

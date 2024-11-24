@@ -119,7 +119,7 @@ pub fn math_result_type(
         );
     };
     match *operator {
-        Operator::Math(Math::Plus) => match (&lhs.ty, &rhs.ty) {
+        Operator::Math(Math::Add) => match (&lhs.ty, &rhs.ty) {
             (Type::Int, Type::Int) => (Type::Int, None),
             (Type::Float, Type::Int) => (Type::Float, None),
             (Type::Int, Type::Float) => (Type::Float, None),
@@ -155,7 +155,7 @@ pub fn math_result_type(
                 })
             }
         },
-        Operator::Math(Math::Minus) => match (&lhs.ty, &rhs.ty) {
+        Operator::Math(Math::Subtract) => match (&lhs.ty, &rhs.ty) {
             (Type::Int, Type::Int) => (Type::Int, None),
             (Type::Float, Type::Int) => (Type::Float, None),
             (Type::Int, Type::Float) => (Type::Float, None),
@@ -220,27 +220,6 @@ pub fn math_result_type(
                 })
             }
         },
-        Operator::Math(Math::Pow) => match (&lhs.ty, &rhs.ty) {
-            (Type::Int, Type::Int) => (Type::Int, None),
-            (Type::Float, Type::Int) => (Type::Float, None),
-            (Type::Int, Type::Float) => (Type::Float, None),
-            (Type::Float, Type::Float) => (Type::Float, None),
-            (Type::Number, Type::Number) => (Type::Number, None),
-            (Type::Number, Type::Int) => (Type::Number, None),
-            (Type::Int, Type::Number) => (Type::Number, None),
-            (Type::Number, Type::Float) => (Type::Number, None),
-            (Type::Float, Type::Number) => (Type::Number, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Any, _) => (Type::Any, None),
-            (_, Type::Any) => (Type::Any, None),
-            _ => {
-                *op = Expression::garbage(working_set, op.span);
-                type_error("exponentiation", op, lhs, rhs, |ty| {
-                    matches!(ty, Type::Int | Type::Float | Type::Number)
-                })
-            }
-        },
         Operator::Math(Math::Divide) => match (&lhs.ty, &rhs.ty) {
             (Type::Int, Type::Int) => (Type::Float, None),
             (Type::Float, Type::Int) => (Type::Float, None),
@@ -264,6 +243,36 @@ pub fn math_result_type(
             _ => {
                 *op = Expression::garbage(working_set, op.span);
                 type_error("division", op, lhs, rhs, |ty| {
+                    matches!(
+                        ty,
+                        Type::Int | Type::Float | Type::Number | Type::Filesize | Type::Duration
+                    )
+                })
+            }
+        },
+        Operator::Math(Math::FloorDivide) => match (&lhs.ty, &rhs.ty) {
+            (Type::Int, Type::Int) => (Type::Int, None),
+            (Type::Float, Type::Int) => (Type::Float, None),
+            (Type::Int, Type::Float) => (Type::Float, None),
+            (Type::Float, Type::Float) => (Type::Float, None),
+            (Type::Number, Type::Number) => (Type::Number, None),
+            (Type::Number, Type::Int) => (Type::Number, None),
+            (Type::Int, Type::Number) => (Type::Number, None),
+            (Type::Number, Type::Float) => (Type::Number, None),
+            (Type::Float, Type::Number) => (Type::Number, None),
+            (Type::Filesize, Type::Filesize) => (Type::Int, None),
+            (Type::Filesize, Type::Int) => (Type::Filesize, None),
+            (Type::Filesize, Type::Float) => (Type::Filesize, None),
+            (Type::Duration, Type::Duration) => (Type::Int, None),
+            (Type::Duration, Type::Int) => (Type::Duration, None),
+            (Type::Duration, Type::Float) => (Type::Duration, None),
+            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
+            (Type::Any, _) => (Type::Any, None),
+            (_, Type::Any) => (Type::Any, None),
+            _ => {
+                *op = Expression::garbage(working_set, op.span);
+                type_error("floor division", op, lhs, rhs, |ty| {
                     matches!(
                         ty,
                         Type::Int | Type::Float | Type::Number | Type::Filesize | Type::Duration
@@ -301,7 +310,7 @@ pub fn math_result_type(
                 })
             }
         },
-        Operator::Math(Math::FloorDivision) => match (&lhs.ty, &rhs.ty) {
+        Operator::Math(Math::Pow) => match (&lhs.ty, &rhs.ty) {
             (Type::Int, Type::Int) => (Type::Int, None),
             (Type::Float, Type::Int) => (Type::Float, None),
             (Type::Int, Type::Float) => (Type::Float, None),
@@ -311,27 +320,18 @@ pub fn math_result_type(
             (Type::Int, Type::Number) => (Type::Number, None),
             (Type::Number, Type::Float) => (Type::Number, None),
             (Type::Float, Type::Number) => (Type::Number, None),
-            (Type::Filesize, Type::Filesize) => (Type::Int, None),
-            (Type::Filesize, Type::Int) => (Type::Filesize, None),
-            (Type::Filesize, Type::Float) => (Type::Filesize, None),
-            (Type::Duration, Type::Duration) => (Type::Int, None),
-            (Type::Duration, Type::Int) => (Type::Duration, None),
-            (Type::Duration, Type::Float) => (Type::Duration, None),
             (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
             (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
             (Type::Any, _) => (Type::Any, None),
             (_, Type::Any) => (Type::Any, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error("floor division", op, lhs, rhs, |ty| {
-                    matches!(
-                        ty,
-                        Type::Int | Type::Float | Type::Number | Type::Filesize | Type::Duration
-                    )
+                type_error("exponentiation", op, lhs, rhs, |ty| {
+                    matches!(ty, Type::Int | Type::Float | Type::Number)
                 })
             }
         },
-        Operator::Math(Math::Concat) => match (&lhs.ty, &rhs.ty) {
+        Operator::Math(Math::Concatenate) => match (&lhs.ty, &rhs.ty) {
             (Type::List(a), Type::List(b)) => {
                 if a == b {
                     (Type::list(a.as_ref().clone()), None)
@@ -417,9 +417,9 @@ pub fn math_result_type(
             _ => {
                 *op = Expression::garbage(working_set, op.span);
                 let name = match operator {
-                    Boolean::And => "boolean and",
                     Boolean::Or => "boolean or",
                     Boolean::Xor => "boolean xor",
+                    Boolean::And => "boolean and",
                 };
                 type_error(name, op, lhs, rhs, |ty| matches!(ty, Type::Bool))
             }
@@ -773,11 +773,11 @@ pub fn math_result_type(
             _ => {
                 let name = match operator {
                     Assignment::Assign => "variable assignment",
-                    Assignment::PlusAssign => "addition assignment",
-                    Assignment::MinusAssign => "subtraction assignment",
+                    Assignment::AddAssign => "addition assignment",
+                    Assignment::SubtractAssign => "subtraction assignment",
                     Assignment::MultiplyAssign => "multiplication assignment",
                     Assignment::DivideAssign => "division assignment",
-                    Assignment::ConcatAssign => "concatenation assignment",
+                    Assignment::ConcatenateAssign => "concatenation assignment",
                 };
                 let err = ParseError::OperatorIncompatibleTypes {
                     op: name,
