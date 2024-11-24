@@ -2490,17 +2490,23 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Add), op, rhs)
             }
-            _ => Err(operator_type_error("addition", op, self, rhs, |val| {
-                matches!(
-                    val,
-                    Value::Int { .. }
-                        | Value::Float { .. }
-                        | Value::String { .. }
-                        | Value::Date { .. }
-                        | Value::Duration { .. }
-                        | Value::Filesize { .. },
-                )
-            })),
+            _ => Err(operator_type_error(
+                Operator::Math(Math::Add),
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::String { .. }
+                            | Value::Date { .. }
+                            | Value::Duration { .. }
+                            | Value::Filesize { .. },
+                    )
+                },
+            )),
         }
     }
 
@@ -2573,16 +2579,22 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Subtract), op, rhs)
             }
-            _ => Err(operator_type_error("subtraction", op, self, rhs, |val| {
-                matches!(
-                    val,
-                    Value::Int { .. }
-                        | Value::Float { .. }
-                        | Value::Date { .. }
-                        | Value::Duration { .. }
-                        | Value::Filesize { .. },
-                )
-            })),
+            _ => Err(operator_type_error(
+                Operator::Math(Math::Subtract),
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::Date { .. }
+                            | Value::Duration { .. }
+                            | Value::Filesize { .. },
+                    )
+                },
+            )),
         }
     }
 
@@ -2636,7 +2648,7 @@ impl Value {
                 lhs.operation(self.span(), Operator::Math(Math::Multiply), op, rhs)
             }
             _ => Err(operator_type_error(
-                "multiplication",
+                Operator::Math(Math::Multiply),
                 op,
                 self,
                 rhs,
@@ -2758,173 +2770,21 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
             }
-            _ => Err(operator_type_error("division", op, self, rhs, |val| {
-                matches!(
-                    val,
-                    Value::Int { .. }
-                        | Value::Float { .. }
-                        | Value::Duration { .. }
-                        | Value::Filesize { .. },
-                )
-            })),
-        }
-    }
-
-    pub fn modulo(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        // Based off the unstable `div_floor` function in the std library.
-        fn checked_mod_i64(dividend: i64, divisor: i64) -> Option<i64> {
-            let remainder = dividend.checked_rem(divisor)?;
-            if (remainder > 0 && divisor < 0) || (remainder < 0 && divisor > 0) {
-                // Note that `remainder + divisor` cannot overflow, because `remainder` and
-                // `divisor` have opposite signs.
-                Some(remainder + divisor)
-            } else {
-                Some(remainder)
-            }
-        }
-
-        fn checked_mod_f64(dividend: f64, divisor: f64) -> Option<f64> {
-            if divisor == 0.0 {
-                None
-            } else {
-                let remainder = dividend % divisor;
-                if (remainder > 0.0 && divisor < 0.0) || (remainder < 0.0 && divisor > 0.0) {
-                    Some(remainder + divisor)
-                } else {
-                    Some(remainder)
-                }
-            }
-        }
-
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
-                    Ok(Value::int(val, span))
-                } else if *rhs == 0 {
-                    Err(ShellError::DivisionByZero { span: op })
-                } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "modulo operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
-                }
-            }
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if let Some(val) = checked_mod_f64(*lhs as f64, *rhs) {
-                    Ok(Value::float(val, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if let Some(val) = checked_mod_f64(*lhs, *rhs as f64) {
-                    Ok(Value::float(val, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if let Some(val) = checked_mod_f64(*lhs, *rhs) {
-                    Ok(Value::float(val, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
-                    Ok(Value::filesize(val, span))
-                } else if *rhs == 0 {
-                    Err(ShellError::DivisionByZero { span: op })
-                } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "modulo operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
-                }
-            }
-            (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
-                    Ok(Value::filesize(val, span))
-                } else if *rhs == 0 {
-                    Err(ShellError::DivisionByZero { span: op })
-                } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "modulo operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
-                }
-            }
-            (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if let Some(val) = checked_mod_f64(*lhs as f64, *rhs) {
-                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
-                        Ok(Value::filesize(val as i64, span))
-                    } else {
-                        Err(ShellError::OperatorOverflow {
-                            msg: "modulo operation overflowed".into(),
-                            span,
-                            help: None,
-                        })
-                    }
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
-                    Ok(Value::duration(val, span))
-                } else if *rhs == 0 {
-                    Err(ShellError::DivisionByZero { span: op })
-                } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "division operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
-                }
-            }
-            (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
-                    Ok(Value::duration(val, span))
-                } else if *rhs == 0 {
-                    Err(ShellError::DivisionByZero { span: op })
-                } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "division operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
-                }
-            }
-            (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if let Some(val) = checked_mod_f64(*lhs as f64, *rhs) {
-                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
-                        Ok(Value::duration(val as i64, span))
-                    } else {
-                        Err(ShellError::OperatorOverflow {
-                            msg: "division operation overflowed".into(),
-                            span,
-                            help: None,
-                        })
-                    }
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Math(Math::Modulo), op, rhs)
-            }
-            _ => Err(operator_type_error("modulo", op, self, rhs, |val| {
-                matches!(
-                    val,
-                    Value::Int { .. }
-                        | Value::Float { .. }
-                        | Value::Duration { .. }
-                        | Value::Filesize { .. },
-                )
-            })),
+            _ => Err(operator_type_error(
+                Operator::Math(Math::Divide),
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::Duration { .. }
+                            | Value::Filesize { .. },
+                    )
+                },
+            )),
         }
     }
 
@@ -3074,7 +2934,7 @@ impl Value {
                 lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
             }
             _ => Err(operator_type_error(
-                "floor division",
+                Operator::Math(Math::FloorDivide),
                 op,
                 self,
                 rhs,
@@ -3087,6 +2947,205 @@ impl Value {
                             | Value::Filesize { .. },
                     )
                 },
+            )),
+        }
+    }
+
+    pub fn modulo(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        // Based off the unstable `div_floor` function in the std library.
+        fn checked_mod_i64(dividend: i64, divisor: i64) -> Option<i64> {
+            let remainder = dividend.checked_rem(divisor)?;
+            if (remainder > 0 && divisor < 0) || (remainder < 0 && divisor > 0) {
+                // Note that `remainder + divisor` cannot overflow, because `remainder` and
+                // `divisor` have opposite signs.
+                Some(remainder + divisor)
+            } else {
+                Some(remainder)
+            }
+        }
+
+        fn checked_mod_f64(dividend: f64, divisor: f64) -> Option<f64> {
+            if divisor == 0.0 {
+                None
+            } else {
+                let remainder = dividend % divisor;
+                if (remainder > 0.0 && divisor < 0.0) || (remainder < 0.0 && divisor > 0.0) {
+                    Some(remainder + divisor)
+                } else {
+                    Some(remainder)
+                }
+            }
+        }
+
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::int(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "modulo operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_f64(*lhs as f64, *rhs) {
+                    Ok(Value::float(val, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_f64(*lhs, *rhs as f64) {
+                    Ok(Value::float(val, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_f64(*lhs, *rhs) {
+                    Ok(Value::float(val, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::filesize(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "modulo operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::filesize(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "modulo operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_f64(*lhs as f64, *rhs) {
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::filesize(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "modulo operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::duration(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::duration(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_f64(*lhs as f64, *rhs) {
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::duration(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Math(Math::Modulo), op, rhs)
+            }
+            _ => Err(operator_type_error(
+                Operator::Math(Math::Modulo),
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::Duration { .. }
+                            | Value::Filesize { .. },
+                    )
+                },
+            )),
+        }
+    }
+
+    pub fn pow(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = lhs.checked_pow(*rhs as u32) {
+                    Ok(Value::int(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "pow operation overflowed".into(),
+                        span,
+                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                    })
+                }
+            }
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::float((*lhs as f64).powf(*rhs), span))
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::float(lhs.powf(*rhs as f64), span))
+            }
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::float(lhs.powf(*rhs), span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Math(Math::Pow), op, rhs)
+            }
+            _ => Err(operator_type_error(
+                Operator::Math(Math::Pow),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Int { .. } | Value::Float { .. }),
             )),
         }
     }
@@ -3107,7 +3166,7 @@ impl Value {
                 lhs.operation(self.span(), Operator::Math(Math::Concatenate), op, rhs)
             }
             _ => Err(operator_type_error(
-                "concatentation",
+                Operator::Math(Math::Concatenate),
                 op,
                 self,
                 rhs,
@@ -3137,7 +3196,7 @@ impl Value {
 
         if !type_compatible(self.get_type(), rhs.get_type()) {
             return Err(operator_type_error(
-                "less than comparison",
+                Operator::Comparison(Comparison::LessThan),
                 op,
                 self,
                 rhs,
@@ -3179,7 +3238,7 @@ impl Value {
 
         if !type_compatible(self.get_type(), rhs.get_type()) {
             return Err(operator_type_error(
-                "less than or equal to comparison",
+                Operator::Comparison(Comparison::LessThanOrEqual),
                 op,
                 self,
                 rhs,
@@ -3224,7 +3283,7 @@ impl Value {
 
         if !type_compatible(self.get_type(), rhs.get_type()) {
             return Err(operator_type_error(
-                "greater than comparison",
+                Operator::Comparison(Comparison::GreaterThan),
                 op,
                 self,
                 rhs,
@@ -3266,7 +3325,7 @@ impl Value {
 
         if !type_compatible(self.get_type(), rhs.get_type()) {
             return Err(operator_type_error(
-                "greater than or equal to comparison",
+                Operator::Comparison(Comparison::GreaterThanOrEqual),
                 op,
                 self,
                 rhs,
@@ -3375,7 +3434,7 @@ impl Value {
                         | Value::Custom { .. }
                 ) {
                     ShellError::OperatorIncompatibleTypes {
-                        op: "'in' comparison",
+                        op: Operator::Comparison(Comparison::In),
                         lhs: lhs.get_type(),
                         rhs: rhs.get_type(),
                         op_span: op,
@@ -3385,7 +3444,7 @@ impl Value {
                     }
                 } else {
                     ShellError::OperatorUnsupportedType {
-                        op: "'in' comparison",
+                        op: Operator::Comparison(Comparison::In),
                         unsupported: rhs.get_type(),
                         op_span: op,
                         unsupported_span: rhs.span(),
@@ -3447,7 +3506,7 @@ impl Value {
                         | Value::Custom { .. }
                 ) {
                     ShellError::OperatorIncompatibleTypes {
-                        op: "'not-in' comparison",
+                        op: Operator::Comparison(Comparison::NotIn),
                         lhs: lhs.get_type(),
                         rhs: rhs.get_type(),
                         op_span: op,
@@ -3457,7 +3516,7 @@ impl Value {
                     }
                 } else {
                     ShellError::OperatorUnsupportedType {
-                        op: "'not-in' comparison",
+                        op: Operator::Comparison(Comparison::NotIn),
                         unsupported: rhs.get_type(),
                         op_span: op,
                         unsupported_span: rhs.span(),
@@ -3526,9 +3585,17 @@ impl Value {
                 op,
                 rhs,
             ),
-            _ => Err(operator_type_error("regex match", op, self, rhs, |val| {
-                matches!(val, Value::String { .. })
-            })),
+            _ => Err(operator_type_error(
+                if invert {
+                    Operator::Comparison(Comparison::NotRegexMatch)
+                } else {
+                    Operator::Comparison(Comparison::RegexMatch)
+                },
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::String { .. }),
+            )),
         }
     }
 
@@ -3544,7 +3611,7 @@ impl Value {
                 rhs,
             ),
             _ => Err(operator_type_error(
-                "starts-with comparison",
+                Operator::Comparison(Comparison::StartsWith),
                 op,
                 self,
                 rhs,
@@ -3565,11 +3632,65 @@ impl Value {
                 rhs,
             ),
             _ => Err(operator_type_error(
-                "ends-with comparison",
+                Operator::Comparison(Comparison::EndsWith),
                 op,
                 self,
                 rhs,
                 |val| matches!(val, Value::String { .. }),
+            )),
+        }
+    }
+
+    pub fn bit_or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs | rhs, span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::BitOr), op, rhs)
+            }
+            _ => Err(operator_type_error(
+                Operator::Bits(Bits::BitOr),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Int { .. }),
+            )),
+        }
+    }
+
+    pub fn bit_xor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs ^ rhs, span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::BitXor), op, rhs)
+            }
+            _ => Err(operator_type_error(
+                Operator::Bits(Bits::BitXor),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Int { .. }),
+            )),
+        }
+    }
+
+    pub fn bit_and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs & rhs, span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::BitAnd), op, rhs)
+            }
+            _ => Err(operator_type_error(
+                Operator::Bits(Bits::BitAnd),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Int { .. }),
             )),
         }
     }
@@ -3594,7 +3715,7 @@ impl Value {
                 lhs.operation(span, Operator::Bits(Bits::ShiftLeft), op, rhs)
             }
             _ => Err(operator_type_error(
-                "bit left shift",
+                Operator::Bits(Bits::ShiftLeft),
                 op,
                 self,
                 rhs,
@@ -3623,68 +3744,12 @@ impl Value {
                 lhs.operation(span, Operator::Bits(Bits::ShiftRight), op, rhs)
             }
             _ => Err(operator_type_error(
-                "bit right shift",
+                Operator::Bits(Bits::ShiftRight),
                 op,
                 self,
                 rhs,
                 |val| matches!(val, Value::Int { .. }),
             )),
-        }
-    }
-
-    pub fn bit_and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs & rhs, span))
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Bits(Bits::BitAnd), op, rhs)
-            }
-            _ => Err(operator_type_error("bitwise and", op, self, rhs, |val| {
-                matches!(val, Value::Int { .. })
-            })),
-        }
-    }
-
-    pub fn bit_or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs | rhs, span))
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Bits(Bits::BitOr), op, rhs)
-            }
-            _ => Err(operator_type_error("bitwise or", op, self, rhs, |val| {
-                matches!(val, Value::Int { .. })
-            })),
-        }
-    }
-
-    pub fn bit_xor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs ^ rhs, span))
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Bits(Bits::BitXor), op, rhs)
-            }
-            _ => Err(operator_type_error("bitwise xor", op, self, rhs, |val| {
-                matches!(val, Value::Int { .. })
-            })),
-        }
-    }
-
-    pub fn and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
-                Ok(Value::bool(*lhs && *rhs, span))
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Boolean(Boolean::And), op, rhs)
-            }
-            _ => Err(operator_type_error("boolean and", op, self, rhs, |val| {
-                matches!(val, Value::Bool { .. })
-            })),
         }
     }
 
@@ -3696,9 +3761,13 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Boolean(Boolean::Or), op, rhs)
             }
-            _ => Err(operator_type_error("boolean or", op, self, rhs, |val| {
-                matches!(val, Value::Bool { .. })
-            })),
+            _ => Err(operator_type_error(
+                Operator::Boolean(Boolean::Or),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Bool { .. }),
+            )),
         }
     }
 
@@ -3710,43 +3779,30 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Boolean(Boolean::Xor), op, rhs)
             }
-            _ => Err(operator_type_error("boolean xor", op, self, rhs, |val| {
-                matches!(val, Value::Bool { .. })
-            })),
-        }
-    }
-
-    pub fn pow(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if let Some(val) = lhs.checked_pow(*rhs as u32) {
-                    Ok(Value::int(val, span))
-                } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "pow operation overflowed".into(),
-                        span,
-                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
-                    })
-                }
-            }
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                Ok(Value::float((*lhs as f64).powf(*rhs), span))
-            }
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::float(lhs.powf(*rhs as f64), span))
-            }
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                Ok(Value::float(lhs.powf(*rhs), span))
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Math(Math::Pow), op, rhs)
-            }
             _ => Err(operator_type_error(
-                "exponentiation",
+                Operator::Boolean(Boolean::Xor),
                 op,
                 self,
                 rhs,
-                |val| matches!(val, Value::Int { .. } | Value::Float { .. }),
+                |val| matches!(val, Value::Bool { .. }),
+            )),
+        }
+    }
+
+    pub fn and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
+                Ok(Value::bool(*lhs && *rhs, span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Boolean(Boolean::And), op, rhs)
+            }
+            _ => Err(operator_type_error(
+                Operator::Boolean(Boolean::And),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Bool { .. }),
             )),
         }
     }
@@ -3763,7 +3819,7 @@ fn type_compatible(a: Type, b: Type) -> bool {
 }
 
 fn operator_type_error(
-    op_name: &'static str,
+    op: Operator,
     op_span: Span,
     lhs: &Value,
     rhs: &Value,
@@ -3772,7 +3828,7 @@ fn operator_type_error(
     let is_supported = |val| is_supported(val) || matches!(val, Value::Custom { .. });
     match (is_supported(lhs), is_supported(rhs)) {
         (true, true) => ShellError::OperatorIncompatibleTypes {
-            op: op_name,
+            op,
             lhs: lhs.get_type(),
             rhs: rhs.get_type(),
             op_span,
@@ -3781,14 +3837,14 @@ fn operator_type_error(
             help: None,
         },
         (true, false) => ShellError::OperatorUnsupportedType {
-            op: op_name,
+            op,
             unsupported: rhs.get_type(),
             op_span,
             unsupported_span: rhs.span(),
             help: None,
         },
         (false, _) => ShellError::OperatorUnsupportedType {
-            op: op_name,
+            op,
             unsupported: lhs.get_type(),
             op_span,
             unsupported_span: lhs.span(),

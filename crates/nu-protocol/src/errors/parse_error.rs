@@ -1,11 +1,10 @@
+use crate::{ast::RedirectionSource, did_you_mean, Span, Type};
+use miette::Diagnostic;
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
     str::{from_utf8, Utf8Error},
 };
-
-use crate::{ast::RedirectionSource, did_you_mean, Span, Type};
-use miette::Diagnostic;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
@@ -112,12 +111,12 @@ pub enum ParseError {
     },
 
     /// One or more of the values have types not supported by the operator.
-    #[error("{op} is not supported on values of type {unsupported}.")]
-    #[diagnostic(code(nu::parser::operator_unsupported_type))]
+    #[error("The '{op}' operator does not work on values of type '{unsupported}'.")]
+    #[diagnostic(code(nu::shell::operator_unsupported_type))]
     OperatorUnsupportedType {
         op: &'static str,
         unsupported: Type,
-        #[label = "does support this type"]
+        #[label = "does not support '{unsupported}'"]
         op_span: Span,
         #[label("{unsupported}")]
         unsupported_span: Span,
@@ -126,13 +125,13 @@ pub enum ParseError {
     },
 
     /// The operator supports the types of both values, but not the specific combination of their types.
-    #[error("{op} is not supported between types {lhs} and {rhs}.")]
-    #[diagnostic(code(nu::parser::operator_incompatible_types))]
+    #[error("Types '{lhs}' and '{rhs}' are not compatiable for the '{op}' operator.")]
+    #[diagnostic(code(nu::shell::operator_incompatible_types))]
     OperatorIncompatibleTypes {
         op: &'static str,
         lhs: Type,
         rhs: Type,
-        #[label = "does not operate between these two types"]
+        #[label = "does not operate between '{lhs}' and '{rhs}'"]
         op_span: Span,
         #[label("{lhs}")]
         lhs_span: Span,

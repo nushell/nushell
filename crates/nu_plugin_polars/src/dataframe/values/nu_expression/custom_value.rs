@@ -133,23 +133,13 @@ fn with_operator(
             .apply_with_expr(right.clone(), Expr::lt_eq)
             .cache(plugin, engine, lhs_span)?
             .into_value(lhs_span)),
-        _ =>
-        // Err(ShellError::OperatorMismatch {
-        //     op_span,
-        //     lhs_ty: Type::Custom(TYPE_NAME.into()).to_string(),
-        //     lhs_span,
-        //     rhs_ty: Type::Custom(TYPE_NAME.into()).to_string(),
-        //     rhs_span,
-        // }),
-        {
-            Err(ShellError::OperatorUnsupportedType {
-                op: "TODO",
-                unsupported: Type::Custom(TYPE_NAME.into()),
-                op_span,
-                unsupported_span: lhs_span,
-                help: None,
-            })
-        }
+        op => Err(ShellError::OperatorUnsupportedType {
+            op,
+            unsupported: Type::Custom(TYPE_NAME.into()),
+            op_span,
+            unsupported_span: lhs_span,
+            help: None,
+        }),
     }
 }
 

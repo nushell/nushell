@@ -1,4 +1,7 @@
-use nu_protocol::{ast, CustomValue, ShellError, Span, Value};
+use nu_protocol::{
+    ast::{self, Math, Operator},
+    CustomValue, ShellError, Span, Value,
+};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
@@ -112,7 +115,7 @@ impl CustomValue for CoolCustomValue {
     ) -> Result<Value, ShellError> {
         match operator {
             // Append the string inside `cool`
-            ast::Operator::Math(ast::Math::Concatenate) => {
+            Operator::Math(Math::Concatenate) => {
                 if let Some(right) = right
                     .as_custom_value()
                     .ok()
@@ -126,7 +129,7 @@ impl CustomValue for CoolCustomValue {
                     ))
                 } else {
                     Err(ShellError::OperatorUnsupportedType {
-                        op: "concatenation",
+                        op: Operator::Math(Math::Concatenate),
                         unsupported: right.get_type(),
                         op_span,
                         unsupported_span: right.span(),

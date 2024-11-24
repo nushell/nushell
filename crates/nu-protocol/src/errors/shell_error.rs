@@ -12,33 +12,13 @@ use thiserror::Error;
 /// and pass it into an error viewer to display to the user.
 #[derive(Debug, Clone, Error, Diagnostic, PartialEq)]
 pub enum ShellError {
-    /// An operator received two arguments of incompatible types.
-    ///
-    /// ## Resolution
-    ///
-    /// Check each argument's type and convert one or both as needed.
-    ///
-    #[deprecated = "use `OperatorUnsupportedType` or `OperatorTypeMismatch` instead"]
-    #[error("Type mismatch during operation.")]
-    #[diagnostic(code(nu::shell::type_mismatch))]
-    OperatorMismatch {
-        #[label = "type mismatch for operator"]
-        op_span: Span,
-        lhs_ty: String,
-        #[label("{lhs_ty}")]
-        lhs_span: Span,
-        rhs_ty: String,
-        #[label("{rhs_ty}")]
-        rhs_span: Span,
-    },
-
     /// One or more of the values have types not supported by the operator.
-    #[error("{op} is not supported on values of type {unsupported}.")]
+    #[error("The '{op}' operator does not work on values of type '{unsupported}'.")]
     #[diagnostic(code(nu::shell::operator_unsupported_type))]
     OperatorUnsupportedType {
-        op: &'static str,
+        op: Operator,
         unsupported: Type,
-        #[label = "does support this type"]
+        #[label = "does not support '{unsupported}'"]
         op_span: Span,
         #[label("{unsupported}")]
         unsupported_span: Span,
@@ -47,13 +27,13 @@ pub enum ShellError {
     },
 
     /// The operator supports the types of both values, but not the specific combination of their types.
-    #[error("{op} is not supported between types {lhs} and {rhs}.")]
+    #[error("Types '{lhs}' and '{rhs}' are not compatiable for the '{op}' operator.")]
     #[diagnostic(code(nu::shell::operator_incompatible_types))]
     OperatorIncompatibleTypes {
-        op: &'static str,
+        op: Operator,
         lhs: Type,
         rhs: Type,
-        #[label = "does not operate between these two types"]
+        #[label = "does not operate between '{lhs}' and '{rhs}'"]
         op_span: Span,
         #[label("{lhs}")]
         lhs_span: Span,
