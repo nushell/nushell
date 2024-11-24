@@ -103,8 +103,9 @@ fn test_usage_for_pwd_per_drive() {
                 DriveToPwdMap::ensure_trailing_delimiter(&sys_abs)
             )))
         );
+    } else {
+        assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
     }
-    assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
 }
 
 struct DriveToPwdMap {
