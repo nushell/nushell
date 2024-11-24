@@ -117,8 +117,11 @@ impl DriveToPwdMap {
         if let (Some(drive_letter), Some(path_str)) =
             (Self::extract_drive_letter(path), path.to_str())
         {
-            self.map[drive_letter as usize - 'A' as usize] = Some(path_str.to_string());
-            return Ok(());
+            if drive_letter.is_ascii_alphabetic() {
+                let drive_letter = drive_letter.to_ascii_uppercase();
+                self.map[drive_letter as usize - 'A' as usize] = Some(path_str.to_string());
+                return Ok(());
+            }
         }
         Err(format!("Invalid path: {}", path.display()))
     }
