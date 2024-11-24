@@ -32,12 +32,12 @@ sequence is encountered. The `terminator` is not removed from the output."
             .required(
                 "query",
                 SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::String]),
-                "The query that will be printed to stdout",
+                "The query that will be printed to stdout.",
             )
             .required_named(
                 "terminator",
                 SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::String]),
-                "stdin will be read until this sequence is encountered",
+                "stdin will be read until this sequence is encountered.",
                 Some('t'),
             )
     }
