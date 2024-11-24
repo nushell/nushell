@@ -38,7 +38,7 @@ pub enum PathError {
 /// assert!(abs_path.starts_with(r"D:\"));
 /// assert!(abs_path.ends_with(r"\test"));
 /// ```
-pub mod singleton {
+pub mod shared {
     use super::*;
     use crate::pwd_per_drive::PathError::CantLockSharedMap;
 
@@ -199,7 +199,7 @@ mod tests {
     /// possible result, here can have more accurate test assert
     #[test]
     fn test_usage_for_pwd_per_drive() {
-        use singleton::{expand_pwd, set_pwd};
+        use shared::{expand_pwd, set_pwd};
         // Set PWD for drive F
         assert!(set_pwd(Path::new(r"F:\Users\Home")).is_ok());
 
