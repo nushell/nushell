@@ -215,12 +215,7 @@ pub fn math_result_type(
                 type_error("multiplication", op, lhs, rhs, |ty| {
                     matches!(
                         ty,
-                        Type::Int
-                            | Type::Float
-                            | Type::Number
-                            | Type::Date
-                            | Type::Duration
-                            | Type::Filesize,
+                        Type::Int | Type::Float | Type::Number | Type::Duration | Type::Filesize,
                     )
                 })
             }

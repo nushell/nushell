@@ -2443,7 +2443,6 @@ impl Value {
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
                 Ok(Value::string(lhs.to_string() + rhs, span))
             }
-
             (Value::Duration { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
                 if let Some(val) = rhs.checked_add_signed(chrono::Duration::nanoseconds(*lhs)) {
                     Ok(Value::date(val, span))
@@ -2488,43 +2487,20 @@ impl Value {
                     })
                 }
             }
-
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Plus), op, rhs)
             }
-
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
-        }
-    }
-
-    pub fn concat(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => {
-                Ok(Value::list([lhs.as_slice(), rhs.as_slice()].concat(), span))
-            }
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
-                Ok(Value::string([lhs.as_str(), rhs.as_str()].join(""), span))
-            }
-            (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => Ok(Value::binary(
-                [lhs.as_slice(), rhs.as_slice()].concat(),
-                span,
-            )),
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(self.span(), Operator::Math(Math::Concat), op, rhs)
-            }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error("addition", op, self, rhs, |val| {
+                matches!(
+                    val,
+                    Value::Int { .. }
+                        | Value::Float { .. }
+                        | Value::String { .. }
+                        | Value::Date { .. }
+                        | Value::Duration { .. }
+                        | Value::Filesize { .. },
+                )
+            })),
         }
     }
 
@@ -2552,7 +2528,6 @@ impl Value {
             }
             (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
                 let result = lhs.signed_duration_since(*rhs);
-
                 if let Some(v) = result.num_nanoseconds() {
                     Ok(Value::duration(v, span))
                 } else {
@@ -2595,18 +2570,19 @@ impl Value {
                     })
                 }
             }
-
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Minus), op, rhs)
             }
-
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error("subtraction", op, self, rhs, |val| {
+                matches!(
+                    val,
+                    Value::Int { .. }
+                        | Value::Float { .. }
+                        | Value::Date { .. }
+                        | Value::Duration { .. }
+                        | Value::Filesize { .. },
+                )
+            })),
         }
     }
 
@@ -2659,13 +2635,21 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Multiply), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                "multiplication",
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::Duration { .. }
+                            | Value::Filesize { .. },
+                    )
+                },
+            )),
         }
     }
 
@@ -2774,14 +2758,15 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
             }
-
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error("division", op, self, rhs, |val| {
+                matches!(
+                    val,
+                    Value::Int { .. }
+                        | Value::Float { .. }
+                        | Value::Duration { .. }
+                        | Value::Filesize { .. },
+                )
+            })),
         }
     }
 
@@ -2931,14 +2916,15 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Math(Math::Modulo), op, rhs)
             }
-
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error("modulo", op, self, rhs, |val| {
+                matches!(
+                    val,
+                    Value::Int { .. }
+                        | Value::Float { .. }
+                        | Value::Duration { .. }
+                        | Value::Filesize { .. },
+                )
+            })),
         }
     }
 
@@ -3087,13 +3073,51 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                "floor division",
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::Duration { .. }
+                            | Value::Filesize { .. },
+                    )
+                },
+            )),
+        }
+    }
+
+    pub fn concat(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => {
+                Ok(Value::list([lhs.as_slice(), rhs.as_slice()].concat(), span))
+            }
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::string([lhs.as_str(), rhs.as_str()].join(""), span))
+            }
+            (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => Ok(Value::binary(
+                [lhs.as_slice(), rhs.as_slice()].concat(),
+                span,
+            )),
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(self.span(), Operator::Math(Math::Concat), op, rhs)
+            }
+            _ => Err(operator_type_error(
+                "concatentation",
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::List { .. } | Value::String { .. } | Value::Binary { .. },
+                    )
+                },
+            )),
         }
     }
 
@@ -3111,30 +3135,32 @@ impl Value {
             return Ok(Value::nothing(span));
         }
 
-        if !type_compatible(self.get_type(), rhs.get_type())
-            && (self.get_type() != Type::Any)
-            && (rhs.get_type() != Type::Any)
-        {
-            return Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            });
+        if !type_compatible(self.get_type(), rhs.get_type()) {
+            return Err(operator_type_error(
+                "less than comparison",
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::String { .. }
+                            | Value::Filesize { .. }
+                            | Value::Duration { .. }
+                            | Value::Date { .. }
+                            | Value::Bool { .. }
+                            | Value::Nothing { .. }
+                    )
+                },
+            ));
         }
 
-        if let Some(ordering) = self.partial_cmp(rhs) {
-            Ok(Value::bool(matches!(ordering, Ordering::Less), span))
-        } else {
-            Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            })
-        }
+        Ok(Value::bool(
+            matches!(self.partial_cmp(rhs), Some(Ordering::Less)),
+            span,
+        ))
     }
 
     pub fn lte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
@@ -3151,28 +3177,35 @@ impl Value {
             return Ok(Value::nothing(span));
         }
 
-        if !type_compatible(self.get_type(), rhs.get_type())
-            && (self.get_type() != Type::Any)
-            && (rhs.get_type() != Type::Any)
-        {
-            return Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            });
+        if !type_compatible(self.get_type(), rhs.get_type()) {
+            return Err(operator_type_error(
+                "less than or equal to comparison",
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::String { .. }
+                            | Value::Filesize { .. }
+                            | Value::Duration { .. }
+                            | Value::Date { .. }
+                            | Value::Bool { .. }
+                            | Value::Nothing { .. }
+                    )
+                },
+            ));
         }
 
-        self.partial_cmp(rhs)
-            .map(|ordering| Value::bool(matches!(ordering, Ordering::Less | Ordering::Equal), span))
-            .ok_or(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            })
+        Ok(Value::bool(
+            matches!(
+                self.partial_cmp(rhs),
+                Some(Ordering::Less | Ordering::Equal)
+            ),
+            span,
+        ))
     }
 
     pub fn gt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
@@ -3189,28 +3222,32 @@ impl Value {
             return Ok(Value::nothing(span));
         }
 
-        if !type_compatible(self.get_type(), rhs.get_type())
-            && (self.get_type() != Type::Any)
-            && (rhs.get_type() != Type::Any)
-        {
-            return Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            });
+        if !type_compatible(self.get_type(), rhs.get_type()) {
+            return Err(operator_type_error(
+                "greater than comparison",
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::String { .. }
+                            | Value::Filesize { .. }
+                            | Value::Duration { .. }
+                            | Value::Date { .. }
+                            | Value::Bool { .. }
+                            | Value::Nothing { .. }
+                    )
+                },
+            ));
         }
 
-        self.partial_cmp(rhs)
-            .map(|ordering| Value::bool(matches!(ordering, Ordering::Greater), span))
-            .ok_or(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            })
+        Ok(Value::bool(
+            matches!(self.partial_cmp(rhs), Some(Ordering::Greater)),
+            span,
+        ))
     }
 
     pub fn gte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
@@ -3227,32 +3264,35 @@ impl Value {
             return Ok(Value::nothing(span));
         }
 
-        if !type_compatible(self.get_type(), rhs.get_type())
-            && (self.get_type() != Type::Any)
-            && (rhs.get_type() != Type::Any)
-        {
-            return Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            });
+        if !type_compatible(self.get_type(), rhs.get_type()) {
+            return Err(operator_type_error(
+                "greater than or equal to comparison",
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::String { .. }
+                            | Value::Filesize { .. }
+                            | Value::Duration { .. }
+                            | Value::Date { .. }
+                            | Value::Bool { .. }
+                            | Value::Nothing { .. }
+                    )
+                },
+            ));
         }
 
-        match self.partial_cmp(rhs) {
-            Some(ordering) => Ok(Value::bool(
-                matches!(ordering, Ordering::Greater | Ordering::Equal),
-                span,
-            )),
-            None => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
-        }
+        Ok(Value::bool(
+            matches!(
+                self.partial_cmp(rhs),
+                Some(Ordering::Greater | Ordering::Equal)
+            ),
+            span,
+        ))
     }
 
     pub fn eq(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
@@ -3265,22 +3305,10 @@ impl Value {
             );
         }
 
-        if let Some(ordering) = self.partial_cmp(rhs) {
-            Ok(Value::bool(matches!(ordering, Ordering::Equal), span))
-        } else {
-            match (self, rhs) {
-                (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
-                    Ok(Value::bool(false, span))
-                }
-                _ => Err(ShellError::OperatorMismatch {
-                    op_span: op,
-                    lhs_ty: self.get_type().to_string(),
-                    lhs_span: self.span(),
-                    rhs_ty: rhs.get_type().to_string(),
-                    rhs_span: rhs.span(),
-                }),
-            }
-        }
+        Ok(Value::bool(
+            matches!(self.partial_cmp(rhs), Some(Ordering::Equal)),
+            span,
+        ))
     }
 
     pub fn ne(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
@@ -3293,22 +3321,10 @@ impl Value {
             );
         }
 
-        if let Some(ordering) = self.partial_cmp(rhs) {
-            Ok(Value::bool(!matches!(ordering, Ordering::Equal), span))
-        } else {
-            match (self, rhs) {
-                (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
-                    Ok(Value::bool(true, span))
-                }
-                _ => Err(ShellError::OperatorMismatch {
-                    op_span: op,
-                    lhs_ty: self.get_type().to_string(),
-                    lhs_span: self.span(),
-                    rhs_ty: rhs.get_type().to_string(),
-                    rhs_span: rhs.span(),
-                }),
-            }
-        }
+        Ok(Value::bool(
+            !matches!(self.partial_cmp(rhs), Some(Ordering::Equal)),
+            span,
+        ))
     }
 
     pub fn r#in(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
@@ -3349,13 +3365,34 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Comparison(Comparison::In), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            (lhs, rhs) => Err(
+                if matches!(
+                    rhs,
+                    Value::List { .. }
+                        | Value::Range { .. }
+                        | Value::String { .. }
+                        | Value::Record { .. }
+                        | Value::Custom { .. }
+                ) {
+                    ShellError::OperatorTypeMismatch {
+                        op: "'in' comparison",
+                        lhs: lhs.get_type(),
+                        rhs: rhs.get_type(),
+                        op_span: op,
+                        lhs_span: lhs.span(),
+                        rhs_span: rhs.span(),
+                        help: None,
+                    }
+                } else {
+                    ShellError::OperatorUnsupportedType {
+                        op: "'in' comparison",
+                        unsupported: rhs.get_type(),
+                        op_span: op,
+                        unsupported_span: rhs.span(),
+                        help: None,
+                    }
+                },
+            ),
         }
     }
 
@@ -3400,13 +3437,34 @@ impl Value {
                 op,
                 rhs,
             ),
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            (lhs, rhs) => Err(
+                if matches!(
+                    rhs,
+                    Value::List { .. }
+                        | Value::Range { .. }
+                        | Value::String { .. }
+                        | Value::Record { .. }
+                        | Value::Custom { .. }
+                ) {
+                    ShellError::OperatorTypeMismatch {
+                        op: "'not-in' comparison",
+                        lhs: lhs.get_type(),
+                        rhs: rhs.get_type(),
+                        op_span: op,
+                        lhs_span: lhs.span(),
+                        rhs_span: rhs.span(),
+                        help: None,
+                    }
+                } else {
+                    ShellError::OperatorUnsupportedType {
+                        op: "'not-in' comparison",
+                        unsupported: rhs.get_type(),
+                        op_span: op,
+                        unsupported_span: rhs.span(),
+                        help: None,
+                    }
+                },
+            ),
         }
     }
 
@@ -3468,13 +3526,9 @@ impl Value {
                 op,
                 rhs,
             ),
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error("regex match", op, self, rhs, |val| {
+                matches!(val, Value::String { .. })
+            })),
         }
     }
 
@@ -3489,13 +3543,13 @@ impl Value {
                 op,
                 rhs,
             ),
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                "starts-with comparison",
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::String { .. }),
+            )),
         }
     }
 
@@ -3510,13 +3564,13 @@ impl Value {
                 op,
                 rhs,
             ),
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                "ends-with comparison",
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::String { .. }),
+            )),
         }
     }
 
@@ -3539,13 +3593,13 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::ShiftLeft), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                "bit left shift",
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Int { .. }),
+            )),
         }
     }
 
@@ -3568,49 +3622,13 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::ShiftRight), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
-        }
-    }
-
-    pub fn bit_or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs | rhs, span))
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Bits(Bits::BitOr), op, rhs)
-            }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
-        }
-    }
-
-    pub fn bit_xor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs ^ rhs, span))
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Bits(Bits::BitXor), op, rhs)
-            }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                "bit right shift",
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Int { .. }),
+            )),
         }
     }
 
@@ -3622,13 +3640,37 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::BitAnd), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error("bitwise and", op, self, rhs, |val| {
+                matches!(val, Value::Int { .. })
+            })),
+        }
+    }
+
+    pub fn bit_or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs | rhs, span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::BitOr), op, rhs)
+            }
+            _ => Err(operator_type_error("bitwise or", op, self, rhs, |val| {
+                matches!(val, Value::Int { .. })
+            })),
+        }
+    }
+
+    pub fn bit_xor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs ^ rhs, span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::BitXor), op, rhs)
+            }
+            _ => Err(operator_type_error("bitwise xor", op, self, rhs, |val| {
+                matches!(val, Value::Int { .. })
+            })),
         }
     }
 
@@ -3640,13 +3682,9 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Boolean(Boolean::And), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error("boolean and", op, self, rhs, |val| {
+                matches!(val, Value::Bool { .. })
+            })),
         }
     }
 
@@ -3658,13 +3696,9 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Boolean(Boolean::Or), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error("boolean or", op, self, rhs, |val| {
+                matches!(val, Value::Bool { .. })
+            })),
         }
     }
 
@@ -3676,13 +3710,9 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Boolean(Boolean::Xor), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error("boolean xor", op, self, rhs, |val| {
+                matches!(val, Value::Bool { .. })
+            })),
         }
     }
 
@@ -3711,14 +3741,13 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Math(Math::Pow), op, rhs)
             }
-
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                "exponentiation",
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Int { .. } | Value::Float { .. }),
+            )),
         }
     }
 }
@@ -3731,6 +3760,41 @@ fn type_compatible(a: Type, b: Type) -> bool {
     }
 
     matches!((a, b), (Type::Int, Type::Float) | (Type::Float, Type::Int))
+}
+
+fn operator_type_error(
+    op_name: &'static str,
+    op_span: Span,
+    lhs: &Value,
+    rhs: &Value,
+    is_supported: fn(&Value) -> bool,
+) -> ShellError {
+    let is_supported = |val| is_supported(val) || matches!(val, Value::Custom { .. });
+    match (is_supported(lhs), is_supported(rhs)) {
+        (true, true) => ShellError::OperatorTypeMismatch {
+            op: op_name,
+            lhs: lhs.get_type(),
+            rhs: rhs.get_type(),
+            op_span,
+            lhs_span: lhs.span(),
+            rhs_span: rhs.span(),
+            help: None,
+        },
+        (true, false) => ShellError::OperatorUnsupportedType {
+            op: op_name,
+            unsupported: rhs.get_type(),
+            op_span,
+            unsupported_span: rhs.span(),
+            help: None,
+        },
+        (false, _) => ShellError::OperatorUnsupportedType {
+            op: op_name,
+            unsupported: lhs.get_type(),
+            op_span,
+            unsupported_span: lhs.span(),
+            help: None,
+        },
+    }
 }
 
 #[cfg(test)]

@@ -105,7 +105,7 @@ impl CustomValue for CoolCustomValue {
 
     fn operation(
         &self,
-        lhs_span: Span,
+        _lhs_span: Span,
         operator: ast::Operator,
         op_span: Span,
         right: &Value,
@@ -125,12 +125,12 @@ impl CustomValue for CoolCustomValue {
                         op_span,
                     ))
                 } else {
-                    Err(ShellError::OperatorMismatch {
+                    Err(ShellError::OperatorUnsupportedType {
+                        op: "concatenation",
+                        unsupported: right.get_type(),
                         op_span,
-                        lhs_ty: self.typetag_name().into(),
-                        lhs_span,
-                        rhs_ty: right.get_type().to_string(),
-                        rhs_span: right.span(),
+                        unsupported_span: right.span(),
+                        help: None,
                     })
                 }
             }

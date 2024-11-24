@@ -17,6 +17,8 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check each argument's type and convert one or both as needed.
+    ///
+    #[deprecated = "use `OperatorUnsupportedType` or `OperatorTypeMismatch` instead"]
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::shell::type_mismatch))]
     OperatorMismatch {
@@ -28,6 +30,37 @@ pub enum ShellError {
         rhs_ty: String,
         #[label("{rhs_ty}")]
         rhs_span: Span,
+    },
+
+    /// One or more of the values have types not supported by the operator.
+    #[error("{op} is not supported on values of type {unsupported}.")]
+    #[diagnostic(code(nu::shell::operator_unsupported_type))]
+    OperatorUnsupportedType {
+        op: &'static str,
+        unsupported: Type,
+        #[label = "does support this type"]
+        op_span: Span,
+        #[label("{unsupported}")]
+        unsupported_span: Span,
+        #[help]
+        help: Option<&'static str>,
+    },
+
+    /// The operator supports the types of both values, but not the specific combination of their types.
+    #[error("{op} is not supported between types {lhs} and {rhs}.")]
+    #[diagnostic(code(nu::shell::operator_type_mismatch))]
+    OperatorTypeMismatch {
+        op: &'static str,
+        lhs: Type,
+        rhs: Type,
+        #[label = "does not operate between these two types"]
+        op_span: Span,
+        #[label("{lhs}")]
+        lhs_span: Span,
+        #[label("{rhs}")]
+        rhs_span: Span,
+        #[help]
+        help: Option<&'static str>,
     },
 
     /// An arithmetic operation's resulting value overflowed its possible size.
