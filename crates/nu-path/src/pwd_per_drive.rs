@@ -36,8 +36,8 @@ pub enum PathError {
 /// assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
 /// ```
 pub mod singleton {
-    use crate::pwd_per_drive::PathError::CantLockSharedMap;
     use super::*;
+    use crate::pwd_per_drive::PathError::CantLockSharedMap;
 
     /// set_pwd_per_drive
     /// Record PWD for drive, path must be absolute path
@@ -69,8 +69,7 @@ fn need_expand_pwd_per_drive(_path: &Path) -> bool {
     if let Some(path_str) = _path.to_str() {
         let chars: Vec<char> = path_str.chars().collect();
         if chars.len() >= 2 {
-            return chars[1] == ':'
-                && (chars.len() == 2 || (chars[2] != '/' && chars[2] != '\\'));
+            return chars[1] == ':' && (chars.len() == 2 || (chars[2] != '/' && chars[2] != '\\'));
         }
     }
     false
@@ -132,9 +131,10 @@ impl DriveToPwdMap {
                 match c.next() {
                     None => Err(PathError::InvalidDriveLetter),
                     Some(_) => {
-                        self.map[drive_letter as usize - 'A' as usize] = Some(drive_letter.to_string() + c.as_str());
+                        self.map[drive_letter as usize - 'A' as usize] =
+                            Some(drive_letter.to_string() + c.as_str());
                         Ok(())
-                    },
+                    }
                 }
             } else {
                 Err(PathError::InvalidDriveLetter)
@@ -300,15 +300,9 @@ mod tests {
         assert!(drive_map.set_pwd(Path::new(r"C:\Users")).is_ok());
         // Or for drive 'c'
         assert!(drive_map.set_pwd(Path::new(r"c:\Users\Example")).is_ok());
-        assert_eq!(
-            drive_map.get_pwd('C'),
-            Ok(r"C:\Users\Example".to_string())
-        );
+        assert_eq!(drive_map.get_pwd('C'), Ok(r"C:\Users\Example".to_string()));
         // or 'c'
-        assert_eq!(
-            drive_map.get_pwd('c'),
-            Ok(r"C:\Users\Example".to_string())
-        );
+        assert_eq!(drive_map.get_pwd('c'), Ok(r"C:\Users\Example".to_string()));
 
         // Set PWD for drive D
         assert!(drive_map.set_pwd(Path::new(r"D:\Projects")).is_ok());
