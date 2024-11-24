@@ -1,12 +1,12 @@
 // use super::icons::{icon_for_file, iconify_style_ansi_to_nu};
 use super::icons::icon_for_file;
+use crossterm::terminal::size;
 use lscolors::Style;
 use nu_engine::{command_prelude::*, env_to_string};
 use nu_protocol::Config;
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_utils::get_ls_colors;
 use std::path::Path;
-use terminal_size::{Height, Width};
 
 #[derive(Clone)]
 pub struct Griddle;
@@ -192,7 +192,7 @@ fn create_grid_output(
 
     let cols = if let Some(col) = width_param {
         col as u16
-    } else if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
+    } else if let Ok((w, _h)) = size() {
         w
     } else {
         80u16
