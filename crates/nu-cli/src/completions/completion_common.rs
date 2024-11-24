@@ -159,7 +159,9 @@ pub fn complete_item(
     let cleaned_partial = surround_remove(partial);
     let isdir = cleaned_partial.ends_with(is_separator);
     #[cfg(windows)]
-    let cleaned_partial = if let Some(absoluted_partial) = nu_path::expand_pwd(PathBuf::from(cleaned_partial.clone()).as_path()) {
+    let cleaned_partial = if let Some(absoluted_partial) =
+        nu_path::expand_pwd(PathBuf::from(cleaned_partial.clone()).as_path())
+    {
         absoluted_partial.display().to_string()
     } else {
         cleaned_partial
