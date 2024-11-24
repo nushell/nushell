@@ -4887,7 +4887,7 @@ pub fn parse_assignment_operator(working_set: &mut StateWorkingSet, span: Span) 
     let operator = match contents {
         b"=" => Operator::Assignment(Assignment::Assign),
         b"+=" => Operator::Assignment(Assignment::PlusAssign),
-        b"++=" => Operator::Assignment(Assignment::AppendAssign),
+        b"++=" => Operator::Assignment(Assignment::ConcatAssign),
         b"-=" => Operator::Assignment(Assignment::MinusAssign),
         b"*=" => Operator::Assignment(Assignment::MultiplyAssign),
         b"/=" => Operator::Assignment(Assignment::DivideAssign),
@@ -5013,7 +5013,7 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         b"=~" | b"like" => Operator::Comparison(Comparison::RegexMatch),
         b"!~" | b"not-like" => Operator::Comparison(Comparison::NotRegexMatch),
         b"+" => Operator::Math(Math::Plus),
-        b"++" => Operator::Math(Math::Append),
+        b"++" => Operator::Math(Math::Concat),
         b"-" => Operator::Math(Math::Minus),
         b"*" => Operator::Math(Math::Multiply),
         b"/" => Operator::Math(Math::Divide),

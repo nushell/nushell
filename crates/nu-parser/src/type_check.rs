@@ -132,7 +132,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Math(Math::Append) => check_append(working_set, lhs, rhs, op),
+            Operator::Math(Math::Concat) => check_concat(working_set, lhs, rhs, op),
             Operator::Math(Math::Minus) => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
                 (Type::Float, Type::Int) => (Type::Float, None),
@@ -935,8 +935,8 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Assignment(Assignment::AppendAssign) => {
-                check_append(working_set, lhs, rhs, op)
+            Operator::Assignment(Assignment::ConcatAssign) => {
+                check_concat(working_set, lhs, rhs, op)
             }
             Operator::Assignment(_) => match (&lhs.ty, &rhs.ty) {
                 (x, y) if x == y => (Type::Nothing, None),
@@ -1085,7 +1085,7 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
     output_errors
 }
 
-fn check_append(
+fn check_concat(
     working_set: &mut StateWorkingSet,
     lhs: &Expression,
     rhs: &Expression,
@@ -1099,23 +1099,17 @@ fn check_append(
                 (Type::List(Box::new(Type::Any)), None)
             }
         }
-        (Type::List(a), b) | (b, Type::List(a)) => {
-            if a == &Box::new(b.clone()) {
-                (Type::List(a.clone()), None)
-            } else {
-                (Type::List(Box::new(Type::Any)), None)
-            }
-        }
         (Type::Table(a), Type::Table(_)) => (Type::Table(a.clone()), None),
         (Type::String, Type::String) => (Type::String, None),
         (Type::Binary, Type::Binary) => (Type::Binary, None),
         (Type::Any, _) | (_, Type::Any) => (Type::Any, None),
-        (Type::Table(_) | Type::String | Type::Binary, _) => {
+        (Type::Table(_) | Type::List(_) | Type::String | Type::Binary, _)
+        | (_, Type::Table(_) | Type::List(_) | Type::String | Type::Binary) => {
             *op = Expression::garbage(working_set, op.span);
             (
                 Type::Any,
                 Some(ParseError::UnsupportedOperationRHS(
-                    "append".into(),
+                    "concatenation".into(),
                     op.span,
                     lhs.span,
                     lhs.ty.clone(),
@@ -1129,7 +1123,7 @@ fn check_append(
             (
                 Type::Any,
                 Some(ParseError::UnsupportedOperationLHS(
-                    "append".into(),
+                    "concatenation".into(),
                     op.span,
                     lhs.span,
                     lhs.ty.clone(),
