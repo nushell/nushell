@@ -182,10 +182,10 @@ fn get_full_path_name_w(path_str: &str) -> Option<String> {
 
 use std::sync::{Mutex, OnceLock};
 
-/// Global singleton instance of DrivePwdMap
+/// Global shared instance of DrivePwdMap
 static DRIVE_PWD_MAP: OnceLock<Mutex<DriveToPwdMap>> = OnceLock::new();
 
-/// Access the singleton instance
+/// Access the shared instance
 fn get_drive_pwd_map() -> &'static Mutex<DriveToPwdMap> {
     DRIVE_PWD_MAP.get_or_init(|| Mutex::new(DriveToPwdMap::new()))
 }
@@ -232,9 +232,9 @@ mod tests {
     }
 
     #[test]
-    fn test_singleton_set_and_get_pwd() {
+    fn test_shared_set_and_get_pwd() {
         // To avoid conflict with other test threads (on testing result),
-        // use different drive set in multiple singleton tests
+        // use different drive set in multiple shared tests
         let drive_pwd_map = get_drive_pwd_map();
         {
             let mut map = drive_pwd_map.lock().unwrap();
@@ -252,8 +252,10 @@ mod tests {
             // Get PWD for drive E (not set, should return E:\) ???
             // 11-21-2024 happened to start nushell from drive E:,
             // run toolkit test 'toolkit check pr' then this test failed
-            // since the singleton has its own state, so this type of test ('not set,
-            // should return ...') must be more careful to avoid accidentally fail.
+            // since for drive that has not bind PWD, if the drive really exists
+            // in system and current directory is not drive root, this test will
+            // fail if assuming result should be r"X:\", and there might also have
+            // other cases tested by other threads which might change PWD.
             if let Some(pwd_on_e) = get_full_path_name_w("E:") {
                 assert_eq!(map.get_pwd('E'), Ok(pwd_on_e));
             } else {
