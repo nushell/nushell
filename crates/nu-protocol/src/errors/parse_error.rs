@@ -112,7 +112,7 @@ pub enum ParseError {
 
     /// One or more of the values have types not supported by the operator.
     #[error("The '{op}' operator does not work on values of type '{unsupported}'.")]
-    #[diagnostic(code(nu::shell::operator_unsupported_type))]
+    #[diagnostic(code(nu::parser::operator_unsupported_type))]
     OperatorUnsupportedType {
         op: &'static str,
         unsupported: Type,
@@ -126,7 +126,7 @@ pub enum ParseError {
 
     /// The operator supports the types of both values, but not the specific combination of their types.
     #[error("Types '{lhs}' and '{rhs}' are not compatiable for the '{op}' operator.")]
-    #[diagnostic(code(nu::shell::operator_incompatible_types))]
+    #[diagnostic(code(nu::parser::operator_incompatible_types))]
     OperatorIncompatibleTypes {
         op: &'static str,
         lhs: Type,
