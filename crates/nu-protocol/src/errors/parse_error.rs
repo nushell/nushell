@@ -141,19 +141,6 @@ pub enum ParseError {
         help: Option<&'static str>,
     },
 
-    #[error("{0} is not supported between {3}, {5}, and {7}.")]
-    #[diagnostic(code(nu::parser::unsupported_operation))]
-    UnsupportedOperationTernary(
-        String,
-        #[label = "doesn't support these values"] Span,
-        #[label("{3}")] Span,
-        Type,
-        #[label("{5}")] Span,
-        Type,
-        #[label("{7}")] Span,
-        Type,
-    ),
-
     #[error("Capture of mutable variable.")]
     #[diagnostic(code(nu::parser::expected_keyword))]
     CaptureOfMutableVar(#[label("capture of mutable variable")] Span),
@@ -540,7 +527,6 @@ impl ParseError {
             ParseError::Mismatch(_, _, s) => *s,
             ParseError::OperatorUnsupportedType { op_span, .. } => *op_span,
             ParseError::OperatorIncompatibleTypes { op_span, .. } => *op_span,
-            ParseError::UnsupportedOperationTernary(_, _, _, _, _, _, s, _) => *s,
             ParseError::ExpectedKeyword(_, s) => *s,
             ParseError::UnexpectedKeyword(_, s) => *s,
             ParseError::CantAliasKeyword(_, s) => *s,

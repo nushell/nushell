@@ -954,7 +954,7 @@ pub fn check_range_types(working_set: &mut StateWorkingSet, range: &mut Range) {
             if !type_compatible(&Type::Number, &expr.ty) =>
         {
             working_set.error(ParseError::OperatorUnsupportedType {
-                op: "range creation",
+                op: "..",
                 unsupported: expr.ty.clone(),
                 op_span: next_op_span,
                 unsupported_span: expr.span,
@@ -962,43 +962,26 @@ pub fn check_range_types(working_set: &mut StateWorkingSet, range: &mut Range) {
             });
             *expr = Expression::garbage(working_set, expr.span);
         }
-        (Some(lhs), Some(rhs), _) if !type_compatible(&Type::Number, &rhs.ty) => {
-            working_set.error(ParseError::OperatorIncompatibleTypes {
-                op: "range creation",
-                lhs: lhs.ty.clone(),
-                rhs: rhs.ty.clone(),
-                op_span: next_op_span,
-                lhs_span: lhs.span,
-                rhs_span: rhs.span,
-                help: None,
-            });
-            *rhs = Expression::garbage(working_set, rhs.span);
-        }
-        (Some(lhs), Some(rhs), _) | (Some(lhs), None, Some(rhs)) | (None, Some(lhs), Some(rhs))
+        (Some(_), Some(rhs), _) | (Some(_), None, Some(rhs)) | (None, Some(_), Some(rhs))
             if !type_compatible(&Type::Number, &rhs.ty) =>
         {
-            working_set.error(ParseError::OperatorIncompatibleTypes {
-                op: "range creation",
-                lhs: lhs.ty.clone(),
-                rhs: rhs.ty.clone(),
-                op_span: range.operator.span,
-                lhs_span: lhs.span,
-                rhs_span: rhs.span,
+            working_set.error(ParseError::OperatorUnsupportedType {
+                op: "..",
+                unsupported: rhs.ty.clone(),
+                op_span: next_op_span,
+                unsupported_span: rhs.span,
                 help: None,
             });
             *rhs = Expression::garbage(working_set, rhs.span);
         }
-        (Some(from), Some(next), Some(to)) if !type_compatible(&Type::Number, &to.ty) => {
-            working_set.error(ParseError::UnsupportedOperationTernary(
-                String::from("range"),
-                range.operator.span,
-                from.span,
-                from.ty.clone(),
-                next.span,
-                next.ty.clone(),
-                to.span,
-                to.ty.clone(),
-            ));
+        (Some(_), Some(_), Some(to)) if !type_compatible(&Type::Number, &to.ty) => {
+            working_set.error(ParseError::OperatorUnsupportedType {
+                op: "..",
+                unsupported: to.ty.clone(),
+                op_span: next_op_span,
+                unsupported_span: to.span,
+                help: None,
+            });
             *to = Expression::garbage(working_set, to.span);
         }
         _ => (),
