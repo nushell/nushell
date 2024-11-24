@@ -17,13 +17,16 @@ workspace = true
 nu-protocol = { path = "../nu-protocol", version = "0.100.1", default-features = false}
 nu-path = { path = "../nu-path", version = "0.100.1" }
 nu-glob = { path = "../nu-glob", version = "0.100.1" }
-nu-utils = { path = "../nu-utils", version = "0.100.1" }
+nu-utils = { path = "../nu-utils", version = "0.100.1", default-features = false }
 log = { workspace = true }
 terminal_size = { workspace = true }
 
 [features]
 default = ["os"]
-os = ["nu-protocol/os"]
+os = [
+  "nu-protocol/os",
+  "nu-utils/os",
+]
 plugin = [
   "nu-protocol/plugin",
   "os",

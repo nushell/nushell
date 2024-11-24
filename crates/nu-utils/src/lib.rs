@@ -13,6 +13,7 @@ pub use utils::{
     enable_vt_processing, get_default_config, get_default_env, get_ls_colors, get_sample_config,
     get_sample_env, get_scaffold_config, get_scaffold_env, stderr_write_all_and_flush,
     stdout_write_all_and_flush,
+    terminal_size,
 };
 
 pub use casing::IgnoreCaseExt;
