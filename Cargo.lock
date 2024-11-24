@@ -3357,7 +3357,6 @@ dependencies = [
  "sysinfo 0.32.0",
  "tabled",
  "tempfile",
- "terminal_size",
  "titlecase",
  "toml 0.8.19",
  "trash",
@@ -3426,7 +3425,6 @@ dependencies = [
  "nu-utils",
  "ratatui",
  "strip-ansi-escapes",
- "terminal_size",
  "unicode-width 0.1.11",
 ]
 
@@ -3686,6 +3684,7 @@ dependencies = [
 name = "nu-utils"
 version = "0.100.1"
 dependencies = [
+ "crossterm 0.28.1",
  "crossterm_winapi",
  "fancy-regex",
  "log",
