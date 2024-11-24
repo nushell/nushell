@@ -45,9 +45,9 @@ pub mod singleton {
     /// set_pwd_per_drive
     /// Record PWD for drive, path must be absolute path
     /// return Ok(()) if succeeded, otherwise error message
-    pub fn set_pwd(_path: &Path) -> Result<(), PathError> {
+    pub fn set_pwd(path: &Path) -> Result<(), PathError> {
         if let Ok(mut pwd_per_drive) = get_drive_pwd_map().lock() {
-            pwd_per_drive.set_pwd(_path)
+            pwd_per_drive.set_pwd(path)
         } else {
             Err(CantLockSharedMap)
         }
@@ -56,10 +56,10 @@ pub mod singleton {
     /// expand_pwe_per_drive
     /// Input relative path, expand PWD-per-drive to construct absolute path
     /// return PathBuf for absolute path, None if input path is invalid.
-    pub fn expand_pwd(_path: &Path) -> Option<PathBuf> {
-        if need_expand_pwd_per_drive(_path) {
+    pub fn expand_pwd(path: &Path) -> Option<PathBuf> {
+        if need_expand_pwd_per_drive(path) {
             if let Ok(mut pwd_per_drive) = get_drive_pwd_map().lock() {
-                return pwd_per_drive.expand_path(_path);
+                return pwd_per_drive.expand_path(path);
             }
         }
         None
@@ -68,8 +68,8 @@ pub mod singleton {
 
 /// Helper to check if input path is relative path
 /// with drive letter, it can be expanded with PWD-per-drive.
-fn need_expand_pwd_per_drive(_path: &Path) -> bool {
-    if let Some(path_str) = _path.to_str() {
+fn need_expand_pwd_per_drive(path: &Path) -> bool {
+    if let Some(path_str) = path.to_str() {
         let chars: Vec<char> = path_str.chars().collect();
         if chars.len() >= 2 {
             return chars[1] == ':' && (chars.len() == 2 || (chars[2] != '/' && chars[2] != '\\'));
@@ -135,8 +135,8 @@ impl DriveToPwdMap {
                 match c.next() {
                     None => Err(PathError::InvalidDriveLetter),
                     Some(_) => {
-                        self.map[drive_letter as usize - 'A' as usize] =
-                            Some(drive_letter.to_string() + c.as_str());
+                        let drive_index = drive_letter as usize - 'A' as usize;
+                        self.map[drive_index] = Some(drive_letter.to_string() + c.as_str());
                         Ok(())
                     }
                 }
@@ -150,16 +150,16 @@ impl DriveToPwdMap {
 
     /// Get the PWD for drive, if not yet, ask GetFullPathNameW(),
     /// or else return default r"X:\".
-    fn get_pwd(&mut self, drive: char) -> Result<String, PathError> {
-        if drive.is_ascii_alphabetic() {
-            let drive = drive.to_ascii_uppercase();
-            let index = drive as usize - 'A' as usize;
-            Ok(self.map[index].clone().unwrap_or_else(|| {
-                if let Some(sys_pwd) = get_full_path_name_w(&format!("{}:", drive)) {
-                    self.map[index] = Some(sys_pwd.clone());
+    fn get_pwd(&mut self, drive_letter: char) -> Result<String, PathError> {
+        if drive_letter.is_ascii_alphabetic() {
+            let drive_letter = drive_letter.to_ascii_uppercase();
+            let drive_index = drive_letter as usize - 'A' as usize;
+            Ok(self.map[drive_index].clone().unwrap_or_else(|| {
+                if let Some(sys_pwd) = get_full_path_name_w(&format!("{}:", drive_letter)) {
+                    self.map[drive_index] = Some(sys_pwd.clone());
                     sys_pwd
                 } else {
-                    format!(r"{}:\", drive)
+                    format!(r"{}:\", drive_letter)
                 }
             }))
         } else {
