@@ -57,7 +57,7 @@ pub mod singleton {
     /// Input relative path, expand PWD-per-drive to construct absolute path
     /// return PathBuf for absolute path, None if input path is invalid.
     pub fn expand_pwd(path: &Path) -> Option<PathBuf> {
-        if need_expand_pwd_per_drive(path) {
+        if need_expand(path) {
             if let Ok(mut pwd_per_drive) = get_drive_pwd_map().lock() {
                 return pwd_per_drive.expand_path(path);
             }
@@ -68,7 +68,7 @@ pub mod singleton {
 
 /// Helper to check if input path is relative path
 /// with drive letter, it can be expanded with PWD-per-drive.
-fn need_expand_pwd_per_drive(path: &Path) -> bool {
+fn need_expand(path: &Path) -> bool {
     if let Some(path_str) = path.to_str() {
         let chars: Vec<char> = path_str.chars().collect();
         if chars.len() >= 2 {
@@ -76,39 +76,6 @@ fn need_expand_pwd_per_drive(path: &Path) -> bool {
         }
     }
     false
-}
-
-#[test]
-fn test_usage_for_pwd_per_drive() {
-    use singleton::{expand_pwd, set_pwd};
-    // Set PWD for drive F
-    assert!(set_pwd(Path::new(r"F:\Users\Home")).is_ok());
-
-    // Expand a relative path
-    let expanded = expand_pwd(Path::new("f:test"));
-    assert_eq!(expanded, Some(PathBuf::from(r"F:\Users\Home\test")));
-
-    // Will NOT expand an absolute path
-    let expanded = expand_pwd(Path::new(r"F:\absolute\path"));
-    assert_eq!(expanded, None);
-
-    // Expand with no drive letter
-    let expanded = expand_pwd(Path::new(r"\no_drive"));
-    assert_eq!(expanded, None);
-
-    // Expand with no PWD set for the drive
-    let expanded = expand_pwd(Path::new("D:test"));
-    if let Some(sys_abs) = get_full_path_name_w("D:") {
-        assert_eq!(
-            expanded,
-            Some(PathBuf::from(format!(
-                "{}test",
-                DriveToPwdMap::ensure_trailing_delimiter(&sys_abs)
-            )))
-        );
-    } else {
-        assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
-    }
 }
 
 struct DriveToPwdMap {
@@ -172,7 +139,7 @@ impl DriveToPwdMap {
     /// of absolute path.
     /// Return None if path is not valid or can't get drive letter.
     pub fn expand_path(&mut self, path: &Path) -> Option<PathBuf> {
-        if need_expand_pwd_per_drive(path) {
+        if need_expand(path) {
             let path_str = path.to_str()?;
             if let Some(drive_letter) = Self::extract_drive_letter(path) {
                 if let Ok(pwd) = self.get_pwd(drive_letter) {
@@ -226,6 +193,42 @@ fn get_drive_pwd_map() -> &'static Mutex<DriveToPwdMap> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Test or demo usage of PWD-per-drive
+    /// In doctest, there's no get_full_path_name_w available so can't foresee
+    /// possible result, here can have more accurate test assert
+    #[test]
+    fn test_usage_for_pwd_per_drive() {
+        use singleton::{expand_pwd, set_pwd};
+        // Set PWD for drive F
+        assert!(set_pwd(Path::new(r"F:\Users\Home")).is_ok());
+
+        // Expand a relative path
+        let expanded = expand_pwd(Path::new("f:test"));
+        assert_eq!(expanded, Some(PathBuf::from(r"F:\Users\Home\test")));
+
+        // Will NOT expand an absolute path
+        let expanded = expand_pwd(Path::new(r"F:\absolute\path"));
+        assert_eq!(expanded, None);
+
+        // Expand with no drive letter
+        let expanded = expand_pwd(Path::new(r"\no_drive"));
+        assert_eq!(expanded, None);
+
+        // Expand with no PWD set for the drive
+        let expanded = expand_pwd(Path::new("D:test"));
+        if let Some(sys_abs) = get_full_path_name_w("D:") {
+            assert_eq!(
+                expanded,
+                Some(PathBuf::from(format!(
+                    "{}test",
+                    DriveToPwdMap::ensure_trailing_delimiter(&sys_abs)
+                )))
+            );
+        } else {
+            assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
+        }
+    }
 
     #[test]
     fn test_singleton_set_and_get_pwd() {
