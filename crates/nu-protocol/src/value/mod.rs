@@ -3374,7 +3374,7 @@ impl Value {
                         | Value::Record { .. }
                         | Value::Custom { .. }
                 ) {
-                    ShellError::OperatorTypeMismatch {
+                    ShellError::OperatorIncompatibleTypes {
                         op: "'in' comparison",
                         lhs: lhs.get_type(),
                         rhs: rhs.get_type(),
@@ -3446,7 +3446,7 @@ impl Value {
                         | Value::Record { .. }
                         | Value::Custom { .. }
                 ) {
-                    ShellError::OperatorTypeMismatch {
+                    ShellError::OperatorIncompatibleTypes {
                         op: "'not-in' comparison",
                         lhs: lhs.get_type(),
                         rhs: rhs.get_type(),
@@ -3771,7 +3771,7 @@ fn operator_type_error(
 ) -> ShellError {
     let is_supported = |val| is_supported(val) || matches!(val, Value::Custom { .. });
     match (is_supported(lhs), is_supported(rhs)) {
-        (true, true) => ShellError::OperatorTypeMismatch {
+        (true, true) => ShellError::OperatorIncompatibleTypes {
             op: op_name,
             lhs: lhs.get_type(),
             rhs: rhs.get_type(),

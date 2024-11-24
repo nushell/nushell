@@ -48,8 +48,8 @@ pub enum ShellError {
 
     /// The operator supports the types of both values, but not the specific combination of their types.
     #[error("{op} is not supported between types {lhs} and {rhs}.")]
-    #[diagnostic(code(nu::shell::operator_type_mismatch))]
-    OperatorTypeMismatch {
+    #[diagnostic(code(nu::shell::operator_incompatible_types))]
+    OperatorIncompatibleTypes {
         op: &'static str,
         lhs: Type,
         rhs: Type,

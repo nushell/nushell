@@ -127,8 +127,8 @@ pub enum ParseError {
 
     /// The operator supports the types of both values, but not the specific combination of their types.
     #[error("{op} is not supported between types {lhs} and {rhs}.")]
-    #[diagnostic(code(nu::parser::operator_type_mismatch))]
-    OperatorTypeMismatch {
+    #[diagnostic(code(nu::parser::operator_incompatible_types))]
+    OperatorIncompatibleTypes {
         op: &'static str,
         lhs: Type,
         rhs: Type,
@@ -540,7 +540,7 @@ impl ParseError {
             ParseError::ExpectedWithStringMsg(_, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
             ParseError::OperatorUnsupportedType { op_span, .. } => *op_span,
-            ParseError::OperatorTypeMismatch { op_span, .. } => *op_span,
+            ParseError::OperatorIncompatibleTypes { op_span, .. } => *op_span,
             ParseError::UnsupportedOperationTernary(_, _, _, _, _, _, s, _) => *s,
             ParseError::ExpectedKeyword(_, s) => *s,
             ParseError::UnexpectedKeyword(_, s) => *s,

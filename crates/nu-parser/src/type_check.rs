@@ -16,7 +16,7 @@ fn type_error(
 ) -> (Type, Option<ParseError>) {
     let is_supported = |ty| is_supported(ty) || matches!(ty, Type::Any | Type::Custom(_));
     let err = match (is_supported(&lhs.ty), is_supported(&rhs.ty)) {
-        (true, true) => ParseError::OperatorTypeMismatch {
+        (true, true) => ParseError::OperatorIncompatibleTypes {
             op: name,
             lhs: lhs.ty.clone(),
             rhs: rhs.ty.clone(),
@@ -381,7 +381,7 @@ pub fn math_result_type(
                     None
                 };
                 let err = match (is_supported(&lhs.ty), is_supported(&rhs.ty)) {
-                    (true, true) => ParseError::OperatorTypeMismatch {
+                    (true, true) => ParseError::OperatorIncompatibleTypes {
                         op: "concatentation",
                         lhs: lhs.ty.clone(),
                         rhs: rhs.ty.clone(),
@@ -684,7 +684,7 @@ pub fn math_result_type(
                         | Type::Custom(_)
                         | Type::Any
                 ) {
-                    ParseError::OperatorTypeMismatch {
+                    ParseError::OperatorIncompatibleTypes {
                         op: "'in' comparison",
                         lhs: lhs.ty.clone(),
                         rhs: rhs.ty.clone(),
@@ -725,7 +725,7 @@ pub fn math_result_type(
                         | Type::Custom(_)
                         | Type::Any
                 ) {
-                    ParseError::OperatorTypeMismatch {
+                    ParseError::OperatorIncompatibleTypes {
                         op: "'not-in' comparison",
                         lhs: lhs.ty.clone(),
                         rhs: rhs.ty.clone(),
@@ -779,7 +779,7 @@ pub fn math_result_type(
                     Assignment::DivideAssign => "division assignment",
                     Assignment::ConcatAssign => "concatenation assignment",
                 };
-                let err = ParseError::OperatorTypeMismatch {
+                let err = ParseError::OperatorIncompatibleTypes {
                     op: name,
                     lhs: lhs.ty.clone(),
                     rhs: rhs.ty.clone(),
@@ -940,7 +940,7 @@ pub fn check_range_types(working_set: &mut StateWorkingSet, range: &mut Range) {
             *expr = Expression::garbage(working_set, expr.span);
         }
         (Some(lhs), Some(rhs), _) if !type_compatible(&Type::Number, &rhs.ty) => {
-            working_set.error(ParseError::OperatorTypeMismatch {
+            working_set.error(ParseError::OperatorIncompatibleTypes {
                 op: "range creation",
                 lhs: lhs.ty.clone(),
                 rhs: rhs.ty.clone(),
@@ -954,7 +954,7 @@ pub fn check_range_types(working_set: &mut StateWorkingSet, range: &mut Range) {
         (Some(lhs), Some(rhs), _) | (Some(lhs), None, Some(rhs)) | (None, Some(lhs), Some(rhs))
             if !type_compatible(&Type::Number, &rhs.ty) =>
         {
-            working_set.error(ParseError::OperatorTypeMismatch {
+            working_set.error(ParseError::OperatorIncompatibleTypes {
                 op: "range creation",
                 lhs: lhs.ty.clone(),
                 rhs: rhs.ty.clone(),
