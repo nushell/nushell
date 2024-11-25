@@ -24,6 +24,14 @@ impl Command for Ps {
                 "list all available columns for each entry",
                 Some('l'),
             )
+            .switch(
+                "context",
+                match cfg!(feature = "selinux") {
+                    true => "get the security context for each entry, if available",
+                    false => "get the security context for each entry (disabled)",
+                },
+                Some('Z'),
+            )
             .filter()
             .category(Category::System)
     }
@@ -85,6 +93,7 @@ fn run_ps(
     let mut output = vec![];
     let span = call.head;
     let long = call.has_flag(engine_state, stack, "long")?;
+    let security_context = call.has_flag(engine_state, stack, "context")?;
 
     for proc in nu_system::collect_proc(Duration::from_millis(100), false) {
         let mut record = Record::new();
@@ -102,6 +111,13 @@ fn run_ps(
         record.push("cpu", Value::float(proc.cpu_usage(), span));
         record.push("mem", Value::filesize(proc.mem_size() as i64, span));
         record.push("virtual", Value::filesize(proc.virtual_size() as i64, span));
+
+        if security_context {
+            record.push(
+                "security_context",
+                security_context_value(proc.pid(), span).unwrap_or(Value::nothing(span)), // TODO: consider report_shell_warning
+            );
+        }
 
         if long {
             record.push("command", Value::string(proc.command(), span));
@@ -188,4 +204,20 @@ fn run_ps(
     }
 
     Ok(output.into_pipeline_data(span, engine_state.signals().clone()))
+}
+
+fn security_context_value(_pid: i32, span: Span) -> Result<Value, ShellError> {
+    #[cfg(not(all(feature = "selinux", target_os = "linux")))]
+    return Ok(Value::nothing(span));
+
+    #[cfg(all(feature = "selinux", target_os = "linux"))]
+    {
+        use selinux;
+        let con = selinux::SecurityContext::of_process(_pid, false)
+            .map_err(|e| ShellError::IOError { msg: e.to_string() })?;
+        Ok(Value::string(
+            String::from_utf8_lossy(&con.as_bytes()).trim_ascii_end(),
+            span,
+        ))
+    }
 }

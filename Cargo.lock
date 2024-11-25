@@ -379,6 +379,8 @@ dependencies = [
  "cexpr",
  "clang-sys",
  "itertools 0.13.0",
+ "log",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "regex",
@@ -3416,6 +3418,7 @@ dependencies = [
  "rstest",
  "rusqlite",
  "scopeguard",
+ "selinux",
  "serde",
  "serde_json",
  "serde_urlencoded",
@@ -5139,6 +5142,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "prettyplease"
+version = "0.2.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64d1ec885c64d0457d564db4ec299b2dae3f9c02808b8ad9c3a089c591b18033"
+dependencies = [
+ "proc-macro2",
+ "syn 2.0.90",
+]
+
+[[package]]
 name = "print-positions"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5642,6 +5655,12 @@ dependencies = [
  "quote",
  "syn 2.0.87",
 ]
+
+[[package]]
+name = "reference-counted-singleton"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5daffa8f5ca827e146485577fa9dba9bd9c6921e06e954ab8f6408c10f753086"
 
 [[package]]
 name = "regex"
@@ -6182,6 +6201,32 @@ dependencies = [
  "precomputed-hash",
  "servo_arc",
  "smallvec",
+]
+
+[[package]]
+name = "selinux"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0139b2436c81305eb6bda33af151851f75bd62783817b25f44daa371119c30b5"
+dependencies = [
+ "bitflags 2.6.0",
+ "libc",
+ "once_cell",
+ "reference-counted-singleton",
+ "selinux-sys",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "selinux-sys"
+version = "0.6.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5e6e2b8e07a8ff45c90f8e3611bf10c4da7a28d73a26f9ede04f927da234f52"
+dependencies = [
+ "bindgen",
+ "cc",
+ "dunce",
+ "walkdir",
 ]
 
 [[package]]

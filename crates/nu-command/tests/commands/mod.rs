@@ -78,6 +78,7 @@ mod path;
 mod platform;
 mod prepend;
 mod print;
+mod ps;
 #[cfg(feature = "sqlite")]
 mod query;
 mod random;

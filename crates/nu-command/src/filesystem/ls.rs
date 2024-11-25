@@ -31,6 +31,7 @@ struct Args {
     directory: bool,
     use_mime_type: bool,
     use_threads: bool,
+    security_context: bool,
     call_span: Span,
 }
 
@@ -58,7 +59,7 @@ impl Command for Ls {
             .switch("all", "Show hidden files", Some('a'))
             .switch(
                 "long",
-                "Get all available columns for each entry (slower; columns are platform-dependent)",
+                "Get almost all available columns for each entry (slower; columns are platform-dependent)",
                 Some('l'),
             )
             .switch(
@@ -79,6 +80,14 @@ impl Command for Ls {
             )
             .switch("mime-type", "Show mime-type in type column instead of 'file' (based on filenames only; files' contents are not examined)", Some('m'))
             .switch("threads", "Use multiple threads to list contents. Output will be non-deterministic.", Some('t'))
+            .switch(
+                "context",
+                match cfg!(feature = "selinux") {
+                    true => "Get the SELinux security context for each entry, if available",
+                    false => "Get the SELinux security context for each entry (disabled)"
+                },
+                Some('Z'),
+            )
             .category(Category::FileSystem)
     }
 
@@ -97,6 +106,7 @@ impl Command for Ls {
         let directory = call.has_flag(engine_state, stack, "directory")?;
         let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
         let use_threads = call.has_flag(engine_state, stack, "threads")?;
+        let security_context = call.has_flag(engine_state, stack, "context")?;
         let call_span = call.head;
         #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
@@ -110,6 +120,7 @@ impl Command for Ls {
             directory,
             use_mime_type,
             use_threads,
+            security_context,
             call_span,
         };
 
@@ -252,6 +263,7 @@ fn ls_for_one_pattern(
         use_mime_type,
         use_threads,
         call_span,
+        security_context,
     } = args;
     let pattern_arg = {
         if let Some(path) = pattern_arg {
@@ -439,6 +451,7 @@ fn ls_for_one_pattern(
                                 &signals_clone,
                                 use_mime_type,
                                 args.full_paths,
+                                security_context,
                             );
                             match entry {
                                 Ok(value) => Some(value),
@@ -557,6 +570,7 @@ pub(crate) fn dir_entry_dict(
     signals: &Signals,
     use_mime_type: bool,
     full_symlink_target: bool,
+    security_context: bool,
 ) -> Result<Value, ShellError> {
     #[cfg(windows)]
     if metadata.is_none() {
@@ -611,6 +625,13 @@ pub(crate) fn dir_entry_dict(
                 },
             )
         }
+    }
+
+    if security_context {
+        record.push(
+            "security_context",
+            security_context_value(filename, span).unwrap_or(Value::nothing(span)), // TODO: consider report_shell_warning
+        )
     }
 
     if long {
@@ -762,6 +783,28 @@ fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime<Local>> {
     match Utc.timestamp_opt(sec, nsec) {
         LocalResult::Single(t) => Some(t.with_timezone(&Local)),
         _ => None,
+    }
+}
+
+fn security_context_value(_path: &Path, span: Span) -> Result<Value, ShellError> {
+    #[cfg(not(all(feature = "selinux", target_os = "linux")))]
+    return Ok(Value::nothing(span));
+
+    #[cfg(all(feature = "selinux", target_os = "linux"))]
+    {
+        use selinux;
+        match selinux::SecurityContext::of_path(_path, false, false)
+            .map_err(|e| ShellError::IOError { msg: e.to_string() })?
+        {
+            Some(con) => {
+                let bytes = con.as_bytes();
+                Ok(Value::string(
+                    String::from_utf8_lossy(&bytes[0..bytes.len().saturating_sub(1)]),
+                    span,
+                ))
+            }
+            None => Ok(Value::nothing(span)),
+        }
     }
 }
 

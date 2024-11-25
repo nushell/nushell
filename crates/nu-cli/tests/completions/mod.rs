@@ -1073,10 +1073,11 @@ fn flag_completions() {
     // Test completions for the 'ls' flags
     let suggestions = completer.complete("ls -", 4);
 
-    assert_eq!(18, suggestions.len());
+    assert_eq!(20, suggestions.len());
 
     let expected: Vec<String> = vec![
         "--all".into(),
+        "--context".into(),
         "--directory".into(),
         "--du".into(),
         "--full-paths".into(),
@@ -1094,6 +1095,7 @@ fn flag_completions() {
         "-m".into(),
         "-s".into(),
         "-t".into(),
+        "-Z".into(),
     ];
 
     // Match results
