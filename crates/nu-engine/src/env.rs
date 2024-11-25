@@ -398,6 +398,16 @@ fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Optio
                 });
             }
         }
+    } else {
+        error = error.or_else(|| {
+            Some(ShellError::GenericError {
+                error: format!("{env_path_name} not found"),
+                msg: format!("{env_path_name} was not found"),
+                span: None,
+                help: None,
+                inner: vec![],
+            })
+        });
     }
 
     error
