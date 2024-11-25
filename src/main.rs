@@ -276,17 +276,6 @@ fn main() -> Result<()> {
     gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
     perf!("gather env vars", start_time, use_color);
 
-    start_time = std::time::Instant::now();
-    let stack = Stack::new();
-    let config = engine_state.get_config();
-    let use_color = config.use_ansi_coloring;
-    // First pass of this will essentially convert Path-only
-    if let Err(e) = convert_env_values(&mut engine_state, &stack) {
-        report_shell_error(&engine_state, &e);
-    }
-
-    perf!("translate path env", start_time, use_color);
-
     engine_state.add_env_var(
         "NU_VERSION".to_string(),
         Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
@@ -353,6 +342,17 @@ fn main() -> Result<()> {
             .expect("set_current_dir() should succeed");
     }
     perf!("run test_bins", start_time, use_color);
+
+    start_time = std::time::Instant::now();
+    let stack = Stack::new();
+    let config = engine_state.get_config();
+    let use_color = config.use_ansi_coloring;
+    // First pass of this will essentially convert Path-only
+    if let Err(e) = convert_env_values(&mut engine_state, &stack) {
+        report_shell_error(&engine_state, &e);
+    }
+
+    perf!("translate path env", start_time, use_color);
 
     start_time = std::time::Instant::now();
     let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
