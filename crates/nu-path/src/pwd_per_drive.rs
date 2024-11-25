@@ -1,11 +1,3 @@
-use std::path::{Path, PathBuf};
-
-#[derive(PartialEq, Debug)]
-pub enum PathError {
-    InvalidDriveLetter,
-    InvalidPath,
-    CantLockSharedMap,
-}
 /// Usage for pwd_per_drive on windows
 ///
 /// Upon change PWD, call set_pwd() with absolute path
@@ -38,7 +30,15 @@ pub enum PathError {
 /// assert!(abs_path.starts_with(r"D:\"));
 /// assert!(abs_path.ends_with(r"\test"));
 /// ```
-pub mod shared {
+use std::path::{Path, PathBuf};
+
+#[derive(PartialEq, Debug)]
+pub enum PathError {
+    InvalidDriveLetter,
+    InvalidPath,
+    CantLockSharedMap,
+}
+pub mod shared_map {
     use super::*;
     use crate::pwd_per_drive::PathError::CantLockSharedMap;
 
@@ -182,10 +182,10 @@ fn get_full_path_name_w(path_str: &str) -> Option<String> {
 
 use std::sync::{Mutex, OnceLock};
 
-/// Global shared instance of DrivePwdMap
+/// Global shared_map instance of DrivePwdMap
 static DRIVE_PWD_MAP: OnceLock<Mutex<DriveToPwdMap>> = OnceLock::new();
 
-/// Access the shared instance
+/// Access the shared_map instance
 fn get_drive_pwd_map() -> &'static Mutex<DriveToPwdMap> {
     DRIVE_PWD_MAP.get_or_init(|| Mutex::new(DriveToPwdMap::new()))
 }
@@ -200,7 +200,7 @@ mod tests {
     /// possible result, here can have more accurate test assert
     #[test]
     fn test_usage_for_pwd_per_drive() {
-        use shared::{expand_pwd, set_pwd};
+        use shared_map::{expand_pwd, set_pwd};
         // Set PWD for drive F
         assert!(set_pwd(Path::new(r"F:\Users\Home")).is_ok());
 
@@ -234,7 +234,7 @@ mod tests {
     #[test]
     fn test_shared_set_and_get_pwd() {
         // To avoid conflict with other test threads (on testing result),
-        // use different drive set in multiple shared tests
+        // use different drive set in multiple shared_map tests
         let drive_pwd_map = get_drive_pwd_map();
         {
             let mut map = drive_pwd_map.lock().unwrap();
@@ -319,12 +319,8 @@ mod tests {
         assert!(drive_map.set_pwd(Path::new(r"D:\Projects")).is_ok());
         assert_eq!(drive_map.get_pwd('D'), Ok(r"D:\Projects".to_string()));
 
-        // Get PWD for drive E (not set, should return E:\)
-        // 11-21-2024 happened to start nushell from drive E:,
-        // run toolkit test 'toolkit check pr' then this test failed
-        // if a drive has not been set PWD, it will ask system to get
-        // current directory, so this type of test ('not set, should
-        // return ...') must be more careful to avoid accidentally fail.
+        // Get PWD for drive E (not set yet, but system might happened to
+        // have PWD on this drive)
         if let Some(pwd_on_e) = get_full_path_name_w("E:") {
             assert_eq!(drive_map.get_pwd('E'), Ok(pwd_on_e));
         } else {
