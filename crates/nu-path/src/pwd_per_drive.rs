@@ -7,7 +7,7 @@ use std::collections::HashMap;
 ///
 /// ```
 /// use std::path::{Path, PathBuf};
-/// use nu_path::{expand_pwd, set_pwd};
+/// use nu_path::{expand_pwd, get_env_vars, set_pwd};
 ///
 /// // Set PWD for drive C
 /// set_pwd(Path::new(r"C:\Users\Home")).unwrap();
@@ -30,6 +30,18 @@ use std::collections::HashMap;
 /// let abs_path = expanded.unwrap().as_path().to_str().expect("OK").to_string();
 /// assert!(abs_path.starts_with(r"D:\"));
 /// assert!(abs_path.ends_with(r"\test"));
+///
+/// // Get env vars for child process
+/// use std::collections::HaspMap;
+/// let mut env = HashMap::<String, String>::new();
+/// get_env_vars(&mut env);
+/// assert_eq!(env.get("=C:").unwrap(), r"C:\Users\Home");
+/// if let Some(expanded) = expand_pwd(Path::new("D:") {
+///     let abs_path = expanded.unwrap().as_path().to_str().expect("OK").to_string();
+///     if abs_path.len() > 3 {
+///         assert_eq!(env.get("=D:").unwrap(), abs_path);
+///     }
+/// }
 /// ```
 use std::path::{Path, PathBuf};
 
@@ -47,7 +59,7 @@ pub mod shared_map {
     /// Record PWD for drive, path must be absolute path
     /// return Ok(()) if succeeded, otherwise error message
     pub fn set_pwd(path: &Path) -> Result<(), PathError> {
-        if let Ok(mut pwd_per_drive) = get_drive_pwd_map().lock() {
+        if let Ok(mut pwd_per_drive) = get_shared_drive_pwd_map().lock() {
             pwd_per_drive.set_pwd(path)
         } else {
             Err(CantLockSharedMap)
@@ -59,11 +71,18 @@ pub mod shared_map {
     /// return PathBuf for absolute path, None if input path is invalid.
     pub fn expand_pwd(path: &Path) -> Option<PathBuf> {
         if need_expand(path) {
-            if let Ok(mut pwd_per_drive) = get_drive_pwd_map().lock() {
+            if let Ok(mut pwd_per_drive) = get_shared_drive_pwd_map().lock() {
                 return pwd_per_drive.expand_path(path);
             }
         }
         None
+    }
+
+    /// Collect PWD-per-drive as env vars (for child process)
+    pub fn get_env_vars(env: &mut HashMap<String, String>) {
+        if let Ok(pwd_per_drive) = get_shared_drive_pwd_map().lock() {
+            pwd_per_drive.get_env_vars(env);
+        }
     }
 }
 
@@ -88,19 +107,31 @@ impl DriveToPwdMap {
         // Initialize by current PWD-per-drive
         let mut map: [Option<String>; 26] = Default::default();
         for (drive_index, drive_letter) in ('A'..='Z').enumerate() {
+            let env_var = format!("={}:", drive_letter);
+            if let Ok(env_pwd) = std::env::var(&env_var) {
+                if env_pwd.len() > 3 {
+                    map[drive_index] = Some(env_pwd);
+                    std::env::remove_var(env_var);
+                    continue;
+                }
+            }
             if let Some(pwd) = get_full_path_name_w(&format!("{}:", drive_letter)) {
                 if pwd.len() > 3 {
-                    map[drive_index] = Some(pwd.clone());
+                    map[drive_index] = Some(pwd);
                 }
             }
         }
         Self { map }
     }
 
-    pub fn get_env_for_child_process(&self, env: &mut HashMap<String, String>) {
+    /// Collect PWD-per-drive as env vars (for child process)
+    pub fn get_env_vars(&self, env: &mut HashMap<String, String>) {
         for (drive_index, drive_letter) in ('A'..='Z').enumerate() {
             if let Some(pwd) = self.map[drive_index].clone() {
-                env.insert(format!("={}:", drive_letter), pwd);
+                if pwd.len() > 3 {
+                    let env_var_for_drive = format!("={}:", drive_letter);
+                    env.insert(env_var_for_drive, pwd);
+                }
             }
         }
     }
@@ -120,7 +151,6 @@ impl DriveToPwdMap {
                     Some(_) => {
                         let drive_index = drive_letter as usize - 'A' as usize;
                         self.map[drive_index] = Some(drive_letter.to_string() + c.as_str());
-                        let _ = std::env::set_current_dir(path_str);
                         Ok(())
                     }
                 }
@@ -134,13 +164,16 @@ impl DriveToPwdMap {
 
     /// Get the PWD for drive, if not yet, ask GetFullPathNameW(),
     /// or else return default r"X:\".
+    /// Remember effective result from GetFullPathNameW
     fn get_pwd(&mut self, drive_letter: char) -> Result<String, PathError> {
         if drive_letter.is_ascii_alphabetic() {
             let drive_letter = drive_letter.to_ascii_uppercase();
             let drive_index = drive_letter as usize - 'A' as usize;
             Ok(self.map[drive_index].clone().unwrap_or_else(|| {
                 if let Some(sys_pwd) = get_full_path_name_w(&format!("{}:", drive_letter)) {
-                    self.map[drive_index] = Some(sys_pwd.clone());
+                    if sys_pwd.len() > 3 {
+                        self.map[drive_index] = Some(sys_pwd.clone());
+                    }
                     sys_pwd
                 } else {
                     format!(r"{}:\", drive_letter)
@@ -202,7 +235,7 @@ use std::sync::{Mutex, OnceLock};
 static DRIVE_PWD_MAP: OnceLock<Mutex<DriveToPwdMap>> = OnceLock::new();
 
 /// Access the shared_map instance
-fn get_drive_pwd_map() -> &'static Mutex<DriveToPwdMap> {
+fn get_shared_drive_pwd_map() -> &'static Mutex<DriveToPwdMap> {
     DRIVE_PWD_MAP.get_or_init(|| Mutex::new(DriveToPwdMap::new()))
 }
 
@@ -217,15 +250,15 @@ mod tests {
     #[test]
     fn test_usage_for_pwd_per_drive() {
         use shared_map::{expand_pwd, set_pwd};
-        // Set PWD for drive F
-        assert!(set_pwd(Path::new(r"F:\Users\Home")).is_ok());
+        // Set PWD for drive E
+        assert!(set_pwd(Path::new(r"E:\Users\Home")).is_ok());
 
         // Expand a relative path
-        let expanded = expand_pwd(Path::new("f:test"));
-        assert_eq!(expanded, Some(PathBuf::from(r"F:\Users\Home\test")));
+        let expanded = expand_pwd(Path::new("e:test"));
+        assert_eq!(expanded, Some(PathBuf::from(r"E:\Users\Home\test")));
 
         // Will NOT expand an absolute path
-        let expanded = expand_pwd(Path::new(r"F:\absolute\path"));
+        let expanded = expand_pwd(Path::new(r"E:\absolute\path"));
         assert_eq!(expanded, None);
 
         // Expand with no drive letter
@@ -233,8 +266,8 @@ mod tests {
         assert_eq!(expanded, None);
 
         // Expand with no PWD set for the drive
-        let expanded = expand_pwd(Path::new("D:test"));
-        if let Some(sys_abs) = get_full_path_name_w("D:") {
+        let expanded = expand_pwd(Path::new("F:test"));
+        if let Some(sys_abs) = get_full_path_name_w("F:") {
             assert_eq!(
                 expanded,
                 Some(PathBuf::from(format!(
@@ -243,47 +276,57 @@ mod tests {
                 )))
             );
         } else {
-            assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
+            assert_eq!(expanded, Some(PathBuf::from(r"F:\test")));
         }
     }
 
     #[test]
-    fn test_usage_for_prepare_environment_for_child_process() {
+    fn test_read_pwd_per_drive_at_start_up() {
+        std::env::set_var("=G:", r"G:\Users\Nushell");
+        std::env::set_var("=H:", r"h:\Share\Nushell");
         let mut map = DriveToPwdMap::new();
-        map.set_pwd(&Path::new(r"C:\Home")).unwrap();
-        map.set_pwd(&Path::new(r"D:\User")).unwrap();
-        map.set_pwd(&Path::new(r"E:\Etc")).unwrap();
-        map.set_pwd(&Path::new(r"X:\Shared")).unwrap();
-        map.set_pwd(&Path::new(r"y:\Sys")).unwrap();
-        map.set_pwd(&Path::new(r"z:\Bin")).unwrap();
+        assert_eq!(
+           map.expand_path(Path::new("g:")),
+           Some(PathBuf::from(r"G:\Users\Nushell\"))
+        );
+        assert_eq!(
+            map.expand_path(Path::new("H:")),
+            Some(PathBuf::from(r"H:\Share\Nushell\"))
+        );
+
+        std::env::remove_var("=G:");
+        std::env::remove_var("=H:");
+    }
+
+    #[test]
+    fn test_get_env_vars() {
+        let mut map = DriveToPwdMap::new();
+        map.set_pwd(&Path::new(r"I:\Home")).unwrap();
+        map.set_pwd(&Path::new(r"j:\User")).unwrap();
 
         let mut env = HashMap::<String, String>::new();
-        map.get_env_for_child_process(&mut env);
-        assert_eq!(env.get("=C:").unwrap(), r"C:\Home");
-        assert_eq!(env.get("=D:").unwrap(), r"D:\User");
-        assert_eq!(env.get("=E:").unwrap(), r"E:\Etc");
-        assert_eq!(env.get("=X:").unwrap(), r"X:\Shared");
-        assert_eq!(env.get("=Y:").unwrap(), r"Y:\Sys");
-        assert_eq!(env.get("=Z:").unwrap(), r"Z:\Bin");
+        map.get_env_vars(&mut env);
+        assert_eq!(env.get("=I:").unwrap(), r"I:\Home");
+        assert_eq!(env.get("=J:").unwrap(), r"J:\User");
     }
 
     #[test]
     fn test_shared_set_and_get_pwd() {
         // To avoid conflict with other test threads (on testing result),
         // use different drive set in multiple shared_map tests
-        let drive_pwd_map = get_drive_pwd_map();
+        let drive_pwd_map = get_shared_drive_pwd_map();
         {
             let mut map = drive_pwd_map.lock().unwrap();
 
-            // Set PWD for drive X
-            assert!(map.set_pwd(Path::new(r"X:\Users\Example")).is_ok());
+            // Set PWD for drive K
+            assert!(map.set_pwd(Path::new(r"k:\Users\Example")).is_ok());
         }
 
         {
             let mut map = drive_pwd_map.lock().unwrap();
 
-            // Get PWD for drive X
-            assert_eq!(map.get_pwd('X'), Ok(r"X:\Users\Example".to_string()));
+            // Get PWD for drive K
+            assert_eq!(map.get_pwd('K'), Ok(r"K:\Users\Example".to_string()));
 
             // Get PWD for drive E (not set, should return E:\) ???
             // 11-21-2024 happened to start nushell from drive E:,
@@ -292,10 +335,10 @@ mod tests {
             // in system and current directory is not drive root, this test will
             // fail if assuming result should be r"X:\", and there might also have
             // other cases tested by other threads which might change PWD.
-            if let Some(pwd_on_e) = get_full_path_name_w("E:") {
-                assert_eq!(map.get_pwd('E'), Ok(pwd_on_e));
+            if let Some(pwd_on_e) = get_full_path_name_w("L:") {
+                assert_eq!(map.get_pwd('L'), Ok(pwd_on_e));
             } else {
-                assert_eq!(map.get_pwd('E'), Ok(r"E:\".to_string()));
+                assert_eq!(map.get_pwd('l'), Ok(r"L:\".to_string()));
             }
         }
     }
@@ -304,20 +347,20 @@ mod tests {
     fn test_expand_path() {
         let mut drive_map = DriveToPwdMap::new();
 
-        // Set PWD for drive 'C:'
-        assert_eq!(drive_map.set_pwd(Path::new(r"C:\Users")), Ok(()));
-        // or 'c:'
-        assert_eq!(drive_map.set_pwd(Path::new(r"c:\Users\Home")), Ok(()));
+        // Set PWD for drive 'M:'
+        assert_eq!(drive_map.set_pwd(Path::new(r"M:\Users")), Ok(()));
+        // or 'm:'
+        assert_eq!(drive_map.set_pwd(Path::new(r"m:\Users\Home")), Ok(()));
 
-        // Expand a relative path on 'C:'
-        let expanded = drive_map.expand_path(Path::new(r"C:test"));
-        assert_eq!(expanded, Some(PathBuf::from(r"C:\Users\Home\test")));
-        // or on 'c:'
-        let expanded = drive_map.expand_path(Path::new(r"c:test"));
-        assert_eq!(expanded, Some(PathBuf::from(r"C:\Users\Home\test")));
+        // Expand a relative path on "M:"
+        let expanded = drive_map.expand_path(Path::new(r"M:test"));
+        assert_eq!(expanded, Some(PathBuf::from(r"M:\Users\Home\test")));
+        // or on "m:"
+        let expanded = drive_map.expand_path(Path::new(r"m:test"));
+        assert_eq!(expanded, Some(PathBuf::from(r"M:\Users\Home\test")));
 
         // Expand an absolute path
-        let expanded = drive_map.expand_path(Path::new(r"C:\absolute\path"));
+        let expanded = drive_map.expand_path(Path::new(r"m:\absolute\path"));
         assert_eq!(expanded, None);
 
         // Expand with no drive letter
@@ -325,17 +368,17 @@ mod tests {
         assert_eq!(expanded, None);
 
         // Expand with no PWD set for the drive
-        let expanded = drive_map.expand_path(Path::new("D:test"));
-        if let Some(pwd_on_d) = get_full_path_name_w("D:") {
+        let expanded = drive_map.expand_path(Path::new("N:test"));
+        if let Some(pwd_on_drive) = get_full_path_name_w("N:") {
             assert_eq!(
                 expanded,
                 Some(PathBuf::from(format!(
                     r"{}test",
-                    DriveToPwdMap::ensure_trailing_delimiter(&pwd_on_d)
+                    DriveToPwdMap::ensure_trailing_delimiter(&pwd_on_drive)
                 )))
             );
         } else {
-            assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
+            assert_eq!(expanded, Some(PathBuf::from(r"N:\test")));
         }
     }
 
@@ -343,24 +386,21 @@ mod tests {
     fn test_set_and_get_pwd() {
         let mut drive_map = DriveToPwdMap::new();
 
-        // Set PWD for drive 'C'
-        assert!(drive_map.set_pwd(Path::new(r"C:\Users")).is_ok());
-        // Or for drive 'c'
-        assert!(drive_map.set_pwd(Path::new(r"c:\Users\Example")).is_ok());
-        assert_eq!(drive_map.get_pwd('C'), Ok(r"C:\Users\Example".to_string()));
-        // or 'c'
-        assert_eq!(drive_map.get_pwd('c'), Ok(r"C:\Users\Example".to_string()));
+        // Set PWD for drive 'O'
+        assert!(drive_map.set_pwd(Path::new(r"O:\Users")).is_ok());
+        // Or for drive 'o'
+        assert!(drive_map.set_pwd(Path::new(r"o:\Users\Example")).is_ok());
+        // Get PWD for drive 'O'
+        assert_eq!(drive_map.get_pwd('O'), Ok(r"O:\Users\Example".to_string()));
+        // or 'o'
+        assert_eq!(drive_map.get_pwd('o'), Ok(r"O:\Users\Example".to_string()));
 
-        // Set PWD for drive D
-        assert!(drive_map.set_pwd(Path::new(r"D:\Projects")).is_ok());
-        assert_eq!(drive_map.get_pwd('D'), Ok(r"D:\Projects".to_string()));
-
-        // Get PWD for drive E (not set yet, but system might happened to
+        // Get PWD for drive P (not set yet, but system might already
         // have PWD on this drive)
-        if let Some(pwd_on_e) = get_full_path_name_w("E:") {
-            assert_eq!(drive_map.get_pwd('E'), Ok(pwd_on_e));
+        if let Some(pwd_on_drive) = get_full_path_name_w("P:") {
+            assert_eq!(drive_map.get_pwd('P'), Ok(pwd_on_drive));
         } else {
-            assert_eq!(drive_map.get_pwd('E'), Ok(r"E:\".to_string()));
+            assert_eq!(drive_map.get_pwd('P'), Ok(r"P:\".to_string()));
         }
     }
 

@@ -141,6 +141,7 @@ impl Command for External {
         let envs = env_to_strings(engine_state, stack)?;
         command.env_clear();
         command.envs(envs);
+        nu_path::get_env_vars(envs);
 
         // Configure args.
         let args = eval_arguments_from_call(engine_state, stack, call)?;
