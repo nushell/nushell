@@ -352,7 +352,7 @@ fn send_form_request(
     match body {
         Value::List { ref vals, .. } => {
             if vals.len() % 2 != 0 {
-                return Err(LabeledError::new(
+                Err(LabeledError::new(
                     "Body type 'list' for form requests requires paired values. E.g.: [foo, 10].",
                 )
                 .with_label("takes lists with an even number of elements", span)
@@ -633,7 +633,7 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
         Error::Status(408, _) => "408 request timed out".into(),
         Error::Status(code, _) => format!("failed with status code {code}"),
         Error::Transport(t) if t.kind() == ErrorKind::ConnectionFailed => {
-            format!("failed to establish a connection")
+            "failed to establish a connection".into()
         }
         Error::Transport(t) => t.to_string(),
     };

@@ -5,5 +5,5 @@ use nu_plugin_http::HttpPlugin;
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 fn main() {
-    serve_plugin(&HttpPlugin::default(), MsgPackSerializer {})
+    serve_plugin(&HttpPlugin, MsgPackSerializer {})
 }

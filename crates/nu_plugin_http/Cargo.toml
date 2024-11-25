@@ -22,12 +22,12 @@ nu-plugin = { path = "../nu-plugin", version = "0.100.1" }
 nu-json = { version = "0.100.1", path = "../nu-json" }
 
 mimalloc = { version = "0.1.42" }
-serde = { version = "1.0", features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
 url.workspace = true
-base64.workspace = true
+base64 = "0.22.1"
 multipart-rs = "= 0.1.11"
-ureq.workspace = true
-serde_json.workspace = true
+ureq = { version = "2.10.0", default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
+serde_json = { workspace = true, features = ["preserve_order"] }
 native-tls = "0.2.12"
 mime.workspace = true
 
