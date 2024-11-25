@@ -111,13 +111,6 @@ impl DriveToPwdMap {
             if let Ok(env_pwd) = std::env::var(&env_var) {
                 if env_pwd.len() > 3 {
                     map[drive_index] = Some(env_pwd);
-                    std::env::remove_var(env_var);
-                    continue;
-                }
-            }
-            if let Some(pwd) = get_full_path_name_w(&format!("{}:", drive_letter)) {
-                if pwd.len() > 3 {
-                    map[drive_index] = Some(pwd);
                 }
             }
         }
@@ -286,8 +279,8 @@ mod tests {
         std::env::set_var("=H:", r"h:\Share\Nushell");
         let mut map = DriveToPwdMap::new();
         assert_eq!(
-           map.expand_path(Path::new("g:")),
-           Some(PathBuf::from(r"G:\Users\Nushell\"))
+            map.expand_path(Path::new("g:")),
+            Some(PathBuf::from(r"G:\Users\Nushell\"))
         );
         assert_eq!(
             map.expand_path(Path::new("H:")),
