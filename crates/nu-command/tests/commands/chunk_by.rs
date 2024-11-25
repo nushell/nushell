@@ -1,14 +1,14 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
-fn partition_by_on_empty_input_returns_empty_list() {
-    let actual = nu!("[] | partition-by {|it| $it} | to nuon");
+fn chunk_by_on_empty_input_returns_empty_list() {
+    let actual = nu!("[] | chunk-by {|it| $it} | to nuon");
     assert!(actual.err.is_empty());
     assert_eq!(actual.out, "[]");
 }
 
 #[test]
-fn partition_by_strings_works() {
+fn chunk_by_strings_works() {
     let sample = r#"
                 [a a a b b b c c c a a a]
             "#;
@@ -16,7 +16,7 @@ fn partition_by_strings_works() {
     let actual = nu!(pipeline(&format!(
         r#"
                 {sample}
-                | partition-by {{|it| $it}}
+                | chunk-by {{|it| $it}}
                 | to nuon
             "#
     )));
@@ -25,32 +25,32 @@ fn partition_by_strings_works() {
 }
 
 #[test]
-fn partition_by_field_works() {
+fn chunk_by_field_works() {
     let sample = r#"[
     {
-        name: bob, 
-        age: 20, 
-        cool: false
-    }, 
-    {
-        name: jane, 
-        age: 30, 
+        name: bob,
+        age: 20,
         cool: false
     },
     {
-        name: marie, 
-        age: 19, 
+        name: jane,
+        age: 30,
+        cool: false
+    },
+    {
+        name: marie,
+        age: 19,
         cool: true
     },
     {
-        name: carl, 
-        age: 36, 
+        name: carl,
+        age: 36,
         cool: true
     } ]"#;
 
     let actual = nu!(pipeline(&format!(
         r#"{sample}
-           | partition-by {{|it| $it.cool}}
+           | chunk-by {{|it| $it.cool}}
            | length"#
     )));
 

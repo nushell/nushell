@@ -64,7 +64,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Length,
             Lines,
             ParEach,
-            PartitionBy,
+            ChunkBy,
             Prepend,
             Range,
             Reduce,
