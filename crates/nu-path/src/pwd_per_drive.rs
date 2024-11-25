@@ -32,14 +32,14 @@ use std::collections::HashMap;
 /// assert!(abs_path.ends_with(r"\test"));
 ///
 /// // Get env vars for child process
-/// use std::collections::HaspMap;
+/// use std::collections::HashMap;
 /// let mut env = HashMap::<String, String>::new();
 /// get_env_vars(&mut env);
 /// assert_eq!(env.get("=C:").unwrap(), r"C:\Users\Home");
-/// if let Some(expanded) = expand_pwd(Path::new("D:") {
-///     let abs_path = expanded.unwrap().as_path().to_str().expect("OK").to_string();
+/// if let Some(expanded) = expand_pwd(Path::new("D:")) {
+///     let abs_path = expanded.as_path().to_str().expect("OK").to_string();
 ///     if abs_path.len() > 3 {
-///         assert_eq!(env.get("=D:").unwrap(), abs_path);
+///         assert_eq!(*env.get("=D:").unwrap(), abs_path);
 ///     }
 /// }
 /// ```
@@ -229,7 +229,14 @@ static DRIVE_PWD_MAP: OnceLock<Mutex<DriveToPwdMap>> = OnceLock::new();
 
 /// Access the shared_map instance
 fn get_shared_drive_pwd_map() -> &'static Mutex<DriveToPwdMap> {
-    DRIVE_PWD_MAP.get_or_init(|| Mutex::new(DriveToPwdMap::new()))
+    DRIVE_PWD_MAP.get_or_init(|| {
+        let shared_map = Mutex::new(DriveToPwdMap::new());
+        // Clear these env_vars as CMD
+        for drive_letter in 'A'..='Z' {
+            std::env::remove_var(format!("={}:", drive_letter));
+        }
+        shared_map
+    })
 }
 
 /// Test for Drive2PWD map
@@ -275,6 +282,10 @@ mod tests {
 
     #[test]
     fn test_read_pwd_per_drive_at_start_up() {
+        // Invoke shared_map to ensure environment read and cleared
+        use shared_map::expand_pwd;
+        let _ = expand_pwd(Path::new(r"\invalidPath"));
+
         std::env::set_var("=G:", r"G:\Users\Nushell");
         std::env::set_var("=H:", r"h:\Share\Nushell");
         let mut map = DriveToPwdMap::new();
