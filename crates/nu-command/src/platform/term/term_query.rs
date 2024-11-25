@@ -5,6 +5,8 @@ use std::{
 
 use nu_engine::command_prelude::*;
 
+const CTRL_C: u8 = 3;
+
 #[derive(Clone)]
 pub struct TermQuery;
 
@@ -98,7 +100,7 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
                     break Err(ShellError::from(err));
                 }
 
-                if b[0] == 3 {
+                if b[0] == CTRL_C {
                     break Err(ShellError::Interrupted { span: call.head });
                 }
 
@@ -118,7 +120,7 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
                     break Err(ShellError::from(err));
                 }
 
-                if b[0] == 3 {
+                if b[0] == CTRL_C {
                     break Ok(Value::Binary {
                         val: buf,
                         internal_span: call.head,
