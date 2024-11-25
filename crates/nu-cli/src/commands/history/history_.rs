@@ -45,8 +45,10 @@ impl Command for History {
             return Ok(PipelineData::empty());
         };
         // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
-        let Some(history_path) = history.file_path() else {
-            return Err(ShellError::ConfigDirNotFound { span: Some(head) });
+        let result = history.file_path(Some(call.head));
+        let history_path = match result {
+            Ok(path) => path,
+            Err(err) => return Err(err),
         };
 
         if call.has_flag(engine_state, stack, "clear")? {
