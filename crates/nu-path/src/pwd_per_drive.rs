@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 /// Usage for pwd_per_drive on windows
 ///
 /// Upon change PWD, call set_pwd() with absolute path
@@ -84,8 +85,23 @@ struct DriveToPwdMap {
 
 impl DriveToPwdMap {
     pub fn new() -> Self {
-        DriveToPwdMap {
-            map: Default::default(), // Initialize all to `None`
+        // Initialize by current PWD-per-drive
+        let mut map: [Option<String>; 26] = Default::default();
+        for (drive_index, drive_letter) in ('A'..='Z').enumerate() {
+            if let Some(pwd) = get_full_path_name_w(&format!("{}:", drive_letter)) {
+                if pwd.len() > 3 {
+                    map[drive_index] = Some(pwd.clone());
+                }
+            }
+        }
+        Self { map }
+    }
+
+    pub fn get_env_for_child_process(&self, env: &mut HashMap<String, String>) {
+        for (drive_index, drive_letter) in ('A'..='Z').enumerate() {
+            if let Some(pwd) = self.map[drive_index].clone() {
+                env.insert(format!("={}:", drive_letter), pwd);
+            }
         }
     }
 
@@ -229,6 +245,26 @@ mod tests {
         } else {
             assert_eq!(expanded, Some(PathBuf::from(r"D:\test")));
         }
+    }
+
+    #[test]
+    fn test_usage_for_prepare_environment_for_child_process() {
+        let mut map = DriveToPwdMap::new();
+        map.set_pwd(&Path::new(r"C:\Home")).unwrap();
+        map.set_pwd(&Path::new(r"D:\User")).unwrap();
+        map.set_pwd(&Path::new(r"E:\Etc")).unwrap();
+        map.set_pwd(&Path::new(r"X:\Shared")).unwrap();
+        map.set_pwd(&Path::new(r"y:\Sys")).unwrap();
+        map.set_pwd(&Path::new(r"z:\Bin")).unwrap();
+
+        let mut env = HashMap::<String, String>::new();
+        map.get_env_for_child_process(&mut env);
+        assert_eq!(env.get("=C:").unwrap(), r"C:\Home");
+        assert_eq!(env.get("=D:").unwrap(), r"D:\User");
+        assert_eq!(env.get("=E:").unwrap(), r"E:\Etc");
+        assert_eq!(env.get("=X:").unwrap(), r"X:\Shared");
+        assert_eq!(env.get("=Y:").unwrap(), r"Y:\Sys");
+        assert_eq!(env.get("=Z:").unwrap(), r"Z:\Bin");
     }
 
     #[test]
