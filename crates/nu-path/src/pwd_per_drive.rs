@@ -305,8 +305,8 @@ mod tests {
     #[test]
     fn test_get_env_vars() {
         let mut map = DriveToPwdMap::new();
-        map.set_pwd(&Path::new(r"I:\Home")).unwrap();
-        map.set_pwd(&Path::new(r"j:\User")).unwrap();
+        map.set_pwd(Path::new(r"I:\Home")).unwrap();
+        map.set_pwd(Path::new(r"j:\User")).unwrap();
 
         let mut env = HashMap::<String, String>::new();
         map.get_env_vars(&mut env);
