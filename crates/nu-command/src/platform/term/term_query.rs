@@ -21,7 +21,9 @@ impl Command for TermQuery {
         "Print the given query, and read the immediate result from stdin.
 
 The standard input will be read right after `query` is printed, and consumed until the `terminator`
-sequence is encountered. The `terminator` is not removed from the output."
+sequence is encountered. The `terminator` is not removed from the output.
+
+If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
     }
 
     fn signature(&self) -> Signature {
@@ -37,7 +39,7 @@ sequence is encountered. The `terminator` is not removed from the output."
             .named(
                 "terminator",
                 SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::String]),
-                "stdin will be read until this sequence is encountered.",
+                "Terminator sequence for the expected reply.",
                 Some('t'),
             )
     }
