@@ -77,7 +77,7 @@ pub fn http_client(
 pub fn http_parse_url(span: Span, raw_url: Value) -> Result<(String, Url), ShellError> {
     let requested_url = raw_url.coerce_into_string()?;
     let url = url::Url::parse(&requested_url).map_err(|_| ShellError::InvalidValue {
-        valid: "a valid URL".into(),
+        valid: "a valid, fully formed URL with protocol (e.g., 'https://www.example.com')".into(),
         actual: requested_url.clone(),
         span,
     })?;
