@@ -34,7 +34,7 @@ sequence is encountered. The `terminator` is not removed from the output."
                 SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::String]),
                 "The query that will be printed to stdout.",
             )
-            .required_named(
+            .named(
                 "terminator",
                 SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::String]),
                 "stdin will be read until this sequence is encountered.",
@@ -70,12 +70,7 @@ sequence is encountered. The `terminator` is not removed from the output."
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let query: Vec<u8> = call.req(engine_state, stack, 0)?;
-        let terminator: Vec<u8> = call
-            .get_flag(engine_state, stack, "terminator")?
-            .ok_or_else(|| ShellError::MissingParameter {
-                param_name: "terminator".into(),
-                span: call.head,
-            })?;
+        let terminator: Option<Vec<u8>> = call.get_flag(engine_state, stack, "terminator")?;
 
         crossterm::terminal::enable_raw_mode()?;
 
@@ -95,23 +90,41 @@ sequence is encountered. The `terminator` is not removed from the output."
             stdout.flush()?;
         }
 
-        let out = loop {
-            if let Err(err) = stdin.read_exact(&mut b) {
-                break Err(ShellError::from(err));
-            }
-
-            if b[0] == 3 {
-                break Err(ShellError::Interrupted { span: call.head });
-            }
-
-            buf.push(b[0]);
-
-            if buf.ends_with(&terminator) {
-                break Ok(Value::Binary {
-                    val: buf,
-                    internal_span: call.head,
+        let out = if let Some(terminator) = terminator {
+            loop {
+                if let Err(err) = stdin.read_exact(&mut b) {
+                    break Err(ShellError::from(err));
                 }
-                .into_pipeline_data());
+
+                if b[0] == 3 {
+                    break Err(ShellError::Interrupted { span: call.head });
+                }
+
+                buf.push(b[0]);
+
+                if buf.ends_with(&terminator) {
+                    break Ok(Value::Binary {
+                        val: buf,
+                        internal_span: call.head,
+                    }
+                    .into_pipeline_data());
+                }
+            }
+        } else {
+            loop {
+                if let Err(err) = stdin.read_exact(&mut b) {
+                    break Err(ShellError::from(err));
+                }
+
+                if b[0] == 3 {
+                    break Ok(Value::Binary {
+                        val: buf,
+                        internal_span: call.head,
+                    }
+                    .into_pipeline_data());
+                }
+
+                buf.push(b[0]);
             }
         };
         crossterm::terminal::disable_raw_mode()?;
