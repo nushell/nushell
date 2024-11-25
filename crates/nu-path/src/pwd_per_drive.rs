@@ -39,7 +39,14 @@ use std::collections::HashMap;
 /// if let Some(expanded) = expand_pwd(Path::new("D:")) {
 ///     let abs_path = expanded.as_path().to_str().expect("OK").to_string();
 ///     if abs_path.len() > 3 {
-///         assert_eq!(*env.get("=D:").unwrap(), abs_path);
+///         // ensure env var ends with '\\'
+///         let pwd_env = env.get("=D:").unwrap();
+///         let pwd_env_with_delimiter = if !pwd_env.ends_with('\\') && !pwd_env.ends_with('/') {
+///             format!(r"{}\", pwd_env)
+///         } else {
+///             pwd_env.to_string()
+///         };
+///         assert_eq!(pwd_env_with_delimiter, abs_path);
 ///     }
 /// }
 /// ```
