@@ -1,0 +1,35 @@
+[package]
+authors = ["The Nushell Project Developers"]
+description = "A Nushell plugin for performing HTTP methods."
+edition = "2021"
+license = "MIT"
+name = "nu_plugin_http"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_http"
+version = "0.100.1"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "nu_plugin_http"
+bench = false
+
+[lib]
+bench = false
+
+[dependencies]
+nu-protocol = { path = "../nu-protocol", version = "0.100.1" }
+nu-plugin = { path = "../nu-plugin", version = "0.100.1" }
+nu-json = { version = "0.100.1", path = "../nu-json" }
+
+mimalloc = { version = "0.1.42" }
+serde = { version = "1.0", features = ["derive"] }
+url.workspace = true
+base64.workspace = true
+multipart-rs = "= 0.1.11"
+ureq.workspace = true
+serde_json.workspace = true
+native-tls = "0.2.12"
+mime.workspace = true
+
+[dev-dependencies]
+nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.100.1" }

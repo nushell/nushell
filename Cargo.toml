@@ -53,6 +53,7 @@ members = [
   "crates/nu_plugin_formats",
   "crates/nu_plugin_polars",
   "crates/nu_plugin_stress_internals",
+  "crates/nu_plugin_http",
   "crates/nu-std",
   "crates/nu-table",
   "crates/nu-term-grid",
@@ -110,7 +111,7 @@ miette = "7.2"
 mime = "0.3.17"
 mime_guess = "2.0"
 mockito = { version = "1.6", default-features = false }
-multipart-rs = "0.1.11"
+multipart-rs = "= 0.1.11"
 native-tls = "0.2"
 nix = { version = "0.29", default-features = false }
 notify-debouncer-full = { version = "0.3", default-features = false }

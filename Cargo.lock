@@ -3743,6 +3743,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu_plugin_http"
+version = "0.100.1"
+dependencies = [
+ "base64",
+ "mimalloc",
+ "mime",
+ "multipart-rs",
+ "native-tls",
+ "nu-json",
+ "nu-plugin",
+ "nu-plugin-test-support",
+ "nu-protocol",
+ "serde",
+ "serde_json",
+ "ureq",
+ "url",
+]
+
+[[package]]
 name = "nu_plugin_inc"
 version = "0.100.1"
 dependencies = [
