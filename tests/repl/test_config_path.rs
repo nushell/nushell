@@ -363,3 +363,16 @@ fn commandstring_loads_default_env() {
 
     assert_eq!(actual.out, "1");
 }
+
+#[test]
+fn commandstring_populates_config_record() {
+    let nu = nu_test_support::fs::executable_path().display().to_string();
+    let cmd = format!(
+        r#"
+            {nu} --no-std-lib -n -c "$env.config.show_banner"
+        "#
+    );
+    let actual = nu!(cmd);
+
+    assert_eq!(actual.out, "true");
+}
