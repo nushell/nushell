@@ -150,7 +150,7 @@ fn def_should_not_mutate_mut() {
 }
 
 #[test]
-fn mut_with_bad_syntax_raises_parse_error() {
+fn assign_to_non_mut_variable_raises_parse_error() {
     let actual = nu!("let x = 3; $x = 4");
     assert!(actual
         .err
