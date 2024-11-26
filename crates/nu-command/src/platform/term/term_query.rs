@@ -134,6 +134,8 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
                 buf.push(b[0]);
 
                 if buf.ends_with(&terminator) {
+                    // Remove terminator
+                    buf.drain((buf.len() - terminator.len())..);
                     break;
                 }
             }
