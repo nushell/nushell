@@ -59,17 +59,17 @@ The `beginning` is not included in the output."
         vec![
             Example {
                 description: "Get cursor position.",
-                example: r#"term query (ansi cursor_position) --terminator 'R'"#,
+                example: r#"term query (ansi cursor_position) --beginning (ansi csi) --terminator 'R'"#,
                 result: None,
             },
             Example {
                 description: "Get terminal background color.",
-                example: r#"term query $'(ansi osc)10;?(ansi st)' --terminator (ansi st)"#,
+                example: r#"term query $'(ansi osc)10;?(ansi st)' --beginning $'(ansi osc)10;' --terminator (ansi st)"#,
                 result: None,
             },
             Example {
                 description: "Read clipboard content on terminals supporting OSC-52.",
-                example: r#"term query $'(ansi osc)52;c;?(ansi st)' --terminator (ansi st)"#,
+                example: r#"term query $'(ansi osc)52;c;?(ansi st)' --beginning $'(ansi osc)52;c;' --terminator (ansi st)"#,
                 result: None,
             },
         ]
