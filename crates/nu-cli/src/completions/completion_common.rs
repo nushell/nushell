@@ -160,8 +160,8 @@ pub fn complete_item(
     let isdir = cleaned_partial.ends_with(is_separator);
     #[cfg(windows)]
     let cleaned_partial =
-        if let Some(absoluted_partial) = nu_path::expand_pwd(Path::new(&cleaned_partial)) {
-            absoluted_partial.display().to_string()
+        if let Some(absolute_partial) = nu_path::expand_pwd(Path::new(&cleaned_partial)) {
+            absolute_partial.display().to_string()
         } else {
             cleaned_partial
         };
