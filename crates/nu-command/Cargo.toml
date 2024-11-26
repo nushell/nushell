@@ -79,6 +79,7 @@ regex = { workspace = true }
 roxmltree = { workspace = true }
 rusqlite = { workspace = true, features = ["bundled", "backup", "chrono"], optional = true }
 rmp = { workspace = true }
+scopeguard = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["preserve_order"] }
 serde_urlencoded = { workspace = true }
