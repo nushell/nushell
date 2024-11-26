@@ -77,6 +77,9 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
         let terminator: Option<Vec<u8>> = call.get_flag(engine_state, stack, "terminator")?;
 
         crossterm::terminal::enable_raw_mode()?;
+        scopeguard::defer! {
+            let _ = crossterm::terminal::disable_raw_mode();
+        }
 
         // clear terminal events
         while crossterm::event::poll(Duration::from_secs(0))? {
@@ -96,9 +99,7 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
 
         let out = if let Some(terminator) = terminator {
             loop {
-                if let Err(err) = stdin.read_exact(&mut b) {
-                    break Err(ShellError::from(err));
-                }
+                stdin.read_exact(&mut b)?;
 
                 if b[0] == CTRL_C {
                     break Err(ShellError::Interrupted { span: call.head });
@@ -116,9 +117,7 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
             }
         } else {
             loop {
-                if let Err(err) = stdin.read_exact(&mut b) {
-                    break Err(ShellError::from(err));
-                }
+                stdin.read_exact(&mut b)?;
 
                 if b[0] == CTRL_C {
                     break Ok(Value::Binary {
@@ -131,7 +130,6 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
                 buf.push(b[0]);
             }
         };
-        crossterm::terminal::disable_raw_mode()?;
         out
     }
 }
