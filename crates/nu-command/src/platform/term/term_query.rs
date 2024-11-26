@@ -23,9 +23,12 @@ impl Command for TermQuery {
         "Print the given query, and read the immediate result from stdin.
 
 The standard input will be read right after `query` is printed, and consumed until the `terminator`
-sequence is encountered. The `terminator` is not removed from the output.
+sequence is encountered. The `terminator` is not included in the output.
 
-If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
+If `terminator` is not supplied, input will be read until Ctrl-C is pressed.
+
+If `beginning` is supplied, input's beginning will be validated against it.
+The `beginning` is not included in the output."
     }
 
     fn signature(&self) -> Signature {
