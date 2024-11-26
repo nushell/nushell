@@ -39,7 +39,14 @@ use std::collections::HashMap;
 /// if let Some(expanded) = expand_pwd(Path::new("D:")) {
 ///     let abs_path = expanded.as_path().to_str().expect("OK").to_string();
 ///     if abs_path.len() > 3 {
-///         assert_eq!(*env.get("=D:").unwrap(), abs_path);
+///         // ensure env var ends with '\\'
+///         let pwd_env = env.get("=D:").unwrap();
+///         let pwd_env_with_delimiter = if !pwd_env.ends_with('\\') && !pwd_env.ends_with('/') {
+///             format!(r"{}\", pwd_env)
+///         } else {
+///             pwd_env.to_string()
+///         };
+///         assert_eq!(pwd_env_with_delimiter, abs_path);
 ///     }
 /// }
 /// ```
@@ -107,7 +114,7 @@ impl DriveToPwdMap {
         // Initialize by current PWD-per-drive
         let mut map: [Option<String>; 26] = Default::default();
         for (drive_index, drive_letter) in ('A'..='Z').enumerate() {
-            let env_var = format!("={}:", drive_letter);
+            let env_var = Self::env_var_for_drive(drive_letter);
             if let Ok(env_pwd) = std::env::var(&env_var) {
                 if env_pwd.len() > 3 {
                     map[drive_index] = Some(env_pwd);
@@ -117,12 +124,17 @@ impl DriveToPwdMap {
         Self { map }
     }
 
+    pub fn env_var_for_drive(drive_letter: char) -> String {
+        let driver_letter = drive_letter.to_ascii_uppercase();
+        format!("={}:", drive_letter)
+    }
+
     /// Collect PWD-per-drive as env vars (for child process)
     pub fn get_env_vars(&self, env: &mut HashMap<String, String>) {
         for (drive_index, drive_letter) in ('A'..='Z').enumerate() {
             if let Some(pwd) = self.map[drive_index].clone() {
                 if pwd.len() > 3 {
-                    let env_var_for_drive = format!("={}:", drive_letter);
+                    let env_var_for_drive = Self::env_var_for_drive(drive_letter);
                     env.insert(env_var_for_drive, pwd);
                 }
             }
@@ -233,7 +245,7 @@ fn get_shared_drive_pwd_map() -> &'static Mutex<DriveToPwdMap> {
         let shared_map = Mutex::new(DriveToPwdMap::new());
         // Clear these env_vars as CMD
         for drive_letter in 'A'..='Z' {
-            std::env::remove_var(format!("={}:", drive_letter));
+            std::env::remove_var(DriveToPwdMap::env_var_for_drive(drive_letter));
         }
         shared_map
     })
@@ -286,8 +298,8 @@ mod tests {
         use shared_map::expand_pwd;
         let _ = expand_pwd(Path::new(r"\invalidPath"));
 
-        std::env::set_var("=G:", r"G:\Users\Nushell");
-        std::env::set_var("=H:", r"h:\Share\Nushell");
+        std::env::set_var(DriveToPwdMap::env_var_for_drive('g'), r"G:\Users\Nushell");
+        std::env::set_var(DriveToPwdMap::env_var_for_drive('H'), r"h:\Share\Nushell");
         let mut map = DriveToPwdMap::new();
         assert_eq!(
             map.expand_path(Path::new("g:")),
@@ -298,8 +310,8 @@ mod tests {
             Some(PathBuf::from(r"H:\Share\Nushell\"))
         );
 
-        std::env::remove_var("=G:");
-        std::env::remove_var("=H:");
+        std::env::remove_var(DriveToPwdMap::env_var_for_drive('G'));
+        std::env::remove_var(DriveToPwdMap::env_var_for_drive('h'));
     }
 
     #[test]
@@ -310,8 +322,8 @@ mod tests {
 
         let mut env = HashMap::<String, String>::new();
         map.get_env_vars(&mut env);
-        assert_eq!(env.get("=I:").unwrap(), r"I:\Home");
-        assert_eq!(env.get("=J:").unwrap(), r"J:\User");
+        assert_eq!(env.get(&DriveToPwdMap::env_var_for_drive('I')).unwrap(), r"I:\Home");
+        assert_eq!(env.get(&DriveToPwdMap::env_var_for_drive('J')).unwrap(), r"J:\User");
     }
 
     #[test]
