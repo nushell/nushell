@@ -121,22 +121,20 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
             }
         }
 
-        let out = if let Some(terminator) = terminator {
+        if let Some(terminator) = terminator {
             loop {
                 stdin.read_exact(&mut b)?;
 
                 if b[0] == CTRL_C {
-                    break Err(ShellError::Interrupted { span: call.head });
+                    return Err(ShellError::InterruptedByUser {
+                        span: Some(call.head),
+                    });
                 }
 
                 buf.push(b[0]);
 
                 if buf.ends_with(&terminator) {
-                    break Ok(Value::Binary {
-                        val: buf,
-                        internal_span: call.head,
-                    }
-                    .into_pipeline_data());
+                    break;
                 }
             }
         } else {
@@ -144,16 +142,13 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
                 stdin.read_exact(&mut b)?;
 
                 if b[0] == CTRL_C {
-                    break Ok(Value::Binary {
-                        val: buf,
-                        internal_span: call.head,
-                    }
-                    .into_pipeline_data());
+                    break;
                 }
 
                 buf.push(b[0]);
             }
         };
-        out
+
+        Ok(Value::binary(buf, call.head).into_pipeline_data())
     }
 }
