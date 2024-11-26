@@ -39,6 +39,12 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
                 "The query that will be printed to stdout.",
             )
             .named(
+                "beginning",
+                SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::String]),
+                "Beginning sequence for the expected reply.",
+                Some('b'),
+            )
+            .named(
                 "terminator",
                 SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::String]),
                 "Terminator sequence for the expected reply.",
@@ -74,6 +80,8 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let query: Vec<u8> = call.req(engine_state, stack, 0)?;
+        let beginning: Option<Vec<u8>> = call.get_flag(engine_state, stack, "beginning")?;
+        let beginning = beginning.unwrap_or_default();
         let terminator: Option<Vec<u8>> = call.get_flag(engine_state, stack, "terminator")?;
 
         crossterm::terminal::enable_raw_mode()?;
@@ -95,6 +103,22 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
             let mut stdout = std::io::stdout().lock();
             stdout.write_all(&query)?;
             stdout.flush()?;
+        }
+
+        // Validate and skip beginning
+        for bc in beginning {
+            stdin.read_exact(&mut b)?;
+            if b[0] != bc {
+                return Err(ShellError::GenericError {
+                    error: "Input did not begin with expected sequence".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(
+                        "Try running without `--beginning` and inspecting the output.".into(),
+                    ),
+                    inner: vec![],
+                });
+            }
         }
 
         let out = if let Some(terminator) = terminator {
