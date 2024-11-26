@@ -5147,6 +5147,8 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         b"//" => Operator::Math(Math::FloorDivision),
         b"in" => Operator::Comparison(Comparison::In),
         b"not-in" => Operator::Comparison(Comparison::NotIn),
+        b"has" => Operator::Comparison(Comparison::Has),
+        b"not-has" => Operator::Comparison(Comparison::NotHas),
         b"mod" => Operator::Math(Math::Modulo),
         b"bit-or" => Operator::Bits(Bits::BitOr),
         b"bit-xor" => Operator::Bits(Bits::BitXor),
@@ -5187,7 +5189,7 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         b"contains" => {
             working_set.error(ParseError::UnknownOperator(
                 "contains",
-                "Did you mean '$string =~ $pattern' or '$element in $container'?",
+                "Did you mean 'has'?",
                 span,
             ));
             return garbage(working_set, span);

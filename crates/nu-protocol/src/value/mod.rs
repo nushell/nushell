@@ -3540,6 +3540,14 @@ impl Value {
         }
     }
 
+    pub fn has(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        rhs.r#in(op, self, span)
+    }
+
+    pub fn not_has(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        rhs.r#not_in(op, self, span)
+    }
+
     pub fn regex_match(
         &self,
         engine_state: &EngineState,

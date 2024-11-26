@@ -821,7 +821,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Comparison(Comparison::In) | Operator::Comparison(Comparison::NotIn) => {
+            Operator::Comparison(Comparison::In | Comparison::NotIn) => {
                 match (&lhs.ty, &rhs.ty) {
                     (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
                     (Type::Int | Type::Float | Type::Number, Type::Range) => (Type::Bool, None),
@@ -856,6 +856,48 @@ pub fn math_result_type(
                                 op.span,
                                 lhs.span,
                                 lhs.ty.clone(),
+                            )),
+                        )
+                    }
+                }
+            }
+            Operator::Comparison(Comparison::Has | Comparison::NotHas) => {
+                let container = lhs;
+                let element = rhs;
+                match (&element.ty, &container.ty) {
+                    (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
+                    (Type::Int | Type::Float | Type::Number, Type::Range) => (Type::Bool, None),
+                    (Type::String, Type::String) => (Type::Bool, None),
+                    (Type::String, Type::Record(_)) => (Type::Bool, None),
+
+                    (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                    (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
+
+                    (Type::Any, _) => (Type::Bool, None),
+                    (_, Type::Any) => (Type::Bool, None),
+                    (Type::Int | Type::Float | Type::String, _) => {
+                        *op = Expression::garbage(working_set, op.span);
+                        (
+                            Type::Any,
+                            Some(ParseError::UnsupportedOperationLHS(
+                                "subset comparison".into(),
+                                op.span,
+                                element.span,
+                                element.ty.clone(),
+                            )),
+                        )
+                    }
+                    _ => {
+                        *op = Expression::garbage(working_set, op.span);
+                        (
+                            Type::Any,
+                            Some(ParseError::UnsupportedOperationRHS(
+                                "subset comparison".into(),
+                                op.span,
+                                element.span,
+                                element.ty.clone(),
+                                container.span,
+                                container.ty.clone(),
                             )),
                         )
                     }

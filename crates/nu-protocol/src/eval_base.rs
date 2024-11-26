@@ -256,6 +256,8 @@ pub trait Eval {
                             Comparison::NotEqual => lhs.ne(op_span, &rhs, expr_span),
                             Comparison::In => lhs.r#in(op_span, &rhs, expr_span),
                             Comparison::NotIn => lhs.not_in(op_span, &rhs, expr_span),
+                            Comparison::Has => lhs.has(op_span, &rhs, expr_span),
+                            Comparison::NotHas => lhs.not_has(op_span, &rhs, expr_span),
                             Comparison::StartsWith => lhs.starts_with(op_span, &rhs, expr_span),
                             Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr_span),
                             Comparison::RegexMatch => {

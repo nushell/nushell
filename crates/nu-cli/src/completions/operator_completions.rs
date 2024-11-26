@@ -107,10 +107,14 @@ impl Completer for OperatorCompletion {
                 ("not-in", "Is not a member of (doesn't use regex)"),
             ],
             Expr::FullCellPath(path) => match path.head.expr {
-                Expr::List(_) => vec![(
-                    "++",
-                    "Concatenates two lists, two strings, or two binary values",
-                )],
+                Expr::List(_) => vec![
+                    (
+                        "++",
+                        "Concatenates two lists, two strings, or two binary values",
+                    ),
+                    ("has", "Contains a value of (doesn't use regex)"),
+                    ("not-has", "Contains a value of (doesn't use regex)"),
+                ],
                 Expr::Var(id) => get_variable_completions(id, working_set),
                 _ => vec![],
             },
