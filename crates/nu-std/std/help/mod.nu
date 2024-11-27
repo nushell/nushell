@@ -37,7 +37,7 @@ def get-all-operators [] { return [
 
     [Assignment, =, Assign, "Assigns a value to a variable.", 10]
     [Assignment, +=, PlusAssign, "Adds a value to a variable.", 10]
-    [Assignment, ++=, AppendAssign, "Appends a list or a value to a variable.", 10]
+    [Assignment, ++=, ConcatAssign, "Concatenate two lists, two strings, or two binary values.", 10]
     [Assignment, -=, MinusAssign, "Subtracts a value from a variable.", 10]
     [Assignment, *=, MultiplyAssign, "Multiplies a variable by a value.", 10]
     [Assignment, /=, DivideAssign, "Divides a variable by a value.", 10]
@@ -55,7 +55,7 @@ def get-all-operators [] { return [
     [Comparison, ends-with, EndsWith, "Checks if a string ends with another.", 80]
     [Comparison, not, UnaryNot, "Negates a value or expression.", 0]
     [Math, +, Plus, "Adds two values.", 90]
-    [Math, ++, Append, "Appends two lists or a list and a value.", 80]
+    [Math, ++, Concat, "Concatenate two lists, two strings, or two binary values.", 80]
     [Math, -, Minus, "Subtracts two values.", 90]
     [Math, *, Multiply, "Multiplies two values.", 95]
     [Math, /, Divide, "Divides two values.", 95]

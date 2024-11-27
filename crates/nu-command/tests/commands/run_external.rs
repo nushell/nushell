@@ -355,9 +355,9 @@ fn external_command_receives_raw_binary_data() {
 
 #[cfg(windows)]
 #[test]
-fn can_run_batch_files() {
+fn can_run_cmd_files() {
     use nu_test_support::fs::Stub::FileWithContent;
-    Playground::setup("run a Windows batch file", |dirs, sandbox| {
+    Playground::setup("run a Windows cmd file", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "foo.cmd",
             r#"
@@ -373,10 +373,28 @@ fn can_run_batch_files() {
 
 #[cfg(windows)]
 #[test]
+fn can_run_batch_files() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    Playground::setup("run a Windows batch file", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "foo.bat",
+            r#"
+                @echo off
+                echo Hello World
+            "#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline("foo.bat"));
+        assert!(actual.out.contains("Hello World"));
+    });
+}
+
+#[cfg(windows)]
+#[test]
 fn can_run_batch_files_without_cmd_extension() {
     use nu_test_support::fs::Stub::FileWithContent;
     Playground::setup(
-        "run a Windows batch file without specifying the extension",
+        "run a Windows cmd file without specifying the extension",
         |dirs, sandbox| {
             sandbox.with_files(&[FileWithContent(
                 "foo.cmd",
@@ -438,5 +456,22 @@ fn redirect_combine() {
 
         // Lines are collapsed in the nu! macro
         assert_eq!(actual.out, "FooBar");
+    });
+}
+
+#[cfg(windows)]
+#[test]
+fn can_run_ps1_files() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    Playground::setup("run_a_windows_ps_file", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "foo.ps1",
+            r#"
+                Write-Host Hello World
+            "#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline("foo.ps1"));
+        assert!(actual.out.contains("Hello World"));
     });
 }

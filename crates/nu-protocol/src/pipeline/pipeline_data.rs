@@ -203,7 +203,7 @@ impl PipelineData {
     ) -> Result<Self, ShellError> {
         match stack.pipe_stdout().unwrap_or(&OutDest::Inherit) {
             OutDest::Print => {
-                self.print(engine_state, stack, false, false)?;
+                self.print_table(engine_state, stack, false, false)?;
                 Ok(Self::Empty)
             }
             OutDest::Pipe | OutDest::PipeSeparate => Ok(self),
@@ -534,11 +534,14 @@ impl PipelineData {
         }
     }
 
-    /// Consume and print self data immediately.
+    /// Consume and print self data immediately, formatted using table command.
+    ///
+    /// This does not respect the display_output hook. If a value is being printed out by a command,
+    /// this function should be used. Otherwise, `nu_cli::util::print_pipeline` should be preferred.
     ///
     /// `no_newline` controls if we need to attach newline character to output.
     /// `to_stderr` controls if data is output to stderr, when the value is false, the data is output to stdout.
-    pub fn print(
+    pub fn print_table(
         self,
         engine_state: &EngineState,
         stack: &mut Stack,

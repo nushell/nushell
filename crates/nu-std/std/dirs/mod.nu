@@ -43,7 +43,7 @@ export def --env add [
 }
 
 # Make the next directory on the list the active directory.
-# If the currenta ctive directory is the last in the list, 
+# If the current active directory is the last in the list,
 # then cycle to the top of the list.
 export def --env next [
     N:int = 1   # number of positions to move.
@@ -52,7 +52,7 @@ export def --env next [
 }
 
 # Make the previous directory on the list the active directory.
-# If the current active directory is the first in the list, 
+# If the current active directory is the first in the list,
 # then cycle to the end of the list.
 export def --env prev [
     N:int = 1   # number of positions to move.
