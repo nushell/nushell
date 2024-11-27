@@ -24,8 +24,8 @@ use nu_cli::gather_parent_env_vars;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, report_shell_error, ByteStream, PipelineData, ShellError, Span, Spanned,
-    Value,
+    engine::EngineState, report_shell_error, ByteStream, Config, IntoValue, PipelineData,
+    ShellError, Span, Spanned, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -256,6 +256,13 @@ fn main() -> Result<()> {
         terminal::acquire(engine_state.is_interactive);
         perf!("acquire_terminal", start_time, use_color);
     }
+
+    start_time = std::time::Instant::now();
+    engine_state.add_env_var(
+        "config".into(),
+        Config::default().into_value(Span::unknown()),
+    );
+    perf!("$env.config setup", start_time, use_color);
 
     start_time = std::time::Instant::now();
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
