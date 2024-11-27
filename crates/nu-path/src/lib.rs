@@ -16,6 +16,6 @@ pub use expansions::{canonicalize_with, expand_path_with, expand_to_real_path, l
 pub use helpers::{cache_dir, data_dir, home_dir, nu_config_dir};
 pub use path::*;
 #[cfg(windows)]
-pub use pwd_per_drive::shared_map::{expand_pwd, get_env_vars, set_pwd};
+pub use pwd_per_drive::DriveToPwdMap;
 pub use tilde::expand_tilde;
 pub use trailing_slash::{has_trailing_slash, strip_trailing_slash};

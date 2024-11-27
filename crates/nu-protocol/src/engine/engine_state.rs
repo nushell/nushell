@@ -957,8 +957,6 @@ impl EngineState {
             } else if !path.is_dir() {
                 Err(error("$env.PWD points to a non-directory", &path))
             } else {
-                #[cfg(windows)]
-                let _ = nu_path::set_pwd(path.as_std_path());
                 Ok(path)
             }
         } else {

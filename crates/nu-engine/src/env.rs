@@ -156,8 +156,9 @@ pub fn env_to_strings(
             Err(e) => return Err(e),
         }
     }
+
     #[cfg(windows)]
-    nu_path::get_env_vars(&mut env_vars_str);
+    stack.pwd_per_drive.get_env_vars(&mut env_vars_str);
 
     Ok(env_vars_str)
 }

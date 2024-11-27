@@ -13,6 +13,7 @@ bench = false
 
 [dependencies]
 dirs = { workspace = true }
+log = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 omnipath = { workspace = true }

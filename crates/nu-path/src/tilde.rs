@@ -21,11 +21,6 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
     let path = path.as_ref();
 
     if !path.starts_with("~") {
-        // Try to expand relative path by PWD-per-drive
-        #[cfg(windows)]
-        if let Some(expanded_dir) = crate::expand_pwd(path) {
-            return expanded_dir;
-        }
         let string = path.to_string_lossy();
         let mut path_as_string = string.as_ref().bytes();
         return match path_as_string.next() {
