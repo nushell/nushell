@@ -12,10 +12,13 @@ impl Command for ChunkBy {
 
     fn signature(&self) -> Signature {
         Signature::build("chunk-by")
-            .input_output_types(vec![(
-                Type::List(Box::new(Type::Any)),
-                Type::List(Box::new(Type::Any)),
-            )])
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::list(Type::list(Type::Any)),
+                ),
+                (Type::Range, Type::list(Type::list(Type::Any))),
+            ])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
@@ -25,7 +28,7 @@ impl Command for ChunkBy {
     }
 
     fn description(&self) -> &str {
-        r#"Divides a sequence into sub-sequences based on function."#
+        r#"Divides a sequence into sub-sequences based on a closure."#
     }
 
     fn extra_description(&self) -> &str {
@@ -68,6 +71,27 @@ consecutive elements that share the same closure result value into lists."#
                         Value::test_string("c"),
                         Value::test_string("c"),
                         Value::test_string("c"),
+                    ]),
+                ])),
+            },
+            Example {
+                description: "Chunk values of range by predicate",
+                example: r#"(0..8) | chunk-by { |it| $it // 3 }"#,
+                result: Some(Value::test_list(vec![
+                    Value::test_list(vec![
+                        Value::test_int(0),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                    ]),
+                    Value::test_list(vec![
+                        Value::test_int(3),
+                        Value::test_int(4),
+                        Value::test_int(5),
+                    ]),
+                    Value::test_list(vec![
+                        Value::test_int(6),
+                        Value::test_int(7),
+                        Value::test_int(8),
                     ]),
                 ])),
             },
