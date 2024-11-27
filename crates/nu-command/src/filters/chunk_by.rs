@@ -191,22 +191,10 @@ pub fn chunk_by(
 
             Ok(result.into_pipeline_data(head, engine_state.signals().clone()))
         }
-        PipelineData::ByteStream(stream, ..) => {
-            if let Some(chunks) = stream.chunks() {
-                let closure = ClosureEval::new(engine_state, stack, closure);
 
-                let mapped_chunks =
-                    chunks.map(move |value| value.unwrap_or_else(|err| Value::error(err, head)));
-
-                let result = chunk_value_stream(mapped_chunks, closure, head);
-
-                Ok(result.into_pipeline_data(head, engine_state.signals().clone()))
-            } else {
-                Ok(PipelineData::Empty)
-            }
+        PipelineData::ByteStream(..) | PipelineData::Value(..) => {
+            Err(input.unsupported_input_error("list", head))
         }
-
-        PipelineData::Value(..) => Err(input.unsupported_input_error("list", head)),
     }
     .map(|data| data.set_metadata(metadata))
 }
