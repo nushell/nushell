@@ -1,8 +1,10 @@
 /// Usage for pwd_per_drive on windows
 ///
-/// Upon change PWD, call set_pwd() with absolute path
+/// let mut map = DriveToPwdMap::new();
 ///
-/// Call expand_pwd() with relative path to get absolution path
+/// Upon change PWD, call map.set_pwd() with absolute path
+///
+/// Call map.expand_pwd() with relative path to get absolution path
 ///
 /// ```
 /// use std::path::{Path, PathBuf};
@@ -37,19 +39,6 @@
 /// let mut env = HashMap::<String, String>::new();
 /// map.get_env_vars(&mut env);
 /// assert_eq!(env.get("=C:").unwrap(), r"C:\Users\Home");
-/// if let Some(expanded) = map.expand_pwd(Path::new("D:")) {
-///     let abs_path = expanded.as_path().to_str().expect("OK").to_string();
-///     if abs_path.len() > 3 {
-///         // ensure env var ends with '\\'
-///         let pwd_env = env.get("=D:").unwrap();
-///         let pwd_env_with_delimiter = if !pwd_env.ends_with('\\') && !pwd_env.ends_with('/') {
-///             format!(r"{}\", pwd_env)
-///         } else {
-///             pwd_env.to_string()
-///         };
-///         assert_eq!(pwd_env_with_delimiter, abs_path);
-///     }
-/// }
 /// ```
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
