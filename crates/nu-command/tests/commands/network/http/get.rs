@@ -146,7 +146,6 @@ fn http_get_with_custom_headers_as_records() {
 }
 
 #[test]
-#[ignore]
 fn http_get_full_response() {
     let mut server = Server::new();
 
