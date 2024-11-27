@@ -749,7 +749,9 @@ impl Stack {
             Ok(())
         }
     }
-    
+
+    // Helper stub/proxy for nu_path::expand_path_with::<P, Q>(path, relative_to, expand_tilde)
+    // Facilitates file system commands to easily gain the ability to expand PWD-per-drive
     pub fn expand_path_with<P, Q>(&self, path: P, relative_to: Q, expand_tilde: bool) -> PathBuf
     where
         P: AsRef<Path>,
