@@ -109,7 +109,7 @@ impl PipelineData {
     /// than would be returned by [`Value::get_type()`] on the result of
     /// [`.into_value()`](Self::into_value).
     ///
-    /// Specifically, a `ListStream` results in [`list stream`](Type::ListStream) rather than
+    /// Specifically, a `ListStream` results in `list<any>` rather than
     /// the fully complete [`list`](Type::List) type (which would require knowing the contents),
     /// and a `ByteStream` with [unknown](crate::ByteStreamType::Unknown) type results in
     /// [`any`](Type::Any) rather than [`string`](Type::String) or [`binary`](Type::Binary).
@@ -117,7 +117,7 @@ impl PipelineData {
         match self {
             PipelineData::Empty => Type::Nothing,
             PipelineData::Value(value, _) => value.get_type(),
-            PipelineData::ListStream(_, _) => Type::ListStream,
+            PipelineData::ListStream(_, _) => Type::list(Type::Any),
             PipelineData::ByteStream(stream, _) => stream.type_().into(),
         }
     }

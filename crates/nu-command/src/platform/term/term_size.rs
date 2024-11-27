@@ -1,5 +1,5 @@
+use crossterm::terminal::size;
 use nu_engine::command_prelude::*;
-use terminal_size::{terminal_size, Height, Width};
 
 #[derive(Clone)]
 pub struct TermSize;
@@ -51,15 +51,12 @@ impl Command for TermSize {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let (cols, rows) = match terminal_size() {
-            Some((w, h)) => (Width(w.0), Height(h.0)),
-            None => (Width(0), Height(0)),
-        };
+        let (cols, rows) = size().unwrap_or((0, 0));
 
         Ok(Value::record(
             record! {
-                "columns" => Value::int(cols.0 as i64, head),
-                "rows" => Value::int(rows.0 as i64, head),
+                "columns" => Value::int(cols as i64, head),
+                "rows" => Value::int(rows as i64, head),
             },
             head,
         )

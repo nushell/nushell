@@ -1,22 +1,20 @@
-use super::MatchAlgorithm;
-use crate::{
-    completions::{matches, CompletionOptions},
-    SemanticSuggestion,
-};
-use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
+use super::{completion_options::NuMatcher, MatchAlgorithm};
+use crate::completions::CompletionOptions;
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
 use nu_path::dots::expand_ndots;
 use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    CompletionSort, Span,
+    Span,
 };
 use nu_utils::get_ls_colors;
+use nu_utils::IgnoreCaseExt;
 use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
 
 #[derive(Clone, Default)]
 pub struct PathBuiltFromString {
+    cwd: PathBuf,
     parts: Vec<String>,
     isdir: bool,
 }
@@ -30,76 +28,84 @@ pub struct PathBuiltFromString {
 /// want_directory: Whether we want only directories as completion matches.
 /// Some commands like `cd` can only be run on directories whereas others
 /// like `ls` can be run on regular files as well.
-pub fn complete_rec(
+fn complete_rec(
     partial: &[&str],
-    built: &PathBuiltFromString,
-    cwd: &Path,
+    built_paths: &[PathBuiltFromString],
     options: &CompletionOptions,
     want_directory: bool,
     isdir: bool,
 ) -> Vec<PathBuiltFromString> {
-    let mut completions = vec![];
-
     if let Some((&base, rest)) = partial.split_first() {
         if base.chars().all(|c| c == '.') && (isdir || !rest.is_empty()) {
-            let mut built = built.clone();
-            built.parts.push(base.to_string());
-            built.isdir = true;
-            return complete_rec(rest, &built, cwd, options, want_directory, isdir);
-        }
-    }
-
-    let mut built_path = cwd.to_path_buf();
-    for part in &built.parts {
-        built_path.push(part);
-    }
-
-    let Ok(result) = built_path.read_dir() else {
-        return completions;
-    };
-
-    let mut entries = Vec::new();
-    for entry in result.filter_map(|e| e.ok()) {
-        let entry_name = entry.file_name().to_string_lossy().into_owned();
-        let entry_isdir = entry.path().is_dir();
-        let mut built = built.clone();
-        built.parts.push(entry_name.clone());
-        built.isdir = entry_isdir;
-
-        if !want_directory || entry_isdir {
-            entries.push((entry_name, built));
+            let built_paths: Vec<_> = built_paths
+                .iter()
+                .map(|built| {
+                    let mut built = built.clone();
+                    built.parts.push(base.to_string());
+                    built.isdir = true;
+                    built
+                })
+                .collect();
+            return complete_rec(rest, &built_paths, options, want_directory, isdir);
         }
     }
 
     let prefix = partial.first().unwrap_or(&"");
-    let sorted_entries = sort_completions(prefix, entries, options, |(entry, _)| entry);
+    let mut matcher = NuMatcher::new(prefix, options.clone());
 
-    for (entry_name, built) in sorted_entries {
+    for built in built_paths {
+        let mut path = built.cwd.clone();
+        for part in &built.parts {
+            path.push(part);
+        }
+
+        let Ok(result) = path.read_dir() else {
+            continue;
+        };
+
+        for entry in result.filter_map(|e| e.ok()) {
+            let entry_name = entry.file_name().to_string_lossy().into_owned();
+            let entry_isdir = entry.path().is_dir();
+            let mut built = built.clone();
+            built.parts.push(entry_name.clone());
+            built.isdir = entry_isdir;
+
+            if !want_directory || entry_isdir {
+                matcher.add(entry_name.clone(), (entry_name, built));
+            }
+        }
+    }
+
+    let mut completions = vec![];
+    for (entry_name, built) in matcher.results() {
         match partial.split_first() {
             Some((base, rest)) => {
-                if matches(base, &entry_name, options) {
-                    // We use `isdir` to confirm that the current component has
-                    // at least one next component or a slash.
-                    // Serves as confirmation to ignore longer completions for
-                    // components in between.
-                    if !rest.is_empty() || isdir {
-                        completions.extend(complete_rec(
-                            rest,
-                            &built,
-                            cwd,
-                            options,
-                            want_directory,
-                            isdir,
-                        ));
-                    } else {
-                        completions.push(built);
-                    }
+                // We use `isdir` to confirm that the current component has
+                // at least one next component or a slash.
+                // Serves as confirmation to ignore longer completions for
+                // components in between.
+                if !rest.is_empty() || isdir {
+                    completions.extend(complete_rec(
+                        rest,
+                        &[built],
+                        options,
+                        want_directory,
+                        isdir,
+                    ));
+                } else {
+                    completions.push(built);
                 }
-                if entry_name.eq(base)
-                    && matches!(options.match_algorithm, MatchAlgorithm::Prefix)
-                    && isdir
-                {
-                    break;
+
+                // For https://github.com/nushell/nushell/issues/13204
+                if isdir && options.match_algorithm == MatchAlgorithm::Prefix {
+                    let exact_match = if options.case_sensitive {
+                        entry_name.eq(base)
+                    } else {
+                        entry_name.to_folded_case().eq(&base.to_folded_case())
+                    };
+                    if exact_match {
+                        break;
+                    }
                 }
             }
             None => {
@@ -147,15 +153,25 @@ fn surround_remove(partial: &str) -> String {
     partial.to_string()
 }
 
+pub struct FileSuggestion {
+    pub span: nu_protocol::Span,
+    pub path: String,
+    pub style: Option<Style>,
+    pub cwd: PathBuf,
+}
+
+/// # Parameters
+/// * `cwds` - A list of directories in which to search. The only reason this isn't a single string
+///   is because dotnu_completions searches in multiple directories at once
 pub fn complete_item(
     want_directory: bool,
     span: nu_protocol::Span,
     partial: &str,
-    cwd: &str,
+    cwds: &[impl AsRef<str>],
     options: &CompletionOptions,
     engine_state: &EngineState,
     stack: &Stack,
-) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
+) -> Vec<FileSuggestion> {
     let cleaned_partial = surround_remove(partial);
     let isdir = cleaned_partial.ends_with(is_separator);
     #[cfg(windows)]
@@ -182,7 +198,10 @@ pub fn complete_item(
         partial.push_str(&format!("{path_separator}."));
     }
 
-    let cwd_pathbuf = Path::new(cwd).to_path_buf();
+    let cwd_pathbufs: Vec<_> = cwds
+        .iter()
+        .map(|cwd| Path::new(cwd.as_ref()).to_path_buf())
+        .collect();
     let ls_colors = (engine_state.config.completions.use_ls_colors
         && engine_state.config.use_ansi_coloring)
         .then(|| {
@@ -193,7 +212,7 @@ pub fn complete_item(
             get_ls_colors(ls_colors_env_str)
         });
 
-    let mut cwd = cwd_pathbuf.clone();
+    let mut cwds = cwd_pathbufs.clone();
     let mut prefix_len = 0;
     let mut original_cwd = OriginalCwd::None;
 
@@ -201,19 +220,21 @@ pub fn complete_item(
     match components.peek().cloned() {
         Some(c @ Component::Prefix(..)) => {
             // windows only by definition
-            cwd = [c, Component::RootDir].iter().collect();
+            cwds = vec![[c, Component::RootDir].iter().collect()];
             prefix_len = c.as_os_str().len();
             original_cwd = OriginalCwd::Prefix(c.as_os_str().to_string_lossy().into_owned());
         }
         Some(c @ Component::RootDir) => {
             // This is kind of a hack. When joining an empty string with the rest,
             // we add the slash automagically
-            cwd = PathBuf::from(c.as_os_str());
+            cwds = vec![PathBuf::from(c.as_os_str())];
             prefix_len = 1;
             original_cwd = OriginalCwd::Prefix(String::new());
         }
         Some(Component::Normal(home)) if home.to_string_lossy() == "~" => {
-            cwd = home_dir().map(Into::into).unwrap_or(cwd_pathbuf);
+            cwds = home_dir()
+                .map(|dir| vec![dir.into()])
+                .unwrap_or(cwd_pathbufs);
             prefix_len = 1;
             original_cwd = OriginalCwd::Home;
         }
@@ -230,8 +251,14 @@ pub fn complete_item(
 
     complete_rec(
         partial.as_slice(),
-        &PathBuiltFromString::default(),
-        &cwd,
+        &cwds
+            .into_iter()
+            .map(|cwd| PathBuiltFromString {
+                cwd,
+                parts: Vec::new(),
+                isdir: false,
+            })
+            .collect::<Vec<_>>(),
         options,
         want_directory,
         isdir,
@@ -241,6 +268,7 @@ pub fn complete_item(
         if should_collapse_dots {
             p = collapse_ndots(p);
         }
+        let cwd = p.cwd.clone();
         let path = original_cwd.apply(p, path_separator);
         let style = ls_colors.as_ref().map(|lsc| {
             lsc.style_for_path_with_metadata(
@@ -252,7 +280,12 @@ pub fn complete_item(
             .map(lscolors::Style::to_nu_ansi_term_style)
             .unwrap_or_default()
         });
-        (span, escape_path(path, want_directory), style)
+        FileSuggestion {
+            span,
+            path: escape_path(path, want_directory),
+            style,
+            cwd,
+        }
     })
     .collect()
 }
@@ -317,45 +350,6 @@ pub fn adjust_if_intermediate(
     }
 }
 
-/// Convenience function to sort suggestions using [`sort_completions`]
-pub fn sort_suggestions(
-    prefix: &str,
-    items: Vec<SemanticSuggestion>,
-    options: &CompletionOptions,
-) -> Vec<SemanticSuggestion> {
-    sort_completions(prefix, items, options, |it| &it.suggestion.value)
-}
-
-/// # Arguments
-/// * `prefix` - What the user's typed, for sorting by fuzzy matcher score
-pub fn sort_completions<T>(
-    prefix: &str,
-    mut items: Vec<T>,
-    options: &CompletionOptions,
-    get_value: fn(&T) -> &str,
-) -> Vec<T> {
-    // Sort items
-    if options.sort == CompletionSort::Smart && options.match_algorithm == MatchAlgorithm::Fuzzy {
-        let mut matcher = SkimMatcherV2::default();
-        if options.case_sensitive {
-            matcher = matcher.respect_case();
-        } else {
-            matcher = matcher.ignore_case();
-        };
-        items.sort_unstable_by(|a, b| {
-            let a_str = get_value(a);
-            let b_str = get_value(b);
-            let a_score = matcher.fuzzy_match(a_str, prefix).unwrap_or_default();
-            let b_score = matcher.fuzzy_match(b_str, prefix).unwrap_or_default();
-            b_score.cmp(&a_score).then(a_str.cmp(b_str))
-        });
-    } else {
-        items.sort_unstable_by(|a, b| get_value(a).cmp(get_value(b)));
-    }
-
-    items
-}
-
 /// Collapse multiple ".." components into n-dots.
 ///
 /// It performs the reverse operation of `expand_ndots`, collapsing sequences of ".." into n-dots,
@@ -366,6 +360,7 @@ fn collapse_ndots(path: PathBuiltFromString) -> PathBuiltFromString {
     let mut result = PathBuiltFromString {
         parts: Vec::with_capacity(path.parts.len()),
         isdir: path.isdir,
+        cwd: path.cwd,
     };
 
     let mut dot_count = 0;

@@ -1,5 +1,5 @@
 use crate::completions::{
-    Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion, SuggestionKind,
+    completion_options::NuMatcher, Completer, CompletionOptions, SemanticSuggestion, SuggestionKind,
 };
 use nu_protocol::{
     ast::{Expr, Expression},
@@ -28,7 +28,7 @@ impl Completer for OperatorCompletion {
         span: Span,
         offset: usize,
         _pos: usize,
-        _options: &CompletionOptions,
+        options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         //Check if int, float, or string
         let partial = std::str::from_utf8(working_set.get_span_contents(span)).unwrap_or("");
@@ -60,10 +60,6 @@ impl Completer for OperatorCompletion {
                 ("bit-shr", "Bitwise shift right"),
                 ("in", "Is a member of (doesn't use regex)"),
                 ("not-in", "Is not a member of (doesn't use regex)"),
-                (
-                    "++",
-                    "Appends two lists, a list and a value, two strings, or two binary values",
-                ),
             ],
             Expr::String(_) => vec![
                 ("=~", "Contains regex match"),
@@ -72,7 +68,7 @@ impl Completer for OperatorCompletion {
                 ("not-like", "Does not contain regex match"),
                 (
                     "++",
-                    "Appends two lists, a list and a value, two strings, or two binary values",
+                    "Concatenates two lists, two strings, or two binary values",
                 ),
                 ("in", "Is a member of (doesn't use regex)"),
                 ("not-in", "Is not a member of (doesn't use regex)"),
@@ -95,10 +91,6 @@ impl Completer for OperatorCompletion {
                 ("**", "Power of"),
                 ("in", "Is a member of (doesn't use regex)"),
                 ("not-in", "Is not a member of (doesn't use regex)"),
-                (
-                    "++",
-                    "Appends two lists, a list and a value, two strings, or two binary values",
-                ),
             ],
             Expr::Bool(_) => vec![
                 (
@@ -113,15 +105,11 @@ impl Completer for OperatorCompletion {
                 ("not", "Negates a value or expression"),
                 ("in", "Is a member of (doesn't use regex)"),
                 ("not-in", "Is not a member of (doesn't use regex)"),
-                (
-                    "++",
-                    "Appends two lists, a list and a value, two strings, or two binary values",
-                ),
             ],
             Expr::FullCellPath(path) => match path.head.expr {
                 Expr::List(_) => vec![(
                     "++",
-                    "Appends two lists, a list and a value, two strings, or two binary values",
+                    "Concatenates two lists, two strings, or two binary values",
                 )],
                 Expr::Var(id) => get_variable_completions(id, working_set),
                 _ => vec![],
@@ -129,17 +117,12 @@ impl Completer for OperatorCompletion {
             _ => vec![],
         };
 
-        let match_algorithm = MatchAlgorithm::Prefix;
-        let input_fuzzy_search =
-            |(operator, _): &(&str, &str)| match_algorithm.matches_str(operator, partial);
-
-        possible_operations
-            .into_iter()
-            .filter(input_fuzzy_search)
-            .map(move |x| SemanticSuggestion {
+        let mut matcher = NuMatcher::new(partial, options.clone());
+        for (symbol, desc) in possible_operations.into_iter() {
+            matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {
-                    value: x.0.to_string(),
-                    description: Some(x.1.to_string()),
+                    value: symbol.to_string(),
+                    description: Some(desc.to_string()),
                     span: reedline::Span::new(span.start - offset, span.end - offset),
                     append_whitespace: true,
                     ..Suggestion::default()
@@ -147,8 +130,9 @@ impl Completer for OperatorCompletion {
                 kind: Some(SuggestionKind::Command(
                     nu_protocol::engine::CommandType::Builtin,
                 )),
-            })
-            .collect()
+            });
+        }
+        matcher.results()
     }
 }
 
@@ -165,7 +149,7 @@ pub fn get_variable_completions<'a>(
         Type::List(_) | Type::String | Type::Binary => vec![
             (
                 "++=",
-                "Appends a list, a value, a string, or a binary value to a variable.",
+                "Concatenates two lists, two strings, or two binary values",
             ),
             ("=", "Assigns a value to a variable."),
         ],

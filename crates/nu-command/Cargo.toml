@@ -86,7 +86,6 @@ serde_yaml = { workspace = true }
 sha2 = { workspace = true }
 sysinfo = { workspace = true }
 tabled = { workspace = true, features = ["ansi"], default-features = false }
-terminal_size = { workspace = true }
 titlecase = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"] }
 unicode-segmentation = { workspace = true }

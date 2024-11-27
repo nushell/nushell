@@ -890,8 +890,8 @@ fn subcommand_completions(mut subcommand_completer: NuCompleter) {
     match_suggestions(
         &vec![
             "foo bar".to_string(),
-            "foo aabcrr".to_string(),
             "foo abaz".to_string(),
+            "foo aabcrr".to_string(),
         ],
         &suggestions,
     );
@@ -955,8 +955,8 @@ fn flag_completions() {
         "--mime-type".into(),
         "--short-names".into(),
         "--threads".into(),
-        "-D".into(),
         "-a".into(),
+        "-D".into(),
         "-d".into(),
         "-f".into(),
         "-h".into(),
@@ -1287,7 +1287,7 @@ fn variables_completions() {
     assert_eq!(3, suggestions.len());
 
     #[cfg(windows)]
-    let expected: Vec<String> = vec!["PWD".into(), "Path".into(), "TEST".into()];
+    let expected: Vec<String> = vec!["Path".into(), "PWD".into(), "TEST".into()];
     #[cfg(not(windows))]
     let expected: Vec<String> = vec!["PATH".into(), "PWD".into(), "TEST".into()];
 
@@ -1572,6 +1572,23 @@ fn sort_fuzzy_completions_in_alphabetical_order(mut fuzzy_alpha_sort_completer: 
     // the completions should be sorted in alphabetical order
     match_suggestions(
         &vec!["custom_completion.nu".into(), "nushell".into()],
+        &suggestions,
+    );
+}
+
+#[test]
+fn exact_match() {
+    let (dir, _, engine, stack) = new_partial_engine();
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let target_dir = format!("open {}", folder(dir.join("pArTiAL")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Since it's an exact match, only 'partial' should be suggested, not
+    // 'partial-a' and stuff. Implemented in #13302
+    match_suggestions(
+        &vec![file(dir.join("partial").join("hello.txt"))],
         &suggestions,
     );
 }
