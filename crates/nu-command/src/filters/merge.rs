@@ -120,6 +120,8 @@ repeating this process with row 1, and so on."#
                 PipelineData::Value(Value::Record { val: inp, .. }, ..),
                 Value::Record { val: to_merge, .. },
             ) => Ok(Value::record(do_merge(inp, &to_merge), head).into_pipeline_data()),
+            // Propagate errors in the pipeline
+            (PipelineData::Value(Value::Error { error, .. }, ..), _) => Err(*error.clone()),
             (PipelineData::Value(val, ..), ..) => {
                 // Only point the "value originates here" arrow at the merge value
                 // if it was generated from a block. Otherwise, point at the pipeline value. -Leon 2022-10-27
