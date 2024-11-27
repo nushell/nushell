@@ -106,7 +106,7 @@ lsp-server = "0.7.5"
 lsp-types = { version = "0.95.0", features = ["proposed"] }
 mach2 = "0.4"
 md5 = { version = "0.10", package = "md-5" }
-miette = "7.2"
+miette = "7.3"
 mime = "0.3.17"
 mime_guess = "2.0"
 mockito = { version = "1.6", default-features = false }
@@ -315,11 +315,8 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-# reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
-
-# this revision bumped terminal_size to use 0.4.0
-miette = { git = "https://github.com/zkat/miette.git", rev = "21e9a70ad8aacd1f32f515fa1540adc1c8df5341" }
 
 # removed rustix from non-unix builds
 terminal_size = { git = "https://github.com/cptpiepmatz/terminal-size.git" }

@@ -2586,7 +2586,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -2851,8 +2851,9 @@ dependencies = [
 
 [[package]]
 name = "miette"
-version = "7.2.0"
-source = "git+https://github.com/zkat/miette.git?rev=21e9a70ad8aacd1f32f515fa1540adc1c8df5341#21e9a70ad8aacd1f32f515fa1540adc1c8df5341"
+version = "7.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "317f146e2eb7021892722af37cf1b971f0a70c8406f487e24952667616192c64"
 dependencies = [
  "backtrace",
  "backtrace-ext",
@@ -2870,8 +2871,9 @@ dependencies = [
 
 [[package]]
 name = "miette-derive"
-version = "7.2.0"
-source = "git+https://github.com/zkat/miette.git?rev=21e9a70ad8aacd1f32f515fa1540adc1c8df5341#21e9a70ad8aacd1f32f515fa1540adc1c8df5341"
+version = "7.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23c9b935fbe1d6cbd1dac857b54a688145e2d93f48db36010514d0f612d0ad67"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5337,8 +5339,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.37.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9834765acaa2deedf29197f2da3d309801683beb20e25775bc0249f97a7b9a74"
+source = "git+https://github.com/nushell/reedline?branch=main#3c46dc2c0c69476a625611a556e67ddb8439629c"
 dependencies = [
  "arboard",
  "chrono",
@@ -7309,7 +7310,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

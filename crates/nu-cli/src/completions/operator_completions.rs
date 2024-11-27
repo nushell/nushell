@@ -60,10 +60,6 @@ impl Completer for OperatorCompletion {
                 ("bit-shr", "Bitwise shift right"),
                 ("in", "Is a member of (doesn't use regex)"),
                 ("not-in", "Is not a member of (doesn't use regex)"),
-                (
-                    "++",
-                    "Appends two lists, a list and a value, two strings, or two binary values",
-                ),
             ],
             Expr::String(_) => vec![
                 ("=~", "Contains regex match"),
@@ -72,7 +68,7 @@ impl Completer for OperatorCompletion {
                 ("not-like", "Does not contain regex match"),
                 (
                     "++",
-                    "Appends two lists, a list and a value, two strings, or two binary values",
+                    "Concatenates two lists, two strings, or two binary values",
                 ),
                 ("in", "Is a member of (doesn't use regex)"),
                 ("not-in", "Is not a member of (doesn't use regex)"),
@@ -95,10 +91,6 @@ impl Completer for OperatorCompletion {
                 ("**", "Power of"),
                 ("in", "Is a member of (doesn't use regex)"),
                 ("not-in", "Is not a member of (doesn't use regex)"),
-                (
-                    "++",
-                    "Appends two lists, a list and a value, two strings, or two binary values",
-                ),
             ],
             Expr::Bool(_) => vec![
                 (
@@ -113,15 +105,11 @@ impl Completer for OperatorCompletion {
                 ("not", "Negates a value or expression"),
                 ("in", "Is a member of (doesn't use regex)"),
                 ("not-in", "Is not a member of (doesn't use regex)"),
-                (
-                    "++",
-                    "Appends two lists, a list and a value, two strings, or two binary values",
-                ),
             ],
             Expr::FullCellPath(path) => match path.head.expr {
                 Expr::List(_) => vec![(
                     "++",
-                    "Appends two lists, a list and a value, two strings, or two binary values",
+                    "Concatenates two lists, two strings, or two binary values",
                 )],
                 Expr::Var(id) => get_variable_completions(id, working_set),
                 _ => vec![],
@@ -161,7 +149,7 @@ pub fn get_variable_completions<'a>(
         Type::List(_) | Type::String | Type::Binary => vec![
             (
                 "++=",
-                "Appends a list, a value, a string, or a binary value to a variable.",
+                "Concatenates two lists, two strings, or two binary values",
             ),
             ("=", "Assigns a value to a variable."),
         ],

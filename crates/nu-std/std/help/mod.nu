@@ -37,7 +37,7 @@ def get-all-operators [] { return [
 
     [Assignment, =, Assign, "Assigns a value to a variable.", 10]
     [Assignment, +=, PlusAssign, "Adds a value to a variable.", 10]
-    [Assignment, ++=, AppendAssign, "Appends a list or a value to a variable.", 10]
+    [Assignment, ++=, ConcatAssign, "Concatenate two lists, two strings, or two binary values.", 10]
     [Assignment, -=, MinusAssign, "Subtracts a value from a variable.", 10]
     [Assignment, *=, MultiplyAssign, "Multiplies a variable by a value.", 10]
     [Assignment, /=, DivideAssign, "Divides a variable by a value.", 10]
@@ -55,7 +55,7 @@ def get-all-operators [] { return [
     [Comparison, ends-with, EndsWith, "Checks if a string ends with another.", 80]
     [Comparison, not, UnaryNot, "Negates a value or expression.", 0]
     [Math, +, Plus, "Adds two values.", 90]
-    [Math, ++, Append, "Appends two lists or a list and a value.", 80]
+    [Math, ++, Concat, "Concatenate two lists, two strings, or two binary values.", 80]
     [Math, -, Minus, "Subtracts two values.", 90]
     [Math, *, Multiply, "Multiplies two values.", 95]
     [Math, /, Divide, "Divides two values.", 95]
@@ -684,8 +684,7 @@ def build-command-page [command: record] {
     ] | flatten | str join "\n"
 }
 
-# Show help on commands.
-export def commands [
+def scope-commands [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and description
 ] {
@@ -699,17 +698,32 @@ export def commands [
         let found_command = ($commands | where name == $target_command)
 
         if ($found_command | is-empty) {
-            try {
-                print $"(ansi default_italic)Help pages from external command ($target_command | pretty-cmd):(ansi reset)"
-                ^($env.NU_HELPER? | default "man") $target_command
-            } catch {
-                command-not-found-error (metadata $command | get span)
-            }
+            command-not-found-error (metadata $command | get span)
+        } else {
+            build-command-page ($found_command | get 0)
         }
-
-        build-command-page ($found_command | get 0)
     } else {
         $commands | select name category description signatures search_terms
+    }
+}
+
+def external-commands [
+    ...command: string@"nu-complete list-commands",
+] {
+    let target_command = $command | str join " "
+    print $"(ansi default_italic)Help pages from external command ($target_command | pretty-cmd):(ansi reset)"
+    ^($env.NU_HELPER? | default "man") $target_command
+}
+
+# Show help on commands.
+export def commands [
+    ...command: string@"nu-complete list-commands"  # the name of command to get help on
+    --find (-f): string  # string to find in command names and description
+] {
+    try {
+        scope-commands ...$command --find=$find
+    } catch {
+        external-commands ...$command
     }
 }
 
@@ -763,7 +777,7 @@ You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https
 
     let target_item = ($item | str join " ")
 
-    let commands = (try { commands $target_item --find $find })
+    let commands = (try { scope-commands $target_item --find $find })
     if not ($commands | is-empty) { return $commands }
 
     let aliases = (try { aliases $target_item --find $find })
@@ -776,13 +790,7 @@ You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https
         print -e $"No help results found mentioning: ($find)"
         return []
     }
-
-    let span = (metadata $item | get span)
-    error make {
-        msg: ("std::help::item_not_found" | error-fmt)
-        label: {
-            text: "item not found"
-            span: $span
-        }
-    }
+    # use external tool (e.g: `man`) to search help for $target_item
+    # the stdout and stderr of external tool will follow `main` call.
+    external-commands $target_item
 }
