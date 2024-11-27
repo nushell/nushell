@@ -51,7 +51,6 @@
 ///     }
 /// }
 /// ```
-use log::trace;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -123,7 +122,6 @@ impl DriveToPwdMap {
                     Some(_) => {
                         let drive_index = drive_letter as usize - 'A' as usize;
                         let normalized_pwd = drive_letter.to_string() + c.as_str();
-                        trace!("Set PWD, {}", normalized_pwd);
                         self.map[drive_index] = Some(normalized_pwd);
                         Ok(())
                     }
@@ -142,7 +140,6 @@ impl DriveToPwdMap {
         if drive_letter.is_ascii_alphabetic() {
             let drive_letter = drive_letter.to_ascii_uppercase();
             let drive_index = drive_letter as usize - 'A' as usize;
-            trace!("Get PWD, saved content: {:?}", self.map[drive_index]);
             Ok(self.map[drive_index].clone().unwrap_or_else(|| {
                 if let Some(sys_pwd) = get_full_path_name_w(&format!("{}:", drive_letter)) {
                     sys_pwd
