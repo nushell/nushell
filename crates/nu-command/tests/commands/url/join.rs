@@ -27,7 +27,7 @@ fn url_join_with_only_user() {
                     "password": "",
                     "host": "localhost",
                     "port": "",
-                } | url join 
+                } | url join
             "#
     ));
 
@@ -44,7 +44,7 @@ fn url_join_with_only_pwd() {
                     "password": "pwd",
                     "host": "localhost",
                     "port": "",
-                } | url join 
+                } | url join
             "#
     ));
 
@@ -61,7 +61,7 @@ fn url_join_with_user_and_pwd() {
                     "password": "pwd",
                     "host": "localhost",
                     "port": "",
-                } | url join 
+                } | url join
             "#
     ));
 
@@ -79,7 +79,7 @@ fn url_join_with_query() {
                     "host": "localhost",
                     "query": "par_1=aaa&par_2=bbb"
                     "port": "",
-                } | url join 
+                } | url join
             "#
     ));
 
@@ -411,12 +411,9 @@ fn url_join_with_params_invalid_table() {
                 "host": "localhost",
                 "params": (
                     [
-                        ["key", "value"];
-                        ["par_1", "aaa"],
-                        ["par_2", "bbb"],
-                        ["par_1", "ccc"],
-                        ["par_2", "ddd"],
-                    ] ++ ["not a record"]
+                        { key: foo, value: bar }
+                        "not a record"
+                    ]
                 ),
                 "port": "1234",
             } | url join

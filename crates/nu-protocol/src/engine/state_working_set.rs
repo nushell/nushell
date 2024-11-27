@@ -724,7 +724,7 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn find_commands_by_predicate(
         &self,
-        predicate: impl Fn(&[u8]) -> bool,
+        mut predicate: impl FnMut(&[u8]) -> bool,
         ignore_deprecated: bool,
     ) -> Vec<(Vec<u8>, Option<String>, CommandType)> {
         let mut output = vec![];

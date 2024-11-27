@@ -154,7 +154,6 @@ fn const_unary_operator(#[case] inp: &[&str], #[case] expect: &str) {
 #[case(&[r#"const x = "a" ++ "b" "#, "$x"], "ab")]
 #[case(&[r#"const x = [1,2] ++ [3]"#, "$x | describe"], "list<int>")]
 #[case(&[r#"const x = 0x[1,2] ++ 0x[3]"#, "$x | describe"], "binary")]
-#[case(&[r#"const x = 0x[1,2] ++ [3]"#, "$x | describe"], "list<any>")]
 #[case(&["const x = 1 < 2", "$x"], "true")]
 #[case(&["const x = (3 * 200) > (2 * 100)", "$x"], "true")]
 #[case(&["const x = (3 * 200) < (2 * 100)", "$x"], "false")]

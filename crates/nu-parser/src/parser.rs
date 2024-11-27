@@ -772,6 +772,51 @@ fn calculate_end_span(
     }
 }
 
+fn parse_oneof(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    spans_idx: &mut usize,
+    possible_shapes: &Vec<SyntaxShape>,
+    multispan: bool,
+) -> Expression {
+    for shape in possible_shapes {
+        let starting_error_count = working_set.parse_errors.len();
+        let value = match multispan {
+            true => parse_multispan_value(working_set, spans, spans_idx, shape),
+            false => parse_value(working_set, spans[*spans_idx], shape),
+        };
+
+        if starting_error_count == working_set.parse_errors.len() {
+            return value;
+        }
+
+        // while trying the possible shapes, ignore Expected type errors
+        // unless they're inside a block, closure, or expression
+        let propagate_error = match working_set.parse_errors.last() {
+            Some(ParseError::Expected(_, error_span))
+            | Some(ParseError::ExpectedWithStringMsg(_, error_span)) => {
+                matches!(
+                    shape,
+                    SyntaxShape::Block | SyntaxShape::Closure(_) | SyntaxShape::Expression
+                ) && *error_span != spans[*spans_idx]
+            }
+            _ => true,
+        };
+        if !propagate_error {
+            working_set.parse_errors.truncate(starting_error_count);
+        }
+    }
+
+    if working_set.parse_errors.is_empty() {
+        working_set.error(ParseError::ExpectedWithStringMsg(
+            format!("one of a list of accepted shapes: {possible_shapes:?}"),
+            spans[*spans_idx],
+        ));
+    }
+
+    Expression::garbage(working_set, spans[*spans_idx])
+}
+
 pub fn parse_multispan_value(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -800,54 +845,10 @@ pub fn parse_multispan_value(
 
             arg
         }
-        SyntaxShape::OneOf(shapes) => {
-            // handle for `if` command.
-            //let block_then_exp = shapes.as_slice() == [SyntaxShape::Block, SyntaxShape::Expression];
-            for shape in shapes.iter() {
-                let starting_error_count = working_set.parse_errors.len();
-                let s = parse_multispan_value(working_set, spans, spans_idx, shape);
-
-                if starting_error_count == working_set.parse_errors.len() {
-                    return s;
-                } else if let Some(
-                    ParseError::Expected(..) | ParseError::ExpectedWithStringMsg(..),
-                ) = working_set.parse_errors.last()
-                {
-                    working_set.parse_errors.truncate(starting_error_count);
-                    continue;
-                }
-                // `if` is parsing block first and then expression.
-                // when we're writing something like `else if $a`, parsing as a
-                // block will result to error(because it's not a block)
-                //
-                // If parse as a expression also failed, user is more likely concerned
-                // about expression failure rather than "expect block failure"".
-
-                // FIXME FIXME FIXME
-                // if block_then_exp {
-                //     match &err {
-                //         Some(ParseError::Expected(expected, _)) => {
-                //             if expected.starts_with("block") {
-                //                 err = e
-                //             }
-                //         }
-                //         _ => err = err.or(e),
-                //     }
-                // } else {
-                //     err = err.or(e)
-                // }
-            }
-            let span = spans[*spans_idx];
-
-            if working_set.parse_errors.is_empty() {
-                working_set.error(ParseError::ExpectedWithStringMsg(
-                    format!("one of a list of accepted shapes: {shapes:?}"),
-                    span,
-                ));
-            }
-
-            Expression::garbage(working_set, span)
+        SyntaxShape::OneOf(possible_shapes) => {
+            parse_oneof(working_set, spans, spans_idx, possible_shapes, true)
         }
+
         SyntaxShape::Expression => {
             trace!("parsing: expression");
 
@@ -4826,29 +4827,7 @@ pub fn parse_value(
 
         SyntaxShape::ExternalArgument => parse_regular_external_arg(working_set, span),
         SyntaxShape::OneOf(possible_shapes) => {
-            for s in possible_shapes {
-                let starting_error_count = working_set.parse_errors.len();
-                let value = parse_value(working_set, span, s);
-
-                if starting_error_count == working_set.parse_errors.len() {
-                    return value;
-                } else if let Some(
-                    ParseError::Expected(..) | ParseError::ExpectedWithStringMsg(..),
-                ) = working_set.parse_errors.last()
-                {
-                    working_set.parse_errors.truncate(starting_error_count);
-                    continue;
-                }
-            }
-
-            if working_set.parse_errors.is_empty() {
-                working_set.error(ParseError::ExpectedWithStringMsg(
-                    format!("one of a list of accepted shapes: {possible_shapes:?}"),
-                    span,
-                ));
-            }
-
-            Expression::garbage(working_set, span)
+            parse_oneof(working_set, &[span], &mut 0, possible_shapes, false)
         }
 
         SyntaxShape::Any => {
@@ -4908,7 +4887,7 @@ pub fn parse_assignment_operator(working_set: &mut StateWorkingSet, span: Span) 
     let operator = match contents {
         b"=" => Operator::Assignment(Assignment::Assign),
         b"+=" => Operator::Assignment(Assignment::PlusAssign),
-        b"++=" => Operator::Assignment(Assignment::AppendAssign),
+        b"++=" => Operator::Assignment(Assignment::ConcatAssign),
         b"-=" => Operator::Assignment(Assignment::MinusAssign),
         b"*=" => Operator::Assignment(Assignment::MultiplyAssign),
         b"/=" => Operator::Assignment(Assignment::DivideAssign),
@@ -5034,7 +5013,7 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         b"=~" | b"like" => Operator::Comparison(Comparison::RegexMatch),
         b"!~" | b"not-like" => Operator::Comparison(Comparison::NotRegexMatch),
         b"+" => Operator::Math(Math::Plus),
-        b"++" => Operator::Math(Math::Append),
+        b"++" => Operator::Math(Math::Concat),
         b"-" => Operator::Math(Math::Minus),
         b"*" => Operator::Math(Math::Multiply),
         b"/" => Operator::Math(Math::Divide),

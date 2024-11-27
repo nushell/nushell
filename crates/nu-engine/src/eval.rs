@@ -547,9 +547,9 @@ impl Eval for EvalRuntime {
                 let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
                 lhs.div(op_span, &rhs, op_span)?
             }
-            Assignment::AppendAssign => {
+            Assignment::ConcatAssign => {
                 let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
-                lhs.append(op_span, &rhs, op_span)?
+                lhs.concat(op_span, &rhs, op_span)?
             }
         };
 

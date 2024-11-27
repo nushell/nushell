@@ -112,7 +112,7 @@ impl CustomValue for CoolCustomValue {
     ) -> Result<Value, ShellError> {
         match operator {
             // Append the string inside `cool`
-            ast::Operator::Math(ast::Math::Append) => {
+            ast::Operator::Math(ast::Math::Concat) => {
                 if let Some(right) = right
                     .as_custom_value()
                     .ok()

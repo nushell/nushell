@@ -469,7 +469,7 @@ fn from_csv_test_flexible_extra_vals() {
           echo "a,b\n1,2,3" | from csv --flexible | first | values | to nuon
         "#
     ));
-    assert_eq!(actual.out, "[1, 2]");
+    assert_eq!(actual.out, "[1, 2, 3]");
 }
 
 #[test]
@@ -479,5 +479,5 @@ fn from_csv_test_flexible_missing_vals() {
           echo "a,b\n1" | from csv --flexible | first | values | to nuon
         "#
     ));
-    assert_eq!(actual.out, "[1, null]");
+    assert_eq!(actual.out, "[1]");
 }

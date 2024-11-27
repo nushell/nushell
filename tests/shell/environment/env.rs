@@ -1,10 +1,7 @@
-use super::support::Trusted;
-
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code, nu_with_std};
 use pretty_assertions::assert_eq;
-use serial_test::serial;
 
 #[test]
 fn env_shorthand() {
@@ -154,29 +151,6 @@ fn has_file_loc() {
         let actual = nu!(cwd: dirs.test(), "nu spam.nu");
 
         assert!(actual.out.ends_with("spam.nu"));
-    })
-}
-
-// FIXME: autoenv not currently implemented
-#[ignore]
-#[test]
-#[serial]
-fn passes_env_from_local_cfg_to_external_process() {
-    Playground::setup("autoenv_dir", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            ".nu-env",
-            r#"[env]
-            FOO = "foo"
-            "#,
-        )]);
-
-        let actual = Trusted::in_path(&dirs, || {
-            nu!(cwd: dirs.test(), "
-                nu --testbin echo_env FOO
-            ")
-        });
-
-        assert_eq!(actual.out, "foo");
     })
 }
 

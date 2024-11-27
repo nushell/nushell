@@ -483,7 +483,7 @@ fn compound_where_paren() {
 // TODO: these ++ tests are not really testing *math* functionality, maybe find another place for them
 
 #[test]
-fn adding_lists() {
+fn concat_lists() {
     let actual = nu!(pipeline(
         r#"
             [1 3] ++ [5 6] | to nuon
@@ -494,29 +494,7 @@ fn adding_lists() {
 }
 
 #[test]
-fn adding_list_and_value() {
-    let actual = nu!(pipeline(
-        r#"
-            [1 3] ++ 5 | to nuon
-        "#
-    ));
-
-    assert_eq!(actual.out, "[1, 3, 5]");
-}
-
-#[test]
-fn adding_value_and_list() {
-    let actual = nu!(pipeline(
-        r#"
-            1 ++ [3 5] | to nuon
-        "#
-    ));
-
-    assert_eq!(actual.out, "[1, 3, 5]");
-}
-
-#[test]
-fn adding_tables() {
+fn concat_tables() {
     let actual = nu!(pipeline(
         r#"
             [[a b]; [1 2]] ++ [[c d]; [10 11]] | to nuon
@@ -526,7 +504,7 @@ fn adding_tables() {
 }
 
 #[test]
-fn append_strings() {
+fn concat_strings() {
     let actual = nu!(pipeline(
         r#"
             "foo" ++ "bar"
@@ -536,7 +514,7 @@ fn append_strings() {
 }
 
 #[test]
-fn append_binary_values() {
+fn concat_binary_values() {
     let actual = nu!(pipeline(
         r#"
             0x[01 02] ++ 0x[03 04] | to nuon

@@ -11,7 +11,10 @@ impl Command for FromTsv {
 
     fn signature(&self) -> Signature {
         Signature::build("from tsv")
-            .input_output_types(vec![(Type::String, Type::table())])
+            .input_output_types(vec![
+                (Type::String, Type::table()),
+                (Type::String, Type::list(Type::Any)),
+            ])
             .named(
                 "comment",
                 SyntaxShape::String,
@@ -74,6 +77,21 @@ impl Command for FromTsv {
                         "ColA" =>  Value::test_int(1),
                         "ColB" =>  Value::test_int(2),
                     })],
+                ))
+            },
+            Example {
+                description: "Convert comma-separated data to a table, allowing variable number of columns per row and ignoring headers",
+                example: "\"value 1\nvalue 2\tdescription 2\" | from tsv --flexible --noheaders",
+                result: Some(Value::test_list (
+                    vec![
+                        Value::test_record(record! {
+                            "column0" => Value::test_string("value 1"),
+                        }),
+                        Value::test_record(record! {
+                            "column0" => Value::test_string("value 2"),
+                            "column1" => Value::test_string("description 2"),
+                        }),
+                    ],
                 ))
             },
             Example {

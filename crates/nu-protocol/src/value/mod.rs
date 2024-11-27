@@ -2503,34 +2503,20 @@ impl Value {
         }
     }
 
-    pub fn append(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn concat(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => {
-                let mut lhs = lhs.clone();
-                let mut rhs = rhs.clone();
-                lhs.append(&mut rhs);
-                Ok(Value::list(lhs, span))
-            }
-            (Value::List { vals: lhs, .. }, val) => {
-                let mut lhs = lhs.clone();
-                lhs.push(val.clone());
-                Ok(Value::list(lhs, span))
-            }
-            (val, Value::List { vals: rhs, .. }) => {
-                let mut rhs = rhs.clone();
-                rhs.insert(0, val.clone());
-                Ok(Value::list(rhs, span))
+                Ok(Value::list([lhs.as_slice(), rhs.as_slice()].concat(), span))
             }
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
-                Ok(Value::string(lhs.to_string() + rhs, span))
+                Ok(Value::string([lhs.as_str(), rhs.as_str()].join(""), span))
             }
-            (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
-                let mut val = lhs.clone();
-                val.extend(rhs);
-                Ok(Value::binary(val, span))
-            }
+            (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => Ok(Value::binary(
+                [lhs.as_slice(), rhs.as_slice()].concat(),
+                span,
+            )),
             (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(self.span(), Operator::Math(Math::Append), op, rhs)
+                lhs.operation(self.span(), Operator::Math(Math::Concat), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,

@@ -238,7 +238,7 @@ pub trait Eval {
                             Math::Minus => lhs.sub(op_span, &rhs, expr_span),
                             Math::Multiply => lhs.mul(op_span, &rhs, expr_span),
                             Math::Divide => lhs.div(op_span, &rhs, expr_span),
-                            Math::Append => lhs.append(op_span, &rhs, expr_span),
+                            Math::Concat => lhs.concat(op_span, &rhs, expr_span),
                             Math::Modulo => lhs.modulo(op_span, &rhs, expr_span),
                             Math::FloorDivision => lhs.floor_div(op_span, &rhs, expr_span),
                             Math::Pow => lhs.pow(op_span, &rhs, expr_span),

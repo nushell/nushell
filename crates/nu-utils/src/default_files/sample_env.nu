@@ -24,6 +24,11 @@ $env.PROMPT_COMMAND = "Nushell"
 # Simple example - Dynamic closure displaying the path:
 $env.PROMPT_COMMAND = {|| pwd}
 
+# PROMPT_COMMAND_RIGHT
+# --------------------
+# Defines a prompt which will appear right-aligned in the terminal
+$env.PROMPT_COMMAND_RIGHT = {|| date now | format date "%d-%a %r" }
+
 # PROMPT_INDICATOR*
 # -----------------
 # The prompt indicators are environmental variables that represent
