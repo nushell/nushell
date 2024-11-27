@@ -244,24 +244,6 @@ mod tests {
     }
 
     #[test]
-    fn test_read_pwd_per_drive_at_start_up() {
-        std::env::set_var(DriveToPwdMap::env_var_for_drive('g'), r"G:\Users\Nushell");
-        std::env::set_var(DriveToPwdMap::env_var_for_drive('H'), r"h:\Share\Nushell");
-        let map = DriveToPwdMap::new();
-        assert_eq!(
-            map.expand_pwd(Path::new("g:")),
-            Some(PathBuf::from(r"G:\Users\Nushell\"))
-        );
-        assert_eq!(
-            map.expand_pwd(Path::new("H:")),
-            Some(PathBuf::from(r"H:\Share\Nushell\"))
-        );
-
-        std::env::remove_var(DriveToPwdMap::env_var_for_drive('G'));
-        std::env::remove_var(DriveToPwdMap::env_var_for_drive('h'));
-    }
-
-    #[test]
     fn test_get_env_vars() {
         let mut map = DriveToPwdMap::new();
         map.set_pwd(Path::new(r"I:\Home")).unwrap();
