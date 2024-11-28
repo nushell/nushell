@@ -178,9 +178,9 @@ pub trait CursorMoveHandler {
     fn get_cursor(&mut self) -> &mut WindowCursor2D;
 
     // standard handle_EVENT handlers that can be overwritten
-    fn handle_enter(&mut self) -> Result<Option<Transition>> { Ok(None) }
+    fn handle_enter(&mut self) -> Result<Transition> { Ok(Transition::None) }
     fn handle_esc(&mut self) -> Transition { Transition::Exit }
-    fn handle_expand(&mut self) -> Option<Transition> { None }
+    fn handle_expand(&mut self) -> Transition { Transition::None }
     fn handle_left(&mut self) {
         self.get_cursor().prev_column_i()
     }
@@ -193,10 +193,10 @@ pub trait CursorMoveHandler {
     fn handle_down(&mut self) {
         self.get_cursor().next_row_i()
     }
-    fn handle_transpose(&mut self) -> Option<Transition> { None }
+    fn handle_transpose(&mut self) -> Transition { Transition::None }
 
     // top-level event handler should not be overwritten
-    fn handle_input_key(&mut self, key: &KeyEvent) -> Result<Option<(Transition, StatusTopOrEnd)>> {
+    fn handle_input_key(&mut self, key: &KeyEvent) -> Result<(Transition, StatusTopOrEnd)> {
         let key_combo_status = match key {
             // PageUp supports Vi (Ctrl+b) and Emacs (Alt+v) keybindings
             KeyEvent {
@@ -257,59 +257,43 @@ pub trait CursorMoveHandler {
         };
         match key_combo_status {
             StatusTopOrEnd::Top | StatusTopOrEnd::End => {
-                return Ok(Some((Transition::Ok, key_combo_status)));
+                return Ok((Transition::Ok, key_combo_status));
             }
             _ => {}  // not page up or page down, so don't return; continue to next match block
         }
 
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => {
-                Ok(Some((self.handle_esc(), StatusTopOrEnd::None)))
+                Ok((self.handle_esc(), StatusTopOrEnd::None))
             }
-            KeyCode::Char('i') | KeyCode::Enter => {
-                let result = self.handle_enter()?;
-                match result {
-                    Some(res) => Ok(Some((res, StatusTopOrEnd::None))),
-                    _ => Ok(None)
-                }
-            }
-            KeyCode::Char('t') => {
-                match self.handle_transpose() {
-                    Some(res) => Ok(Some((res, StatusTopOrEnd::None))),
-                    _ => Ok(None)
-                }
-            }
-            KeyCode::Char('e') => {
-                match self.handle_expand() {
-                    Some(res) => Ok(Some((res, StatusTopOrEnd::None))),
-                    _ => Ok(None)
-                }
-            }
+            KeyCode::Char('i') | KeyCode::Enter => Ok((self.handle_enter()?, StatusTopOrEnd::None)),
+            KeyCode::Char('t') => Ok((self.handle_transpose(), StatusTopOrEnd::None)),
+            KeyCode::Char('e') => Ok((self.handle_expand(), StatusTopOrEnd::None)),
             KeyCode::Up | KeyCode::Char('k') => {
                 self.handle_up();
-                Ok(Some((Transition::Ok, StatusTopOrEnd::Top)))
+                Ok((Transition::Ok, StatusTopOrEnd::Top))
             }
             KeyCode::Down | KeyCode::Char('j') => {
                 self.handle_down();
-                Ok(Some((Transition::Ok, StatusTopOrEnd::End)))
+                Ok((Transition::Ok, StatusTopOrEnd::End))
             }
             KeyCode::Left | KeyCode::Char('h') => {
                 self.handle_left();
-                Ok(Some((Transition::Ok, StatusTopOrEnd::None)))
+                Ok((Transition::Ok, StatusTopOrEnd::None))
             }
             KeyCode::Right | KeyCode::Char('l') => {
                 self.handle_right();
-                Ok(Some((Transition::Ok, StatusTopOrEnd::None)))
+                Ok((Transition::Ok, StatusTopOrEnd::None))
             }
             KeyCode::Home | KeyCode::Char('g') => {
                 self.get_cursor().row_move_to_start();
-                Ok(Some((Transition::Ok, StatusTopOrEnd::Top)))
+                Ok((Transition::Ok, StatusTopOrEnd::Top))
             }
             KeyCode::End | KeyCode::Char('G') => {
                 self.get_cursor().row_move_to_end();
-                Ok(Some((Transition::Ok, StatusTopOrEnd::End)))
+                Ok((Transition::Ok, StatusTopOrEnd::End))
             }
-            _ => Ok(None)
+            _ => Ok((Transition::None, StatusTopOrEnd::None))
         }
     }
 }

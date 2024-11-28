@@ -66,16 +66,16 @@ impl View for BinaryView {
         _: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
-    ) -> Option<Transition> {
+    ) -> Transition {
         match self.handle_input_key(&key) {
-            Ok(Some((Transition::Ok, ..))) => {
+            Ok((Transition::Ok, ..)) => {
                 let report = create_report(self.cursor);
                 info.status = Some(report);
             },
             _ => {}  // currently only handle_enter() in crates/nu-explore/src/views/record/mod.rs raises an Err()
         }
 
-        None
+        Transition::None
     }
 
     fn collect_data(&self) -> Vec<NuText> {

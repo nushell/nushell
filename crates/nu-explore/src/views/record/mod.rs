@@ -213,26 +213,21 @@ impl View for RecordView {
         _: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
-    ) -> Option<Transition> {
+    ) -> Transition {
         match self.handle_input_key(&key) {
-            Ok(optional_result) => {
-                match optional_result {
-                    Some((transition, ..)) => {
-                        if matches!(&transition, Transition::Ok | Transition::Cmd { .. }) {
-                            let report = self.create_records_report();
-                            info.status = Some(report);
-                        }
-        
-                        Some(transition)
-                    },
-                    _ =>  None
+            Ok((transition, ..)) => {
+                if matches!(&transition, Transition::Ok | Transition::Cmd { .. }) {
+                    let report = self.create_records_report();
+                    info.status = Some(report);
                 }
+
+                transition
             }
             Err(e) => {
                 log::error!("Error handling input in RecordView: {e}");
                 let report = Report::message(e.to_string(), Severity::Err);
                 info.status = Some(report);
-                None
+                Transition::None
             }
         }
     }
@@ -377,7 +372,7 @@ impl CursorMoveHandler for RecordView {
     fn get_cursor(&mut self) -> &mut WindowCursor2D {
         &mut self.get_top_layer_mut().cursor
     }
-    fn handle_enter(&mut self) -> Result<Option<Transition>> {
+    fn handle_enter(&mut self) -> Result<Transition> {
         match self.mode {
             UIMode::View => self.set_cursor_mode(),
             UIMode::Cursor => {
@@ -388,7 +383,7 @@ impl CursorMoveHandler for RecordView {
                     value,
                     Value::Record { .. } | Value::List { .. } | Value::Custom { .. }
                 ) {
-                    return Ok(None);
+                    return Ok(Transition::None);
                 }
         
                 let is_record = matches!(value, Value::Record { .. });
@@ -403,7 +398,7 @@ impl CursorMoveHandler for RecordView {
             }
         }
 
-        Ok(Some(Transition::Ok))
+        Ok(Transition::Ok)
     }
     fn handle_esc(&mut self) -> Transition {
         match self.mode {
@@ -419,20 +414,20 @@ impl CursorMoveHandler for RecordView {
         }
         Transition::Ok
     }
-    fn handle_expand(&mut self) -> Option<Transition> {
+    fn handle_expand(&mut self) -> Transition {
         match self.mode {
-            UIMode::View => Some(Transition::Cmd(String::from("expand"))),
-            _ => None,
+            UIMode::View => Transition::Cmd(String::from("expand")),
+            _ => Transition::None,
         }
     }
-    fn handle_transpose(&mut self) -> Option<Transition> {
+    fn handle_transpose(&mut self) -> Transition {
         match self.mode {
             UIMode::View => {
                 self.transpose();
 
-                Some(Transition::Ok)
+                Transition::Ok
             },
-            _ => None
+            _ => Transition::None
         }
     }
     // for these, copy standard CursorMoveHandler for UIMode::View, but use special handling for UIMode::Cursor

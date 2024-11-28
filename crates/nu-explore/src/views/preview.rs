@@ -65,17 +65,17 @@ impl View for Preview {
         _: &Layout,
         info: &mut ViewInfo, // add this arg to draw too?
         key: KeyEvent,
-    ) -> Option<Transition> {
+    ) -> Transition {
         match self.handle_input_key(&key) {
-            Ok(Some((transition, status_top_or_end))) => {
+            Ok((transition, status_top_or_end)) => {
                 match status_top_or_end {
                     StatusTopOrEnd::Top => set_status_top(self, info),
                     StatusTopOrEnd::End => set_status_end(self, info),
                     _ => {}
                 }
-                Some(transition)
+                transition
             },
-            _ => None  // currently only handle_enter() in crates/nu-explore/src/views/record/mod.rs raises an Err()
+            _ => Transition::None  // currently only handle_enter() in crates/nu-explore/src/views/record/mod.rs raises an Err()
         }
     }
 
