@@ -7,7 +7,7 @@ use std::collections::HashMap;
 pub struct Hooks {
     pub pre_prompt: Vec<Value>,
     pub pre_execution: Vec<Value>,
-    pub env_change: HashMap<String, Value>,
+    pub env_change: HashMap<String, Vec<Value>>,
     pub display_output: Option<Value>,
     pub command_not_found: Option<Value>,
 }
@@ -62,7 +62,29 @@ impl UpdateFromValue for Hooks {
                         errors.type_mismatch(path, Type::list(Type::Any), val);
                     }
                 }
-                "env_change" => self.env_change.update(val, path, errors),
+                "env_change" => {
+                    if let Ok(record) = val.as_record() {
+                        self.env_change = record
+                            .iter()
+                            .map(|(key, val)| {
+                                let old = self.env_change.remove(key).unwrap_or_default();
+                                let new = if let Ok(hooks) = val.as_list() {
+                                    hooks.into()
+                                } else {
+                                    errors.type_mismatch(
+                                        &path.push(key),
+                                        Type::list(Type::Any),
+                                        val,
+                                    );
+                                    old
+                                };
+                                (key.as_str().into(), new)
+                            })
+                            .collect();
+                    } else {
+                        errors.type_mismatch(path, Type::record(), val);
+                    }
+                }
                 "display_output" => {
                     self.display_output = if val.is_nothing() {
                         None

@@ -10,23 +10,22 @@ use nu_protocol::{
 use std::{collections::HashMap, sync::Arc};
 
 pub fn eval_env_change_hook(
-    env_change_hook: &HashMap<String, Value>,
+    env_change_hook: &HashMap<String, Vec<Value>>,
     engine_state: &mut EngineState,
     stack: &mut Stack,
 ) -> Result<(), ShellError> {
-    for (env, hook) in env_change_hook {
+    for (env, hooks) in env_change_hook {
         let before = engine_state.previous_env_vars.get(env);
         let after = stack.get_env_var(engine_state, env);
         if before != after {
             let before = before.cloned().unwrap_or_default();
             let after = after.cloned().unwrap_or_default();
 
-            eval_hook(
+            eval_hooks(
                 engine_state,
                 stack,
-                None,
                 vec![("$before".into(), before), ("$after".into(), after.clone())],
-                hook,
+                hooks,
                 "env_change",
             )?;
 
