@@ -135,6 +135,13 @@ pub enum Transition {
 }
 
 #[derive(Debug, Clone)]
+pub enum StatusTopOrEnd {
+    Top,
+    End,
+    None,
+}
+
+#[derive(Debug, Clone)]
 pub struct PagerConfig<'a> {
     pub nu_config: &'a NuConfig,
     pub explore_config: &'a ExploreConfig,

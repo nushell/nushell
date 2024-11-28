@@ -2,7 +2,7 @@ mod table_widget;
 
 use self::table_widget::{TableWidget, TableWidgetState};
 use super::{
-    cursor::{Position, WindowCursor2D},
+    cursor::{CursorMoveHandler, Position, WindowCursor2D},
     util::{make_styled_string, nu_style_to_tui},
     Layout, View, ViewConfig,
 };
@@ -16,7 +16,7 @@ use crate::{
     views::ElementInfo,
 };
 use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::KeyEvent;
 use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -214,19 +214,19 @@ impl View for RecordView {
         info: &mut ViewInfo,
         key: KeyEvent,
     ) -> Option<Transition> {
-        let result = match self.mode {
-            UIMode::View => Ok(handle_key_event_view_mode(self, &key)),
-            UIMode::Cursor => handle_key_event_cursor_mode(self, &key),
-        };
-
-        match result {
-            Ok(result) => {
-                if matches!(&result, Some(Transition::Ok) | Some(Transition::Cmd { .. })) {
-                    let report = self.create_records_report();
-                    info.status = Some(report);
+        match self.handle_input_key(&key) {
+            Ok(optional_result) => {
+                match optional_result {
+                    Some((transition, ..)) => {
+                        if matches!(&transition, Transition::Ok | Transition::Cmd { .. }) {
+                            let report = self.create_records_report();
+                            info.status = Some(report);
+                        }
+        
+                        Some(transition)
+                    },
+                    _ =>  None
                 }
-
-                result
             }
             Err(e) => {
                 log::error!("Error handling input in RecordView: {e}");
@@ -372,188 +372,95 @@ impl RecordLayer {
     }
 }
 
-fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
-    match key {
-        KeyEvent {
-            code: KeyCode::Char('u'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
-        }
-        | KeyEvent {
-            code: KeyCode::PageUp,
-            ..
-        } => {
-            view.get_top_layer_mut().cursor.prev_row_page();
 
-            return Some(Transition::Ok);
-        }
-        KeyEvent {
-            code: KeyCode::Char('d'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
-        }
-        | KeyEvent {
-            code: KeyCode::PageDown,
-            ..
-        } => {
-            view.get_top_layer_mut().cursor.next_row_page();
-
-            return Some(Transition::Ok);
-        }
-        _ => {}
+impl CursorMoveHandler for RecordView {
+    fn get_cursor(&mut self) -> &mut WindowCursor2D {
+        &mut self.get_top_layer_mut().cursor
     }
+    fn handle_enter(&mut self) -> Result<Option<Transition>> {
+        match self.mode {
+            UIMode::View => self.set_cursor_mode(),
+            UIMode::Cursor => {
+                let value = self.get_current_value();
+        
+                // ...but it only makes sense to drill down into a few types of values
+                if !matches!(
+                    value,
+                    Value::Record { .. } | Value::List { .. } | Value::Custom { .. }
+                ) {
+                    return Ok(None);
+                }
+        
+                let is_record = matches!(value, Value::Record { .. });
+                let next_layer = create_layer(value.clone())?;
+                push_layer(self, next_layer);
+        
+                if is_record {
+                    self.set_top_layer_orientation(Orientation::Left);
+                } else {
+                    self.set_top_layer_orientation(self.orientation);
+                }
+            }
+        }
 
-    match key.code {
-        KeyCode::Esc => {
-            if view.layer_stack.len() > 1 {
-                view.layer_stack.pop();
-                view.mode = UIMode::Cursor;
+        Ok(Some(Transition::Ok))
+    }
+    fn handle_esc(&mut self) -> Transition {
+        match self.mode {
+            UIMode::View => {
+                if self.layer_stack.len() > 1 {
+                    self.layer_stack.pop();
+                    self.mode = UIMode::Cursor;
+                } else {
+                    return Transition::Exit;
+                }
+            },
+            UIMode::Cursor => self.set_view_mode(),
+        }
+        Transition::Ok
+    }
+    fn handle_expand(&mut self) -> Option<Transition> {
+        match self.mode {
+            UIMode::View => Some(Transition::Cmd(String::from("expand"))),
+            _ => None,
+        }
+    }
+    fn handle_transpose(&mut self) -> Option<Transition> {
+        match self.mode {
+            UIMode::View => {
+                self.transpose();
 
                 Some(Transition::Ok)
-            } else {
-                Some(Transition::Exit)
-            }
+            },
+            _ => None
         }
-        KeyCode::Char('i') | KeyCode::Enter => {
-            view.set_cursor_mode();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Char('t') => {
-            view.transpose();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Char('e') => Some(Transition::Cmd(String::from("expand"))),
-        KeyCode::Up | KeyCode::Char('k') => {
-            view.get_top_layer_mut().cursor.prev_row_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Down | KeyCode::Char('j') => {
-            view.get_top_layer_mut().cursor.next_row_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Left | KeyCode::Char('h') => {
-            view.get_top_layer_mut().cursor.prev_column_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Right | KeyCode::Char('l') => {
-            view.get_top_layer_mut().cursor.next_column_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Home | KeyCode::Char('g') => {
-            view.get_top_layer_mut().cursor.row_move_to_start();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::End | KeyCode::Char('G') => {
-            view.get_top_layer_mut().cursor.row_move_to_end();
-
-            Some(Transition::Ok)
-        }
-        _ => None,
     }
-}
-
-fn handle_key_event_cursor_mode(
-    view: &mut RecordView,
-    key: &KeyEvent,
-) -> Result<Option<Transition>> {
-    match key {
-        KeyEvent {
-            code: KeyCode::Char('u'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
+    // for these, copy standard CursorMoveHandler for UIMode::View, but use special handling for UIMode::Cursor
+    // NOTE: https://stackoverflow.com/a/31462293/2016290 says there's plans for Rust to allow calling super functions,
+    // but not yet, and since they're all one line, it seems simpler to copy than make a lot of helper functions
+    fn handle_left(&mut self) {
+        match self.mode {
+            UIMode::View => self.get_top_layer_mut().cursor.prev_column_i(),
+            _ => self.get_top_layer_mut().cursor.prev_column(),
         }
-        | KeyEvent {
-            code: KeyCode::PageUp,
-            ..
-        } => {
-            view.get_top_layer_mut().cursor.prev_row_page();
-
-            return Ok(Some(Transition::Ok));
-        }
-        KeyEvent {
-            code: KeyCode::Char('d'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
-        }
-        | KeyEvent {
-            code: KeyCode::PageDown,
-            ..
-        } => {
-            view.get_top_layer_mut().cursor.next_row_page();
-
-            return Ok(Some(Transition::Ok));
-        }
-        _ => {}
     }
-
-    match key.code {
-        KeyCode::Esc => {
-            view.set_view_mode();
-
-            Ok(Some(Transition::Ok))
+    fn handle_right(&mut self) {
+        match self.mode {
+            UIMode::View => self.get_top_layer_mut().cursor.next_column_i(),
+            _ => self.get_top_layer_mut().cursor.next_column()
         }
-        KeyCode::Up | KeyCode::Char('k') => {
-            view.get_top_layer_mut().cursor.prev_row();
-
-            Ok(Some(Transition::Ok))
+    }
+    fn handle_up(&mut self) {
+        match self.mode {
+            UIMode::View => self.get_top_layer_mut().cursor.prev_row_i(),
+            _ => self.get_top_layer_mut().cursor.prev_row(),
         }
-        KeyCode::Down | KeyCode::Char('j') => {
-            view.get_top_layer_mut().cursor.next_row();
-
-            Ok(Some(Transition::Ok))
+    }
+    fn handle_down(&mut self) {
+        match self.mode {
+            UIMode::View => self.get_top_layer_mut().cursor.next_row_i(),
+            _ => self.get_top_layer_mut().cursor.next_row(),
         }
-        KeyCode::Left | KeyCode::Char('h') => {
-            view.get_top_layer_mut().cursor.prev_column();
-
-            Ok(Some(Transition::Ok))
-        }
-        KeyCode::Right | KeyCode::Char('l') => {
-            view.get_top_layer_mut().cursor.next_column();
-
-            Ok(Some(Transition::Ok))
-        }
-        KeyCode::Home | KeyCode::Char('g') => {
-            view.get_top_layer_mut().cursor.row_move_to_start();
-
-            Ok(Some(Transition::Ok))
-        }
-        KeyCode::End | KeyCode::Char('G') => {
-            view.get_top_layer_mut().cursor.row_move_to_end();
-
-            Ok(Some(Transition::Ok))
-        }
-        // Try to "drill down" into the selected value
-        KeyCode::Enter => {
-            let value = view.get_current_value();
-
-            // ...but it only makes sense to drill down into a few types of values
-            if !matches!(
-                value,
-                Value::Record { .. } | Value::List { .. } | Value::Custom { .. }
-            ) {
-                return Ok(None);
-            }
-
-            let is_record = matches!(value, Value::Record { .. });
-            let next_layer = create_layer(value.clone())?;
-            push_layer(view, next_layer);
-
-            if is_record {
-                view.set_top_layer_orientation(Orientation::Left);
-            } else {
-                view.set_top_layer_orientation(view.orientation);
-            }
-
-            Ok(Some(Transition::Ok))
-        }
-        _ => Ok(None),
     }
 }
 

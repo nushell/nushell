@@ -1,11 +1,11 @@
 use super::{
-    colored_text_widget::ColoredTextWidget, cursor::WindowCursor2D, Layout, View, ViewConfig,
+    colored_text_widget::ColoredTextWidget, cursor::CursorMoveHandler, cursor::WindowCursor2D, Layout, View, ViewConfig,
 };
 use crate::{
     nu_common::{NuSpan, NuText},
-    pager::{report::Report, Frame, Transition, ViewInfo},
+    pager::{report::Report, Frame, StatusTopOrEnd, Transition, ViewInfo},
 };
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 use nu_color_config::TextStyle;
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -66,57 +66,16 @@ impl View for Preview {
         info: &mut ViewInfo, // add this arg to draw too?
         key: KeyEvent,
     ) -> Option<Transition> {
-        match key.code {
-            KeyCode::Left => {
-                self.cursor
-                    .prev_column_by(max(1, self.cursor.window_width_in_columns() / 2));
-
-                Some(Transition::Ok)
-            }
-            KeyCode::Right => {
-                self.cursor
-                    .next_column_by(max(1, self.cursor.window_width_in_columns() / 2));
-
-                Some(Transition::Ok)
-            }
-            KeyCode::Up => {
-                self.cursor.prev_row_i();
-                set_status_top(self, info);
-
-                Some(Transition::Ok)
-            }
-            KeyCode::Down => {
-                self.cursor.next_row_i();
-                set_status_end(self, info);
-
-                Some(Transition::Ok)
-            }
-            KeyCode::PageUp => {
-                self.cursor.prev_row_page();
-                set_status_top(self, info);
-
-                Some(Transition::Ok)
-            }
-            KeyCode::PageDown => {
-                self.cursor.next_row_page();
-                set_status_end(self, info);
-
-                Some(Transition::Ok)
-            }
-            KeyCode::Home => {
-                self.cursor.row_move_to_start();
-                set_status_top(self, info);
-
-                Some(Transition::Ok)
-            }
-            KeyCode::End => {
-                self.cursor.row_move_to_end();
-                set_status_end(self, info);
-
-                Some(Transition::Ok)
-            }
-            KeyCode::Esc => Some(Transition::Exit),
-            _ => None,
+        match self.handle_input_key(&key) {
+            Ok(Some((transition, status_top_or_end))) => {
+                match status_top_or_end {
+                    StatusTopOrEnd::Top => set_status_top(self, info),
+                    StatusTopOrEnd::End => set_status_end(self, info),
+                    _ => {}
+                }
+                Some(transition)
+            },
+            _ => None  // currently only handle_enter() in crates/nu-explore/src/views/record/mod.rs raises an Err()
         }
     }
 
@@ -144,6 +103,20 @@ impl View for Preview {
                 Some(Value::string(text, NuSpan::unknown()))
             }
         }
+    }
+}
+
+impl CursorMoveHandler for Preview {
+    fn get_cursor(&mut self) -> &mut WindowCursor2D {
+        &mut self.cursor
+    }
+    fn handle_left(&mut self) {
+        self.cursor
+            .prev_column_by(max(1, self.cursor.window_width_in_columns() / 2));
+    }
+    fn handle_right(&mut self) {
+        self.cursor
+            .next_column_by(max(1, self.cursor.window_width_in_columns() / 2));
     }
 }
 
