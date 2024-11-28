@@ -28,7 +28,7 @@ fn env_change_hook(name: &str, code: &str) -> String {
         "$env.config = {{
             hooks: {{
                 env_change: {{
-                    {name} : {code}
+                    {name}: [{code}]
                 }}
             }}
         }}"
@@ -40,9 +40,9 @@ fn env_change_hook_code(name: &str, code: &str) -> String {
         "$env.config = {{
             hooks: {{
                 env_change: {{
-                    {name} : {{
+                    {name}: [{{
                         code: {code}
-                    }}
+                    }}]
                 }}
             }}
         }}"
@@ -54,10 +54,10 @@ fn env_change_hook_code_condition(name: &str, condition: &str, code: &str) -> St
         "$env.config = {{
             hooks: {{
                 env_change: {{
-                    {name} : {{
+                    {name}: [{{
                         condition: {condition}
                         code: {code}
-                    }}
+                    }}]
                 }}
             }}
         }}"
@@ -536,9 +536,9 @@ fn err_hook_parse_error() {
         r#"$env.config = {
             hooks: {
                 env_change: {
-                    FOO : {
+                    FOO: [{
                         code: "def foo { 'foo' }"
-                    }
+                    }]
                 }
             }
         }"#,
