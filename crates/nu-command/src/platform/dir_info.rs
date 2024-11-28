@@ -9,8 +9,8 @@ pub struct DirBuilder {
     pub min: Option<u64>,
     pub deref: bool,
     pub exclude: Option<Pattern>,
-    pub all: bool,
-    pub long: bool,
+    pub files: bool,
+    pub recursive: bool,
 }
 
 impl DirBuilder {
@@ -19,16 +19,16 @@ impl DirBuilder {
         min: Option<u64>,
         deref: bool,
         exclude: Option<Pattern>,
-        all: bool,
-        long: bool,
+        files: bool,
+        recursive: bool,
     ) -> DirBuilder {
         DirBuilder {
             tag,
             min,
             deref,
             exclude,
-            all,
-            long,
+            files,
+            recursive,
         }
     }
 }
@@ -42,7 +42,8 @@ pub struct DirInfo {
     blocks: u64,
     path: PathBuf,
     tag: Span,
-    long: bool,
+    recursive: bool,
+    show_files: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -51,7 +52,8 @@ pub struct FileInfo {
     size: u64,
     blocks: Option<u64>,
     tag: Span,
-    long: bool,
+    recursive: bool,
+    show_files: bool,
 }
 
 impl FileInfo {
@@ -59,7 +61,8 @@ impl FileInfo {
         path: impl Into<PathBuf>,
         deref: bool,
         tag: Span,
-        long: bool,
+        recursive: bool,
+        show_files: bool,
     ) -> Result<Self, ShellError> {
         let path = path.into();
         let m = if deref {
@@ -77,7 +80,8 @@ impl FileInfo {
                     blocks: block_size,
                     size: d.len(),
                     tag,
-                    long,
+                    recursive,
+                    show_files,
                 })
             }
             Err(e) => Err(e.into()),
@@ -103,7 +107,8 @@ impl DirInfo {
             blocks: 0,
             tag: params.tag,
             path,
-            long: params.long,
+            recursive: params.recursive,
+            show_files: params.files,
         };
 
         match std::fs::metadata(&s.path) {
@@ -166,13 +171,13 @@ impl DirInfo {
             .as_ref()
             .map_or(true, |x| !x.matches_path(&f));
         if include {
-            match FileInfo::new(f, params.deref, self.tag, self.long) {
+            match FileInfo::new(f, params.deref, self.tag, self.recursive, self.show_files) {
                 Ok(file) => {
                     let inc = params.min.map_or(true, |s| file.size >= s);
                     if inc {
                         self.size += file.size;
                         self.blocks += file.blocks.unwrap_or(0);
-                        if params.all {
+                        if params.files {
                             self.files.push(file);
                         }
                     }
@@ -209,27 +214,18 @@ impl From<DirInfo> for Value {
         //     })
         // }
 
-        if d.long {
-            Value::record(
-                record! {
-                    "path" => Value::string(d.path.display().to_string(), d.tag),
-                    "apparent" => Value::filesize(d.size as i64, d.tag),
-                    "physical" => Value::filesize(d.blocks as i64, d.tag),
-                    "directories" => value_from_vec(d.dirs, d.tag),
-                    "files" => value_from_vec(d.files, d.tag)
-                },
-                d.tag,
-            )
-        } else {
-            Value::record(
-                record! {
-                    "path" => Value::string(d.path.display().to_string(), d.tag),
-                    "apparent" => Value::filesize(d.size as i64, d.tag),
-                    "physical" => Value::filesize(d.blocks as i64, d.tag),
-                },
-                d.tag,
-            )
+        let mut rec = record! {
+            "path" => Value::string(d.path.display().to_string(), d.tag),
+            "apparent" => Value::filesize(d.size as i64, d.tag),
+            "physical" => Value::filesize(d.blocks as i64, d.tag),
+        };
+        if d.recursive {
+            rec.push("directories", value_from_vec(d.dirs, d.tag));
         }
+        if d.show_files {
+            rec.push("files", value_from_vec(d.files, d.tag))
+        }
+        Value::record(rec, d.tag)
     }
 }
 
@@ -238,27 +234,18 @@ impl From<FileInfo> for Value {
         // cols.push("errors".into());
         // vals.push(Value::nothing(Span::unknown()));
 
-        if f.long {
-            Value::record(
-                record! {
-                    "path" => Value::string(f.path.display().to_string(), f.tag),
-                    "apparent" => Value::filesize(f.size as i64, f.tag),
-                    "physical" => Value::filesize(f.blocks.unwrap_or(0) as i64, f.tag),
-                    "directories" => Value::nothing(Span::unknown()),
-                    "files" => Value::nothing(Span::unknown()),
-                },
-                f.tag,
-            )
-        } else {
-            Value::record(
-                record! {
-                    "path" => Value::string(f.path.display().to_string(), f.tag),
-                    "apparent" => Value::filesize(f.size as i64, f.tag),
-                    "physical" => Value::filesize(f.blocks.unwrap_or(0) as i64, f.tag),
-                },
-                f.tag,
-            )
+        let mut rec = record! {
+            "path" => Value::string(f.path.display().to_string(), f.tag),
+            "apparent" => Value::filesize(f.size as i64, f.tag),
+            "physical" => Value::filesize(f.blocks.unwrap_or(0) as i64, f.tag),
+        };
+        if f.recursive {
+            rec.push("directories", Value::nothing(Span::unknown()))
         }
+        if f.show_files {
+            rec.push("files", Value::nothing(Span::unknown()))
+        }
+        Value::record(rec, f.tag)
     }
 }
 
