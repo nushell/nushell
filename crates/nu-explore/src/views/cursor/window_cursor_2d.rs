@@ -178,9 +178,15 @@ pub trait CursorMoveHandler {
     fn get_cursor(&mut self) -> &mut WindowCursor2D;
 
     // standard handle_EVENT handlers that can be overwritten
-    fn handle_enter(&mut self) -> Result<Transition> { Ok(Transition::None) }
-    fn handle_esc(&mut self) -> Transition { Transition::Exit }
-    fn handle_expand(&mut self) -> Transition { Transition::None }
+    fn handle_enter(&mut self) -> Result<Transition> {
+        Ok(Transition::None)
+    }
+    fn handle_esc(&mut self) -> Transition {
+        Transition::Exit
+    }
+    fn handle_expand(&mut self) -> Transition {
+        Transition::None
+    }
     fn handle_left(&mut self) {
         self.get_cursor().prev_column_i()
     }
@@ -193,7 +199,9 @@ pub trait CursorMoveHandler {
     fn handle_down(&mut self) {
         self.get_cursor().next_row_i()
     }
-    fn handle_transpose(&mut self) -> Transition { Transition::None }
+    fn handle_transpose(&mut self) -> Transition {
+        Transition::None
+    }
 
     // top-level event handler should not be overwritten
     fn handle_input_key(&mut self, key: &KeyEvent) -> Result<(Transition, StatusTopOrEnd)> {
@@ -253,19 +261,17 @@ pub trait CursorMoveHandler {
                 self.handle_down();
                 StatusTopOrEnd::End
             }
-            _ => StatusTopOrEnd::None
+            _ => StatusTopOrEnd::None,
         };
         match key_combo_status {
             StatusTopOrEnd::Top | StatusTopOrEnd::End => {
                 return Ok((Transition::Ok, key_combo_status));
             }
-            _ => {}  // not page up or page down, so don't return; continue to next match block
+            _ => {} // not page up or page down, so don't return; continue to next match block
         }
 
         match key.code {
-            KeyCode::Char('q') | KeyCode::Esc => {
-                Ok((self.handle_esc(), StatusTopOrEnd::None))
-            }
+            KeyCode::Char('q') | KeyCode::Esc => Ok((self.handle_esc(), StatusTopOrEnd::None)),
             KeyCode::Char('i') | KeyCode::Enter => Ok((self.handle_enter()?, StatusTopOrEnd::None)),
             KeyCode::Char('t') => Ok((self.handle_transpose(), StatusTopOrEnd::None)),
             KeyCode::Char('e') => Ok((self.handle_expand(), StatusTopOrEnd::None)),
@@ -293,7 +299,7 @@ pub trait CursorMoveHandler {
                 self.get_cursor().row_move_to_end();
                 Ok((Transition::Ok, StatusTopOrEnd::End))
             }
-            _ => Ok((Transition::None, StatusTopOrEnd::None))
+            _ => Ok((Transition::None, StatusTopOrEnd::None)),
         }
     }
 }

@@ -367,7 +367,6 @@ impl RecordLayer {
     }
 }
 
-
 impl CursorMoveHandler for RecordView {
     fn get_cursor(&mut self) -> &mut WindowCursor2D {
         &mut self.get_top_layer_mut().cursor
@@ -377,7 +376,7 @@ impl CursorMoveHandler for RecordView {
             UIMode::View => self.set_cursor_mode(),
             UIMode::Cursor => {
                 let value = self.get_current_value();
-        
+
                 // ...but it only makes sense to drill down into a few types of values
                 if !matches!(
                     value,
@@ -385,11 +384,11 @@ impl CursorMoveHandler for RecordView {
                 ) {
                     return Ok(Transition::None);
                 }
-        
+
                 let is_record = matches!(value, Value::Record { .. });
                 let next_layer = create_layer(value.clone())?;
                 push_layer(self, next_layer);
-        
+
                 if is_record {
                     self.set_top_layer_orientation(Orientation::Left);
                 } else {
@@ -409,7 +408,7 @@ impl CursorMoveHandler for RecordView {
                 } else {
                     return Transition::Exit;
                 }
-            },
+            }
             UIMode::Cursor => self.set_view_mode(),
         }
         Transition::Ok
@@ -426,8 +425,8 @@ impl CursorMoveHandler for RecordView {
                 self.transpose();
 
                 Transition::Ok
-            },
-            _ => Transition::None
+            }
+            _ => Transition::None,
         }
     }
     // for these, copy standard CursorMoveHandler for UIMode::View, but use special handling for UIMode::Cursor
@@ -442,7 +441,7 @@ impl CursorMoveHandler for RecordView {
     fn handle_right(&mut self) {
         match self.mode {
             UIMode::View => self.get_top_layer_mut().cursor.next_column_i(),
-            _ => self.get_top_layer_mut().cursor.next_column()
+            _ => self.get_top_layer_mut().cursor.next_column(),
         }
     }
     fn handle_up(&mut self) {

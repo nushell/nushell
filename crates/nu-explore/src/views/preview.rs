@@ -1,5 +1,6 @@
 use super::{
-    colored_text_widget::ColoredTextWidget, cursor::CursorMoveHandler, cursor::WindowCursor2D, Layout, View, ViewConfig,
+    colored_text_widget::ColoredTextWidget, cursor::CursorMoveHandler, cursor::WindowCursor2D,
+    Layout, View, ViewConfig,
 };
 use crate::{
     nu_common::{NuSpan, NuText},
@@ -74,8 +75,8 @@ impl View for Preview {
                     _ => {}
                 }
                 transition
-            },
-            _ => Transition::None  // currently only handle_enter() in crates/nu-explore/src/views/record/mod.rs raises an Err()
+            }
+            _ => Transition::None, // currently only handle_enter() in crates/nu-explore/src/views/record/mod.rs raises an Err()
         }
     }
 

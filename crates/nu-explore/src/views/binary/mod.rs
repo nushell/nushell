@@ -71,8 +71,8 @@ impl View for BinaryView {
             Ok((Transition::Ok, ..)) => {
                 let report = create_report(self.cursor);
                 info.status = Some(report);
-            },
-            _ => {}  // currently only handle_enter() in crates/nu-explore/src/views/record/mod.rs raises an Err()
+            }
+            _ => {} // currently only handle_enter() in crates/nu-explore/src/views/record/mod.rs raises an Err()
         }
 
         Transition::None

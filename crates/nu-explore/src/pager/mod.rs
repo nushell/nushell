@@ -324,7 +324,7 @@ fn react_to_event_result(
                 }
             }
         }
-        Transition::None => (None, String::default())
+        Transition::None => (None, String::default()),
     }
 }
 
@@ -425,7 +425,7 @@ fn run_command(
                 Transition::Ok => Ok(CmdResult::new(false, false, String::new())),
                 Transition::Exit => Ok(CmdResult::new(true, false, String::new())),
                 Transition::Cmd { .. } => todo!("not used so far"),
-                Transition::None => panic!("Transition::None not expected from command.react()")
+                Transition::None => panic!("Transition::None not expected from command.react()"),
             }
         }
         Command::View { mut cmd, stackable } => {
