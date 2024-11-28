@@ -79,7 +79,7 @@ def create-test-record [] nothing -> record<before-each: string, after-each: str
         | group-by --to-table annotation
         | update items {|x|
             $x.items.function_name
-            | if $x.group in ["test", "test-skip"] {
+            | if $x.annotation in ["test", "test-skip"] {
                 $in
             } else {
                 get 0

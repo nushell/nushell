@@ -1,8 +1,7 @@
-use terminal_size::{terminal_size, Height, Width};
+use nu_color_config::StyleComputer;
+use nu_protocol::{Config, Signals, Span, TableIndexMode, TableMode};
 
 use crate::{common::INDEX_COLUMN_NAME, NuTable};
-use nu_color_config::StyleComputer;
-use nu_protocol::{Config, FooterMode, Signals, Span, TableIndexMode, TableMode};
 
 mod collapse;
 mod expanded;
@@ -16,16 +15,16 @@ pub struct TableOutput {
     pub table: NuTable,
     pub with_header: bool,
     pub with_index: bool,
-    pub with_footer: bool,
+    pub count_rows: usize,
 }
 
 impl TableOutput {
-    pub fn new(table: NuTable, with_header: bool, with_index: bool, with_footer: bool) -> Self {
+    pub fn new(table: NuTable, with_header: bool, with_index: bool, count_rows: usize) -> Self {
         Self {
             table,
             with_header,
             with_index,
-            with_footer,
+            count_rows,
         }
     }
 }
@@ -78,24 +77,4 @@ fn has_index(opts: &TableOpts<'_>, headers: &[String]) -> bool {
     };
 
     with_index && !opts.index_remove
-}
-
-fn has_footer(opts: &TableOpts<'_>, count_records: u64) -> bool {
-    match opts.config.footer_mode {
-        // Only show the footer if there are more than RowCount rows
-        FooterMode::RowCount(limit) => count_records > limit,
-        // Always show the footer
-        FooterMode::Always => true,
-        // Never show the footer
-        FooterMode::Never => false,
-        // Calculate the screen height and row count, if screen height is larger than row count, don't show footer
-        FooterMode::Auto => {
-            let (_width, height) = match terminal_size() {
-                Some((w, h)) => (Width(w.0).0 as u64, Height(h.0).0 as u64),
-                None => (Width(0).0 as u64, Height(0).0 as u64),
-            };
-
-            height <= count_records
-        }
-    }
 }

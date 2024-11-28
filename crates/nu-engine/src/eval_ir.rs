@@ -956,7 +956,7 @@ fn binary_op(
         },
         Operator::Math(mat) => match mat {
             Math::Plus => lhs_val.add(op_span, &rhs_val, span)?,
-            Math::Append => lhs_val.append(op_span, &rhs_val, span)?,
+            Math::Concat => lhs_val.concat(op_span, &rhs_val, span)?,
             Math::Minus => lhs_val.sub(op_span, &rhs_val, span)?,
             Math::Multiply => lhs_val.mul(op_span, &rhs_val, span)?,
             Math::Divide => lhs_val.div(op_span, &rhs_val, span)?,

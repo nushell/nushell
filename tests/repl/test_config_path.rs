@@ -221,8 +221,8 @@ fn test_default_config_path_symlinked_config_files() {
 
 #[test]
 fn test_alternate_config_path() {
-    let config_file = "crates/nu-utils/src/sample_config/default_config.nu";
-    let env_file = "crates/nu-utils/src/sample_config/default_env.nu";
+    let config_file = "crates/nu-utils/src/default_files/scaffold_config.nu";
+    let env_file = "crates/nu-utils/src/default_files/scaffold_env.nu";
 
     let cwd = std::env::current_dir().expect("Could not get current working directory");
 
@@ -297,4 +297,82 @@ fn test_xdg_config_symlink() {
             stderr
         );
     });
+}
+
+#[test]
+fn no_config_does_not_load_env_files() {
+    let nu = nu_test_support::fs::executable_path().display().to_string();
+    let cmd = format!(
+        r#"
+            {nu} -n -c "view files | where filename =~ 'env\\.nu$' | length"
+        "#
+    );
+    let actual = nu!(cmd);
+
+    assert_eq!(actual.out, "0");
+}
+
+#[test]
+fn no_config_does_not_load_config_files() {
+    let nu = nu_test_support::fs::executable_path().display().to_string();
+    let cmd = format!(
+        r#"
+            {nu} -n -c "view files | where filename =~ 'config\\.nu$' | length"
+        "#
+    );
+    let actual = nu!(cmd);
+
+    assert_eq!(actual.out, "0");
+}
+
+#[test]
+fn commandstring_does_not_load_config_files() {
+    let nu = nu_test_support::fs::executable_path().display().to_string();
+    let cmd = format!(
+        r#"
+            {nu} -c "view files | where filename =~ 'config\\.nu$' | length"
+        "#
+    );
+    let actual = nu!(cmd);
+
+    assert_eq!(actual.out, "0");
+}
+
+#[test]
+fn commandstring_does_not_load_user_env() {
+    let nu = nu_test_support::fs::executable_path().display().to_string();
+    let cmd = format!(
+        r#"
+            {nu} -c "view files | where filename =~ '[^_]env\\.nu$' | length"
+        "#
+    );
+    let actual = nu!(cmd);
+
+    assert_eq!(actual.out, "0");
+}
+
+#[test]
+fn commandstring_loads_default_env() {
+    let nu = nu_test_support::fs::executable_path().display().to_string();
+    let cmd = format!(
+        r#"
+            {nu} -c "view files | where filename =~ 'default_env\\.nu$' | length"
+        "#
+    );
+    let actual = nu!(cmd);
+
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn commandstring_populates_config_record() {
+    let nu = nu_test_support::fs::executable_path().display().to_string();
+    let cmd = format!(
+        r#"
+            {nu} --no-std-lib -n -c "$env.config.show_banner"
+        "#
+    );
+    let actual = nu!(cmd);
+
+    assert_eq!(actual.out, "true");
 }

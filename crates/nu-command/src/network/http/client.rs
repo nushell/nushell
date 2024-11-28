@@ -376,7 +376,7 @@ fn send_multipart_request(
                         format!("Content-Length: {}", val.len()),
                     ];
                     builder
-                        .add(&mut Cursor::new(val), &headers.join("\n"))
+                        .add(&mut Cursor::new(val), &headers.join("\r\n"))
                         .map_err(err)?;
                 } else {
                     let headers = format!(r#"Content-Disposition: form-data; name="{}""#, col);

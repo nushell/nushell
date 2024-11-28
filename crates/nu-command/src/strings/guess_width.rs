@@ -291,42 +291,39 @@ fn positions_helper(blanks: &[usize], min_lines: usize) -> Vec<usize> {
     pos
 }
 
-// to_rows returns rows separated by columns.
-#[allow(dead_code)]
-fn to_rows(lines: Vec<String>, pos: Vec<usize>, trim_space: bool) -> Vec<Vec<String>> {
-    let mut rows: Vec<Vec<String>> = Vec::with_capacity(lines.len());
-    for line in lines {
-        let columns = split(&line, &pos, trim_space);
-        rows.push(columns);
-    }
-    rows
-}
-
-// to_table parses a slice of lines and returns a table.
-#[allow(dead_code)]
-pub fn to_table(lines: Vec<String>, header: usize, trim_space: bool) -> Vec<Vec<String>> {
-    let pos = positions(&lines, header, 2);
-    to_rows(lines, pos, trim_space)
-}
-
-// to_table_n parses a slice of lines and returns a table, but limits the number of splits.
-#[allow(dead_code)]
-pub fn to_table_n(
-    lines: Vec<String>,
-    header: usize,
-    num_split: usize,
-    trim_space: bool,
-) -> Vec<Vec<String>> {
-    let mut pos = positions(&lines, header, 2);
-    if pos.len() > num_split {
-        pos.truncate(num_split);
-    }
-    to_rows(lines, pos, trim_space)
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{to_table, to_table_n, GuessWidth};
+    use super::*;
+
+    /// to_rows returns rows separated by columns.
+    fn to_rows(lines: Vec<String>, pos: Vec<usize>, trim_space: bool) -> Vec<Vec<String>> {
+        let mut rows: Vec<Vec<String>> = Vec::with_capacity(lines.len());
+        for line in lines {
+            let columns = split(&line, &pos, trim_space);
+            rows.push(columns);
+        }
+        rows
+    }
+
+    /// to_table parses a slice of lines and returns a table.
+    pub fn to_table(lines: Vec<String>, header: usize, trim_space: bool) -> Vec<Vec<String>> {
+        let pos = positions(&lines, header, 2);
+        to_rows(lines, pos, trim_space)
+    }
+
+    /// to_table_n parses a slice of lines and returns a table, but limits the number of splits.
+    pub fn to_table_n(
+        lines: Vec<String>,
+        header: usize,
+        num_split: usize,
+        trim_space: bool,
+    ) -> Vec<Vec<String>> {
+        let mut pos = positions(&lines, header, 2);
+        if pos.len() > num_split {
+            pos.truncate(num_split);
+        }
+        to_rows(lines, pos, trim_space)
+    }
 
     #[test]
     fn test_guess_width_ps_trim() {

@@ -230,6 +230,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Rm,
             Save,
             Touch,
+            UTouch,
             Glob,
             Watch,
         };
@@ -247,7 +248,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IsTerminal,
             Kill,
             Sleep,
+            Term,
             TermSize,
+            TermQuery,
             Whoami,
         };
 

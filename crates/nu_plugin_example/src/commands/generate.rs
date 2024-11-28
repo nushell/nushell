@@ -26,7 +26,7 @@ impl PluginCommand for Generate {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(Type::Nothing, Type::ListStream)
+            .input_output_type(Type::Nothing, Type::list(Type::Any))
             .required(
                 "initial",
                 SyntaxShape::Any,

@@ -1,5 +1,5 @@
 use crate::NushellPrompt;
-use log::trace;
+use log::{trace, warn};
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -30,30 +30,21 @@ pub(crate) const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str =
 pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
 pub(crate) const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
 pub(crate) const PRE_EXECUTION_MARKER: &str = "\x1b]133;C\x1b\\";
-#[allow(dead_code)]
 pub(crate) const POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]133;D;";
-#[allow(dead_code)]
 pub(crate) const POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
 
 // OSC633 is the same as OSC133 but specifically for VSCode
 pub(crate) const VSCODE_PRE_PROMPT_MARKER: &str = "\x1b]633;A\x1b\\";
 pub(crate) const VSCODE_POST_PROMPT_MARKER: &str = "\x1b]633;B\x1b\\";
-#[allow(dead_code)]
 pub(crate) const VSCODE_PRE_EXECUTION_MARKER: &str = "\x1b]633;C\x1b\\";
-#[allow(dead_code)]
 //"\x1b]633;D;{}\x1b\\"
 pub(crate) const VSCODE_POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]633;D;";
-#[allow(dead_code)]
 pub(crate) const VSCODE_POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
-#[allow(dead_code)]
 //"\x1b]633;E;{}\x1b\\"
 pub(crate) const VSCODE_COMMANDLINE_MARKER_PREFIX: &str = "\x1b]633;E;";
-#[allow(dead_code)]
 pub(crate) const VSCODE_COMMANDLINE_MARKER_SUFFIX: &str = "\x1b\\";
-#[allow(dead_code)]
 // "\x1b]633;P;Cwd={}\x1b\\"
 pub(crate) const VSCODE_CWD_PROPERTY_MARKER_PREFIX: &str = "\x1b]633;P;Cwd=";
-#[allow(dead_code)]
 pub(crate) const VSCODE_CWD_PROPERTY_MARKER_SUFFIX: &str = "\x1b\\";
 
 pub(crate) const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
@@ -89,8 +80,13 @@ fn get_prompt_string(
         })
         .and_then(|pipeline_data| {
             let output = pipeline_data.collect_string("", config).ok();
+            let ansi_output = output.map(|mut x| {
+                // Always reset the color at the start of the right prompt
+                // to ensure there is no ansi bleed over
+                if x.is_empty() && prompt == PROMPT_COMMAND_RIGHT {
+                    x.insert_str(0, "\x1b[0m")
+                };
 
-            output.map(|mut x| {
                 // Just remove the very last newline.
                 if x.ends_with('\n') {
                     x.pop();
@@ -100,7 +96,11 @@ fn get_prompt_string(
                     x.pop();
                 }
                 x
-            })
+            });
+            // Let's keep this for debugging purposes with nu --log-level warn
+            warn!("{}:{}:{} {:?}", file!(), line!(), column!(), ansi_output);
+
+            ansi_output
         })
 }
 
