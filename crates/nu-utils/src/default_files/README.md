@@ -7,10 +7,8 @@
 * Will be loaded during any startup where the user's `env.nu` is also loaded. For example:
   * During normal startup with `nu`
   * During a startup where the user specifies an alternative `env.nu` via `nu --env-config <path>`
-* Likewise, is never loaded during a startup where the user's `env.nu` would not be loaded. For example:
-  * `nu -n/--no-config`
-  * `nu -c "ls"`
-  * `nu <script.nu>`
+  * During a `nu -c <commandstring>` or `nu <script>` startup so that `ENV_CONVERSIONS` is properly handled for Windows.
+* Is *not* loaded when running with an explicit `no --no-config-file (-n)`.
 * Is not commented - Comments are in `sample_env.nu`.
 * Should be optimized for fastest load times.
 * Can be introspected via `config env --default | nu-highlight`
@@ -42,8 +40,7 @@ Counterpart to `default_env.nu`.
 ## `sample_env.nu`
 
 * A commented file documenting the most common environment variables that a user might configure in `env.nu`
-* For convenient in-shell access
-* Can be pretty-printed via `config env --sample | nu-highlight`
+* For convenient in-shell access - Can be pretty-printed via `config env --sample | nu-highlight`
 * Since this file is for documentation only, include actual Nushell code without comments so that it can be pretty-printed
 * No optimization necessary - Not intended for use other than documentation.
 * Consider replacing `config env --sample` with `help env.nu` at some point.
@@ -53,11 +50,8 @@ Counterpart to `default_env.nu`.
 
 Counterpart to `sample_env.nu`.
 
-TODO: **Not in final form**
-
 * A commented file documenting the most common environment variables that a user might configure in `config.nu`
-* For convenient in-shell access
-* Can be pretty-printed via `config nu --sample | nu-highlight`
+* For convenient in-shell access - Can be pretty-printed via `config nu --sample | nu-highlight`
 * Since this file is for documentation only, include actual Nushell code without comments so that it can be pretty-printed
 * No optimization necessary - Not intended for use other than documentation.
 * Consider replacing `config nu --sample` with `help config.nu` at some point.
