@@ -4,7 +4,7 @@ use nu_engine::command_prelude::*;
 
 use quick_xml::{
     escape,
-    events::{BytesEnd, BytesStart, BytesText, Event},
+    events::{BytesEnd, BytesPI, BytesStart, BytesText, Event},
 };
 use std::{borrow::Cow, io::Cursor};
 
@@ -406,7 +406,7 @@ impl Job {
         let content_text = format!("{} {}", tag, content);
         // PI content must NOT be escaped
         // https://www.w3.org/TR/xml/#sec-pi
-        let pi_content = BytesText::from_escaped(content_text.as_str());
+        let pi_content = BytesPI::new(content_text.as_str());
 
         self.writer
             .write_event(Event::PI(pi_content))

@@ -11,7 +11,10 @@ impl Command for FromCsv {
 
     fn signature(&self) -> Signature {
         Signature::build("from csv")
-            .input_output_types(vec![(Type::String, Type::table())])
+            .input_output_types(vec![
+                (Type::String, Type::table()),
+                (Type::String, Type::list(Type::Any)),
+            ])
             .named(
                 "separator",
                 SyntaxShape::String,
@@ -80,6 +83,26 @@ impl Command for FromCsv {
                         "ColA" => Value::test_int(1),
                         "ColB" => Value::test_int(2),
                     })],
+                ))
+            },
+            Example {
+                description: "Convert comma-separated data to a table, allowing variable number of columns per row",
+                example: "\"ColA,ColB\n1,2\n3,4,5\n6\" | from csv --flexible",
+                result: Some(Value::test_list (
+                    vec![
+                        Value::test_record(record! {
+                            "ColA" => Value::test_int(1),
+                            "ColB" => Value::test_int(2),
+                        }),
+                        Value::test_record(record! {
+                            "ColA" => Value::test_int(3),
+                            "ColB" => Value::test_int(4),
+                            "column2" => Value::test_int(5),
+                        }),
+                        Value::test_record(record! {
+                            "ColA" => Value::test_int(6),
+                        }),
+                    ],
                 ))
             },
             Example {

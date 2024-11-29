@@ -58,7 +58,7 @@ For details about which platforms the Nushell team actively supports, see [our p
 
 ## Configuration
 
-The default configurations can be found at [sample_config](crates/nu-utils/src/sample_config)
+The default configurations can be found at [sample_config](crates/nu-utils/src/default_files)
 which are the configuration files one gets when they startup Nushell for the first time.
 
 It sets all of the default configuration to run Nushell.  From here one can

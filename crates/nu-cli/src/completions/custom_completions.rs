@@ -9,10 +9,9 @@ use nu_protocol::{
     engine::{Stack, StateWorkingSet},
     CompletionSort, DeclId, PipelineData, Span, Type, Value,
 };
-use nu_utils::IgnoreCaseExt;
 use std::collections::HashMap;
 
-use super::completion_common::sort_suggestions;
+use super::completion_options::NuMatcher;
 
 pub struct CustomCompletion {
     stack: Stack,
@@ -123,41 +122,11 @@ impl Completer for CustomCompletion {
             })
             .unwrap_or_default();
 
-        let options = custom_completion_options
-            .as_ref()
-            .unwrap_or(completion_options);
-        let suggestions = filter(prefix, suggestions, options);
-        sort_suggestions(&String::from_utf8_lossy(prefix), suggestions, options)
+        let options = custom_completion_options.unwrap_or(completion_options.clone());
+        let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), options);
+        for sugg in suggestions {
+            matcher.add_semantic_suggestion(sugg);
+        }
+        matcher.results()
     }
-}
-
-fn filter(
-    prefix: &[u8],
-    items: Vec<SemanticSuggestion>,
-    options: &CompletionOptions,
-) -> Vec<SemanticSuggestion> {
-    items
-        .into_iter()
-        .filter(|it| match options.match_algorithm {
-            MatchAlgorithm::Prefix => match (options.case_sensitive, options.positional) {
-                (true, true) => it.suggestion.value.as_bytes().starts_with(prefix),
-                (true, false) => it
-                    .suggestion
-                    .value
-                    .contains(std::str::from_utf8(prefix).unwrap_or("")),
-                (false, positional) => {
-                    let value = it.suggestion.value.to_folded_case();
-                    let prefix = std::str::from_utf8(prefix).unwrap_or("").to_folded_case();
-                    if positional {
-                        value.starts_with(&prefix)
-                    } else {
-                        value.contains(&prefix)
-                    }
-                }
-            },
-            MatchAlgorithm::Fuzzy => options
-                .match_algorithm
-                .matches_u8(it.suggestion.value.as_bytes(), prefix),
-        })
-        .collect()
 }

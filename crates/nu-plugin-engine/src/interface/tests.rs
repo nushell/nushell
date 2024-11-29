@@ -1485,7 +1485,7 @@ fn prepare_plugin_call_custom_value_op() {
                     span,
                 },
                 CustomValueOp::Operation(
-                    Operator::Math(Math::Append).into_spanned(span),
+                    Operator::Math(Math::Concat).into_spanned(span),
                     cv_ok_val.clone(),
                 ),
             ),
@@ -1498,7 +1498,7 @@ fn prepare_plugin_call_custom_value_op() {
                     span,
                 },
                 CustomValueOp::Operation(
-                    Operator::Math(Math::Append).into_spanned(span),
+                    Operator::Math(Math::Concat).into_spanned(span),
                     cv_bad_val.clone(),
                 ),
             ),

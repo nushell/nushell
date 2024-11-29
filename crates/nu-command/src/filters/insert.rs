@@ -129,6 +129,8 @@ fn insert(
     let replacement: Value = call.req(engine_state, stack, 1)?;
 
     match input {
+        // Propagate errors in the pipeline
+        PipelineData::Value(Value::Error { error, .. }, ..) => Err(*error),
         PipelineData::Value(mut value, metadata) => {
             if let Value::Closure { val, .. } = replacement {
                 match (cell_path.members.first(), &mut value) {

@@ -9,6 +9,7 @@ mod views;
 
 use anyhow::Result;
 use commands::{ExpandCmd, HelpCmd, NuCmd, QuitCmd, TableCmd, TryCmd};
+use crossterm::terminal::size;
 pub use default_context::add_explore_context;
 pub use explore::Explore;
 use explore::ExploreConfig;
@@ -19,7 +20,6 @@ use nu_protocol::{
 };
 use pager::{Page, Pager, PagerConfig};
 use registry::CommandRegistry;
-use terminal_size::{Height, Width};
 use views::{BinaryView, Orientation, Preview, RecordView};
 
 mod util {
@@ -80,7 +80,7 @@ fn create_record_view(
     }
 
     if config.tail {
-        if let Some((Width(w), Height(h))) = terminal_size::terminal_size() {
+        if let Ok((w, h)) = size() {
             view.tail(w, h);
         }
     }

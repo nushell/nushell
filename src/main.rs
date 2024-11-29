@@ -24,8 +24,8 @@ use nu_cli::gather_parent_env_vars;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, report_shell_error, ByteStream, PipelineData, ShellError, Span, Spanned,
-    Value,
+    engine::EngineState, report_shell_error, ByteStream, Config, IntoValue, PipelineData,
+    ShellError, Span, Spanned, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -258,6 +258,13 @@ fn main() -> Result<()> {
     }
 
     start_time = std::time::Instant::now();
+    engine_state.add_env_var(
+        "config".into(),
+        Config::default().into_value(Span::unknown()),
+    );
+    perf!("$env.config setup", start_time, use_color);
+
+    start_time = std::time::Instant::now();
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
         let span = include_path.span;
         let vals: Vec<_> = include_path
@@ -279,6 +286,16 @@ fn main() -> Result<()> {
         "NU_VERSION".to_string(),
         Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
     );
+
+    // Add SHLVL if interactive
+    if engine_state.is_interactive {
+        let mut shlvl = engine_state
+            .get_env_var("SHLVL")
+            .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
+            .unwrap_or(0);
+        shlvl += 1;
+        engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
+    }
 
     if parsed_nu_cli_args.no_std_lib.is_none() {
         load_standard_library(&mut engine_state)?;

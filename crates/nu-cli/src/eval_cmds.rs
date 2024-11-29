@@ -9,6 +9,8 @@ use nu_protocol::{
 };
 use std::sync::Arc;
 
+use crate::util::print_pipeline;
+
 #[derive(Default)]
 pub struct EvaluateCommandsOpts {
     pub table_mode: Option<Value>,
@@ -72,7 +74,7 @@ pub fn evaluate_commands(
 
         if let Some(err) = working_set.compile_errors.first() {
             report_compile_error(&working_set, err);
-            // Not a fatal error, for now
+            std::process::exit(1);
         }
 
         (output, working_set.render())
@@ -93,7 +95,7 @@ pub fn evaluate_commands(
             t_mode.coerce_str()?.parse().unwrap_or_default();
     }
 
-    pipeline.print(engine_state, stack, no_newline, false)?;
+    print_pipeline(engine_state, stack, pipeline, no_newline)?;
 
     info!("evaluate {}:{}:{}", file!(), line!(), column!());
 

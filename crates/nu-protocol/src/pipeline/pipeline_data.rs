@@ -109,7 +109,7 @@ impl PipelineData {
     /// than would be returned by [`Value::get_type()`] on the result of
     /// [`.into_value()`](Self::into_value).
     ///
-    /// Specifically, a `ListStream` results in [`list stream`](Type::ListStream) rather than
+    /// Specifically, a `ListStream` results in `list<any>` rather than
     /// the fully complete [`list`](Type::List) type (which would require knowing the contents),
     /// and a `ByteStream` with [unknown](crate::ByteStreamType::Unknown) type results in
     /// [`any`](Type::Any) rather than [`string`](Type::String) or [`binary`](Type::Binary).
@@ -117,7 +117,7 @@ impl PipelineData {
         match self {
             PipelineData::Empty => Type::Nothing,
             PipelineData::Value(value, _) => value.get_type(),
-            PipelineData::ListStream(_, _) => Type::ListStream,
+            PipelineData::ListStream(_, _) => Type::list(Type::Any),
             PipelineData::ByteStream(stream, _) => stream.type_().into(),
         }
     }
@@ -203,7 +203,7 @@ impl PipelineData {
     ) -> Result<Self, ShellError> {
         match stack.pipe_stdout().unwrap_or(&OutDest::Inherit) {
             OutDest::Print => {
-                self.print(engine_state, stack, false, false)?;
+                self.print_table(engine_state, stack, false, false)?;
                 Ok(Self::Empty)
             }
             OutDest::Pipe | OutDest::PipeSeparate => Ok(self),
@@ -534,11 +534,14 @@ impl PipelineData {
         }
     }
 
-    /// Consume and print self data immediately.
+    /// Consume and print self data immediately, formatted using table command.
+    ///
+    /// This does not respect the display_output hook. If a value is being printed out by a command,
+    /// this function should be used. Otherwise, `nu_cli::util::print_pipeline` should be preferred.
     ///
     /// `no_newline` controls if we need to attach newline character to output.
     /// `to_stderr` controls if data is output to stderr, when the value is false, the data is output to stdout.
-    pub fn print(
+    pub fn print_table(
         self,
         engine_state: &EngineState,
         stack: &mut Stack,

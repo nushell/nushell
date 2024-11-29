@@ -24,7 +24,7 @@ pub enum Comparison {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Math {
     Plus,
-    Append,
+    Concat,
     Minus,
     Multiply,
     Divide,
@@ -53,7 +53,7 @@ pub enum Bits {
 pub enum Assignment {
     Assign,
     PlusAssign,
-    AppendAssign,
+    ConcatAssign,
     MinusAssign,
     MultiplyAssign,
     DivideAssign,
@@ -90,7 +90,7 @@ impl Operator {
             | Self::Comparison(Comparison::NotEqual)
             | Self::Comparison(Comparison::In)
             | Self::Comparison(Comparison::NotIn)
-            | Self::Math(Math::Append) => 80,
+            | Self::Math(Math::Concat) => 80,
             Self::Bits(Bits::BitAnd) => 75,
             Self::Bits(Bits::BitXor) => 70,
             Self::Bits(Bits::BitOr) => 60,
@@ -107,7 +107,7 @@ impl Display for Operator {
         match self {
             Operator::Assignment(Assignment::Assign) => write!(f, "="),
             Operator::Assignment(Assignment::PlusAssign) => write!(f, "+="),
-            Operator::Assignment(Assignment::AppendAssign) => write!(f, "++="),
+            Operator::Assignment(Assignment::ConcatAssign) => write!(f, "++="),
             Operator::Assignment(Assignment::MinusAssign) => write!(f, "-="),
             Operator::Assignment(Assignment::MultiplyAssign) => write!(f, "*="),
             Operator::Assignment(Assignment::DivideAssign) => write!(f, "/="),
@@ -124,7 +124,7 @@ impl Display for Operator {
             Operator::Comparison(Comparison::In) => write!(f, "in"),
             Operator::Comparison(Comparison::NotIn) => write!(f, "not-in"),
             Operator::Math(Math::Plus) => write!(f, "+"),
-            Operator::Math(Math::Append) => write!(f, "++"),
+            Operator::Math(Math::Concat) => write!(f, "++"),
             Operator::Math(Math::Minus) => write!(f, "-"),
             Operator::Math(Math::Multiply) => write!(f, "*"),
             Operator::Math(Math::Divide) => write!(f, "/"),

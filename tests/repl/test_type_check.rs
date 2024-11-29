@@ -1,4 +1,5 @@
 use crate::repl::tests::{fail_test, run_test, TestResult};
+use rstest::rstest;
 
 #[test]
 fn chained_operator_typecheck() -> TestResult {
@@ -153,4 +154,21 @@ fn in_variable_expression_wrong_output_type() -> TestResult {
         r#"def foo []: nothing -> int { 'foo' | $"($in)" }"#,
         "expected int",
     )
+}
+
+#[rstest]
+#[case("if true {} else { foo 1 }")]
+#[case("if true {} else if (foo 1) == null { }")]
+#[case("match 1 { 0 => { foo 1 } }")]
+#[case("try { } catch { foo 1 }")]
+/// type errors should propagate from `OneOf(Block | Closure | Expression, ..)`
+fn in_oneof_block_expected_type(#[case] input: &str) -> TestResult {
+    let def = "def foo [bar: bool] {};";
+
+    fail_test(&format!("{def} {input}"), "expected bool")
+}
+
+#[test]
+fn in_oneof_block_expected_block() -> TestResult {
+    fail_test("match 1 { 0 => { try 3 } }", "expected block")
 }
