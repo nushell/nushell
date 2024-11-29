@@ -632,11 +632,6 @@ $env.config.color_config.shape_glob_interpolation
 # an expression is not (yet) properly closed.
 $env.config.color_config.shape_garbage
 
-# shape_or and shape_and: The and and or operators.
-# Note: Not currently implemented.
-$env.config.color_config.shape_or
-$env.config.color_config.shape_and
-
 # shape_variable: The *use* of a variable. E.g., `$env` or `$a`.
 $env.config.color_config.shape_variable
 

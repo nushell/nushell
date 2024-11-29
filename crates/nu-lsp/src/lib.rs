@@ -576,7 +576,6 @@ impl LanguageServer {
             }
             Id::Value(shape) => {
                 let hover = String::from(match shape {
-                    FlatShape::And => "and",
                     FlatShape::Binary => "binary",
                     FlatShape::Block => "block",
                     FlatShape::Bool => "bool",
