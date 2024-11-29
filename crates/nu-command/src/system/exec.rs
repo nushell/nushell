@@ -45,6 +45,7 @@ On Windows based systems, Nushell will wait for the command to finish and then e
                     call.head,
                     engine_state,
                     stack,
+                    &cwd,
                 ));
             };
             executable

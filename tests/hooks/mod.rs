@@ -28,7 +28,7 @@ fn env_change_hook(name: &str, code: &str) -> String {
         "$env.config = {{
             hooks: {{
                 env_change: {{
-                    {name} : {code}
+                    {name}: [{code}]
                 }}
             }}
         }}"
@@ -40,9 +40,9 @@ fn env_change_hook_code(name: &str, code: &str) -> String {
         "$env.config = {{
             hooks: {{
                 env_change: {{
-                    {name} : {{
+                    {name}: [{{
                         code: {code}
-                    }}
+                    }}]
                 }}
             }}
         }}"
@@ -54,10 +54,10 @@ fn env_change_hook_code_condition(name: &str, condition: &str, code: &str) -> St
         "$env.config = {{
             hooks: {{
                 env_change: {{
-                    {name} : {{
+                    {name}: [{{
                         condition: {condition}
                         code: {code}
-                    }}
+                    }}]
                 }}
             }}
         }}"
@@ -68,7 +68,7 @@ fn pre_prompt_hook(code: &str) -> String {
     format!(
         "$env.config = {{
             hooks: {{
-                pre_prompt: {code}
+                pre_prompt: [{code}]
             }}
         }}"
     )
@@ -78,9 +78,9 @@ fn pre_prompt_hook_code(code: &str) -> String {
     format!(
         "$env.config = {{
             hooks: {{
-                pre_prompt: {{
+                pre_prompt: [{{
                     code: {code}
-                }}
+                }}]
             }}
         }}"
     )
@@ -90,7 +90,7 @@ fn pre_execution_hook(code: &str) -> String {
     format!(
         "$env.config = {{
             hooks: {{
-                pre_execution: {code}
+                pre_execution: [{code}]
             }}
         }}"
     )
@@ -100,9 +100,9 @@ fn pre_execution_hook_code(code: &str) -> String {
     format!(
         "$env.config = {{
             hooks: {{
-                pre_execution: {{
+                pre_execution: [{{
                     code: {code}
-                }}
+                }}]
             }}
         }}"
     )
@@ -536,9 +536,9 @@ fn err_hook_parse_error() {
         r#"$env.config = {
             hooks: {
                 env_change: {
-                    FOO : {
+                    FOO: [{
                         code: "def foo { 'foo' }"
-                    }
+                    }]
                 }
             }
         }"#,
