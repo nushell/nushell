@@ -1,6 +1,7 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::engine::Closure;
+use nu_protocol::engine::{self, Closure};
+use nu_protocol::Signals;
 
 #[derive(Clone)]
 pub struct ChunkBy;
@@ -104,6 +105,22 @@ struct Chunk<I, T, F, K> {
     last_value: Option<(T, K)>,
     closure: F,
     done: bool,
+    signals: Signals,
+}
+
+impl<I, T, F, K> Chunk<I, T, F, K>
+where
+    I: Iterator<Item = T>,
+    F: FnMut(&T) -> K,
+    K: PartialEq,
+{
+    fn inner_iterator_next(&mut self) -> Option<I::Item> {
+        if self.signals.interrupted() {
+            self.done = true;
+            return None;
+        }
+        self.iterator.next()
+    }
 }
 
 impl<I, T, F, K> Iterator for Chunk<I, T, F, K>
@@ -121,7 +138,7 @@ where
 
         let (head, head_key) = match self.last_value.take() {
             None => {
-                let head = self.iterator.next()?;
+                let head = self.inner_iterator_next()?;
 
                 let key = (self.closure)(&head);
 
@@ -134,7 +151,7 @@ where
         let mut result = vec![head];
 
         loop {
-            match self.iterator.next() {
+            match self.inner_iterator_next() {
                 None => {
                     self.done = true;
                     return Some(result);
@@ -155,7 +172,7 @@ where
 }
 
 /// An iterator with the semantics of the chunk_by operation.
-fn chunk_iter_by<I, T, F, K>(iterator: I, closure: F) -> Chunk<I, T, F, K>
+fn chunk_iter_by<I, T, F, K>(iterator: I, signals: Signals, closure: F) -> Chunk<I, T, F, K>
 where
     I: Iterator<Item = T>,
     F: FnMut(&T) -> K,
@@ -166,6 +183,7 @@ where
         iterator,
         last_value: None,
         done: false,
+        signals,
     }
 }
 
@@ -187,7 +205,12 @@ pub fn chunk_by(
         | PipelineData::ListStream(..) => {
             let closure = ClosureEval::new(engine_state, stack, closure);
 
-            let result = chunk_value_stream(input.into_iter(), closure, head);
+            let result = chunk_value_stream(
+                input.into_iter(),
+                closure,
+                head,
+                engine_state.signals().clone(),
+            );
 
             Ok(result.into_pipeline_data(head, engine_state.signals().clone()))
         }
@@ -203,11 +226,12 @@ fn chunk_value_stream<I>(
     iterator: I,
     mut closure: ClosureEval,
     head: Span,
+    signals: Signals,
 ) -> impl Iterator<Item = Value> + 'static + Send
 where
     I: Iterator<Item = Value> + 'static + Send,
 {
-    chunk_iter_by(iterator, move |value| {
+    chunk_iter_by(iterator, signals, move |value| {
         match closure.run_with_value(value.clone()) {
             Ok(data) => data.into_value(head).unwrap_or_else(|error| {
                 Value::error(chain_error_with_input(error, value.is_error(), head), head)
