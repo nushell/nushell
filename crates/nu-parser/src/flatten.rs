@@ -11,7 +11,6 @@ use std::fmt::{Display, Formatter, Result};
 
 #[derive(Debug, Eq, PartialEq, Ord, Clone, PartialOrd)]
 pub enum FlatShape {
-    And,
     Binary,
     Block,
     Bool,
@@ -36,7 +35,6 @@ pub enum FlatShape {
     MatchPattern,
     Nothing,
     Operator,
-    Or,
     Pipe,
     Range,
     RawString,
@@ -53,7 +51,6 @@ pub enum FlatShape {
 impl FlatShape {
     pub fn as_str(&self) -> &str {
         match self {
-            FlatShape::And => "shape_and",
             FlatShape::Binary => "shape_binary",
             FlatShape::Block => "shape_block",
             FlatShape::Bool => "shape_bool",
@@ -78,7 +75,6 @@ impl FlatShape {
             FlatShape::MatchPattern => "shape_match_pattern",
             FlatShape::Nothing => "shape_nothing",
             FlatShape::Operator => "shape_operator",
-            FlatShape::Or => "shape_or",
             FlatShape::Pipe => "shape_pipe",
             FlatShape::Range => "shape_range",
             FlatShape::RawString => "shape_raw_string",
