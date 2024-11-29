@@ -1,6 +1,7 @@
 mod all;
 mod any;
 mod append;
+mod chunk_by;
 mod chunks;
 mod columns;
 mod compact;
@@ -58,6 +59,7 @@ mod zip;
 pub use all::All;
 pub use any::Any;
 pub use append::Append;
+pub use chunk_by::ChunkBy;
 pub use chunks::Chunks;
 pub use columns::Columns;
 pub use compact::Compact;

@@ -8,6 +8,7 @@ mod break_;
 mod bytes;
 mod cal;
 mod cd;
+mod chunk_by;
 mod chunks;
 mod compact;
 mod complete;
