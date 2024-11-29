@@ -307,7 +307,7 @@ fn test_one_newline() {
     correct_counts.insert(Counter::GraphemeClusters, 1);
     correct_counts.insert(Counter::Bytes, 1);
     correct_counts.insert(Counter::CodePoints, 1);
-    correct_counts.insert(Counter::UnicodeWidth, 0);
+    correct_counts.insert(Counter::UnicodeWidth, 1);
 
     assert_eq!(correct_counts, counts);
 }
@@ -347,7 +347,7 @@ fn test_count_counts_lines() {
 
     // one more than grapheme clusters because of \r\n
     correct_counts.insert(Counter::CodePoints, 24);
-    correct_counts.insert(Counter::UnicodeWidth, 17);
+    correct_counts.insert(Counter::UnicodeWidth, 23);
 
     assert_eq!(correct_counts, counts);
 }

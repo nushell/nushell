@@ -3363,7 +3363,7 @@ dependencies = [
  "trash",
  "umask",
  "unicode-segmentation",
- "unicode-width 0.1.11",
+ "unicode-width 0.2.0",
  "ureq",
  "url",
  "uu_cp",
@@ -3426,7 +3426,7 @@ dependencies = [
  "nu-utils",
  "ratatui",
  "strip-ansi-escapes",
- "unicode-width 0.1.11",
+ "unicode-width 0.2.0",
 ]
 
 [[package]]
@@ -3666,7 +3666,7 @@ name = "nu-term-grid"
 version = "0.100.1"
 dependencies = [
  "nu-utils",
- "unicode-width 0.1.11",
+ "unicode-width 0.2.0",
 ]
 
 [[package]]
