@@ -534,8 +534,8 @@ pub struct DisplayFilesize {
 }
 
 impl DisplayFilesize {
-    pub fn precision(mut self, precision: usize) -> Self {
-        self.precision = Some(precision);
+    pub fn precision(mut self, precision: impl Into<Option<usize>>) -> Self {
+        self.precision = precision.into();
         self
     }
 }
@@ -574,7 +574,7 @@ impl fmt::Display for DisplayFilesize {
                 let bytes = unit.as_bytes() as i64;
                 let whole = filesize.0 / bytes;
                 let fract = (filesize.0 % bytes).unsigned_abs();
-                if fract == 0 || precision == Some(0) {
+                if precision == Some(0) || (precision.is_none() && fract == 0) {
                     write!(f, "{whole} {unit}")
                 } else {
                     // fract <= bytes by nature of `%` and bytes <= EB = 10 ^ 18

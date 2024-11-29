@@ -46,7 +46,7 @@ impl IntoValue for FilesizeFormatUnit {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FilesizeConfig {
     pub unit: FilesizeFormatUnit,
-    pub precision: u64,
+    pub precision: Option<usize>,
 }
 
 impl FilesizeConfig {
@@ -56,7 +56,7 @@ impl FilesizeConfig {
             FilesizeFormatUnit::Binary => filesize.largest_binary_unit(),
             FilesizeFormatUnit::Unit(unit) => unit,
         };
-        filesize.display(unit).precision(self.precision as usize)
+        filesize.display(unit).precision(self.precision)
     }
 }
 
@@ -64,7 +64,7 @@ impl Default for FilesizeConfig {
     fn default() -> Self {
         Self {
             unit: FilesizeFormatUnit::Decimal,
-            precision: 1,
+            precision: Some(1),
         }
     }
 }
@@ -85,7 +85,12 @@ impl UpdateFromValue for FilesizeConfig {
             let path = &mut path.push(col);
             match col.as_str() {
                 "unit" => config_update_string_enum(&mut self.unit, val, path, errors),
-                "precision" => self.precision.update(value, path, errors),
+                "precision" => match *val {
+                    Value::Nothing { .. } => self.precision = None,
+                    Value::Int { val, .. } if val >= 0 => self.precision = Some(val as usize),
+                    Value::Int { .. } => errors.invalid_value(path, "a non-negative integer", val),
+                    _ => errors.type_mismatch(path, Type::custom("int or nothing"), val),
+                },
                 "format" | "metric" => {
                     // TODO: remove after next release
                     errors.deprecated_option(path, "set $env.config.filesize.unit", val.span())
@@ -100,7 +105,7 @@ impl IntoValue for FilesizeConfig {
     fn into_value(self, span: Span) -> Value {
         record! {
             "unit" => self.unit.into_value(span),
-            "precision" => (self.precision as i64).into_value(span),
+            "precision" => self.precision.map(|x| x as i64).into_value(span),
         }
         .into_value(span)
     }

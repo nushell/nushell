@@ -91,20 +91,6 @@ impl UpdateFromValue for i64 {
     }
 }
 
-impl UpdateFromValue for u64 {
-    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
-        if let Ok(val) = value.as_int() {
-            if let Ok(val) = val.try_into() {
-                *self = val;
-            } else {
-                errors.invalid_value(path, "a non-negative integer", value);
-            }
-        } else {
-            errors.type_mismatch(path, Type::Int, value);
-        }
-    }
-}
-
 impl UpdateFromValue for usize {
     fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
         if let Ok(val) = value.as_int() {
