@@ -764,46 +764,32 @@ fn range_with_mixed_types() {
 
 #[test]
 fn filesize_math() {
-    let actual = nu!("
-        100 * 10kib
-        ");
-
-    assert_eq!(actual.out, "1.024 MB");
+    let actual = nu!("100 * 10kB");
+    assert_eq!(actual.out, "1.0 MB");
 }
 
 #[test]
 fn filesize_math2() {
-    let actual = nu!("
-        100 / 10kb
-        ");
-
+    let actual = nu!("100 / 10kb");
     assert!(actual.err.contains("doesn't support"));
 }
 
 #[test]
 fn filesize_math3() {
-    let actual = nu!("
-        100kB / 10
-        ");
-
-    assert_eq!(actual.out, "10 kB");
+    let actual = nu!("100kB / 10");
+    assert_eq!(actual.out, "10.0 kB");
 }
+
 #[test]
 fn filesize_math4() {
-    let actual = nu!("
-        100kB * 5
-        ");
-
-    assert_eq!(actual.out, "500 kB");
+    let actual = nu!("100kB * 5");
+    assert_eq!(actual.out, "500.0 kB");
 }
 
 #[test]
 fn filesize_math5() {
-    let actual = nu!("
-        100 * 1kB
-        ");
-
-    assert_eq!(actual.out, "100 kB");
+    let actual = nu!("100 * 1kB");
+    assert_eq!(actual.out, "100.0 kB");
 }
 
 #[test]

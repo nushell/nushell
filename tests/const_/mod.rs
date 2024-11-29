@@ -123,7 +123,7 @@ fn const_string_interpolation_date() {
 #[test]
 fn const_string_interpolation_filesize() {
     let actual = nu!(r#"const s = $"(2kB)"; $s"#);
-    assert_eq!(actual.out, "2 kB");
+    assert_eq!(actual.out, "2.0 kB");
 }
 
 #[test]

@@ -17,8 +17,7 @@ fn float() {
 #[test]
 fn str() {
     let actual = nu!("'2000' | into filesize");
-
-    assert!(actual.out.contains("2 kB"));
+    assert!(actual.out.contains("2.0 kB"));
 }
 
 #[test]
@@ -30,7 +29,7 @@ fn str_newline() {
         "#
     ));
 
-    assert!(actual.out.contains("2 kB"));
+    assert!(actual.out.contains("2.0 kB"));
 }
 
 #[test]
@@ -43,28 +42,28 @@ fn str_many_newlines() {
         "#
     ));
 
-    assert!(actual.out.contains("2 kB"));
+    assert!(actual.out.contains("2.0 kB"));
 }
 
 #[test]
 fn filesize() {
     let actual = nu!("3kB | into filesize");
 
-    assert!(actual.out.contains("3 kB"));
+    assert!(actual.out.contains("3.0 kB"));
 }
 
 #[test]
 fn negative_filesize() {
     let actual = nu!("-3kB | into filesize");
 
-    assert!(actual.out.contains("-3 kB"));
+    assert!(actual.out.contains("-3.0 kB"));
 }
 
 #[test]
 fn negative_str_filesize() {
     let actual = nu!("'-3kB' | into filesize");
 
-    assert!(actual.out.contains("-3 kB"));
+    assert!(actual.out.contains("-3.0 kB"));
 }
 
 #[test]
@@ -99,7 +98,7 @@ fn wrong_negative_str() {
 fn positive_str_filesize() {
     let actual = nu!("'+1kB' | into filesize");
 
-    assert!(actual.out.contains("1 kB"));
+    assert!(actual.out.contains("1.0 kB"));
 }
 
 #[test]

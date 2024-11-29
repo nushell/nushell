@@ -7,7 +7,7 @@ fn filesize_mb() {
         r#"20MB | into string"#,
     ];
     let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, "20 MB");
+    assert_eq!(actual.out, "20.0 MB");
 }
 
 #[test]
@@ -17,7 +17,7 @@ fn filesize_mib() {
         r#"20MiB | into string"#,
     ];
     let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, "20 MiB");
+    assert_eq!(actual.out, "20.0 MiB");
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn filesize_format_decimal() {
         r#"[2MB 2GB 2TB] | into string | to nuon"#,
     ];
     let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, r#"["2 MB", "2 GB", "2 TB"]"#);
+    assert_eq!(actual.out, r#"["2.0 MB", "2.0 GB", "2.0 TB"]"#);
 }
 
 #[test]
@@ -37,7 +37,7 @@ fn filesize_format_binary() {
         r#"[2MiB 2GiB 2TiB] | into string | to nuon"#,
     ];
     let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, r#"["2 MiB", "2 GiB", "2 TiB"]"#);
+    assert_eq!(actual.out, r#"["2.0 MiB", "2.0 GiB", "2.0 TiB"]"#);
 }
 
 #[test]

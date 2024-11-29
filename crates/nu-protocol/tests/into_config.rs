@@ -30,7 +30,7 @@ fn config_affected_when_mutated() {
         "20MB | into string"
     ]));
 
-    assert_eq!(actual.out, "20 MB");
+    assert_eq!(actual.out, "20.0 MB");
 }
 
 #[test]
@@ -40,7 +40,7 @@ fn config_affected_when_deep_mutated() {
         r#"$env.config.filesize.unit = 'binary'"#,
         r#"20MiB | into string"#]));
 
-    assert_eq!(actual.out, "20 MiB");
+    assert_eq!(actual.out, "20.0 MiB");
 }
 
 #[test]
