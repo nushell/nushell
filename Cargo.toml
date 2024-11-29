@@ -106,7 +106,7 @@ lsp-server = "0.7.5"
 lsp-types = { version = "0.95.0", features = ["proposed"] }
 mach2 = "0.4"
 md5 = { version = "0.10", package = "md-5" }
-miette = "7.2"
+miette = "7.3"
 mime = "0.3.17"
 mime_guess = "2.0"
 mockito = { version = "1.6", default-features = false }
@@ -162,7 +162,7 @@ toml = "0.8"
 trash = "5.2"
 umask = "2.1"
 unicode-segmentation = "1.12"
-unicode-width = "0.1"
+unicode-width = "0.2"
 ureq = { version = "2.10", default-features = false }
 url = "2.2"
 uu_cp = "0.0.28"
