@@ -154,11 +154,11 @@ pub(crate) fn compile_binary_op(
 pub(crate) fn decompose_assignment(assignment: Assignment) -> Option<Operator> {
     match assignment {
         Assignment::Assign => None,
-        Assignment::PlusAssign => Some(Operator::Math(Math::Plus)),
-        Assignment::ConcatAssign => Some(Operator::Math(Math::Concat)),
-        Assignment::MinusAssign => Some(Operator::Math(Math::Minus)),
+        Assignment::AddAssign => Some(Operator::Math(Math::Add)),
+        Assignment::SubtractAssign => Some(Operator::Math(Math::Subtract)),
         Assignment::MultiplyAssign => Some(Operator::Math(Math::Multiply)),
         Assignment::DivideAssign => Some(Operator::Math(Math::Divide)),
+        Assignment::ConcatenateAssign => Some(Operator::Math(Math::Concatenate)),
     }
 }
 

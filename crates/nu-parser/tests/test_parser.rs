@@ -1908,17 +1908,10 @@ mod range {
 
         let _ = parse(&mut working_set, None, code.as_bytes(), true);
 
-        assert!(
-            working_set.parse_errors.len() == 1,
-            "Errors: {:?}",
-            working_set.parse_errors
-        );
-        let err = &working_set.parse_errors[0].to_string();
-        assert!(
-            err.contains("range is not supported"),
-            "Expected unsupported operation error, got {}",
-            err
-        );
+        assert!(matches!(
+            &working_set.parse_errors[..],
+            [ParseError::OperatorUnsupportedType { .. }]
+        ),);
     }
 
     #[test]

@@ -91,45 +91,26 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
         Pick::Median
     };
 
-    let mut sorted = vec![];
-
-    for item in values {
-        sorted.push(item.clone());
-    }
-
-    if let Some(Err(values)) = values
-        .windows(2)
-        .map(|elem| {
-            if elem[0].partial_cmp(&elem[1]).is_none() {
-                return Err(ShellError::OperatorMismatch {
-                    op_span: head,
-                    lhs_ty: elem[0].get_type().to_string(),
-                    lhs_span: elem[0].span(),
-                    rhs_ty: elem[1].get_type().to_string(),
-                    rhs_span: elem[1].span(),
-                });
-            }
-            Ok(elem[0].partial_cmp(&elem[1]).unwrap_or(Ordering::Equal))
-        })
-        .find(|elem| elem.is_err())
-    {
-        return Err(values);
-    }
+    let mut sorted = values
+        .iter()
+        .filter(|x| !x.as_float().is_ok_and(f64::is_nan))
+        .collect::<Vec<_>>();
 
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
 
     match take {
         Pick::Median => {
             let idx = (values.len() as f64 / 2.0).floor() as usize;
-            let out = sorted
+            Ok(sorted
                 .get(idx)
                 .ok_or_else(|| ShellError::UnsupportedInput {
                     msg: "Empty input".to_string(),
                     input: "value originates from here".into(),
                     msg_span: head,
                     input_span: span,
-                })?;
-            Ok(out.clone())
+                })?
+                .to_owned()
+                .to_owned())
         }
         Pick::MedianAverage => {
             let idx_end = values.len() / 2;
@@ -143,7 +124,8 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
                     msg_span: head,
                     input_span: span,
                 })?
-                .clone();
+                .to_owned()
+                .to_owned();
 
             let right = sorted
                 .get(idx_end)
@@ -153,7 +135,8 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
                     msg_span: head,
                     input_span: span,
                 })?
-                .clone();
+                .to_owned()
+                .to_owned();
 
             average(&[left, right], span, head)
         }

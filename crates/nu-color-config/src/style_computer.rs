@@ -240,7 +240,9 @@ fn test_computable_style_closure_errors() {
     ];
     let actual_repl = nu!(nu_repl_code(&inp));
     // Check that the error was printed
-    assert!(actual_repl.err.contains("type mismatch for operator"));
+    assert!(actual_repl
+        .err
+        .contains("nu::shell::operator_incompatible_types"));
     // Check that the value was printed
     assert!(actual_repl.out.contains("bell"));
 }

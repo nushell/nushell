@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt};
 
-use crate::{ast::Operator, ShellError, Span, Value};
+use crate::{ast::Operator, ShellError, Span, Type, Value};
 
 /// Trait definition for a custom [`Value`](crate::Value) type
 #[typetag::serde(tag = "type")]
@@ -68,7 +68,7 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     ///
     /// The Operator enum is used to indicate the expected operation.
     ///
-    /// Default impl raises [`ShellError::UnsupportedOperator`].
+    /// Default impl raises [`ShellError::OperatorUnsupportedType`].
     fn operation(
         &self,
         lhs_span: Span,
@@ -77,7 +77,13 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
         right: &Value,
     ) -> Result<Value, ShellError> {
         let _ = (lhs_span, right);
-        Err(ShellError::UnsupportedOperator { operator, span: op })
+        Err(ShellError::OperatorUnsupportedType {
+            op: operator,
+            unsupported: Type::Custom(self.type_name().into()),
+            op_span: op,
+            unsupported_span: lhs_span,
+            help: None,
+        })
     }
 
     /// For custom values in plugins: return `true` here if you would like to be notified when all

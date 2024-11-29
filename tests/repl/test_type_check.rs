@@ -13,7 +13,10 @@ fn type_in_list_of_this_type() -> TestResult {
 
 #[test]
 fn type_in_list_of_non_this_type() -> TestResult {
-    fail_test(r#"'hello' in [41 42 43]"#, "is not supported")
+    fail_test(
+        r#"'hello' in [41 42 43]"#,
+        "nu::parser::operator_incompatible_types",
+    )
 }
 
 #[test]
@@ -40,7 +43,10 @@ fn date_minus_duration() -> TestResult {
 
 #[test]
 fn duration_minus_date_not_supported() -> TestResult {
-    fail_test("2day - 2023-04-22", "doesn't support these values")
+    fail_test(
+        "2day - 2023-04-22",
+        "nu::parser::operator_incompatible_types",
+    )
 }
 
 #[test]

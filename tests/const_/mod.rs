@@ -167,7 +167,7 @@ fn const_binary_operator(#[case] inp: &[&str], #[case] expect: &str) {
 #[case(&["const x = 1 / 0", "$x"], "division by zero")]
 #[case(&["const x = 10 ** 10000000", "$x"], "pow operation overflowed")]
 #[case(&["const x = 2 ** 62 * 2", "$x"], "multiply operation overflowed")]
-#[case(&["const x = 1 ++ 0", "$x"], "doesn't support this value")]
+#[case(&["const x = 1 ++ 0", "$x"], "nu::parser::operator_unsupported_type")]
 fn const_operator_error(#[case] inp: &[&str], #[case] expect: &str) {
     let actual = nu!(&inp.join("; "));
     assert!(actual.err.contains(expect));
