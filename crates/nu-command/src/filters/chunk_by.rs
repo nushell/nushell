@@ -1,6 +1,6 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::engine::{self, Closure};
+use nu_protocol::engine::Closure;
 use nu_protocol::Signals;
 
 #[derive(Clone)]
