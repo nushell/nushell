@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-
+use nu_protocol::format_filesize_from_conf;
 use rand::{
     distributions::{Alphanumeric, Distribution},
     thread_rng,
@@ -73,14 +73,36 @@ fn chars(
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    let length: Option<usize> = call.get_flag(engine_state, stack, "length")?;
+    let length: Option<Value> = call.get_flag(engine_state, stack, "length")?;
+    let length = if let Some(length_val) = length {
+        match length_val {
+            Value::Int { val, .. } => usize::try_from(val).map_err(|_| ShellError::InvalidValue {
+                valid: "a non-negative int or filesize".into(),
+                actual: val.to_string(),
+                span: length_val.span(),
+            }),
+            Value::Filesize { val, .. } => {
+                usize::try_from(val).map_err(|_| ShellError::InvalidValue {
+                    valid: "a non-negative int or filesize".into(),
+                    actual: format_filesize_from_conf(val, engine_state.get_config()),
+                    span: length_val.span(),
+                })
+            }
+            val => Err(ShellError::RuntimeTypeMismatch {
+                expected: Type::custom("int or filesize"),
+                actual: val.get_type(),
+                span: val.span(),
+            }),
+        }?
+    } else {
+        DEFAULT_CHARS_LENGTH
+    };
 
-    let chars_length = length.unwrap_or(DEFAULT_CHARS_LENGTH);
     let mut rng = thread_rng();
 
     let random_string = Alphanumeric
         .sample_iter(&mut rng)
-        .take(chars_length)
+        .take(length)
         .map(char::from)
         .collect::<String>();
 

@@ -1,13 +1,11 @@
-use std::{fmt, sync::Arc};
-
 use crate::{
     ast::{CellPath, Expression, Operator, Pattern, RangeInclusion},
     engine::EngineState,
-    BlockId, DeclId, RegId, Span, Value, VarId,
+    BlockId, DeclId, Filesize, RegId, Span, Value, VarId,
 };
-
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
+use std::{fmt, sync::Arc};
 
 mod call;
 mod display;
@@ -397,7 +395,7 @@ pub enum Literal {
     Bool(bool),
     Int(i64),
     Float(f64),
-    Filesize(i64),
+    Filesize(Filesize),
     Duration(i64),
     Binary(DataSlice),
     Block(BlockId),

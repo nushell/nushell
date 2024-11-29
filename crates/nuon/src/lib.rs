@@ -155,7 +155,7 @@ mod tests {
     #[test]
     fn filesize() {
         nuon_end_to_end("1024b", Some(Value::test_filesize(1024)));
-        assert_eq!(from_nuon("1kib", None).unwrap(), Value::test_filesize(1024),);
+        assert_eq!(from_nuon("1kib", None).unwrap(), Value::test_filesize(1024));
     }
 
     #[test]

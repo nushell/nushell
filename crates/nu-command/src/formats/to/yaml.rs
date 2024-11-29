@@ -44,7 +44,9 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
     Ok(match &v {
         Value::Bool { val, .. } => serde_yaml::Value::Bool(*val),
         Value::Int { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
-        Value::Filesize { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
+        Value::Filesize { val, .. } => {
+            serde_yaml::Value::Number(serde_yaml::Number::from(val.get()))
+        }
         Value::Duration { val, .. } => serde_yaml::Value::String(val.to_string()),
         Value::Date { val, .. } => serde_yaml::Value::String(val.to_string()),
         Value::Range { .. } => serde_yaml::Value::Null,
