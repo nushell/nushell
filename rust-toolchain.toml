@@ -16,4 +16,4 @@ profile = "default"
 # use in nushell, we may opt to use the bleeding edge stable version of rust.
 # I believe rust is on a 6 week release cycle and nushell is on a 4 week release cycle.
 # So, every two nushell releases, this version number should be bumped by one.
-channel = "1.80.1"
+channel = "1.81.0"
