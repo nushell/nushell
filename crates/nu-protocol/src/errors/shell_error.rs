@@ -1486,7 +1486,7 @@ impl ShellError {
             "msg" => Value::string(self.to_string(), span),
             "debug" => Value::string(format!("{self:?}"), span),
             "raw" => Value::error(self.clone(), span),
-            "rendered" => Value::string(format_shell_error(&working_set, &self), span),
+            "rendered" => Value::string(format_shell_error(working_set, &self), span),
             "json" => Value::string(serde_json::to_string(&self).expect("Could not serialize error"), span),
         };
 
