@@ -13,6 +13,7 @@ impl Command for SysCpu {
     fn signature(&self) -> Signature {
         Signature::build("sys cpu")
             .filter()
+            .switch("cpu-count", "get the number of cpus", Some('c'))
             .category(Category::System)
             .input_output_types(vec![(Type::Nothing, Type::table())])
     }
@@ -23,12 +24,19 @@ impl Command for SysCpu {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(cpu(call.head).into_pipeline_data())
+        let cpu_count = call.has_flag(engine_state, stack, "cpu-count")?;
+        if cpu_count {
+            let mut sys = System::new();
+            sys.refresh_cpu_list(CpuRefreshKind::everything());
+            Ok(Value::int(sys.cpus().len() as i64, call.head).into_pipeline_data())
+        } else {
+            Ok(cpu(call.head).into_pipeline_data())
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
