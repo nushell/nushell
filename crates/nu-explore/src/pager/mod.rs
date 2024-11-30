@@ -128,10 +128,17 @@ impl<'a> Pager<'a> {
 
 #[derive(Debug, Clone)]
 pub enum Transition {
-    // TODO: should we add a noop transition instead of doing Option<Transition> everywhere?
     Ok,
     Exit,
     Cmd(String),
+    None,
+}
+
+#[derive(Debug, Clone)]
+pub enum StatusTopOrEnd {
+    Top,
+    End,
+    None,
 }
 
 #[derive(Debug, Clone)]
@@ -212,34 +219,32 @@ fn render_ui(
             view_stack.curr_view.as_mut().map(|p| &mut p.view),
         );
 
-        if let Some(transition) = transition {
-            let (exit, cmd_name) = react_to_event_result(
-                transition,
-                engine_state,
-                &commands,
-                pager,
-                &mut view_stack,
-                stack,
-                info,
-            );
+        let (exit, cmd_name) = react_to_event_result(
+            transition,
+            engine_state,
+            &commands,
+            pager,
+            &mut view_stack,
+            stack,
+            info,
+        );
 
-            if let Some(value) = exit {
-                break Ok(value);
+        if let Some(value) = exit {
+            break Ok(value);
+        }
+
+        if !cmd_name.is_empty() {
+            if let Some(r) = info.report.as_mut() {
+                r.message = cmd_name;
+                r.level = Severity::Success;
+            } else {
+                info.report = Some(Report::success(cmd_name));
             }
 
-            if !cmd_name.is_empty() {
-                if let Some(r) = info.report.as_mut() {
-                    r.message = cmd_name;
-                    r.level = Severity::Success;
-                } else {
-                    info.report = Some(Report::success(cmd_name));
-                }
-
-                let info = info.clone();
-                term.draw(|f| {
-                    draw_info(f, pager, info);
-                })?;
-            }
+            let info = info.clone();
+            term.draw(|f| {
+                draw_info(f, pager, info);
+            })?;
         }
 
         if pager.cmd_buf.run_cmd {
@@ -319,6 +324,7 @@ fn react_to_event_result(
                 }
             }
         }
+        Transition::None => (None, String::default()),
     }
 }
 
@@ -419,6 +425,7 @@ fn run_command(
                 Transition::Ok => Ok(CmdResult::new(false, false, String::new())),
                 Transition::Exit => Ok(CmdResult::new(true, false, String::new())),
                 Transition::Cmd { .. } => todo!("not used so far"),
+                Transition::None => panic!("Transition::None not expected from command.react()"),
             }
         }
         Command::View { mut cmd, stackable } => {
@@ -617,17 +624,17 @@ fn handle_events<V: View>(
     search: &mut SearchBuf,
     command: &mut CommandBuf,
     mut view: Option<&mut V>,
-) -> Option<Transition> {
+) -> Transition {
     // We are only interested in Pressed events;
     // It's crucial because there are cases where terminal MIGHT produce false events;
     // 2 events 1 for release 1 for press.
     // Want to react only on 1 of them so we do.
     let mut key = match events.next_key_press() {
         Ok(Some(key)) => key,
-        Ok(None) => return None,
+        Ok(None) => return Transition::None,
         Err(e) => {
             log::error!("Failed to read key event: {e}");
-            return None;
+            return Transition::None;
         }
     };
 
@@ -647,15 +654,15 @@ fn handle_events<V: View>(
             view.as_deref_mut(),
             key,
         );
-        if result.is_some() {
+        if !matches!(result, Transition::None) {
             return result;
         }
         match events.try_next_key_press() {
             Ok(Some(next_key)) => key = next_key,
-            Ok(None) => return None,
+            Ok(None) => return Transition::None,
             Err(e) => {
                 log::error!("Failed to peek key event: {e}");
-                return None;
+                return Transition::None;
             }
         }
     }
@@ -671,29 +678,29 @@ fn handle_event<V: View>(
     command: &mut CommandBuf,
     mut view: Option<&mut V>,
     key: KeyEvent,
-) -> Option<Transition> {
+) -> Transition {
     if handle_exit_key_event(&key) {
-        return Some(Transition::Exit);
+        return Transition::Exit;
     }
 
     if handle_general_key_events1(&key, search, command, view.as_deref_mut()) {
-        return None;
+        return Transition::None;
     }
 
     if let Some(view) = &mut view {
         let t = view.handle_input(engine_state, stack, layout, info, key);
         match t {
-            Some(Transition::Exit) => return Some(Transition::Ok),
-            Some(Transition::Cmd(cmd)) => return Some(Transition::Cmd(cmd)),
-            Some(Transition::Ok) => return None,
-            None => {}
+            Transition::Exit => return Transition::Ok,
+            Transition::Cmd(cmd) => return Transition::Cmd(cmd),
+            Transition::Ok => return Transition::None,
+            Transition::None => {}
         }
     }
 
     // was not handled so we must check our default controls
     handle_general_key_events2(&key, search, command, view, info);
 
-    None
+    Transition::None
 }
 
 fn handle_exit_key_event(key: &KeyEvent) -> bool {
