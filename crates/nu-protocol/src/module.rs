@@ -167,7 +167,7 @@ impl Module {
                 vec![]
             } else {
                 vec![(
-                    final_name.clone(),
+                    normalize_module_name(&final_name),
                     Value::record(
                         const_rows
                             .into_iter()
@@ -424,4 +424,33 @@ impl Module {
 
         result
     }
+}
+
+/// normalize module names for exporting as record constant
+fn normalize_module_name(bytes: &[u8]) -> Vec<u8> {
+    bytes
+        .iter()
+        .map(|x| match is_identifier_byte(*x) {
+            true => *x,
+            false => b'_',
+        })
+        .collect()
+}
+
+fn is_identifier_byte(b: u8) -> bool {
+    b != b'.'
+        && b != b'['
+        && b != b'('
+        && b != b'{'
+        && b != b'+'
+        && b != b'-'
+        && b != b'*'
+        && b != b'^'
+        && b != b'/'
+        && b != b'='
+        && b != b'!'
+        && b != b'<'
+        && b != b'>'
+        && b != b'&'
+        && b != b'|'
 }
