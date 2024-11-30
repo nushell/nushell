@@ -2,7 +2,6 @@
 //        overall reduce the redundant calls to StyleComputer etc.
 //        the goal is to configure it once...
 
-use crossterm::terminal::size;
 use lscolors::{LsColors, Style};
 use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
 use nu_engine::{command_prelude::*, env_to_string};
@@ -15,7 +14,7 @@ use nu_table::{
     common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,
     StringResult, TableOpts, TableOutput,
 };
-use nu_utils::get_ls_colors;
+use nu_utils::{get_ls_colors, terminal_size};
 use std::{
     collections::VecDeque,
     io::{IsTerminal, Read},
@@ -30,7 +29,7 @@ const STREAM_PAGE_SIZE: usize = 1000;
 fn get_width_param(width_param: Option<i64>) -> usize {
     if let Some(col) = width_param {
         col as usize
-    } else if let Ok((w, _h)) = size() {
+    } else if let Ok((w, _h)) = terminal_size() {
         w as usize
     } else {
         80
@@ -712,6 +711,13 @@ fn make_clickable_link(
 ) -> String {
     // uri's based on this https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
 
+    #[cfg(any(
+        unix,
+        windows,
+        target_os = "redox",
+        target_os = "wasi",
+        target_os = "hermit"
+    ))]
     if show_clickable_links {
         format!(
             "\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\",
@@ -726,6 +732,18 @@ fn make_clickable_link(
             Some(link_name) => link_name.to_string(),
             None => full_path,
         }
+    }
+
+    #[cfg(not(any(
+        unix,
+        windows,
+        target_os = "redox",
+        target_os = "wasi",
+        target_os = "hermit"
+    )))]
+    match link_name {
+        Some(link_name) => link_name.to_string(),
+        None => full_path,
     }
 }
 

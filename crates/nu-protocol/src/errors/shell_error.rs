@@ -1458,6 +1458,17 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         #[label = "while running this code"]
         span: Option<Span>,
     },
+
+    #[error("OS feature is disabled: {msg}")]
+    #[diagnostic(
+        code(nu::shell::os_disabled),
+        help("You're probably running outside an OS like a browser, we cannot support this")
+    )]
+    DisabledOsSupport {
+        msg: String,
+        #[label = "while running this code"]
+        span: Option<Span>,
+    },
 }
 
 impl ShellError {

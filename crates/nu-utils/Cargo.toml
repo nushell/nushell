@@ -17,6 +17,7 @@ bench = false
 bench = false
 
 [dependencies]
+crossterm = { workspace = true, optional = true }
 fancy-regex = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
 log = { workspace = true }
@@ -25,6 +26,10 @@ strip-ansi-escapes = { workspace = true }
 serde = { workspace = true }
 sys-locale = "0.3"
 unicase = "2.8.0"
+
+[features]
+default = ["os"]
+os = ["crossterm"]
 
 [target.'cfg(windows)'.dependencies]
 crossterm_winapi = "0.9"

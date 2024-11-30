@@ -363,6 +363,40 @@ export def build [
     }
 }
 
+# build crates for wasm
+export def "build wasm" [] {
+    ^rustup target add wasm32-unknown-unknown
+
+    # these crates should compile for wasm
+    let compatible_crates = [
+        "nu-cmd-base",
+        "nu-cmd-extra",
+        "nu-cmd-lang",
+        "nu-color-config",
+        "nu-command",
+        "nu-derive-value",
+        "nu-engine",
+        "nu-glob",
+        "nu-json",
+        "nu-parser",
+        "nu-path",
+        "nu-pretty-hex",
+        "nu-protocol",
+        "nu-std",
+        "nu-system",
+        "nu-table",
+        "nu-term-grid",
+        "nu-utils",
+        "nuon"
+    ]
+
+    for crate in $compatible_crates {
+            print $'(char nl)Building ($crate) for wasm'
+            print '----------------------------'
+        ^cargo build -p $crate --target wasm32-unknown-unknown --no-default-features
+    }
+}
+
 def "nu-complete list features" [] {
     open Cargo.toml | get features | transpose feature dependencies | get feature
 }

@@ -15,10 +15,10 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.100.1" }
+nu-engine = { path = "../nu-engine", version = "0.100.1", default-features = false }
 nu-parser = { path = "../nu-parser", version = "0.100.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.100.1" }
-nu-utils = { path = "../nu-utils", version = "0.100.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.100.1", default-features = false }
+nu-utils = { path = "../nu-utils", version = "0.100.1", default-features = false }
 
 itertools = { workspace = true }
 shadow-rs = { version = "0.36", default-features = false }
@@ -27,6 +27,17 @@ shadow-rs = { version = "0.36", default-features = false }
 shadow-rs = { version = "0.36", default-features = false }
 
 [features]
+default = ["os"]
+os = [
+  "nu-engine/os",
+  "nu-protocol/os",
+  "nu-utils/os",
+]
+plugin = [
+  "nu-protocol/plugin",
+  "os",
+]
+
 mimalloc = []
 trash-support = []
 sqlite = []

@@ -1,6 +1,6 @@
 use super::inspect_table;
-use crossterm::terminal::size;
 use nu_engine::command_prelude::*;
+use nu_utils::terminal_size;
 
 #[derive(Clone)]
 pub struct Inspect;
@@ -38,7 +38,7 @@ impl Command for Inspect {
         let original_input = input_val.clone();
         let description = input_val.get_type().to_string();
 
-        let (cols, _rows) = size().unwrap_or((0, 0));
+        let (cols, _rows) = terminal_size().unwrap_or((0, 0));
 
         let table = inspect_table::build_table(input_val, description, cols as usize);
 

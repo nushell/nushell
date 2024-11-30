@@ -19,11 +19,11 @@ tempfile = { workspace = true }
 
 [dependencies]
 nu-cmd-base = { path = "../nu-cmd-base", version = "0.100.1" }
-nu-engine = { path = "../nu-engine", version = "0.100.1" }
+nu-engine = { path = "../nu-engine", version = "0.100.1", features = ["os"] }
 nu-path = { path = "../nu-path", version = "0.100.1" }
 nu-parser = { path = "../nu-parser", version = "0.100.1" }
 nu-plugin-engine = { path = "../nu-plugin-engine", version = "0.100.1", optional = true }
-nu-protocol = { path = "../nu-protocol", version = "0.100.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.100.1", features = ["os"] }
 nu-utils = { path = "../nu-utils", version = "0.100.1" }
 nu-color-config = { path = "../nu-color-config", version = "0.100.1" }
 nu-ansi-term = { workspace = true }

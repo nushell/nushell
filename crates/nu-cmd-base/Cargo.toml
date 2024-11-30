@@ -13,10 +13,10 @@ version = "0.100.1"
 workspace = true
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.100.1" }
+nu-engine = { path = "../nu-engine", version = "0.100.1", default-features = false }
 nu-parser = { path = "../nu-parser", version = "0.100.1" }
 nu-path = { path = "../nu-path", version = "0.100.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.100.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.100.1", default-features = false }
 
 indexmap = { workspace = true }
 miette = { workspace = true }

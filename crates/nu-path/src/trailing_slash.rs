@@ -36,6 +36,13 @@ pub fn has_trailing_slash(path: &Path) -> bool {
     last == Some(&b'/')
 }
 
+/// `true` if the path has a trailing slash, including if it's the root directory.
+#[cfg(target_arch = "wasm32")]
+pub fn has_trailing_slash(path: &Path) -> bool {
+    // in the web paths are often just URLs, they are separated by forward slashes
+    path.to_str().map_or(false, |s| s.ends_with('/'))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

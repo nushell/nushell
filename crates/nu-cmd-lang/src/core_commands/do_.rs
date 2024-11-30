@@ -1,9 +1,8 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
-use nu_protocol::{
-    engine::Closure,
-    process::{ChildPipe, ChildProcess},
-    ByteStream, ByteStreamSource, OutDest,
-};
+#[cfg(feature = "os")]
+use nu_protocol::process::{ChildPipe, ChildProcess};
+use nu_protocol::{engine::Closure, ByteStream, ByteStreamSource, OutDest};
+
 use std::{
     io::{Cursor, Read},
     thread,
@@ -119,6 +118,13 @@ impl Command for Do {
         match result {
             Ok(PipelineData::ByteStream(stream, metadata)) if capture_errors => {
                 let span = stream.span();
+                #[cfg(not(feature = "os"))]
+                return Err(ShellError::DisabledOsSupport {
+                    msg: "Cannot create a thread to receive stdout message.".to_string(),
+                    span: Some(span),
+                });
+
+                #[cfg(feature = "os")]
                 match stream.into_child() {
                     Ok(mut child) => {
                         // Use a thread to receive stdout message.
@@ -196,6 +202,7 @@ impl Command for Do {
                         OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
                     ) =>
             {
+                #[cfg(feature = "os")]
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
                     child.ignore_error(true);
                 }

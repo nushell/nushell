@@ -14,8 +14,8 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.100.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.100.1" }
+nu-engine = { path = "../nu-engine", version = "0.100.1", features = ["plugin"] }
+nu-protocol = { path = "../nu-protocol", version = "0.100.1", features = ["plugin"] }
 nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.100.1" }
 nu-plugin-core = { path = "../nu-plugin-core", version = "0.100.1", default-features = false }
 nu-utils = { path = "../nu-utils", version = "0.100.1" }

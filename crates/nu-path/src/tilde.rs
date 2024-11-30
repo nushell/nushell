@@ -60,6 +60,7 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn fallback_home_dir(username: &str) -> PathBuf {
     PathBuf::from_iter([FALLBACK_USER_HOME_BASE_DIR, username])
 }
@@ -108,6 +109,13 @@ fn user_home_dir(username: &str) -> PathBuf {
             }
         }
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn user_home_dir(_: &str) -> PathBuf {
+    // if WASI is used, we try to get a home dir via HOME env, otherwise we don't have a home dir
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    PathBuf::from(home)
 }
 
 /// Returns true if the shell is running inside the Termux terminal emulator

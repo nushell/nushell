@@ -162,3 +162,34 @@ jobs:
           else
             echo "no changes in working directory";
           fi
+
+  build-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.7
+
+      - name: Setup Rust toolchain and cache
+        uses: actions-rust-lang/setup-rust-toolchain@v1.10.1
+
+      - name: Add wasm32-unknown-unknown target
+        run: rustup target add wasm32-unknown-unknown
+
+      - run: cargo build -p nu-cmd-base --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-cmd-extra --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-cmd-lang --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-color-config --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-command --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-derive-value --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-engine --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-glob --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-json --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-parser --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-path --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-pretty-hex --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-protocol --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-std --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-system --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-table --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-term-grid --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nu-utils --no-default-features --target wasm32-unknown-unknown
+      - run: cargo build -p nuon --no-default-features --target wasm32-unknown-unknown

@@ -1,7 +1,7 @@
 #[cfg(windows)]
 use crossterm_winapi::{ConsoleMode, Handle};
 use lscolors::LsColors;
-use std::io::{Result, Write};
+use std::io::{self, Result, Write};
 
 pub fn enable_vt_processing() -> Result<()> {
     #[cfg(windows)]
@@ -473,4 +473,18 @@ macro_rules! perf {
             );
         }
     };
+}
+
+/// Returns the terminal size (columns, rows).
+///
+/// This utility variant allows getting a fallback value when compiling for wasm32 without having
+/// to rearrange other bits of the codebase.
+///
+/// See [`crossterm::terminal::size`].
+pub fn terminal_size() -> io::Result<(u16, u16)> {
+    #[cfg(feature = "os")]
+    return crossterm::terminal::size();
+
+    #[cfg(not(feature = "os"))]
+    return Err(io::Error::from(io::ErrorKind::Unsupported));
 }

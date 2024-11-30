@@ -37,6 +37,7 @@ mod reject;
 mod rename;
 mod reverse;
 mod select;
+#[cfg(feature = "rand")]
 mod shuffle;
 mod skip;
 mod sort;
@@ -95,6 +96,7 @@ pub use reject::Reject;
 pub use rename::Rename;
 pub use reverse::Reverse;
 pub use select::Select;
+#[cfg(feature = "rand")]
 pub use shuffle::Shuffle;
 pub use skip::*;
 pub use sort::Sort;

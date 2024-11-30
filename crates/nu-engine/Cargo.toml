@@ -14,12 +14,20 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", features = ["plugin"], version = "0.100.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.100.1", default-features = false }
 nu-path = { path = "../nu-path", version = "0.100.1" }
 nu-glob = { path = "../nu-glob", version = "0.100.1" }
-nu-utils = { path = "../nu-utils", version = "0.100.1" }
+nu-utils = { path = "../nu-utils", version = "0.100.1", default-features = false }
 log = { workspace = true }
 terminal_size = { workspace = true }
 
 [features]
-plugin = []
+default = ["os"]
+os = [
+  "nu-protocol/os",
+  "nu-utils/os",
+]
+plugin = [
+  "nu-protocol/plugin",
+  "os",
+]
