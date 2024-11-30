@@ -8,7 +8,9 @@ pub use operations::Axis;
 
 use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
-use polars::prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series};
+use polars::prelude::{
+    Column as PolarsColumn, DataFrame, DataType, IntoLazy, PolarsObject, Series,
+};
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::{TotalEq, TotalHash};
 use std::{
@@ -135,7 +137,7 @@ impl NuDataFrame {
     }
 
     pub fn try_from_series(series: Series, span: Span) -> Result<Self, ShellError> {
-        match DataFrame::new(vec![series]) {
+        match DataFrame::new(vec![series.into()]) {
             Ok(dataframe) => Ok(NuDataFrame::new(false, dataframe)),
             Err(e) => Err(ShellError::GenericError {
                 error: "Error creating dataframe".into(),
@@ -191,13 +193,16 @@ impl NuDataFrame {
     }
 
     pub fn try_from_series_vec(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
-        let dataframe = DataFrame::new(columns).map_err(|e| ShellError::GenericError {
-            error: "Error creating dataframe".into(),
-            msg: format!("Unable to create DataFrame: {e}"),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        })?;
+        let columns_converted: Vec<PolarsColumn> = columns.into_iter().map(Into::into).collect();
+
+        let dataframe =
+            DataFrame::new(columns_converted).map_err(|e| ShellError::GenericError {
+                error: "Error creating dataframe".into(),
+                msg: format!("Unable to create DataFrame: {e}"),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            })?;
 
         Ok(Self::new(false, dataframe))
     }
@@ -295,14 +300,15 @@ impl NuDataFrame {
             .df
             .get_columns()
             .first()
-            .expect("We have already checked that the width is 1");
+            .expect("We have already checked that the width is 1")
+            .as_materialized_series();
 
         Ok(series.clone())
     }
 
     pub fn get_value(&self, row: usize, span: Span) -> Result<Value, ShellError> {
         let series = self.as_series(span)?;
-        let column = conversion::create_column(&series, row, row + 1, span)?;
+        let column = conversion::create_column_from_series(&series, row, row + 1, span)?;
 
         if column.len() == 0 {
             Err(ShellError::AccessEmptyContent { span })

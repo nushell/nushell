@@ -10,8 +10,8 @@ use nu_protocol::{
 use polars::{
     chunked_array::ChunkedArray,
     prelude::{
-        AnyValue, DataFrame, DataType, Float64Type, IntoSeries, NewChunkedArray,
-        QuantileInterpolOptions, Series, StringType,
+        AnyValue, Column as PolarsColumn, DataFrame, DataType, Float64Type, IntoSeries,
+        NewChunkedArray, QuantileMethod, StringType,
     },
 };
 
@@ -184,7 +184,6 @@ fn command(
 
     let tail = df
         .as_ref()
-        .get_columns()
         .iter()
         .filter(|col| !matches!(col.dtype(), &DataType::Object("object", _)))
         .map(|col| {
@@ -200,7 +199,7 @@ fn command(
                 .clone()
                 .into_iter()
                 .map(|q| {
-                    col.quantile_reduce(q, QuantileInterpolOptions::default())
+                    col.quantile_reduce(q, QuantileMethod::default())
                         .ok()
                         .map(|s| s.into_series("quantile".into()))
                         .and_then(|ca| ca.cast(&DataType::Float64).ok())
@@ -221,7 +220,10 @@ fn command(
             ChunkedArray::<Float64Type>::from_slice_options(name.into(), &descriptors).into_series()
         });
 
-    let res = head.chain(tail).collect::<Vec<Series>>();
+    let res = head
+        .chain(tail)
+        .map(PolarsColumn::from)
+        .collect::<Vec<PolarsColumn>>();
 
     let polars_df = DataFrame::new(res).map_err(|e| ShellError::GenericError {
         error: "Dataframe Error".into(),

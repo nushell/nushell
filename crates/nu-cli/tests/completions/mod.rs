@@ -89,6 +89,27 @@ fn completer_strings_with_options() -> NuCompleter {
 }
 
 #[fixture]
+fn completer_strings_no_sort() -> NuCompleter {
+    // Create a new engine
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def animals [] {
+            {
+                completions: ["zzzfoo", "foo", "not matched", "abcfoo" ],
+                options: {
+                    completion_algorithm: "fuzzy",
+                    sort: false,
+                }
+            }
+        }
+        def my-command [animal: string@animals] { print $animal }"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    // Instantiate a new completer
+    NuCompleter::new(Arc::new(engine), Arc::new(stack))
+}
+
+#[fixture]
 fn custom_completer() -> NuCompleter {
     // Create a new engine
     let (_, _, mut engine, mut stack) = new_engine();
@@ -207,6 +228,13 @@ fn customcompletions_substring_matching(mut completer_strings_with_options: NuCo
 fn customcompletions_case_insensitive(mut completer_strings_with_options: NuCompleter) {
     let suggestions = completer_strings_with_options.complete("my-command foo", 14);
     let expected: Vec<String> = vec!["Foo Abcdef".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn customcompletions_no_sort(mut completer_strings_no_sort: NuCompleter) {
+    let suggestions = completer_strings_no_sort.complete("my-command foo", 14);
+    let expected: Vec<String> = vec!["zzzfoo".into(), "foo".into(), "abcfoo".into()];
     match_suggestions(&expected, &suggestions);
 }
 
