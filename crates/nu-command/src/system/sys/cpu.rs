@@ -66,10 +66,10 @@ fn cpu(span: Span) -> Value {
             let record = record! {
                 "name" => Value::string(trim_cstyle_null(cpu.name()), span),
                 "brand" => Value::string(trim_cstyle_null(cpu.brand()), span),
-                "freq" => Value::int(cpu.frequency() as i64, span),
-                "cpu_usage" => Value::float(rounded_usage.into(), span),
-                "load_average" => Value::string(load_avg, span),
                 "vendor_id" => Value::string(trim_cstyle_null(cpu.vendor_id()), span),
+                "freq" => Value::int(cpu.frequency() as i64, span),
+                "load_average" => Value::string(load_avg, span),
+                "cpu_usage" => Value::float(rounded_usage.into(), span),
             };
 
             Value::record(record, span)
