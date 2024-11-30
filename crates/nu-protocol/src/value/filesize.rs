@@ -556,8 +556,8 @@ impl fmt::Display for DisplayFilesize {
             | FilesizeUnit::TiB
             | FilesizeUnit::PiB
             | FilesizeUnit::EiB => {
-                let val = filesize.0 as f64 / unit.as_bytes() as f64;
                 // This won't give exact results for large filesizes and/or units.
+                let val = filesize.0 as f64 / unit.as_bytes() as f64;
                 if let Some(precision) = precision {
                     write!(f, "{val:.precision$} {unit}")
                 } else {
