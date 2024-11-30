@@ -1,4 +1,3 @@
-use super::util::get_rest_for_glob_pattern;
 use crate::{DirBuilder, DirInfo, FileInfo};
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
@@ -101,7 +100,7 @@ impl Command for Du {
         #[allow(deprecated)]
         let current_dir = current_dir(engine_state, stack)?;
 
-        let paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         let paths = if !call.has_positional_args(stack, 0) {
             None
         } else {

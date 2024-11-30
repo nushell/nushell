@@ -1,4 +1,4 @@
-use super::util::{get_rest_for_glob_pattern, try_interaction};
+use super::util::try_interaction;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
@@ -118,7 +118,7 @@ fn rm(
     let interactive = call.has_flag(engine_state, stack, "interactive")?;
     let interactive_once = call.has_flag(engine_state, stack, "interactive-once")? && !interactive;
 
-    let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+    let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
 
     if paths.is_empty() {
         return Err(ShellError::MissingParameter {

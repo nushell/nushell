@@ -1,19 +1,10 @@
-use std::io::ErrorKind;
-use std::path::PathBuf;
-
 use chrono::{DateTime, FixedOffset};
 use filetime::FileTime;
-
-use nu_engine::CallExt;
+use nu_engine::command_prelude::*;
 use nu_path::expand_path_with;
-use nu_protocol::engine::{Call, Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, NuGlob, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
-};
-use uu_touch::error::TouchError;
-use uu_touch::{ChangeTimes, InputFile, Options, Source};
-
-use super::util::get_rest_for_glob_pattern;
+use nu_protocol::NuGlob;
+use std::{io::ErrorKind, path::PathBuf};
+use uu_touch::{error::TouchError, ChangeTimes, InputFile, Options, Source};
 
 #[derive(Clone)]
 pub struct UTouch;
@@ -91,8 +82,7 @@ impl Command for UTouch {
         let change_atime: bool = call.has_flag(engine_state, stack, "access")?;
         let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
         let no_deref: bool = call.has_flag(engine_state, stack, "no-dereference")?;
-        let file_globs: Vec<Spanned<NuGlob>> =
-            get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let file_globs = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         let cwd = engine_state.cwd(Some(stack))?;
 
         if file_globs.is_empty() {

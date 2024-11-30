@@ -1,4 +1,3 @@
-use super::util::get_rest_for_glob_pattern;
 use crate::{DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::glob_from;
@@ -114,7 +113,7 @@ impl Command for Ls {
             call_span,
         };
 
-        let pattern_arg = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let pattern_arg = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         let input_pattern_arg = if !call.has_positional_args(stack, 0) {
             None
         } else {

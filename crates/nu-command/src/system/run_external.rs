@@ -1,5 +1,5 @@
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
+use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{dots::expand_ndots, expand_tilde, AbsolutePath};
 use nu_protocol::{did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals};
 use nu_system::ForegroundChild;
@@ -295,8 +295,7 @@ pub fn eval_arguments_from_call(
     call: &Call,
 ) -> Result<Vec<Spanned<OsString>>, ShellError> {
     let cwd = engine_state.cwd(Some(stack))?;
-    let eval_expression = get_eval_expression(engine_state);
-    let call_args = call.rest_iter_flattened(engine_state, stack, eval_expression, 1)?;
+    let call_args = call.rest::<Value>(engine_state, stack, 1)?;
     let mut args: Vec<Spanned<OsString>> = Vec::with_capacity(call_args.len());
 
     for arg in call_args {
