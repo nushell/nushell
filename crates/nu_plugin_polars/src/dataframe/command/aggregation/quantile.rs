@@ -10,7 +10,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
-use polars::prelude::{lit, QuantileInterpolOptions};
+use polars::prelude::{lit, QuantileMethod};
 
 #[derive(Clone)]
 pub struct LazyQuantile;
@@ -109,7 +109,7 @@ impl PluginCommand for LazyQuantile {
             PolarsPluginObject::NuExpression(expr) => {
                 let expr: NuExpression = expr
                     .into_polars()
-                    .quantile(lit(quantile), QuantileInterpolOptions::default())
+                    .quantile(lit(quantile), QuantileMethod::default())
                     .into();
                 expr.to_pipeline_data(plugin, engine, call.head)
             }
@@ -136,7 +136,7 @@ fn command(
     let lazy = NuLazyFrame::new(
         lazy.from_eager,
         lazy.to_polars()
-            .quantile(lit(quantile), QuantileInterpolOptions::default()),
+            .quantile(lit(quantile), QuantileMethod::default()),
     );
 
     lazy.to_pipeline_data(plugin, engine, call.head)

@@ -10,11 +10,11 @@ use polars::chunked_array::ChunkedArray;
 use polars::datatypes::{AnyValue, PlSmallStr};
 use polars::export::arrow::Either;
 use polars::prelude::{
-    ChunkAnyValue, DataFrame, DataType, DatetimeChunked, Float32Type, Float64Type, Int16Type,
-    Int32Type, Int64Type, Int8Type, IntoSeries, ListBooleanChunkedBuilder, ListBuilderTrait,
-    ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, NamedFrom, NewChunkedArray,
-    ObjectType, PolarsError, Schema, SchemaExt, Series, StructChunked, TemporalMethods, TimeUnit,
-    UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+    ChunkAnyValue, Column as PolarsColumn, DataFrame, DataType, DatetimeChunked, Float32Type,
+    Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, IntoSeries, ListBooleanChunkedBuilder,
+    ListBuilderTrait, ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, NamedFrom,
+    NewChunkedArray, ObjectType, PolarsError, Schema, SchemaExt, Series, StructChunked,
+    TemporalMethods, TimeUnit, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
 };
 
 use nu_protocol::{Record, ShellError, Span, Value};
@@ -146,6 +146,16 @@ impl DerefMut for TypedColumn {
 pub type ColumnMap = IndexMap<PlSmallStr, TypedColumn>;
 
 pub fn create_column(
+    column: &PolarsColumn,
+    from_row: usize,
+    to_row: usize,
+    span: Span,
+) -> Result<Column, ShellError> {
+    let series = column.as_materialized_series();
+    create_column_from_series(series, from_row, to_row, span)
+}
+
+pub fn create_column_from_series(
     series: &Series,
     from_row: usize,
     to_row: usize,
@@ -497,15 +507,19 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                     insert_record(&mut column_values, record.clone(), &schema)?;
                     let df = from_parsed_columns(column_values)?;
                     for name in df.df.get_column_names() {
-                        let series = df.df.column(name).map_err(|e| ShellError::GenericError {
-                            error: format!(
-                                "Error creating struct, could not get column name {name}: {e}"
-                            ),
-                            msg: "".into(),
-                            span: None,
-                            help: None,
-                            inner: vec![],
-                        })?;
+                        let series = df
+                            .df
+                            .column(name)
+                            .map_err(|e| ShellError::GenericError {
+                                error: format!(
+                                    "Error creating struct, could not get column name {name}: {e}"
+                                ),
+                                msg: "".into(),
+                                span: None,
+                                help: None,
+                                inner: vec![],
+                            })?
+                            .as_materialized_series();
 
                         if let Some(v) = structs.get_mut(name) {
                             let _ = v.append(series)
@@ -524,15 +538,18 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
 
                 let structs: Vec<Series> = structs.into_values().collect();
 
-                let chunked =
-                    StructChunked::from_series(column.name().to_owned(), structs.as_slice())
-                        .map_err(|e| ShellError::GenericError {
-                            error: format!("Error creating struct: {e}"),
-                            msg: "".into(),
-                            span: None,
-                            help: None,
-                            inner: vec![],
-                        })?;
+                let chunked = StructChunked::from_series(
+                    column.name().to_owned(),
+                    structs.len(),
+                    structs.iter(),
+                )
+                .map_err(|e| ShellError::GenericError {
+                    error: format!("Error creating struct: {e}"),
+                    msg: "".into(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                })?;
                 Ok(chunked.into_series())
             }
             _ => Err(ShellError::GenericError {
@@ -558,13 +575,13 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
 // This data can be used to create a Series object that can initialize
 // the dataframe based on the type of data that is found
 pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, ShellError> {
-    let mut df_series: Vec<Series> = Vec::new();
+    let mut df_columns: Vec<PolarsColumn> = Vec::new();
     for (name, column) in column_values {
         let series = typed_column_to_series(name, column)?;
-        df_series.push(series);
+        df_columns.push(series.into());
     }
 
-    DataFrame::new(df_series)
+    DataFrame::new(df_columns)
         .map(|df| NuDataFrame::new(false, df))
         .map_err(|e| ShellError::GenericError {
             error: "Error creating dataframe".into(),
@@ -1245,7 +1262,8 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
         }
         AnyValue::Datetime(a, time_unit, tz) => {
             let nanos = nanos_from_timeunit(*a, *time_unit);
-            datetime_from_epoch_nanos(nanos, tz, span).map(|datetime| Value::date(datetime, span))
+            datetime_from_epoch_nanos(nanos, &tz.cloned(), span)
+                .map(|datetime| Value::date(datetime, span))
         }
         AnyValue::Duration(a, time_unit) => {
             let nanos = match time_unit {
@@ -1264,17 +1282,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
         }
         AnyValue::Struct(_idx, _struct_array, _s_fields) => {
             // This should convert to a StructOwned object.
-            let static_value =
-                any_value
-                    .clone()
-                    .into_static()
-                    .map_err(|e| ShellError::GenericError {
-                        error: "Cannot convert polars struct to static value".into(),
-                        msg: e.to_string(),
-                        span: Some(span),
-                        help: None,
-                        inner: Vec::new(),
-                    })?;
+            let static_value = any_value.clone().into_static();
             any_value_to_value(&static_value, span)
         }
         AnyValue::StructOwned(struct_tuple) => {
@@ -1485,7 +1493,7 @@ mod tests {
         let test_millis = 946_684_800_000;
         assert_eq!(
             any_value_to_value(
-                &AnyValue::Datetime(test_millis, TimeUnit::Milliseconds, &None),
+                &AnyValue::Datetime(test_millis, TimeUnit::Milliseconds, None),
                 span
             )?,
             Value::date(comparison_date, span)
@@ -1575,6 +1583,7 @@ mod tests {
         let test_bool_arr = BooleanArray::from([Some(true)]);
         let test_struct_arr = StructArray::new(
             DataType::Struct(fields.clone()).to_arrow(CompatLevel::newest()),
+            1,
             vec![Box::new(test_int_arr), Box::new(test_bool_arr)],
             None,
         );

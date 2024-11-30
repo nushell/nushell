@@ -1,5 +1,5 @@
 use nu_protocol::{ast::Operator, ShellError, Span, Spanned, Value};
-use polars::prelude::{DataFrame, Series};
+use polars::prelude::{Column as PolarsColumn, DataFrame};
 
 use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
@@ -137,7 +137,7 @@ impl NuDataFrame {
                         series.rename(name.into());
                         series
                     })
-                    .collect::<Vec<Series>>();
+                    .collect::<Vec<PolarsColumn>>();
 
                 let df_new = DataFrame::new(new_cols).map_err(|e| ShellError::GenericError {
                     error: "Error creating dataframe".into(),
@@ -195,7 +195,7 @@ impl NuDataFrame {
                             }),
                         }
                     })
-                    .collect::<Result<Vec<Series>, ShellError>>()?;
+                    .collect::<Result<Vec<PolarsColumn>, ShellError>>()?;
 
                 let df_new = DataFrame::new(new_cols).map_err(|e| ShellError::GenericError {
                     error: "Error appending dataframe".into(),
