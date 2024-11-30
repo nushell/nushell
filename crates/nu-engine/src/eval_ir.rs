@@ -4,7 +4,9 @@ use nu_path::{expand_path_with, AbsolutePathBuf};
 use nu_protocol::{
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
-    engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
+    engine::{
+        Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack, StateWorkingSet,
+    },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     ByteStreamSource, DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream,
     OutDest, PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError,
@@ -220,17 +222,8 @@ fn eval_ir_block_impl<D: DebugContext>(
             }
             Err(err) => {
                 if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
-                    let fancy_errors = match ctx.engine_state.get_config().error_style {
-                        nu_protocol::ErrorStyle::Fancy => true,
-                        nu_protocol::ErrorStyle::Plain => false,
-                    };
                     // If an error handler is set, branch there
-                    prepare_error_handler(
-                        ctx,
-                        error_handler,
-                        Some(err.into_spanned(*span)),
-                        fancy_errors,
-                    );
+                    prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
                     pc = error_handler.handler_index;
                 } else {
                     // If not, exit the block with the error
@@ -255,7 +248,6 @@ fn prepare_error_handler(
     ctx: &mut EvalContext<'_>,
     error_handler: ErrorHandler,
     error: Option<Spanned<ShellError>>,
-    fancy_errors: bool,
 ) {
     if let Some(reg_id) = error_handler.error_register {
         if let Some(error) = error {
@@ -266,7 +258,7 @@ fn prepare_error_handler(
                 reg_id,
                 error
                     .item
-                    .into_value(error.span, fancy_errors)
+                    .into_value(&StateWorkingSet::new(ctx.engine_state), error.span)
                     .into_pipeline_data(),
             );
         } else {
