@@ -67,12 +67,10 @@ impl View for BinaryView {
         info: &mut ViewInfo,
         key: KeyEvent,
     ) -> Transition {
-        match self.handle_input_key(&key) {
-            Ok((Transition::Ok, ..)) => {
-                let report = create_report(self.cursor);
-                info.status = Some(report);
-            }
-            _ => {} // currently only handle_enter() in crates/nu-explore/src/views/record/mod.rs raises an Err()
+        // currently only handle_enter() in crates/nu-explore/src/views/record/mod.rs raises an Err()
+        if let Ok((Transition::Ok, ..)) = self.handle_input_key(&key) {
+            let report = create_report(self.cursor);
+            info.status = Some(report);
         }
 
         Transition::None
