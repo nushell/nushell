@@ -3,11 +3,7 @@ pub mod support;
 use nu_cli::NuCompleter;
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_protocol::engine::{Call, Command, EngineState, Stack};
-use nu_protocol::{
-    debugger::WithoutDebug, engine::StateWorkingSet, PipelineData, ShellError, Signature,
-    SyntaxShape,
-};
+use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, PipelineData};
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
 use std::{
