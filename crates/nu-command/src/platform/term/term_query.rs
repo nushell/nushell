@@ -27,7 +27,7 @@ sequence is encountered. The `terminator` is not included in the output.
 
 If `terminator` is not supplied, input will be read until Ctrl-C is pressed.
 
-If `prefix` is supplied, input's inital bytes will be validated against it.
+If `prefix` is supplied, input's initial bytes will be validated against it.
 The `prefix` is not included in the output."
     }
 
