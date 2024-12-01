@@ -3544,6 +3544,17 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                             ),
                         );
 
+                        // store the file path as a string to be gathered later
+                        call_with_block.set_parser_info(
+                            "block_id_name".to_string(),
+                            Expression::new(
+                                working_set,
+                                Expr::Filepath(path.path_buf().display().to_string(), false),
+                                spans[1],
+                                Type::String,
+                            ),
+                        );
+
                         return Pipeline::from_vec(vec![Expression::new(
                             working_set,
                             Expr::Call(call_with_block),
