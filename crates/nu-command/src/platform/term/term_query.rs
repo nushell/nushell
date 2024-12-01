@@ -53,6 +53,11 @@ The `beginning` is not included in the output."
                 "Terminator sequence for the expected reply.",
                 Some('t'),
             )
+            .switch(
+                "keep",
+                "Include beginning and terminator in the output.",
+                Some('k'),
+            )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -83,6 +88,7 @@ The `beginning` is not included in the output."
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let query: Vec<u8> = call.req(engine_state, stack, 0)?;
+        let keep = call.has_flag(engine_state, stack, "keep")?;
         let beginning: Option<Vec<u8>> = call.get_flag(engine_state, stack, "beginning")?;
         let beginning = beginning.unwrap_or_default();
         let terminator: Option<Vec<u8>> = call.get_flag(engine_state, stack, "terminator")?;
@@ -122,6 +128,9 @@ The `beginning` is not included in the output."
                     inner: vec![],
                 });
             }
+            if keep {
+                buf.push(b[0]);
+            }
         }
 
         if let Some(terminator) = terminator {
@@ -137,8 +146,10 @@ The `beginning` is not included in the output."
                 buf.push(b[0]);
 
                 if buf.ends_with(&terminator) {
-                    // Remove terminator
-                    buf.drain((buf.len() - terminator.len())..);
+                    if !keep {
+                        // Remove terminator
+                        buf.drain((buf.len() - terminator.len())..);
+                    }
                     break;
                 }
             }
