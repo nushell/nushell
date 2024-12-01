@@ -63,6 +63,11 @@ impl Command for Source {
             None => "unknown".to_string(),
         };
 
+        // Save the old env vars so we can restore them after the script has ran
+        let old_file_pwd = stack.get_env_var(engine_state, "FILE_PWD").cloned();
+        let old_current_file = stack.get_env_var(engine_state, "CURRENT_FILE").cloned();
+        let old_process_path = stack.get_env_var(engine_state, "PROCESS_PATH").cloned();
+
         // Add env vars so they are available to the script
         stack.add_env_var(
             "FILE_PWD".to_string(),
@@ -79,14 +84,27 @@ impl Command for Source {
 
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
-        let val = eval_block_with_early_return(engine_state, stack, &block, input);
+        let return_result = eval_block_with_early_return(engine_state, stack, &block, input);
 
-        // After the script has ran, remove the env vars
-        stack.remove_env_var(engine_state, "FILE_PWD");
-        stack.remove_env_var(engine_state, "CURRENT_FILE");
-        stack.remove_env_var(engine_state, "PROCESS_PATH");
+        // After the script has ran, restore the old values unless they didn't exist.
+        // If they didn't exist prior, remove the env vars
+        if let Some(old_file_pwd) = old_file_pwd {
+            stack.add_env_var("FILE_PWD".to_string(), old_file_pwd.clone());
+        } else {
+            stack.remove_env_var(engine_state, "FILE_PWD");
+        }
+        if let Some(old_current_file) = old_current_file {
+            stack.add_env_var("CURRENT_FILE".to_string(), old_current_file.clone());
+        } else {
+            stack.remove_env_var(engine_state, "CURRENT_FILE");
+        }
+        if let Some(old_process_path) = old_process_path {
+            stack.add_env_var("PROCESS_PATH".to_string(), old_process_path.clone());
+        } else {
+            stack.remove_env_var(engine_state, "PROCESS_PATH");
+        }
 
-        val
+        return_result
     }
 
     fn examples(&self) -> Vec<Example> {
