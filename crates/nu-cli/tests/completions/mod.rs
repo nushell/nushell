@@ -352,7 +352,7 @@ fn file_completions() {
     #[cfg(windows)]
     {
         let separator = '/';
-        let target_dir = format!("cp {dir_str}{separator}");
+        let target_dir = format!("cp somefile.txt {dir_str}{separator}");
         let slash_suggestions = completer.complete(&target_dir, target_dir.len());
 
         let expected_slash_paths: Vec<String> = expected_paths
@@ -400,43 +400,12 @@ fn file_completions() {
     match_suggestions(&expected_paths, &suggestions);
 }
 
-#[derive(Clone)]
-pub struct CustomCommandWithAnyArgs;
-
-impl Command for CustomCommandWithAnyArgs {
-    fn name(&self) -> &str {
-        "list"
-    }
-
-    fn description(&self) -> &str {
-        "Mock def command."
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("list").rest("args", SyntaxShape::Any, "rest of the arguments")
-    }
-
-    fn run(
-        &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        _call: &Call,
-        _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        todo!()
-    }
-}
-
 #[test]
-fn custom_command_completions() {
+fn custom_command_rest_any_args_completions() {
     // Create a new engine
-    let (dir, dir_str, mut engine, stack) = new_engine();
-    let delta = {
-        let mut working_set = StateWorkingSet::new(&engine);
-        working_set.add_decl(Box::new(CustomCommandWithAnyArgs));
-        working_set.render()
-    };
-    engine.merge_delta(delta).expect("Failed to merge delta");
+    let (dir, dir_str, mut engine, mut stack) = new_engine();
+    let command = r#"def list [ ...args: any ] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -525,7 +494,7 @@ fn custom_command_completions() {
 
     #[cfg(windows)]
     {
-        let target_dir = format!("ls {}/.", folder(dir.join(".hidden_folder")));
+        let target_dir = format!("list {}/.", folder(dir.join(".hidden_folder")));
         let slash_suggestions = completer.complete(&target_dir, target_dir.len());
 
         let expected_slash: Vec<String> = expected_paths
