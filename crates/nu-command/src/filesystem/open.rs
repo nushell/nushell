@@ -1,7 +1,6 @@
-use super::util::get_rest_for_glob_pattern;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, get_eval_block};
-use nu_protocol::{ast, ByteStream, DataSource, NuGlob, PipelineMetadata};
+use nu_protocol::{ast, DataSource, NuGlob, PipelineMetadata};
 use std::path::Path;
 
 #[cfg(feature = "sqlite")]
@@ -53,7 +52,7 @@ impl Command for Open {
         let call_span = call.head;
         #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
-        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         let eval_block = get_eval_block(engine_state);
 
         if paths.is_empty() && !call.has_positional_args(stack, 0) {

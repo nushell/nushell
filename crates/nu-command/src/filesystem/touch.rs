@@ -2,10 +2,7 @@ use filetime::FileTime;
 use nu_engine::command_prelude::*;
 use nu_path::expand_path_with;
 use nu_protocol::NuGlob;
-
 use std::{fs::OpenOptions, time::SystemTime};
-
-use super::util::get_rest_for_glob_pattern;
 
 #[derive(Clone)]
 pub struct Touch;
@@ -72,7 +69,7 @@ impl Command for Touch {
         let no_follow_symlinks: bool = call.has_flag(engine_state, stack, "no-deref")?;
         let reference: Option<Spanned<String>> = call.get_flag(engine_state, stack, "reference")?;
         let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
-        let files: Vec<Spanned<NuGlob>> = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let files = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
 
         let cwd = engine_state.cwd(Some(stack))?;
 
