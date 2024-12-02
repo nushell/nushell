@@ -64,6 +64,8 @@ pub fn nu_value_to_string(val: &Value, cfg: &Config, style: &StyleComputer) -> N
     make_styled_value(text, val, float_precision, style)
 }
 
+// todo: Expose a method which returns just style
+
 pub fn nu_value_to_string_clean(val: &Value, cfg: &Config, style_comp: &StyleComputer) -> NuText {
     let (text, style) = nu_value_to_string(val, cfg, style_comp);
     let mut text = clean_charset(&text);

@@ -2,13 +2,13 @@ use nu_color_config::TextStyle;
 use nu_engine::column::get_columns;
 use nu_protocol::{Config, Record, ShellError, Value};
 
-use super::has_index;
 use crate::{
     clean_charset, colorize_space,
     common::{
         check_value, create_nu_table_config, get_empty_style, get_header_style, get_index_style,
         get_value_style, nu_value_to_string_colored, NuText, INDEX_COLUMN_NAME,
     },
+    types::has_index,
     NuRecordsValue, NuTable, StringResult, TableOpts, TableOutput, TableResult,
 };
 

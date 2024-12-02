@@ -1,3 +1,4 @@
+use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
 use nu_protocol::{Config, Record, Value};
 use nu_utils::SharedCow;
@@ -46,10 +47,8 @@ fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComp
                     .into_iter()
                     .map(|(mut header, mut val)| {
                         colorize_value(&mut val, config, style_computer);
+                        header = colorize_text(&header, style.color_style).unwrap_or(header);
 
-                        if let Some(color) = style.color_style {
-                            header = color.paint(header).to_string();
-                        }
                         (header, val)
                     })
                     .collect::<Record>(),
@@ -62,11 +61,19 @@ fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComp
         }
         value => {
             let (text, style) = nu_value_to_string_clean(value, config, style_computer);
-            if let Some(color) = style.color_style {
-                let text = color.paint(text).to_string();
-                let span = value.span();
-                *value = Value::string(text, span);
+            if let Some(text) = colorize_text(&text, style.color_style) {
+                *value = Value::string(text, value.span());
             }
         }
     }
+}
+
+fn colorize_text(text: &str, color: Option<Style>) -> Option<String> {
+    if let Some(color) = color {
+        if !color.is_plain() {
+            return Some(color.paint(text).to_string());
+        }
+    }
+
+    None
 }
