@@ -251,13 +251,18 @@ tempfile = { workspace = true }
 
 [features]
 plugin = [
-  "nu-plugin-engine",
+  # crates
   "nu-cmd-plugin",
+  "nu-plugin-engine",
+
+  # features
   "nu-cli/plugin",
-  "nu-parser/plugin",
+  "nu-cmd-lang/plugin",
   "nu-command/plugin",
-  "nu-protocol/plugin",
   "nu-engine/plugin",
+  "nu-engine/plugin",
+  "nu-parser/plugin",
+  "nu-protocol/plugin",
 ]
 
 default = [
