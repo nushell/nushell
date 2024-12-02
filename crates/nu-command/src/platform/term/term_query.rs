@@ -73,6 +73,11 @@ The `prefix` is not included in the output."
                 result: None,
             },
             Example {
+                description: "Get terminal background color. (some terminals prefer `char bel` rather than `ansi st` as string terminator)",
+                example: r#"term query $'(ansi osc)10;?(char bel)' --prefix $'(ansi osc)10;' --terminator (char bel)"#,
+                result: None,
+            },
+            Example {
                 description: "Read clipboard content on terminals supporting OSC-52.",
                 example: r#"term query $'(ansi osc)52;c;?(ansi st)' --prefix $'(ansi osc)52;c;' --terminator (ansi st)"#,
                 result: None,
