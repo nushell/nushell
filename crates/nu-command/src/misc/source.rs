@@ -58,15 +58,13 @@ impl Command for Source {
                 span: Span::unknown(),
             })?;
 
-        let process_path = match pb.file_name() {
-            Some(name) => name.to_string_lossy().to_string(),
-            None => "unknown".to_string(),
-        };
+        // Note: We intentionally left out PROCESS_PATH since it's supposed to
+        // to work like argv[0] in C, which is the name of the program being executed.
+        // Since we're not executing a program, we don't need to set it.
 
         // Save the old env vars so we can restore them after the script has ran
         let old_file_pwd = stack.get_env_var(engine_state, "FILE_PWD").cloned();
         let old_current_file = stack.get_env_var(engine_state, "CURRENT_FILE").cloned();
-        let old_process_path = stack.get_env_var(engine_state, "PROCESS_PATH").cloned();
 
         // Add env vars so they are available to the script
         stack.add_env_var(
@@ -77,13 +75,8 @@ impl Command for Source {
             "CURRENT_FILE".to_string(),
             Value::string(file_path.to_string_lossy(), Span::unknown()),
         );
-        stack.add_env_var(
-            "PROCESS_PATH".to_string(),
-            Value::string(process_path, Span::unknown()),
-        );
 
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
-
         let return_result = eval_block_with_early_return(engine_state, stack, &block, input);
 
         // After the script has ran, restore the old values unless they didn't exist.
@@ -97,11 +90,6 @@ impl Command for Source {
             stack.add_env_var("CURRENT_FILE".to_string(), old_current_file.clone());
         } else {
             stack.remove_env_var(engine_state, "CURRENT_FILE");
-        }
-        if let Some(old_process_path) = old_process_path {
-            stack.add_env_var("PROCESS_PATH".to_string(), old_process_path.clone());
-        } else {
-            stack.remove_env_var(engine_state, "PROCESS_PATH");
         }
 
         return_result
