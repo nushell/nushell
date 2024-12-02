@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use nu_path::canonicalize_with;
 use nu_protocol::{engine::CommandType, BlockId};
 
 /// Source a file for environment variables.
@@ -41,15 +42,57 @@ impl Command for Source {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // Note: this hidden positional is the block_id that corresponded to the 0th position
-        // it is put here by the parser
+        // Note: two hidden positionals are used here that are injected by the parser:
+        // 1. The block_id that corresponded to the 0th position
+        // 2. The block_id_name that corresponded to the file name at the 0th position
         let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
+        let block_id_name: String = call.req_parser_info(engine_state, stack, "block_id_name")?;
         let block_id = BlockId::new(block_id as usize);
         let block = engine_state.get_block(block_id).clone();
+        let cwd = engine_state.cwd_as_string(Some(stack))?;
+        let pb = std::path::PathBuf::from(block_id_name);
+        let parent = pb.parent().unwrap_or(std::path::Path::new(""));
+        let file_path =
+            canonicalize_with(pb.as_path(), cwd).map_err(|err| ShellError::FileNotFoundCustom {
+                msg: format!("Could not access file '{}': {err}", pb.as_path().display()),
+                span: Span::unknown(),
+            })?;
+
+        // Note: We intentionally left out PROCESS_PATH since it's supposed to
+        // to work like argv[0] in C, which is the name of the program being executed.
+        // Since we're not executing a program, we don't need to set it.
+
+        // Save the old env vars so we can restore them after the script has ran
+        let old_file_pwd = stack.get_env_var(engine_state, "FILE_PWD").cloned();
+        let old_current_file = stack.get_env_var(engine_state, "CURRENT_FILE").cloned();
+
+        // Add env vars so they are available to the script
+        stack.add_env_var(
+            "FILE_PWD".to_string(),
+            Value::string(parent.to_string_lossy(), Span::unknown()),
+        );
+        stack.add_env_var(
+            "CURRENT_FILE".to_string(),
+            Value::string(file_path.to_string_lossy(), Span::unknown()),
+        );
 
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+        let return_result = eval_block_with_early_return(engine_state, stack, &block, input);
 
-        eval_block_with_early_return(engine_state, stack, &block, input)
+        // After the script has ran, restore the old values unless they didn't exist.
+        // If they didn't exist prior, remove the env vars
+        if let Some(old_file_pwd) = old_file_pwd {
+            stack.add_env_var("FILE_PWD".to_string(), old_file_pwd.clone());
+        } else {
+            stack.remove_env_var(engine_state, "FILE_PWD");
+        }
+        if let Some(old_current_file) = old_current_file {
+            stack.add_env_var("CURRENT_FILE".to_string(), old_current_file.clone());
+        } else {
+            stack.remove_env_var(engine_state, "CURRENT_FILE");
+        }
+
+        return_result
     }
 
     fn examples(&self) -> Vec<Example> {
