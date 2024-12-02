@@ -157,6 +157,9 @@ pub fn env_to_strings(
         }
     }
 
+    #[cfg(windows)]
+    stack.pwd_per_drive.get_env_vars(&mut env_vars_str);
+
     Ok(env_vars_str)
 }
 

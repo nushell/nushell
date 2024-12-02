@@ -194,6 +194,11 @@ pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee
         caller_stack.add_env_var(var, value);
     }
 
+    #[cfg(windows)]
+    {
+        caller_stack.pwd_per_drive = callee_stack.pwd_per_drive.clone();
+    }
+
     // set config to callee config, to capture any updates to that
     caller_stack.config.clone_from(&callee_stack.config);
 }

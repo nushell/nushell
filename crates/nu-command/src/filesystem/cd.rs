@@ -87,7 +87,7 @@ impl Command for Cd {
                             });
                         }
                     } else {
-                        let path = nu_path::expand_path_with(path_no_whitespace, &cwd, true);
+                        let path = stack.expand_path_with(path_no_whitespace, &cwd, true);
                         if !path.exists() {
                             return Err(ShellError::DirectoryNotFound {
                                 dir: path_no_whitespace.to_string(),
