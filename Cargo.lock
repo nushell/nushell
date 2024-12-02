@@ -3421,6 +3421,7 @@ dependencies = [
  "roxmltree",
  "rstest",
  "rusqlite",
+ "scopeguard",
  "serde",
  "serde_json",
  "serde_urlencoded",

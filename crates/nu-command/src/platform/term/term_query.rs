@@ -23,9 +23,12 @@ impl Command for TermQuery {
         "Print the given query, and read the immediate result from stdin.
 
 The standard input will be read right after `query` is printed, and consumed until the `terminator`
-sequence is encountered. The `terminator` is not removed from the output.
+sequence is encountered. The `terminator` is not included in the output.
 
-If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
+If `terminator` is not supplied, input will be read until Ctrl-C is pressed.
+
+If `prefix` is supplied, input's initial bytes will be validated against it.
+The `prefix` is not included in the output."
     }
 
     fn signature(&self) -> Signature {
@@ -39,10 +42,21 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
                 "The query that will be printed to stdout.",
             )
             .named(
+                "prefix",
+                SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::String]),
+                "Prefix sequence for the expected reply.",
+                Some('p'),
+            )
+            .named(
                 "terminator",
                 SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::String]),
                 "Terminator sequence for the expected reply.",
                 Some('t'),
+            )
+            .switch(
+                "keep",
+                "Include prefix and terminator in the output.",
+                Some('k'),
             )
     }
 
@@ -50,17 +64,22 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
         vec![
             Example {
                 description: "Get cursor position.",
-                example: r#"term query (ansi cursor_position) --terminator 'R'"#,
+                example: r#"term query (ansi cursor_position) --prefix (ansi csi) --terminator 'R'"#,
                 result: None,
             },
             Example {
                 description: "Get terminal background color.",
-                example: r#"term query $'(ansi osc)10;?(ansi st)' --terminator (ansi st)"#,
+                example: r#"term query $'(ansi osc)10;?(ansi st)' --prefix $'(ansi osc)10;' --terminator (ansi st)"#,
+                result: None,
+            },
+            Example {
+                description: "Get terminal background color. (some terminals prefer `char bel` rather than `ansi st` as string terminator)",
+                example: r#"term query $'(ansi osc)10;?(char bel)' --prefix $'(ansi osc)10;' --terminator (char bel)"#,
                 result: None,
             },
             Example {
                 description: "Read clipboard content on terminals supporting OSC-52.",
-                example: r#"term query $'(ansi osc)52;c;?(ansi st)' --terminator (ansi st)"#,
+                example: r#"term query $'(ansi osc)52;c;?(ansi st)' --prefix $'(ansi osc)52;c;' --terminator (ansi st)"#,
                 result: None,
             },
         ]
@@ -74,9 +93,15 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let query: Vec<u8> = call.req(engine_state, stack, 0)?;
+        let keep = call.has_flag(engine_state, stack, "keep")?;
+        let prefix: Option<Vec<u8>> = call.get_flag(engine_state, stack, "prefix")?;
+        let prefix = prefix.unwrap_or_default();
         let terminator: Option<Vec<u8>> = call.get_flag(engine_state, stack, "terminator")?;
 
         crossterm::terminal::enable_raw_mode()?;
+        scopeguard::defer! {
+            let _ = crossterm::terminal::disable_raw_mode();
+        }
 
         // clear terminal events
         while crossterm::event::poll(Duration::from_secs(0))? {
@@ -94,44 +119,55 @@ If `terminator` is not supplied, input will be read until Ctrl-C is pressed."
             stdout.flush()?;
         }
 
-        let out = if let Some(terminator) = terminator {
+        // Validate and skip prefix
+        for bc in prefix {
+            stdin.read_exact(&mut b)?;
+            if b[0] != bc {
+                return Err(ShellError::GenericError {
+                    error: "Input did not begin with expected sequence".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some("Try running without `--prefix` and inspecting the output.".into()),
+                    inner: vec![],
+                });
+            }
+            if keep {
+                buf.push(b[0]);
+            }
+        }
+
+        if let Some(terminator) = terminator {
             loop {
-                if let Err(err) = stdin.read_exact(&mut b) {
-                    break Err(ShellError::from(err));
-                }
+                stdin.read_exact(&mut b)?;
 
                 if b[0] == CTRL_C {
-                    break Err(ShellError::Interrupted { span: call.head });
+                    return Err(ShellError::InterruptedByUser {
+                        span: Some(call.head),
+                    });
                 }
 
                 buf.push(b[0]);
 
                 if buf.ends_with(&terminator) {
-                    break Ok(Value::Binary {
-                        val: buf,
-                        internal_span: call.head,
+                    if !keep {
+                        // Remove terminator
+                        buf.drain((buf.len() - terminator.len())..);
                     }
-                    .into_pipeline_data());
+                    break;
                 }
             }
         } else {
             loop {
-                if let Err(err) = stdin.read_exact(&mut b) {
-                    break Err(ShellError::from(err));
-                }
+                stdin.read_exact(&mut b)?;
 
                 if b[0] == CTRL_C {
-                    break Ok(Value::Binary {
-                        val: buf,
-                        internal_span: call.head,
-                    }
-                    .into_pipeline_data());
+                    break;
                 }
 
                 buf.push(b[0]);
             }
         };
-        crossterm::terminal::disable_raw_mode()?;
-        out
+
+        Ok(Value::binary(buf, call.head).into_pipeline_data())
     }
 }
