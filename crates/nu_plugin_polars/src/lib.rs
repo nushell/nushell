@@ -17,6 +17,7 @@ mod cache;
 pub mod dataframe;
 pub use dataframe::*;
 use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Span, Spanned, Value};
+use tokio::runtime::Runtime;
 use values::CustomValueType;
 
 use crate::values::PolarsPluginCustomValue;
@@ -52,11 +53,27 @@ impl EngineWrapper for &EngineInterface {
     }
 }
 
-#[derive(Default)]
 pub struct PolarsPlugin {
     pub(crate) cache: Cache,
     /// For testing purposes only
     pub(crate) disable_cache_drop: bool,
+    pub(crate) runtime: Runtime,
+}
+
+impl PolarsPlugin {
+    pub fn new() -> Result<Self, ShellError> {
+        Ok(Self {
+            cache: Cache::default(),
+            disable_cache_drop: false,
+            runtime: Runtime::new().map_err(|e| ShellError::GenericError {
+                error: format!("Could not instantiate tokio: {e}"),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            })?,
+        })
+    }
 }
 
 impl Plugin for PolarsPlugin {

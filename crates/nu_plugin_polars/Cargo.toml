@@ -44,6 +44,11 @@ uuid = { version = "1.11", features = ["v4", "serde"] }
 # Do to a compile error with polars, this included to force the raw dependency
 hashbrown = { version = "0.14", features = ["rayon", "ahash", "serde", "raw"] }
 
+# Cloud support
+aws-config = { version = "1.5", features = ["sso"] }
+aws-credential-types = "1.2"
+tokio = { version = "1.41.1", features = ["full"] }
+
 [dependencies.polars]
 features = [
     "arg_where",
