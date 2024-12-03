@@ -34,28 +34,28 @@ const VALUES_CAPACITY: usize = 10;
 
 macro_rules! value_to_primitive {
     ($value:ident, u8) => {
-        $value.as_int().map(|v| v as u8)
+        value_to_int($value).map(|v| v as u8)
     };
     ($value:ident, u16) => {
-        $value.as_int().map(|v| v as u16)
+        value_to_int($value).map(|v| v as u16)
     };
     ($value:ident, u32) => {
-        $value.as_int().map(|v| v as u32)
+        value_to_int($value).map(|v| v as u32)
     };
     ($value:ident, u64) => {
-        $value.as_int().map(|v| v as u64)
+        value_to_int($value).map(|v| v as u64)
     };
     ($value:ident, i8) => {
-        $value.as_int().map(|v| v as i8)
+        value_to_int($value).map(|v| v as i8)
     };
     ($value:ident, i16) => {
-        $value.as_int().map(|v| v as i16)
+        value_to_int($value).map(|v| v as i16)
     };
     ($value:ident, i32) => {
-        $value.as_int().map(|v| v as i32)
+        value_to_int($value).map(|v| v as i32)
     };
     ($value:ident, i64) => {
-        $value.as_int()
+        value_to_int($value)
     };
     ($value:ident, f32) => {
         $value.as_float().map(|v| v as f32)
@@ -341,7 +341,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| value_to_option(v, |v| v.as_int().map(|v| v as u8)))
+                    .map(|v| value_to_option(v, |v| value_to_int(v).map(|v| v as u8)))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -349,7 +349,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| value_to_option(v, |v| v.as_int().map(|v| v as u16)))
+                    .map(|v| value_to_option(v, |v| value_to_int(v).map(|v| v as u16)))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -357,7 +357,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| value_to_option(v, |v| v.as_int().map(|v| v as u32)))
+                    .map(|v| value_to_option(v, |v| value_to_int(v).map(|v| v as u32)))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -365,7 +365,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| value_to_option(v, |v| v.as_int().map(|v| v as u64)))
+                    .map(|v| value_to_option(v, |v| value_to_int(v).map(|v| v as u64)))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -373,7 +373,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| value_to_option(v, |v| v.as_int().map(|v| v as i8)))
+                    .map(|v| value_to_option(v, |v| value_to_int(v).map(|v| v as i8)))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -381,7 +381,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| value_to_option(v, |v| v.as_int().map(|v| v as i16)))
+                    .map(|v| value_to_option(v, |v| value_to_int(v).map(|v| v as i16)))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -389,7 +389,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| value_to_option(v, |v| v.as_int().map(|v| v as i32)))
+                    .map(|v| value_to_option(v, |v| value_to_int(v).map(|v| v as i32)))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -397,7 +397,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| value_to_option(v, |v| v.as_int()))
+                    .map(|v| value_to_option(v, value_to_int))
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
@@ -1362,6 +1362,20 @@ fn time_from_midnight(nanos: i64, span: Span) -> Result<Value, ShellError> {
             span,
             help: Some("Could not convert polars time of {nanos} to datetime".to_string()),
         })
+}
+
+// this takes into non-int types that we should represent as int like filesize
+fn value_to_int(value: &Value) -> Result<i64, ShellError> {
+    match value {
+        Value::Int { val, .. } => Ok(*val),
+        Value::Filesize { val, .. } => Ok((*val).into()),
+        _ => Err(ShellError::CantConvert {
+            to_type: "int".into(),
+            from_type: value.get_type().to_string(),
+            span: value.span(),
+            help: None,
+        }),
+    }
 }
 
 fn value_to_option<T, F>(value: &Value, func: F) -> Result<Option<T>, ShellError>
