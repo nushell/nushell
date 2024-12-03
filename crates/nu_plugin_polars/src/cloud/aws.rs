@@ -31,8 +31,6 @@ async fn aws_creds(aws_config: &SdkConfig) -> Result<Option<Credentials>, ShellE
     }
 }
 
-
-async fn aws_cloud_options() ->CloudOptions {
-
+async fn aws_cloud_options() -> CloudOptions {
+    CloudOptions::
 }
-

@@ -14,6 +14,7 @@ use log::debug;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
 mod cache;
+mod cloud;
 pub mod dataframe;
 pub use dataframe::*;
 use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Span, Spanned, Value};
