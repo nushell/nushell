@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::Signals;
+use nu_protocol::{ListStream, Signals};
 use wax::{Glob as WaxGlob, WalkBehavior, WalkEntry};
 
 #[derive(Clone)]
@@ -223,6 +223,7 @@ impl Command for Glob {
                         ..Default::default()
                     },
                 )
+                .into_owned()
                 .not(np)
                 .map_err(|err| ShellError::GenericError {
                     error: "error with glob's not pattern".into(),
@@ -249,6 +250,7 @@ impl Command for Glob {
                         ..Default::default()
                     },
                 )
+                .into_owned()
                 .flatten();
             glob_to_value(
                 engine_state.signals(),
@@ -258,11 +260,9 @@ impl Command for Glob {
                 no_symlinks,
                 span,
             )
-        }?;
+        };
 
-        Ok(result
-            .into_iter()
-            .into_pipeline_data(span, engine_state.signals().clone()))
+        Ok(result.into_pipeline_data(span, engine_state.signals().clone()))
     }
 }
 
@@ -281,29 +281,33 @@ fn convert_patterns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
     Ok(res)
 }
 
-fn glob_to_value<'a>(
+fn glob_to_value(
     signals: &Signals,
-    glob_results: impl Iterator<Item = WalkEntry<'a>>,
+    glob_results: impl Iterator<Item = WalkEntry<'static>> + Send + 'static,
     no_dirs: bool,
     no_files: bool,
     no_symlinks: bool,
     span: Span,
-) -> Result<Vec<Value>, ShellError> {
-    let mut result: Vec<Value> = Vec::new();
-    for entry in glob_results {
-        signals.check(span)?;
+) -> ListStream {
+    let map_signals = signals.clone();
+    let result = glob_results.filter_map(move |entry| {
+        if let Err(err) = map_signals.check(span) {
+            return Some(Value::error(err, span));
+        };
         let file_type = entry.file_type();
 
         if !(no_dirs && file_type.is_dir()
             || no_files && file_type.is_file()
             || no_symlinks && file_type.is_symlink())
         {
-            result.push(Value::string(
+            Some(Value::string(
                 entry.into_path().to_string_lossy().to_string(),
                 span,
-            ));
+            ))
+        } else {
+            None
         }
-    }
+    });
 
-    Ok(result)
+    ListStream::new(result, span, signals.clone())
 }
