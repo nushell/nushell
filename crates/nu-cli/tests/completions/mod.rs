@@ -425,6 +425,7 @@ fn custom_command_rest_any_args_file_completions() {
     // Match the results
     match_suggestions(&expected_paths, &suggestions);
 
+    // Test completions for the current folder even with parts before the autocomplet
     let target_dir = format!("list somefile.txt {dir_str}{MAIN_SEPARATOR}");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
@@ -439,6 +440,26 @@ fn custom_command_rest_any_args_file_completions() {
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
     ];
+
+    // Match the results
+    match_suggestions(&expected_paths, &suggestions);
+
+    // Test completions for a file
+    let target_dir = format!("list {}", folder(dir.join("another")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![file(dir.join("another").join("newfile"))];
+
+    // Match the results
+    match_suggestions(&expected_paths, &suggestions);
+
+    // Test completions for hidden files
+    let target_dir = format!("list {}", file(dir.join(".hidden_folder").join(".")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    let expected_paths: Vec<String> =
+        vec![file(dir.join(".hidden_folder").join(".hidden_subfile"))];
 
     // Match the results
     match_suggestions(&expected_paths, &suggestions);
