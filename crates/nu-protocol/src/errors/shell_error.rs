@@ -1544,8 +1544,8 @@ impl From<io::Error> for ShellError {
 impl From<Spanned<io::Error>> for ShellError {
     fn from(error: Spanned<io::Error>) -> Self {
         let Spanned { item: error, span } = error;
-        if error.kind() == io::ErrorKind::Other {
-            match error.into_inner() {
+        match error.kind() {
+            io::ErrorKind::Other => match error.into_inner() {
                 Some(err) => match err.downcast() {
                     Ok(err) => *err,
                     Err(err) => Self::IOErrorSpanned {
@@ -1557,12 +1557,15 @@ impl From<Spanned<io::Error>> for ShellError {
                     msg: "unknown error".into(),
                     span,
                 },
-            }
-        } else {
-            Self::IOErrorSpanned {
+            },
+            io::ErrorKind::TimedOut => Self::NetworkFailure {
                 msg: error.to_string(),
                 span,
-            }
+            },
+            _ => Self::IOErrorSpanned {
+                msg: error.to_string(),
+                span,
+            },
         }
     }
 }

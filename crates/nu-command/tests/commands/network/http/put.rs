@@ -171,18 +171,20 @@ fn http_put_timeout() {
     let _mock = server
         .mock("PUT", "/")
         .with_chunked_body(|w| {
-            thread::sleep(Duration::from_secs(1));
+            thread::sleep(Duration::from_secs(10));
             w.write_all(b"Delayed response!")
         })
         .create();
 
     let actual = nu!(pipeline(
         format!(
-            "http put --max-time 500ms {url} putbody",
+            "http put --max-time 100ms {url} putbody",
             url = server.url()
         )
         .as_str()
     ));
 
-    assert!(&actual.err.contains("nu::shell::io_error"));
+    assert!(&actual.err.contains("nu::shell::network_failure"));
+
+    assert!(&actual.err.contains("timed out reading response"));
 }
