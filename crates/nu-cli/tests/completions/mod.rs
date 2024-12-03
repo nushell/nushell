@@ -444,54 +444,6 @@ fn custom_command_rest_any_args_file_completions() {
     match_suggestions(&expected_paths, &suggestions);
 }
 
-#[test]
-fn custom_command_rest_any_args_operator_completions() {
-    // Create a new engine
-    let (dir, dir_str, mut engine, mut stack) = new_engine();
-    let command = r#"def list [ ...args: any ] {}"#;
-    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
-
-    // Instantiate a new completer
-    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
-
-    // Test completions for the current folder
-    let target_dir = format!("list {dir_str}{MAIN_SEPARATOR}");
-    let suggestions = completer.complete(&target_dir, target_dir.len());
-
-    // Create the expected values
-    let expected_paths: Vec<String> = vec![
-        folder(dir.join("another")),
-        file(dir.join("custom_completion.nu")),
-        folder(dir.join("directory_completion")),
-        file(dir.join("nushell")),
-        folder(dir.join("test_a")),
-        folder(dir.join("test_b")),
-        file(dir.join(".hidden_file")),
-        folder(dir.join(".hidden_folder")),
-    ];
-
-    // Match the results
-    match_suggestions(&expected_paths, &suggestions);
-
-    let target_dir = format!("list somefile.txt {dir_str}{MAIN_SEPARATOR}");
-    let suggestions = completer.complete(&target_dir, target_dir.len());
-
-    // Create the expected values
-    let expected_paths: Vec<String> = vec![
-        folder(dir.join("another")),
-        file(dir.join("custom_completion.nu")),
-        folder(dir.join("directory_completion")),
-        file(dir.join("nushell")),
-        folder(dir.join("test_a")),
-        folder(dir.join("test_b")),
-        file(dir.join(".hidden_file")),
-        folder(dir.join(".hidden_folder")),
-    ];
-
-    // Match the results
-    match_suggestions(&expected_paths, &suggestions);
-}
-
 #[cfg(windows)]
 #[test]
 fn file_completions_with_mixed_separators() {
