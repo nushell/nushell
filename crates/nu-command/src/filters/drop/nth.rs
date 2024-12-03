@@ -32,7 +32,7 @@ impl Command for DropNth {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["delete"]
+        vec!["delete", "remove", "index"]
     }
 
     fn examples(&self) -> Vec<Example> {
