@@ -92,7 +92,7 @@ filetime = "0.2"
 fuzzy-matcher = "0.3"
 heck = "0.5.0"
 human-date-parser = "0.2.0"
-indexmap = "2.6"
+indexmap = "2.7"
 indicatif = "0.17"
 interprocess = "2.2.0"
 is_executable = "1.0"
@@ -110,7 +110,7 @@ miette = "7.3"
 mime = "0.3.17"
 mime_guess = "2.0"
 mockito = { version = "1.6", default-features = false }
-multipart-rs = "0.1.11"
+multipart-rs = "0.1.13"
 native-tls = "0.2"
 nix = { version = "0.29", default-features = false }
 notify-debouncer-full = { version = "0.3", default-features = false }
@@ -159,13 +159,13 @@ sysinfo = "0.32"
 tabled = { version = "0.16.0", default-features = false }
 tempfile = "3.14"
 terminal_size = "0.4"
-titlecase = "2.0"
+titlecase = "3.0"
 toml = "0.8"
 trash = "5.2"
 umask = "2.1"
 unicode-segmentation = "1.12"
 unicode-width = "0.2"
-ureq = { version = "2.10", default-features = false }
+ureq = { version = "2.12", default-features = false }
 url = "2.2"
 uu_cp = "0.0.28"
 uu_mkdir = "0.0.28"

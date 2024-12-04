@@ -14,6 +14,7 @@ use crate::{
 use fancy_regex::Regex;
 use lru::LruCache;
 use nu_path::AbsolutePathBuf;
+use nu_utils::IgnoreCaseExt;
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -465,20 +466,12 @@ impl EngineState {
         None
     }
 
-    // Get the path environment variable in a platform agnostic way
-    pub fn get_path_env_var(&self) -> Option<&Value> {
-        let env_path_name_windows: &str = "Path";
-        let env_path_name_nix: &str = "PATH";
-
+    pub fn get_env_var_insensitive(&self, name: &str) -> Option<&Value> {
         for overlay_id in self.scope.active_overlays.iter().rev() {
             let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
             if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
-                if let Some(val) = env_vars.get(env_path_name_nix) {
-                    return Some(val);
-                } else if let Some(val) = env_vars.get(env_path_name_windows) {
-                    return Some(val);
-                } else {
-                    return None;
+                if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
+                    return Some(v.1);
                 }
             }
         }
