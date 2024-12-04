@@ -206,7 +206,6 @@ fn select(
     let columns = new_columns;
 
     let input = if !unique_rows.is_empty() {
-        // let skip = call.has_flag(engine_state, stack, "skip")?;
         let metadata = input.metadata();
         let pipeline_iter: PipelineIterator = input.into_iter();
 
@@ -231,37 +230,31 @@ fn select(
                 Value::List {
                     vals: input_vals, ..
                 } => {
-                    let mut output = vec![];
-                    let mut columns_with_value = Vec::new();
-                    for input_val in input_vals {
-                        if !columns.is_empty() {
-                            let mut record = Record::new();
-                            for path in &columns {
-                                //FIXME: improve implementation to not clone
-                                match input_val.clone().follow_cell_path(&path.members, false) {
-                                    Ok(fetcher) => {
-                                        record.push(path.to_column_name(), fetcher);
-                                        if !columns_with_value.contains(&path) {
-                                            columns_with_value.push(path);
+                    Ok(input_vals
+                        .into_iter()
+                        .map(move |input_val| {
+                            if !columns.is_empty() {
+                                let mut record = Record::new();
+                                for path in &columns {
+                                    //FIXME: improve implementation to not clone
+                                    match input_val.clone().follow_cell_path(&path.members, false) {
+                                        Ok(fetcher) => {
+                                            record.push(path.to_column_name(), fetcher);
                                         }
-                                    }
-                                    Err(e) => {
-                                        return Err(e);
+                                        Err(e) => return Value::error(e, call_span),
                                     }
                                 }
+
+                                Value::record(record, span)
+                            } else {
+                                input_val.clone()
                             }
-
-                            output.push(Value::record(record, span))
-                        } else {
-                            output.push(input_val)
-                        }
-                    }
-
-                    Ok(output.into_iter().into_pipeline_data_with_metadata(
-                        call_span,
-                        engine_state.signals().clone(),
-                        metadata,
-                    ))
+                        })
+                        .into_pipeline_data_with_metadata(
+                            call_span,
+                            engine_state.signals().clone(),
+                            metadata,
+                        ))
                 }
                 _ => {
                     if !columns.is_empty() {
@@ -286,31 +279,29 @@ fn select(
             }
         }
         PipelineData::ListStream(stream, metadata, ..) => {
-            let mut values = vec![];
-
-            for x in stream {
-                if !columns.is_empty() {
-                    let mut record = Record::new();
-                    for path in &columns {
-                        //FIXME: improve implementation to not clone
-                        match x.clone().follow_cell_path(&path.members, false) {
-                            Ok(value) => {
-                                record.push(path.to_column_name(), value);
+            Ok(stream
+                .map(move |x| {
+                    if !columns.is_empty() {
+                        let mut record = Record::new();
+                        for path in &columns {
+                            //FIXME: improve implementation to not clone
+                            match x.clone().follow_cell_path(&path.members, false) {
+                                Ok(value) => {
+                                    record.push(path.to_column_name(), value);
+                                }
+                                Err(e) => return Value::error(e, call_span),
                             }
-                            Err(e) => return Err(e),
                         }
+                        Value::record(record, call_span)
+                    } else {
+                        x
                     }
-                    values.push(Value::record(record, call_span));
-                } else {
-                    values.push(x);
-                }
-            }
-
-            Ok(values.into_pipeline_data_with_metadata(
-                call_span,
-                engine_state.signals().clone(),
-                metadata,
-            ))
+                })
+                .into_pipeline_data_with_metadata(
+                    call_span,
+                    engine_state.signals().clone(),
+                    metadata,
+                ))
         }
         _ => Ok(PipelineData::empty()),
     }
