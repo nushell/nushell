@@ -159,7 +159,7 @@ sysinfo = "0.32"
 tabled = { version = "0.16.0", default-features = false }
 tempfile = "3.14"
 terminal_size = "0.4"
-titlecase = "2.0"
+titlecase = "3.0"
 toml = "0.8"
 trash = "5.2"
 umask = "2.1"
