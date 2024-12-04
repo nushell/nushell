@@ -110,7 +110,7 @@ miette = "7.3"
 mime = "0.3.17"
 mime_guess = "2.0"
 mockito = { version = "1.6", default-features = false }
-multipart-rs = "0.1.11"
+multipart-rs = "0.1.13"
 native-tls = "0.2"
 nix = { version = "0.29", default-features = false }
 notify-debouncer-full = { version = "0.3", default-features = false }

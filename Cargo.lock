@@ -3040,9 +3040,9 @@ dependencies = [
 
 [[package]]
 name = "multipart-rs"
-version = "0.1.11"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22ea34e5c0fa65ba84707cfaf5bf43d500f1c5a4c6c36327bf5541c5bcd17e98"
+checksum = "64cae00e7e52aa5072342ef9a2ccd71669be913c2176a81a665b1f9cd79345f2"
 dependencies = [
  "bytes",
  "futures-core",
