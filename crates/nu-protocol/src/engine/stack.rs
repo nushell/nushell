@@ -5,6 +5,7 @@ use crate::{
     },
     Config, IntoValue, OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
+use nu_utils::IgnoreCaseExt;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
@@ -487,6 +488,40 @@ impl Stack {
                 if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
                     if let Some(v) = env_vars.get(name) {
                         return Some(v);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    // Case-Insensitive version of get_env_var
+    pub fn get_env_var_insensitive<'a>(
+        &'a self,
+        engine_state: &'a EngineState,
+        name: &str,
+    ) -> Option<&'a Value> {
+        for scope in self.env_vars.iter().rev() {
+            for active_overlay in self.active_overlays.iter().rev() {
+                if let Some(env_vars) = scope.get(active_overlay) {
+                    if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
+                        return Some(v.1);
+                    }
+                }
+            }
+        }
+
+        for active_overlay in self.active_overlays.iter().rev() {
+            let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
+                env_hidden.iter().any(|k| k.eq_ignore_case(name))
+            } else {
+                false
+            };
+
+            if !is_hidden {
+                if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
+                    if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
+                        return Some(v.1);
                     }
                 }
             }

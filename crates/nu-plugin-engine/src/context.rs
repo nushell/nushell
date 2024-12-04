@@ -126,7 +126,7 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
     }
 
     fn get_env_var(&self, name: &str) -> Result<Option<&Value>, ShellError> {
-        Ok(self.stack.get_env_var(&self.engine_state, name))
+        Ok(self.stack.get_env_var_insensitive(&self.engine_state, name))
     }
 
     fn get_env_vars(&self) -> Result<HashMap<String, Value>, ShellError> {
