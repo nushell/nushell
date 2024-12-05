@@ -89,25 +89,27 @@ repeating this process with row 1, and so on."#
         let merge_value: Value = call.req(engine_state, stack, 0)?;
         let metadata = input.metadata();
 
-        match (&input, merge_value) {
+        match (input, merge_value) {
             // table (list of records)
             (
-                PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream { .. },
+                input @ (PipelineData::Value(Value::List { .. }, ..)
+                | PipelineData::ListStream { .. }),
                 Value::List { vals, .. },
             ) => {
                 let mut table_iter = vals.into_iter();
 
-                let res =
-                    input
-                        .into_iter()
-                        .map(move |inp| match (inp.as_record(), table_iter.next()) {
-                            (Ok(inp), Some(to_merge)) => match to_merge.as_record() {
-                                Ok(to_merge) => Value::record(do_merge(inp, to_merge), head),
-                                Err(error) => Value::error(error, head),
-                            },
-                            (_, None) => inp,
-                            (Err(error), _) => Value::error(error, head),
-                        });
+                let res = input.into_iter().map(move |inp| {
+                    match (inp.into_record(), table_iter.next()) {
+                        (Ok(rec), Some(to_merge)) => match to_merge.into_record() {
+                            Ok(to_merge) => {
+                                Value::record(do_merge(rec.to_owned(), to_merge.to_owned()), head)
+                            }
+                            Err(error) => Value::error(error, head),
+                        },
+                        (Ok(rec), None) => Value::record(rec, head),
+                        (Err(error), _) => Value::error(error, head),
+                    }
+                });
 
                 Ok(res.into_pipeline_data_with_metadata(
                     head,
@@ -119,7 +121,10 @@ repeating this process with row 1, and so on."#
             (
                 PipelineData::Value(Value::Record { val: inp, .. }, ..),
                 Value::Record { val: to_merge, .. },
-            ) => Ok(Value::record(do_merge(inp, &to_merge), head).into_pipeline_data()),
+            ) => Ok(
+                Value::record(do_merge(inp.into_owned(), to_merge.into_owned()), head)
+                    .into_pipeline_data(),
+            ),
             // Propagate errors in the pipeline
             (PipelineData::Value(Value::Error { error, .. }, ..), _) => Err(*error.clone()),
             (PipelineData::Value(val, ..), ..) => {
@@ -132,7 +137,7 @@ repeating this process with row 1, and so on."#
                 };
 
                 Err(ShellError::PipelineMismatch {
-                    exp_input_type: "input, and argument, to be both record or both table"
+                    exp_input_type: "nput, and argument, to be both record or both table"
                         .to_string(),
                     dst_span: head,
                     src_span: span,
@@ -147,14 +152,11 @@ repeating this process with row 1, and so on."#
     }
 }
 
-// TODO: rewrite to mutate the input record
-fn do_merge(input_record: &Record, to_merge_record: &Record) -> Record {
-    let mut result = input_record.clone();
-
+fn do_merge(mut input_record: Record, to_merge_record: Record) -> Record {
     for (col, val) in to_merge_record {
-        result.insert(col, val.clone());
+        input_record.insert(col, val);
     }
-    result
+    input_record
 }
 
 #[cfg(test)]
