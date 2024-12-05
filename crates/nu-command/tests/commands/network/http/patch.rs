@@ -186,5 +186,10 @@ fn http_patch_timeout() {
 
     assert!(&actual.err.contains("nu::shell::network_failure"));
 
+    #[cfg(not(target_os = "windows"))]
     assert!(&actual.err.contains("timed out reading response"));
+    #[cfg(target_os = "windows")]
+    assert!(&actual
+        .err
+        .contains("did not properly respond after a period of time"));
 }
