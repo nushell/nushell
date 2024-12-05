@@ -146,13 +146,10 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
                             let (val, key) = vals.pop().zip(vals.pop()).expect("length is < 2");
                             record.insert(key.coerce_into_string()?, val);
                         } else {
-                            return Err(ShellError::IncorrectValue {
-                                msg: format!(
-                                    "expected inner list with two elements, but found {} element(s)",
-                                    vals.len()
-                                ),
-                                val_span: span,
-                                call_span: call.head,
+                            return Err(ShellError::InvalidValue {
+                                valid: "a list with 2 elements".into(),
+                                actual: format!("a list with {} element(s)", vals.len()),
+                                span,
                             });
                         }
                         expected_type = Some(ExpectedType::Pair);

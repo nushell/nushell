@@ -148,16 +148,16 @@ impl Command for Glob {
             }
         };
 
-        let glob_pattern =
-            match glob_pattern_input {
-                Value::String { val, .. } | Value::Glob { val, .. } => val,
-                _ => return Err(ShellError::IncorrectValue {
-                    msg: "Incorrect glob pattern supplied to glob. Please use string or glob only."
-                        .to_string(),
-                    val_span: call.head,
-                    call_span: glob_span,
-                }),
-            };
+        let glob_pattern = match glob_pattern_input {
+            Value::String { val, .. } | Value::Glob { val, .. } => val,
+            val => {
+                return Err(ShellError::RuntimeTypeMismatch {
+                    expected: Type::custom("string or glob"),
+                    actual: val.get_type(),
+                    span: val.span(),
+                });
+            }
+        };
 
         if glob_pattern.is_empty() {
             return Err(ShellError::GenericError {
