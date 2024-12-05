@@ -74,7 +74,7 @@ Note that history item IDs are ignored when importing from file."#
             return ok;
         };
         let Some(current_history_path) = history.file_path() else {
-            return Err(ShellError::ConfigDirNotFound {
+            return Err(ShellError::DataDirNotFound {
                 span: Some(call.head),
             });
         };

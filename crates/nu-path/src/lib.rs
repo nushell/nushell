@@ -13,7 +13,7 @@ mod trailing_slash;
 
 pub use components::components;
 pub use expansions::{canonicalize_with, expand_path_with, expand_to_real_path, locate_in_dirs};
-pub use helpers::{cache_dir, data_dir, home_dir, nu_config_dir};
+pub use helpers::{cache_dir, home_dir, nu_config_dir, nu_data_dir};
 pub use path::*;
 #[cfg(windows)]
 pub use pwd_per_drive::DriveToPwdMap;
