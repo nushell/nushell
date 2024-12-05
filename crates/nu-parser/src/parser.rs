@@ -2122,7 +2122,21 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
         String::from_utf8_lossy(contents).to_string()
     };
 
-    if let Some(id) = parse_variable(working_set, span) {
+    let bytes = working_set.get_span_contents(span);
+    let suggestion = || {
+        DidYouMean::new(
+            &working_set.list_variables(),
+            working_set.get_span_contents(span),
+        )
+    };
+    if !is_variable(bytes) {
+        working_set.error(ParseError::ExpectedWithDidYouMean(
+            "valid variable name",
+            suggestion(),
+            span,
+        ));
+        garbage(working_set, span)
+    } else if let Some(id) = working_set.find_variable(bytes) {
         Expression::new(
             working_set,
             Expr::Var(id),
@@ -2133,9 +2147,7 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
         working_set.error(ParseError::EnvVarNotVar(name, span));
         garbage(working_set, span)
     } else {
-        let ws = &*working_set;
-        let suggestion = DidYouMean::new(&ws.list_variables(), ws.get_span_contents(span));
-        working_set.error(ParseError::VariableNotFound(suggestion, span));
+        working_set.error(ParseError::VariableNotFound(suggestion(), span));
         garbage(working_set, span)
     }
 }
@@ -5609,18 +5621,6 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
         }
     } else {
         output
-    }
-}
-
-pub fn parse_variable(working_set: &mut StateWorkingSet, span: Span) -> Option<VarId> {
-    let bytes = working_set.get_span_contents(span);
-
-    if is_variable(bytes) {
-        working_set.find_variable(bytes)
-    } else {
-        working_set.error(ParseError::Expected("valid variable name", span));
-
-        None
     }
 }
 
