@@ -153,7 +153,7 @@ repeating this process with row 1, and so on."#
                 };
 
                 Err(ShellError::PipelineMismatch {
-                    exp_input_type: "nput, and argument, to be both record or both table"
+                    exp_input_type: "input, and argument, to be both record or both table"
                         .to_string(),
                     dst_span: head,
                     src_span: span,
