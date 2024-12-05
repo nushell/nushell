@@ -116,7 +116,7 @@ repeating this process with row 1, and so on."#
                     match (inp.into_record(), table_iter.next()) {
                         (Ok(rec), Some(to_merge)) => match to_merge.into_record() {
                             Ok(to_merge) => Value::record(
-                                do_merge(rec.to_owned(), to_merge.to_owned(), deep),
+                                do_merge(rec.to_owned(), to_merge.to_owned(), head, deep),
                                 head,
                             ),
                             Err(error) => Value::error(error, head),
@@ -137,7 +137,7 @@ repeating this process with row 1, and so on."#
                 PipelineData::Value(Value::Record { val: inp, .. }, ..),
                 Value::Record { val: to_merge, .. },
             ) => Ok(Value::record(
-                do_merge(inp.into_owned(), to_merge.into_owned(), deep),
+                do_merge(inp.into_owned(), to_merge.into_owned(), head, deep),
                 head,
             )
             .into_pipeline_data()),
@@ -168,28 +168,49 @@ repeating this process with row 1, and so on."#
     }
 }
 
-fn do_merge(mut source: Record, merge: Record, deep: bool) -> Record {
+fn do_merge(mut source: Record, merge: Record, span: Span, deep: bool) -> Record {
     for (col, val) in merge {
-        match (deep, source.remove(&col), val) {
+        // in order to both avoid cloning (possibly nested) record values and maintain the ordering of record keys, we can swap a temporary value into the source record.
+        // if we were to remove the value, the ordering would be messed up as we might not insert back into the original index
+        // it's okay to swap a temporary value in, since we know it will be replaced by the end of the function call
+        //
+        // use an error here instead of something like null so if this somehow makes it into the output, the bug will be immediately obvious
+        let failed_error = ShellError::NushellFailed {
+            msg: "Merge failed to properly replace internal temporary value".to_owned(),
+        };
+        let value = match (
+            deep,
+            source.insert(&col, Value::error(failed_error, span)),
+            val,
+        ) {
             (
                 true,
-                Some(inner_src @ Value::Record { .. }),
+                Some(Value::Record { val: inner_src, .. }),
                 Value::Record {
                     val: inner_merge, ..
                 },
-            ) => {
-                let src_span = inner_src.span();
-                let result = do_merge(
-                    inner_src
-                        .into_record()
-                        .expect("Value matched as record above, but couldn't convert to a record"),
-                    inner_merge.into_owned(),
-                    deep,
-                );
-                source.insert(col, Value::record(result, src_span))
-            }
-            (_, _, val) => source.insert(col, val),
+            ) => Value::record(
+                do_merge(inner_src.into_owned(), inner_merge.into_owned(), span, deep),
+                span,
+            ),
+            (
+                true,
+                Some(Value::List {
+                    vals: inner_src, ..
+                }),
+                Value::List {
+                    vals: inner_merge, ..
+                },
+            ) => Value::list(
+                inner_src
+                    .into_iter()
+                    .chain(inner_merge.into_iter())
+                    .collect(),
+                span,
+            ),
+            (_, _, val) => val,
         };
+        source.insert(col, value);
     }
     source
 }
