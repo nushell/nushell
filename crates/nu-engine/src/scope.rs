@@ -488,6 +488,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "description" => Value::string(module_desc, span),
                 "extra_description" => Value::string(module_extra_desc, span),
                 "module_id" => Value::int(module_id.get() as i64, span),
+                "file" => Value::string(module.file.clone().map_or("unknown".to_string(), |(p, _)| p.path().to_string_lossy().to_string()), span),
             },
             span,
         )
