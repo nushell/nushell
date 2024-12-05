@@ -100,3 +100,27 @@ fn du_with_multiple_path() {
     let actual = nu!(cwd: "tests/fixtures", "du ...[] | length");
     assert_eq!(actual.out, "0");
 }
+
+#[test]
+fn test_du_output_columns() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "du -m 1 | columns | str join ','"
+    );
+    assert_eq!(actual.out, "path,apparent,physical");
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "du -m 1 -r | columns | str join ','"
+    );
+    assert_eq!(actual.out, "path,apparent,physical,directories");
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "du -m 1 -f | columns | str join ','"
+    );
+    assert_eq!(actual.out, "path,apparent,physical,files");
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "du -m 1 --files --recursive | columns | str join ','"
+    );
+    assert_eq!(actual.out, "path,apparent,physical,directories,files");
+}

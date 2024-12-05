@@ -12,8 +12,9 @@ pub struct Du;
 #[derive(Deserialize, Clone, Debug)]
 pub struct DuArgs {
     path: Option<Spanned<NuGlob>>,
-    all: bool,
+    files: bool,
     deref: bool,
+    recursive: bool,
     exclude: Option<Spanned<NuGlob>>,
     #[serde(rename = "max-depth")]
     max_depth: Option<Spanned<i64>>,
@@ -40,13 +41,13 @@ impl Command for Du {
                 "Starting directory.",
             )
             .switch(
-                "all",
+                "files",
                 "Output file sizes as well as directory sizes",
-                Some('a'),
+                Some('f'),
             )
             .switch(
-                "deref",
-                "Dereference symlinks to their targets for size",
+                "recursive",
+                "Get underlying directories and files for each entry",
                 Some('r'),
             )
             .named(
@@ -66,6 +67,11 @@ impl Command for Du {
                 SyntaxShape::Int,
                 "Exclude files below this size",
                 Some('m'),
+            )
+            .switch(
+                "deref",
+                "Dereference symlinks to their targets for size",
+                None,
             )
             .category(Category::FileSystem)
     }
@@ -94,8 +100,9 @@ impl Command for Du {
                 });
             }
         }
-        let all = call.has_flag(engine_state, stack, "all")?;
+        let files = call.has_flag(engine_state, stack, "files")?;
         let deref = call.has_flag(engine_state, stack, "deref")?;
+        let recursive = call.has_flag(engine_state, stack, "recursive")?;
         let exclude = call.get_flag(engine_state, stack, "exclude")?;
         #[allow(deprecated)]
         let current_dir = current_dir(engine_state, stack)?;
@@ -111,8 +118,9 @@ impl Command for Du {
             None => {
                 let args = DuArgs {
                     path: None,
-                    all,
+                    files,
                     deref,
+                    recursive,
                     exclude,
                     max_depth,
                     min_size,
@@ -127,8 +135,9 @@ impl Command for Du {
                 for p in paths {
                     let args = DuArgs {
                         path: Some(p),
-                        all,
+                        files,
                         deref,
+                        recursive,
                         exclude: exclude.clone(),
                         max_depth,
                         min_size,
@@ -174,7 +183,6 @@ fn du_for_one_pattern(
             })
     })?;
 
-    let include_files = args.all;
     let mut paths = match args.path {
         Some(p) => nu_engine::glob_from(&p, current_dir, span, None),
         // The * pattern should never fail.
@@ -188,17 +196,11 @@ fn du_for_one_pattern(
             None,
         ),
     }
-    .map(|f| f.1)?
-    .filter(move |p| {
-        if include_files {
-            true
-        } else {
-            matches!(p, Ok(f) if f.is_dir())
-        }
-    });
+    .map(|f| f.1)?;
 
-    let all = args.all;
+    let all = args.files;
     let deref = args.deref;
+    let long = args.recursive;
     let max_depth = args.max_depth.map(|f| f.item as u64);
     let min_size = args.min_size.map(|f| f.item as u64);
 
@@ -207,7 +209,8 @@ fn du_for_one_pattern(
         min: min_size,
         deref,
         exclude,
-        all,
+        files: all,
+        recursive: long,
     };
 
     let mut output: Vec<Value> = vec![];
@@ -216,7 +219,8 @@ fn du_for_one_pattern(
             Ok(a) => {
                 if a.is_dir() {
                     output.push(DirInfo::new(a, &params, max_depth, span, signals)?.into());
-                } else if let Ok(v) = FileInfo::new(a, deref, span) {
+                } else if let Ok(v) = FileInfo::new(a, deref, span, params.recursive, params.files)
+                {
                     output.push(v.into());
                 }
             }
