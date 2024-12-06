@@ -118,6 +118,7 @@ const REGEX_CACHE_SIZE: usize = 100; // must be nonzero, otherwise will panic
 pub const NU_VARIABLE_ID: VarId = VarId::new(0);
 pub const IN_VARIABLE_ID: VarId = VarId::new(1);
 pub const ENV_VARIABLE_ID: VarId = VarId::new(2);
+pub const LIB_DIRS_VARIABLE_ID: VarId = VarId::new(3);
 // NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
 
 // The first span is unknown span

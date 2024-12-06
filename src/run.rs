@@ -54,7 +54,7 @@ pub(crate) fn run_commands(
     init_pwd_per_drive(engine_state, &mut stack);
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
-    // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
+    // load the default preconfig file and perhaps custom (depending on parsed_nu_cli_args.preconfig_file),
     // and maybe a custom config file (depending on parsed_nu_cli_args.config_file)
     //
     // if the --no-config-file(-n) flag is passed, do not load plugin, env, or config files
@@ -65,20 +65,20 @@ pub(crate) fn run_commands(
         perf!("read plugins", start_time, use_color);
 
         let start_time = std::time::Instant::now();
-        // If we have a env file parameter *OR* we have a login shell parameter, read the env file
-        if parsed_nu_cli_args.env_file.is_some() || parsed_nu_cli_args.login_shell.is_some() {
+        // If we have a preconfig file parameter *OR* we have a login shell parameter, read the preconfig file
+        if parsed_nu_cli_args.preconfig_file.is_some() || parsed_nu_cli_args.login_shell.is_some() {
             config_files::read_config_file(
                 engine_state,
                 &mut stack,
-                parsed_nu_cli_args.env_file,
+                parsed_nu_cli_args.preconfig_file,
                 true,
                 create_scaffold,
             );
         } else {
-            config_files::read_default_env_file(engine_state, &mut stack)
+            config_files::read_default_preconfig_file(engine_state, &mut stack)
         }
 
-        perf!("read env.nu", start_time, use_color);
+        perf!("read preconfig.nu", start_time, use_color);
 
         let start_time = std::time::Instant::now();
         let create_scaffold = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
@@ -145,10 +145,10 @@ pub(crate) fn run_file(
     init_pwd_per_drive(engine_state, &mut stack);
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
-    // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
+    // load the default preconfig file and perhaps a custom (depending on parsed_nu_cli_args.preconfig_file),
     // and maybe a custom config file (depending on parsed_nu_cli_args.config_file)
     //
-    // if the --no-config-file(-n) flag is passed, do not load plugin, env, or config files
+    // if the --no-config-file(-n) flag is passed, do not load plugin, preconfig, or config files
     if parsed_nu_cli_args.no_config_file.is_none() {
         let start_time = std::time::Instant::now();
         let create_scaffold = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
@@ -157,19 +157,19 @@ pub(crate) fn run_file(
         perf!("read plugins", start_time, use_color);
 
         let start_time = std::time::Instant::now();
-        // only want to load config and env if relative argument is provided.
-        if parsed_nu_cli_args.env_file.is_some() {
+        // only want to load preconfig and config if relative argument is provided.
+        if parsed_nu_cli_args.preconfig_file.is_some() {
             config_files::read_config_file(
                 engine_state,
                 &mut stack,
-                parsed_nu_cli_args.env_file,
+                parsed_nu_cli_args.preconfig_file,
                 true,
                 create_scaffold,
             );
         } else {
-            config_files::read_default_env_file(engine_state, &mut stack)
+            config_files::read_default_preconfig_file(engine_state, &mut stack)
         }
-        perf!("read env.nu", start_time, use_color);
+        perf!("read preconfig.nu", start_time, use_color);
 
         let start_time = std::time::Instant::now();
         if parsed_nu_cli_args.config_file.is_some() {
@@ -222,7 +222,7 @@ pub(crate) fn run_repl(
             #[cfg(feature = "plugin")]
             parsed_nu_cli_args.plugin_file,
             parsed_nu_cli_args.config_file,
-            parsed_nu_cli_args.env_file,
+            parsed_nu_cli_args.preconfig_file,
             parsed_nu_cli_args.login_shell.is_some(),
         );
     }

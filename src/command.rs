@@ -30,7 +30,7 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
 
         let flag_value = match arg.as_ref() {
             "--commands" | "-c" | "--table-mode" | "-m" | "--error-style" | "-e" | "--execute"
-            | "--config" | "--env-config" | "-I" | "ide-ast" => {
+            | "--config" | "--env-config" | "--preconfig" | "-I" | "ide-ast" => {
                 args.next().map(|a| escape_quote_string(&a))
             }
             #[cfg(feature = "plugin")]
@@ -95,8 +95,15 @@ pub(crate) fn parse_commandline_args(
             let no_config_file = call.get_named_arg("no-config-file");
             let no_history = call.get_named_arg("no-history");
             let no_std_lib = call.get_named_arg("no-std-lib");
+            // Temporarily allow both --env-config and --preconfig to point to preconfig
+            // Remove --env-config following the deprecation period
+            let preconfig_file = if let Some(preconfig) = call.get_flag_expr("preconfig") {
+                Some(preconfig)
+            } else {
+                // Deprecated but
+                call.get_flag_expr("env-config")
+            };
             let config_file = call.get_flag_expr("config");
-            let env_file = call.get_flag_expr("env-config");
             let log_level = call.get_flag_expr("log-level");
             let log_target = call.get_flag_expr("log-target");
             let log_include = call.get_flag_expr("log-include");
@@ -194,7 +201,7 @@ pub(crate) fn parse_commandline_args(
             #[cfg(feature = "plugin")]
             let plugins = extract_list(plugins, "path", |expr| expr.as_filepath().map(|t| t.0))?;
             let config_file = extract_path(config_file)?;
-            let env_file = extract_path(env_file)?;
+            let preconfig_file = extract_path(preconfig_file)?;
             let log_level = extract_contents(log_level)?;
             let log_target = extract_contents(log_target)?;
             let log_include = extract_list(log_include, "string", |expr| expr.as_string())?;
@@ -234,8 +241,8 @@ pub(crate) fn parse_commandline_args(
                 no_config_file,
                 no_history,
                 no_std_lib,
+                preconfig_file,
                 config_file,
-                env_file,
                 log_level,
                 log_target,
                 log_include,
@@ -275,8 +282,8 @@ pub(crate) struct NushellCliArgs {
     pub(crate) no_config_file: Option<Spanned<String>>,
     pub(crate) no_history: Option<Spanned<String>>,
     pub(crate) no_std_lib: Option<Spanned<String>>,
+    pub(crate) preconfig_file: Option<Spanned<String>>,
     pub(crate) config_file: Option<Spanned<String>>,
-    pub(crate) env_file: Option<Spanned<String>>,
     pub(crate) log_level: Option<Spanned<String>>,
     pub(crate) log_target: Option<Spanned<String>>,
     pub(crate) log_include: Option<Vec<Spanned<String>>>,
@@ -363,9 +370,15 @@ impl Command for Nu {
                 None,
             )
             .named(
+                "preconfig",
+                SyntaxShape::Filepath,
+                "start with an alternate preconfig file",
+                None,
+            )
+            .named(
                 "env-config",
                 SyntaxShape::Filepath,
-                "start with an alternate environment config file",
+                "(Deprecated) start with an alternate preconfig file",
                 None,
             )
             .switch(

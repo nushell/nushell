@@ -86,14 +86,26 @@ where
 }
 
 // See default_files/README.md for a description of these files
+
+// Deprecated
 pub fn get_default_env() -> &'static str {
     include_str!("default_files/default_env.nu")
 }
 
+pub fn get_default_preconfig() -> &'static str {
+    include_str!("default_files/default_preconfig.nu")
+}
+
+// Deprecated
 pub fn get_scaffold_env() -> &'static str {
     include_str!("default_files/scaffold_env.nu")
 }
 
+pub fn get_scaffold_preconfig() -> &'static str {
+    include_str!("default_files/scaffold_preconfig.nu")
+}
+
+// Deprecated
 pub fn get_sample_env() -> &'static str {
     include_str!("default_files/sample_env.nu")
 }
