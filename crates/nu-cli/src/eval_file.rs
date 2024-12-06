@@ -74,18 +74,6 @@ pub fn evaluate_file(
         .expect("internal error: missing filename");
 
     let mut working_set = StateWorkingSet::new(engine_state);
-
-    let current_file = working_set.add_variable(
-        b"$NU_CURRENT_FILE".into(),
-        Span::unknown(),
-        nu_protocol::Type::String,
-        false,
-    );
-    working_set.set_variable_const_val(
-        current_file,
-        Value::string(file_path.to_string_lossy(), Span::unknown()),
-    );
-
     trace!("parsing file: {}", file_path_str);
     let block = parse(&mut working_set, Some(file_path_str), &file, false);
 

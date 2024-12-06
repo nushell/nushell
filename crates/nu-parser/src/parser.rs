@@ -15,7 +15,7 @@ use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean,
     FilesizeUnit, Flag, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type,
-    VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -6072,6 +6072,17 @@ pub fn parse_block(
         working_set.enter_scope();
     }
 
+    let previous_current_file_id = working_set.find_variable(b"$NU_CURRENT_FILE");
+    if let Some(file) = working_set
+        .files
+        .top()
+        .map(|f| f.to_string_lossy().into_owned())
+    {
+        let current_file =
+            working_set.add_variable(b"$NU_CURRENT_FILE".into(), span, Type::String, false);
+        working_set.set_variable_const_val(current_file, Value::string(file, span));
+    };
+
     // Pre-declare any definition so that definitions
     // that share the same block can see each other
     for pipeline in &lite_block.block {
@@ -6118,6 +6129,18 @@ pub fn parse_block(
 
     if scoped {
         working_set.exit_scope();
+    } else {
+        let value = previous_current_file_id
+            .and_then(|id| working_set.get_constant(id).ok())
+            .cloned()
+            .unwrap_or_default();
+        let current_file = working_set.add_variable(
+            b"$NU_CURRENT_FILE".into(),
+            Span::unknown(),
+            nu_protocol::Type::String,
+            false,
+        );
+        working_set.set_variable_const_val(current_file, value);
     }
 
     let errors = type_check::check_block_input_output(working_set, &block);
