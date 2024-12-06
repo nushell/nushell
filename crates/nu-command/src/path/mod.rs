@@ -1,5 +1,4 @@
 mod basename;
-mod self_;
 mod dirname;
 mod exists;
 mod expand;
@@ -7,6 +6,7 @@ mod join;
 mod parse;
 pub mod path_;
 mod relative_to;
+mod self_;
 mod split;
 mod r#type;
 
@@ -17,9 +17,9 @@ pub use expand::SubCommand as PathExpand;
 pub use join::SubCommand as PathJoin;
 pub use parse::SubCommand as PathParse;
 pub use path_::PathCommand as Path;
-pub use self_::SubCommand as PathSelf;
 pub use r#type::SubCommand as PathType;
 pub use relative_to::SubCommand as PathRelativeTo;
+pub use self_::SubCommand as PathSelf;
 pub use split::SubCommand as PathSplit;
 
 use nu_protocol::{ShellError, Span, Value};
