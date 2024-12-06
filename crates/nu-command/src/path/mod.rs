@@ -1,5 +1,5 @@
 mod basename;
-mod r#const;
+mod self_;
 mod dirname;
 mod exists;
 mod expand;
@@ -17,7 +17,7 @@ pub use expand::SubCommand as PathExpand;
 pub use join::SubCommand as PathJoin;
 pub use parse::SubCommand as PathParse;
 pub use path_::PathCommand as Path;
-pub use r#const::SubCommand as PathConst;
+pub use self_::SubCommand as PathSelf;
 pub use r#type::SubCommand as PathType;
 pub use relative_to::SubCommand as PathRelativeTo;
 pub use split::SubCommand as PathSplit;

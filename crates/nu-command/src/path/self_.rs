@@ -7,11 +7,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "path const"
+        "path self"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path const")
+        Signature::build("path self")
             .input_output_type(Type::Nothing, Type::String)
             .allow_variants_without_examples(true)
             .optional(
