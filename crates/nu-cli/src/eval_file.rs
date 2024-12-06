@@ -76,7 +76,7 @@ pub fn evaluate_file(
     let mut working_set = StateWorkingSet::new(engine_state);
 
     let current_file = working_set.add_variable(
-        b"$current_file".into(),
+        b"$NU_CURRENT_FILE".into(),
         Span::unknown(),
         nu_protocol::Type::String,
         false,

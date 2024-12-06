@@ -1725,7 +1725,7 @@ pub fn parse_module_block(
         .map(|f| f.to_string_lossy().into_owned())
     {
         let current_file =
-            working_set.add_variable(b"$current_file".into(), span, Type::String, false);
+            working_set.add_variable(b"$NU_CURRENT_FILE".into(), span, Type::String, false);
         working_set.set_variable_const_val(current_file, Value::string(file, span));
     };
 
@@ -3526,7 +3526,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                         }
 
                         let new_file = working_set.add_variable(
-                            b"$current_file".into(),
+                            b"$NU_CURRENT_FILE".into(),
                             Span::concat(&spans[1..]),
                             Type::String,
                             false,
@@ -3550,7 +3550,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
 
                         // Restore `$current_size` to previous file
                         let current_file = working_set.add_variable(
-                            b"$current_file".into(),
+                            b"$NU_CURRENT_FILE".into(),
                             Span::unknown(),
                             Type::String,
                             false,
