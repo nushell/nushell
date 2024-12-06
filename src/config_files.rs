@@ -6,7 +6,7 @@ use nu_engine::convert_env_values;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_parse_error, report_shell_error, Config, ParseError, PipelineData, Spanned,
+    report_parse_error, report_shell_error, report_shell_warning, Config, ParseError, PipelineData, ShellError, Span, Spanned,
 };
 use nu_utils::{get_default_config, get_default_preconfig, get_scaffold_config, get_scaffold_preconfig, perf};
 use std::{
@@ -102,39 +102,58 @@ pub(crate) fn read_config_file(
                 get_scaffold_config()
             };
 
-            match create_scaffold {
-                true => {
-                    if let Ok(mut output) = File::create(&config_path) {
-                        if write!(output, "{scaffold_config_file}").is_ok() {
-                            let config_type = if is_preconfig {
-                                "Preconfig"
-                            } else {
-                                "Config"
-                            };
-                            println!(
-                                "{} file created at: {}",
-                                config_type,
-                                config_path.to_string_lossy()
-                            );
+            if create_scaffold {
+                if let Ok(mut output) = File::create(&config_path) {
+                    if write!(output, "{scaffold_config_file}").is_ok() {
+                        let config_type = if is_preconfig {
+                            "Preconfig"
                         } else {
-                            eprintln!(
-                                "Unable to write to {}, sourcing default file instead",
-                                config_path.to_string_lossy(),
-                            );
-                            return;
-                        }
+                            "Config"
+                        };
+                        println!(
+                            "{} file created at: {}",
+                            config_type,
+                            config_path.to_string_lossy()
+                        );
                     } else {
-                        eprintln!("Unable to create {scaffold_config_file}");
+                        eprintln!(
+                            "Unable to write to {}, sourcing default file instead",
+                            config_path.to_string_lossy(),
+                        );
                         return;
                     }
-                }
-                _ => {
+                } else {
+                    eprintln!("Unable to create {scaffold_config_file}");
                     return;
                 }
             }
         }
 
-        eval_config_contents(config_path.into(), engine_state, stack);
+        // Remove this 'if' after env.nu deprecation
+        if !config_path.exists() && is_preconfig {
+            // If preconfig.nu doesn't exists, try env.nu instead
+            if let Some(mut config_path) = nu_path::nu_config_dir() {
+                config_path.push(ENV_FILE);
+                if config_path.exists() {
+                    eval_config_contents(config_path.into(), engine_state, stack);
+                    report_shell_warning(
+                        engine_state,
+                        &ShellError::Deprecated {
+                            deprecated: "env.nu",
+                            suggestion: "Please use 'preconfig.nu' instead.",
+                            span: Span::unknown(),
+                            help: None,
+                        },
+                    );
+                }
+            }
+        } else {
+            eval_config_contents(config_path.into(), engine_state, stack);
+        }
+
+        // And revert to this original behavior after deprecation
+        // eval_config_contents(config_path.into(), engine_state, stack);
+
     }
 }
 
