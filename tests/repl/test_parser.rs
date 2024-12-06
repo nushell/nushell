@@ -931,8 +931,10 @@ fn record_missing_value() -> TestResult {
 }
 
 #[test]
-fn def_requires_body_closure() -> TestResult {
-    fail_test("def a [] (echo 4)", "expected definition body closure")
+fn def_requires_body_block() -> TestResult {
+    fail_test("def a [] (echo 4)", "expected definition body")?;
+    fail_test("def a [] {|| }", "expected definition body")?;
+    fail_test("def a [] {|b: int| echo $b }", "expected definition body")
 }
 
 #[test]
