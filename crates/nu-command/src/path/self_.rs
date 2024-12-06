@@ -23,7 +23,7 @@ impl Command for SubCommand {
     }
 
     fn description(&self) -> &str {
-        "Get the absolute path of the script containing this command at parse time."
+        "Get the absolute path of the script or module containing this command at parse time."
     }
 
     fn is_const(&self) -> bool {
@@ -62,7 +62,6 @@ impl Command for SubCommand {
                     msg: "Couldn't find current file".into(),
                     span: call.head,
                 })?;
-        // TODO: Error on pipeline input.
 
         let out = if let Some(path) = path {
             let dir = expand_path_with(
@@ -89,7 +88,6 @@ impl Command for SubCommand {
         Ok(out.into_pipeline_data())
     }
 
-    #[cfg(windows)]
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
@@ -102,27 +100,13 @@ impl Command for SubCommand {
                 example: r#"const current_file = path self ."#,
                 result: None,
             },
+            #[cfg(windows)]
             Example {
                 description: "Get the absolute form of a path relative to the current file",
                 example: r#"const current_file = path self ..\foo"#,
                 result: None,
             },
-        ]
-    }
-
-    #[cfg(not(windows))]
-    fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Get the path of the current file",
-                example: r#"const current_file = path self"#,
-                result: None,
-            },
-            Example {
-                description: "Get the path of the directory containing the current file",
-                example: r#"const current_file = path self ."#,
-                result: None,
-            },
+            #[cfg(not(windows))]
             Example {
                 description: "Get the absolute form of a path relative to the current file",
                 example: r#"const current_file = path self ../foo"#,
