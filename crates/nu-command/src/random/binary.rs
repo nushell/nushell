@@ -1,5 +1,4 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::format_filesize_from_conf;
 use rand::{thread_rng, RngCore};
 
 #[derive(Clone)]
@@ -47,7 +46,7 @@ impl Command for SubCommand {
             Value::Filesize { val, .. } => {
                 usize::try_from(val).map_err(|_| ShellError::InvalidValue {
                     valid: "a non-negative int or filesize".into(),
-                    actual: format_filesize_from_conf(val, engine_state.get_config()),
+                    actual: engine_state.get_config().filesize.display(val).to_string(),
                     span: length_val.span(),
                 })
             }
