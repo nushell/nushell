@@ -3,9 +3,12 @@ use std::error::Error;
 use aws_config::{BehaviorVersion, SdkConfig};
 use aws_credential_types::{provider::ProvideCredentials, Credentials};
 use nu_protocol::ShellError;
+use object_store::aws::AmazonS3ConfigKey;
 use polars_io::cloud::CloudOptions;
 
-async fn aws_load_config() -> SdkConfig {
+use crate::PolarsPlugin;
+
+async fn load_aws_config() -> SdkConfig {
     aws_config::load_defaults(BehaviorVersion::latest()).await
 }
 
@@ -31,6 +34,34 @@ async fn aws_creds(aws_config: &SdkConfig) -> Result<Option<Credentials>, ShellE
     }
 }
 
-async fn aws_cloud_options() -> CloudOptions {
-    CloudOptions::
+async fn build_aws_cloud_configs() -> Result<Vec<(AmazonS3ConfigKey, String)>, ShellError> {
+    let sdk_config = load_aws_config().await;
+    let creds = aws_creds(&sdk_config)
+        .await?
+        .ok_or(ShellError::GenericError {
+            error: "Could not determine AWS credentials".into(),
+            msg: "".into(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })?;
+
+    let mut configs = vec![
+        (AmazonS3ConfigKey::AccessKeyId, creds.access_key_id().into()),
+        (
+            AmazonS3ConfigKey::SecretAccessKey,
+            creds.secret_access_key().into(),
+        ),
+    ];
+
+    if let Some(token) = creds.session_token() {
+        configs.push((AmazonS3ConfigKey::Token, token.into()))
+    }
+
+    Ok(configs)
+}
+
+fn build_aws_cloud_options(plugin: &PolarsPlugin) -> Result<CloudOptions, ShellError> {
+    let configs = plugin.runtime.block_on(build_aws_cloud_configs())?;
+    Ok(CloudOptions::default().with_aws(configs.into_iter()))
 }
