@@ -45,11 +45,10 @@ fn get_engine_state() -> EngineState {
 
 /// Get the directory where the Nushell executable is located.
 fn current_exe_directory() -> PathBuf {
-    let path = std::env::current_exe().unwrap_or_else(|err| {
+    std::env::current_exe().unwrap_or_else(|err| {
         eprintln!("Failed to get current executable path: {}", err);
         PathBuf::new() // Return a sensible default
-    });
-    path
+    })
 }
 
 /// Get the current working directory from the environment.
