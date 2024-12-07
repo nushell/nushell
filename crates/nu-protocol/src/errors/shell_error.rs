@@ -1220,10 +1220,10 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Return event, which may become an error if used outside of a function
-    #[error("Return used outside of function")]
+    /// Return event, which may become an error if used outside of a custom command or closure
+    #[error("Return used outside of custom command or closure")]
     Return {
-        #[label("used outside of function")]
+        #[label("used outside of custom command or closure")]
         span: Span,
         value: Box<Value>,
     },
