@@ -32,6 +32,7 @@ repeating this process with row 1, and so on."#
                 SyntaxShape::Any,
                 "The new value to merge with.",
             )
+            .switch("deep", "Perform a deep merge", Some('d'))
             .category(Category::Filters)
     }
 
@@ -75,6 +76,18 @@ repeating this process with row 1, and so on."#
                     "columnB" => Value::test_string("B0"),
                 })])),
             },
+            Example {
+                example: "{a: {foo: 123}, b: 2} | merge --deep {a: {bar: 456}}",
+                description:
+                    "Deep merge two records, combining inner records instead of overwriting",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_record(record! {
+                        "foo" => Value::test_int(123),
+                        "bar" => Value::test_int(456),
+                    }),
+                    "b" => Value::test_int(2)
+                })),
+            },
         ]
     }
 
@@ -87,27 +100,31 @@ repeating this process with row 1, and so on."#
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let merge_value: Value = call.req(engine_state, stack, 0)?;
+        let deep = call.has_flag(engine_state, stack, "deep")?;
         let metadata = input.metadata();
 
-        match (&input, merge_value) {
+        match (input, merge_value) {
             // table (list of records)
             (
-                PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream { .. },
+                input @ (PipelineData::Value(Value::List { .. }, ..)
+                | PipelineData::ListStream { .. }),
                 Value::List { vals, .. },
             ) => {
                 let mut table_iter = vals.into_iter();
 
-                let res =
-                    input
-                        .into_iter()
-                        .map(move |inp| match (inp.as_record(), table_iter.next()) {
-                            (Ok(inp), Some(to_merge)) => match to_merge.as_record() {
-                                Ok(to_merge) => Value::record(do_merge(inp, to_merge), head),
-                                Err(error) => Value::error(error, head),
-                            },
-                            (_, None) => inp,
-                            (Err(error), _) => Value::error(error, head),
-                        });
+                let res = input.into_iter().map(move |inp| {
+                    match (inp.into_record(), table_iter.next()) {
+                        (Ok(rec), Some(to_merge)) => match to_merge.into_record() {
+                            Ok(to_merge) => Value::record(
+                                do_merge(rec.to_owned(), to_merge.to_owned(), head, deep),
+                                head,
+                            ),
+                            Err(error) => Value::error(error, head),
+                        },
+                        (Ok(rec), None) => Value::record(rec, head),
+                        (Err(error), _) => Value::error(error, head),
+                    }
+                });
 
                 Ok(res.into_pipeline_data_with_metadata(
                     head,
@@ -119,7 +136,11 @@ repeating this process with row 1, and so on."#
             (
                 PipelineData::Value(Value::Record { val: inp, .. }, ..),
                 Value::Record { val: to_merge, .. },
-            ) => Ok(Value::record(do_merge(inp, &to_merge), head).into_pipeline_data()),
+            ) => Ok(Value::record(
+                do_merge(inp.into_owned(), to_merge.into_owned(), head, deep),
+                head,
+            )
+            .into_pipeline_data()),
             // Propagate errors in the pipeline
             (PipelineData::Value(Value::Error { error, .. }, ..), _) => Err(*error.clone()),
             (PipelineData::Value(val, ..), ..) => {
@@ -147,14 +168,51 @@ repeating this process with row 1, and so on."#
     }
 }
 
-// TODO: rewrite to mutate the input record
-fn do_merge(input_record: &Record, to_merge_record: &Record) -> Record {
-    let mut result = input_record.clone();
-
-    for (col, val) in to_merge_record {
-        result.insert(col, val.clone());
+fn do_merge(mut source: Record, merge: Record, span: Span, deep: bool) -> Record {
+    for (col, val) in merge {
+        // in order to both avoid cloning (possibly nested) record values and maintain the ordering of record keys, we can swap a temporary value into the source record.
+        // if we were to remove the value, the ordering would be messed up as we might not insert back into the original index
+        // it's okay to swap a temporary value in, since we know it will be replaced by the end of the function call
+        //
+        // use an error here instead of something like null so if this somehow makes it into the output, the bug will be immediately obvious
+        let failed_error = ShellError::NushellFailed {
+            msg: "Merge failed to properly replace internal temporary value".to_owned(),
+        };
+        let value = match (
+            deep,
+            source.insert(&col, Value::error(failed_error, span)),
+            val,
+        ) {
+            (
+                true,
+                Some(Value::Record { val: inner_src, .. }),
+                Value::Record {
+                    val: inner_merge, ..
+                },
+            ) => Value::record(
+                do_merge(inner_src.into_owned(), inner_merge.into_owned(), span, deep),
+                span,
+            ),
+            (
+                true,
+                Some(Value::List {
+                    vals: inner_src, ..
+                }),
+                Value::List {
+                    vals: inner_merge, ..
+                },
+            ) => Value::list(
+                inner_src
+                    .into_iter()
+                    .chain(inner_merge.into_iter())
+                    .collect(),
+                span,
+            ),
+            (_, _, val) => val,
+        };
+        source.insert(col, value);
     }
-    result
+    source
 }
 
 #[cfg(test)]
