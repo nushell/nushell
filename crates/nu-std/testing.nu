@@ -28,7 +28,7 @@ def valid-annotations [] {
 # Returns a table containing the list of function names together with their annotations (comments above the declaration)
 def get-annotated [
     file: path
-] path -> table<function_name: string, annotation: string> {
+]: path -> table<function_name: string, annotation: string> {
     let raw_file = (
         open $file
         | lines
@@ -59,7 +59,7 @@ def get-annotated [
 # Annotations that allow multiple functions are of type list<string>
 # Other annotations are of type string
 # Result gets merged with the template record so that the output shape remains consistent regardless of the table content
-def create-test-record [] nothing -> record<before-each: string, after-each: string, before-all: string, after-all: string, test: list<string>, test-skip: list<string>> {
+def create-test-record []: nothing -> record<before-each: string, after-each: string, before-all: string, after-all: string, test: list<string>, test-skip: list<string>> {
     let input = $in
 
     let template_record = {
@@ -187,7 +187,7 @@ export def ($test_function_name) [] {
 def run-tests-for-module [
     module: record<file: path name: string before-each: string after-each: string before-all: string after-all: string test: list test-skip: list>
     threads: int
-] -> table<file: path, name: string, test: string, result: string> {
+]: nothing -> table<file: path, name: string, test: string, result: string> {
     let global_context = if not ($module.before-all|is-empty) {
             log info $"Running before-all for module ($module.name)"
             run-test {
