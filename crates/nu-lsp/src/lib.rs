@@ -274,6 +274,9 @@ impl LanguageServer {
 
         // TODO: think about passing down the rope into the working_set
         let contents = file.bytes().collect::<Vec<u8>>();
+        let _ = working_set
+            .files
+            .push(file_path.as_ref().into(), Span::unknown());
         let block = parse(working_set, Some(&file_path), &contents, false);
         let flattened = flatten_block(working_set, &block);
 
