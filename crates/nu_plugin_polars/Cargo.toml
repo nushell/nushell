@@ -47,8 +47,8 @@ hashbrown = { version = "0.14", features = ["rayon", "ahash", "serde", "raw"] }
 # Cloud support
 aws-config = { version = "1.5", features = ["sso"] }
 aws-credential-types = "1.2"
-tokio = { version = "1.41.1", features = ["full"] }
-object_store = { version = "0.11.1", features = ["aws"] }
+tokio = { version = "1.41", features = ["full"] }
+object_store = { version = "0.10", default-features = false }
 
 [dependencies.polars]
 features = [

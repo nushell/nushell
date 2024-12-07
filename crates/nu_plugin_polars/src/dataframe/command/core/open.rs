@@ -28,7 +28,7 @@ use polars::{
     },
 };
 
-use polars_io::{avro::AvroReader, csv::read::CsvReadOptions, HiveOptions};
+use polars_io::{avro::AvroReader, cloud::CloudOptions, csv::read::CsvReadOptions, HiveOptions};
 
 const DEFAULT_INFER_SCHEMA: usize = 100;
 
@@ -50,8 +50,8 @@ impl PluginCommand for OpenDataFrame {
         Signature::build(self.name())
             .required(
                 "file",
-                SyntaxShape::Filepath,
-                "file path to load values from",
+                SyntaxShape::OneOf(vec![SyntaxShape::Filepath, SyntaxShape::String]),
+                "file path or cloud url to load values from",
             )
             .switch("eager", "Open dataframe as an eager dataframe", None)
             .named(
@@ -119,12 +119,23 @@ impl PluginCommand for OpenDataFrame {
     }
 }
 
+enum Resource {
+    File(PathBuf, Span),
+    CloudUrl(String, CloudOptions, Span)
+}
+
 fn command(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<PipelineData, ShellError> {
-    let spanned_file: Spanned<PathBuf> = call.req(0)?;
+    let spanned_file: Spanned<String> = call.req(0)?;
+
+    let resources = if let Some(cloud_options) = crate::cloud::build_cloud_options(plugin, &spanned_file.item)? {
+        Resource::CloudUrl(spanned_file.item, cloud_options, spanned_file.span)
+    } else {
+
+    }
     let file_path = expand_path_with(&spanned_file.item, engine.get_current_dir()?, true);
     let file_span = spanned_file.span;
 
@@ -175,9 +186,11 @@ fn from_parquet(
     file_path: &Path,
     file_span: Span,
 ) -> Result<Value, ShellError> {
+
+    let cloud_options = crate::cloud::build_cloud_options(plugin, file_path)
     if !call.has_flag("eager")? {
         let file: String = call.req(0)?;
-        let args = ScanArgsParquet::default();
+        let mut args = ScanArgsParquet::default();
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
             .map_err(|e| ShellError::GenericError {
                 error: "Parquet reader error".into(),
