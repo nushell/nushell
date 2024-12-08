@@ -95,8 +95,8 @@ fn main() -> Result<()> {
     ctrlc_protection(&mut engine_state);
 
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
-    // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If
-    // the env.nu file exists, these values will be overwritten, if it does not exist, or
+    // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the preconfig.nu is processed. If
+    // the preconfig.nu file exists, these values will be overwritten, if it does not exist, or
     // there is an error reading it, these values will be used.
     let nushell_config_path: PathBuf = nu_path::nu_config_dir().map(Into::into).unwrap_or_default();
     if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
@@ -244,9 +244,9 @@ fn main() -> Result<()> {
     set_config_path(
         &mut engine_state,
         init_cwd.as_ref(),
-        "env.nu",
-        "env-path",
-        parsed_nu_cli_args.env_file.as_ref(),
+        "preconfig.nu",
+        "preconfig-path",
+        parsed_nu_cli_args.preconfig_file.as_ref(),
     );
     perf!("set_config_path", start_time, use_color);
 
@@ -425,7 +425,7 @@ fn main() -> Result<()> {
                 #[cfg(feature = "plugin")]
                 parsed_nu_cli_args.plugin_file,
                 parsed_nu_cli_args.config_file,
-                parsed_nu_cli_args.env_file,
+                parsed_nu_cli_args.preconfig_file,
                 false,
             );
         }

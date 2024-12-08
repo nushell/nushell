@@ -6,9 +6,9 @@ use nu_engine::convert_env_values;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_parse_error, report_shell_error, Config, ParseError, PipelineData, Spanned,
+    report_parse_error, report_shell_error, report_shell_warning, Config, ParseError, PipelineData, ShellError, Span, Spanned,
 };
-use nu_utils::{get_default_config, get_default_env, get_scaffold_config, get_scaffold_env, perf};
+use nu_utils::{get_default_config, get_default_preconfig, get_scaffold_config, get_scaffold_preconfig, perf};
 use std::{
     fs,
     fs::File,
@@ -18,24 +18,25 @@ use std::{
     sync::Arc,
 };
 
-const CONFIG_FILE: &str = "config.nu";
+const PRECONFIG_FILE: &str = "preconfig.nu";
 const ENV_FILE: &str = "env.nu";
+const CONFIG_FILE: &str = "config.nu";
 const LOGINSHELL_FILE: &str = "login.nu";
 
 pub(crate) fn read_config_file(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     config_file: Option<Spanned<String>>,
-    is_env_config: bool,
+    is_preconfig: bool,
     create_scaffold: bool,
 ) {
     warn!(
-        "read_config_file() config_file_specified: {:?}, is_env_config: {is_env_config}",
+        "read_config_file() config_file_specified: {:?}, is_preconfig: {is_preconfig}",
         &config_file
     );
 
-    if is_env_config {
-        eval_default_config(engine_state, stack, get_default_env(), is_env_config);
+    if is_preconfig {
+        eval_default_config(engine_state, stack, get_default_preconfig(), is_preconfig);
 
         let start_time = std::time::Instant::now();
         let config = engine_state.get_config();
@@ -46,7 +47,7 @@ pub(crate) fn read_config_file(
         }
 
         perf!(
-            "translate env vars after default_env.nu",
+            "translate env vars after default_preconfig.nu",
             start_time,
             use_color
         );
@@ -63,10 +64,10 @@ pub(crate) fn read_config_file(
             use_color
         );
 
-        eval_default_config(engine_state, stack, get_default_config(), is_env_config);
+        eval_default_config(engine_state, stack, get_default_config(), is_preconfig);
     };
 
-    warn!("read_config_file() loading_defaults is_env_config: {is_env_config}");
+    warn!("read_config_file() loading_defaults is_preconfig: {is_preconfig}");
 
     // Load config startup file
     if let Some(file) = config_file {
@@ -92,48 +93,67 @@ pub(crate) fn read_config_file(
             }
         }
 
-        config_path.push(if is_env_config { ENV_FILE } else { CONFIG_FILE });
+        config_path.push(if is_preconfig { PRECONFIG_FILE } else { CONFIG_FILE });
 
         if !config_path.exists() {
-            let scaffold_config_file = if is_env_config {
-                get_scaffold_env()
+            let scaffold_config_file = if is_preconfig {
+                get_scaffold_preconfig()
             } else {
                 get_scaffold_config()
             };
 
-            match create_scaffold {
-                true => {
-                    if let Ok(mut output) = File::create(&config_path) {
-                        if write!(output, "{scaffold_config_file}").is_ok() {
-                            let config_type = if is_env_config {
-                                "Environment config"
-                            } else {
-                                "Config"
-                            };
-                            println!(
-                                "{} file created at: {}",
-                                config_type,
-                                config_path.to_string_lossy()
-                            );
+            if create_scaffold {
+                if let Ok(mut output) = File::create(&config_path) {
+                    if write!(output, "{scaffold_config_file}").is_ok() {
+                        let config_type = if is_preconfig {
+                            "Preconfig"
                         } else {
-                            eprintln!(
-                                "Unable to write to {}, sourcing default file instead",
-                                config_path.to_string_lossy(),
-                            );
-                            return;
-                        }
+                            "Config"
+                        };
+                        println!(
+                            "{} file created at: {}",
+                            config_type,
+                            config_path.to_string_lossy()
+                        );
                     } else {
-                        eprintln!("Unable to create {scaffold_config_file}");
+                        eprintln!(
+                            "Unable to write to {}, sourcing default file instead",
+                            config_path.to_string_lossy(),
+                        );
                         return;
                     }
-                }
-                _ => {
+                } else {
+                    eprintln!("Unable to create {scaffold_config_file}");
                     return;
                 }
             }
         }
 
-        eval_config_contents(config_path.into(), engine_state, stack);
+        // Remove this 'if' after env.nu deprecation
+        if !config_path.exists() && is_preconfig {
+            // If preconfig.nu doesn't exists, try env.nu instead
+            if let Some(mut config_path) = nu_path::nu_config_dir() {
+                config_path.push(ENV_FILE);
+                if config_path.exists() {
+                    eval_config_contents(config_path.into(), engine_state, stack);
+                    report_shell_warning(
+                        engine_state,
+                        &ShellError::Deprecated {
+                            deprecated: "env.nu",
+                            suggestion: "Please use 'preconfig.nu' instead.",
+                            span: Span::unknown(),
+                            help: None,
+                        },
+                    );
+                }
+            }
+        } else {
+            eval_config_contents(config_path.into(), engine_state, stack);
+        }
+
+        // And revert to this original behavior after deprecation
+        // eval_config_contents(config_path.into(), engine_state, stack);
+
     }
 }
 
@@ -157,19 +177,19 @@ pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut S
     }
 }
 
-pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut Stack) {
-    let config_file = get_default_env();
+pub(crate) fn read_default_preconfig_file(engine_state: &mut EngineState, stack: &mut Stack) {
+    let config_file = get_default_preconfig();
     eval_source(
         engine_state,
         stack,
         config_file.as_bytes(),
-        "default_env.nu",
+        "default_preconfig.nu",
         PipelineData::empty(),
         false,
     );
 
     warn!(
-        "read_default_env_file() env_file_contents: {config_file} {}:{}:{}",
+        "read_default_preconfig() preconfig_file_contents: {config_file} {}:{}:{}",
         file!(),
         line!(),
         column!()
@@ -233,15 +253,15 @@ fn eval_default_config(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     config_file: &str,
-    is_env_config: bool,
+    is_preconfig: bool,
 ) {
-    warn!("eval_default_config() is_env_config: {}", is_env_config);
+    warn!("eval_default_config() is_preconfig: {}", is_preconfig);
     eval_source(
         engine_state,
         stack,
         config_file.as_bytes(),
-        if is_env_config {
-            "default_env.nu"
+        if is_preconfig {
+            "default_preconfig.nu"
         } else {
             "default_config.nu"
         },
@@ -260,12 +280,12 @@ pub(crate) fn setup_config(
     stack: &mut Stack,
     #[cfg(feature = "plugin")] plugin_file: Option<Spanned<String>>,
     config_file: Option<Spanned<String>>,
-    env_file: Option<Spanned<String>>,
+    preconfig_file: Option<Spanned<String>>,
     is_login_shell: bool,
 ) {
     warn!(
-        "setup_config() config_file_specified: {:?}, env_file_specified: {:?}, login: {}",
-        &config_file, &env_file, is_login_shell
+        "setup_config() config_file_specified: {:?}, preconfig_file_specified: {:?}, login: {}",
+        &config_file, &preconfig_file, is_login_shell
     );
 
     let create_scaffold = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
@@ -274,7 +294,7 @@ pub(crate) fn setup_config(
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, plugin_file);
 
-        read_config_file(engine_state, stack, env_file, true, create_scaffold);
+        read_config_file(engine_state, stack, preconfig_file, true, false);
         read_config_file(engine_state, stack, config_file, false, create_scaffold);
 
         if is_login_shell {
