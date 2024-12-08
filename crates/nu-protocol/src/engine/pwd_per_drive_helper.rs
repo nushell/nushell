@@ -1,7 +1,6 @@
-use crate::{
-    engine::{EngineState, Stack},
-    Span, Value,
-};
+use crate::engine::{EngineState, Stack};
+#[cfg(windows)]
+use crate::{Span, Value};
 #[cfg(windows)]
 use nu_path::{
     bash_strip_redundant_quotes, ensure_trailing_delimiter, env_var_for_drive,
