@@ -5,9 +5,11 @@ use nu_engine::env_to_string;
 use nu_path::dots::expand_ndots;
 use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
-    engine::{expand_pwd, EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, Stack, StateWorkingSet},
     Span,
 };
+#[cfg(windows)]
+use nu_protocol::engine::expand_pwd;
 use nu_utils::get_ls_colors;
 use nu_utils::IgnoreCaseExt;
 use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};

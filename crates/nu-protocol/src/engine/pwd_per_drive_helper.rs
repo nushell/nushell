@@ -2,12 +2,14 @@ use crate::{
     engine::{EngineState, Stack},
     Span, Value,
 };
+#[cfg(windows)]
 use nu_path::{
     bash_strip_redundant_quotes, ensure_trailing_delimiter, env_var_for_drive,
     extract_drive_letter, get_full_path_name_w, need_expand,
 };
 use std::path::{Path, PathBuf};
 
+#[cfg(windows)]
 pub fn set_pwd(stack: &mut Stack, path: &Path) {
     if let Some(drive) = extract_drive_letter(path) {
         let value = Value::string(path.to_string_lossy(), Span::unknown());
@@ -19,6 +21,7 @@ pub fn set_pwd(stack: &mut Stack, path: &Path) {
 // 1. From env_var, if no,
 // 2. From sys_absolute, if no,
 // 3. Construct root path to drives
+#[cfg(windows)]
 fn get_pwd_on_drive(stack: &Stack, engine_state: &EngineState, drive_letter: char) -> String {
     let env_var_for_drive = env_var_for_drive(drive_letter);
     let mut abs_pwd: Option<String> = None;
@@ -64,8 +67,8 @@ pub fn expand_pwd(stack: &Stack, engine_state: &EngineState, path: &Path) -> Opt
 // Helper stub/proxy for nu_path::expand_path_with::<P, Q>(path, relative_to, expand_tilde)
 // Facilitates file system commands to easily gain the ability to expand PWD-per-drive
 pub fn expand_path_with<P, Q>(
-    stack: &Stack,
-    engine_state: &EngineState,
+    _stack: &Stack,
+    _engine_state: &EngineState,
     path: P,
     relative_to: Q,
     expand_tilde: bool,
@@ -75,13 +78,14 @@ where
     Q: AsRef<Path>,
 {
     #[cfg(windows)]
-    if let Some(abs_path) = expand_pwd(stack, engine_state, path.as_ref()) {
+    if let Some(abs_path) = expand_pwd(_stack, _engine_state, path.as_ref()) {
         return abs_path;
     }
 
     nu_path::expand_path_with::<P, Q>(path, relative_to, expand_tilde)
 }
 
+#[cfg(windows)]
 #[cfg(test)]
 mod tests {
     use super::*;

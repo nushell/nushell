@@ -788,12 +788,17 @@ enum ReplOperation {
 }
 
 fn is_dir(path: &Path) -> bool {
-    if cfg!(not(windows)) {
+    #[cfg(not(windows))]
+    {
         path.is_dir()
-    } else if let Some(path_str) = path.to_str() {
-        DRIVE_PATH_REGEX.is_match(path_str).unwrap_or(false) || path.is_dir()
-    } else {
-        false
+    }
+    #[cfg(windows)]
+    {
+        if let Some(path_str) = path.to_str() {
+            DRIVE_PATH_REGEX.is_match(path_str).unwrap_or(false) || path.is_dir()
+        } else {
+            false
+        }
     }
 }
 

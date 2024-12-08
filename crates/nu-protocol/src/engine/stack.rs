@@ -1,10 +1,12 @@
 use crate::{
     engine::{
-        set_pwd, ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
+        ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
         StackCollectValueGuard, StackIoGuard, StackOutDest, DEFAULT_OVERLAY_NAME,
     },
     Config, IntoValue, OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
+#[cfg(windows)]
+use crate::engine::set_pwd;
 use nu_utils::IgnoreCaseExt;
 use std::{
     collections::{HashMap, HashSet},
