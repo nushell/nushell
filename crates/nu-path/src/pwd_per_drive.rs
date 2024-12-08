@@ -1,57 +1,23 @@
 /// Usage for pwd_per_drive on windows
 ///
-/// let mut map = DriveToPwdMap::new();
+/// See nu_protocol::engine::pwd_per_drive_helper;
 ///
-/// Upon change PWD, call map.set_pwd() with absolute path
-///
-/// Call map.expand_pwd() with relative path to get absolution path
-///
-/// ```
-/// use std::path::{Path, PathBuf};
-/// use nu_path::DriveToPwdMap;
-///
-/// let mut map = DriveToPwdMap::new();
-///
-/// // Set PWD for drive C
-/// assert!(map.set_pwd(Path::new(r"C:\Users\Home")).is_ok());
-///
-/// // Expand a relative path
-/// let expanded = map.expand_pwd(Path::new("c:test"));
-/// assert_eq!(expanded, Some(PathBuf::from(r"C:\Users\Home\test")));
-///
-/// // Will NOT expand an absolute path
-/// let expanded = map.expand_pwd(Path::new(r"C:\absolute\path"));
-/// assert_eq!(expanded, None);
-///
-/// // Expand with no drive letter
-/// let expanded = map.expand_pwd(Path::new(r"\no_drive"));
-/// assert_eq!(expanded, None);
-///
-/// // Expand with no PWD set for the drive
-/// let expanded = map.expand_pwd(Path::new("D:test"));
-/// assert!(expanded.is_some());
-/// let abs_path = expanded.unwrap().as_path().to_str().expect("OK").to_string();
-/// assert!(abs_path.starts_with(r"D:\"));
-/// assert!(abs_path.ends_with(r"\test"));
-///
-/// // Get env vars for child process
-/// use std::collections::HashMap;
-/// let mut env = HashMap::<String, String>::new();
-/// map.get_env_vars(&mut env);
-/// assert_eq!(env.get("=C:").unwrap(), r"C:\Users\Home");
-/// ```
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-
-#[derive(Debug, PartialEq)]
-pub enum PathError {
-    InvalidDriveLetter,
-    InvalidPath,
-}
+use std::path::Path;
 
 /// Helper to check if input path is relative path
 /// with drive letter, it can be expanded with PWD-per-drive.
-fn need_expand(path: &str) -> bool {
+/// ```
+///  use nu_path::need_expand;
+///  assert!(need_expand(r"c:nushell\src"));
+///  assert!(need_expand("C:src/"));
+///  assert!(need_expand("a:"));
+///  assert!(need_expand("z:"));
+///  // Absolute path does not need expand
+///  assert!(!need_expand(r"c:\"));
+///  // Unix path does not need expand
+///  assert!(!need_expand("/usr/bin"));
+/// ```
+pub fn need_expand(path: &str) -> bool {
     let chars: Vec<char> = path.chars().collect();
     if chars.len() >= 2 {
         chars[1] == ':' && (chars.len() == 2 || (chars[2] != '/' && chars[2] != '\\'))
@@ -60,365 +26,179 @@ fn need_expand(path: &str) -> bool {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct DriveToPwdMap {
-    map: [Option<String>; 26], // Fixed-size array for A-Z
+/// Get windows env var for drive
+/// ```
+/// use nu_path::env_var_for_drive;
+///
+/// for drive_letter in 'A'..='Z' {
+///     assert_eq!(env_var_for_drive(drive_letter), format!("={drive_letter}:"));
+/// }
+/// for drive_letter in 'a'..='z' {
+///     assert_eq!(
+///         env_var_for_drive(drive_letter),
+///         format!("={}:", drive_letter.to_ascii_uppercase())
+///     );
+/// }
+///
+/// ```
+pub fn env_var_for_drive(drive_letter: char) -> String {
+    let drive_letter = drive_letter.to_ascii_uppercase();
+    format!("={}:", drive_letter)
 }
 
-impl Default for DriveToPwdMap {
-    fn default() -> Self {
-        Self::new()
+/// Helper to extract the drive letter from a path, keep case
+/// ```
+/// use nu_path::extract_drive_letter;
+/// use std::path::Path;
+///
+/// assert_eq!(extract_drive_letter(Path::new("C:test")), Some('C'));
+/// assert_eq!(extract_drive_letter(Path::new(r"d:\temp")), Some('d'));
+/// ```
+pub fn extract_drive_letter(path: &Path) -> Option<char> {
+    path.to_str()
+        .and_then(|s| s.chars().next())
+        .filter(|c| c.is_ascii_alphabetic())
+}
+
+/// Ensure a path has a trailing `\\` or '/'
+/// ```
+/// use nu_path::ensure_trailing_delimiter;
+///
+/// assert_eq!(ensure_trailing_delimiter("E:"), r"E:\");
+/// assert_eq!(ensure_trailing_delimiter(r"e:\"), r"e:\");
+/// assert_eq!(ensure_trailing_delimiter("c:/"), "c:/");
+/// ```
+pub fn ensure_trailing_delimiter(path: &str) -> String {
+    if !path.ends_with('\\') && !path.ends_with('/') {
+        format!(r"{}\", path)
+    } else {
+        path.to_string()
     }
 }
 
-impl DriveToPwdMap {
-    pub fn new() -> Self {
-        Self {
-            map: Default::default(),
-        }
-    }
+/// Remove leading quote and matching quote at back
+/// "D:\\"Music -> D:\\Music
+/// ```
+/// use nu_path::bash_strip_redundant_quotes;
+///
+/// let input = r#""D:\Music""#;
+/// let result = Some(r"D:\Music".to_string());
+/// assert_eq!(result, bash_strip_redundant_quotes(input));
+///
+/// let input = r#"""""D:\Music"""""#;
+/// assert_eq!(result, bash_strip_redundant_quotes(input));
+///
+/// let input = r#""D:\Mus"ic"#;
+/// assert_eq!(result, bash_strip_redundant_quotes(input));
+/// let input = r#""D:"\Music"#;
+/// assert_eq!(result, bash_strip_redundant_quotes(input));
+///
+/// let input = r#""D":\Music"#;
+/// assert_eq!(result, bash_strip_redundant_quotes(input));
+///
+/// let input = r#"""D:\Music"#;
+/// assert_eq!(result, bash_strip_redundant_quotes(input));
+///
+/// let input = r#"""''"""D:\Mu sic"""''"""#;
+/// let result = Some(r#""D:\Mu sic""#.to_string());
+/// assert_eq!(result, bash_strip_redundant_quotes(input));
+///
+/// assert_eq!(bash_strip_redundant_quotes(""), Some("".to_string()));
+/// assert_eq!(bash_strip_redundant_quotes("''"), Some("".to_string()));
+/// assert_eq!(bash_strip_redundant_quotes("'''"), None);
+/// assert_eq!(bash_strip_redundant_quotes("'''M'"), Some("M".to_string()));
+/// assert_eq!(
+///     bash_strip_redundant_quotes("'''M '"),
+///     Some("'M '".to_string())
+/// );
+/// assert_eq!(
+///     bash_strip_redundant_quotes(r#"""''"""D:\Mu sic"""''"""#),
+///     crate::pwd_per_drive::bash_strip_redundant_quotes(r#""D:\Mu sic""#.to_string())
+/// );
+/// ```
+pub fn bash_strip_redundant_quotes(input: &str) -> Option<String> {
+    let mut result = String::new();
+    let mut i = 0;
+    let chars: Vec<char> = input.chars().collect();
 
-    pub fn env_var_for_drive(drive_letter: char) -> String {
-        let drive_letter = drive_letter.to_ascii_uppercase();
-        format!("={}:", drive_letter)
-    }
+    let mut no_quote_start_pos = 0;
+    while i < chars.len() {
+        let current_char = chars[i];
 
-    /// Collect PWD-per-drive as env vars (for child process)
-    pub fn get_env_vars(&self, env: &mut HashMap<String, String>) {
-        for (drive_index, drive_letter) in ('A'..='Z').enumerate() {
-            if let Some(pwd) = self.map[drive_index].clone() {
-                if pwd.len() > 3 {
-                    let env_var_for_drive = Self::env_var_for_drive(drive_letter);
-                    env.insert(env_var_for_drive, pwd);
-                }
+        if current_char == '"' || current_char == '\'' {
+            if i > no_quote_start_pos {
+                result.push_str(&input[no_quote_start_pos..i]);
             }
-        }
-    }
 
-    /// Set the PWD for the drive letter in the absolute path.
-    /// Return PathError for error.
-    pub fn set_pwd(&mut self, path: &Path) -> Result<(), PathError> {
-        if let (Some(drive_letter), Some(path_str)) =
-            (Self::extract_drive_letter(path), path.to_str())
-        {
-            if drive_letter.is_ascii_alphabetic() {
-                let drive_letter = drive_letter.to_ascii_uppercase();
-                // Make sure saved drive letter is upper case
-                let mut c = path_str.chars();
-                match c.next() {
-                    None => Err(PathError::InvalidDriveLetter),
-                    Some(_) => {
-                        let drive_index = drive_letter as usize - 'A' as usize;
-                        let normalized_pwd = drive_letter.to_string() + c.as_str();
-                        self.map[drive_index] = Some(normalized_pwd);
-                        Ok(())
-                    }
+            let mut j = i + 1;
+            let mut has_space = false;
+
+            // Look for the matching quote
+            while j < chars.len() && chars[j] != current_char {
+                if chars[j].is_whitespace() {
+                    has_space = true;
                 }
-            } else {
-                Err(PathError::InvalidDriveLetter)
+                j += 1;
             }
-        } else {
-            Err(PathError::InvalidPath)
-        }
-    }
 
-    /// Get the PWD for drive, if not yet, ask GetFullPathNameW() or omnipath,
-    /// or else return default r"X:\".
-    fn get_pwd(&self, drive_letter: char) -> Result<String, PathError> {
-        if drive_letter.is_ascii_alphabetic() {
-            let drive_letter = drive_letter.to_ascii_uppercase();
-            let drive_index = drive_letter as usize - 'A' as usize;
-            Ok(self.map[drive_index].clone().unwrap_or_else(|| {
-                if let Some(sys_pwd) = get_full_path_name_w(&format!("{}:", drive_letter)) {
-                    sys_pwd
+            // Check if the matching quote exists
+            if j < chars.len() && chars[j] == current_char {
+                if has_space {
+                    // Push the entire segment including quotes
+                    result.push_str(&input[i..=j]);
                 } else {
-                    format!(r"{}:\", drive_letter)
+                    // Push the inner content without quotes
+                    result.push_str(&input[i + 1..j]);
                 }
-            }))
-        } else {
-            Err(PathError::InvalidDriveLetter)
-        }
-    }
-
-    /// Expand a relative path using the PWD-per-drive, return PathBuf
-    /// of absolute path.
-    /// Return None if path is not valid or can't get drive letter.
-    pub fn expand_pwd(&self, path: &Path) -> Option<PathBuf> {
-        if let Some(path_str) = path.to_str() {
-            let path_string = Self::remove_leading_quotes(path_str);
-            if need_expand(&path_string) {
-                let path = Path::new(&path_string);
-                if let Some(drive_letter) = Self::extract_drive_letter(path) {
-                    if let Ok(pwd) = self.get_pwd(drive_letter) {
-                        // Combine current PWD with the relative path
-                        let mut base = PathBuf::from(Self::ensure_trailing_delimiter(&pwd));
-                        // need_expand() and extract_drive_letter() all ensure path_str.len() >= 2
-                        base.push(&path_string[2..]); // Join PWD with path parts after "C:"
-                        return Some(base);
-                    }
-                }
-            }
-            if path_string != path_str {
-                return Some(PathBuf::from(&path_string));
-            }
-        }
-        None // Invalid path or has no drive letter
-    }
-
-    /// Helper to extract the drive letter from a path, keep case
-    ///  (e.g., `C:test` -> `C`, `d:\temp` -> `d`)
-    fn extract_drive_letter(path: &Path) -> Option<char> {
-        path.to_str()
-            .and_then(|s| s.chars().next())
-            .filter(|c| c.is_ascii_alphabetic())
-    }
-
-    /// Ensure a path has a trailing `\\` or '/'
-    fn ensure_trailing_delimiter(path: &str) -> String {
-        if !path.ends_with('\\') && !path.ends_with('/') {
-            format!(r"{}\", path)
-        } else {
-            path.to_string()
-        }
-    }
-
-    /// Remove leading quote and matching quote at back
-    /// "D:\\"Music -> D:\\Music
-    fn remove_leading_quotes(input: &str) -> String {
-        let mut result = input.to_string(); // Convert to a String for mutability
-        while let Some(first_char) = result.chars().next() {
-            if first_char == '"' || first_char == '\'' {
-                // Find the matching quote from the reverse order
-                if let Some(pos) = result.rfind(first_char) {
-                    // Remove the quotes but keep the content after the matching character
-                    result = format!("{}{}", &result[1..pos], &result[pos + 1..]);
-                } else {
-                    // No matching quote found, stop
-                    break;
-                }
+                i = j + 1; // Move past the closing quote
+                no_quote_start_pos = i;
+                continue;
             } else {
-                break;
+                // No matching quote found, return None
+                return None;
             }
         }
-        result
+        i += 1;
     }
+
+    if i > no_quote_start_pos + 1 {
+        result.push_str(&input[no_quote_start_pos..i]);
+    }
+    // Return the result if matching quotes are found
+    Some(result)
 }
 
-fn get_full_path_name_w(path_str: &str) -> Option<String> {
+/// cmd_strip_all_double_quotes
+/// ```
+/// use nu_path::cmd_strip_all_double_quotes;
+/// assert_eq!("t t", cmd_strip_all_double_quotes("t\" \"t\"\""));
+/// ```
+pub fn cmd_strip_all_double_quotes(input: &str) -> String {
+    input.replace("\"", "")
+}
+
+/// get_full_path_name_w
+/// Call windows system API (via omnipath crate) to expand
+/// absolute path
+/// ```
+///  use nu_path::get_full_path_name_w;
+///
+///  let result = get_full_path_name_w("C:");
+///  assert!(result.is_some());
+///  let path = result.unwrap();
+///  assert!(path.starts_with(r"C:\"));
+///
+///  let result = get_full_path_name_w(r"c:nushell\src");
+///  assert!(result.is_some());
+///  let path = result.unwrap();
+///  assert!(path.starts_with(r"C:\") || path.starts_with(r"c:\"));
+///  assert!(path.ends_with(r"nushell\src"));
+/// ```
+pub fn get_full_path_name_w(path_str: &str) -> Option<String> {
     use omnipath::sys_absolute;
     if let Ok(path_sys_abs) = sys_absolute(Path::new(path_str)) {
         Some(path_sys_abs.to_str()?.to_string())
     } else {
         None
-    }
-}
-
-/// Test for Drive2PWD map
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Test or demo usage of PWD-per-drive
-    /// In doctest, there's no get_full_path_name_w available so can't foresee
-    /// possible result, here can have more accurate test assert
-    #[test]
-    fn test_usage_for_pwd_per_drive() {
-        let mut map = DriveToPwdMap::new();
-
-        // Set PWD for drive E
-        assert!(map.set_pwd(Path::new(r"E:\Users\Home")).is_ok());
-
-        // Expand a relative path
-        let expanded = map.expand_pwd(Path::new("e:test"));
-        assert_eq!(expanded, Some(PathBuf::from(r"E:\Users\Home\test")));
-
-        // Will NOT expand an absolute path
-        let expanded = map.expand_pwd(Path::new(r"E:\absolute\path"));
-        assert_eq!(expanded, None);
-
-        // Expand with no drive letter
-        let expanded = map.expand_pwd(Path::new(r"\no_drive"));
-        assert_eq!(expanded, None);
-
-        // Expand with no PWD set for the drive
-        let expanded = map.expand_pwd(Path::new("F:test"));
-        if let Some(sys_abs) = get_full_path_name_w("F:") {
-            assert_eq!(
-                expanded,
-                Some(PathBuf::from(format!(
-                    "{}test",
-                    DriveToPwdMap::ensure_trailing_delimiter(&sys_abs)
-                )))
-            );
-        } else {
-            assert_eq!(expanded, Some(PathBuf::from(r"F:\test")));
-        }
-    }
-
-    #[test]
-    fn test_get_env_vars() {
-        let mut map = DriveToPwdMap::new();
-        map.set_pwd(Path::new(r"I:\Home")).unwrap();
-        map.set_pwd(Path::new(r"j:\User")).unwrap();
-
-        let mut env = HashMap::<String, String>::new();
-        map.get_env_vars(&mut env);
-        assert_eq!(
-            env.get(&DriveToPwdMap::env_var_for_drive('I')).unwrap(),
-            r"I:\Home"
-        );
-        assert_eq!(
-            env.get(&DriveToPwdMap::env_var_for_drive('J')).unwrap(),
-            r"J:\User"
-        );
-    }
-
-    #[test]
-    fn test_expand_pwd() {
-        let mut drive_map = DriveToPwdMap::new();
-
-        // Set PWD for drive 'M:'
-        assert_eq!(drive_map.set_pwd(Path::new(r"M:\Users")), Ok(()));
-        // or 'm:'
-        assert_eq!(drive_map.set_pwd(Path::new(r"m:\Users\Home")), Ok(()));
-
-        // Expand a relative path on "M:"
-        let expanded = drive_map.expand_pwd(Path::new(r"M:test"));
-        assert_eq!(expanded, Some(PathBuf::from(r"M:\Users\Home\test")));
-        // or on "m:"
-        let expanded = drive_map.expand_pwd(Path::new(r"m:test"));
-        assert_eq!(expanded, Some(PathBuf::from(r"M:\Users\Home\test")));
-
-        // Expand an absolute path
-        let expanded = drive_map.expand_pwd(Path::new(r"m:\absolute\path"));
-        assert_eq!(expanded, None);
-
-        // Expand with no drive letter
-        let expanded = drive_map.expand_pwd(Path::new(r"\no_drive"));
-        assert_eq!(expanded, None);
-
-        // Expand with no PWD set for the drive
-        let expanded = drive_map.expand_pwd(Path::new("N:test"));
-        if let Some(pwd_on_drive) = get_full_path_name_w("N:") {
-            assert_eq!(
-                expanded,
-                Some(PathBuf::from(format!(
-                    r"{}test",
-                    DriveToPwdMap::ensure_trailing_delimiter(&pwd_on_drive)
-                )))
-            );
-        } else {
-            assert_eq!(expanded, Some(PathBuf::from(r"N:\test")));
-        }
-    }
-
-    #[test]
-    fn test_set_and_get_pwd() {
-        let mut drive_map = DriveToPwdMap::new();
-
-        // Set PWD for drive 'O'
-        assert!(drive_map.set_pwd(Path::new(r"O:\Users")).is_ok());
-        // Or for drive 'o'
-        assert!(drive_map.set_pwd(Path::new(r"o:\Users\Example")).is_ok());
-        // Get PWD for drive 'O'
-        assert_eq!(drive_map.get_pwd('O'), Ok(r"O:\Users\Example".to_string()));
-        // or 'o'
-        assert_eq!(drive_map.get_pwd('o'), Ok(r"O:\Users\Example".to_string()));
-
-        // Get PWD for drive P (not set yet, but system might already
-        // have PWD on this drive)
-        if let Some(pwd_on_drive) = get_full_path_name_w("P:") {
-            assert_eq!(drive_map.get_pwd('P'), Ok(pwd_on_drive));
-        } else {
-            assert_eq!(drive_map.get_pwd('P'), Ok(r"P:\".to_string()));
-        }
-    }
-
-    #[test]
-    fn test_set_pwd_invalid_path() {
-        let mut drive_map = DriveToPwdMap::new();
-
-        // Invalid path (no drive letter)
-        let result = drive_map.set_pwd(Path::new(r"\InvalidPath"));
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), PathError::InvalidPath);
-    }
-
-    #[test]
-    fn test_get_pwd_invalid_drive() {
-        let drive_map = DriveToPwdMap::new();
-
-        // Get PWD for a drive not set (e.g., Z)
-        assert_eq!(drive_map.get_pwd('Z'), Ok(r"Z:\".to_string()));
-
-        // Invalid drive letter (non-alphabetic)
-        assert_eq!(drive_map.get_pwd('1'), Err(PathError::InvalidDriveLetter));
-    }
-
-    #[test]
-    fn test_remove_leading_quotes()
-    {
-        let input = r#""D:\Music""#;
-        assert_eq!(r"D:\Music", DriveToPwdMap::remove_leading_quotes(input));
-
-        let input = r#"""""D:\Music"""""#;
-        assert_eq!(r"D:\Music", DriveToPwdMap::remove_leading_quotes(input));
-
-        let input = r#""''""D:\Music""''""#;
-        assert_eq!(r"D:\Music", DriveToPwdMap::remove_leading_quotes(input));
-
-        let input = r#""D:\Mus"ic"#;
-        assert_eq!(r"D:\Music", DriveToPwdMap::remove_leading_quotes(input));
-        let input = r#""D:"\Music"#;
-        assert_eq!(r"D:\Music", DriveToPwdMap::remove_leading_quotes(input));
-
-        let input = r#""D":\Music"#;
-        assert_eq!(r"D:\Music", DriveToPwdMap::remove_leading_quotes(input));
-
-        let input = r#"""D:\Music"#;
-        assert_eq!(r"D:\Music", DriveToPwdMap::remove_leading_quotes(input));
-    }
-
-    #[test]
-    fn test_expand_with_leading_quotes()
-    {
-        let mut drive_map = DriveToPwdMap::new();
-
-        // Set PWD for drive 'Q:'
-        assert_eq!(drive_map.set_pwd(Path::new(r"q:\Users\Home")), Ok(()));
-
-        let input = r#""q:Music""#;
-        let result = r"Q:\Users\Home\Music";
-        assert_eq!(result, drive_map.expand_pwd(Path::new(input)).unwrap().as_path().to_str().unwrap());
-
-        let input = r#"""""q:Music"""""#;
-        assert_eq!(result, drive_map.expand_pwd(Path::new(input)).unwrap().as_path().to_str().unwrap());
-
-        let input = r#""''""q:Music""''""#;
-        assert_eq!(result, drive_map.expand_pwd(Path::new(input)).unwrap().as_path().to_str().unwrap());
-
-        let input = r#""''""q:Mus""ic''""#;
-        assert_eq!(result, drive_map.expand_pwd(Path::new(input)).unwrap().as_path().to_str().unwrap());
-
-        let input = r#""''""q:""Mu''sic""#;
-        assert_eq!(result, drive_map.expand_pwd(Path::new(input)).unwrap().as_path().to_str().unwrap());
-
-        // For quoted absolute path, return dequoted absolute path
-        let input = r#"""""q:\Music"""""#;
-        let result = DriveToPwdMap::remove_leading_quotes(input);
-        assert_eq!(r"q:\Music", result);
-        assert_eq!(result, drive_map.expand_pwd(Path::new(input)).unwrap().as_path().to_str().unwrap());
-
-        let input = r#""q:\Mus"ic"#;
-        assert_eq!(result, drive_map.expand_pwd(Path::new(input)).unwrap().as_path().to_str().unwrap());
-
-        let input = r#""q:"\Music"#;
-        assert_eq!(result, drive_map.expand_pwd(Path::new(input)).unwrap().as_path().to_str().unwrap());
-
-        let input = r#""q":\Music"#;
-        assert_eq!(result, drive_map.expand_pwd(Path::new(input)).unwrap().as_path().to_str().unwrap());
-
-        let input = r#"""q:\Music"#;
-        assert_eq!(result, drive_map.expand_pwd(Path::new(input)).unwrap().as_path().to_str().unwrap());
     }
 }

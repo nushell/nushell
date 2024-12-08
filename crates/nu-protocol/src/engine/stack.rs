@@ -1,6 +1,6 @@
 use crate::{
     engine::{
-        ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
+        set_pwd, ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
         StackCollectValueGuard, StackIoGuard, StackOutDest, DEFAULT_OVERLAY_NAME,
     },
     Config, IntoValue, OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
@@ -9,7 +9,6 @@ use nu_utils::IgnoreCaseExt;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
-    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -54,8 +53,6 @@ pub struct Stack {
     /// Locally updated config. Use [`.get_config()`](Self::get_config) to access correctly.
     pub config: Option<Arc<Config>>,
     pub(crate) out_dest: StackOutDest,
-    #[cfg(windows)]
-    pub pwd_per_drive: nu_path::DriveToPwdMap,
 }
 
 impl Default for Stack {
@@ -85,8 +82,6 @@ impl Stack {
             parent_deletions: vec![],
             config: None,
             out_dest: StackOutDest::new(),
-            #[cfg(windows)]
-            pwd_per_drive: nu_path::DriveToPwdMap::new(),
         }
     }
 
@@ -107,8 +102,6 @@ impl Stack {
             parent_deletions: vec![],
             config: parent.config.clone(),
             out_dest: parent.out_dest.clone(),
-            #[cfg(windows)]
-            pwd_per_drive: parent.pwd_per_drive.clone(),
             parent_stack: Some(parent),
         }
     }
@@ -135,10 +128,6 @@ impl Stack {
         unique_stack.env_hidden = child.env_hidden;
         unique_stack.active_overlays = child.active_overlays;
         unique_stack.config = child.config;
-        #[cfg(windows)]
-        {
-            unique_stack.pwd_per_drive = child.pwd_per_drive.clone();
-        }
         unique_stack
     }
 
@@ -330,8 +319,6 @@ impl Stack {
             parent_deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
-            #[cfg(windows)]
-            pwd_per_drive: self.pwd_per_drive.clone(),
         }
     }
 
@@ -365,8 +352,6 @@ impl Stack {
             parent_deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
-            #[cfg(windows)]
-            pwd_per_drive: self.pwd_per_drive.clone(),
         }
     }
 
@@ -776,28 +761,10 @@ impl Stack {
             let path = nu_path::strip_trailing_slash(path);
             let value = Value::string(path.to_string_lossy(), Span::unknown());
             self.add_env_var("PWD".into(), value);
-            // Sync with PWD-per-drive
-            #[cfg(windows)]
-            {
-                let _ = self.pwd_per_drive.set_pwd(&path);
-            }
+            #[cfg(windows)] // Sync with PWD-per-drive
+            set_pwd(self, &path);
             Ok(())
         }
-    }
-
-    // Helper stub/proxy for nu_path::expand_path_with::<P, Q>(path, relative_to, expand_tilde)
-    // Facilitates file system commands to easily gain the ability to expand PWD-per-drive
-    pub fn expand_path_with<P, Q>(&self, path: P, relative_to: Q, expand_tilde: bool) -> PathBuf
-    where
-        P: AsRef<Path>,
-        Q: AsRef<Path>,
-    {
-        #[cfg(windows)]
-        if let Some(absolute_path) = self.pwd_per_drive.expand_pwd(path.as_ref()) {
-            return absolute_path;
-        }
-
-        nu_path::expand_path_with::<P, Q>(path, relative_to, expand_tilde)
     }
 }
 

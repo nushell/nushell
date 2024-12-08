@@ -5,7 +5,7 @@ use nu_engine::env_to_string;
 use nu_path::dots::expand_ndots;
 use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{expand_pwd, EngineState, Stack, StateWorkingSet},
     Span,
 };
 use nu_utils::get_ls_colors;
@@ -175,13 +175,16 @@ pub fn complete_item(
     let cleaned_partial = surround_remove(partial);
     let isdir = cleaned_partial.ends_with(is_separator);
     #[cfg(windows)]
-    let cleaned_partial = if let Some(absolute_partial) =
-        stack.pwd_per_drive.expand_pwd(Path::new(&cleaned_partial))
-    {
-        absolute_partial.display().to_string()
-    } else {
-        cleaned_partial
-    };
+    let cleaned_partial =
+        if let Some(absolute_path) = expand_pwd(stack, engine_state, Path::new(&cleaned_partial)) {
+            if let Some(abs_path_string) = absolute_path.as_path().to_str() {
+                abs_path_string.to_string()
+            } else {
+                absolute_path.display().to_string()
+            }
+        } else {
+            cleaned_partial
+        };
     let expanded_partial = expand_ndots(Path::new(&cleaned_partial));
     let should_collapse_dots = expanded_partial != Path::new(&cleaned_partial);
     let mut partial = expanded_partial.to_string_lossy().to_string();

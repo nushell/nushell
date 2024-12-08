@@ -23,7 +23,7 @@ use nu_engine::{convert_env_values, current_dir_str, env_to_strings};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{expand_path_with, EngineState, Stack, StateWorkingSet},
     report_shell_error, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
     Value,
 };
@@ -787,6 +787,16 @@ enum ReplOperation {
     DoNothing,
 }
 
+fn is_dir(path: &Path) -> bool {
+    if cfg!(not(windows)) {
+        path.is_dir()
+    } else if let Some(path_str) = path.to_str() {
+        DRIVE_PATH_REGEX.is_match(path_str).unwrap_or(false) || path.is_dir()
+    } else {
+        false
+    }
+}
+
 ///
 /// Parses one "REPL line" of input, to try and derive intent.
 /// Notably, this is where we detect whether the user is attempting an
@@ -808,8 +818,8 @@ fn parse_operation(
         orig = trim_quotes_str(&orig).to_string()
     }
 
-    let path = nu_path::expand_path_with(&orig, &cwd, true);
-    if looks_like_path(&orig) && path.is_dir() && tokens.0.len() == 1 {
+    let path = expand_path_with(stack, engine_state, &orig, &cwd, true);
+    if looks_like_path(&orig) && is_dir(&path) && tokens.0.len() == 1 {
         Ok(ReplOperation::AutoCd {
             cwd,
             target: path,
@@ -832,12 +842,6 @@ fn do_auto_cd(
     engine_state: &mut EngineState,
     span: Span,
 ) {
-    #[cfg(windows)]
-    let path = if let Some(abs_path) = stack.pwd_per_drive.expand_pwd(path.as_path()) {
-        abs_path
-    } else {
-        path
-    };
     let path = {
         if !path.exists() {
             report_shell_error(
