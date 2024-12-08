@@ -55,6 +55,10 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::parse_mismatch_with_full_string_msg))]
     ExpectedWithStringMsg(String, #[label("expected {0}")] Span),
 
+    #[error("Parse mismatch during operation.")]
+    #[diagnostic(code(nu::parser::parse_mismatch_with_did_you_mean))]
+    ExpectedWithDidYouMean(&'static str, DidYouMean, #[label("expected {0}. {1}")] Span),
+
     #[error("Command does not support {0} input.")]
     #[diagnostic(code(nu::parser::input_type_mismatch))]
     InputMismatch(Type, #[label("command doesn't support {0} input")] Span),
@@ -551,6 +555,7 @@ impl ParseError {
             ParseError::Unbalanced(_, _, s) => *s,
             ParseError::Expected(_, s) => *s,
             ParseError::ExpectedWithStringMsg(_, s) => *s,
+            ParseError::ExpectedWithDidYouMean(_, _, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
             ParseError::UnsupportedOperationLHS(_, _, s, _) => *s,
             ParseError::UnsupportedOperationRHS(_, _, _, _, s, _) => *s,

@@ -36,5 +36,5 @@ export def "from ndnuon" []: [string -> any] {
 
 # Convert structured data to NDNUON, i.e. newline-delimited NUON
 export def "to ndnuon" []: [any -> string] {
-    each { to nuon --raw } | to text
+    each { to nuon --raw | str replace --all "\n" '\n' } | to text
 }

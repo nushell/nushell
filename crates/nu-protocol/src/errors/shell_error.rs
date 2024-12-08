@@ -1220,10 +1220,10 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Return event, which may become an error if used outside of a function
-    #[error("Return used outside of function")]
+    /// Return event, which may become an error if used outside of a custom command or closure
+    #[error("Return used outside of custom command or closure")]
     Return {
-        #[label("used outside of function")]
+        #[label("used outside of custom command or closure")]
         span: Span,
         value: Box<Value>,
     },
@@ -1544,8 +1544,8 @@ impl From<io::Error> for ShellError {
 impl From<Spanned<io::Error>> for ShellError {
     fn from(error: Spanned<io::Error>) -> Self {
         let Spanned { item: error, span } = error;
-        if error.kind() == io::ErrorKind::Other {
-            match error.into_inner() {
+        match error.kind() {
+            io::ErrorKind::Other => match error.into_inner() {
                 Some(err) => match err.downcast() {
                     Ok(err) => *err,
                     Err(err) => Self::IOErrorSpanned {
@@ -1557,12 +1557,15 @@ impl From<Spanned<io::Error>> for ShellError {
                     msg: "unknown error".into(),
                     span,
                 },
-            }
-        } else {
-            Self::IOErrorSpanned {
+            },
+            io::ErrorKind::TimedOut => Self::NetworkFailure {
                 msg: error.to_string(),
                 span,
-            }
+            },
+            _ => Self::IOErrorSpanned {
+                msg: error.to_string(),
+                span,
+            },
         }
     }
 }
