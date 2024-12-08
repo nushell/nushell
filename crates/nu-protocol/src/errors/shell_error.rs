@@ -1434,6 +1434,20 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Option<Span>,
     },
 
+    /// The config directory could not be found
+    #[error("The base directory for the history file could not be found")]
+    #[diagnostic(
+        code(nu::shell::history_dir_not_found),
+        help(
+            r#"A user-defined path for the history file was given in the config, but the base directory for the path does not exist.
+Please create it."#
+        )
+    )]
+    HistoryDirNotFound {
+        #[label = "Could not find history directory"]
+        span: Option<Span>,
+    },
+
     /// XDG_CONFIG_HOME was set to an invalid path
     #[error("$env.XDG_CONFIG_HOME ({xdg}) is invalid, using default config directory instead: {default}")]
     #[diagnostic(

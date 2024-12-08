@@ -63,6 +63,19 @@ $env.config.history.sync_on_enter = true
 # This setting only applies to SQLite-backed history
 $env.config.history.isolation = true
 
+# path (string):
+# The absolute path to the history file.
+#
+# When this config doesn't exist or is set to null, then a default path is used
+# based on the OS and ENV.
+#
+# You will likely want to match the file extension to the `file_format` setting,
+# therefore ".txt" or ".sqlite".
+#
+# Nushell will create the file if it doesn't exist. However it won't create the
+# directory path, and will error if it doesn't exist.
+$env.config.history.path = null
+
 # ----------------------
 # Miscellaneous Settings
 # ----------------------

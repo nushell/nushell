@@ -73,10 +73,10 @@ Note that history item IDs are ignored when importing from file."#
         let Some(history) = engine_state.history_config() else {
             return ok;
         };
-        let Some(current_history_path) = history.file_path() else {
-            return Err(ShellError::ConfigDirNotFound {
-                span: Some(call.head),
-            });
+        let result = history.file_path(Some(call.head));
+        let current_history_path = match result {
+            Ok(path) => path,
+            Err(err) => return Err(err),
         };
         if let Some(bak_path) = backup(&current_history_path)? {
             println!("Backed history to {}", bak_path.display());
