@@ -17,7 +17,7 @@ impl Command for TimeIt {
         Signature::build("timeit")
             .required(
                 "command",
-                SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
+                SyntaxShape::OneOf(vec![SyntaxShape::Block(true), SyntaxShape::Expression]),
                 "The command or block to run.",
             )
             .input_output_types(vec![

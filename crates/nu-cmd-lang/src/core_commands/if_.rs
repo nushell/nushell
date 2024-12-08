@@ -24,7 +24,7 @@ impl Command for If {
             .required("cond", SyntaxShape::MathExpression, "Condition to check.")
             .required(
                 "then_block",
-                SyntaxShape::Block,
+                SyntaxShape::Block(true),
                 "Block to run if check succeeds.",
             )
             .optional(
@@ -32,7 +32,7 @@ impl Command for If {
                 SyntaxShape::Keyword(
                     b"else".to_vec(),
                     Box::new(SyntaxShape::OneOf(vec![
-                        SyntaxShape::Block,
+                        SyntaxShape::Block(true),
                         SyntaxShape::Expression,
                     ])),
                 ),
