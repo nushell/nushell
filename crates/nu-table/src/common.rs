@@ -1,9 +1,11 @@
+use nu_color_config::{Alignment, StyleComputer, TextStyle};
+use nu_protocol::{Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value};
+
+use terminal_size::{terminal_size, Height, Width};
+
 use crate::{
     clean_charset, colorize_space_str, string_wrap, NuTableConfig, TableOutput, TableTheme,
 };
-use nu_color_config::{Alignment, StyleComputer, TextStyle};
-use nu_protocol::{Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value};
-use terminal_size::{terminal_size, Height, Width};
 
 pub type NuText = (String, TextStyle);
 pub type TableResult = Result<Option<TableOutput>, ShellError>;
@@ -37,15 +39,20 @@ pub fn create_nu_table_config(
     }
 }
 
-pub fn nu_value_to_string_colored(val: &Value, cfg: &Config, style: &StyleComputer) -> String {
-    let (mut text, value_style) = nu_value_to_string(val, cfg, style);
-    if let Some(color) = value_style.color_style {
+pub fn nu_value_to_string_colored(val: &Value, cfg: &Config, comp: &StyleComputer) -> String {
+    let (mut text, style) = nu_value_to_string(val, cfg, comp);
+
+    let is_string = matches!(val, Value::String { .. });
+    if is_string {
+        text = clean_charset(&text);
+    }
+
+    if let Some(color) = style.color_style {
         text = color.paint(text).to_string();
     }
 
-    if matches!(val, Value::String { .. }) {
-        text = clean_charset(&text);
-        colorize_space_str(&mut text, style);
+    if is_string {
+        colorize_space_str(&mut text, comp);
     }
 
     text
@@ -54,8 +61,10 @@ pub fn nu_value_to_string_colored(val: &Value, cfg: &Config, style: &StyleComput
 pub fn nu_value_to_string(val: &Value, cfg: &Config, style: &StyleComputer) -> NuText {
     let float_precision = cfg.float_precision as usize;
     let text = val.to_abbreviated_string(cfg);
-    make_styled_string(style, text, Some(val), float_precision)
+    make_styled_value(text, val, float_precision, style)
 }
+
+// todo: Expose a method which returns just style
 
 pub fn nu_value_to_string_clean(val: &Value, cfg: &Config, style_comp: &StyleComputer) -> NuText {
     let (text, style) = nu_value_to_string(val, cfg, style_comp);
@@ -66,7 +75,11 @@ pub fn nu_value_to_string_clean(val: &Value, cfg: &Config, style_comp: &StyleCom
 }
 
 pub fn error_sign(style_computer: &StyleComputer) -> (String, TextStyle) {
-    make_styled_string(style_computer, String::from("❎"), None, 0)
+    // Though holes are not the same as null, the closure for "empty" is passed a null anyway.
+
+    let text = String::from("❎");
+    let style = style_computer.compute("empty", &Value::nothing(Span::unknown()));
+    (text, TextStyle::with_style(Alignment::Center, style))
 }
 
 pub fn wrap_text(text: &str, width: usize, config: &Config) -> String {
@@ -122,36 +135,23 @@ pub fn get_empty_style(style_computer: &StyleComputer) -> NuText {
     )
 }
 
-fn make_styled_string(
-    style_computer: &StyleComputer,
+fn make_styled_value(
     text: String,
-    value: Option<&Value>, // None represents table holes.
+    value: &Value,
     float_precision: usize,
+    style_computer: &StyleComputer,
 ) -> NuText {
     match value {
-        Some(value) => {
-            match value {
-                Value::Float { .. } => {
-                    // set dynamic precision from config
-                    let precise_number = match convert_with_precision(&text, float_precision) {
-                        Ok(num) => num,
-                        Err(e) => e.to_string(),
-                    };
-                    (precise_number, style_computer.style_primitive(value))
-                }
-                _ => (text, style_computer.style_primitive(value)),
-            }
+        Value::Float { .. } => {
+            // set dynamic precision from config
+            let precise_number = match convert_with_precision(&text, float_precision) {
+                Ok(num) => num,
+                Err(e) => e.to_string(),
+            };
+
+            (precise_number, style_computer.style_primitive(value))
         }
-        None => {
-            // Though holes are not the same as null, the closure for "empty" is passed a null anyway.
-            (
-                text,
-                TextStyle::with_style(
-                    Alignment::Center,
-                    style_computer.compute("empty", &Value::nothing(Span::unknown())),
-                ),
-            )
-        }
+        _ => (text, style_computer.style_primitive(value)),
     }
 }
 
@@ -218,5 +218,12 @@ fn need_footer(config: &Config, count_records: u64) -> bool {
 
             height <= count_records
         }
+    }
+}
+
+pub fn check_value(value: &Value) -> Result<(), ShellError> {
+    match value {
+        Value::Error { error, .. } => Err(*error.clone()),
+        _ => Ok(()),
     }
 }

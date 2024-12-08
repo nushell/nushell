@@ -1,18 +1,21 @@
-use crate::{
-    common::{
-        create_nu_table_config, error_sign, get_header_style, get_index_style, load_theme,
-        nu_value_to_string, nu_value_to_string_clean, nu_value_to_string_colored, wrap_text,
-        NuText, StringResult, TableResult, INDEX_COLUMN_NAME,
-    },
-    string_width,
-    types::has_index,
-    NuTable, NuTableCell, TableOpts, TableOutput,
-};
+use std::{cmp::max, collections::HashMap};
+
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
 use nu_protocol::{Config, Record, ShellError, Span, Value};
-use std::{cmp::max, collections::HashMap};
+
 use tabled::grid::config::Position;
+
+use crate::{
+    common::{
+        check_value, create_nu_table_config, error_sign, get_header_style, get_index_style,
+        load_theme, nu_value_to_string, nu_value_to_string_clean, nu_value_to_string_colored,
+        wrap_text, NuText, StringResult, TableResult, INDEX_COLUMN_NAME,
+    },
+    string_width,
+    types::has_index,
+    NuRecordsValue, NuTable, TableOpts, TableOutput,
+};
 
 #[derive(Debug, Clone)]
 pub struct ExpandedTable {
@@ -31,12 +34,14 @@ impl ExpandedTable {
     }
 
     pub fn build_value(self, item: &Value, opts: TableOpts<'_>) -> NuText {
-        let cell = expanded_table_entry2(item, Cfg { opts, format: self });
+        let cfg = Cfg { opts, format: self };
+        let cell = expand_entry(item, cfg);
         (cell.text, cell.style)
     }
 
     pub fn build_map(self, record: &Record, opts: TableOpts<'_>) -> StringResult {
-        expanded_table_kv(record, Cfg { opts, format: self }).map(|cell| cell.map(|cell| cell.text))
+        let cfg = Cfg { opts, format: self };
+        expanded_table_kv(record, cfg).map(|cell| cell.map(|cell| cell.text))
     }
 
     pub fn build_list(self, vals: &[Value], opts: TableOpts<'_>) -> StringResult {
@@ -44,7 +49,7 @@ impl ExpandedTable {
             opts: opts.clone(),
             format: self,
         };
-        let out = match expanded_table_list(vals, cfg)? {
+        let out = match expand_list(vals, cfg)? {
             Some(out) => out,
             None => return Ok(None),
         };
@@ -92,7 +97,7 @@ impl CellOutput {
 
 type CellResult = Result<Option<CellOutput>, ShellError>;
 
-fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
+fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     const PADDING_SPACE: usize = 2;
     const SPLIT_LINE_SPACE: usize = 1;
     const ADDITIONAL_CELL_SPACE: usize = PADDING_SPACE + SPLIT_LINE_SPACE;
@@ -133,15 +138,12 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
     if with_index {
         if with_header {
-            data[0].push(NuTableCell::exact(String::from("#"), 1, vec![]));
+            data[0].push(NuRecordsValue::exact(String::from("#"), 1, vec![]));
         }
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(cfg.opts.span)?;
-
-            if let Value::Error { error, .. } = item {
-                return Err(*error.clone());
-            }
+            check_value(item)?;
 
             let index = row + row_offset;
             let text = item
@@ -152,7 +154,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 .unwrap_or_else(|| index.to_string());
 
             let row = row + with_header as usize;
-            let value = NuTableCell::new(text);
+            let value = NuRecordsValue::new(text);
             data[row].push(value);
         }
 
@@ -177,13 +179,10 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(cfg.opts.span)?;
+            check_value(item)?;
 
-            if let Value::Error { error, .. } = item {
-                return Err(*error.clone());
-            }
-
-            let inner_cfg = update_config(cfg.clone(), available_width);
-            let mut cell = expanded_table_entry2(item, inner_cfg);
+            let inner_cfg = update_config(&cfg, available_width);
+            let mut cell = expand_entry(item, inner_cfg);
 
             let value_width = string_width(&cell.text);
             if value_width > available_width {
@@ -195,7 +194,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 cell.text = wrap_text(&cell.text, available_width, cfg.opts.config);
             }
 
-            let value = NuTableCell::new(cell.text);
+            let value = NuRecordsValue::new(cell.text);
             data[row].push(value);
             data_styles.insert((row, with_index as usize), cell.style);
 
@@ -203,7 +202,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         }
 
         let mut table = NuTable::from(data);
-        table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
+        table.set_indent(cfg.opts.indent.left, cfg.opts.indent.right);
         table.set_index_style(get_index_style(cfg.opts.style_computer));
         set_data_styles(&mut table, data_styles);
 
@@ -266,13 +265,10 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(cfg.opts.span)?;
+            check_value(item)?;
 
-            if let Value::Error { error, .. } = item {
-                return Err(*error.clone());
-            }
-
-            let inner_cfg = update_config(cfg.clone(), available);
-            let mut cell = expanded_table_entry(item, header.as_str(), inner_cfg);
+            let inner_cfg = update_config(&cfg, available);
+            let mut cell = expand_entry_with_header(item, &header, inner_cfg);
 
             let mut value_width = string_width(&cell.text);
             if value_width > available {
@@ -285,14 +281,14 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
             column_width = max(column_width, value_width);
 
-            let value = NuTableCell::new(cell.text);
+            let value = NuRecordsValue::new(cell.text);
             data[row + 1].push(value);
             data_styles.insert((row + 1, col + with_index as usize), cell.style);
 
             column_rows = column_rows.saturating_add(cell.size);
         }
 
-        let head_cell = NuTableCell::new(header);
+        let head_cell = NuRecordsValue::new(header);
         data[0].push(head_cell);
 
         if column_width > available {
@@ -354,7 +350,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         let is_last_column = widths.len() == count_columns;
         if !is_last_column {
-            let shift = NuTableCell::exact(String::from("..."), 3, vec![]);
+            let shift = NuRecordsValue::exact(String::from("..."), 3, vec![]);
             for row in &mut data {
                 row.push(shift.clone());
             }
@@ -366,7 +362,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     let mut table = NuTable::from(data);
     table.set_index_style(get_index_style(cfg.opts.style_computer));
     table.set_header_style(get_header_style(cfg.opts.style_computer));
-    table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
+    table.set_indent(cfg.opts.indent.left, cfg.opts.indent.right);
     set_data_styles(&mut table, data_styles);
 
     Ok(Some(TableOutput::new(table, true, with_index, rows_count)))
@@ -374,13 +370,15 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
 fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
     let theme = load_theme(cfg.opts.mode);
+    let theme = theme.as_base();
     let key_width = record
         .columns()
         .map(|col| string_width(col))
         .max()
         .unwrap_or(0);
-    let count_borders =
-        theme.has_inner() as usize + theme.has_right() as usize + theme.has_left() as usize;
+    let count_borders = theme.borders_has_vertical() as usize
+        + theme.borders_has_right() as usize
+        + theme.borders_has_left() as usize;
     let padding = 2;
     if key_width + count_borders + padding + padding > cfg.opts.width {
         return Ok(None);
@@ -394,7 +392,7 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
     for (key, value) in record {
         cfg.opts.signals.check(cfg.opts.span)?;
 
-        let cell = match expand_table_value(value, value_width, &cfg)? {
+        let cell = match expand_value(value, value_width, &cfg)? {
             Some(val) => val,
             None => return Ok(None),
         };
@@ -403,12 +401,13 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
         // we could use Padding for it but,
         // the easiest way to do so is just push a new_line char before
         let mut key = key.to_owned();
-        if !key.is_empty() && cell.is_expanded && theme.has_top() {
+        let is_key_on_next_line = !key.is_empty() && cell.is_expanded && theme.borders_has_top();
+        if is_key_on_next_line {
             key.insert(0, '\n');
         }
 
-        let key = NuTableCell::new(key);
-        let val = NuTableCell::new(cell.text);
+        let key = NuRecordsValue::new(key);
+        let val = NuRecordsValue::new(cell.text);
         let row = vec![key, val];
 
         data.push(row);
@@ -418,7 +417,7 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
 
     let mut table = NuTable::from(data);
     table.set_index_style(get_key_style(&cfg));
-    table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
+    table.set_indent(cfg.opts.indent.left, cfg.opts.indent.right);
 
     let out = TableOutput::new(table, false, true, count_rows);
 
@@ -427,26 +426,23 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
 }
 
 // the flag is used as an optimization to not do `value.lines().count()` search.
-fn expand_table_value(value: &Value, value_width: usize, cfg: &Cfg<'_>) -> CellResult {
+fn expand_value(value: &Value, width: usize, cfg: &Cfg<'_>) -> CellResult {
     let is_limited = matches!(cfg.format.expand_limit, Some(0));
     if is_limited {
-        return Ok(Some(CellOutput::clean(
-            value_to_string_clean(value, cfg),
-            1,
-            false,
-        )));
+        let value = value_to_string_clean(value, cfg);
+        return Ok(Some(CellOutput::clean(value, 1, false)));
     }
 
     let span = value.span();
     match value {
         Value::List { vals, .. } => {
-            let inner_cfg = update_config(dive_options(cfg, span), value_width);
-            let table = expanded_table_list(vals, inner_cfg)?;
+            let inner_cfg = update_config(&dive_options(cfg, span), width);
+            let table = expand_list(vals, inner_cfg)?;
 
             match table {
                 Some(out) => {
                     let cfg = create_table_cfg(cfg, &out);
-                    let value = out.table.draw(cfg, value_width);
+                    let value = out.table.draw(cfg, width);
                     match value {
                         Some(value) => Ok(Some(CellOutput::clean(value, out.count_rows, true))),
                         None => Ok(None),
@@ -454,40 +450,32 @@ fn expand_table_value(value: &Value, value_width: usize, cfg: &Cfg<'_>) -> CellR
                 }
                 None => {
                     // it means that the list is empty
-                    Ok(Some(CellOutput::text(value_to_wrapped_string(
-                        value,
-                        cfg,
-                        value_width,
-                    ))))
+                    let value = value_to_wrapped_string(value, cfg, width);
+                    Ok(Some(CellOutput::text(value)))
                 }
             }
         }
         Value::Record { val: record, .. } => {
             if record.is_empty() {
                 // Like list case return styled string instead of empty value
-                return Ok(Some(CellOutput::text(value_to_wrapped_string(
-                    value,
-                    cfg,
-                    value_width,
-                ))));
+                let value = value_to_wrapped_string(value, cfg, width);
+                return Ok(Some(CellOutput::text(value)));
             }
 
-            let inner_cfg = update_config(dive_options(cfg, span), value_width);
+            let inner_cfg = update_config(&dive_options(cfg, span), width);
             let result = expanded_table_kv(record, inner_cfg)?;
             match result {
                 Some(result) => Ok(Some(CellOutput::clean(result.text, result.size, true))),
-                None => Ok(Some(CellOutput::text(value_to_wrapped_string(
-                    value,
-                    cfg,
-                    value_width,
-                )))),
+                None => {
+                    let value = value_to_wrapped_string(value, cfg, width);
+                    Ok(Some(CellOutput::text(value)))
+                }
             }
         }
-        _ => Ok(Some(CellOutput::text(value_to_wrapped_string_clean(
-            value,
-            cfg,
-            value_width,
-        )))),
+        _ => {
+            let value = value_to_wrapped_string_clean(value, cfg, width);
+            Ok(Some(CellOutput::text(value)))
+        }
     }
 }
 
@@ -495,35 +483,29 @@ fn get_key_style(cfg: &Cfg<'_>) -> TextStyle {
     get_header_style(cfg.opts.style_computer).alignment(Alignment::Left)
 }
 
-fn expanded_table_entry(item: &Value, header: &str, cfg: Cfg<'_>) -> CellOutput {
+fn expand_entry_with_header(item: &Value, header: &str, cfg: Cfg<'_>) -> CellOutput {
     match item {
         Value::Record { val, .. } => match val.get(header) {
-            Some(val) => expanded_table_entry2(val, cfg),
+            Some(val) => expand_entry(val, cfg),
             None => CellOutput::styled(error_sign(cfg.opts.style_computer)),
         },
-        _ => expanded_table_entry2(item, cfg),
+        _ => expand_entry(item, cfg),
     }
 }
 
-fn expanded_table_entry2(item: &Value, cfg: Cfg<'_>) -> CellOutput {
+fn expand_entry(item: &Value, cfg: Cfg<'_>) -> CellOutput {
     let is_limit_reached = matches!(cfg.format.expand_limit, Some(0));
     if is_limit_reached {
-        return CellOutput::styled(nu_value_to_string_clean(
-            item,
-            cfg.opts.config,
-            cfg.opts.style_computer,
-        ));
+        let value = nu_value_to_string_clean(item, cfg.opts.config, cfg.opts.style_computer);
+        return CellOutput::styled(value);
     }
 
     let span = item.span();
     match &item {
         Value::Record { val: record, .. } => {
             if record.is_empty() {
-                return CellOutput::styled(nu_value_to_string(
-                    item,
-                    cfg.opts.config,
-                    cfg.opts.style_computer,
-                ));
+                let value = nu_value_to_string(item, cfg.opts.config, cfg.opts.style_computer);
+                return CellOutput::styled(value);
             }
 
             // we verify what is the structure of a Record cause it might represent
@@ -532,34 +514,31 @@ fn expanded_table_entry2(item: &Value, cfg: Cfg<'_>) -> CellOutput {
 
             match table {
                 Ok(Some(table)) => table,
-                _ => CellOutput::styled(nu_value_to_string(
-                    item,
-                    cfg.opts.config,
-                    cfg.opts.style_computer,
-                )),
+                _ => {
+                    let value = nu_value_to_string(item, cfg.opts.config, cfg.opts.style_computer);
+                    CellOutput::styled(value)
+                }
             }
         }
         Value::List { vals, .. } => {
             if cfg.format.flatten && is_simple_list(vals) {
-                return CellOutput::styled(value_list_to_string(
+                let value = list_to_string(
                     vals,
                     cfg.opts.config,
                     cfg.opts.style_computer,
                     &cfg.format.flatten_sep,
-                ));
+                );
+                return CellOutput::text(value);
             }
 
             let inner_cfg = dive_options(&cfg, span);
-            let table = expanded_table_list(vals, inner_cfg);
+            let table = expand_list(vals, inner_cfg);
 
             let out = match table {
                 Ok(Some(out)) => out,
                 _ => {
-                    return CellOutput::styled(nu_value_to_string(
-                        item,
-                        cfg.opts.config,
-                        cfg.opts.style_computer,
-                    ))
+                    let value = nu_value_to_string(item, cfg.opts.config, cfg.opts.style_computer);
+                    return CellOutput::styled(value);
                 }
             };
 
@@ -567,18 +546,16 @@ fn expanded_table_entry2(item: &Value, cfg: Cfg<'_>) -> CellOutput {
             let table = out.table.draw(table_config, usize::MAX);
             match table {
                 Some(table) => CellOutput::clean(table, out.count_rows, false),
-                None => CellOutput::styled(nu_value_to_string(
-                    item,
-                    cfg.opts.config,
-                    cfg.opts.style_computer,
-                )),
+                None => {
+                    let value = nu_value_to_string(item, cfg.opts.config, cfg.opts.style_computer);
+                    CellOutput::styled(value)
+                }
             }
         }
-        _ => CellOutput::styled(nu_value_to_string_clean(
-            item,
-            cfg.opts.config,
-            cfg.opts.style_computer,
-        )),
+        _ => {
+            let value = nu_value_to_string_clean(item, cfg.opts.config, cfg.opts.style_computer);
+            CellOutput::styled(value)
+        }
     }
 }
 
@@ -587,23 +564,23 @@ fn is_simple_list(vals: &[Value]) -> bool {
         .all(|v| !matches!(v, Value::Record { .. } | Value::List { .. }))
 }
 
-fn value_list_to_string(
+fn list_to_string(
     vals: &[Value],
     config: &Config,
     style_computer: &StyleComputer,
-    flatten_sep: &str,
-) -> NuText {
+    sep: &str,
+) -> String {
     let mut buf = String::new();
     for (i, value) in vals.iter().enumerate() {
         if i > 0 {
-            buf.push_str(flatten_sep);
+            buf.push_str(sep);
         }
 
-        let text = nu_value_to_string_clean(value, config, style_computer).0;
+        let (text, _) = nu_value_to_string_clean(value, config, style_computer);
         buf.push_str(&text);
     }
 
-    (buf, TextStyle::default())
+    buf
 }
 
 fn dive_options<'b>(cfg: &Cfg<'b>, span: Span) -> Cfg<'b> {
@@ -665,9 +642,9 @@ fn value_to_wrapped_string_clean(value: &Value, cfg: &Cfg<'_>, value_width: usiz
     wrap_text(&text, value_width, cfg.opts.config)
 }
 
-fn update_config(cfg: Cfg<'_>, width: usize) -> Cfg<'_> {
-    let mut inner_cfg = cfg.clone();
-    inner_cfg.opts.width = width;
-    inner_cfg.opts.index_offset = 0;
-    inner_cfg
+fn update_config<'a>(cfg: &Cfg<'a>, width: usize) -> Cfg<'a> {
+    let mut new = cfg.clone();
+    new.opts.width = width;
+    new.opts.index_offset = 0;
+    new
 }

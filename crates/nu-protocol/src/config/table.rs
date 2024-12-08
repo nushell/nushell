@@ -277,6 +277,12 @@ pub struct TableIndent {
     pub right: usize,
 }
 
+impl TableIndent {
+    pub fn new(left: usize, right: usize) -> Self {
+        Self { left, right }
+    }
+}
+
 impl IntoValue for TableIndent {
     fn into_value(self, span: Span) -> Value {
         record! {
