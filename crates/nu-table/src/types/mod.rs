@@ -1,5 +1,5 @@
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Signals, Span, TableIndent, TableIndexMode, TableMode};
+use nu_protocol::{Config, Signals, Span, TableIndexMode, TableMode};
 
 use crate::{common::INDEX_COLUMN_NAME, NuTable};
 
@@ -37,36 +37,35 @@ impl TableOutput {
 
 #[derive(Debug, Clone)]
 pub struct TableOpts<'a> {
-    signals: &'a Signals,
-    config: &'a Config,
-    style_computer: &'a StyleComputer<'a>,
-    span: Span,
-    width: usize,
-    indent: TableIndent,
-    mode: TableMode,
-    index_offset: usize,
-    index_remove: bool,
+    pub signals: &'a Signals,
+    pub config: &'a Config,
+    pub style_computer: std::rc::Rc<StyleComputer<'a>>,
+    pub span: Span,
+    pub width: usize,
+    pub mode: TableMode,
+    pub index_offset: usize,
+    pub index_remove: bool,
 }
 
 impl<'a> TableOpts<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         config: &'a Config,
-        style_computer: &'a StyleComputer<'a>,
+        style_computer: StyleComputer<'a>,
         signals: &'a Signals,
         span: Span,
         width: usize,
-        indent: TableIndent,
         mode: TableMode,
         index_offset: usize,
         index_remove: bool,
     ) -> Self {
+        let style_computer = std::rc::Rc::new(style_computer);
+
         Self {
             signals,
             config,
             style_computer,
             span,
-            indent,
             width,
             mode,
             index_offset,

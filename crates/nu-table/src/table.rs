@@ -95,6 +95,11 @@ impl NuTable {
         }
     }
 
+    pub fn set_row(&mut self, index: usize, row: Vec<NuRecordsValue>) {
+        assert_eq!(self.data[index].len(), row.len());
+        self.data[index] = row;
+    }
+
     pub fn set_column_style(&mut self, column: usize, style: TextStyle) {
         if let Some(style) = style.color_style {
             let style = convert_style(style);

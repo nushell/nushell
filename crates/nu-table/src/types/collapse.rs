@@ -17,7 +17,7 @@ impl CollapsedTable {
 }
 
 fn collapsed_table(mut value: Value, opts: TableOpts<'_>) -> StringResult {
-    colorize_value(&mut value, opts.config, opts.style_computer);
+    colorize_value(&mut value, opts.config, &opts.style_computer);
 
     let mut table = UnstructuredTable::new(value, opts.config);
 
@@ -27,7 +27,7 @@ fn collapsed_table(mut value: Value, opts: TableOpts<'_>) -> StringResult {
         return Ok(None);
     }
 
-    let table = table.draw(&theme, opts.config.table.padding, opts.style_computer);
+    let table = table.draw(&theme, opts.config.table.padding, &opts.style_computer);
 
     Ok(Some(table))
 }

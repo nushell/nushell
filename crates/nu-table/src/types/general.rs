@@ -35,9 +35,9 @@ fn list_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, Sh
         opts.config.table.padding.right,
     );
 
-    colorize_space(out.table.get_records_mut(), opts.style_computer);
+    colorize_space(out.table.get_records_mut(), &opts.style_computer);
 
-    let config = create_nu_table_config(opts.config, opts.style_computer, &out, false, opts.mode);
+    let config = create_nu_table_config(opts.config, &opts.style_computer, &out, false, opts.mode);
     let table = out.table.draw(config, opts.width);
 
     Ok(table)
@@ -51,7 +51,7 @@ fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
 
         let key = NuRecordsValue::new(column.to_string());
 
-        let value = nu_value_to_string_colored(value, opts.config, opts.style_computer);
+        let value = nu_value_to_string_colored(value, opts.config, &opts.style_computer);
         let value = NuRecordsValue::new(value);
 
         row.push(key);
@@ -67,7 +67,7 @@ fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
 
     let out = TableOutput::from_table(table, false, true);
     let table_config =
-        create_nu_table_config(opts.config, opts.style_computer, &out, false, opts.mode);
+        create_nu_table_config(opts.config, &opts.style_computer, &out, false, opts.mode);
     let table = out.table.draw(table_config, opts.width);
 
     Ok(table)
@@ -100,28 +100,23 @@ fn create_table_with_header(
     headers: Vec<String>,
     opts: &TableOpts<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
-    // The header with the INDEX is removed from the table headers since
-    // it is added to the natural table index
-    let headers: Vec<_> = headers
-        .into_iter()
-        .filter(|header| header != INDEX_COLUMN_NAME)
-        .collect();
+    let headers = collect_headers(headers, false);
 
     let count_rows = input.len() + 1;
     let count_columns = headers.len();
     let mut table = NuTable::new(count_rows, count_columns);
 
-    table.set_header_style(get_header_style(opts.style_computer));
-    table.set_index_style(get_index_style(opts.style_computer));
+    table.set_header_style(get_header_style(&opts.style_computer));
+    table.set_index_style(get_index_style(&opts.style_computer));
 
-    table.insert_row(0, headers.clone());
+    table.set_row(0, headers.clone());
 
     for (row, item) in input.iter().enumerate() {
         opts.signals.check(opts.span)?;
         check_value(item)?;
 
         for (col, header) in headers.iter().enumerate() {
-            let (text, style) = get_string_value_with_header(item, header, opts);
+            let (text, style) = get_string_value_with_header(item, header.as_ref(), opts);
 
             let pos = (row + 1, col);
             table.insert(pos, text);
@@ -138,23 +133,16 @@ fn create_table_with_header_and_index(
     row_offset: usize,
     opts: &TableOpts<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
-    // The header with the INDEX is removed from the table headers since
-    // it is added to the natural table index
-    let mut headers: Vec<_> = headers
-        .into_iter()
-        .filter(|header| header != INDEX_COLUMN_NAME)
-        .collect();
-
-    headers.insert(0, "#".into());
+    let headers = collect_headers(headers, true);
 
     let count_rows = input.len() + 1;
     let count_columns = headers.len();
     let mut table = NuTable::new(count_rows, count_columns);
 
-    table.set_header_style(get_header_style(opts.style_computer));
-    table.set_index_style(get_index_style(opts.style_computer));
+    table.set_header_style(get_header_style(&opts.style_computer));
+    table.set_index_style(get_index_style(&opts.style_computer));
 
-    table.insert_row(0, headers.clone());
+    table.set_row(0, headers.clone());
 
     for (row, item) in input.iter().enumerate() {
         opts.signals.check(opts.span)?;
@@ -164,7 +152,7 @@ fn create_table_with_header_and_index(
         table.insert((row + 1, 0), text);
 
         for (col, header) in headers.iter().enumerate().skip(1) {
-            let (text, style) = get_string_value_with_header(item, header, opts);
+            let (text, style) = get_string_value_with_header(item, header.as_ref(), opts);
 
             let pos = (row + 1, col);
             table.insert(pos, text);
@@ -180,7 +168,7 @@ fn create_table_with_no_header(
     opts: &TableOpts<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
     let mut table = NuTable::new(input.len(), 1);
-    table.set_index_style(get_index_style(opts.style_computer));
+    table.set_index_style(get_index_style(&opts.style_computer));
 
     for (row, item) in input.iter().enumerate() {
         opts.signals.check(opts.span)?;
@@ -202,7 +190,7 @@ fn create_table_with_no_header_and_index(
     opts: &TableOpts<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
     let mut table = NuTable::new(input.len(), 1 + 1);
-    table.set_index_style(get_index_style(opts.style_computer));
+    table.set_index_style(get_index_style(&opts.style_computer));
 
     for (row, item) in input.iter().enumerate() {
         opts.signals.check(opts.span)?;
@@ -225,14 +213,14 @@ fn get_string_value_with_header(item: &Value, header: &str, opts: &TableOpts) ->
     match item {
         Value::Record { val, .. } => match val.get(header) {
             Some(value) => get_string_value(value, opts),
-            None => get_empty_style(opts.style_computer),
+            None => get_empty_style(&opts.style_computer),
         },
         value => get_string_value(value, opts),
     }
 }
 
 fn get_string_value(item: &Value, opts: &TableOpts) -> NuText {
-    let (mut text, style) = get_value_style(item, opts.config, opts.style_computer);
+    let (mut text, style) = get_value_style(item, opts.config, &opts.style_computer);
 
     let is_string = matches!(item, Value::String { .. });
     if is_string {
@@ -249,5 +237,26 @@ fn get_table_row_index(item: &Value, config: &Config, row: usize, offset: usize)
             .map(|value| value.to_expanded_string("", config))
             .unwrap_or_else(|| (row + offset).to_string()),
         _ => (row + offset).to_string(),
+    }
+}
+
+fn collect_headers(headers: Vec<String>, index: bool) -> Vec<NuRecordsValue> {
+    // The header with the INDEX is removed from the table headers since
+    // it is added to the natural table index
+
+    if !index {
+        headers
+            .into_iter()
+            .filter(|header| header != INDEX_COLUMN_NAME)
+            .map(NuRecordsValue::new)
+            .collect()
+    } else {
+        let mut v = Vec::with_capacity(headers.len() + 1);
+        v.insert(0, NuRecordsValue::new("#".into()));
+        for text in headers {
+            v.push(NuRecordsValue::new(text));
+        }
+
+        v
     }
 }
