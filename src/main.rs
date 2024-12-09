@@ -270,6 +270,13 @@ fn main() -> Result<()> {
     }
 
     start_time = std::time::Instant::now();
+    engine_state.add_env_var(
+        "config".into(),
+        Config::default().into_value(Span::unknown()),
+    );
+    perf!("$env.config setup", start_time, use_color);
+
+    start_time = std::time::Instant::now();
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
         let span = include_path.span;
         let vals: Vec<_> = include_path
