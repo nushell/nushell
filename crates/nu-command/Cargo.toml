@@ -45,9 +45,9 @@ chrono-humanize = { workspace = true }
 chrono-tz = { workspace = true }
 crossterm = { workspace = true, optional = true }
 csv = { workspace = true }
+dateparser = { workspace = true }
 dialoguer = { workspace = true, default-features = false, features = ["fuzzy-select"] }
 digest = { workspace = true, default-features = false }
-dtparse = { workspace = true }
 encoding_rs = { workspace = true }
 fancy-regex = { workspace = true }
 filesize = { workspace = true }

@@ -267,7 +267,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let timezone = &args.zone_options;
     let dateformat = &args.format_options;
 
-    // Let's try dtparse first
+    // Let's try dateparser first
     if matches!(input, Value::String { .. }) && dateformat.is_none() {
         let span = input.span();
         if let Ok(input_val) = input.coerce_str() {
