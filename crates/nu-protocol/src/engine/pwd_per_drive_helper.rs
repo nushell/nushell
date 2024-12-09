@@ -1,8 +1,8 @@
 use crate::engine::{EngineState, Stack};
 #[cfg(windows)]
-use crate::{Span, Value};
-#[cfg(windows)]
-use nu_path::{bash_strip_redundant_quotes, ensure_trailing_delimiter, get_full_path_name_w};
+use {crate::{Span, Value},
+     nu_path::get_full_path_name_w,
+};
 use std::path::{Path, PathBuf};
 
 #[cfg(windows)]
@@ -38,7 +38,7 @@ pub mod os_windows {
             engine_state: &EngineState,
             path: &Path,
         ) -> Option<PathBuf> {
-            use implementation::{extract_drive_letter, get_pwd_on_drive, need_expand};
+            use implementation::{bash_strip_redundant_quotes, extract_drive_letter, get_pwd_on_drive, need_expand};
 
             if let Some(path_str) = path.to_str() {
                 if let Some(path_string) = bash_strip_redundant_quotes(path_str) {
@@ -115,6 +115,81 @@ pub mod os_windows {
             path.to_str()
                 .and_then(|s| s.chars().next())
                 .filter(|c| c.is_ascii_alphabetic())
+        }
+        /// Ensure a path has a trailing `\\` or '/'
+        /// ```
+        /// use nu_path::ensure_trailing_delimiter;
+        ///
+        /// assert_eq!(ensure_trailing_delimiter("E:"), r"E:\");
+        /// assert_eq!(ensure_trailing_delimiter(r"e:\"), r"e:\");
+        /// assert_eq!(ensure_trailing_delimiter("c:/"), "c:/");
+        /// ```
+        pub fn ensure_trailing_delimiter(path: &str) -> String {
+            if !path.ends_with('\\') && !path.ends_with('/') {
+                format!(r"{}\", path)
+            } else {
+                path.to_string()
+            }
+        }
+
+        /// Remove redundant quotes as preprocessor for path
+        /// #"D:\\"''M''u's 'ic# -> #D:\\Mu's 'ic#
+        pub fn bash_strip_redundant_quotes(input: &str) -> Option<String> {
+            let mut result = String::new();
+            let mut i = 0;
+            let chars: Vec<char> = input.chars().collect();
+
+            let mut no_quote_start_pos = 0;
+            while i < chars.len() {
+                let current_char = chars[i];
+
+                if current_char == '"' || current_char == '\'' {
+                    if i > no_quote_start_pos {
+                        result.push_str(&input[no_quote_start_pos..i]);
+                    }
+
+                    let mut j = i + 1;
+                    let mut has_space = false;
+
+                    // Look for the matching quote
+                    while j < chars.len() && chars[j] != current_char {
+                        if chars[j].is_whitespace() {
+                            has_space = true;
+                        }
+                        j += 1;
+                    }
+
+                    // Check if the matching quote exists
+                    if j < chars.len() && chars[j] == current_char {
+                        if has_space {
+                            // Push the entire segment including quotes
+                            result.push_str(&input[i..=j]);
+                        } else {
+                            // Push the inner content without quotes
+                            result.push_str(&input[i + 1..j]);
+                        }
+                        i = j + 1; // Move past the closing quote
+                        no_quote_start_pos = i;
+                        continue;
+                    } else {
+                        // No matching quote found, return None
+                        return None;
+                    }
+                }
+                i += 1;
+            }
+
+            if i > no_quote_start_pos + 1 {
+                result.push_str(&input[no_quote_start_pos..i]);
+            }
+            // Return the result if matching quotes are found
+            Some(result)
+        }
+
+        /// cmd_strip_all_double_quotes
+        /// assert_eq!("t t", cmd_strip_all_double_quotes("t\" \"t\"\""));
+        pub fn cmd_strip_all_double_quotes(input: &str) -> String {
+            input.replace("\"", "")
         }
     }
 }
@@ -274,6 +349,53 @@ mod tests {
 
                 assert_eq!(extract_drive_letter(Path::new("C:test")), Some('C'));
                 assert_eq!(extract_drive_letter(Path::new(r"d:\temp")), Some('d'));
+            }
+
+            #[test]
+            fn test_os_windows_implementation_bash_strip_redundant_quotes() {
+                use os_windows::implementation::bash_strip_redundant_quotes;
+
+                let input = r#""D:\Music""#;
+                let result = Some(r"D:\Music".to_string());
+                assert_eq!(result, bash_strip_redundant_quotes(input));
+
+                let input = r#"""""D:\Music"""""#;
+                assert_eq!(result, bash_strip_redundant_quotes(input));
+
+                let input = r#""D:\Mus"ic"#;
+                assert_eq!(result, bash_strip_redundant_quotes(input));
+                let input = r#""D:"\Music"#;
+                assert_eq!(result, bash_strip_redundant_quotes(input));
+
+                let input = r#""D":\Music"#;
+                assert_eq!(result, bash_strip_redundant_quotes(input));
+
+                let input = r#"""D:\Music"#;
+                assert_eq!(result, bash_strip_redundant_quotes(input));
+
+                let input = r#"""''"""D:\Mu sic"""''"""#;
+                let result = Some(r#""D:\Mu sic""#.to_string());
+                assert_eq!(result, bash_strip_redundant_quotes(input));
+
+                assert_eq!(bash_strip_redundant_quotes(""), Some("".to_string()));
+                assert_eq!(bash_strip_redundant_quotes("''"), Some("".to_string()));
+                assert_eq!(bash_strip_redundant_quotes("'''"), None);
+                assert_eq!(bash_strip_redundant_quotes("'''M'"), Some("M".to_string()));
+                assert_eq!(
+                    bash_strip_redundant_quotes("'''M '"),
+                    Some("'M '".to_string())
+                );
+                assert_eq!(
+                    bash_strip_redundant_quotes(r#"""''"""D:\Mu sic"""''"""#),
+                    Some(r#""D:\Mu sic""#.to_string())
+                );
+            }
+
+            #[test]
+            fn test_os_windows_implementation_cmd_strip_all_double_quotes() {
+                use os_windows::implementation::cmd_strip_all_double_quotes;
+
+                assert_eq!("t t", cmd_strip_all_double_quotes("t\" \"t\"\""));
             }
         }
     }
