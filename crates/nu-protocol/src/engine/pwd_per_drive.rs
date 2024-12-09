@@ -171,7 +171,7 @@ mod tests {
         let result = format!(r"{path_str}\.config");
         assert_eq!(
             Some(result.as_str()),
-            fs_client::expand_path_with(
+            expand_path_with(
                 &stack,
                 &engine_state,
                 rel_path,
@@ -194,7 +194,7 @@ mod tests {
             stack
                 .get_env_var(
                     &engine_state,
-                    &os_windows::implementation::env_var_for_drive('c')
+                    &env_var_for_drive('c')
                 )
                 .unwrap()
                 .clone()
