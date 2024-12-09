@@ -170,15 +170,9 @@ mod tests {
         let result = format!(r"{path_str}\.config");
         assert_eq!(
             Some(result.as_str()),
-            expand_path_with(
-                &stack,
-                &engine_state,
-                rel_path,
-                Path::new(path_str),
-                false
-            )
-            .as_path()
-            .to_str()
+            expand_path_with(&stack, &engine_state, rel_path, Path::new(path_str), false)
+                .as_path()
+                .to_str()
         );
     }
 
@@ -191,10 +185,7 @@ mod tests {
         let engine_state = EngineState::new();
         assert_eq!(
             stack
-                .get_env_var(
-                    &engine_state,
-                    &env_var_for_drive('c')
-                )
+                .get_env_var(&engine_state, &env_var_for_drive('c'))
                 .unwrap()
                 .clone()
                 .into_string()
