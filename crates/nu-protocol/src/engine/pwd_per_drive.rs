@@ -99,7 +99,7 @@ pub mod os_windows {
     }
 
     /// Implementation for maintainer and fs_client
-    pub(in crate::engine::pwd_per_drive_helper) mod implementation {
+    pub(in crate::engine::pwd_per_drive) mod implementation {
         use super::*;
 
         /// Windows env var for drive
@@ -224,6 +224,9 @@ pub mod os_windows {
 
         /// cmd_strip_all_double_quotes
         /// assert_eq!("t t", cmd_strip_all_double_quotes("t\" \"t\"\""));
+        /// Currently not used, for CMD compatible usage in the future
+        /// Mark as test only to avoid clippy warning of dead code.
+        #[cfg(test)]
         pub fn cmd_strip_all_double_quotes(input: &str) -> String {
             input.replace("\"", "")
         }
