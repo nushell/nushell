@@ -25,7 +25,7 @@ use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::EngineState, report_shell_error, ByteStream, Config, IntoValue, PipelineData,
-    ShellError, Span, Spanned, Value,
+    ShellError, Span, Spanned, Type, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -147,13 +147,25 @@ fn main() -> Result<()> {
 
     let mut default_nu_lib_dirs_path = nushell_config_path.clone();
     default_nu_lib_dirs_path.push("scripts");
-    engine_state.add_env_var(
-        "NU_LIB_DIRS".to_string(),
+    // env.NU_LIB_DIRS to be replaced by constant (below) - Eventual deprecation
+    // but an empty list for now to allow older code to work
+    engine_state.add_env_var("NU_LIB_DIRS".to_string(), Value::test_list(vec![]));
+
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    let var_id = working_set.add_variable(
+        b"$NU_LIB_DIRS".into(),
+        Span::unknown(),
+        Type::List(Box::new(Type::String)),
+        false,
+    );
+    working_set.set_variable_const_val(
+        var_id,
         Value::test_list(vec![
             Value::test_string(default_nu_lib_dirs_path.to_string_lossy()),
             Value::test_string(default_nushell_completions_path.to_string_lossy()),
         ]),
     );
+    engine_state.merge_delta(working_set.render())?;
 
     let mut default_nu_plugin_dirs_path = nushell_config_path;
     default_nu_plugin_dirs_path.push("plugins");
@@ -258,13 +270,6 @@ fn main() -> Result<()> {
     }
 
     start_time = std::time::Instant::now();
-    engine_state.add_env_var(
-        "config".into(),
-        Config::default().into_value(Span::unknown()),
-    );
-    perf!("$env.config setup", start_time, use_color);
-
-    start_time = std::time::Instant::now();
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
         let span = include_path.span;
         let vals: Vec<_> = include_path
@@ -273,7 +278,15 @@ fn main() -> Result<()> {
             .map(|x| Value::string(x.trim().to_string(), span))
             .collect();
 
-        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::list(vals, span));
+        let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+        let var_id = working_set.add_variable(
+            b"$NU_LIB_DIRS".into(),
+            span,
+            Type::List(Box::new(Type::String)),
+            false,
+        );
+        working_set.set_variable_const_val(var_id, Value::list(vals, span));
+        engine_state.merge_delta(working_set.render())?;
     }
     perf!("NU_LIB_DIRS setup", start_time, use_color);
 
