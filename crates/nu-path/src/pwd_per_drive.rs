@@ -4,62 +4,6 @@
 ///
 use std::path::Path;
 
-/// Helper to check if input path is relative path
-/// with drive letter, it can be expanded with PWD-per-drive.
-/// ```
-///  use nu_path::need_expand;
-///  assert!(need_expand(r"c:nushell\src"));
-///  assert!(need_expand("C:src/"));
-///  assert!(need_expand("a:"));
-///  assert!(need_expand("z:"));
-///  // Absolute path does not need expand
-///  assert!(!need_expand(r"c:\"));
-///  // Unix path does not need expand
-///  assert!(!need_expand("/usr/bin"));
-/// ```
-pub fn need_expand(path: &str) -> bool {
-    let chars: Vec<char> = path.chars().collect();
-    if chars.len() >= 2 {
-        chars[1] == ':' && (chars.len() == 2 || (chars[2] != '/' && chars[2] != '\\'))
-    } else {
-        false
-    }
-}
-
-/// Get windows env var for drive
-/// ```
-/// use nu_path::env_var_for_drive;
-///
-/// for drive_letter in 'A'..='Z' {
-///     assert_eq!(env_var_for_drive(drive_letter), format!("={drive_letter}:"));
-/// }
-/// for drive_letter in 'a'..='z' {
-///     assert_eq!(
-///         env_var_for_drive(drive_letter),
-///         format!("={}:", drive_letter.to_ascii_uppercase())
-///     );
-/// }
-///
-/// ```
-pub fn env_var_for_drive(drive_letter: char) -> String {
-    let drive_letter = drive_letter.to_ascii_uppercase();
-    format!("={}:", drive_letter)
-}
-
-/// Helper to extract the drive letter from a path, keep case
-/// ```
-/// use nu_path::extract_drive_letter;
-/// use std::path::Path;
-///
-/// assert_eq!(extract_drive_letter(Path::new("C:test")), Some('C'));
-/// assert_eq!(extract_drive_letter(Path::new(r"d:\temp")), Some('d'));
-/// ```
-pub fn extract_drive_letter(path: &Path) -> Option<char> {
-    path.to_str()
-        .and_then(|s| s.chars().next())
-        .filter(|c| c.is_ascii_alphabetic())
-}
-
 /// Ensure a path has a trailing `\\` or '/'
 /// ```
 /// use nu_path::ensure_trailing_delimiter;

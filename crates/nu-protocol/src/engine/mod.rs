@@ -29,9 +29,9 @@ pub use engine_state::*;
 pub use error_handler::*;
 pub use overlay::*;
 pub use pattern_match::*;
-pub use pwd_per_drive_helper::expand_path_with;
+pub use pwd_per_drive_helper::fs_client::*; //expand_path_with
 #[cfg(windows)]
-pub use pwd_per_drive_helper::{expand_pwd, set_pwd};
+pub use pwd_per_drive_helper::os_windows::*; //{expand_pwd, set_pwd};
 pub use sequence::*;
 pub use stack::*;
 pub use stack_out_dest::*;
