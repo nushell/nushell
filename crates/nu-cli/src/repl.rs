@@ -795,8 +795,10 @@ fn is_dir(path: &Path) -> bool {
     #[cfg(windows)]
     {
         path.is_dir()
-            || if let Some(path_str) = path.to_str() {
-                (path_str.len() == 3) && DRIVE_PATH_REGEX.is_match(path_str).unwrap_or(false)
+            || if let Some(path) = path.to_str() {
+                path.ends_with("\\")
+                    && path.len() == 3
+                    && DRIVE_PATH_REGEX.is_match(path).unwrap_or(false)
             } else {
                 false
             }

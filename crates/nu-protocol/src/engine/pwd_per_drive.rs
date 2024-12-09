@@ -177,7 +177,7 @@ mod tests {
     }
 
     #[test]
-    fn test_os_windows_maintainer_set_pwd() {
+    fn test_set_pwd() {
         let mut stack = Stack::new();
         let path_str = r"c:\users\nushell";
         let path = Path::new(path_str);
@@ -195,7 +195,7 @@ mod tests {
     }
 
     #[test]
-    fn test_os_windows_fs_client_expand_pwd() {
+    fn test_expand_pwd() {
         let mut stack = Stack::new();
         let path_str = r"c:\users\nushell";
         let path = Path::new(path_str);
@@ -214,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    fn test_os_windows_implementation_env_var_for_drive() {
+    fn test_env_var_for_drive() {
         for drive_letter in 'A'..='Z' {
             assert_eq!(env_var_for_drive(drive_letter), format!("={drive_letter}:"));
         }
@@ -227,7 +227,7 @@ mod tests {
     }
 
     #[test]
-    fn test_os_windows_implementation_get_pwd_on_drive() {
+    fn test_get_pwd_on_drive() {
         let mut stack = Stack::new();
         let path_str = r"c:\users\nushell";
         let path = Path::new(path_str);
@@ -238,7 +238,7 @@ mod tests {
     }
 
     #[test]
-    fn test_os_windows_implementation_need_expand() {
+    fn test_need_expand() {
         assert_eq!(need_expand(r"c:nushell\src"), Some('C'));
         assert_eq!(need_expand("C:src/"), Some('C'));
         assert_eq!(need_expand("a:"), Some('A'));
@@ -252,21 +252,21 @@ mod tests {
     }
 
     #[test]
-    fn test_os_windows_implementation_extract_drive_letter() {
+    fn test_extract_drive_letter() {
         assert_eq!(extract_drive_letter("C:test"), Some('C'));
         assert_eq!(extract_drive_letter(r"d:\temp"), Some('D'));
         assert_eq!(extract_drive_letter(r"1:temp"), None);
     }
 
     #[test]
-    fn test_os_windows_implementation_ensure_trailing_delimiter() {
+    fn test_ensure_trailing_delimiter() {
         assert_eq!(ensure_trailing_delimiter("E:"), r"E:\");
         assert_eq!(ensure_trailing_delimiter(r"e:\"), r"e:\");
         assert_eq!(ensure_trailing_delimiter("c:/"), "c:/");
     }
 
     #[test]
-    fn test_os_windows_implementation_get_full_path_name_w() {
+    fn test_get_full_path_name_w() {
         let result = get_full_path_name_w("C:");
         assert!(result.is_some());
         let path = result.unwrap();
