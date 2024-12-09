@@ -154,8 +154,7 @@ pub fn get_full_path_name_w(path_str: &str) -> Option<String> {
     }
 }
 
-#[cfg(windows)]
-#[cfg(test)] // test only for windows
+#[cfg(all(windows, test))] // test only for windows
 mod tests {
     use super::*;
 
@@ -186,7 +185,7 @@ mod tests {
     #[test]
     fn test_os_windows_maintainer_set_pwd() {
         let mut stack = Stack::new();
-        let path_str = r"c:\uesrs\nushell";
+        let path_str = r"c:\users\nushell";
         let path = Path::new(path_str);
         set_pwd(&mut stack, path);
         let engine_state = EngineState::new();
