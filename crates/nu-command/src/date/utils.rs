@@ -286,7 +286,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
 mod tests {
 
     #[test]
-    fn test_qsv_crate() {
+    fn test_dateparser_crate() {
         use dateparser::DateTimeUtc;
 
         // tests borrowed from https://github.com/waltzofpearls/dateparser
