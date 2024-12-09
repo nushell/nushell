@@ -1,19 +1,53 @@
 use crate::engine::{EngineState, Stack};
 #[cfg(windows)]
-use {crate::{Span, Value},
-     nu_path::get_full_path_name_w,
-};
+use crate::{Span, Value};
 use std::path::{Path, PathBuf};
+
+// For file system command usage
+pub mod fs_client {
+    use super::*;
+
+    /// Proxy/Wrapper for
+    /// nu_path::expand_path_with<P, Q>(path, relative_to, expand_tilde);
+    ///
+    /// Usually if a command opens one file or directory, it uses
+    /// nu_path::expand_path_with::<P, Q>(p, r, t) to expand '~','.' etc.; replacing it with
+    /// nu_protocol::engine::fs_client::expand_path_with(stack, engine_state, p, r t) will
+    /// first check if the path is relative for a drive;
+    /// Commands that accept multiple files/directories as parameters usually depend on Glob,
+    /// after near future revised Glob collection implementation done, all file system commands
+    /// will support PWD-per-drive.
+    pub fn expand_path_with<P, Q>(
+        _stack: &Stack,
+        _engine_state: &EngineState,
+        path: P,
+        relative_to: Q,
+        expand_tilde: bool,
+    ) -> PathBuf
+    where
+        P: AsRef<Path>,
+        Q: AsRef<Path>,
+    {
+        #[cfg(windows)]
+        if let Some(abs_path) =
+            os_windows::fs_client::expand_pwd(_stack, _engine_state, path.as_ref())
+        {
+            return abs_path;
+        }
+
+        nu_path::expand_path_with::<P, Q>(path, relative_to, expand_tilde)
+    }
+}
 
 #[cfg(windows)]
 pub mod os_windows {
     use super::*;
 
-    // For maintainer to notify current pwd
+    /// For maintainer to notify current pwd
     pub mod maintainer {
         use super::*;
 
-        /// when user change current directory, maintainer nofity
+        /// When user change current directory, maintainer notifies
         /// PWD-per-drive by calling set_pwd() with current stack and path;
         pub fn set_pwd(stack: &mut Stack, path: &Path) {
             use implementation::{env_var_for_drive, extract_drive_letter};
@@ -25,20 +59,23 @@ pub mod os_windows {
         }
     }
 
-    // For file system command usage
+    /// For file system command usage
     pub mod fs_client {
         use super::*;
 
-        /// file system command implementation can use expand_pwd to expand relate path for a drive
-        /// and strip redundant double or single quote like bash
-        /// expand_pwd(stack, engine_state, Path::new("''C:''nushell''") ->
-        /// Some(PathBuf("C:\\User\\nushell");
+        /// File system command implementation can also directly use expand_pwd
+        /// to expand relate path for a drive and strip redundant double or
+        /// single quote like bash.
+        /// cd "''C:''nushell''"
+        /// C:\Users\nushell>
         pub fn expand_pwd(
             stack: &Stack,
             engine_state: &EngineState,
             path: &Path,
         ) -> Option<PathBuf> {
-            use implementation::{bash_strip_redundant_quotes, extract_drive_letter, get_pwd_on_drive, need_expand};
+            use implementation::{
+                bash_strip_redundant_quotes, extract_drive_letter, get_pwd_on_drive, need_expand,
+            };
 
             if let Some(path_str) = path.to_str() {
                 if let Some(path_string) = bash_strip_redundant_quotes(path_str) {
@@ -61,14 +98,23 @@ pub mod os_windows {
         }
     }
 
-    // Implementation for maintainer and fs_client
+    /// Implementation for maintainer and fs_client
     pub(in crate::engine::pwd_per_drive_helper) mod implementation {
         use super::*;
 
-        // get pwd for drive:
-        // 1. From env_var, if no,
-        // 2. From sys_absolute, if no,
-        // 3. Construct root path to drives
+        /// Windows env var for drive
+        /// essential for integration with windows native shell CMD/PowerShell
+        /// and the core mechanism for supporting PWD-per-drive with nushell's
+        /// powerful layered environment system.
+        pub fn env_var_for_drive(drive_letter: char) -> String {
+            let drive_letter = drive_letter.to_ascii_uppercase();
+            format!("={}:", drive_letter)
+        }
+
+        /// get pwd for drive:
+        /// 1. From env_var, if no,
+        /// 2. From sys_absolute, if no,
+        /// 3. Construct root path to drives
         pub fn get_pwd_on_drive(
             stack: &Stack,
             engine_state: &EngineState,
@@ -93,8 +139,8 @@ pub mod os_windows {
             }
         }
 
-        /// Helper to check if input path is relative path
-        /// with drive letter, it can be expanded with PWD-per-drive.
+        /// Check if input path is relative path for drive letter,
+        /// which should be expanded with PWD-per-drive.
         pub fn need_expand(path: &str) -> bool {
             let chars: Vec<char> = path.chars().collect();
             if chars.len() >= 2 {
@@ -104,26 +150,16 @@ pub mod os_windows {
             }
         }
 
-        /// Get windows env var for drive
-        pub fn env_var_for_drive(drive_letter: char) -> String {
-            let drive_letter = drive_letter.to_ascii_uppercase();
-            format!("={}:", drive_letter)
-        }
-
-        /// Helper to extract the drive letter from a path, keep case
+        /// Extract the drive letter from a path, keep case
+        /// Called after need_expand() or ensure it's legal windows
+        /// path format
         pub fn extract_drive_letter(path: &Path) -> Option<char> {
             path.to_str()
                 .and_then(|s| s.chars().next())
                 .filter(|c| c.is_ascii_alphabetic())
         }
+
         /// Ensure a path has a trailing `\\` or '/'
-        /// ```
-        /// use nu_path::ensure_trailing_delimiter;
-        ///
-        /// assert_eq!(ensure_trailing_delimiter("E:"), r"E:\");
-        /// assert_eq!(ensure_trailing_delimiter(r"e:\"), r"e:\");
-        /// assert_eq!(ensure_trailing_delimiter("c:/"), "c:/");
-        /// ```
         pub fn ensure_trailing_delimiter(path: &str) -> String {
             if !path.ends_with('\\') && !path.ends_with('/') {
                 format!(r"{}\", path)
@@ -191,34 +227,20 @@ pub mod os_windows {
         pub fn cmd_strip_all_double_quotes(input: &str) -> String {
             input.replace("\"", "")
         }
-    }
-}
 
-// For file system command usage
-pub mod fs_client {
-    use super::*;
+        /// get_full_path_name_w
+        /// Call windows system API (via omnipath crate) to expand
+        /// absolute path
+        pub fn get_full_path_name_w(path_str: &str) -> Option<String> {
+            use omnipath::sys_absolute;
+            use std::path::Path;
 
-    // Helper stub/proxy for nu_path::expand_path_with::<P, Q>(path, relative_to, expand_tilde)
-    // Facilitates file system commands to easily gain the ability to expand PWD-per-drive
-    pub fn expand_path_with<P, Q>(
-        _stack: &Stack,
-        _engine_state: &EngineState,
-        path: P,
-        relative_to: Q,
-        expand_tilde: bool,
-    ) -> PathBuf
-    where
-        P: AsRef<Path>,
-        Q: AsRef<Path>,
-    {
-        #[cfg(windows)]
-        if let Some(abs_path) =
-            os_windows::fs_client::expand_pwd(_stack, _engine_state, path.as_ref())
-        {
-            return abs_path;
+            if let Ok(path_sys_abs) = sys_absolute(Path::new(path_str)) {
+                Some(path_sys_abs.to_str()?.to_string())
+            } else {
+                None
+            }
         }
-
-        nu_path::expand_path_with::<P, Q>(path, relative_to, expand_tilde)
     }
 }
 
@@ -300,6 +322,22 @@ mod tests {
 
         mod implementation_test {
             use super::*;
+
+            #[test]
+            fn test_os_windows_implementation_env_var_for_drive() {
+                use os_windows::implementation::env_var_for_drive;
+
+                for drive_letter in 'A'..='Z' {
+                    assert_eq!(env_var_for_drive(drive_letter), format!("={drive_letter}:"));
+                }
+                for drive_letter in 'a'..='z' {
+                    assert_eq!(
+                        env_var_for_drive(drive_letter),
+                        format!("={}:", drive_letter.to_ascii_uppercase())
+                    );
+                }
+            }
+
             #[test]
             fn test_os_windows_implementation_get_pwd_on_drive() {
                 let mut stack = Stack::new();
@@ -329,26 +367,20 @@ mod tests {
             }
 
             #[test]
-            fn test_os_windows_implementation_env_var_for_drive() {
-                use os_windows::implementation::env_var_for_drive;
-
-                for drive_letter in 'A'..='Z' {
-                    assert_eq!(env_var_for_drive(drive_letter), format!("={drive_letter}:"));
-                }
-                for drive_letter in 'a'..='z' {
-                    assert_eq!(
-                        env_var_for_drive(drive_letter),
-                        format!("={}:", drive_letter.to_ascii_uppercase())
-                    );
-                }
-            }
-
-            #[test]
             fn test_os_windows_implementation_extract_drive_letter() {
                 use os_windows::implementation::extract_drive_letter;
 
                 assert_eq!(extract_drive_letter(Path::new("C:test")), Some('C'));
                 assert_eq!(extract_drive_letter(Path::new(r"d:\temp")), Some('d'));
+            }
+
+            #[test]
+            fn test_os_windows_implementation_ensure_trailing_delimiter() {
+                use os_windows::implementation::ensure_trailing_delimiter;
+
+                assert_eq!(ensure_trailing_delimiter("E:"), r"E:\");
+                assert_eq!(ensure_trailing_delimiter(r"e:\"), r"e:\");
+                assert_eq!(ensure_trailing_delimiter("c:/"), "c:/");
             }
 
             #[test]
@@ -396,6 +428,22 @@ mod tests {
                 use os_windows::implementation::cmd_strip_all_double_quotes;
 
                 assert_eq!("t t", cmd_strip_all_double_quotes("t\" \"t\"\""));
+            }
+
+            #[test]
+            fn test_os_windows_implementation_get_full_path_name_w() {
+                use os_windows::implementation::get_full_path_name_w;
+
+                let result = get_full_path_name_w("C:");
+                assert!(result.is_some());
+                let path = result.unwrap();
+                assert!(path.starts_with(r"C:\"));
+
+                let result = get_full_path_name_w(r"c:nushell\src");
+                assert!(result.is_some());
+                let path = result.unwrap();
+                assert!(path.starts_with(r"C:\") || path.starts_with(r"c:\"));
+                assert!(path.ends_with(r"nushell\src"));
             }
         }
     }
