@@ -1,7 +1,7 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_protocol::{
-    engine::{fs_client, StateWorkingSet},
+    engine::{expand_path_with, StateWorkingSet},
     PluginRegistryFile,
 };
 use std::{
@@ -19,7 +19,7 @@ fn get_plugin_registry_file_path(
     let cwd = current_dir(engine_state, stack)?;
 
     if let Some(ref custom_path) = custom_path {
-        Ok(fs_client::expand_path_with(
+        Ok(expand_path_with(
             stack,
             engine_state,
             &custom_path.item,
@@ -130,7 +130,7 @@ pub(crate) fn canonicalize_possible_filename_arg(
     // This results in the best possible chance of a match with the plugin item
     #[allow(deprecated)]
     if let Ok(cwd) = nu_engine::current_dir(engine_state, stack) {
-        let path = fs_client::expand_path_with(stack, engine_state, arg, &cwd, true);
+        let path = expand_path_with(stack, engine_state, arg, &cwd, true);
         // Try to canonicalize
         nu_path::locate_in_dirs(&path, &cwd, || get_plugin_dirs(engine_state, stack))
             // If we couldn't locate it, return the expanded path alone
