@@ -11,7 +11,7 @@ mod error_handler;
 mod overlay;
 mod pattern_match;
 mod pwd_per_drive;
-pub mod sequence;
+mod sequence;
 mod stack;
 mod stack_out_dest;
 mod state_delta;
