@@ -794,12 +794,12 @@ fn is_dir(path: &Path) -> bool {
     }
     #[cfg(windows)]
     {
-        path.is_dir() ||
-        if let Some(path_str) = path.to_str() {
-            DRIVE_PATH_REGEX.is_match(path_str).unwrap_or(false)
-        } else {
-            false
-        }
+        path.is_dir()
+            || if let Some(path_str) = path.to_str() {
+                DRIVE_PATH_REGEX.is_match(path_str).unwrap_or(false)
+            } else {
+                false
+            }
     }
 }
 

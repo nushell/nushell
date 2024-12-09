@@ -77,20 +77,15 @@ pub mod os_windows {
             engine_state: &EngineState,
             path: &Path,
         ) -> Option<PathBuf> {
-            use implementation::{bash_strip_redundant_quotes, get_pwd_on_drive, need_expand};
+            use implementation::{get_pwd_on_drive, need_expand};
 
             if let Some(path_str) = path.to_str() {
-                if let Some(path_string) = bash_strip_redundant_quotes(path_str) {
-                    if let Some(drive_letter) = need_expand(&path_string) {
-                        let mut base =
-                            PathBuf::from(get_pwd_on_drive(stack, engine_state, drive_letter));
-                        // need_expand() ensures path_string.len() >= 2
-                        base.push(&path_string[2..]); // Join PWD with path parts after "C:"
-                        return Some(base);
-                    }
-                    if path_string != path_str {
-                        return Some(PathBuf::from(&path_string));
-                    }
+                if let Some(drive_letter) = need_expand(path_str) {
+                    let mut base =
+                        PathBuf::from(get_pwd_on_drive(stack, engine_state, drive_letter));
+                    // need_expand() ensures path_str.len() >= 2
+                    base.push(&path_str[2..]); // Join PWD with path parts after "C:"
+                    return Some(base);
                 }
             }
             None
@@ -169,64 +164,6 @@ pub mod os_windows {
             } else {
                 path.to_string()
             }
-        }
-
-        /// Remove redundant quotes as preprocessor for path
-        /// #"D:\\"''M''u's 'ic# -> #D:\\Mu's 'ic#
-        /// if encounter a quote, and there's matching quote, if there's no
-        /// space between the two quotes, then both quote will be removed,
-        /// and so on. if a quote has no matching quote, the whole string
-        /// will not be altered
-        pub fn bash_strip_redundant_quotes(input: &str) -> Option<String> {
-            let mut result = String::new();
-            let mut i = 0;
-            let chars: Vec<char> = input.chars().collect();
-
-            let mut no_quote_start_pos = 0;
-            while i < chars.len() {
-                if chars[i] == '"' || chars[i] == '\'' {
-                    let quote = chars[i];
-                    // push content before quote
-                    result.push_str(&input[no_quote_start_pos..i]);
-
-                    let mut j = i + 1;
-                    let mut has_space = false;
-
-                    // Look for the matching quote
-                    while j < chars.len() && chars[j] != quote {
-                        has_space = has_space || chars[j].is_whitespace();
-                        j += 1;
-                    }
-
-                    // Check if the matching quote exists
-                    if j < chars.len() && chars[j] == quote {
-                        // Push quote and content or only content
-                        if has_space {
-                            result.push_str(&input[i..=j]);
-                        } else {
-                            result.push_str(&input[i + 1..j]);
-                        }
-                        i = j + 1; // Past the closing quote
-                        no_quote_start_pos = i;
-                        continue;
-                    } else {
-                        return None; // No matching quote found
-                    }
-                }
-                i += 1; // advance not in quote content
-            }
-
-            result.push_str(&input[no_quote_start_pos..i]);
-            Some(result)
-        }
-
-        /// cmd_strip_all_double_quotes
-        /// assert_eq!("t t", cmd_strip_all_double_quotes("t\" \"t\"\""));
-        /// Currently not used, for CMD compatible usage in the future
-        /// Mark as test only to avoid clippy warning of dead code.
-        #[cfg(test)]
-        pub fn cmd_strip_all_double_quotes(input: &str) -> String {
-            input.replace("\"", "")
         }
 
         /// get_full_path_name_w
@@ -385,59 +322,6 @@ mod tests {
                 assert_eq!(ensure_trailing_delimiter("E:"), r"E:\");
                 assert_eq!(ensure_trailing_delimiter(r"e:\"), r"e:\");
                 assert_eq!(ensure_trailing_delimiter("c:/"), "c:/");
-            }
-
-            #[test]
-            fn test_os_windows_implementation_bash_strip_redundant_quotes() {
-                use os_windows::implementation::bash_strip_redundant_quotes;
-
-                let input = r#""D:\Music""#;
-                let result = Some(r"D:\Music".to_string());
-                assert_eq!(result, bash_strip_redundant_quotes(input));
-
-                let input = r#"""""D:\Music"""""#;
-                assert_eq!(result, bash_strip_redundant_quotes(input));
-
-                let input = r#""D:\Mus"ic"#;
-                assert_eq!(result, bash_strip_redundant_quotes(input));
-                let input = r#""D:"\Music"#;
-                assert_eq!(result, bash_strip_redundant_quotes(input));
-
-                let input = r#""D":\Music"#;
-                assert_eq!(result, bash_strip_redundant_quotes(input));
-
-                let input = r#"""D:\Music"#;
-                assert_eq!(result, bash_strip_redundant_quotes(input));
-
-                let input = r#"""''"""D:\Mu sic"""''"""#;
-                let result = Some(r#""D:\Mu sic""#.to_string());
-                assert_eq!(result, bash_strip_redundant_quotes(input));
-
-                assert_eq!(bash_strip_redundant_quotes(""), Some("".to_string()));
-                assert_eq!(bash_strip_redundant_quotes("''"), Some("".to_string()));
-                assert_eq!(bash_strip_redundant_quotes("'''"), None);
-                assert_eq!(bash_strip_redundant_quotes("'''M'"), Some("M".to_string()));
-                assert_eq!(
-                    bash_strip_redundant_quotes("'''M '"),
-                    Some("'M '".to_string())
-                );
-                assert_eq!(
-                    bash_strip_redundant_quotes(r#"""''"""D:\Mu sic"""''"""#),
-                    Some(r#""D:\Mu sic""#.to_string())
-                );
-
-                let input = "~";
-                assert_eq!(Some(input.to_string()), bash_strip_redundant_quotes(input));
-
-                let input = "~/.config";
-                assert_eq!(Some(input.to_string()), bash_strip_redundant_quotes(input));
-            }
-
-            #[test]
-            fn test_os_windows_implementation_cmd_strip_all_double_quotes() {
-                use os_windows::implementation::cmd_strip_all_double_quotes;
-
-                assert_eq!("t t", cmd_strip_all_double_quotes("t\" \"t\"\""));
             }
 
             #[test]
