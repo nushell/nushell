@@ -5,7 +5,7 @@ use nu_engine::env_to_string;
 use nu_path::dots::expand_ndots;
 use nu_path::{expand_to_real_path, home_dir};
 #[cfg(windows)]
-use nu_protocol::engine::pwd_per_drive_helper::os_windows::*; //fs_client::expand_pwd;
+use nu_protocol::engine::fs_client; //fs_client::expand_pwd;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Span,
