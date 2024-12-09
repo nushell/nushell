@@ -56,7 +56,7 @@ fn ordered_params() {
             // Add row with our data types
             r#"(stor open
                 | query db "INSERT INTO test_db VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-                -p [ 'nimurod', 20, 6.0, true, ('2024-03-23T00:15:24-03:00' | into datetime), 72.4mb, 1ms, null, ("hello" | into binary) ]
+                -p [ 'nimurod', 20, 6.0, true, ('2024-03-23T00:15:24-03:00' | into datetime | date to-timezone "-0300"), 72.4mb, 1ms, null, ("hello" | into binary) ]
             )"#,
             // Query our nu values and types
             r#"
@@ -91,7 +91,7 @@ fn named_params() {
                     ':age': 20,
                     '@height': 6.0,
                     '$serious': true,
-                    created_at: ('2024-03-23T00:15:24-03:00' | into datetime),
+                    created_at: ('2024-03-23T00:15:24-03:00' | into datetime | date to-timezone "-0300"),
                     largest_file: 72.4mb,
                     time_slept: 1ms,
                     null_field: null,
