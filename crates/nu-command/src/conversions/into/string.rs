@@ -117,7 +117,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert date to string",
-                example: "'2020-10-10 10:00:00 +02:00' | into datetime | into string",
+                example: "'2020-10-10 10:00:00 +02:00' | into datetime | | date to-timezone +0200 | into string",
                 result: Some(Value::test_string("Sat Oct 10 10:00:00 2020")),
             },
             Example {

@@ -77,7 +77,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Convert a given date into a table.",
-                example: "'2020-04-12 22:10:57 +0200' | into datetime | date to-table",
+                example: "'2020-04-12 22:10:57 +0200' | into datetime | date to-timezone +0200 | date to-table",
                 result: Some(Value::test_list(vec![Value::test_record(record!(
                     "year" =>       Value::test_int(2020),
                     "month" =>      Value::test_int(4),

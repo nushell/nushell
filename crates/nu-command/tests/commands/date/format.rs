@@ -24,7 +24,7 @@ fn locale_format_respect_different_locale() {
         locale: "en_US",
         pipeline(
             r#"
-            "2021-10-22 20:00:12 +01:00" | format date "%c"
+            "2021-10-22 20:00:12 +01:00" | date to-timezone +0100 | format date "%c"
             "#
         )
     );
@@ -34,7 +34,7 @@ fn locale_format_respect_different_locale() {
         locale: "en_GB",
         pipeline(
             r#"
-            "2021-10-22 20:00:12 +01:00" | format date "%c"
+            "2021-10-22 20:00:12 +01:00" | date to-timezone +0100 | format date "%c"
             "#
         )
     );
@@ -44,7 +44,7 @@ fn locale_format_respect_different_locale() {
         locale: "de_DE",
         pipeline(
             r#"
-            "2021-10-22 20:00:12 +01:00" | format date "%c"
+            "2021-10-22 20:00:12 +01:00" | date to-timezone +0100 | format date "%c"
             "#
         )
     );
@@ -54,7 +54,7 @@ fn locale_format_respect_different_locale() {
         locale: "zh_CN",
         pipeline(
             r#"
-            "2021-10-22 20:00:12 +01:00" | format date "%c"
+            "2021-10-22 20:00:12 +01:00" | date to-timezone +0100 | format date "%c"
             "#
         )
     );
@@ -64,7 +64,7 @@ fn locale_format_respect_different_locale() {
         locale: "ja_JP",
         pipeline(
             r#"
-            "2021-10-22 20:00:12 +01:00" | format date "%c"
+            "2021-10-22 20:00:12 +01:00" | date to-timezone +0100 | format date "%c"
             "#
         )
     );
@@ -74,7 +74,7 @@ fn locale_format_respect_different_locale() {
         locale: "fr_FR",
         pipeline(
             r#"
-            "2021-10-22 20:00:12 +01:00" | format date "%c"
+            "2021-10-22 20:00:12 +01:00" | date to-timezone +0100 | format date "%c"
             "#
         )
     );
@@ -87,7 +87,7 @@ fn locale_with_different_format_specifiers() {
     locale: "en_US",
     pipeline(
         r#"
-            "Thu, 26 Oct 2023 22:52:14 +0200" | format date "%x %X"
+            "Thu, 26 Oct 2023 22:52:14 +0200" | date to-timezone +0200 | format date "%x %X"
             "#
         )
     );
@@ -97,7 +97,7 @@ fn locale_with_different_format_specifiers() {
     locale: "nl_NL",
     pipeline(
         r#"
-            "Thu, 26 Oct 2023 22:52:14 +0200" | format date "%x %X"
+            "Thu, 26 Oct 2023 22:52:14 +0200" | date to-timezone +0200 | format date "%x %X"
             "#
         )
     );

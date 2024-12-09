@@ -80,11 +80,11 @@ crossbeam-channel = "0.5.8"
 crossterm = "0.28.1"
 csv = "1.3"
 ctrlc = "3.4"
+dateparser = "0.2.1"
 dialoguer = { default-features = false, version = "0.11" }
 digest = { default-features = false, version = "0.10" }
 dirs = "5.0"
 dirs-sys = "0.4"
-dtparse = "2.0"
 encoding_rs = "0.8"
 fancy-regex = "0.14"
 filesize = "0.2"

@@ -42,16 +42,16 @@ impl Command for FormatDate {
         vec![
             Example {
                 description: "Format a given date-time using the default format (RFC 2822).",
-                example: r#"'2021-10-22 20:00:12 +01:00' | into datetime | format date"#,
+                example: r#"'2021-10-22 21:00:12 +01:00' | into datetime | date to-timezone +0100 | format date"#,
                 result: Some(Value::string(
-                    "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
+                    "Fri, 22 Oct 2021 21:00:12 +0100".to_string(),
                     Span::test_data(),
                 )),
             },
             Example {
                 description:
                     "Format a given date-time as a string using the default format (RFC 2822).",
-                example: r#""2021-10-22 20:00:12 +01:00" | format date"#,
+                example: r#""2021-10-22 20:00:12 +01:00" | date to-timezone +0100 | format date"#,
                 result: Some(Value::string(
                     "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
                     Span::test_data(),

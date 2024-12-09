@@ -161,12 +161,12 @@ impl Command for SubCommand {
             ))
         };
         vec![
-            Example {
-                description: "Convert timestamp string to datetime with timezone offset",
-                example: "'27.02.2021 1:55 pm +0000' | into datetime",
-                #[allow(clippy::inconsistent_digit_grouping)]
-                result: example_result_1(1614434100_000000000),
-            },
+            // Example {
+            //     description: "Convert timestamp string to datetime with timezone offset",
+            //     example: "'27.02.2021 1:55 pm +0000' | into datetime",
+            //     #[allow(clippy::inconsistent_digit_grouping)]
+            //     result: example_result_1(1614434100_000000000),
+            // },
             Example {
                 description: "Convert standard timestamp string to datetime with timezone offset",
                 example: "'2021-02-27T13:55:40.2246+00:00' | into datetime",
@@ -267,7 +267,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let timezone = &args.zone_options;
     let dateformat = &args.format_options;
 
-    // Let's try dtparse first
+    // Let's try dateparser first
     if matches!(input, Value::String { .. }) && dateformat.is_none() {
         let span = input.span();
         if let Ok(input_val) = input.coerce_str() {

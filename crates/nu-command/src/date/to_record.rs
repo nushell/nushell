@@ -64,7 +64,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Convert a date string into a record.",
-                example: "'2020-04-12T22:10:57.123+02:00' | date to-record",
+                example: "2020-04-12T22:10:57.123+02:00 | date to-record",
                 result: Some(Value::test_record(record!(
                         "year" =>       Value::test_int(2020),
                         "month" =>      Value::test_int(4),
@@ -78,7 +78,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Convert a date into a record.",
-                example: "'2020-04-12 22:10:57 +0200' | into datetime | date to-record",
+                example: "'2020-04-12 22:10:57 +0200' | into datetime | date to-timezone +0200 | date to-record",
                 result: Some(Value::test_record(record!(
                         "year" =>       Value::test_int(2020),
                         "month" =>      Value::test_int(4),
