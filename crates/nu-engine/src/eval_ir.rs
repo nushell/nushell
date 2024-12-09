@@ -5,8 +5,8 @@ use nu_protocol::{
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
     engine::{
-        expand_path_with, Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection,
-        Stack, StateWorkingSet,
+        fs_client, Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack,
+        StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
@@ -871,7 +871,8 @@ fn literal_value(
                 Value::string(path, span)
             } else {
                 let cwd = ctx.engine_state.cwd(Some(ctx.stack))?;
-                let path = expand_path_with(ctx.stack, ctx.engine_state, path, cwd, true);
+                let path =
+                    fs_client::expand_path_with(ctx.stack, ctx.engine_state, path, cwd, true);
 
                 Value::string(path.to_string_lossy(), span)
             }
@@ -891,7 +892,8 @@ fn literal_value(
                     .cwd(Some(ctx.stack))
                     .map(AbsolutePathBuf::into_std_path_buf)
                     .unwrap_or_default();
-                let path = expand_path_with(ctx.stack, ctx.engine_state, path, cwd, true);
+                let path =
+                    fs_client::expand_path_with(ctx.stack, ctx.engine_state, path, cwd, true);
 
                 Value::string(path.to_string_lossy(), span)
             }
@@ -1405,7 +1407,7 @@ enum RedirectionStream {
 
 /// Open a file for redirection
 fn open_file(ctx: &EvalContext<'_>, path: &Value, append: bool) -> Result<Arc<File>, ShellError> {
-    let path_expanded = expand_path_with(
+    let path_expanded = fs_client::expand_path_with(
         ctx.stack,
         ctx.engine_state,
         path.as_str()?,

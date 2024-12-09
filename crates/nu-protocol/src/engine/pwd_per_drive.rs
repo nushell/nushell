@@ -52,9 +52,13 @@ pub mod os_windows {
         pub fn set_pwd(stack: &mut Stack, path: &Path) {
             use implementation::{env_var_for_drive, extract_drive_letter};
 
-            if let Some(drive) = extract_drive_letter(path) {
-                let value = Value::string(path.to_string_lossy(), Span::unknown());
-                stack.add_env_var(env_var_for_drive(drive), value.clone());
+            if let Some(path_str) = path.to_str() {
+                if let Some(drive) = extract_drive_letter(path_str) {
+                    stack.add_env_var(
+                        env_var_for_drive(drive),
+                        Value::string(path_str, Span::unknown()).clone(),
+                    );
+                }
             }
         }
     }
@@ -73,21 +77,16 @@ pub mod os_windows {
             engine_state: &EngineState,
             path: &Path,
         ) -> Option<PathBuf> {
-            use implementation::{
-                bash_strip_redundant_quotes, extract_drive_letter, get_pwd_on_drive, need_expand,
-            };
+            use implementation::{bash_strip_redundant_quotes, get_pwd_on_drive, need_expand};
 
             if let Some(path_str) = path.to_str() {
                 if let Some(path_string) = bash_strip_redundant_quotes(path_str) {
-                    if need_expand(&path_string) {
-                        if let Some(drive_letter) = extract_drive_letter(Path::new(&path_string)) {
-                            let mut base =
-                                PathBuf::from(get_pwd_on_drive(stack, engine_state, drive_letter));
-                            // Combine PWD with the relative path
-                            // need_expand() and extract_drive_letter() all ensure path_str.len() >= 2
-                            base.push(&path_string[2..]); // Join PWD with path parts after "C:"
-                            return Some(base);
-                        }
+                    if let Some(drive_letter) = need_expand(&path_string) {
+                        let mut base =
+                            PathBuf::from(get_pwd_on_drive(stack, engine_state, drive_letter));
+                        // need_expand() ensures path_string.len() >= 2
+                        base.push(&path_string[2..]); // Join PWD with path parts after "C:"
+                        return Some(base);
                     }
                     if path_string != path_str {
                         return Some(PathBuf::from(&path_string));
@@ -106,6 +105,7 @@ pub mod os_windows {
         /// essential for integration with windows native shell CMD/PowerShell
         /// and the core mechanism for supporting PWD-per-drive with nushell's
         /// powerful layered environment system.
+        /// Returns uppercased "=X:".
         pub fn env_var_for_drive(drive_letter: char) -> String {
             let drive_letter = drive_letter.to_ascii_uppercase();
             format!("={}:", drive_letter)
@@ -141,22 +141,25 @@ pub mod os_windows {
 
         /// Check if input path is relative path for drive letter,
         /// which should be expanded with PWD-per-drive.
-        pub fn need_expand(path: &str) -> bool {
+        /// Returns Some(drive_letter) or None, drive_letter is upper case.
+        pub fn need_expand(path: &str) -> Option<char> {
             let chars: Vec<char> = path.chars().collect();
-            if chars.len() >= 2 {
-                chars[1] == ':' && (chars.len() == 2 || (chars[2] != '/' && chars[2] != '\\'))
+            if chars.len() == 2 || (chars.len() > 2 && chars[2] != '/' && chars[2] != '\\') {
+                extract_drive_letter(path)
             } else {
-                false
+                None
             }
         }
 
-        /// Extract the drive letter from a path, keep case
-        /// Called after need_expand() or ensure it's legal windows
-        /// path format
-        pub fn extract_drive_letter(path: &Path) -> Option<char> {
-            path.to_str()
-                .and_then(|s| s.chars().next())
-                .filter(|c| c.is_ascii_alphabetic())
+        /// Extract the drive letter from a path, return uppercased
+        /// drive letter or None
+        pub fn extract_drive_letter(path: &str) -> Option<char> {
+            let chars: Vec<char> = path.chars().collect();
+            if chars.len() >= 2 && chars[0].is_ascii_alphabetic() && chars[1] == ':' {
+                Some(chars[0].to_ascii_uppercase())
+            } else {
+                None
+            }
         }
 
         /// Ensure a path has a trailing `\\` or '/'
@@ -170,6 +173,10 @@ pub mod os_windows {
 
         /// Remove redundant quotes as preprocessor for path
         /// #"D:\\"''M''u's 'ic# -> #D:\\Mu's 'ic#
+        /// if encounter a quote, and there's matching quote, if there's no
+        /// space between the two quotes, then both quote will be removed,
+        /// and so on. if a quote has no matching quote, the whole string
+        /// will not be altered
         pub fn bash_strip_redundant_quotes(input: &str) -> Option<String> {
             let mut result = String::new();
             let mut i = 0;
@@ -177,48 +184,39 @@ pub mod os_windows {
 
             let mut no_quote_start_pos = 0;
             while i < chars.len() {
-                let current_char = chars[i];
-
-                if current_char == '"' || current_char == '\'' {
-                    if i > no_quote_start_pos {
-                        result.push_str(&input[no_quote_start_pos..i]);
-                    }
+                if chars[i] == '"' || chars[i] == '\'' {
+                    let quote = chars[i];
+                    // push content before quote
+                    result.push_str(&input[no_quote_start_pos..i]);
 
                     let mut j = i + 1;
                     let mut has_space = false;
 
                     // Look for the matching quote
-                    while j < chars.len() && chars[j] != current_char {
-                        if chars[j].is_whitespace() {
-                            has_space = true;
-                        }
+                    while j < chars.len() && chars[j] != quote {
+                        has_space = has_space || chars[j].is_whitespace();
                         j += 1;
                     }
 
                     // Check if the matching quote exists
-                    if j < chars.len() && chars[j] == current_char {
+                    if j < chars.len() && chars[j] == quote {
+                        // Push quote and content or only content
                         if has_space {
-                            // Push the entire segment including quotes
                             result.push_str(&input[i..=j]);
                         } else {
-                            // Push the inner content without quotes
                             result.push_str(&input[i + 1..j]);
                         }
-                        i = j + 1; // Move past the closing quote
+                        i = j + 1; // Past the closing quote
                         no_quote_start_pos = i;
                         continue;
                     } else {
-                        // No matching quote found, return None
-                        return None;
+                        return None; // No matching quote found
                     }
                 }
-                i += 1;
+                i += 1; // advance not in quote content
             }
 
-            if i > no_quote_start_pos + 1 {
-                result.push_str(&input[no_quote_start_pos..i]);
-            }
-            // Return the result if matching quotes are found
+            result.push_str(&input[no_quote_start_pos..i]);
             Some(result)
         }
 
@@ -359,22 +357,25 @@ mod tests {
             fn test_os_windows_implementation_need_expand() {
                 use os_windows::implementation::need_expand;
 
-                assert!(need_expand(r"c:nushell\src"));
-                assert!(need_expand("C:src/"));
-                assert!(need_expand("a:"));
-                assert!(need_expand("z:"));
+                assert_eq!(need_expand(r"c:nushell\src"), Some('C'));
+                assert_eq!(need_expand("C:src/"), Some('C'));
+                assert_eq!(need_expand("a:"), Some('A'));
+                assert_eq!(need_expand("z:"), Some('Z'));
                 // Absolute path does not need expand
-                assert!(!need_expand(r"c:\"));
+                assert_eq!(need_expand(r"c:\"), None);
                 // Unix path does not need expand
-                assert!(!need_expand("/usr/bin"));
+                assert_eq!(need_expand("/usr/bin"), None);
+                // Invalid path on drive
+                assert_eq!(need_expand("1:usr/bin"), None);
             }
 
             #[test]
             fn test_os_windows_implementation_extract_drive_letter() {
                 use os_windows::implementation::extract_drive_letter;
 
-                assert_eq!(extract_drive_letter(Path::new("C:test")), Some('C'));
-                assert_eq!(extract_drive_letter(Path::new(r"d:\temp")), Some('d'));
+                assert_eq!(extract_drive_letter("C:test"), Some('C'));
+                assert_eq!(extract_drive_letter(r"d:\temp"), Some('D'));
+                assert_eq!(extract_drive_letter(r"1:temp"), None);
             }
 
             #[test]
@@ -424,6 +425,12 @@ mod tests {
                     bash_strip_redundant_quotes(r#"""''"""D:\Mu sic"""''"""#),
                     Some(r#""D:\Mu sic""#.to_string())
                 );
+
+                let input = "~";
+                assert_eq!(Some(input.to_string()), bash_strip_redundant_quotes(input));
+
+                let input = "~/.config";
+                assert_eq!(Some(input.to_string()), bash_strip_redundant_quotes(input));
             }
 
             #[test]

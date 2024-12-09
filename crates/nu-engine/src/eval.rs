@@ -5,7 +5,7 @@ use nu_path::AbsolutePathBuf;
 use nu_protocol::{
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::DebugContext,
-    engine::{expand_path_with, Closure, EngineState, Stack},
+    engine::{fs_client, Closure, EngineState, Stack},
     eval_base::Eval,
     BlockId, Config, DataSource, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
     Span, Type, Value, VarId, ENV_VARIABLE_ID,
@@ -425,7 +425,7 @@ impl Eval for EvalRuntime {
             Ok(Value::string(path, span))
         } else {
             let cwd = engine_state.cwd(Some(stack))?;
-            let path = expand_path_with(stack, engine_state, path, cwd, true);
+            let path = fs_client::expand_path_with(stack, engine_state, path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
         }
@@ -447,7 +447,7 @@ impl Eval for EvalRuntime {
                 .cwd(Some(stack))
                 .map(AbsolutePathBuf::into_std_path_buf)
                 .unwrap_or_default();
-            let path = expand_path_with(stack, engine_state, path, cwd, true);
+            let path = fs_client::expand_path_with(stack, engine_state, path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
         }

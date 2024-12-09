@@ -23,7 +23,7 @@ use nu_engine::{convert_env_values, current_dir_str, env_to_strings};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
-    engine::{expand_path_with, EngineState, Stack, StateWorkingSet},
+    engine::{fs_client, EngineState, Stack, StateWorkingSet},
     report_shell_error, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
     Value,
 };
@@ -794,8 +794,9 @@ fn is_dir(path: &Path) -> bool {
     }
     #[cfg(windows)]
     {
+        path.is_dir() ||
         if let Some(path_str) = path.to_str() {
-            DRIVE_PATH_REGEX.is_match(path_str).unwrap_or(false) || path.is_dir()
+            DRIVE_PATH_REGEX.is_match(path_str).unwrap_or(false)
         } else {
             false
         }
@@ -823,7 +824,7 @@ fn parse_operation(
         orig = trim_quotes_str(&orig).to_string()
     }
 
-    let path = expand_path_with(stack, engine_state, &orig, &cwd, true);
+    let path = fs_client::expand_path_with(stack, engine_state, &orig, &cwd, true);
     if looks_like_path(&orig) && is_dir(&path) && tokens.0.len() == 1 {
         Ok(ReplOperation::AutoCd {
             cwd,

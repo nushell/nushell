@@ -5,7 +5,7 @@ use nu_engine::env_to_string;
 use nu_path::dots::expand_ndots;
 use nu_path::{expand_to_real_path, home_dir};
 #[cfg(windows)]
-use nu_protocol::engine::fs_client; //fs_client::expand_pwd;
+use nu_protocol::engine::os_windows;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Span,
@@ -178,7 +178,7 @@ pub fn complete_item(
     let isdir = cleaned_partial.ends_with(is_separator);
     #[cfg(windows)]
     let cleaned_partial = if let Some(absolute_path) =
-        fs_client::expand_pwd(stack, engine_state, Path::new(&cleaned_partial))
+        os_windows::fs_client::expand_pwd(stack, engine_state, Path::new(&cleaned_partial))
     {
         if let Some(abs_path_string) = absolute_path.as_path().to_str() {
             abs_path_string.to_string()
