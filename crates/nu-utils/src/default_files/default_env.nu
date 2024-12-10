@@ -46,7 +46,3 @@ $env.ENV_CONVERSIONS = {
         to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
     }
 }
-
-$env.NU_PLUGIN_DIRS = $env.NU_PLUGIN_DIRS | default [
-    ($nu.default-config-dir | path join 'plugins') # add <nushell-config-dir>/plugins
-]

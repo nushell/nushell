@@ -169,12 +169,21 @@ fn main() -> Result<()> {
 
     let mut default_nu_plugin_dirs_path = nushell_config_path;
     default_nu_plugin_dirs_path.push("plugins");
-    engine_state.add_env_var(
-        "NU_PLUGIN_DIRS".to_string(),
+    engine_state.add_env_var("NU_PLUGIN_DIRS".to_string(), Value::test_list(vec![]));
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    let var_id = working_set.add_variable(
+        b"$NU_PLUGIN_DIRS".into(),
+        Span::unknown(),
+        Type::List(Box::new(Type::String)),
+        false,
+    );
+    working_set.set_variable_const_val(
+        var_id,
         Value::test_list(vec![Value::test_string(
             default_nu_plugin_dirs_path.to_string_lossy(),
         )]),
     );
+    engine_state.merge_delta(working_set.render())?;
     // End: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
 
     // This is the real secret sauce to having an in-memory sqlite db. You must
