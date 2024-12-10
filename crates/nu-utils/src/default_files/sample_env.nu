@@ -99,17 +99,17 @@ $env.ENV_CONVERSIONS = $env.ENV_CONVERSIONS | merge {
 
 # NU_LIB_DIRS
 # -----------
-# Directories in this environment variable are searched by the
+# Directories in this constant are searched by the
 # `use` and `source` commands.
 #
 # By default, the `scripts` subdirectory of the default configuration
 # directory is included:
-$env.NU_LIB_DIRS = [
+const NU_LIB_DIRS = [
     ($nu.default-config-dir | path join 'scripts') # add <nushell-config-dir>/scripts
     ($nu.data-dir | path join 'completions') # default home for nushell completions
 ]
-# You can replace (override) or append to this list:
-$env.NU_LIB_DIRS ++= ($nu.default-config-dir | path join 'modules')
+# You can replace (override) or append to this list by shadowing the constant
+const NU_LIB_DIRS = $NU_LIB_DIRS ++ [($nu.default-config-dir | path join 'modules')]
 
 # NU_PLUGIN_DIRS
 # --------------

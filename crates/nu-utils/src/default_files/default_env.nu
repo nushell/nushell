@@ -47,11 +47,6 @@ $env.ENV_CONVERSIONS = {
     }
 }
 
-$env.NU_LIB_DIRS = $env.NU_LIB_DIRS? | default [
-    ($nu.default-config-dir | path join 'scripts') # add <nushell-config-dir>/scripts
-    ($nu.data-dir | path join 'completions') # default home for nushell completions
-]
-
 $env.NU_PLUGIN_DIRS = $env.NU_PLUGIN_DIRS | default [
     ($nu.default-config-dir | path join 'plugins') # add <nushell-config-dir>/plugins
 ]
