@@ -152,6 +152,7 @@ pub fn lex_item(
             if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
                 break;
             }
+            // To start a comment, It either need to be the first character of the token or prefixed with space.
             in_comment = previous_char.map(|pc| pc == b' ').unwrap_or(true);
         } else if c == b'\n' || c == b'\r' {
             in_comment = false;
