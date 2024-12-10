@@ -113,13 +113,15 @@ const NU_LIB_DIRS = $NU_LIB_DIRS ++ [($nu.default-config-dir | path join 'module
 
 # NU_PLUGIN_DIRS
 # --------------
-# Directories to search for plugin binaries when calling register.
+# Directories to search for plugin binaries when calling add.
 
 # By default, the `plugins` subdirectory of the default configuration
 # directory is included:
-$env.NU_PLUGIN_DIRS = [
+const NU_PLUGIN_DIRS = [
     ($nu.default-config-dir | path join 'plugins') # add <nushell-config-dir>/plugins
 ]
+# You can replace (override) or append to this list by shadowing the constant
+const NU_PLUGIN_DIRS = $NU_PLUGIN_DIRS ++ [($nu.default-config-dir | path join 'plugins')]
 
 # Appending to the OS path is a common configuration task.
 # Because of the previous ENV_CONVERSIONS (performed internally
