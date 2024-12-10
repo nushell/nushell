@@ -1,30 +1,27 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
-fn into_filesize_int() {
+fn int() {
     let actual = nu!("1 | into filesize");
 
     assert!(actual.out.contains("1 B"));
 }
 
 #[test]
-fn into_filesize_float() {
+fn float() {
     let actual = nu!("1.2 | into filesize");
 
     assert!(actual.out.contains("1 B"));
 }
 
 #[test]
-fn into_filesize_str() {
-    let actual = nu!(r#"
-        '2000' | into filesize
-        "#);
-
-    assert!(actual.out.contains("2.0 KiB"));
+fn str() {
+    let actual = nu!("'2000' | into filesize");
+    assert!(actual.out.contains("2.0 kB"));
 }
 
 #[test]
-fn into_filesize_str_newline() {
+fn str_newline() {
     let actual = nu!(pipeline(
         r#"
         "2000
@@ -32,11 +29,11 @@ fn into_filesize_str_newline() {
         "#
     ));
 
-    assert!(actual.out.contains("2.0 KiB"));
+    assert!(actual.out.contains("2.0 kB"));
 }
 
 #[test]
-fn into_filesize_str_many_newlines() {
+fn str_many_newlines() {
     let actual = nu!(pipeline(
         r#"
         "2000
@@ -45,88 +42,88 @@ fn into_filesize_str_many_newlines() {
         "#
     ));
 
-    assert!(actual.out.contains("2.0 KiB"));
+    assert!(actual.out.contains("2.0 kB"));
 }
 
 #[test]
-fn into_filesize_filesize() {
-    let actual = nu!("3kib | into filesize");
+fn filesize() {
+    let actual = nu!("3kB | into filesize");
 
-    assert!(actual.out.contains("3.0 KiB"));
+    assert!(actual.out.contains("3.0 kB"));
 }
 
 #[test]
-fn into_filesize_negative_filesize() {
-    let actual = nu!("-3kib | into filesize");
+fn negative_filesize() {
+    let actual = nu!("-3kB | into filesize");
 
-    assert!(actual.out.contains("-3.0 KiB"));
+    assert!(actual.out.contains("-3.0 kB"));
 }
 
 #[test]
-fn into_filesize_negative_str_filesize() {
-    let actual = nu!("'-3kib' | into filesize");
+fn negative_str_filesize() {
+    let actual = nu!("'-3kB' | into filesize");
 
-    assert!(actual.out.contains("-3.0 KiB"));
+    assert!(actual.out.contains("-3.0 kB"));
 }
 
 #[test]
-fn into_filesize_wrong_negative_str_filesize() {
-    let actual = nu!("'--3kib' | into filesize");
+fn wrong_negative_str_filesize() {
+    let actual = nu!("'--3kB' | into filesize");
 
     assert!(actual.err.contains("can't convert string to filesize"));
 }
 
 #[test]
-fn into_filesize_large_negative_str_filesize() {
-    let actual = nu!("'-10000PiB' | into filesize");
+fn large_negative_str_filesize() {
+    let actual = nu!("'-10000PB' | into filesize");
 
     assert!(actual.err.contains("can't convert string to filesize"));
 }
 
 #[test]
-fn into_filesize_negative_str() {
+fn negative_str() {
     let actual = nu!("'-1' | into filesize");
 
     assert!(actual.out.contains("-1 B"));
 }
 
 #[test]
-fn into_filesize_wrong_negative_str() {
+fn wrong_negative_str() {
     let actual = nu!("'--1' | into filesize");
 
     assert!(actual.err.contains("can't convert string to filesize"));
 }
 
 #[test]
-fn into_filesize_positive_str_filesize() {
-    let actual = nu!("'+1Kib' | into filesize");
+fn positive_str_filesize() {
+    let actual = nu!("'+1kB' | into filesize");
 
-    assert!(actual.out.contains("1.0 KiB"));
+    assert!(actual.out.contains("1.0 kB"));
 }
 
 #[test]
-fn into_filesize_wrong_positive_str_filesize() {
-    let actual = nu!("'++1Kib' | into filesize");
+fn wrong_positive_str_filesize() {
+    let actual = nu!("'++1kB' | into filesize");
 
     assert!(actual.err.contains("can't convert string to filesize"));
 }
 
 #[test]
-fn into_filesize_large_positive_str_filesize() {
-    let actual = nu!("'+10000PiB' | into filesize");
+fn large_positive_str_filesize() {
+    let actual = nu!("'+10000PB' | into filesize");
 
     assert!(actual.err.contains("can't convert string to filesize"));
 }
 
 #[test]
-fn into_filesize_positive_str() {
+fn positive_str() {
     let actual = nu!("'+1' | into filesize");
 
     assert!(actual.out.contains("1 B"));
 }
 
 #[test]
-fn into_filesize_wrong_positive_str() {
+fn wrong_positive_str() {
     let actual = nu!("'++1' | into filesize");
 
     assert!(actual.err.contains("can't convert string to filesize"));

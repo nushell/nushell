@@ -95,8 +95,8 @@ fn mutate_nu_config_nested_history() -> TestResult {
 #[test]
 fn mutate_nu_config_nested_filesize() -> TestResult {
     run_test_std(
-        r#"$env.config.filesize.format = 'kb'; $env.config.filesize.format"#,
-        "kb",
+        r#"$env.config.filesize.unit = 'kB'; $env.config.filesize.unit"#,
+        "kB",
     )
 }
 

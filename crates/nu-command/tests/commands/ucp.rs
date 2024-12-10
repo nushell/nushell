@@ -854,7 +854,7 @@ fn test_cp_arg_no_clobber() {
 fn test_cp_arg_no_clobber_twice() {
     Playground::setup("ucp_test_29", |dirs, sandbox| {
         sandbox.with_files(&[
-            EmptyFile("source.txt"),
+            FileWithContent("source.txt", "fake data"),
             FileWithContent("source_with_body.txt", "some-body"),
         ]);
         nu!(
