@@ -125,6 +125,7 @@ impl Command for Table {
             let val = Value::list(supported_table_modes(), Span::test_data());
             return Ok(val.into_pipeline_data());
         }
+        #[cfg(feature = "os")]
         let cwd = engine_state.cwd(Some(stack))?;
         let cfg = parse_table_config(call, engine_state, stack)?;
         let input = CmdInput::new(engine_state, stack, call, input);
@@ -135,7 +136,12 @@ impl Command for Table {
             let _ = nu_utils::enable_vt_processing();
         }
 
-        handle_table_command(input, cfg, cwd)
+        handle_table_command(
+            input,
+            cfg,
+            #[cfg(feature = "os")]
+            cwd,
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -367,7 +373,7 @@ impl<'a> CmdInput<'a> {
 fn handle_table_command(
     mut input: CmdInput<'_>,
     cfg: TableConfig,
-    cwd: nu_path::PathBuf<Absolute>,
+    #[cfg(feature = "os")] cwd: nu_path::PathBuf<Absolute>,
 ) -> Result<PipelineData, ShellError> {
     let span = input.data.span().unwrap_or(input.call.head);
     match input.data {
@@ -390,11 +396,25 @@ fn handle_table_command(
             let stream = ListStream::new(vals.into_iter(), span, signals);
             input.data = PipelineData::Empty;
 
-            handle_row_stream(input, cfg, stream, metadata, cwd)
+            handle_row_stream(
+                input,
+                cfg,
+                stream,
+                metadata,
+                #[cfg(feature = "os")]
+                cwd,
+            )
         }
         PipelineData::ListStream(stream, metadata) => {
             input.data = PipelineData::Empty;
-            handle_row_stream(input, cfg, stream, metadata, cwd)
+            handle_row_stream(
+                input,
+                cfg,
+                stream,
+                metadata,
+                #[cfg(feature = "os")]
+                cwd,
+            )
         }
         PipelineData::Value(Value::Record { val, .. }, ..) => {
             input.data = PipelineData::Empty;
@@ -414,7 +434,14 @@ fn handle_table_command(
             let stream =
                 ListStream::new(val.into_range_iter(span, Signals::empty()), span, signals);
             input.data = PipelineData::Empty;
-            handle_row_stream(input, cfg, stream, metadata, cwd)
+            handle_row_stream(
+                input,
+                cfg,
+                stream,
+                metadata,
+                #[cfg(feature = "os")]
+                cwd,
+            )
         }
         x => Ok(x),
     }
@@ -606,7 +633,7 @@ fn handle_row_stream(
     cfg: TableConfig,
     stream: ListStream,
     metadata: Option<PipelineMetadata>,
-    cwd: nu_path::PathBuf<Absolute>,
+    #[cfg(feature = "os")] cwd: nu_path::PathBuf<Absolute>,
 ) -> Result<PipelineData, ShellError> {
     let stream = match metadata.as_ref() {
         // First, `ls` sources:
@@ -636,9 +663,14 @@ fn handle_row_stream(
                     if let Some(value) = record.to_mut().get_mut("name") {
                         let span = value.span();
                         if let Value::String { val, .. } = value {
-                            if let Some(val) =
-                                render_path_name(val, &config, &ls_colors, cwd.clone(), span)
-                            {
+                            if let Some(val) = render_path_name(
+                                val,
+                                &config,
+                                &ls_colors,
+                                #[cfg(feature = "os")]
+                                cwd.clone(),
+                                span,
+                            ) {
                                 *value = val;
                             }
                         }
@@ -1031,14 +1063,18 @@ fn render_path_name(
     path: &str,
     config: &Config,
     ls_colors: &LsColors,
-    cwd: nu_path::PathBuf<Absolute>,
+    #[cfg(feature = "os")] cwd: nu_path::PathBuf<Absolute>,
     span: Span,
 ) -> Option<Value> {
     if !config.ls.use_ls_colors {
         return None;
     }
 
+    #[cfg(feature = "os")]
     let fullpath = cwd.join(path);
+    #[cfg(not(feature = "os"))]
+    let fullpath = path;
+
     let stripped_path = nu_utils::strip_ansi_unlikely(path);
     let metadata = std::fs::symlink_metadata(fullpath);
     let has_metadata = metadata.is_ok();
