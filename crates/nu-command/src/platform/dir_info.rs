@@ -9,7 +9,6 @@ pub struct DirBuilder {
     pub min: Option<u64>,
     pub deref: bool,
     pub exclude: Option<Pattern>,
-    pub all: bool,
     pub long: bool,
 }
 
@@ -19,7 +18,6 @@ impl DirBuilder {
         min: Option<u64>,
         deref: bool,
         exclude: Option<Pattern>,
-        all: bool,
         long: bool,
     ) -> DirBuilder {
         DirBuilder {
@@ -27,7 +25,6 @@ impl DirBuilder {
             min,
             deref,
             exclude,
-            all,
             long,
         }
     }
@@ -172,7 +169,7 @@ impl DirInfo {
                     if inc {
                         self.size += file.size;
                         self.blocks += file.blocks.unwrap_or(0);
-                        if params.all {
+                        if params.long {
                             self.files.push(file);
                         }
                     }

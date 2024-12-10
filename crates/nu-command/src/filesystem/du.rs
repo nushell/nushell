@@ -12,7 +12,6 @@ pub struct Du;
 #[derive(Deserialize, Clone, Debug)]
 pub struct DuArgs {
     path: Option<Spanned<NuGlob>>,
-    all: bool,
     deref: bool,
     long: bool,
     exclude: Option<Spanned<NuGlob>>,
@@ -100,7 +99,6 @@ impl Command for Du {
                 });
             }
         }
-        let all = call.has_flag(engine_state, stack, "all")?;
         let deref = call.has_flag(engine_state, stack, "deref")?;
         let long = call.has_flag(engine_state, stack, "long")?;
         let exclude = call.get_flag(engine_state, stack, "exclude")?;
@@ -118,7 +116,6 @@ impl Command for Du {
             None => {
                 let args = DuArgs {
                     path: None,
-                    all,
                     deref,
                     long,
                     exclude,
@@ -135,7 +132,6 @@ impl Command for Du {
                 for p in paths {
                     let args = DuArgs {
                         path: Some(p),
-                        all,
                         deref,
                         long,
                         exclude: exclude.clone(),
@@ -183,7 +179,6 @@ fn du_for_one_pattern(
             })
     })?;
 
-    let include_files = args.all;
     let mut paths = match args.path {
         Some(p) => nu_engine::glob_from(&p, current_dir, span, None),
         // The * pattern should never fail.
@@ -197,16 +192,8 @@ fn du_for_one_pattern(
             None,
         ),
     }
-    .map(|f| f.1)?
-    .filter(move |p| {
-        if include_files {
-            true
-        } else {
-            matches!(p, Ok(f) if f.is_dir())
-        }
-    });
+    .map(|f| f.1)?;
 
-    let all = args.all;
     let deref = args.deref;
     let long = args.long;
     let max_depth = args.max_depth.map(|f| f.item as u64);
@@ -217,7 +204,6 @@ fn du_for_one_pattern(
         min: min_size,
         deref,
         exclude,
-        all,
         long,
     };
 

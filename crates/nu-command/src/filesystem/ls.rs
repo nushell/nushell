@@ -665,7 +665,7 @@ pub(crate) fn dir_entry_dict(
 
             if md.is_dir() {
                 if du {
-                    let params = DirBuilder::new(Span::new(0, 2), None, false, None, false, false);
+                    let params = DirBuilder::new(Span::new(0, 2), None, false, None, false);
                     let dir_size = DirInfo::new(filename, &params, None, span, signals)?.get_size();
 
                     Value::filesize(dir_size as i64, span)
