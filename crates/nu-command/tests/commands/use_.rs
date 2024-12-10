@@ -284,9 +284,9 @@ fn use_main_def_known_external() {
 #[test]
 fn use_main_not_exported() {
     let inp = &[
-        r#"module spam { def main [] { "spam" } }"#,
-        r#"use spam"#,
-        r#"spam"#,
+        r#"module my-super-cool-and-unique-module-name { def main [] { "hi" } }"#,
+        r#"use my-super-cool-and-unique-module-name"#,
+        r#"my-super-cool-and-unique-module-name"#,
     ];
 
     let actual = nu!(&inp.join("; "));

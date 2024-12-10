@@ -1,4 +1,5 @@
 use crate::repl::tests::{fail_test, run_test, TestResult};
+use rstest::rstest;
 
 #[test]
 fn module_def_imports_1() -> TestResult {
@@ -142,6 +143,28 @@ fn export_module_which_defined_const() -> TestResult {
     run_test(
         r#"module spam { export const b = 3; export const c = 4 }; use spam; $spam.b + $spam.c"#,
         "7",
+    )
+}
+
+#[rstest]
+#[case("spam-mod")]
+#[case("spam/mod")]
+#[case("spam=mod")]
+fn export_module_with_normalized_var_name(#[case] name: &str) -> TestResult {
+    let def = format!(
+        "module {name} {{ export const b = 3; export module {name}2 {{ export const c = 4 }}  }}"
+    );
+    run_test(&format!("{def}; use {name}; $spam_mod.b"), "3")?;
+    run_test(&format!("{def}; use {name} *; $spam_mod2.c"), "4")
+}
+
+#[rstest]
+#[case("spam-mod")]
+#[case("spam/mod")]
+fn use_module_with_invalid_var_name(#[case] name: &str) -> TestResult {
+    fail_test(
+        &format!("module {name} {{ export const b = 3 }}; use {name}; ${name}"),
+        "expected valid variable name. Did you mean '$spam_mod'",
     )
 }
 
