@@ -179,8 +179,8 @@ pub fn complete_item(
     #[cfg(windows)]
     let cleaned_partial =
         if let Some(absolute_path) = expand_pwd(stack, engine_state, Path::new(&cleaned_partial)) {
-            if let Some(abs_path_string) = absolute_path.as_path().to_str() {
-                abs_path_string.to_string()
+            if let Some(abs_path_str) = absolute_path.as_path().to_str() {
+                abs_path_str.to_string()
             } else {
                 absolute_path.display().to_string()
             }
