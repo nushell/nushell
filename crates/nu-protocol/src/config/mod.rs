@@ -156,10 +156,6 @@ impl UpdateFromValue for Config {
                 "filesize" => self.filesize.update(val, path, errors),
                 "explore" => self.explore.update(val, path, errors),
                 "color_config" => self.color_config.update(val, path, errors),
-                "use_grid_icons" => {
-                    // TODO: delete it after 0.99
-                    errors.deprecated_option(path, "use `grid -i`", val.span());
-                }
                 "footer_mode" => self.footer_mode.update(val, path, errors),
                 "float_precision" => self.float_precision.update(val, path, errors),
                 "use_ansi_coloring" => self.use_ansi_coloring.update(val, path, errors),
