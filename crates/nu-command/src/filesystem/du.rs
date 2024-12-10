@@ -12,9 +12,9 @@ pub struct Du;
 #[derive(Deserialize, Clone, Debug)]
 pub struct DuArgs {
     path: Option<Spanned<NuGlob>>,
-    files: bool,
+    all: bool,
     deref: bool,
-    recursive: bool,
+    long: bool,
     exclude: Option<Spanned<NuGlob>>,
     #[serde(rename = "max-depth")]
     max_depth: Option<Spanned<i64>>,
@@ -41,14 +41,19 @@ impl Command for Du {
                 "Starting directory.",
             )
             .switch(
-                "files",
+                "all",
                 "Output file sizes as well as directory sizes",
-                Some('f'),
+                Some('a'),
             )
             .switch(
-                "recursive",
-                "Get underlying directories and files for each entry",
+                "deref",
+                "Dereference symlinks to their targets for size",
                 Some('r'),
+            )
+            .switch(
+                "long",
+                "Get underlying directories and files for each entry",
+                Some('l'),
             )
             .named(
                 "exclude",
@@ -67,11 +72,6 @@ impl Command for Du {
                 SyntaxShape::Int,
                 "Exclude files below this size",
                 Some('m'),
-            )
-            .switch(
-                "deref",
-                "Dereference symlinks to their targets for size",
-                None,
             )
             .category(Category::FileSystem)
     }
@@ -100,9 +100,9 @@ impl Command for Du {
                 });
             }
         }
-        let files = call.has_flag(engine_state, stack, "files")?;
+        let all = call.has_flag(engine_state, stack, "all")?;
         let deref = call.has_flag(engine_state, stack, "deref")?;
-        let recursive = call.has_flag(engine_state, stack, "recursive")?;
+        let long = call.has_flag(engine_state, stack, "long")?;
         let exclude = call.get_flag(engine_state, stack, "exclude")?;
         #[allow(deprecated)]
         let current_dir = current_dir(engine_state, stack)?;
@@ -118,9 +118,9 @@ impl Command for Du {
             None => {
                 let args = DuArgs {
                     path: None,
-                    files,
+                    all,
                     deref,
-                    recursive,
+                    long,
                     exclude,
                     max_depth,
                     min_size,
@@ -135,9 +135,9 @@ impl Command for Du {
                 for p in paths {
                     let args = DuArgs {
                         path: Some(p),
-                        files,
+                        all,
                         deref,
-                        recursive,
+                        long,
                         exclude: exclude.clone(),
                         max_depth,
                         min_size,
@@ -183,6 +183,7 @@ fn du_for_one_pattern(
             })
     })?;
 
+    let include_files = args.all;
     let mut paths = match args.path {
         Some(p) => nu_engine::glob_from(&p, current_dir, span, None),
         // The * pattern should never fail.
@@ -196,11 +197,18 @@ fn du_for_one_pattern(
             None,
         ),
     }
-    .map(|f| f.1)?;
+    .map(|f| f.1)?
+    .filter(move |p| {
+        if include_files {
+            true
+        } else {
+            matches!(p, Ok(f) if f.is_dir())
+        }
+    });
 
-    let all = args.files;
+    let all = args.all;
     let deref = args.deref;
-    let long = args.recursive;
+    let long = args.long;
     let max_depth = args.max_depth.map(|f| f.item as u64);
     let min_size = args.min_size.map(|f| f.item as u64);
 
@@ -209,8 +217,8 @@ fn du_for_one_pattern(
         min: min_size,
         deref,
         exclude,
-        files: all,
-        recursive: long,
+        all,
+        long,
     };
 
     let mut output: Vec<Value> = vec![];
@@ -219,8 +227,7 @@ fn du_for_one_pattern(
             Ok(a) => {
                 if a.is_dir() {
                     output.push(DirInfo::new(a, &params, max_depth, span, signals)?.into());
-                } else if let Ok(v) = FileInfo::new(a, deref, span, params.recursive, params.files)
-                {
+                } else if let Ok(v) = FileInfo::new(a, deref, span, params.long) {
                     output.push(v.into());
                 }
             }
