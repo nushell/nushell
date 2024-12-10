@@ -33,14 +33,20 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Resu
     let env_vars = engine_state.render_env_vars();
 
     for (name, val) in env_vars {
-        match get_converted_value(engine_state, stack, name, val, "from_string") {
-            ConversionResult::Ok(v) => {
-                let _ = new_scope.insert(name.to_string(), v);
+        if let Value::String { .. } = val {
+            // Only run from_string on string values
+            match get_converted_value(engine_state, stack, name, val, "from_string") {
+                ConversionResult::Ok(v) => {
+                    let _ = new_scope.insert(name.to_string(), v);
+                }
+                ConversionResult::ConversionError(e) => error = error.or(Some(e)),
+                ConversionResult::CellPathError => {
+                    let _ = new_scope.insert(name.to_string(), val.clone());
+                }
             }
-            ConversionResult::ConversionError(e) => error = error.or(Some(e)),
-            ConversionResult::CellPathError => {
-                let _ = new_scope.insert(name.to_string(), val.clone());
-            }
+        } else {
+            // Skip values that are already converted (not a string)
+            let _ = new_scope.insert(name.to_string(), val.clone());
         }
     }
 
