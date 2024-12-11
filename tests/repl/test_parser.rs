@@ -176,16 +176,19 @@ fn still_string_if_hashtag_is_middle_of_string() -> TestResult {
 
 #[test]
 fn non_comment_hashtag_in_comment_does_not_stop_comment() -> TestResult {
-    run_test(r#"# command_bar_text: { fg: '#C4C9C6' },"#,"")
+    run_test(r#"# command_bar_text: { fg: '#C4C9C6' },"#, "")
 }
 
 #[test]
 fn non_comment_hashtag_in_comment_does_not_stop_comment_in_block() -> TestResult {
-    run_test(r#"{
+    run_test(
+        r#"{
         explore: {
             # command_bar_text: { fg: '#C4C9C6' },
         }
-    } | get explore | is-empty"#,"true")
+    } | get explore | is-empty"#,
+        "true",
+    )
 }
 
 #[test]

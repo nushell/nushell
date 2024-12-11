@@ -116,7 +116,6 @@ pub fn lex_item(
     //   token is done.
     // - Otherwise, accumulate the character into the current baseline token.
     let mut previous_char = None;
-    let inputAsString = String::from_utf8_lossy(&input);
     while let Some(c) = input.get(*curr_offset) {
         let c = *c;
 
@@ -151,8 +150,7 @@ pub fn lex_item(
             }
         } else if c == b'#' && !in_comment {
             // To start a comment, It either need to be the first character of the token or prefixed with space.
-            let resulting_bool = previous_char.map(|pc| pc == b' ').unwrap_or(true);
-            in_comment = resulting_bool;
+            in_comment = previous_char.map(|pc| pc == b' ').unwrap_or(true);
         } else if c == b'\n' || c == b'\r' {
             in_comment = false;
             if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
