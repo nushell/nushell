@@ -47,10 +47,46 @@ pub struct HistoryConfig {
 
 impl HistoryConfig {
     pub fn file_path(&self) -> Option<std::path::PathBuf> {
-        nu_path::nu_config_dir().map(|mut history_path| {
+        let history_path: std::path::PathBuf = nu_path::nu_data_dir().map(|mut history_path| {
             history_path.push(self.file_format.default_file_name());
             history_path.into()
-        })
+        })?;
+
+        self.maybe_migrate_history_file_path(history_path.clone());
+
+        Some(history_path)
+    }
+
+    fn maybe_migrate_history_file_path(&self, modern_history_path: std::path::PathBuf) {
+        let maybe_pre_0_99_1_history_path: Option<std::path::PathBuf> = nu_path::nu_config_dir()
+            .map(|mut path| {
+                path.push(self.file_format.default_file_name());
+                path.into()
+            });
+
+        let Some(pre_0_99_1_history_path) = maybe_pre_0_99_1_history_path else {
+            return;
+        };
+
+        if modern_history_path == pre_0_99_1_history_path {
+            return;
+        }
+
+        if !pre_0_99_1_history_path.exists() || modern_history_path.exists() {
+            return;
+        }
+
+        // TODO: Create the base directory? `std::fs::create_dir(modern_history_path.parent())`
+        log::info!("Moving {pre_0_99_1_history_path:?} to {modern_history_path:?}");
+        let result = std::fs::rename(pre_0_99_1_history_path.clone(), modern_history_path.clone());
+
+        if result.is_err() {
+            // TODO: Report an error.
+            //   It seems a shame to create a whole new error for something that isn't going to
+            //   be relevant for the lifetime of Nushell. But panicking seems a bit overkill for an
+            //   innocent migration.
+            log::warn!("Couldn't migrate {pre_0_99_1_history_path:?} to {modern_history_path:?}. Error: {result:?}");
+        }
     }
 }
 
