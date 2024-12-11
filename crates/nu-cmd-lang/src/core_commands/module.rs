@@ -20,7 +20,7 @@ impl Command for Module {
             .required("module", SyntaxShape::String, "Module name or module path.")
             .optional(
                 "block",
-                SyntaxShape::Block,
+                SyntaxShape::Block(true),
                 "Body of the module if 'module' parameter is not a module path.",
             )
             .category(Category::Core)
