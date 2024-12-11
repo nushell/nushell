@@ -51,7 +51,7 @@ impl BlockKind {
 }
 
 // A baseline token is terminated if it's not nested inside of a paired
-// delimiter and the next character is one of: `|`, `;`, `#` or any
+// delimiter and the next character is one of: `|`, `;` or any
 // whitespace.
 fn is_item_terminator(
     block_level: &[BlockKind],
@@ -115,6 +115,7 @@ pub fn lex_item(
     //   character (whitespace, `|`, `;` or `#`) is encountered, the baseline
     //   token is done.
     // - Otherwise, accumulate the character into the current baseline token.
+    let mut previous_char = None;
     while let Some(c) = input.get(*curr_offset) {
         let c = *c;
 
@@ -147,11 +148,9 @@ pub fn lex_item(
                 // Also need to check to make sure we aren't escaped
                 quote_start = None;
             }
-        } else if c == b'#' {
-            if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
-                break;
-            }
-            in_comment = true;
+        } else if c == b'#' && !in_comment {
+            // To start a comment, It either need to be the first character of the token or prefixed with space.
+            in_comment = previous_char.map(|pc| pc == b' ').unwrap_or(true);
         } else if c == b'\n' || c == b'\r' {
             in_comment = false;
             if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
@@ -254,6 +253,7 @@ pub fn lex_item(
         }
 
         *curr_offset += 1;
+        previous_char = Some(c);
     }
 
     let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
