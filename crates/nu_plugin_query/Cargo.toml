@@ -20,7 +20,7 @@ nu-plugin = { path = "../nu-plugin", version = "0.100.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.100.1" }
 
 gjson = "0.8"
-scraper = { default-features = false, version = "0.21" }
+scraper = { default-features = false, version = "0.22" }
 sxd-document = "0.3"
 sxd-xpath = "0.4"
 webpage = { version = "2.0.1", features = ["serde"] }
