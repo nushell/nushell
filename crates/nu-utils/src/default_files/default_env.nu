@@ -40,13 +40,6 @@ $env.PROMPT_COMMAND_RIGHT = $env.PROMPT_COMMAND_RIGHT? | default {||
     ([$last_exit_code, (char space), $time_segment] | str join)
 }
 
-$env.ENV_CONVERSIONS = {
-    "PATH": {
-        from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
-        to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
-    }
-}
-
 $env.NU_PLUGIN_DIRS = $env.NU_PLUGIN_DIRS | default [
     ($nu.default-config-dir | path join 'plugins') # add <nushell-config-dir>/plugins
 ]
