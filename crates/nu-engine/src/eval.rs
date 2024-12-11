@@ -1,11 +1,11 @@
 use crate::eval_ir_block;
 #[allow(deprecated)]
 use crate::get_full_help;
-use nu_path::{expand_path_with, AbsolutePathBuf};
+use nu_path::AbsolutePathBuf;
 use nu_protocol::{
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::DebugContext,
-    engine::{Closure, EngineState, Stack},
+    engine::{expand_path_with, Closure, EngineState, Stack},
     eval_base::Eval,
     BlockId, Config, DataSource, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
     Span, Type, Value, VarId, ENV_VARIABLE_ID,
@@ -192,11 +192,6 @@ pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee
     // add new env vars from callee to caller
     for (var, value) in callee_stack.get_stack_env_vars() {
         caller_stack.add_env_var(var, value);
-    }
-
-    #[cfg(windows)]
-    {
-        caller_stack.pwd_per_drive = callee_stack.pwd_per_drive.clone();
     }
 
     // set config to callee config, to capture any updates to that
@@ -430,7 +425,7 @@ impl Eval for EvalRuntime {
             Ok(Value::string(path, span))
         } else {
             let cwd = engine_state.cwd(Some(stack))?;
-            let path = expand_path_with(path, cwd, true);
+            let path = expand_path_with(stack, engine_state, path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
         }
@@ -452,7 +447,7 @@ impl Eval for EvalRuntime {
                 .cwd(Some(stack))
                 .map(AbsolutePathBuf::into_std_path_buf)
                 .unwrap_or_default();
-            let path = expand_path_with(path, cwd, true);
+            let path = expand_path_with(stack, engine_state, path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
         }

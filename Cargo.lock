@@ -3671,6 +3671,7 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "num-format",
+ "omnipath",
  "os_pipe",
  "pretty_assertions",
  "rmp-serde",
