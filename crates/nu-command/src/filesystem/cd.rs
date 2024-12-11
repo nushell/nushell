@@ -1,5 +1,4 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::expand_path_with;
 use nu_utils::filesystem::{have_permission, PermissionResult};
 
 #[derive(Clone)]
@@ -89,7 +88,7 @@ impl Command for Cd {
                         }
                     } else {
                         let path =
-                            expand_path_with(stack, engine_state, path_no_whitespace, &cwd, true);
+                            nu_path::expand_path_with(path_no_whitespace, &cwd, true);
                         if !path.exists() {
                             return Err(ShellError::DirectoryNotFound {
                                 dir: path_no_whitespace.to_string(),
