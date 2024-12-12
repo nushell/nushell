@@ -1414,7 +1414,10 @@ fn variables_completions() {
     // Test completions for $env
     let suggestions = completer.complete("$env.", 5);
 
+    #[cfg(not(windows))]
     assert_eq!(3, suggestions.len());
+    #[cfg(windows)]
+    assert_eq!(4, suggestions.len());
 
     #[cfg(windows)]
     let expected: Vec<String> = vec!["Path".into(), "PWD".into(), "TEST".into()];
