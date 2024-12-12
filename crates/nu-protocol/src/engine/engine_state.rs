@@ -1,3 +1,5 @@
+#[cfg(windows)]
+use crate::engine::set_pwd;
 use crate::{
     ast::Block,
     debugger::{Debugger, NoopDebugger},
@@ -443,6 +445,11 @@ impl EngineState {
     }
 
     pub fn add_env_var(&mut self, name: String, val: Value) {
+        #[cfg(windows)]
+        if name == "PWD" {
+            set_pwd(self, val.clone());
+        }
+
         let overlay_name = String::from_utf8_lossy(self.last_overlay_name(&[])).to_string();
 
         if let Some(env_vars) = Arc::make_mut(&mut self.env_vars).get_mut(&overlay_name) {
