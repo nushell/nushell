@@ -24,7 +24,7 @@ use nu_cli::gather_parent_env_vars;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, report_shell_error, ByteStream, Config, IntoValue, PipelineData,
+    engine::EngineState, record, report_shell_error, ByteStream, Config, IntoValue, PipelineData,
     ShellError, Span, Spanned, Type, Value,
 };
 use nu_std::load_standard_library;
@@ -284,6 +284,11 @@ fn main() -> Result<()> {
         Config::default().into_value(Span::unknown()),
     );
     perf!("$env.config setup", start_time, use_color);
+
+    engine_state.add_env_var(
+        "ENV_CONVERSIONS".to_string(),
+        Value::test_record(record! {}),
+    );
 
     start_time = std::time::Instant::now();
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
