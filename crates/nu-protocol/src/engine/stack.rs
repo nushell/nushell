@@ -1,5 +1,5 @@
 #[cfg(windows)]
-use crate::engine::pwd_per_drive;
+use crate::engine::set_pwd;
 use crate::{
     engine::{
         ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
@@ -253,6 +253,11 @@ impl Stack {
     }
 
     pub fn add_env_var(&mut self, var: String, value: Value) {
+        #[cfg(windows)]
+        if var == "PWD" {
+            set_pwd(self, value.clone());
+        }
+
         if let Some(last_overlay) = self.active_overlays.last() {
             if let Some(env_hidden) = Arc::make_mut(&mut self.env_hidden).get_mut(last_overlay) {
                 // if the env var was hidden, let's activate it again
@@ -763,8 +768,6 @@ impl Stack {
             let path = nu_path::strip_trailing_slash(path);
             let value = Value::string(path.to_string_lossy(), Span::unknown());
             self.add_env_var("PWD".into(), value);
-            #[cfg(windows)] // Sync with PWD-per-drive
-            pwd_per_drive::set_pwd(self, &path);
             Ok(())
         }
     }
