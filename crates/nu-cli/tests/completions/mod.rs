@@ -1433,7 +1433,7 @@ fn variables_completions() {
         let _ = suggestions.remove(0);
         match_suggestions(&expected, &suggestions);
     }
-    
+
     // Test completions for $env
     let suggestions = completer.complete("$env.T", 6);
 
