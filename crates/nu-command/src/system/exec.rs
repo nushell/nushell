@@ -62,7 +62,7 @@ On Windows based systems, Nushell will wait for the command to finish and then e
         command.env_clear();
         command.envs(envs);
         // Decrement SHLVL as removing the current shell from the stack
-        // (only works in interactive mode, same as intialization)
+        // (only works in interactive mode, same as initialization)
         if engine_state.is_interactive {
             if let Some(shlvl) = engine_state.get_env_var("SHLVL") {
                 let shlvl = shlvl.as_int().unwrap_or(1) - 1;
