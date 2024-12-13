@@ -320,7 +320,27 @@ fn main() -> Result<()> {
         "NU_VERSION".to_string(),
         Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
     );
-
+    engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
+    engine_state.add_env_var(
+        "PROMPT_INDICATOR_VI_NORMAL".to_string(),
+        Value::test_string("> "),
+    );
+    engine_state.add_env_var(
+        "PROMPT_INDICATOR_VI_INSERT".to_string(),
+        Value::test_string(": "),
+    );
+    engine_state.add_env_var(
+        "PROMPT_MULTILINE_INDICATOR".to_string(),
+        Value::test_string("::: "),
+    );
+    engine_state.add_env_var(
+        "TRANSIENT_PROMPT_MULTILINE_INDICATOR".to_string(),
+        Value::test_string(""),
+    );
+    engine_state.add_env_var(
+        "TRANSIENT_PROMPT_COMMAND_RIGHT".to_string(),
+        Value::test_string(""),
+    );
     // Add SHLVL if interactive
     if engine_state.is_interactive {
         let mut shlvl = engine_state
