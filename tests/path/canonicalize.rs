@@ -100,6 +100,13 @@ fn canonicalize_dot() {
 
     let actual = canonicalize_with(".", expected.as_path()).expect("Failed to canonicalize");
 
+    // Once my windows gives the current directory for different case
+    // Actual "E:\\Study", got "E:\\study"
+    #[cfg(windows)]
+    let actual = std::path::PathBuf::from(actual.to_str().unwrap().to_ascii_uppercase());
+    #[cfg(windows)]
+    let expected = std::path::PathBuf::from(expected.to_str().unwrap().to_ascii_uppercase());
+
     assert_eq!(actual, expected);
 }
 
@@ -109,6 +116,13 @@ fn canonicalize_many_dots() {
 
     let actual = canonicalize_with("././/.//////./././//.///", expected.as_path())
         .expect("Failed to canonicalize");
+
+    // Once my windows gives the current directory for different case
+    // Actual "E:\\Study", got "E:\\study"
+    #[cfg(windows)]
+    let actual = std::path::PathBuf::from(actual.to_str().unwrap().to_ascii_uppercase());
+    #[cfg(windows)]
+    let expected = std::path::PathBuf::from(expected.to_str().unwrap().to_ascii_uppercase());
 
     assert_eq!(actual, expected);
 }
@@ -147,6 +161,13 @@ fn canonicalize_double_dot() {
     let expected = cwd
         .parent()
         .expect("Could not get parent of current directory");
+
+    // Once my windows gives the current directory for different case
+    // Actual "E:\\Study", got "E:\\study"
+    #[cfg(windows)]
+    let actual = std::path::PathBuf::from(actual.to_str().unwrap().to_ascii_uppercase());
+    #[cfg(windows)]
+    let expected = std::path::PathBuf::from(expected.to_str().unwrap().to_ascii_uppercase());
 
     assert_eq!(actual, expected);
 }

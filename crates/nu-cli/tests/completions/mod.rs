@@ -1414,10 +1414,7 @@ fn variables_completions() {
     // Test completions for $env
     let suggestions = completer.complete("$env.", 5);
 
-    #[cfg(not(windows))]
     assert_eq!(3, suggestions.len());
-    #[cfg(windows)]
-    assert_eq!(4, suggestions.len());
 
     #[cfg(windows)]
     let expected: Vec<String> = vec!["Path".into(), "PWD".into(), "TEST".into()];
@@ -1425,14 +1422,7 @@ fn variables_completions() {
     let expected: Vec<String> = vec!["PATH".into(), "PWD".into(), "TEST".into()];
 
     // Match results
-    #[cfg(not(windows))]
     match_suggestions(&expected, &suggestions);
-    #[cfg(windows)]
-    {
-        let mut suggestions = suggestions;
-        let _ = suggestions.remove(0);
-        match_suggestions(&expected, &suggestions);
-    }
 
     // Test completions for $env
     let suggestions = completer.complete("$env.T", 6);

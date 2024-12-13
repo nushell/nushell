@@ -46,7 +46,17 @@ impl Completer for VariableCompletion {
         if !var_str.is_empty() {
             // Completion for $env.<tab>
             if var_str == "$env" {
+                #[cfg(not(windows))]
                 let env_vars = stack.get_env_vars(working_set.permanent_state);
+                #[cfg(windows)]
+                let mut env_vars = stack.get_env_vars(working_set.permanent_state);
+                #[cfg(windows)]
+                {
+                    // Hide env_vars for PWD-per-drive from being listed in completion selection
+                    if let Ok(pattern) = regex::Regex::new(r"^=[a-zA-Z]:$") {
+                        env_vars.retain(|key, _| !pattern.is_match(key));
+                    }
+                }
 
                 // Return nested values
                 if sublevels_count > 0 {

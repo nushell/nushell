@@ -1,4 +1,6 @@
 use crate::engine::{EngineState, Stack};
+#[cfg(windows)]
+use omnipath::sys_absolute;
 use std::path::{Path, PathBuf};
 
 // For file system command usage
@@ -40,28 +42,34 @@ pub mod windows {
         fn maintain(&mut self, key: String, value: Value);
     }
 
-    macro_rules! impl_env_maintainer {
-        ($type:ty) => {
-            impl EnvMaintainer for $type {
-                fn maintain(&mut self, key: String, value: Value) {
-                    self.add_env_var(key, value);
-                }
-            }
-        };
+    impl EnvMaintainer for EngineState {
+        fn maintain(&mut self, key: String, value: Value) {
+            self.add_env_var(key, value);
+        }
     }
 
-    impl_env_maintainer!(Stack);
-    impl_env_maintainer!(EngineState);
+    impl EnvMaintainer for Stack {
+        fn maintain(&mut self, key: String, value: Value) {
+            self.add_env_var(key, value);
+        }
+    }
 
     /// For maintainer to notify PWD
     /// When user changes current directory, maintainer calls set_pwd()
     /// and PWD-per-drive call maintainer back to store it for the
     /// env_var_for_drive.
+    /// TBD: If value can't be converted to String or the value is not valid for
+    /// windows path on a drive, should 'cd' or 'auto_cd' get warning message
+    /// that PWD-per-drive can't process the path value?
     pub fn set_pwd<T: EnvMaintainer>(maintainer: &mut T, value: Value) {
         if let Ok(path_string) = String::from_value(value.clone()) {
             if let Some(drive) = extract_drive_letter(&path_string) {
                 maintainer.maintain(env_var_for_drive(drive), value);
+            } else {
+                log::trace!("PWD-per-drive can't find drive of {}", path_string);
             }
+        } else if let Err(e) = value.into_string() {
+            log::trace!("PWD-per-drive can't keep this path value: {}", e);
         }
     }
 
@@ -154,9 +162,6 @@ pub mod windows {
     /// Call Windows system API (via omnipath crate) to expand
     /// absolute path
     fn get_full_path_name_w(path_str: &str) -> Option<String> {
-        use omnipath::sys_absolute;
-        use std::path::Path;
-
         if let Ok(path_sys_abs) = sys_absolute(Path::new(path_str)) {
             Some(path_sys_abs.to_str()?.to_string())
         } else {
