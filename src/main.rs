@@ -325,7 +325,7 @@ fn main() -> Result<()> {
     if engine_state.is_interactive {
         let mut shlvl = engine_state
             .get_env_var("SHLVL")
-            .map(|x| x.as_int().unwrap_or(0))
+            .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
             .unwrap_or(0);
         shlvl += 1;
         engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
