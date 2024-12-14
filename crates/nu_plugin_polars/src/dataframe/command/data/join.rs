@@ -27,8 +27,8 @@ impl PluginCommand for LazyJoin {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("other", SyntaxShape::Any, "LazyFrame to join with")
-            .required("left_on", SyntaxShape::Any, "Left column(s) to join on")
-            .required("right_on", SyntaxShape::Any, "Right column(s) to join on")
+            .optional("left_on", SyntaxShape::Any, "Left column(s) to join on")
+            .optional("right_on", SyntaxShape::Any, "Right column(s) to join on")
             .switch(
                 "inner",
                 "inner joining between lazyframes (default)",
@@ -200,11 +200,19 @@ impl PluginCommand for LazyJoin {
         let other = NuLazyFrame::try_from_value_coerce(plugin, &other)?;
         let other = other.to_polars();
 
-        let left_on: Value = call.req(1)?;
-        let left_on = NuExpression::extract_exprs(plugin, left_on)?;
+        let left_on = if left {
+            let left_on: Value = call.req(1)?;
+            NuExpression::extract_exprs(plugin, left_on)?
+        } else {
+            vec![]
+        };
 
-        let right_on: Value = call.req(2)?;
-        let right_on = NuExpression::extract_exprs(plugin, right_on)?;
+        let right_on = if full {
+            let right_on: Value = call.req(2)?;
+            NuExpression::extract_exprs(plugin, right_on)?
+        } else {
+            vec![]
+        };
 
         if left_on.len() != right_on.len() {
             let right_on: Value = call.req(2)?;
@@ -232,16 +240,25 @@ impl PluginCommand for LazyJoin {
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
         let from_eager = lazy.from_eager;
         let lazy = lazy.to_polars();
-
-        let lazy = lazy
-            .join_builder()
-            .with(other)
-            .left_on(left_on)
-            .right_on(right_on)
-            .how(how)
-            .force_parallel(true)
-            .suffix(suffix)
-            .finish();
+        let lazy = if cross {
+            lazy.join_builder()
+                .with(other)
+                .left_on(vec![])
+                .right_on(vec![])
+                .how(how)
+                .force_parallel(true)
+                .suffix(suffix)
+                .finish()
+        } else {
+            lazy.join_builder()
+                .with(other)
+                .left_on(left_on)
+                .right_on(right_on)
+                .how(how)
+                .force_parallel(true)
+                .suffix(suffix)
+                .finish()
+        };
 
         let lazy = NuLazyFrame::new(from_eager, lazy);
         lazy.to_pipeline_data(plugin, engine, call.head)
