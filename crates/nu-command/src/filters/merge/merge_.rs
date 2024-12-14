@@ -29,8 +29,10 @@ repeating this process with row 1, and so on."#
             ])
             .required(
                 "value",
-                // Both this and `update` should have a shape more like <record> | <table> than just <any>. -Leon 2022-10-27
-                SyntaxShape::Any,
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::Record(vec![]),
+                    SyntaxShape::Table(vec![]),
+                ]),
                 "The new value to merge with.",
             )
             .switch("deep", "Perform a deep merge", Some('d'))
@@ -102,18 +104,21 @@ repeating this process with row 1, and so on."#
         let head = call.head;
         let merge_value: Value = call.req(engine_state, stack, 0)?;
         let deep = call.has_flag(engine_state, stack, "deep")?;
-        let input_span = input.span().unwrap_or(head);
         let metadata = input.metadata();
+
+        // collect input before typechecking, so tables are detected as such
+        let input_span = input.span().unwrap_or(head);
+        let input = input.into_value(input_span)?;
 
         match (input.get_type(), merge_value.get_type()) {
             (Type::Record { .. }, Type::Record { .. }) => (),
             (Type::Table { .. }, Type::Table { .. }) => (),
             _ => {
                 return Err(ShellError::PipelineMismatch {
-                    exp_input_type: "input and argument, to be both record or both table"
+                    exp_input_type: "input and argument to be both record or both table"
                         .to_string(),
                     dst_span: head,
-                    src_span: input_span,
+                    src_span: input.span(),
                 });
             }
         };
@@ -123,7 +128,7 @@ repeating this process with row 1, and so on."#
             false => MergeStrategy::Shallow,
         };
 
-        let merged = do_merge(input.into_value(input_span)?, merge_value, strategy, head)?;
+        let merged = do_merge(input, merge_value, strategy, head)?;
         Ok(merged.into_pipeline_data_with_metadata(metadata))
     }
 }

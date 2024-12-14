@@ -94,7 +94,7 @@ fn multi_row_table_overwrite() {
 fn record_with_inner_record_deep() {
     assert_eq!(
         nu!(
-            "{} | merge --deep {} | to nuon",
+            "{} | merge list {} | to nuon",
             "{a: {foo: 123}}",
             "{a: {bar: 456}}"
         )
@@ -103,11 +103,13 @@ fn record_with_inner_record_deep() {
     )
 }
 
+// TODO(rose): move `merge list` tests to separate file
+// TODO(rose): make new tests for `merge --deep`
 #[test]
 fn record_with_inner_list_deep() {
     assert_eq!(
         nu!(
-            "{} | merge --deep {} | to nuon",
+            "{} | merge list {} | to nuon",
             "{a: [1, 2, 3]}",
             "{a: [4, 5, 6]}"
         )
@@ -120,7 +122,7 @@ fn record_with_inner_list_deep() {
 fn record_nested_with_overwrite_deep() {
     assert_eq!(
         nu!(
-            "{} | merge --deep {} | to nuon",
+            "{} | merge list {} | to nuon",
             "{a: {b: {c: {d: 123, e: 456}}}}",
             "{a: {b: {c: {e: 654, f: 789}}}}"
         )
@@ -133,7 +135,7 @@ fn record_nested_with_overwrite_deep() {
 fn single_row_table_deep() {
     assert_eq!(
         nu!(
-            "{} | merge --deep {} | to nuon",
+            "{} | merge list {} | to nuon",
             "[[a]; [{foo: [1, 2, 3]}]]",
             "[[a]; [{foo: [4, 5, 6]}]]"
         )
@@ -146,7 +148,7 @@ fn single_row_table_deep() {
 fn multi_row_table_deep() {
     assert_eq!(
         nu!(
-            "{} | merge --deep {} | to nuon ",
+            "{} | merge list {} | to nuon ",
             "[[a b]; [{inner: {foo: abc}} {inner: {baz: ghi}}]]",
             "[[a b]; [{inner: {bar: def}} {inner: {qux: jkl}}]]"
         )
