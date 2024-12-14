@@ -13,10 +13,9 @@ use std::{
 
 const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
 
-enum ConversionResult {
-    Ok(Value),
-    ConversionError(ShellError), // Failure during the conversion itself
-    CellPathError, // Error looking up the ENV_VAR.to_/from_string fields in $env.ENV_CONVERSIONS
+enum ConversionError {
+    ShellError(ShellError),
+    CellPathError,
 }
 
 /// Translate environment variables from Strings to Values. Requires config to be already set up in
@@ -36,11 +35,11 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Resu
         if let Value::String { .. } = val {
             // Only run from_string on string values
             match get_converted_value(engine_state, stack, name, val, "from_string") {
-                ConversionResult::Ok(v) => {
+                Ok(v) => {
                     let _ = new_scope.insert(name.to_string(), v);
                 }
-                ConversionResult::ConversionError(e) => error = error.or(Some(e)),
-                ConversionResult::CellPathError => {
+                Err(ConversionError::ShellError(e)) => error = error.or(Some(e)),
+                Err(ConversionError::CellPathError) => {
                     let _ = new_scope.insert(name.to_string(), val.clone());
                 }
             }
@@ -101,9 +100,9 @@ pub fn env_to_string(
     stack: &Stack,
 ) -> Result<String, ShellError> {
     match get_converted_value(engine_state, stack, env_name, value, "to_string") {
-        ConversionResult::Ok(v) => Ok(v.coerce_into_string()?),
-        ConversionResult::ConversionError(e) => Err(e),
-        ConversionResult::CellPathError => match value.coerce_string() {
+        Ok(v) => Ok(v.coerce_into_string()?),
+        Err(ConversionError::ShellError(e)) => Err(e),
+        Err(ConversionError::CellPathError) => match value.coerce_string() {
             Ok(s) => Ok(s),
             Err(_) => {
                 if env_name.to_lowercase() == "path" {
@@ -318,10 +317,9 @@ fn get_converted_value(
     name: &str,
     orig_val: &Value,
     direction: &str,
-) -> ConversionResult {
+) -> Result<Value, ConversionError> {
     let conversions = stack.get_env_var(engine_state, ENV_CONVERSIONS);
     let conversion = conversions
-        .as_ref()
         .and_then(|val| val.as_record().ok())
         .and_then(|record| record.get(name))
         .and_then(|val| val.as_record().ok())
@@ -336,9 +334,9 @@ fn get_converted_value(
                     .run_with_value(orig_val.clone())
             })
             .and_then(|data| data.into_value(orig_val.span()))
-            .map_or_else(ConversionResult::ConversionError, ConversionResult::Ok)
+            .map_or_else(|e| Err(ConversionError::ShellError(e)), Ok)
     } else {
-        ConversionResult::CellPathError
+        Err(ConversionError::CellPathError)
     }
 }
 
