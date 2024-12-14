@@ -18,6 +18,12 @@ enum ConversionError {
     CellPathError,
 }
 
+impl From<ShellError> for ConversionError {
+    fn from(value: ShellError) -> Self {
+        Self::ShellError(value)
+    }
+}
+
 /// Translate environment variables from Strings to Values. Requires config to be already set up in
 /// case the user defined custom env conversions in config.nu.
 ///
@@ -318,26 +324,23 @@ fn get_converted_value(
     orig_val: &Value,
     direction: &str,
 ) -> Result<Value, ConversionError> {
-    let conversions = stack.get_env_var(engine_state, ENV_CONVERSIONS);
-    let conversion = conversions
-        .and_then(|val| val.as_record().ok())
-        .and_then(|record| record.get(name))
-        .and_then(|val| val.as_record().ok())
-        .and_then(|record| record.get(direction));
+    let conversion = stack
+        .get_env_var(engine_state, ENV_CONVERSIONS)
+        .ok_or(ConversionError::CellPathError)?
+        .as_record()?
+        .get(name)
+        .ok_or(ConversionError::CellPathError)?
+        .as_record()?
+        .get(direction)
+        .ok_or(ConversionError::CellPathError)?
+        .as_closure()?;
 
-    if let Some(conversion) = conversion {
-        conversion
-            .as_closure()
-            .and_then(|closure| {
-                ClosureEvalOnce::new(engine_state, stack, closure.clone())
-                    .debug(false)
-                    .run_with_value(orig_val.clone())
-            })
-            .and_then(|data| data.into_value(orig_val.span()))
-            .map_or_else(|e| Err(ConversionError::ShellError(e)), Ok)
-    } else {
-        Err(ConversionError::CellPathError)
-    }
+    Ok(
+        ClosureEvalOnce::new(engine_state, stack, conversion.clone())
+            .debug(false)
+            .run_with_value(orig_val.clone())?
+            .into_value(orig_val.span())?,
+    )
 }
 
 fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Option<ShellError> {
