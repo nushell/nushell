@@ -176,7 +176,7 @@ impl PluginCommand for LazyJoin {
                 description: "Join one eager dataframe with another using a cross join",
                 example: r#"let tokens = [[monopoly_token]; [hat] [shoe] [boat]] | polars into-df
     let players = [[name, cash]; [Alice, 78] [Bob, 135]] | polars into-df
-    $players | polars into-lazy | polars select (polars col name) | polars join --cross $tokens | polars collect"#,
+    $players | polars select (polars col name) | polars join --cross $tokens | polars collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
