@@ -20,7 +20,7 @@ impl Command for SkipUntil {
             ])
             .required(
                 "predicate",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The predicate that skipped element must not match.",
             )
             .category(Category::Filters)
