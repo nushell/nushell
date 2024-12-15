@@ -86,7 +86,7 @@ pub mod windows {
                 // /c/Users/nushell will be supported later.
                 Err(ShellError::InvalidValue {
                     valid: "can't detect drive letter.".into(),
-                    actual: format!("{}", path_string.to_string()),
+                    actual: path_string,
                     span: Span::unknown(),
                 })
             }
@@ -300,25 +300,8 @@ pub mod windows {
             );
         }
 
-        #[test]
-        fn test_set_pwd() {
-            let mut stack = Stack::new();
-            let path_str = r"c:\users\nushell";
-            let result = set_pwd(&mut stack, path_str.into_value(Span::unknown()));
-            let engine_state = EngineState::new();
-            assert!(result.is_ok());
-            assert_eq!(
-                stack
-                    .get_env_var(&engine_state, &env_var_for_drive('c'))
-                    .unwrap()
-                    .clone()
-                    .into_string()
-                    .unwrap(),
-                path_str.to_string()
-            );
-
-            // Non string value will get shell error
-            let result = set_pwd(&mut stack, 2.into_value(Span::unknown()));
+        // Helper shared by tests
+        fn verify_result_is_shell_error_invalid_value(result: Result<(), ShellError>) {
             match result {
                 Ok(_) => panic!("Should not Ok"),
                 Err(ShellError::InvalidValue {
@@ -341,6 +324,30 @@ pub mod windows {
         }
 
         #[test]
+        fn test_set_pwd() {
+            let mut stack = Stack::new();
+            let path_str = r"c:\users\nushell";
+            let result = set_pwd(&mut stack, path_str.into_value(Span::unknown()));
+            let engine_state = EngineState::new();
+            assert!(result.is_ok());
+            assert_eq!(
+                stack
+                    .get_env_var(&engine_state, &env_var_for_drive('c'))
+                    .unwrap()
+                    .clone()
+                    .into_string()
+                    .unwrap(),
+                path_str.to_string()
+            );
+
+            // Non string value will get shell error
+            verify_result_is_shell_error_invalid_value(set_pwd(
+                &mut stack,
+                2.into_value(Span::unknown()),
+            ));
+        }
+
+        #[test]
         fn test_retain_result_set_pwd_and_fetch_result() {
             let mut stack = Stack::new();
             let path_str = r"c:\users\nushell";
@@ -359,26 +366,7 @@ pub mod windows {
 
             // Non string value will get shell error
             retain_result_set_pwd(&mut stack, 2.into_value(Span::unknown()));
-            let result = fetch_result(&mut stack);
-            match result {
-                Ok(_) => panic!("Should not Ok"),
-                Err(ShellError::InvalidValue {
-                    valid,
-                    actual,
-                    span,
-                }) => {
-                    assert_eq!(
-                        valid,
-                        "$env.PWD should have String type and String::from_value() should be OK()."
-                    );
-                    assert_eq!(
-                        actual,
-                        "type int, String::from_value() got \"Can't convert to string.\"."
-                    );
-                    assert_eq!(span, Span::unknown());
-                }
-                Err(e) => panic!("Should not be other error {}", e.to_string()),
-            }
+            verify_result_is_shell_error_invalid_value(fetch_result(&mut stack));
         }
 
         #[test]
