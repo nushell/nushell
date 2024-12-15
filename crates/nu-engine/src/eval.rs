@@ -694,11 +694,14 @@ pub fn is_automatic_env_var(var: &str, ignore_case: bool) -> bool {
 
     let names = AUTOMATIC_ENV_VAR_NAMES.get_or_init(|| {
         let base_names = vec!["PWD".into(), "FILE_PWD".into(), "CURRENT_FILE".into()];
-        if cfg!(windows) {
+        #[cfg(windows)]
+        {
             let mut extended_names = base_names;
             extend_automatic_env_vars(&mut extended_names);
             extended_names
-        } else {
+        }
+        #[cfg(not(windows))]
+        {
             base_names
         }
     });

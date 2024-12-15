@@ -768,9 +768,12 @@ impl Stack {
             let path = nu_path::strip_trailing_slash(path);
             let value = Value::string(path.to_string_lossy(), Span::unknown());
             self.add_env_var("PWD".into(), value);
-            if cfg!(windows) {
+            #[cfg(windows)]
+            {
                 fetch_result(self)
-            } else {
+            }
+            #[cfg(not(windows))]
+            {
                 Ok(())
             }
         }
