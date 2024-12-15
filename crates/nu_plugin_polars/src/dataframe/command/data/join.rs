@@ -54,8 +54,8 @@ impl PluginCommand for LazyJoin {
         vec![
             Example {
                 description: "Join two lazy dataframes",
-                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | polars into-lazy);
-    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | polars into-lazy);
+                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | polars into-lazy)
+    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | polars into-lazy)
     $df_a | polars join $df_b a foo | polars collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
@@ -114,8 +114,8 @@ impl PluginCommand for LazyJoin {
             },
             Example {
                 description: "Join one eager dataframe with a lazy dataframe",
-                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | polars into-df);
-    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | polars into-lazy);
+                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | polars into-df)
+    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | polars into-lazy)
     $df_a | polars join $df_b a foo"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
@@ -172,6 +172,43 @@ impl PluginCommand for LazyJoin {
                     .into_value(Span::test_data()),
                 ),
             },
+            Example {
+                description: "Join one eager dataframe with another using a cross join",
+                example: r#"let tokens = [[monopoly_token]; [hat] [shoe] [boat]] | polars into-df
+    let players = [[name, cash]; [Alice, 78] [Bob, 135]] | polars into-df
+    $players | polars into-lazy | polars select (polars col name) | polars join --cross $tokens | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "name".to_string(),
+                                vec![
+                                    Value::test_string("Alice"),
+                                    Value::test_string("Alice"),
+                                    Value::test_string("Alice"),
+                                    Value::test_string("Bob"),
+                                    Value::test_string("Bob"),
+                                    Value::test_string("Bob"),
+                                ],
+                            ),
+                            Column::new(
+                                "monopoly_token".to_string(),
+                                vec![
+                                    Value::test_string("hat"),
+                                    Value::test_string("shoe"),
+                                    Value::test_string("boat"),
+                                    Value::test_string("hat"),
+                                    Value::test_string("shoe"),
+                                    Value::test_string("boat"),
+                                ],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
         ]
     }
 
@@ -200,18 +237,20 @@ impl PluginCommand for LazyJoin {
         let other = NuLazyFrame::try_from_value_coerce(plugin, &other)?;
         let other = other.to_polars();
 
-        let left_on = if left {
-            let left_on: Value = call.req(1)?;
-            NuExpression::extract_exprs(plugin, left_on)?
-        } else {
-            vec![]
+        let left_on_opt: Option<Value> = call.opt(1)?;
+        let left_on = match left_on_opt {
+            Some(left_on_value) if left || left_on_opt.is_some() => {
+                NuExpression::extract_exprs(plugin, left_on_value)?
+            }
+            _ => vec![],
         };
 
-        let right_on = if full {
-            let right_on: Value = call.req(2)?;
-            NuExpression::extract_exprs(plugin, right_on)?
-        } else {
-            vec![]
+        let right_on_opt: Option<Value> = call.opt(2)?;
+        let right_on = match right_on_opt {
+            Some(right_on_value) if full || right_on_opt.is_some() => {
+                NuExpression::extract_exprs(plugin, right_on_value)?
+            }
+            _ => vec![],
         };
 
         if left_on.len() != right_on.len() {
