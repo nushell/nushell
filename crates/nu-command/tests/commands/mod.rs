@@ -66,6 +66,7 @@ mod ls;
 mod match_;
 mod math;
 mod merge;
+mod merge_deep;
 mod mktemp;
 mod move_;
 mod mut_;

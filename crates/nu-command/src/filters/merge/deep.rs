@@ -1,12 +1,12 @@
-use super::common::{do_merge, MergeStrategy};
+use super::common::{do_merge, typecheck_merge, ListMerge, MergeStrategy};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct MergeList;
+pub struct MergeDeep;
 
-impl Command for MergeList {
+impl Command for MergeDeep {
     fn name(&self) -> &str {
-        "merge list"
+        "merge deep"
     }
 
     fn description(&self) -> &str {
@@ -18,10 +18,11 @@ impl Command for MergeList {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("merge list")
+        Signature::build("merge deep")
             .input_output_types(vec![
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
+                // actually a non-table list of records, but there is no way to express this
                 (Type::list(Type::Any), Type::list(Type::Any)),
             ])
             .required(
@@ -34,6 +35,7 @@ impl Command for MergeList {
                 "The new value to merge with.",
             )
             .category(Category::Filters)
+            .named("strategy", SyntaxShape::String, "The list merging strategy to use. One of: table (default), overwrite, append, prepend", Some('s'))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -50,27 +52,30 @@ impl Command for MergeList {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let merge_value: Value = call.req(engine_state, stack, 0)?;
+        let strategy_flag: Option<String> = call.get_flag(engine_state, stack, "strategy")?;
         let metadata = input.metadata();
 
         // collect input before typechecking, so tables are detected as such
         let input_span = input.span().unwrap_or(head);
         let input = input.into_value(input_span)?;
 
-        match (input.get_type(), merge_value.get_type()) {
-            (Type::Record { .. }, Type::Record { .. }) => (),
-            (Type::Table { .. }, Type::Table { .. }) => (),
-            (Type::List { .. }, Type::List { .. }) => (),
-            _ => {
-                return Err(ShellError::PipelineMismatch {
-                    exp_input_type:
-                        "input and argument to be both record, both table, or both list".to_string(),
-                    dst_span: head,
-                    src_span: input.span(),
-                });
+        let strategy = match strategy_flag.as_deref() {
+            None | Some("table") => MergeStrategy::Deep(ListMerge::Elementwise),
+            Some("append") => MergeStrategy::Deep(ListMerge::Append),
+            Some("prepend") => MergeStrategy::Deep(ListMerge::Prepend),
+            Some("overwrite") => MergeStrategy::Deep(ListMerge::Overwrite),
+            Some(_) => {
+                return Err(ShellError::IncorrectValue {
+                    msg: "The list merging strategy must be one one of: table, overwrite, append, prepend".to_string(),
+                    val_span: call.get_flag_span(stack, "strategy").unwrap_or(head),
+                    call_span: head,
+                })
             }
         };
 
-        let merged = do_merge(input, merge_value, MergeStrategy::Concatenation, head)?;
+        typecheck_merge(&input, &merge_value, head)?;
+
+        let merged = do_merge(input, merge_value, strategy, head, true)?;
         Ok(merged.into_pipeline_data_with_metadata(metadata))
     }
 }
@@ -83,6 +88,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(MergeList {})
+        test_examples(MergeDeep {})
     }
 }

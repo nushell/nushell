@@ -1,4 +1,4 @@
-use super::common::{do_merge, MergeStrategy};
+use super::common::{do_merge, typecheck_merge, MergeStrategy};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -26,6 +26,8 @@ repeating this process with row 1, and so on."#
             .input_output_types(vec![
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
+                // actually a non-table list of records, but there is no way to express this
+                (Type::list(Type::Any), Type::list(Type::Any)),
             ])
             .required(
                 "value",
@@ -35,7 +37,6 @@ repeating this process with row 1, and so on."#
                 ]),
                 "The new value to merge with.",
             )
-            .switch("deep", "Perform a deep merge", Some('d'))
             .category(Category::Filters)
     }
 
@@ -79,18 +80,6 @@ repeating this process with row 1, and so on."#
                     "columnB" => Value::test_string("B0"),
                 })])),
             },
-            Example {
-                example: "{a: {foo: 123}, b: 2} | merge --deep {a: {bar: 456}}",
-                description:
-                    "Deep merge two records, combining inner records instead of overwriting",
-                result: Some(Value::test_record(record! {
-                    "a" => Value::test_record(record! {
-                        "foo" => Value::test_int(123),
-                        "bar" => Value::test_int(456),
-                    }),
-                    "b" => Value::test_int(2)
-                })),
-            },
         ]
     }
 
@@ -103,32 +92,15 @@ repeating this process with row 1, and so on."#
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let merge_value: Value = call.req(engine_state, stack, 0)?;
-        let deep = call.has_flag(engine_state, stack, "deep")?;
         let metadata = input.metadata();
 
         // collect input before typechecking, so tables are detected as such
         let input_span = input.span().unwrap_or(head);
         let input = input.into_value(input_span)?;
 
-        match (input.get_type(), merge_value.get_type()) {
-            (Type::Record { .. }, Type::Record { .. }) => (),
-            (Type::Table { .. }, Type::Table { .. }) => (),
-            _ => {
-                return Err(ShellError::PipelineMismatch {
-                    exp_input_type: "input and argument to be both record or both table"
-                        .to_string(),
-                    dst_span: head,
-                    src_span: input.span(),
-                });
-            }
-        };
+        typecheck_merge(&input, &merge_value, head)?;
 
-        let strategy = match deep {
-            true => MergeStrategy::Elementwise,
-            false => MergeStrategy::Shallow,
-        };
-
-        let merged = do_merge(input, merge_value, strategy, head)?;
+        let merged = do_merge(input, merge_value, MergeStrategy::Shallow, head, true)?;
         Ok(merged.into_pipeline_data_with_metadata(metadata))
     }
 }

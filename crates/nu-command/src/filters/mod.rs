@@ -87,7 +87,7 @@ pub use last::Last;
 pub use length::Length;
 pub use lines::Lines;
 pub use merge::Merge;
-pub use merge::MergeList;
+pub use merge::MergeDeep;
 pub use move_::Move;
 pub use par_each::ParEach;
 pub use prepend::Prepend;

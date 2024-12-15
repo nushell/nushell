@@ -1,6 +1,6 @@
 mod common;
-pub mod list;
+pub mod deep;
 pub mod merge_;
 
-pub use list::MergeList;
+pub use deep::MergeDeep;
 pub use merge_::Merge;

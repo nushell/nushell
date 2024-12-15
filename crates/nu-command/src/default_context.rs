@@ -61,7 +61,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             SplitBy,
             Take,
             Merge,
-            MergeList,
+            MergeDeep,
             Move,
             TakeWhile,
             TakeUntil,
