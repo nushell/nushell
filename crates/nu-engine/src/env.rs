@@ -3,7 +3,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::Expr,
     engine::{Call, EngineState, Stack, StateWorkingSet},
-    ShellError, Span, Value, VarId,
+    ShellError, Span, Type, Value, VarId,
 };
 use std::{
     collections::HashMap,
@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 
-const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
+pub const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
 
 enum ConversionError {
     ShellError(ShellError),
@@ -22,6 +22,40 @@ impl From<ShellError> for ConversionError {
     fn from(value: ShellError) -> Self {
         Self::ShellError(value)
     }
+}
+
+/// Translate environment variables from Strings to Values.
+pub fn convert_env_vars(
+    stack: &mut Stack,
+    engine_state: &EngineState,
+    conversions: &Value,
+) -> Result<(), ShellError> {
+    let conversions = conversions.as_record()?;
+    for (key, conversion) in conversions.into_iter() {
+        if let Some(val) = stack.get_env_var_insensitive(engine_state, key) {
+            match val.get_type() {
+                Type::String => {}
+                _ => continue,
+            }
+
+            let conversion = conversion
+                .as_record()?
+                .get("from_string")
+                .ok_or(ShellError::MissingRequiredColumn {
+                    column: "from_string",
+                    span: conversion.span(),
+                })?
+                .as_closure()?;
+
+            let new_val = ClosureEvalOnce::new(engine_state, stack, conversion.clone())
+                .debug(false)
+                .run_with_value(val.clone())?
+                .into_value(val.span())?;
+
+            stack.add_env_var(key.clone(), new_val);
+        }
+    }
+    Ok(())
 }
 
 /// Translate environment variables from Strings to Values. Requires config to be already set up in
