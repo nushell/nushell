@@ -1,5 +1,3 @@
-#[cfg(windows)]
-use crate::engine::set_pwd;
 use crate::{
     ast::Block,
     debugger::{Debugger, NoopDebugger},
@@ -9,10 +7,12 @@ use crate::{
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
     eval_const::create_nu_constant,
-    report_shell_error, BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers,
-    HistoryConfig, Module, ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span,
-    SpanId, Type, Value, VarId, VirtualPathId,
+    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, Module, ModuleId,
+    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
+    VirtualPathId,
 };
+#[cfg(windows)]
+use crate::{engine::set_pwd, report_shell_error};
 use fancy_regex::Regex;
 use lru::LruCache;
 use nu_path::AbsolutePathBuf;

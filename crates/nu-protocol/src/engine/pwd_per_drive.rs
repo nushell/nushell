@@ -81,12 +81,14 @@ pub mod windows {
             Ok(path_string) => {
                 if let Some(drive) = extract_drive_letter(&path_string) {
                     maintainer.maintain(env_var_for_drive(drive), value.clone());
-                } else {
-                    // UNC Network share path (or any other format of path) must be mapped
-                    // to local drive, then CMD.exe can support current directory,
-                    // PWD-per-drive needs do nothing, and it's not an Err().
                 }
-                Ok(())
+                // Other path format, like UNC Network share path, or bash format
+                // /c/Users/nushell will be supported later.
+                Err(ShellError::InvalidValue {
+                    valid: "can't detect drive letter.".into(),
+                    actual: format!("{}", path_string.to_string()),
+                    span: Span::unknown(),
+                })
             }
             Err(e) => Err(ShellError::InvalidValue {
                 valid: "$env.PWD should have String type and String::from_value() should be OK()."
