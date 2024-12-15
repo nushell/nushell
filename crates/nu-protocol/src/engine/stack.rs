@@ -1,5 +1,5 @@
 #[cfg(windows)]
-use crate::engine::set_pwd;
+use crate::engine::{fetch_result, retain_result_set_pwd};
 use crate::{
     engine::{
         ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
@@ -255,7 +255,7 @@ impl Stack {
     pub fn add_env_var(&mut self, var: String, value: Value) {
         #[cfg(windows)]
         if var == "PWD" {
-            set_pwd(self, value.clone());
+            retain_result_set_pwd(self, value.clone());
         }
 
         if let Some(last_overlay) = self.active_overlays.last() {
@@ -768,7 +768,11 @@ impl Stack {
             let path = nu_path::strip_trailing_slash(path);
             let value = Value::string(path.to_string_lossy(), Span::unknown());
             self.add_env_var("PWD".into(), value);
-            Ok(())
+            if cfg!(windows) {
+                fetch_result(self)
+            } else {
+                Ok(())
+            }
         }
     }
 }

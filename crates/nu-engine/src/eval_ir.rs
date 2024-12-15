@@ -383,7 +383,7 @@ fn eval_instruction<D: DebugContext>(
 
             let key = get_env_var_name_case_insensitive(ctx, key);
 
-            if !is_automatic_env_var(&key) {
+            if !is_automatic_env_var(&key, true) {
                 let is_config = key == "config";
                 ctx.stack.add_env_var(key.into_owned(), value);
                 if is_config {

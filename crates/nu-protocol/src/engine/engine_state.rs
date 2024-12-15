@@ -9,9 +9,9 @@ use crate::{
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
     eval_const::create_nu_constant,
-    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, Module, ModuleId,
-    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
-    VirtualPathId,
+    report_shell_error, BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers,
+    HistoryConfig, Module, ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span,
+    SpanId, Type, Value, VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -447,7 +447,9 @@ impl EngineState {
     pub fn add_env_var(&mut self, name: String, val: Value) {
         #[cfg(windows)]
         if name == "PWD" {
-            set_pwd(self, val.clone());
+            if let Err(e) = set_pwd(self, val.clone()) {
+                report_shell_error(self, &e);
+            }
         }
 
         let overlay_name = String::from_utf8_lossy(self.last_overlay_name(&[])).to_string();

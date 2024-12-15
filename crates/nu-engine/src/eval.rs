@@ -2,6 +2,8 @@ use crate::eval_ir_block;
 #[allow(deprecated)]
 use crate::get_full_help;
 use nu_path::AbsolutePathBuf;
+#[cfg(windows)]
+use nu_protocol::engine::extend_automatic_env_vars;
 use nu_protocol::{
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::DebugContext,
@@ -11,7 +13,7 @@ use nu_protocol::{
     Span, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 pub fn eval_call<D: DebugContext>(
     engine_state: &EngineState,
@@ -606,7 +608,7 @@ impl Eval for EvalRuntime {
                                     lhs.follow_cell_path(&[cell_path.tail[0].clone()], true)?;
 
                                 // Reject attempts to set automatic environment variables.
-                                if is_automatic_env_var(&original_key) {
+                                if is_automatic_env_var(&original_key, false) {
                                     return Err(ShellError::AutomaticEnvVarSetManually {
                                         envvar_name: original_key,
                                         span: *span,
@@ -686,10 +688,23 @@ impl Eval for EvalRuntime {
 ///
 /// An automatic environment variable cannot be assigned to by user code.
 /// Current there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE
-pub(crate) fn is_automatic_env_var(var: &str) -> bool {
-    let names = ["PWD", "FILE_PWD", "CURRENT_FILE"];
-    names.iter().any(|&name| {
+/// For Windows there are also $env.=X:, while X is drive letter in ['A'..='Z']
+pub fn is_automatic_env_var(var: &str, ignore_case: bool) -> bool {
+    static AUTOMATIC_ENV_VAR_NAMES: OnceLock<Vec<String>> = OnceLock::new();
+
+    let names = AUTOMATIC_ENV_VAR_NAMES.get_or_init(|| {
+        let base_names = vec!["PWD".into(), "FILE_PWD".into(), "CURRENT_FILE".into()];
         if cfg!(windows) {
+            let mut extended_names = base_names;
+            extend_automatic_env_vars(&mut extended_names);
+            extended_names
+        } else {
+            base_names
+        }
+    });
+
+    names.iter().any(|name| {
+        if ignore_case || cfg!(windows) {
             name.eq_ignore_case(var)
         } else {
             name.eq(var)
