@@ -85,7 +85,7 @@ pub mod windows {
                 // Other path format, like UNC Network share path, or bash format
                 // /c/Users/nushell will be supported later.
                 Err(ShellError::InvalidValue {
-                    valid: "can't detect drive letter.".into(),
+                    valid: format!("Can't detect drive letter from {}.", path_string),
                     actual: path_string,
                     span: Span::unknown(),
                 })
