@@ -755,7 +755,7 @@ impl EngineState {
 
     /// Returns the configuration settings for command history or `None` if history is disabled
     pub fn history_config(&self) -> Option<HistoryConfig> {
-        self.history_enabled.then(|| self.config.history)
+        self.history_enabled.then(|| self.config.history.clone())
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Variable {
