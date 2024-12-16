@@ -259,11 +259,11 @@ impl Stack {
         #[cfg(not(windows))]
         let result = Ok(());
         #[cfg(windows)]
-        let mut result = Ok(());
-        #[cfg(windows)]
-        if var == "PWD" {
-            result = set_pwd(self, value.clone())
-        }
+        let result = if var == "PWD" {
+            set_pwd(self, value.clone())
+        } else {
+            Ok(())
+        };
 
         if let Some(last_overlay) = self.active_overlays.last() {
             if let Some(env_hidden) = Arc::make_mut(&mut self.env_hidden).get_mut(last_overlay) {

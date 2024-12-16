@@ -200,15 +200,13 @@ pub mod windows {
     #[cfg(test)] // test only for windows
     mod tests {
         use super::*;
+        use crate::IntoValue; // Only used in test, if placed at the beginning, will cause "unused import" warning at not(test) cfg
 
         #[test]
         fn test_expand_path_with() {
             let mut stack = Stack::new();
             let path_str = r"c:\users\nushell";
-            let result = set_pwd(
-                &mut stack,
-                crate::IntoValue::into_value(path_str, Span::unknown()),
-            );
+            let result = set_pwd(&mut stack, path_str.into_value(Span::unknown()));
             assert_eq!(result, Ok(()));
             let engine_state = EngineState::new();
 
