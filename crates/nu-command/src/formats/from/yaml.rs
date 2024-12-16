@@ -235,7 +235,9 @@ fn from_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError
     let (concat_string, span, metadata) = input.collect_string_strict(head)?;
 
     match from_yaml_string_to_value(&concat_string, head, span) {
-        Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
+        Ok(x) => {
+            Ok(x.into_pipeline_data_with_metadata(metadata.map(|md| md.with_content_type(None))))
+        }
         Err(other) => Err(other),
     }
 }

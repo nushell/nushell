@@ -113,7 +113,8 @@ MessagePack: https://msgpack.org/
             objects,
             signals: engine_state.signals().clone(),
         };
-        match input {
+        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        let out = match input {
             // Deserialize from a byte buffer
             PipelineData::Value(Value::Binary { val: bytes, .. }, _) => {
                 read_msgpack(Cursor::new(bytes), opts)
@@ -136,7 +137,8 @@ MessagePack: https://msgpack.org/
                 dst_span: call.head,
                 src_span: input.span().unwrap_or(call.head),
             }),
-        }
+        };
+        out.map(|pd| pd.set_metadata(metadata))
     }
 }
 

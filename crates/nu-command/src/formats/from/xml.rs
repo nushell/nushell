@@ -206,7 +206,9 @@ fn from_xml(input: PipelineData, info: &ParsingInfo) -> Result<PipelineData, She
     let (concat_string, span, metadata) = input.collect_string_strict(info.span)?;
 
     match from_xml_string_to_value(&concat_string, info) {
-        Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
+        Ok(x) => {
+            Ok(x.into_pipeline_data_with_metadata(metadata.map(|md| md.with_content_type(None))))
+        }
         Err(err) => Err(process_xml_parse_error(err, span)),
     }
 }

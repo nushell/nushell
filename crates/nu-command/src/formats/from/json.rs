@@ -70,23 +70,22 @@ impl Command for FromJson {
         let span = call.head;
 
         let strict = call.has_flag(engine_state, stack, "strict")?;
+        let metadata = input.metadata().map(|md| md.with_content_type(None));
 
         // TODO: turn this into a structured underline of the nu_json error
         if call.has_flag(engine_state, stack, "objects")? {
             // Return a stream of JSON values, one for each non-empty line
             match input {
-                PipelineData::Value(Value::String { val, .. }, metadata) => {
-                    Ok(PipelineData::ListStream(
-                        read_json_lines(
-                            Cursor::new(val),
-                            span,
-                            strict,
-                            engine_state.signals().clone(),
-                        ),
-                        metadata,
-                    ))
-                }
-                PipelineData::ByteStream(stream, metadata)
+                PipelineData::Value(Value::String { val, .. }, ..) => Ok(PipelineData::ListStream(
+                    read_json_lines(
+                        Cursor::new(val),
+                        span,
+                        strict,
+                        engine_state.signals().clone(),
+                    ),
+                    metadata,
+                )),
+                PipelineData::ByteStream(stream, ..)
                     if stream.type_() != ByteStreamType::Binary =>
                 {
                     if let Some(reader) = stream.reader() {
@@ -107,7 +106,7 @@ impl Command for FromJson {
             }
         } else {
             // Return a single JSON value
-            let (string_input, span, metadata) = input.collect_string_strict(span)?;
+            let (string_input, span, ..) = input.collect_string_strict(span)?;
 
             if string_input.is_empty() {
                 return Ok(Value::nothing(span).into_pipeline_data());
