@@ -1,9 +1,11 @@
 use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
-    engine::{is_env_var_for_drive, Stack, StateWorkingSet},
+    engine::{Stack, StateWorkingSet},
     Span, Value,
 };
+#[cfg(windows)]
+use nu_protocol::engine::is_env_var_for_drive;
 use reedline::Suggestion;
 use std::str;
 
