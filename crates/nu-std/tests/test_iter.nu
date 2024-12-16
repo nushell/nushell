@@ -51,6 +51,9 @@ def iter_scan [] {
 
     let scanned = ([a b c d] | iter scan "" {|it, acc| [$acc, $it] | str join} -n)
     assert equal $scanned ["a" "ab" "abc" "abcd"]
+
+    let scanned = ([a b c d] | iter scan "" {|it, acc| append $it | str join} -n)
+    assert equal $scanned ["a" "ab" "abc" "abcd"]
 }
 
 #[test]
