@@ -21,6 +21,8 @@ use std::{
 #[derive(Clone)]
 pub struct Ls;
 
+pub type EntryMapper = (dyn Fn(&std::path::Path, Value) -> Value + Send + Sync);
+
 #[derive(Clone, Copy)]
 struct Args {
     all: bool,
@@ -31,11 +33,65 @@ struct Args {
     directory: bool,
     use_mime_type: bool,
     use_threads: bool,
-    security_context: bool,
     call_span: Span,
 }
 
 const GLOB_CHARS: &[char] = &['*', '?', '['];
+
+impl Ls {
+    pub fn run_ls(
+        call_span: Span,
+        get_signals: &(dyn Fn() -> Signals),
+        has_flag: &(dyn Fn(&str) -> Result<bool, ShellError>),
+        has_pattern_arg: bool,
+        pattern_arg: Vec<Option<Spanned<NuGlob>>>,
+        cwd: PathBuf,
+        map_entry: &EntryMapper,
+    ) -> Result<PipelineData, ShellError> {
+        let args = Args {
+            all: has_flag("all")?,
+            long: has_flag("long")?,
+            short_names: has_flag("short-names")?,
+            full_paths: has_flag("full-paths")?,
+            du: has_flag("du")?,
+            directory: has_flag("directory")?,
+            use_mime_type: has_flag("mime-type")?,
+            use_threads: has_flag("threads")?,
+            call_span,
+        };
+
+        let input_pattern_arg = match has_pattern_arg {
+            true if pattern_arg.is_empty() => vec![],
+            true => pattern_arg.clone(),
+            false => vec![None],
+        };
+
+        let mut result_iters = vec![];
+        for pat in input_pattern_arg {
+            result_iters.push(ls_for_one_pattern(
+                pat,
+                args,
+                get_signals(),
+                cwd.clone(),
+                map_entry,
+            )?)
+        }
+
+        // Here nushell needs to use
+        // use `flatten` to chain all iterators into one.
+        Ok(result_iters
+            .into_iter()
+            .flatten()
+            .into_pipeline_data_with_metadata(
+                call_span,
+                get_signals(),
+                PipelineMetadata {
+                    data_source: DataSource::Ls,
+                    content_type: None,
+                },
+            ))
+    }
+}
 
 impl Command for Ls {
     fn name(&self) -> &str {
@@ -50,6 +106,34 @@ impl Command for Ls {
         vec!["dir"]
     }
 
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let get_signals = &|| engine_state.signals().clone();
+        let has_flag = &|flag: &str| call.has_flag(engine_state, &mut (stack.clone()), flag);
+        let pattern_arg = call
+            .rest::<Spanned<NuGlob>>(engine_state, &mut stack.clone(), 0)?
+            .into_iter()
+            .map(Some)
+            .collect();
+        let has_pattern_arg = call.has_positional_args(stack, 0);
+        #[allow(deprecated)]
+        let cwd = current_dir(engine_state, stack)?;
+        Ls::run_ls(
+            call.span(),
+            get_signals,
+            has_flag,
+            has_pattern_arg,
+            pattern_arg,
+            cwd,
+            &|_path, entry| entry,
+        )
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("ls")
             .input_output_types(vec![(Type::Nothing, Type::table())])
@@ -59,7 +143,7 @@ impl Command for Ls {
             .switch("all", "Show hidden files", Some('a'))
             .switch(
                 "long",
-                "Get almost all available columns for each entry (slower; columns are platform-dependent)",
+                "Get all available columns for each entry (slower; columns are platform-dependent)",
                 Some('l'),
             )
             .switch(
@@ -80,94 +164,7 @@ impl Command for Ls {
             )
             .switch("mime-type", "Show mime-type in type column instead of 'file' (based on filenames only; files' contents are not examined)", Some('m'))
             .switch("threads", "Use multiple threads to list contents. Output will be non-deterministic.", Some('t'))
-            .switch(
-                "context",
-                match cfg!(feature = "selinux") {
-                    true => "Get the SELinux security context for each entry, if available",
-                    false => "Get the SELinux security context for each entry (disabled)"
-                },
-                Some('Z'),
-            )
             .category(Category::FileSystem)
-    }
-
-    fn run(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let all = call.has_flag(engine_state, stack, "all")?;
-        let long = call.has_flag(engine_state, stack, "long")?;
-        let short_names = call.has_flag(engine_state, stack, "short-names")?;
-        let full_paths = call.has_flag(engine_state, stack, "full-paths")?;
-        let du = call.has_flag(engine_state, stack, "du")?;
-        let directory = call.has_flag(engine_state, stack, "directory")?;
-        let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
-        let use_threads = call.has_flag(engine_state, stack, "threads")?;
-        let security_context = call.has_flag(engine_state, stack, "context")?;
-        let call_span = call.head;
-        #[allow(deprecated)]
-        let cwd = current_dir(engine_state, stack)?;
-
-        let args = Args {
-            all,
-            long,
-            short_names,
-            full_paths,
-            du,
-            directory,
-            use_mime_type,
-            use_threads,
-            security_context,
-            call_span,
-        };
-
-        let pattern_arg = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
-        let input_pattern_arg = if !call.has_positional_args(stack, 0) {
-            None
-        } else {
-            Some(pattern_arg)
-        };
-        match input_pattern_arg {
-            None => Ok(
-                ls_for_one_pattern(None, args, engine_state.signals().clone(), cwd)?
-                    .into_pipeline_data_with_metadata(
-                        call_span,
-                        engine_state.signals().clone(),
-                        PipelineMetadata {
-                            data_source: DataSource::Ls,
-                            content_type: None,
-                        },
-                    ),
-            ),
-            Some(pattern) => {
-                let mut result_iters = vec![];
-                for pat in pattern {
-                    result_iters.push(ls_for_one_pattern(
-                        Some(pat),
-                        args,
-                        engine_state.signals().clone(),
-                        cwd.clone(),
-                    )?)
-                }
-
-                // Here nushell needs to use
-                // use `flatten` to chain all iterators into one.
-                Ok(result_iters
-                    .into_iter()
-                    .flatten()
-                    .into_pipeline_data_with_metadata(
-                        call_span,
-                        engine_state.signals().clone(),
-                        PipelineMetadata {
-                            data_source: DataSource::Ls,
-                            content_type: None,
-                        },
-                    ))
-            }
-        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -234,6 +231,7 @@ fn ls_for_one_pattern(
     args: Args,
     signals: Signals,
     cwd: PathBuf,
+    map_entry: &EntryMapper,
 ) -> Result<PipelineData, ShellError> {
     fn create_pool(num_threads: usize) -> Result<rayon::ThreadPool, ShellError> {
         match rayon::ThreadPoolBuilder::new()
@@ -263,7 +261,6 @@ fn ls_for_one_pattern(
         use_mime_type,
         use_threads,
         call_span,
-        security_context,
     } = args;
     let pattern_arg = {
         if let Some(path) = pattern_arg {
@@ -450,8 +447,8 @@ fn ls_for_one_pattern(
                                 du,
                                 &signals_clone,
                                 use_mime_type,
-                                args.full_paths,
-                                security_context,
+                                full_paths,
+                                map_entry,
                             );
                             match entry {
                                 Ok(value) => Some(value),
@@ -570,7 +567,7 @@ pub(crate) fn dir_entry_dict(
     signals: &Signals,
     use_mime_type: bool,
     full_symlink_target: bool,
-    security_context: bool,
+    map_entry: &EntryMapper,
 ) -> Result<Value, ShellError> {
     #[cfg(windows)]
     if metadata.is_none() {
@@ -625,13 +622,6 @@ pub(crate) fn dir_entry_dict(
                 },
             )
         }
-    }
-
-    if security_context {
-        record.push(
-            "security_context",
-            security_context_value(filename, span).unwrap_or(Value::nothing(span)), // TODO: consider report_shell_warning
-        )
     }
 
     if long {
@@ -754,7 +744,7 @@ pub(crate) fn dir_entry_dict(
         record.push("modified", Value::nothing(span));
     }
 
-    Ok(Value::record(record, span))
+    Ok(map_entry(filename, Value::record(record, span)))
 }
 
 // TODO: can we get away from local times in `ls`? internals might be cleaner if we worked in UTC
@@ -783,28 +773,6 @@ fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime<Local>> {
     match Utc.timestamp_opt(sec, nsec) {
         LocalResult::Single(t) => Some(t.with_timezone(&Local)),
         _ => None,
-    }
-}
-
-fn security_context_value(_path: &Path, span: Span) -> Result<Value, ShellError> {
-    #[cfg(not(all(feature = "selinux", target_os = "linux")))]
-    return Ok(Value::nothing(span));
-
-    #[cfg(all(feature = "selinux", target_os = "linux"))]
-    {
-        use selinux;
-        match selinux::SecurityContext::of_path(_path, false, false)
-            .map_err(|e| ShellError::IOError { msg: e.to_string() })?
-        {
-            Some(con) => {
-                let bytes = con.as_bytes();
-                Ok(Value::string(
-                    String::from_utf8_lossy(&bytes[0..bytes.len().saturating_sub(1)]),
-                    span,
-                ))
-            }
-            None => Ok(Value::nothing(span)),
-        }
     }
 }
 

@@ -356,6 +356,7 @@ export def build [
         nu_plugin_example,
         nu_plugin_custom_values,
         nu_plugin_formats,
+        nu_plugin_selinux
     ]
 
     for plugin in $plugins {
@@ -428,6 +429,7 @@ export def install [
         nu_plugin_example,
         nu_plugin_custom_values,
         nu_plugin_formats,
+        nu_plugin_selinux
     ]
 
     for plugin in $plugins {

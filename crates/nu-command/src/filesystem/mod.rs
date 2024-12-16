@@ -19,6 +19,7 @@ pub use self::open::Open;
 pub use cd::Cd;
 pub use du::Du;
 pub use glob::Glob;
+pub use ls::EntryMapper as LsEntryMapper;
 pub use ls::Ls;
 pub use mktemp::Mktemp;
 pub use rm::Rm;

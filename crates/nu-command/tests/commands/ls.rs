@@ -862,17 +862,3 @@ fn consistent_list_order() {
         assert_eq!(no_arg.out, with_arg.out);
     })
 }
-
-#[cfg(all(feature = "selinux", target_os = "linux"))]
-#[test]
-fn returns_correct_security_context() {
-    use nu_test_support::nu_with_std;
-
-    let input = "
-        use std assert
-        ^ls -Z / | lines | each { |e| $e | str trim | split column ' ' 'coreutils_scontext' 'name' | first } \
-        | join (ls -Z / | each { default '?' security_context }) name \
-        | each { |e| assert equal $e.security_context $e.coreutils_scontext $'For entry ($e.name) expected ($e.coreutils_scontext), got ($e.security_context)' }
-    ";
-    assert_eq!(nu_with_std!(input).err, "");
-}

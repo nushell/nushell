@@ -3615,6 +3615,7 @@ dependencies = [
 name = "nu-plugin-protocol"
 version = "0.100.1"
 dependencies = [
+ "nu-engine",
  "nu-protocol",
  "nu-utils",
  "rmp-serde",
@@ -3869,6 +3870,17 @@ dependencies = [
  "sxd-document",
  "sxd-xpath",
  "webpage",
+]
+
+[[package]]
+name = "nu_plugin_selinux"
+version = "0.100.1"
+dependencies = [
+ "nu-command",
+ "nu-plugin",
+ "nu-plugin-test-support",
+ "nu-protocol",
+ "selinux",
 ]
 
 [[package]]
