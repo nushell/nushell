@@ -1,5 +1,5 @@
 use crate::engine::{EngineState, Stack};
-#[cfg(test)]
+#[cfg(all(test, windows))]
 use crate::IntoValue;
 use std::path::{Path, PathBuf};
 #[cfg(windows)]
