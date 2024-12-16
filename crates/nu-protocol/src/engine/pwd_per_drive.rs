@@ -2,9 +2,8 @@ use crate::engine::{EngineState, Stack};
 use std::path::{Path, PathBuf};
 #[cfg(windows)]
 use {
-    crate::{FromValue, IntoValue, ShellError, Span, Value},
+    crate::{FromValue, ShellError, Span, Value},
     omnipath::sys_absolute,
-    serde::{Deserialize, Serialize},
 };
 
 // For file system command usage
@@ -43,29 +42,17 @@ pub mod windows {
 
     pub trait EnvMaintainer {
         fn maintain(&mut self, key: String, value: Value);
-        fn provide(&mut self, key: String) -> Option<Value>;
     }
 
     impl EnvMaintainer for EngineState {
         fn maintain(&mut self, key: String, value: Value) {
             self.add_env_var(key, value);
         }
-        fn provide(&mut self, key: String) -> Option<Value> {
-            let result = self.get_env_var(&key).cloned();
-            self.add_env_var(key, "".to_string().into_value(Span::unknown()));
-            result
-        }
     }
 
     impl EnvMaintainer for Stack {
         fn maintain(&mut self, key: String, value: Value) {
             self.add_env_var(key, value);
-        }
-        fn provide(&mut self, key: String) -> Option<Value> {
-            let engine_state = &EngineState::new();
-            let result = self.get_env_var(engine_state, &key).cloned();
-            self.remove_env_var(engine_state, &key);
-            result
         }
     }
 
@@ -107,62 +94,6 @@ pub mod windows {
         }
     }
 
-    /// retain_result_set_pwd
-    /// to set_pwd() but does not get the result, (since legacy code around the place set_pwd()
-    /// was called does not allow return result), and use fetch_result() to get the result
-    /// for processing
-    pub fn retain_result_set_pwd<T: EnvMaintainer>(maintainer: &mut T, value: Value) {
-        if let Ok(serialized_string) = match set_pwd(maintainer, value) {
-            Err(ShellError::InvalidValue {
-                actual,
-                valid,
-                span,
-            }) => serde_json::to_string(&MyShellError::InvalidValue {
-                actual,
-                valid,
-                span,
-            }),
-            Err(e) => serde_json::to_string(&MyShellError::OtherShellError { msg: e.to_string() }),
-            Ok(()) => Ok("".into()),
-        } {
-            if !serialized_string.is_empty() {
-                maintainer.maintain(
-                    SHELL_ERROR_MAINTAIN_ENV_VAR.into(),
-                    serialized_string.into_value(Span::unknown()),
-                );
-            }
-        }
-    }
-
-    pub fn fetch_result<T: EnvMaintainer>(maintainer: &mut T) -> Result<(), ShellError> {
-        if let Some(encoded_my_shell_error) =
-            maintainer.provide(SHELL_ERROR_MAINTAIN_ENV_VAR.into())
-        {
-            if let Ok(serialized_my_shell_error) = String::from_value(encoded_my_shell_error) {
-                //println!("encoded shell_error: {}", encoded_shell_error);
-                match serde_json::from_str(&serialized_my_shell_error) {
-                    Ok(MyShellError::InvalidValue {
-                        actual,
-                        valid,
-                        span,
-                    }) => Err(ShellError::InvalidValue {
-                        actual,
-                        valid,
-                        span,
-                    }),
-                    Ok(MyShellError::OtherShellError { msg }) => Err(ShellError::IOError { msg }),
-                    Err(e) => Err(ShellError::IOError { msg: e.to_string() }),
-                }
-            } else {
-                Err(ShellError::IOError {
-                    msg: "get string value of encoded shell error failed.".into(),
-                })
-            }
-        } else {
-            Ok(())
-        }
-    }
-
     /// For file system command usage
     /// File system command implementation can also directly use expand_pwd
     /// to expand relate path for a drive and strip redundant double or
@@ -186,22 +117,6 @@ pub mod windows {
         for drive in 'A'..='Z' {
             vec.push(env_var_for_drive(drive).clone());
         }
-        vec.push(SHELL_ERROR_MAINTAIN_ENV_VAR.into()); // For maintain retained ShellError
-    }
-
-    const SHELL_ERROR_MAINTAIN_ENV_VAR: &str = "=e:";
-
-    #[derive(Serialize, Deserialize)]
-    enum MyShellError {
-        /// An operator rece    #[error("Invalid value")]
-        InvalidValue {
-            valid: String,
-            actual: String,
-            span: Span,
-        },
-        OtherShellError {
-            msg: String,
-        },
     }
 
     /// Implementation for maintainer and fs_client
@@ -290,7 +205,10 @@ pub mod windows {
         fn test_expand_path_with() {
             let mut stack = Stack::new();
             let path_str = r"c:\users\nushell";
-            let result = set_pwd(&mut stack, path_str.into_value(Span::unknown()));
+            let result = set_pwd(
+                &mut stack,
+                crate::IntoValue::into_value(path_str, Span::unknown()),
+            );
             assert_eq!(result, Ok(()));
             let engine_state = EngineState::new();
 
@@ -352,28 +270,6 @@ pub mod windows {
         }
 
         #[test]
-        fn test_retain_result_set_pwd_and_fetch_result() {
-            let mut stack = Stack::new();
-            let path_str = r"c:\users\nushell";
-            retain_result_set_pwd(&mut stack, path_str.into_value(Span::unknown()));
-            let engine_state = EngineState::new();
-            assert_eq!(
-                stack
-                    .get_env_var(&engine_state, &env_var_for_drive('c'))
-                    .unwrap()
-                    .clone()
-                    .into_string()
-                    .unwrap(),
-                path_str.to_string()
-            );
-            assert_eq!(Ok(()), fetch_result(&mut stack));
-
-            // Non string value will get shell error
-            retain_result_set_pwd(&mut stack, 2.into_value(Span::unknown()));
-            verify_result_is_shell_error_invalid_value(fetch_result(&mut stack));
-        }
-
-        #[test]
         fn test_expand_pwd() {
             let mut stack = Stack::new();
             let path_str = r"c:\users\nushell";
@@ -411,11 +307,10 @@ pub mod windows {
         fn test_extend_automatic_env_vars() {
             let mut env_vars = vec![];
             extend_automatic_env_vars(&mut env_vars);
-            assert_eq!(env_vars.len(), 26 + 1);
+            assert_eq!(env_vars.len(), 26);
             for drive in 'A'..='Z' {
                 assert!(env_vars.contains(&env_var_for_drive(drive)));
             }
-            assert!(env_vars.contains(&"=e:".into()));
         }
 
         #[test]
