@@ -42,8 +42,6 @@ sysinfo = { workspace = true }
 unicode-segmentation = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 which = { workspace = true }
-#[cfg(windows)]
-regex = { workspace = true }
 
 [features]
 plugin = ["nu-plugin-engine"]

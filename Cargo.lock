@@ -3256,7 +3256,6 @@ dependencies = [
  "nu-utils",
  "percent-encoding",
  "reedline",
- "regex",
  "rstest",
  "sysinfo 0.32.0",
  "tempfile",
