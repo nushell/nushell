@@ -4,8 +4,8 @@ use nu_engine::glob_from;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
-use nu_path::{expand_path_with, expand_to_real_path};
-use nu_protocol::{DataSource, NuGlob, PipelineMetadata, Signals};
+use nu_path::expand_to_real_path;
+use nu_protocol::{engine::expand_path_with, DataSource, NuGlob, PipelineMetadata};
 use pathdiff::diff_paths;
 use rayon::prelude::*;
 
@@ -98,8 +98,6 @@ impl Command for Ls {
         let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
         let use_threads = call.has_flag(engine_state, stack, "threads")?;
         let call_span = call.head;
-        #[allow(deprecated)]
-        let cwd = current_dir(engine_state, stack)?;
 
         let args = Args {
             all,
@@ -120,26 +118,19 @@ impl Command for Ls {
             Some(pattern_arg)
         };
         match input_pattern_arg {
-            None => Ok(
-                ls_for_one_pattern(None, args, engine_state.signals().clone(), cwd)?
-                    .into_pipeline_data_with_metadata(
-                        call_span,
-                        engine_state.signals().clone(),
-                        PipelineMetadata {
-                            data_source: DataSource::Ls,
-                            content_type: None,
-                        },
-                    ),
-            ),
+            None => Ok(ls_for_one_pattern(None, args, engine_state, stack)?
+                .into_pipeline_data_with_metadata(
+                    call_span,
+                    engine_state.signals().clone(),
+                    PipelineMetadata {
+                        data_source: DataSource::Ls,
+                        content_type: None,
+                    },
+                )),
             Some(pattern) => {
                 let mut result_iters = vec![];
                 for pat in pattern {
-                    result_iters.push(ls_for_one_pattern(
-                        Some(pat),
-                        args,
-                        engine_state.signals().clone(),
-                        cwd.clone(),
-                    )?)
+                    result_iters.push(ls_for_one_pattern(Some(pat), args, engine_state, stack)?)
                 }
 
                 // Here nushell needs to use
@@ -221,8 +212,8 @@ impl Command for Ls {
 fn ls_for_one_pattern(
     pattern_arg: Option<Spanned<NuGlob>>,
     args: Args,
-    signals: Signals,
-    cwd: PathBuf,
+    engine_state: &EngineState,
+    stack: &Stack,
 ) -> Result<PipelineData, ShellError> {
     fn create_pool(num_threads: usize) -> Result<rayon::ThreadPool, ShellError> {
         match rayon::ThreadPoolBuilder::new()
@@ -239,6 +230,10 @@ fn ls_for_one_pattern(
             Ok(pool) => Ok(pool),
         }
     }
+
+    let signals = engine_state.signals().clone();
+    #[allow(deprecated)]
+    let cwd = current_dir(engine_state, stack)?;
 
     let (tx, rx) = mpsc::channel();
 
@@ -282,8 +277,13 @@ fn ls_for_one_pattern(
     let (pattern_arg, absolute_path) = match pattern_arg {
         Some(pat) => {
             // expand with cwd here is only used for checking
-            let tmp_expanded =
-                nu_path::expand_path_with(pat.item.as_ref(), &cwd, pat.item.is_expand());
+            let tmp_expanded = expand_path_with(
+                stack,
+                engine_state,
+                pat.item.as_ref(),
+                &cwd,
+                pat.item.is_expand(),
+            );
             // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
             if !directory && tmp_expanded.is_dir() {
                 if read_dir(&tmp_expanded, p_tag, use_threads)?
@@ -319,7 +319,13 @@ fn ls_for_one_pattern(
     let hidden_dir_specified = is_hidden_dir(pattern_arg.as_ref());
     let path = pattern_arg.into_spanned(p_tag);
     let (prefix, paths) = if just_read_dir {
-        let expanded = nu_path::expand_path_with(path.item.as_ref(), &cwd, path.item.is_expand());
+        let expanded = expand_path_with(
+            stack,
+            engine_state,
+            path.item.as_ref(),
+            &cwd,
+            path.item.is_expand(),
+        );
         let paths = read_dir(&expanded, p_tag, use_threads)?;
         // just need to read the directory, so prefix is path itself.
         (Some(expanded), paths)
@@ -348,8 +354,6 @@ fn ls_for_one_pattern(
     }
 
     let hidden_dirs = Arc::new(Mutex::new(Vec::new()));
-
-    let signals_clone = signals.clone();
 
     let pool = if use_threads {
         let count = std::thread::available_parallelism()?.get();
@@ -436,7 +440,8 @@ fn ls_for_one_pattern(
                                 call_span,
                                 long,
                                 du,
-                                &signals_clone,
+                                engine_state,
+                                stack,
                                 use_mime_type,
                                 args.full_paths,
                             );
@@ -554,7 +559,8 @@ pub(crate) fn dir_entry_dict(
     span: Span,
     long: bool,
     du: bool,
-    signals: &Signals,
+    engine_state: &EngineState,
+    stack: &Stack,
     use_mime_type: bool,
     full_symlink_target: bool,
 ) -> Result<Value, ShellError> {
@@ -567,6 +573,8 @@ pub(crate) fn dir_entry_dict(
             long,
         ));
     }
+
+    let signals = &engine_state.signals().clone();
 
     let mut record = Record::new();
     let mut file_type = "unknown".to_string();
@@ -591,6 +599,8 @@ pub(crate) fn dir_entry_dict(
                         if full_symlink_target && filename.parent().is_some() {
                             Value::string(
                                 expand_path_with(
+                                    stack,
+                                    engine_state,
                                     path_to_link,
                                     filename
                                         .parent()

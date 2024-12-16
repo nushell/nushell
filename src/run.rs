@@ -12,30 +12,6 @@ use nu_protocol::{
 };
 use nu_utils::perf;
 
-#[cfg(windows)]
-fn init_pwd_per_drive(engine_state: &EngineState, stack: &mut Stack) {
-    use nu_path::DriveToPwdMap;
-    use std::path::Path;
-
-    // Read environment for PWD-per-drive
-    for drive_letter in 'A'..='Z' {
-        let env_var = DriveToPwdMap::env_var_for_drive(drive_letter);
-        if let Some(env_pwd) = engine_state.get_env_var(&env_var) {
-            if let Ok(pwd_str) = nu_engine::env_to_string(&env_var, env_pwd, engine_state, stack) {
-                trace!("Get Env({}) {}", env_var, pwd_str);
-                let _ = stack.pwd_per_drive.set_pwd(Path::new(&pwd_str));
-                stack.remove_env_var(engine_state, &env_var);
-            }
-        }
-    }
-
-    if let Ok(abs_pwd) = engine_state.cwd(None) {
-        if let Some(abs_pwd_str) = abs_pwd.to_str() {
-            let _ = stack.pwd_per_drive.set_pwd(Path::new(abs_pwd_str));
-        }
-    }
-}
-
 pub(crate) fn run_commands(
     engine_state: &mut EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,
@@ -50,8 +26,6 @@ pub(crate) fn run_commands(
     let create_scaffold = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
 
     let mut stack = Stack::new();
-    #[cfg(windows)]
-    init_pwd_per_drive(engine_state, &mut stack);
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
     // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
@@ -141,8 +115,6 @@ pub(crate) fn run_file(
 ) {
     trace!("run_file");
     let mut stack = Stack::new();
-    #[cfg(windows)]
-    init_pwd_per_drive(engine_state, &mut stack);
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
     // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
@@ -210,8 +182,6 @@ pub(crate) fn run_repl(
 ) -> Result<(), miette::ErrReport> {
     trace!("run_repl");
     let mut stack = Stack::new();
-    #[cfg(windows)]
-    init_pwd_per_drive(engine_state, &mut stack);
 
     let start_time = std::time::Instant::now();
 

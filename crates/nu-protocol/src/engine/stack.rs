@@ -1,3 +1,5 @@
+#[cfg(windows)]
+use crate::engine::set_pwd;
 use crate::{
     engine::{
         ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
@@ -9,7 +11,6 @@ use nu_utils::IgnoreCaseExt;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
-    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -54,8 +55,6 @@ pub struct Stack {
     /// Locally updated config. Use [`.get_config()`](Self::get_config) to access correctly.
     pub config: Option<Arc<Config>>,
     pub(crate) out_dest: StackOutDest,
-    #[cfg(windows)]
-    pub pwd_per_drive: nu_path::DriveToPwdMap,
 }
 
 impl Default for Stack {
@@ -85,8 +84,6 @@ impl Stack {
             parent_deletions: vec![],
             config: None,
             out_dest: StackOutDest::new(),
-            #[cfg(windows)]
-            pwd_per_drive: nu_path::DriveToPwdMap::new(),
         }
     }
 
@@ -107,8 +104,6 @@ impl Stack {
             parent_deletions: vec![],
             config: parent.config.clone(),
             out_dest: parent.out_dest.clone(),
-            #[cfg(windows)]
-            pwd_per_drive: parent.pwd_per_drive.clone(),
             parent_stack: Some(parent),
         }
     }
@@ -135,10 +130,6 @@ impl Stack {
         unique_stack.env_hidden = child.env_hidden;
         unique_stack.active_overlays = child.active_overlays;
         unique_stack.config = child.config;
-        #[cfg(windows)]
-        {
-            unique_stack.pwd_per_drive = child.pwd_per_drive.clone();
-        }
         unique_stack
     }
 
@@ -262,6 +253,18 @@ impl Stack {
     }
 
     pub fn add_env_var(&mut self, var: String, value: Value) {
+        let _ = self.add_env_var_with_result(var, value);
+    }
+    pub fn add_env_var_with_result(&mut self, var: String, value: Value) -> Result<(), ShellError> {
+        #[cfg(not(windows))]
+        let result = Ok(());
+        #[cfg(windows)]
+        let result = if var == "PWD" {
+            set_pwd(self, value.clone())
+        } else {
+            Ok(())
+        };
+
         if let Some(last_overlay) = self.active_overlays.last() {
             if let Some(env_hidden) = Arc::make_mut(&mut self.env_hidden).get_mut(last_overlay) {
                 // if the env var was hidden, let's activate it again
@@ -286,6 +289,7 @@ impl Stack {
             // TODO: Remove panic
             panic!("internal error: no active overlay");
         }
+        result
     }
 
     pub fn set_last_exit_code(&mut self, code: i32, span: Span) {
@@ -330,8 +334,6 @@ impl Stack {
             parent_deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
-            #[cfg(windows)]
-            pwd_per_drive: self.pwd_per_drive.clone(),
         }
     }
 
@@ -365,8 +367,6 @@ impl Stack {
             parent_deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
-            #[cfg(windows)]
-            pwd_per_drive: self.pwd_per_drive.clone(),
         }
     }
 
@@ -775,29 +775,8 @@ impl Stack {
             // Strip trailing slashes, if any.
             let path = nu_path::strip_trailing_slash(path);
             let value = Value::string(path.to_string_lossy(), Span::unknown());
-            self.add_env_var("PWD".into(), value);
-            // Sync with PWD-per-drive
-            #[cfg(windows)]
-            {
-                let _ = self.pwd_per_drive.set_pwd(&path);
-            }
-            Ok(())
+            self.add_env_var_with_result("PWD".into(), value)
         }
-    }
-
-    // Helper stub/proxy for nu_path::expand_path_with::<P, Q>(path, relative_to, expand_tilde)
-    // Facilitates file system commands to easily gain the ability to expand PWD-per-drive
-    pub fn expand_path_with<P, Q>(&self, path: P, relative_to: Q, expand_tilde: bool) -> PathBuf
-    where
-        P: AsRef<Path>,
-        Q: AsRef<Path>,
-    {
-        #[cfg(windows)]
-        if let Some(absolute_path) = self.pwd_per_drive.expand_pwd(path.as_ref()) {
-            return absolute_path;
-        }
-
-        nu_path::expand_path_with::<P, Q>(path, relative_to, expand_tilde)
     }
 }
 

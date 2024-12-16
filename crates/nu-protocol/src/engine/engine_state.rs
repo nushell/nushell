@@ -11,6 +11,8 @@ use crate::{
     OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
     VirtualPathId,
 };
+#[cfg(windows)]
+use crate::{engine::set_pwd, report_shell_error};
 use fancy_regex::Regex;
 use lru::LruCache;
 use nu_path::AbsolutePathBuf;
@@ -443,6 +445,13 @@ impl EngineState {
     }
 
     pub fn add_env_var(&mut self, name: String, val: Value) {
+        #[cfg(windows)]
+        if name == "PWD" {
+            if let Err(e) = set_pwd(self, val.clone()) {
+                report_shell_error(self, &e);
+            }
+        }
+
         let overlay_name = String::from_utf8_lossy(self.last_overlay_name(&[])).to_string();
 
         if let Some(env_vars) = Arc::make_mut(&mut self.env_vars).get_mut(&overlay_name) {
