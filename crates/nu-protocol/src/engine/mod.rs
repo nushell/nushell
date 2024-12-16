@@ -31,7 +31,9 @@ pub use overlay::*;
 pub use pattern_match::*;
 pub use pwd_per_drive::expand_path_with;
 #[cfg(windows)]
-pub use pwd_per_drive::windows::{expand_pwd, extend_automatic_env_vars, set_pwd};
+pub use pwd_per_drive::windows::{
+    expand_pwd, extend_automatic_env_vars, is_env_var_for_drive, set_pwd,
+};
 pub use sequence::*;
 pub use stack::*;
 pub use stack_out_dest::*;

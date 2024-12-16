@@ -1,4 +1,6 @@
 use crate::engine::{EngineState, Stack};
+#[cfg(test)]
+use crate::IntoValue;
 use std::path::{Path, PathBuf};
 #[cfg(windows)]
 use {
@@ -119,6 +121,22 @@ pub mod windows {
         }
     }
 
+    pub fn is_env_var_for_drive(var: &str) -> bool {
+        let mut chars = var.chars();
+        var.len() == 3
+            && chars.next() == Some('=')
+            && is_alphabetic(chars.next())
+            && chars.next() == Some(':')
+    }
+
+    fn is_alphabetic(char_opt: Option<char>) -> bool {
+        if let Some(c) = char_opt {
+            c.is_alphabetic()
+        } else {
+            false
+        }
+    }
+
     /// Implementation for maintainer and fs_client
     /// Windows env var for drive
     /// essential for integration with windows native shell CMD/PowerShell
@@ -158,20 +176,32 @@ pub mod windows {
     /// which should be expanded with PWD-per-drive.
     /// Returns Some(drive_letter) or None, drive_letter is upper case.
     fn need_expand(path: &str) -> Option<char> {
-        let chars: Vec<char> = path.chars().collect();
-        if chars.len() == 2 || (chars.len() > 2 && chars[2] != '/' && chars[2] != '\\') {
-            extract_drive_letter(path)
-        } else {
-            None
+        let mut chars = path.chars();
+        // Check if the path length is 2 or if the third character is not '/' or '\\'
+        if let Some(first) = chars.next() {
+            if first.is_alphabetic() && Some(':') == chars.next() {
+                if let Some(third) = chars.next() {
+                    if third != '/' && third != '\\' {
+                        return Some(first.to_ascii_uppercase());
+                    }
+                } else {
+                    return Some(first.to_ascii_uppercase());
+                }
+            }
         }
+        None
     }
 
     /// Extract the drive letter from a path, return uppercased
     /// drive letter or None
     fn extract_drive_letter(path: &str) -> Option<char> {
-        let chars: Vec<char> = path.chars().collect();
-        if chars.len() >= 2 && chars[0].is_ascii_alphabetic() && chars[1] == ':' {
-            Some(chars[0].to_ascii_uppercase())
+        let mut chars = path.chars();
+        if let Some(first) = chars.next() {
+            if first.is_ascii_alphabetic() && Some(':') == chars.next() {
+                Some(first.to_ascii_uppercase())
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -200,7 +230,6 @@ pub mod windows {
     #[cfg(test)] // test only for windows
     mod tests {
         use super::*;
-        use crate::IntoValue; // Only used in test, if placed at the beginning, will cause "unused import" warning at not(test) cfg
 
         #[test]
         fn test_expand_path_with() {
@@ -211,7 +240,7 @@ pub mod windows {
             let engine_state = EngineState::new();
 
             let rel_path = Path::new("c:.config");
-            let result = format!(r"{path_str}\.config");
+            let result = format!(r"{}\.config", path_str);
             assert_eq!(
                 Some(result.as_str()),
                 expand_path_with(&stack, &engine_state, rel_path, Path::new(path_str), false)
@@ -278,7 +307,7 @@ pub mod windows {
             let engine_state = EngineState::new();
 
             let rel_path = Path::new("c:.config");
-            let result = format!(r"{path_str}\.config");
+            let result = format!(r"{}\.config", path_str);
             assert_eq!(
                 Some(result.as_str()),
                 expand_pwd(&stack, &engine_state, rel_path)
@@ -291,13 +320,49 @@ pub mod windows {
         #[test]
         fn test_env_var_for_drive() {
             for drive_letter in 'A'..='Z' {
-                assert_eq!(env_var_for_drive(drive_letter), format!("={drive_letter}:"));
+                assert_eq!(
+                    env_var_for_drive(drive_letter),
+                    format!("={}:", drive_letter)
+                );
             }
             for drive_letter in 'a'..='z' {
                 assert_eq!(
                     env_var_for_drive(drive_letter),
                     format!("={}:", drive_letter.to_ascii_uppercase())
                 );
+            }
+        }
+
+        #[test]
+        fn test_is_env_var_for_drive() {
+            for drive in 'A'..='Z' {
+                assert!(is_env_var_for_drive(&env_var_for_drive(drive)));
+            }
+            for drive in 'a'..='z' {
+                assert!(is_env_var_for_drive(&format!("={}:", drive)));
+            }
+            assert!(!is_env_var_for_drive("C:="));
+            assert!(!is_env_var_for_drive("=:c"));
+            assert!(!is_env_var_for_drive(":c="));
+            assert!(!is_env_var_for_drive("C:"));
+            assert!(!is_env_var_for_drive(r"C:\"));
+        }
+
+        #[test]
+        fn test_is_alphabetic() {
+            for c in 'A'..='Z' {
+                assert!(is_alphabetic(Some(c)));
+            }
+            for c in 'a'..='z' {
+                assert!(is_alphabetic(Some(c)));
+            }
+            assert!(!is_alphabetic(None));
+            for i in 0..=std::char::MAX as u32 {
+                if let Some(c) = char::from_u32(i) {
+                    assert_eq!(c.is_alphabetic(), is_alphabetic(Some(c)));
+                } else {
+                    break;
+                }
             }
         }
 
@@ -320,7 +385,7 @@ pub mod windows {
                 set_pwd(&mut stack, path_str.into_value(Span::unknown()))
             );
             let engine_state = EngineState::new();
-            let result = format!(r"{path_str}\");
+            let result = format!(r"{}\", path_str);
             assert_eq!(result, get_pwd_on_drive(&stack, &engine_state, 'c'));
         }
 
