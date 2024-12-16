@@ -101,8 +101,9 @@ export def intersperse [ # -> list<any>
 # Returns a list of intermediate steps performed by `reduce`
 # (`fold`). It takes two arguments, an initial value to seed the
 # initial state and a closure that takes two arguments, the first
-# being the internal state and the second the list element in the
-# current iteration.
+# being the list element in the current iteration and the second
+# the internal state.
+# The internal state is also provided as pipeline input.
 #
 # # Example
 # ```
@@ -123,7 +124,8 @@ export def scan [ # -> list<any>
     --noinit(-n)         # remove the initial value from the result
 ] {                      
     reduce --fold [$init] {|it, acc|
-        $acc ++ [(do $fn ($acc | last) $it)]
+        let acc_last = $acc | last
+        $acc ++ [($acc_last | do $fn $it $acc_last)]
     }
     | if $noinit {
         $in | skip

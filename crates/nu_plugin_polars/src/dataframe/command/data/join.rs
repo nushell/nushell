@@ -27,8 +27,8 @@ impl PluginCommand for LazyJoin {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("other", SyntaxShape::Any, "LazyFrame to join with")
-            .required("left_on", SyntaxShape::Any, "Left column(s) to join on")
-            .required("right_on", SyntaxShape::Any, "Right column(s) to join on")
+            .optional("left_on", SyntaxShape::Any, "Left column(s) to join on")
+            .optional("right_on", SyntaxShape::Any, "Right column(s) to join on")
             .switch(
                 "inner",
                 "inner joining between lazyframes (default)",
@@ -54,8 +54,8 @@ impl PluginCommand for LazyJoin {
         vec![
             Example {
                 description: "Join two lazy dataframes",
-                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | polars into-lazy);
-    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | polars into-lazy);
+                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | polars into-lazy)
+    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | polars into-lazy)
     $df_a | polars join $df_b a foo | polars collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
@@ -114,8 +114,8 @@ impl PluginCommand for LazyJoin {
             },
             Example {
                 description: "Join one eager dataframe with a lazy dataframe",
-                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | polars into-df);
-    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | polars into-lazy);
+                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | polars into-df)
+    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | polars into-lazy)
     $df_a | polars join $df_b a foo"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
@@ -172,6 +172,43 @@ impl PluginCommand for LazyJoin {
                     .into_value(Span::test_data()),
                 ),
             },
+            Example {
+                description: "Join one eager dataframe with another using a cross join",
+                example: r#"let tokens = [[monopoly_token]; [hat] [shoe] [boat]] | polars into-df
+    let players = [[name, cash]; [Alice, 78] [Bob, 135]] | polars into-df
+    $players | polars select (polars col name) | polars join --cross $tokens | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "name".to_string(),
+                                vec![
+                                    Value::test_string("Alice"),
+                                    Value::test_string("Alice"),
+                                    Value::test_string("Alice"),
+                                    Value::test_string("Bob"),
+                                    Value::test_string("Bob"),
+                                    Value::test_string("Bob"),
+                                ],
+                            ),
+                            Column::new(
+                                "monopoly_token".to_string(),
+                                vec![
+                                    Value::test_string("hat"),
+                                    Value::test_string("shoe"),
+                                    Value::test_string("boat"),
+                                    Value::test_string("hat"),
+                                    Value::test_string("shoe"),
+                                    Value::test_string("boat"),
+                                ],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
         ]
     }
 
@@ -200,11 +237,21 @@ impl PluginCommand for LazyJoin {
         let other = NuLazyFrame::try_from_value_coerce(plugin, &other)?;
         let other = other.to_polars();
 
-        let left_on: Value = call.req(1)?;
-        let left_on = NuExpression::extract_exprs(plugin, left_on)?;
+        let left_on_opt: Option<Value> = call.opt(1)?;
+        let left_on = match left_on_opt {
+            Some(left_on_value) if left || left_on_opt.is_some() => {
+                NuExpression::extract_exprs(plugin, left_on_value)?
+            }
+            _ => vec![],
+        };
 
-        let right_on: Value = call.req(2)?;
-        let right_on = NuExpression::extract_exprs(plugin, right_on)?;
+        let right_on_opt: Option<Value> = call.opt(2)?;
+        let right_on = match right_on_opt {
+            Some(right_on_value) if full || right_on_opt.is_some() => {
+                NuExpression::extract_exprs(plugin, right_on_value)?
+            }
+            _ => vec![],
+        };
 
         if left_on.len() != right_on.len() {
             let right_on: Value = call.req(2)?;
@@ -232,16 +279,25 @@ impl PluginCommand for LazyJoin {
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
         let from_eager = lazy.from_eager;
         let lazy = lazy.to_polars();
-
-        let lazy = lazy
-            .join_builder()
-            .with(other)
-            .left_on(left_on)
-            .right_on(right_on)
-            .how(how)
-            .force_parallel(true)
-            .suffix(suffix)
-            .finish();
+        let lazy = if cross {
+            lazy.join_builder()
+                .with(other)
+                .left_on(vec![])
+                .right_on(vec![])
+                .how(how)
+                .force_parallel(true)
+                .suffix(suffix)
+                .finish()
+        } else {
+            lazy.join_builder()
+                .with(other)
+                .left_on(left_on)
+                .right_on(right_on)
+                .how(how)
+                .force_parallel(true)
+                .suffix(suffix)
+                .finish()
+        };
 
         let lazy = NuLazyFrame::new(from_eager, lazy);
         lazy.to_pipeline_data(plugin, engine, call.head)
