@@ -17,11 +17,6 @@ $env.PROMPT_COMMAND = $env.PROMPT_COMMAND? | default {||
     $path_segment | str replace --all (char path_sep) $"($separator_color)(char path_sep)($path_color)"
 }
 
-$env.PROMPT_INDICATOR = $env.PROMPT_INDICATOR? | default "> "
-$env.PROMPT_INDICATOR_VI_NORMAL = $env.PROMPT_INDICATOR_VI_NORMAL? | default "> "
-$env.PROMPT_INDICATOR_VI_INSERT = $env.PROMPT_INDICATOR_VI_INSERT? | default ": "
-$env.PROMPT_MULTILINE_INDICATOR = $env.PROMPT_MULTILINE_INDICATOR? | default "::: "
-
 $env.PROMPT_COMMAND_RIGHT = $env.PROMPT_COMMAND_RIGHT? | default {|| 
     # create a right prompt in magenta with green separators and am/pm underlined
     let time_segment = ([
@@ -39,19 +34,3 @@ $env.PROMPT_COMMAND_RIGHT = $env.PROMPT_COMMAND_RIGHT? | default {||
 
     ([$last_exit_code, (char space), $time_segment] | str join)
 }
-
-$env.ENV_CONVERSIONS = {
-    "PATH": {
-        from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
-        to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
-    }
-}
-
-$env.NU_LIB_DIRS = $env.NU_LIB_DIRS? | default [
-    ($nu.default-config-dir | path join 'scripts') # add <nushell-config-dir>/scripts
-    ($nu.data-dir | path join 'completions') # default home for nushell completions
-]
-
-$env.NU_PLUGIN_DIRS = $env.NU_PLUGIN_DIRS | default [
-    ($nu.default-config-dir | path join 'plugins') # add <nushell-config-dir>/plugins
-]

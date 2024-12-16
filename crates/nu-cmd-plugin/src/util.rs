@@ -144,18 +144,24 @@ pub(crate) fn get_plugin_dirs(
     engine_state: &EngineState,
     stack: &Stack,
 ) -> impl Iterator<Item = String> {
-    // Get the NU_PLUGIN_DIRS constant or env var
+    // Get the NU_PLUGIN_DIRS from the constant and/or env var
     let working_set = StateWorkingSet::new(engine_state);
-    let value = working_set
+    let dirs_from_const = working_set
         .find_variable(b"$NU_PLUGIN_DIRS")
         .and_then(|var_id| working_set.get_constant(var_id).ok())
-        .or_else(|| stack.get_env_var(engine_state, "NU_PLUGIN_DIRS"))
-        .cloned(); // TODO: avoid this clone
-
-    // Get all of the strings in the list, if possible
-    value
+        .cloned() // TODO: avoid this clone
         .into_iter()
         .flat_map(|value| value.into_list().ok())
         .flatten()
-        .flat_map(|list_item| list_item.coerce_into_string().ok())
+        .flat_map(|list_item| list_item.coerce_into_string().ok());
+
+    let dirs_from_env = stack
+        .get_env_var(engine_state, "NU_PLUGIN_DIRS")
+        .cloned() // TODO: avoid this clone
+        .into_iter()
+        .flat_map(|value| value.into_list().ok())
+        .flatten()
+        .flat_map(|list_item| list_item.coerce_into_string().ok());
+
+    dirs_from_const.chain(dirs_from_env)
 }
