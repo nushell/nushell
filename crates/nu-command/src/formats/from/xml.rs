@@ -324,10 +324,14 @@ fn make_cant_convert_error(help: impl Into<String>, span: Span) -> ShellError {
 
 #[cfg(test)]
 mod tests {
+    use crate::Metadata;
+    use crate::MetadataSet;
+
     use super::*;
 
     use indexmap::indexmap;
     use indexmap::IndexMap;
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
     fn string(input: impl Into<String>) -> Value {
         Value::test_string(input)
@@ -481,5 +485,37 @@ mod tests {
         use crate::test_examples;
 
         test_examples(FromXml {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(FromXml {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(MetadataSet {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = r#"'<?xml version="1.0" encoding="UTF-8"?>
+<note>
+  <remember>Event</remember>
+</note>' | metadata set --content-type 'application/xml' --datasource-ls | from xml | metadata | $in"#;
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("source" => Value::test_string("ls"))),
+            result.expect("There should be a result")
+        )
     }
 }
