@@ -1,5 +1,8 @@
 # env.nu
 #
+# Installed by:
+# version = "0.100.1"
+#
 # Previously, environment variables were typically configured in `env.nu`.
 # In general, most configuration can and should be performed in `config.nu`
 # or one of the autoload directories.
