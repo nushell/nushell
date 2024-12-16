@@ -1,7 +1,7 @@
 use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
-    engine::{Stack, StateWorkingSet},
+    engine::{is_env_var_for_drive, Stack, StateWorkingSet},
     Span, Value,
 };
 use reedline::Suggestion;
@@ -49,14 +49,12 @@ impl Completer for VariableCompletion {
                 #[cfg(not(windows))]
                 let env_vars = stack.get_env_vars(working_set.permanent_state);
                 #[cfg(windows)]
-                let mut env_vars = stack.get_env_vars(working_set.permanent_state);
-                #[cfg(windows)]
-                {
+                let env_vars = {
+                    let mut env_vars = stack.get_env_vars(working_set.permanent_state);
                     // Hide env_vars for PWD-per-drive from being listed in completion selection
-                    if let Ok(pattern) = regex::Regex::new(r"^=[a-zA-Z]:$") {
-                        env_vars.retain(|key, _| !pattern.is_match(key));
-                    }
-                }
+                    env_vars.retain(|key, _| !is_env_var_for_drive(key));
+                    env_vars
+                };
 
                 // Return nested values
                 if sublevels_count > 0 {
