@@ -1,6 +1,6 @@
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
-use nu_path::{dots::expand_ndots, expand_tilde};
+use nu_engine::{command_prelude::*, env_to_strings};
+use nu_path::{dots::expand_ndots, expand_tilde, AbsolutePath};
 use nu_protocol::{did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
@@ -126,7 +126,13 @@ impl Command for External {
             // effect if it's an absolute path already
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
             let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) else {
-                return Err(command_not_found(&name_str, call.head, engine_state, stack));
+                return Err(command_not_found(
+                    &name_str,
+                    call.head,
+                    engine_state,
+                    stack,
+                    &cwd,
+                ));
             };
             executable
         };
@@ -289,8 +295,7 @@ pub fn eval_arguments_from_call(
     call: &Call,
 ) -> Result<Vec<Spanned<OsString>>, ShellError> {
     let cwd = engine_state.cwd(Some(stack))?;
-    let eval_expression = get_eval_expression(engine_state);
-    let call_args = call.rest_iter_flattened(engine_state, stack, eval_expression, 1)?;
+    let call_args = call.rest::<Value>(engine_state, stack, 1)?;
     let mut args: Vec<Spanned<OsString>> = Vec::with_capacity(call_args.len());
 
     for arg in call_args {
@@ -433,6 +438,7 @@ pub fn command_not_found(
     span: Span,
     engine_state: &EngineState,
     stack: &mut Stack,
+    cwd: &AbsolutePath,
 ) -> ShellError {
     // Run the `command_not_found` hook if there is one.
     if let Some(hook) = &stack.get_config(engine_state).hooks.command_not_found {
@@ -543,12 +549,12 @@ pub fn command_not_found(
     }
 
     // If we find a file, it's likely that the user forgot to set permissions
-    if Path::new(name).is_file() {
+    if cwd.join(name).is_file() {
         return ShellError::ExternalCommand {
-                        label: format!("Command `{name}` not found"),
-                        help: format!("`{name}` refers to a file that is not executable. Did you forget to set execute permissions?"),
-                        span,
-                    };
+            label: format!("Command `{name}` not found"),
+            help: format!("`{name}` refers to a file that is not executable. Did you forget to set execute permissions?"),
+            span,
+        };
     }
 
     // We found nothing useful. Give up and return a generic error message.

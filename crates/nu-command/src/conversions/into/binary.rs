@@ -147,7 +147,7 @@ pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
         Value::Binary { .. } => input.clone(),
         Value::Int { val, .. } => Value::binary(val.to_ne_bytes().to_vec(), span),
         Value::Float { val, .. } => Value::binary(val.to_ne_bytes().to_vec(), span),
-        Value::Filesize { val, .. } => Value::binary(val.to_ne_bytes().to_vec(), span),
+        Value::Filesize { val, .. } => Value::binary(val.get().to_ne_bytes().to_vec(), span),
         Value::String { val, .. } => Value::binary(val.as_bytes().to_vec(), span),
         Value::Bool { val, .. } => Value::binary(i64::from(*val).to_ne_bytes().to_vec(), span),
         Value::Duration { val, .. } => Value::binary(val.to_ne_bytes().to_vec(), span),

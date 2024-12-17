@@ -11,13 +11,6 @@ use std::{
     sync::Arc,
 };
 
-#[cfg(windows)]
-const ENV_PATH_NAME: &str = "Path";
-#[cfg(windows)]
-const ENV_PATH_NAME_SECONDARY: &str = "PATH";
-#[cfg(not(windows))]
-const ENV_PATH_NAME: &str = "PATH";
-
 const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
 
 enum ConversionResult {
@@ -40,27 +33,33 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Resu
     let env_vars = engine_state.render_env_vars();
 
     for (name, val) in env_vars {
-        match get_converted_value(engine_state, stack, name, val, "from_string") {
-            ConversionResult::Ok(v) => {
-                let _ = new_scope.insert(name.to_string(), v);
+        if let Value::String { .. } = val {
+            // Only run from_string on string values
+            match get_converted_value(engine_state, stack, name, val, "from_string") {
+                ConversionResult::Ok(v) => {
+                    let _ = new_scope.insert(name.to_string(), v);
+                }
+                ConversionResult::ConversionError(e) => error = error.or(Some(e)),
+                ConversionResult::CellPathError => {
+                    let _ = new_scope.insert(name.to_string(), val.clone());
+                }
             }
-            ConversionResult::ConversionError(e) => error = error.or(Some(e)),
-            ConversionResult::CellPathError => {
-                let _ = new_scope.insert(name.to_string(), val.clone());
-            }
+        } else {
+            // Skip values that are already converted (not a string)
+            let _ = new_scope.insert(name.to_string(), val.clone());
         }
     }
 
     #[cfg(not(windows))]
     {
-        error = error.or_else(|| ensure_path(&mut new_scope, ENV_PATH_NAME));
+        error = error.or_else(|| ensure_path(&mut new_scope, "PATH"));
     }
 
     #[cfg(windows)]
     {
-        let first_result = ensure_path(&mut new_scope, ENV_PATH_NAME);
+        let first_result = ensure_path(&mut new_scope, "Path");
         if first_result.is_some() {
-            let second_result = ensure_path(&mut new_scope, ENV_PATH_NAME_SECONDARY);
+            let second_result = ensure_path(&mut new_scope, "PATH");
 
             if second_result.is_some() {
                 error = error.or(first_result);
@@ -107,7 +106,7 @@ pub fn env_to_string(
         ConversionResult::CellPathError => match value.coerce_string() {
             Ok(s) => Ok(s),
             Err(_) => {
-                if env_name == ENV_PATH_NAME {
+                if env_name.to_lowercase() == "path" {
                     // Try to convert PATH/Path list to a string
                     match value {
                         Value::List { vals, .. } => {
@@ -213,31 +212,21 @@ pub fn current_dir_const(working_set: &StateWorkingSet) -> Result<PathBuf, Shell
 }
 
 /// Get the contents of path environment variable as a list of strings
-///
-/// On non-Windows: It will fetch PATH
-/// On Windows: It will try to fetch Path first but if not present, try PATH
 pub fn path_str(
     engine_state: &EngineState,
     stack: &Stack,
     span: Span,
 ) -> Result<String, ShellError> {
-    let (pathname, pathval) = match stack.get_env_var(engine_state, ENV_PATH_NAME) {
-        Some(v) => Ok((ENV_PATH_NAME, v)),
-        None => {
-            #[cfg(windows)]
-            match stack.get_env_var(engine_state, ENV_PATH_NAME_SECONDARY) {
-                Some(v) => Ok((ENV_PATH_NAME_SECONDARY, v)),
-                None => Err(ShellError::EnvVarNotFoundAtRuntime {
-                    envvar_name: ENV_PATH_NAME_SECONDARY.to_string(),
-                    span,
-                }),
-            }
-            #[cfg(not(windows))]
-            Err(ShellError::EnvVarNotFoundAtRuntime {
-                envvar_name: ENV_PATH_NAME.to_string(),
-                span,
-            })
-        }
+    let (pathname, pathval) = match stack.get_env_var_insensitive(engine_state, "path") {
+        Some(v) => Ok((if cfg!(windows) { "Path" } else { "PATH" }, v)),
+        None => Err(ShellError::EnvVarNotFoundAtRuntime {
+            envvar_name: if cfg!(windows) {
+                "Path".to_string()
+            } else {
+                "PATH".to_string()
+            },
+            span,
+        }),
     }?;
 
     env_to_string(pathname, pathval, engine_state, stack)

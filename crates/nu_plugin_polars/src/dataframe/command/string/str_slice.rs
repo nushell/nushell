@@ -160,13 +160,14 @@ fn command_df(
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let start: i64 = call.req(0)?;
-    let start = Series::new("".into(), &[start]);
+    let start = Series::new("".into(), &[start]).into();
 
     let length: Option<i64> = call.get_flag("length")?;
     let length = match length {
         Some(v) => Series::new("".into(), &[v as u64]),
         None => Series::new_null("".into(), 1),
-    };
+    }
+    .into();
 
     let series = df.as_series(call.head)?;
 

@@ -1,6 +1,7 @@
 mod all;
 mod any;
 mod append;
+mod chunk_by;
 mod chunks;
 mod columns;
 mod compact;
@@ -36,6 +37,7 @@ mod reject;
 mod rename;
 mod reverse;
 mod select;
+#[cfg(feature = "rand")]
 mod shuffle;
 mod skip;
 mod sort;
@@ -58,6 +60,7 @@ mod zip;
 pub use all::All;
 pub use any::Any;
 pub use append::Append;
+pub use chunk_by::ChunkBy;
 pub use chunks::Chunks;
 pub use columns::Columns;
 pub use compact::Compact;
@@ -93,6 +96,7 @@ pub use reject::Reject;
 pub use rename::Rename;
 pub use reverse::Reverse;
 pub use select::Select;
+#[cfg(feature = "rand")]
 pub use shuffle::Shuffle;
 pub use skip::*;
 pub use sort::Sort;

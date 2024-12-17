@@ -17,12 +17,12 @@ workspace = true
 
 [dependencies]
 nu-cmd-base = { path = "../nu-cmd-base", version = "0.100.1" }
-nu-engine = { path = "../nu-engine", version = "0.100.1" }
+nu-engine = { path = "../nu-engine", version = "0.100.1", default-features = false }
 nu-json = { version = "0.100.1", path = "../nu-json" }
 nu-parser = { path = "../nu-parser", version = "0.100.1" }
 nu-pretty-hex = { version = "0.100.1", path = "../nu-pretty-hex" }
-nu-protocol = { path = "../nu-protocol", version = "0.100.1" }
-nu-utils = { path = "../nu-utils", version = "0.100.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.100.1", default-features = false }
+nu-utils = { path = "../nu-utils", version = "0.100.1", default-features = false }
 
 # Potential dependencies for extras
 heck = { workspace = true }

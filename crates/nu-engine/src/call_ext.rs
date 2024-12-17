@@ -121,15 +121,12 @@ impl CallExt for ast::Call {
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError> {
         let stack = &mut stack.use_call_arg_out_dest();
-        let mut output = vec![];
-
-        for result in self.rest_iter_flattened(starting_pos, |expr| {
+        self.rest_iter_flattened(starting_pos, |expr| {
             eval_expression::<WithoutDebug>(engine_state, stack, expr)
-        })? {
-            output.push(FromValue::from_value(result)?);
-        }
-
-        Ok(output)
+        })?
+        .into_iter()
+        .map(FromValue::from_value)
+        .collect()
     }
 
     fn opt<T: FromValue>(

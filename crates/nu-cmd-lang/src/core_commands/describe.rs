@@ -169,6 +169,7 @@ fn run(
                 let origin = match stream.source() {
                     ByteStreamSource::Read(_) => "unknown",
                     ByteStreamSource::File(_) => "file",
+                    #[cfg(feature = "os")]
                     ByteStreamSource::Child(_) => "external",
                 };
 

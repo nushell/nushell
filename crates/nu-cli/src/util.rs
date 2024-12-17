@@ -1,3 +1,5 @@
+#![allow(clippy::byte_char_slices)]
+
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{lex, parse, unescape_unquote_string, Token, TokenContents};

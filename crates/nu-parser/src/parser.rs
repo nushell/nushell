@@ -1,3 +1,5 @@
+#![allow(clippy::byte_char_slices)]
+
 use crate::{
     lex::{is_assignment_operator, lex, lex_n_tokens, lex_signature, LexState},
     lite_parser::{lite_parse, LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget},
@@ -11,9 +13,9 @@ use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean, Flag,
-    ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId, ENV_VARIABLE_ID,
-    IN_VARIABLE_ID,
+    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean,
+    FilesizeUnit, Flag, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type,
+    VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -772,6 +774,51 @@ fn calculate_end_span(
     }
 }
 
+fn parse_oneof(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    spans_idx: &mut usize,
+    possible_shapes: &Vec<SyntaxShape>,
+    multispan: bool,
+) -> Expression {
+    for shape in possible_shapes {
+        let starting_error_count = working_set.parse_errors.len();
+        let value = match multispan {
+            true => parse_multispan_value(working_set, spans, spans_idx, shape),
+            false => parse_value(working_set, spans[*spans_idx], shape),
+        };
+
+        if starting_error_count == working_set.parse_errors.len() {
+            return value;
+        }
+
+        // while trying the possible shapes, ignore Expected type errors
+        // unless they're inside a block, closure, or expression
+        let propagate_error = match working_set.parse_errors.last() {
+            Some(ParseError::Expected(_, error_span))
+            | Some(ParseError::ExpectedWithStringMsg(_, error_span)) => {
+                matches!(
+                    shape,
+                    SyntaxShape::Block | SyntaxShape::Closure(_) | SyntaxShape::Expression
+                ) && *error_span != spans[*spans_idx]
+            }
+            _ => true,
+        };
+        if !propagate_error {
+            working_set.parse_errors.truncate(starting_error_count);
+        }
+    }
+
+    if working_set.parse_errors.is_empty() {
+        working_set.error(ParseError::ExpectedWithStringMsg(
+            format!("one of a list of accepted shapes: {possible_shapes:?}"),
+            spans[*spans_idx],
+        ));
+    }
+
+    Expression::garbage(working_set, spans[*spans_idx])
+}
+
 pub fn parse_multispan_value(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -800,54 +847,10 @@ pub fn parse_multispan_value(
 
             arg
         }
-        SyntaxShape::OneOf(shapes) => {
-            // handle for `if` command.
-            //let block_then_exp = shapes.as_slice() == [SyntaxShape::Block, SyntaxShape::Expression];
-            for shape in shapes.iter() {
-                let starting_error_count = working_set.parse_errors.len();
-                let s = parse_multispan_value(working_set, spans, spans_idx, shape);
-
-                if starting_error_count == working_set.parse_errors.len() {
-                    return s;
-                } else if let Some(
-                    ParseError::Expected(..) | ParseError::ExpectedWithStringMsg(..),
-                ) = working_set.parse_errors.last()
-                {
-                    working_set.parse_errors.truncate(starting_error_count);
-                    continue;
-                }
-                // `if` is parsing block first and then expression.
-                // when we're writing something like `else if $a`, parsing as a
-                // block will result to error(because it's not a block)
-                //
-                // If parse as a expression also failed, user is more likely concerned
-                // about expression failure rather than "expect block failure"".
-
-                // FIXME FIXME FIXME
-                // if block_then_exp {
-                //     match &err {
-                //         Some(ParseError::Expected(expected, _)) => {
-                //             if expected.starts_with("block") {
-                //                 err = e
-                //             }
-                //         }
-                //         _ => err = err.or(e),
-                //     }
-                // } else {
-                //     err = err.or(e)
-                // }
-            }
-            let span = spans[*spans_idx];
-
-            if working_set.parse_errors.is_empty() {
-                working_set.error(ParseError::ExpectedWithStringMsg(
-                    format!("one of a list of accepted shapes: {shapes:?}"),
-                    span,
-                ));
-            }
-
-            Expression::garbage(working_set, span)
+        SyntaxShape::OneOf(possible_shapes) => {
+            parse_oneof(working_set, spans, spans_idx, possible_shapes, true)
         }
+
         SyntaxShape::Expression => {
             trace!("parsing: expression");
 
@@ -1529,7 +1532,9 @@ pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
         span: Span,
         radix: u32,
     ) -> Expression {
-        if let Ok(num) = i64::from_str_radix(token, radix) {
+        // Parse as a u64, then cast to i64, otherwise, for numbers like "0xffffffffffffffef",
+        // you'll get `Error parsing hex string: number too large to fit in target type`.
+        if let Ok(num) = u64::from_str_radix(token, radix).map(|val| val as i64) {
             Expression::new(working_set, Expr::Int(num), span, Type::Int)
         } else {
             working_set.error(ParseError::InvalidLiteral(
@@ -2119,7 +2124,21 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
         String::from_utf8_lossy(contents).to_string()
     };
 
-    if let Some(id) = parse_variable(working_set, span) {
+    let bytes = working_set.get_span_contents(span);
+    let suggestion = || {
+        DidYouMean::new(
+            &working_set.list_variables(),
+            working_set.get_span_contents(span),
+        )
+    };
+    if !is_variable(bytes) {
+        working_set.error(ParseError::ExpectedWithDidYouMean(
+            "valid variable name",
+            suggestion(),
+            span,
+        ));
+        garbage(working_set, span)
+    } else if let Some(id) = working_set.find_variable(bytes) {
         Expression::new(
             working_set,
             Expr::Var(id),
@@ -2130,9 +2149,7 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
         working_set.error(ParseError::EnvVarNotVar(name, span));
         garbage(working_set, span)
     } else {
-        let ws = &*working_set;
-        let suggestion = DidYouMean::new(&ws.list_variables(), ws.get_span_contents(span));
-        working_set.error(ParseError::VariableNotFound(suggestion, span));
+        working_set.error(ParseError::VariableNotFound(suggestion(), span));
         garbage(working_set, span)
     }
 }
@@ -2572,19 +2589,67 @@ pub fn parse_unit_value<'res>(
 }
 
 pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
-    (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
-    (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
-    (Unit::Gigabyte, "GB", Some((Unit::Megabyte, 1000))),
-    (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
-    (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
-    (Unit::Exabyte, "EB", Some((Unit::Petabyte, 1000))),
-    (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
-    (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
-    (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
-    (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
-    (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
-    (Unit::Exbibyte, "EIB", Some((Unit::Pebibyte, 1024))),
-    (Unit::Byte, "B", None),
+    (
+        Unit::Filesize(FilesizeUnit::KB),
+        "KB",
+        Some((Unit::Filesize(FilesizeUnit::B), 1000)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::MB),
+        "MB",
+        Some((Unit::Filesize(FilesizeUnit::KB), 1000)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::GB),
+        "GB",
+        Some((Unit::Filesize(FilesizeUnit::MB), 1000)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::TB),
+        "TB",
+        Some((Unit::Filesize(FilesizeUnit::GB), 1000)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::PB),
+        "PB",
+        Some((Unit::Filesize(FilesizeUnit::TB), 1000)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::EB),
+        "EB",
+        Some((Unit::Filesize(FilesizeUnit::PB), 1000)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::KiB),
+        "KIB",
+        Some((Unit::Filesize(FilesizeUnit::B), 1024)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::MiB),
+        "MIB",
+        Some((Unit::Filesize(FilesizeUnit::KiB), 1024)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::GiB),
+        "GIB",
+        Some((Unit::Filesize(FilesizeUnit::MiB), 1024)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::TiB),
+        "TIB",
+        Some((Unit::Filesize(FilesizeUnit::GiB), 1024)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::PiB),
+        "PIB",
+        Some((Unit::Filesize(FilesizeUnit::TiB), 1024)),
+    ),
+    (
+        Unit::Filesize(FilesizeUnit::EiB),
+        "EIB",
+        Some((Unit::Filesize(FilesizeUnit::EiB), 1024)),
+    ),
+    (Unit::Filesize(FilesizeUnit::B), "B", None),
 ];
 
 pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
@@ -3298,26 +3363,66 @@ pub fn parse_input_output_types(
 }
 
 pub fn parse_full_signature(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
-    let arg_signature = working_set.get_span_contents(spans[0]);
-
-    if arg_signature.ends_with(b":") {
-        let mut arg_signature =
-            parse_signature(working_set, Span::new(spans[0].start, spans[0].end - 1));
-
-        let input_output_types = parse_input_output_types(working_set, &spans[1..]);
-
-        if let Expression {
-            expr: Expr::Signature(sig),
-            span: expr_span,
-            ..
-        } = &mut arg_signature
-        {
-            sig.input_output_types = input_output_types;
-            expr_span.end = Span::concat(&spans[1..]).end;
+    match spans.len() {
+        // This case should never happen. It corresponds to declarations like `def foo {}`,
+        // which should throw a 'Missing required positional argument.' before getting to this point
+        0 => {
+            working_set.error(ParseError::InternalError(
+                "failed to catch missing positional arguments".to_string(),
+                Span::concat(spans),
+            ));
+            garbage(working_set, Span::concat(spans))
         }
-        arg_signature
-    } else {
-        parse_signature(working_set, spans[0])
+
+        // e.g. `[ b"[foo: string]" ]`
+        1 => parse_signature(working_set, spans[0]),
+
+        // This case is needed to distinguish between e.g.
+        // `[ b"[]", b"{ true }" ]` vs `[ b"[]:", b"int" ]`
+        2 if working_set.get_span_contents(spans[1]).starts_with(b"{") => {
+            parse_signature(working_set, spans[0])
+        }
+
+        // This should handle every other case, e.g.
+        // `[ b"[]:", b"int" ]`
+        // `[ b"[]", b":", b"int" ]`
+        // `[ b"[]", b":", b"int", b"->", b"bool" ]`
+        _ => {
+            let (mut arg_signature, input_output_types_pos) =
+                if working_set.get_span_contents(spans[0]).ends_with(b":") {
+                    (
+                        parse_signature(working_set, Span::new(spans[0].start, spans[0].end - 1)),
+                        1,
+                    )
+                } else if working_set.get_span_contents(spans[1]) == b":" {
+                    (parse_signature(working_set, spans[0]), 2)
+                } else {
+                    // This should be an error case, but we call parse_signature anyway
+                    // so it can handle the various possible errors
+                    // e.g. `[ b"[]", b"int" ]` or `[
+                    working_set.error(ParseError::Expected(
+                        "colon (:) before type signature",
+                        Span::concat(&spans[1..]),
+                    ));
+                    // (garbage(working_set, Span::concat(spans)), 1)
+
+                    (parse_signature(working_set, spans[0]), 1)
+                };
+
+            let input_output_types =
+                parse_input_output_types(working_set, &spans[input_output_types_pos..]);
+
+            if let Expression {
+                expr: Expr::Signature(sig),
+                span: expr_span,
+                ..
+            } = &mut arg_signature
+            {
+                sig.input_output_types = input_output_types;
+                expr_span.end = Span::concat(&spans[input_output_types_pos..]).end;
+            }
+            arg_signature
+        }
     }
 }
 
@@ -4826,29 +4931,7 @@ pub fn parse_value(
 
         SyntaxShape::ExternalArgument => parse_regular_external_arg(working_set, span),
         SyntaxShape::OneOf(possible_shapes) => {
-            for s in possible_shapes {
-                let starting_error_count = working_set.parse_errors.len();
-                let value = parse_value(working_set, span, s);
-
-                if starting_error_count == working_set.parse_errors.len() {
-                    return value;
-                } else if let Some(
-                    ParseError::Expected(..) | ParseError::ExpectedWithStringMsg(..),
-                ) = working_set.parse_errors.last()
-                {
-                    working_set.parse_errors.truncate(starting_error_count);
-                    continue;
-                }
-            }
-
-            if working_set.parse_errors.is_empty() {
-                working_set.error(ParseError::ExpectedWithStringMsg(
-                    format!("one of a list of accepted shapes: {possible_shapes:?}"),
-                    span,
-                ));
-            }
-
-            Expression::garbage(working_set, span)
+            parse_oneof(working_set, &[span], &mut 0, possible_shapes, false)
         }
 
         SyntaxShape::Any => {
@@ -4908,7 +4991,7 @@ pub fn parse_assignment_operator(working_set: &mut StateWorkingSet, span: Span) 
     let operator = match contents {
         b"=" => Operator::Assignment(Assignment::Assign),
         b"+=" => Operator::Assignment(Assignment::PlusAssign),
-        b"++=" => Operator::Assignment(Assignment::AppendAssign),
+        b"++=" => Operator::Assignment(Assignment::ConcatAssign),
         b"-=" => Operator::Assignment(Assignment::MinusAssign),
         b"*=" => Operator::Assignment(Assignment::MultiplyAssign),
         b"/=" => Operator::Assignment(Assignment::DivideAssign),
@@ -4959,6 +5042,20 @@ pub fn parse_assignment_expression(
 
     // Parse the lhs and operator as usual for a math expression
     let mut lhs = parse_expression(working_set, lhs_spans);
+    // make sure that lhs is a mutable variable.
+    match &lhs.expr {
+        Expr::FullCellPath(p) => {
+            if let Expr::Var(var_id) = p.head.expr {
+                if var_id != nu_protocol::ENV_VARIABLE_ID
+                    && !working_set.get_variable(var_id).mutable
+                {
+                    working_set.error(ParseError::AssignmentRequiresMutableVar(lhs.span))
+                }
+            }
+        }
+        _ => working_set.error(ParseError::AssignmentRequiresVar(lhs.span)),
+    }
+
     let mut operator = parse_assignment_operator(working_set, op_span);
 
     // Re-parse the right-hand side as a subexpression
@@ -5034,7 +5131,7 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         b"=~" | b"like" => Operator::Comparison(Comparison::RegexMatch),
         b"!~" | b"not-like" => Operator::Comparison(Comparison::NotRegexMatch),
         b"+" => Operator::Math(Math::Plus),
-        b"++" => Operator::Math(Math::Append),
+        b"++" => Operator::Math(Math::Concat),
         b"-" => Operator::Math(Math::Minus),
         b"*" => Operator::Math(Math::Multiply),
         b"/" => Operator::Math(Math::Divide),
@@ -5566,18 +5663,6 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
         }
     } else {
         output
-    }
-}
-
-pub fn parse_variable(working_set: &mut StateWorkingSet, span: Span) -> Option<VarId> {
-    let bytes = working_set.get_span_contents(span);
-
-    if is_variable(bytes) {
-        working_set.find_variable(bytes)
-    } else {
-        working_set.error(ParseError::Expected("valid variable name", span));
-
-        None
     }
 }
 

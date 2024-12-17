@@ -50,14 +50,21 @@ fn http_options_timeout() {
     let _mock = server
         .mock("OPTIONS", "/")
         .with_chunked_body(|w| {
-            thread::sleep(Duration::from_secs(1));
+            thread::sleep(Duration::from_secs(10));
             w.write_all(b"Delayed response!")
         })
         .create();
 
     let actual = nu!(pipeline(
-        format!("http options --max-time 500ms {url}", url = server.url()).as_str()
+        format!("http options --max-time 100ms {url}", url = server.url()).as_str()
     ));
 
-    assert!(&actual.err.contains("nu::shell::io_error"));
+    assert!(&actual.err.contains("nu::shell::network_failure"));
+
+    #[cfg(not(target_os = "windows"))]
+    assert!(&actual.err.contains("timed out reading response"));
+    #[cfg(target_os = "windows")]
+    assert!(&actual
+        .err
+        .contains("did not properly respond after a period of time"));
 }

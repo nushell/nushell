@@ -3,7 +3,7 @@ mod window_cursor_2d;
 
 use anyhow::{bail, Result};
 pub use window_cursor::WindowCursor;
-pub use window_cursor_2d::{Position, WindowCursor2D};
+pub use window_cursor_2d::{CursorMoveHandler, Position, WindowCursor2D};
 
 /// A 1-dimensional cursor to track a position from 0 to N
 ///

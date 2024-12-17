@@ -27,6 +27,10 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         }
 
         // Filters
+        #[cfg(feature = "rand")]
+        bind_command! {
+            Shuffle
+        }
         bind_command! {
             All,
             Any,
@@ -64,6 +68,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Length,
             Lines,
             ParEach,
+            ChunkBy,
             Prepend,
             Range,
             Reduce,
@@ -71,7 +76,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Rename,
             Reverse,
             Select,
-            Shuffle,
             Skip,
             SkipUntil,
             SkipWhile,
@@ -102,6 +106,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Path,
             PathBasename,
+            PathSelf,
             PathDirname,
             PathExists,
             PathExpand,
@@ -113,6 +118,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         };
 
         // System
+        #[cfg(feature = "os")]
         bind_command! {
             Complete,
             External,
@@ -160,17 +166,20 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ViewSpan,
         };
 
-        #[cfg(windows)]
+        #[cfg(all(feature = "os", windows))]
         bind_command! { RegistryQuery }
 
-        #[cfg(any(
-            target_os = "android",
-            target_os = "linux",
-            target_os = "freebsd",
-            target_os = "netbsd",
-            target_os = "openbsd",
-            target_os = "macos",
-            target_os = "windows"
+        #[cfg(all(
+            feature = "os",
+            any(
+                target_os = "android",
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "netbsd",
+                target_os = "openbsd",
+                target_os = "macos",
+                target_os = "windows"
+            )
         ))]
         bind_command! { Ps };
 
@@ -218,6 +227,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         };
 
         // FileSystem
+        #[cfg(feature = "os")]
         bind_command! {
             Cd,
             Ls,
@@ -236,6 +246,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         };
 
         // Platform
+        #[cfg(feature = "os")]
         bind_command! {
             Ansi,
             AnsiLink,
@@ -248,11 +259,13 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IsTerminal,
             Kill,
             Sleep,
+            Term,
             TermSize,
+            TermQuery,
             Whoami,
         };
 
-        #[cfg(unix)]
+        #[cfg(all(unix, feature = "os"))]
         bind_command! { ULimit };
 
         // Date
@@ -377,6 +390,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         }
 
         // Network
+        #[cfg(feature = "network")]
         bind_command! {
             Http,
             HttpDelete,
@@ -386,6 +400,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             HttpPost,
             HttpPut,
             HttpOptions,
+            Port,
+        }
+        bind_command! {
             Url,
             UrlBuildQuery,
             UrlSplitQuery,
@@ -393,10 +410,10 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             UrlEncode,
             UrlJoin,
             UrlParse,
-            Port,
         }
 
         // Random
+        #[cfg(feature = "rand")]
         bind_command! {
             Random,
             RandomBool,

@@ -66,7 +66,7 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match input {
         Value::Float { val, .. } => fmt_it_64(*val, span),
         Value::Int { val, .. } => fmt_it(*val, span),
-        Value::Filesize { val, .. } => fmt_it(*val, span),
+        Value::Filesize { val, .. } => fmt_it(val.get(), span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::error(

@@ -155,7 +155,7 @@ pub(crate) fn decompose_assignment(assignment: Assignment) -> Option<Operator> {
     match assignment {
         Assignment::Assign => None,
         Assignment::PlusAssign => Some(Operator::Math(Math::Plus)),
-        Assignment::AppendAssign => Some(Operator::Math(Math::Append)),
+        Assignment::ConcatAssign => Some(Operator::Math(Math::Concat)),
         Assignment::MinusAssign => Some(Operator::Math(Math::Minus)),
         Assignment::MultiplyAssign => Some(Operator::Math(Math::Multiply)),
         Assignment::DivideAssign => Some(Operator::Math(Math::Divide)),

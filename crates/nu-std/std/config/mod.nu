@@ -26,7 +26,6 @@ export def dark-theme [] {
         block: white
         hints: dark_gray
         search_result: { bg: red fg: white }
-        shape_and: purple_bold
         shape_binary: purple_bold
         shape_block: blue_bold
         shape_bool: light_cyan
@@ -53,7 +52,6 @@ export def dark-theme [] {
         shape_matching_brackets: { attr: u }
         shape_nothing: light_cyan
         shape_operator: yellow
-        shape_or: purple_bold
         shape_pipe: purple_bold
         shape_range: yellow_bold
         shape_record: cyan_bold
@@ -96,7 +94,6 @@ export def light-theme [] {
         block: dark_gray
         hints: dark_gray
         search_result: { fg: white bg: red }
-        shape_and: purple_bold
         shape_binary: purple_bold
         shape_block: blue_bold
         shape_bool: light_cyan
@@ -123,7 +120,6 @@ export def light-theme [] {
         shape_matching_brackets: { attr: u }
         shape_nothing: light_cyan
         shape_operator: yellow
-        shape_or: purple_bold
         shape_pipe: purple_bold
         shape_range: yellow_bold
         shape_record: cyan_bold

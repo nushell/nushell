@@ -16,7 +16,7 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-utils = { path = "../nu-utils", version = "0.100.1" }
+nu-utils = { path = "../nu-utils", version = "0.100.1", default-features = false }
 nu-path = { path = "../nu-path", version = "0.100.1" }
 nu-system = { path = "../nu-system", version = "0.100.1" }
 nu-derive-value = { path = "../nu-derive-value", version = "0.100.1" }
@@ -31,14 +31,14 @@ fancy-regex = { workspace = true }
 heck = { workspace = true }
 indexmap = { workspace = true }
 lru = { workspace = true }
-miette = { workspace = true, features = ["fancy-no-backtrace"] }
+miette = { workspace = true, features = ["fancy-no-backtrace"]}
 num-format = { workspace = true }
 rmp-serde = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = "2.0"
 typetag = "0.2"
-os_pipe = { workspace = true, features = ["io_safety"] }
+os_pipe = { workspace = true, optional = true, features = ["io_safety"] }
 log = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
@@ -49,8 +49,15 @@ dirs-sys = { workspace = true }
 windows-sys = { workspace = true }
 
 [features]
+default = ["os"]
+os = [
+  "nu-utils/os",
+  "os_pipe",
+]
+
 plugin = [
   "brotli",
+  "os",
   "rmp-serde",
 ]
 

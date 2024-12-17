@@ -1,5 +1,5 @@
 use chrono::{DateTime, FixedOffset};
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{Filesize, ShellError, Span, Value};
 use std::hash::{Hash, Hasher};
 
 /// A subset of [`Value`], which is hashable.
@@ -30,7 +30,7 @@ pub enum HashableValue {
         span: Span,
     },
     Filesize {
-        val: i64,
+        val: Filesize,
         span: Span,
     },
     Duration {
@@ -198,7 +198,10 @@ mod test {
             (Value::int(1, span), HashableValue::Int { val: 1, span }),
             (
                 Value::filesize(1, span),
-                HashableValue::Filesize { val: 1, span },
+                HashableValue::Filesize {
+                    val: 1.into(),
+                    span,
+                },
             ),
             (
                 Value::duration(1, span),

@@ -14,6 +14,6 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-utils = { path = "../nu-utils", version = "0.100.1" }
+nu-utils = { path = "../nu-utils", version = "0.100.1", default-features = false }
 
 unicode-width = { workspace = true }

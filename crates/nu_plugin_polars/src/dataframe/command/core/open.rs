@@ -28,9 +28,7 @@ use polars::{
     },
 };
 
-use polars_io::{
-    avro::AvroReader, csv::read::CsvReadOptions, prelude::ParallelStrategy, HiveOptions,
-};
+use polars_io::{avro::AvroReader, csv::read::CsvReadOptions, HiveOptions};
 
 const DEFAULT_INFER_SCHEMA: usize = 100;
 
@@ -179,20 +177,7 @@ fn from_parquet(
 ) -> Result<Value, ShellError> {
     if !call.has_flag("eager")? {
         let file: String = call.req(0)?;
-        let args = ScanArgsParquet {
-            n_rows: None,
-            cache: true,
-            parallel: ParallelStrategy::Auto,
-            rechunk: false,
-            row_index: None,
-            low_memory: false,
-            cloud_options: None,
-            use_statistics: false,
-            hive_options: HiveOptions::default(),
-            glob: true,
-            include_file_paths: None,
-        };
-
+        let args = ScanArgsParquet::default();
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
             .map_err(|e| ShellError::GenericError {
                 error: "Parquet reader error".into(),

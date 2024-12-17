@@ -1,3 +1,5 @@
+#![allow(clippy::byte_char_slices)]
+
 use crate::{lex::lex_signature, parser::parse_value, trim_quotes, TokenContents};
 use nu_protocol::{engine::StateWorkingSet, ParseError, Span, SyntaxShape, Type};
 

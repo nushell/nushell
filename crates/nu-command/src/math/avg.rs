@@ -90,7 +90,7 @@ pub fn average(values: &[Value], span: Span, head: Span) -> Result<Value, ShellE
     let total = &sum(Value::int(0, head), values.to_vec(), span, head)?;
     let span = total.span();
     match total {
-        Value::Filesize { val, .. } => Ok(Value::filesize(val / values.len() as i64, span)),
+        Value::Filesize { val, .. } => Ok(Value::filesize(val.get() / values.len() as i64, span)),
         Value::Duration { val, .. } => Ok(Value::duration(val / values.len() as i64, span)),
         _ => total.div(head, &Value::int(values.len() as i64, head), head),
     }

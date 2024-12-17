@@ -5,8 +5,8 @@ use nu_protocol::{
 };
 use num::Zero;
 use polars::prelude::{
-    BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,
-    NumOpsDispatchChecked, PolarsError, Series, StringNameSpaceImpl,
+    BooleanType, ChunkCompareEq, ChunkCompareIneq, ChunkedArray, DataType, Float64Type, Int64Type,
+    IntoSeries, NumOpsDispatchChecked, PolarsError, Series, StringNameSpaceImpl,
 };
 use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 

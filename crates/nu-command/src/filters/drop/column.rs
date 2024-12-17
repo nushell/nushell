@@ -29,7 +29,7 @@ impl Command for DropColumn {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["delete"]
+        vec!["delete", "remove"]
     }
 
     fn run(

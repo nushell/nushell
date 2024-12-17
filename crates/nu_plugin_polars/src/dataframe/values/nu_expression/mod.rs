@@ -215,12 +215,12 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 AggExpr::Quantile {
                     expr,
                     quantile,
-                    interpol,
+                    method,
                 } => Ok(Value::record(
                     record! {
                         "expr" => expr_to_value(expr.as_ref(), span)?,
                         "quantile" => expr_to_value(quantile.as_ref(), span)?,
-                        "interpol" => Value::string(format!("{interpol:?}"), span),
+                        "method" => Value::string(format!("{method:?}"), span),
                     },
                     span,
                 )),

@@ -103,3 +103,9 @@ fn is_root_impl() -> bool {
 
     elevated
 }
+
+#[cfg(target_arch = "wasm32")]
+fn is_root_impl() -> bool {
+    // in wasm we don't have a user system, so technically we are never root
+    false
+}

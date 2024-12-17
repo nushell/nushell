@@ -1,6 +1,7 @@
 use crate::date::utils::parse_date_from_string;
 use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike};
 use nu_engine::command_prelude::*;
+use nu_protocol::{report_parse_warning, ParseWarning};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -17,7 +18,7 @@ impl Command for SubCommand {
                 (Type::String, Type::table()),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
-            .category(Category::Date)
+            .category(Category::Deprecated)
     }
 
     fn description(&self) -> &str {
@@ -36,6 +37,16 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        report_parse_warning(
+            &StateWorkingSet::new(engine_state),
+            &ParseWarning::DeprecatedWarning {
+                old_command: "date to-table".into(),
+                new_suggestion: "see `into record` command examples".into(),
+                span: head,
+                url: "`help into record`".into(),
+            },
+        );
+
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });

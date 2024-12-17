@@ -93,7 +93,7 @@ impl View for NuView {
         layout: &Layout,
         info: &mut crate::pager::ViewInfo,
         key: crossterm::event::KeyEvent,
-    ) -> Option<crate::pager::Transition> {
+    ) -> crate::pager::Transition {
         match self {
             NuView::Records(v) => v.handle_input(engine_state, stack, layout, info, key),
             NuView::Preview(v) => v.handle_input(engine_state, stack, layout, info, key),

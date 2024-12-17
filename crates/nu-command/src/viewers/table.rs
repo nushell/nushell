@@ -2,7 +2,14 @@
 //        overall reduce the redundant calls to StyleComputer etc.
 //        the goal is to configure it once...
 
-use lscolors::{LsColors, Style};
+use std::{
+    collections::VecDeque,
+    io::{IsTerminal, Read},
+    path::PathBuf,
+    str::FromStr,
+    time::Instant,
+};
+
 use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
 use nu_engine::{command_prelude::*, env_to_string};
 use nu_path::form::Absolute;
@@ -15,17 +22,12 @@ use nu_table::{
     NuTable, StringResult, TableOpts, TableOutput,
 };
 use nu_utils::get_ls_colors;
-use std::{
-    collections::VecDeque,
-    io::{IsTerminal, Read},
-    path::PathBuf,
-    str::FromStr,
-    time::Instant,
-};
-use terminal_size::{Height, Width};
+
+use lscolors::{LsColors, Style};
 use url::Url;
 
 type ShellResult<T> = Result<T, ShellError>;
+type NuPathBuf = nu_path::PathBuf<Absolute>;
 
 const STREAM_PAGE_SIZE: usize = 1000;
 const DEFAULT_TABLE_WIDTH: usize = 80;
@@ -119,6 +121,7 @@ impl Command for Table {
             let val = Value::list(supported_table_modes(), Span::test_data());
             return Ok(val.into_pipeline_data());
         }
+
         let input = CmdInput::parse(engine_state, stack, call, input)?;
 
         // reset vt processing, aka ansi because illbehaved externals can break it
@@ -384,7 +387,7 @@ struct CmdInput<'a> {
     call: &'a Call<'a>,
     data: PipelineData,
     cfg: TableConfig,
-    cwd: nu_path::PathBuf<Absolute>,
+    cwd: Option<NuPathBuf>,
 }
 
 impl<'a> CmdInput<'a> {
@@ -394,8 +397,8 @@ impl<'a> CmdInput<'a> {
         call: &'a Call<'a>,
         data: PipelineData,
     ) -> ShellResult<Self> {
-        let cwd = engine_state.cwd(Some(stack))?;
         let cfg = parse_table_config(call, engine_state, stack)?;
+        let cwd = get_cwd(engine_state, stack)?;
 
         Ok(Self {
             engine_state,
@@ -746,6 +749,13 @@ fn make_clickable_link(
 ) -> String {
     // uri's based on this https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
 
+    #[cfg(any(
+        unix,
+        windows,
+        target_os = "redox",
+        target_os = "wasi",
+        target_os = "hermit"
+    ))]
     if show_clickable_links {
         format!(
             "\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\",
@@ -760,6 +770,18 @@ fn make_clickable_link(
             Some(link_name) => link_name.to_string(),
             None => full_path,
         }
+    }
+
+    #[cfg(not(any(
+        unix,
+        windows,
+        target_os = "redox",
+        target_os = "wasi",
+        target_os = "hermit"
+    )))]
+    match link_name {
+        Some(link_name) => link_name.to_string(),
+        None => full_path,
     }
 }
 
@@ -980,14 +1002,18 @@ fn render_path_name(
     path: &str,
     config: &Config,
     ls_colors: &LsColors,
-    cwd: nu_path::PathBuf<Absolute>,
+    cwd: Option<NuPathBuf>,
     span: Span,
 ) -> Option<Value> {
     if !config.ls.use_ls_colors {
         return None;
     }
 
-    let fullpath = cwd.join(path);
+    let fullpath = match cwd {
+        Some(cwd) => PathBuf::from(cwd.join(path)),
+        None => PathBuf::from(path),
+    };
+
     let stripped_path = nu_utils::strip_ansi_unlikely(path);
     let metadata = std::fs::symlink_metadata(fullpath);
     let has_metadata = metadata.is_ok();
@@ -1124,10 +1150,20 @@ fn create_table_opts<'a>(
     TableOpts::new(cfg, comp, signals, span, width, theme, offset, index)
 }
 
-fn get_table_width(width: Option<i64>) -> usize {
-    if let Some(col) = width {
+fn get_cwd(engine_state: &EngineState, stack: &mut Stack) -> ShellResult<Option<NuPathBuf>> {
+    #[cfg(feature = "os")]
+    let cwd = engine_state.cwd(Some(stack)).map(Some)?;
+
+    #[cfg(not(feature = "os"))]
+    let cwd = None;
+
+    Ok(cwd)
+}
+
+fn get_table_width(width_param: Option<i64>) -> usize {
+    if let Some(col) = width_param {
         col as usize
-    } else if let Some((Width(w), Height(_))) = terminal_size::terminal_size() {
+    } else if let Ok((w, _h)) = crossterm::terminal::size() {
         w as usize
     } else {
         DEFAULT_TABLE_WIDTH

@@ -7,7 +7,7 @@ use miette::{IntoDiagnostic, Result};
 use nu_parser::parse;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
-    Value,
+    Span, Value,
 };
 
 impl LanguageServer {
@@ -28,6 +28,7 @@ impl LanguageServer {
 
         let contents = rope_of_file.bytes().collect::<Vec<u8>>();
         let offset = working_set.next_span_start();
+        working_set.files.push(file_path.into(), Span::unknown())?;
         parse(
             &mut working_set,
             Some(&file_path.to_string_lossy()),

@@ -1,3 +1,5 @@
+#![allow(clippy::byte_char_slices)]
+
 use crate::{
     lex, lite_parse,
     parser::{is_variable, parse_value},
@@ -7,7 +9,6 @@ use nu_protocol::{
     engine::StateWorkingSet,
     ParseError, Span, SyntaxShape, Type, VarId,
 };
-
 pub fn garbage(span: Span) -> MatchPattern {
     MatchPattern {
         pattern: Pattern::Garbage,

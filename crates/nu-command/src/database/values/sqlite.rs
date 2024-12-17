@@ -421,7 +421,7 @@ pub fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError
         Value::Bool { val, .. } => Box::new(val),
         Value::Int { val, .. } => Box::new(val),
         Value::Float { val, .. } => Box::new(val),
-        Value::Filesize { val, .. } => Box::new(val),
+        Value::Filesize { val, .. } => Box::new(val.get()),
         Value::Duration { val, .. } => Box::new(val),
         Value::Date { val, .. } => Box::new(val),
         Value::String { val, .. } => Box::new(val),

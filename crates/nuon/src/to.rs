@@ -39,7 +39,7 @@ pub enum ToStyle {
 ///
 // WARNING: please leave the following two trailing spaces, they matter for the documentation
 // formatting
-/// > **Note**  
+/// > **Note**
 /// > a [`Span`] can be passed to [`to_nuon`] if there is context available to the caller, e.g. when
 /// > using this function in a command implementation such as [`to nuon`](https://www.nushell.sh/commands/docs/to_nuon.html).
 ///
@@ -110,7 +110,7 @@ fn value_to_string(
         // Propagate existing errors
         Value::Error { error, .. } => Err(*error.clone()),
         // FIXME: make filesizes use the shortest lossless representation.
-        Value::Filesize { val, .. } => Ok(format!("{}b", *val)),
+        Value::Filesize { val, .. } => Ok(format!("{}b", val.get())),
         Value::Float { val, .. } => {
             // This serialises these as 'nan', 'inf' and '-inf', respectively.
             if &val.round() == val && val.is_finite() {

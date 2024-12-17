@@ -1,9 +1,8 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
-use nu_protocol::{
-    engine::Closure,
-    process::{ChildPipe, ChildProcess},
-    ByteStream, ByteStreamSource, OutDest,
-};
+#[cfg(feature = "os")]
+use nu_protocol::process::{ChildPipe, ChildProcess};
+use nu_protocol::{engine::Closure, ByteStream, ByteStreamSource, OutDest};
+
 use std::{
     io::{Cursor, Read},
     thread,
@@ -69,6 +68,33 @@ impl Command for Do {
         let block: Closure = call.req(engine_state, caller_stack, 0)?;
         let rest: Vec<Value> = call.rest(engine_state, caller_stack, 1)?;
         let ignore_all_errors = call.has_flag(engine_state, caller_stack, "ignore-errors")?;
+
+        if call.has_flag(engine_state, caller_stack, "ignore-shell-errors")? {
+            nu_protocol::report_shell_warning(
+                engine_state,
+                &ShellError::GenericError {
+                    error: "Deprecated option".into(),
+                    msg: "`--ignore-shell-errors` is deprecated and will be removed in 0.102.0."
+                        .into(),
+                    span: Some(call.head),
+                    help: Some("Please use the `--ignore-errors(-i)`".into()),
+                    inner: vec![],
+                },
+            );
+        }
+        if call.has_flag(engine_state, caller_stack, "ignore-program-errors")? {
+            nu_protocol::report_shell_warning(
+                engine_state,
+                &ShellError::GenericError {
+                    error: "Deprecated option".into(),
+                    msg: "`--ignore-program-errors` is deprecated and will be removed in 0.102.0."
+                        .into(),
+                    span: Some(call.head),
+                    help: Some("Please use the `--ignore-errors(-i)`".into()),
+                    inner: vec![],
+                },
+            );
+        }
         let ignore_shell_errors = ignore_all_errors
             || call.has_flag(engine_state, caller_stack, "ignore-shell-errors")?;
         let ignore_program_errors = ignore_all_errors
@@ -92,6 +118,13 @@ impl Command for Do {
         match result {
             Ok(PipelineData::ByteStream(stream, metadata)) if capture_errors => {
                 let span = stream.span();
+                #[cfg(not(feature = "os"))]
+                return Err(ShellError::DisabledOsSupport {
+                    msg: "Cannot create a thread to receive stdout message.".to_string(),
+                    span: Some(span),
+                });
+
+                #[cfg(feature = "os")]
                 match stream.into_child() {
                     Ok(mut child) => {
                         // Use a thread to receive stdout message.
@@ -169,6 +202,7 @@ impl Command for Do {
                         OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
                     ) =>
             {
+                #[cfg(feature = "os")]
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
                     child.ignore_error(true);
                 }
@@ -206,16 +240,6 @@ impl Command for Do {
             Example {
                 description: "Run the closure and ignore both shell and external program errors",
                 example: r#"do --ignore-errors { thisisnotarealcommand }"#,
-                result: None,
-            },
-            Example {
-                description: "Run the closure and ignore shell errors",
-                example: r#"do --ignore-shell-errors { thisisnotarealcommand }"#,
-                result: None,
-            },
-            Example {
-                description: "Run the closure and ignore external program errors",
-                example: r#"do --ignore-program-errors { nu --commands 'exit 1' }; echo "I'll still run""#,
                 result: None,
             },
             Example {

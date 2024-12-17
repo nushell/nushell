@@ -16,7 +16,7 @@ use crate::{
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
-use nu_cmd_base::{hook::eval_hook, util::get_editor};
+use nu_cmd_base::util::get_editor;
 use nu_color_config::StyleComputer;
 #[allow(deprecated)]
 use nu_engine::{convert_env_values, current_dir_str, env_to_strings};
@@ -313,20 +313,26 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("reset signals", start_time, use_color);
 
     start_time = std::time::Instant::now();
-    // Right before we start our prompt and take input from the user,
-    // fire the "pre_prompt" hook
-    if let Some(hook) = engine_state.get_config().hooks.pre_prompt.clone() {
-        if let Err(err) = eval_hook(engine_state, &mut stack, None, vec![], &hook, "pre_prompt") {
-            report_shell_error(engine_state, &err);
-        }
+    // Right before we start our prompt and take input from the user, fire the "pre_prompt" hook
+    if let Err(err) = hook::eval_hooks(
+        engine_state,
+        &mut stack,
+        vec![],
+        &engine_state.get_config().hooks.pre_prompt.clone(),
+        "pre_prompt",
+    ) {
+        report_shell_error(engine_state, &err);
     }
     perf!("pre-prompt hook", start_time, use_color);
 
     start_time = std::time::Instant::now();
     // Next, check all the environment variables they ask for
     // fire the "env_change" hook
-    let env_change = engine_state.get_config().hooks.env_change.clone();
-    if let Err(error) = hook::eval_env_change_hook(env_change, engine_state, &mut stack) {
+    if let Err(error) = hook::eval_env_change_hook(
+        &engine_state.get_config().hooks.env_change.clone(),
+        engine_state,
+        &mut stack,
+    ) {
         report_shell_error(engine_state, &error)
     }
     perf!("env-change hook", start_time, use_color);
@@ -511,18 +517,17 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
             // Right before we start running the code the user gave us, fire the `pre_execution`
             // hook
-            if let Some(hook) = config.hooks.pre_execution.clone() {
+            {
                 // Set the REPL buffer to the current command for the "pre_execution" hook
                 let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
                 repl.buffer = repl_cmd_line_text.to_string();
                 drop(repl);
 
-                if let Err(err) = eval_hook(
+                if let Err(err) = hook::eval_hooks(
                     engine_state,
                     &mut stack,
-                    None,
                     vec![],
-                    &hook,
+                    &engine_state.get_config().hooks.pre_execution.clone(),
                     "pre_execution",
                 ) {
                     report_shell_error(engine_state, &err);
