@@ -1,4 +1,4 @@
-# Nushell Sample Config File
+# Nushell Config File Documentation
 #
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
@@ -18,7 +18,7 @@
 # https://nushell.sh/book/configuration
 #
 # You can pretty-print and page this file using:
-# config nu --sample | nu-highlight | less -R
+# config nu --doc | nu-highlight | less -R
 
 # $env.config
 # -----------
@@ -335,7 +335,7 @@ $env.config.table.header_on_separator = false
 # If set to an int, all tables will be abbreviated to only show the first <n> and last <n> rows
 # If set to `null`, all table rows will be displayed
 # Can be overridden by passing a table to `| table --abbreviated/-a`
-$env.config.table.abbreviated_row_count
+$env.config.table.abbreviated_row_count = null
 
 # footer_inheritance (bool): Footer behavior in nested tables
 # true: If a nested table is long enough on its own to display a footer (per `footer_mode` above),
@@ -411,13 +411,17 @@ $env.config.hooks.pre_prompt = []
 $env.config.hooks.pre_execution = []
 # When a specified environment variable changes
 $env.config.hooks.env_change = {
-    # run if the PWD environment is different since the last repl input
+    # Example: Run if the PWD environment is different since the last REPL input
     PWD: [{|before, after| null }]
 }
 # Before Nushell output is displayed in the terminal
 $env.config.hooks.display_output = "if (term size).columns >= 100 { table -e } else { table }"
 # When a command is not found
 $env.config.hooks.command_not_found = []
+
+# The env_change hook accepts a record with environment variable names as keys, and a list
+# of hooks to run when that variable changes
+$env.config.hooks.env_change = {}          # When a specified environment variable changes
 
 # -----------
 # Keybindings
@@ -485,28 +489,25 @@ $env.config.menus ++= [
     }
 ]
 
-
 # ---------------
 # Plugin behavior
 # ---------------
-# Per-plugin configuration. See https://www.nushell.sh/contributor-book/plugins.html#configuration.
-$env.config.plugins
+# Per-plugin configuration. See https://www.nushell.sh/contributor-book/plugins.html#plugin-configuration
+$env.config.plugins = {}
 
-# Configuration for plugin garbage collection
-$env.config.plugin_gc
-$env.config.plugin_gc.default
-# true to enable stopping of inactive plugins
-$env.config.plugin_gc.default.enabled
-# How long to wait after a plugin is inactive before stopping it
-$env.config.plugin_gc.default.stop_after
+# Plugin garbage collection configuration
+# $env.config.plugin_gc.*
+
+# enabled (bool): true/false to enable/disable stopping inactive plugins
+$env.config.plugin_gc.default.enabled = true
+# stop_after (duration): How long to wait after a plugin is inactive before stopping it
+$env.config.plugin_gc.default.stop_after = 10sec
+# plugins (record): Alternate garbage collection configuration per-plugin.
 $env.config.plugin_gc.plugins = {
-  # Alternate configuration for specific plugins, by name, for example:
-  #
   # gstat: {
-  #     enabled: false
+  #   enabled: false
   # }
 }
-
 
 # -------------------------------------
 # Themes/Colors and Syntax Highlighting
