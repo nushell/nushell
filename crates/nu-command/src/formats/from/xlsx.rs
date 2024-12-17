@@ -47,7 +47,8 @@ impl Command for FromXlsx {
             vec![]
         };
 
-        from_xlsx(input, head, sel_sheets)
+        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        from_xlsx(input, head, sel_sheets).map(|pd| pd.set_metadata(metadata))
     }
 
     fn examples(&self) -> Vec<Example> {

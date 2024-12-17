@@ -30,7 +30,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
             ])
             .required(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "Predicate closure.",
             )
             .category(Category::Filters)

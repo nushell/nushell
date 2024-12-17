@@ -17,11 +17,6 @@ $env.PROMPT_COMMAND = $env.PROMPT_COMMAND? | default {||
     $path_segment | str replace --all (char path_sep) $"($separator_color)(char path_sep)($path_color)"
 }
 
-$env.PROMPT_INDICATOR = $env.PROMPT_INDICATOR? | default "> "
-$env.PROMPT_INDICATOR_VI_NORMAL = $env.PROMPT_INDICATOR_VI_NORMAL? | default "> "
-$env.PROMPT_INDICATOR_VI_INSERT = $env.PROMPT_INDICATOR_VI_INSERT? | default ": "
-$env.PROMPT_MULTILINE_INDICATOR = $env.PROMPT_MULTILINE_INDICATOR? | default "::: "
-
 $env.PROMPT_COMMAND_RIGHT = $env.PROMPT_COMMAND_RIGHT? | default {|| 
     # create a right prompt in magenta with green separators and am/pm underlined
     let time_segment = ([

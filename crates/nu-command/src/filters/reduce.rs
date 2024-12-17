@@ -24,11 +24,7 @@ impl Command for Reduce {
             )
             .required(
                 "closure",
-                SyntaxShape::Closure(Some(vec![
-                    SyntaxShape::Any,
-                    SyntaxShape::Any,
-                    SyntaxShape::Int,
-                ])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
                 "Reducing function.",
             )
             .allow_variants_without_examples(true)
@@ -88,6 +84,15 @@ impl Command for Reduce {
                     "Concatenate a string with itself, using a range to determine the number of times.",
                 result: Some(Value::test_string("StrStrStr")),
             },
+            Example {
+                example: r#"[{a: 1} {b: 2} {c: 3}] | reduce {|it| merge $it}"#,
+                description: "Merge multiple records together, making use of the fact that the accumulated value is also supplied as pipeline input to the closure.",
+                result: Some(Value::test_record(record!(
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(2),
+                    "c" => Value::test_int(3),
+                ))),
+            }
         ]
     }
 
@@ -135,8 +140,8 @@ mod test {
 
     #[test]
     fn test_examples() {
-        use crate::test_examples;
+        use crate::{test_examples_with_commands, Merge};
 
-        test_examples(Reduce {})
+        test_examples_with_commands(Reduce {}, &[&Merge])
     }
 }

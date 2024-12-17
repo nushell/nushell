@@ -17,7 +17,7 @@ impl Command for TakeUntil {
             )])
             .required(
                 "predicate",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The predicate that element(s) must not match.",
             )
             .category(Category::Filters)

@@ -174,14 +174,6 @@ pub fn complete_item(
 ) -> Vec<FileSuggestion> {
     let cleaned_partial = surround_remove(partial);
     let isdir = cleaned_partial.ends_with(is_separator);
-    #[cfg(windows)]
-    let cleaned_partial = if let Some(absolute_partial) =
-        stack.pwd_per_drive.expand_pwd(Path::new(&cleaned_partial))
-    {
-        absolute_partial.display().to_string()
-    } else {
-        cleaned_partial
-    };
     let expanded_partial = expand_ndots(Path::new(&cleaned_partial));
     let should_collapse_dots = expanded_partial != Path::new(&cleaned_partial);
     let mut partial = expanded_partial.to_string_lossy().to_string();
