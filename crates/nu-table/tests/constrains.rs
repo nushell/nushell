@@ -27,7 +27,9 @@ fn data_and_header_has_different_size_doesnt_work() {
         )
     );
 
-    let table = NuTable::from(vec![create_row(5), create_row(5), create_row(5)]);
+    let mut table = NuTable::from(vec![create_row(5), create_row(5), create_row(5)]);
+    table.set_theme(theme::heavy());
+    table.set_structure(false, true, false);
 
     let table = table.draw(usize::MAX);
 
