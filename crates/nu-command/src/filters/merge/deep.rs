@@ -10,11 +10,15 @@ impl Command for MergeDeep {
     }
 
     fn description(&self) -> &str {
-        "TODO(rose)"
+        "Merge the input with a record or table, recursively merging values in matching columns."
     }
 
     fn extra_description(&self) -> &str {
-        r#"TODO(rose)"#
+        r#"How values are merged depends on their types.
+  - For scalar values like ints and strings, value from the argument simply
+    overwrites value from the input.
+  - For records, merging is similar to `merge`, happening recursively.
+  - For lists and tables, it is controlled by the `--strategy` flag."#
     }
 
     fn signature(&self) -> nu_protocol::Signature {
