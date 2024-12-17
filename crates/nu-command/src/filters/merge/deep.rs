@@ -43,8 +43,64 @@ impl Command for MergeDeep {
     }
 
     fn examples(&self) -> Vec<Example> {
-        // TODO(rose)
-        vec![]
+        vec![
+            Example {
+                example: "{a: 1, b: {c: 2}} | merge deep {b: {c: 3, d: 4}}",
+                description: "Merge two records",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_record(record! {
+                        "c" => Value::test_int(3),
+                        "d" => Value::test_int(4),
+                    })
+                })),
+            },
+            Example {
+                example: r#"[{columnA: 0, columnB: [{B1: 1}]}] | merge deep [{columnB: [{B2: 2}]}]"#,
+                description: "Merge two tables",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "columnA" => Value::test_int(0),
+                    "columnB" => Value::test_list(vec![
+                        Value::test_record(record! {
+                            "B1" => Value::test_int(1),
+                            "B2" => Value::test_int(2),
+                        })
+                    ]),
+                })])),
+            },
+            Example {
+                example: r#"{inner: [{a: 1}, {b: 2}]} | merge deep {inner: [{c: 3}]}"#,
+                description: "Merge two records and their inner tables",
+                result: Some(Value::test_record(record! {
+                    "inner" => Value::test_list(vec![
+                        Value::test_record(record! {
+                            "a" => Value::test_int(1),
+                            "c" => Value::test_int(3),
+                        }),
+                        Value::test_record(record! {
+                            "b" => Value::test_int(2),
+                        })
+                    ])
+                })),
+            },
+            Example {
+                example: r#"{inner: [{a: 1}, {b: 2}]} | merge deep {inner: [{c: 3}]} --strategy=append"#,
+                description: "Merge two records, appending their inner tables",
+                result: Some(Value::test_record(record! {
+                    "inner" => Value::test_list(vec![
+                        Value::test_record(record! {
+                            "a" => Value::test_int(1),
+                        }),
+                        Value::test_record(record! {
+                            "b" => Value::test_int(2),
+                        }),
+                        Value::test_record(record! {
+                            "c" => Value::test_int(3),
+                        }),
+                    ])
+                })),
+            },
+        ]
     }
 
     fn run(
