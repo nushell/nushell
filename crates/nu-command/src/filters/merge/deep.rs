@@ -48,12 +48,12 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "{a: 1, b: {c: 2}} | merge deep {b: {d: 4, e: 5}}",
+                example: "{a: 1, b: {c: 2, d: 3}} | merge deep {b: {d: 4, e: 5}}",
                 description: "Merge two records recursively",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
                     "b" => Value::test_record(record! {
-                        "c" => Value::test_int(3),
+                        "c" => Value::test_int(2),
                         "d" => Value::test_int(4),
                         "e" => Value::test_int(5),
                     })
