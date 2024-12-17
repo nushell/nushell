@@ -133,7 +133,7 @@ impl Command for MergeDeep {
 
         typecheck_merge(&input, &merge_value, head)?;
 
-        let merged = do_merge(input, merge_value, strategy, head, true)?;
+        let merged = do_merge(input, merge_value, strategy, head)?;
         Ok(merged.into_pipeline_data_with_metadata(metadata))
     }
 }

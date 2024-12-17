@@ -98,7 +98,7 @@ repeating this process with row 1, and so on."#
 
         typecheck_merge(&input, &merge_value, head)?;
 
-        let merged = do_merge(input, merge_value, MergeStrategy::Shallow, head, true)?;
+        let merged = do_merge(input, merge_value, MergeStrategy::Shallow, head)?;
         Ok(merged.into_pipeline_data_with_metadata(metadata))
     }
 }

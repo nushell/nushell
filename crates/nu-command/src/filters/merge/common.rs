@@ -56,7 +56,6 @@ pub(crate) fn do_merge(
     rhs: Value,
     strategy: MergeStrategy,
     span: Span,
-    top_level: bool,
 ) -> Result<Value, ShellError> {
     match (strategy, lhs, rhs) {
         // Propagate errors
@@ -66,7 +65,7 @@ pub(crate) fn do_merge(
             MergeStrategy::Shallow,
             Value::Record { val: lhs, .. },
             Value::Record { val: rhs, .. },
-        ) if top_level => Ok(Value::record(
+        ) => Ok(Value::record(
             merge_records(lhs.into_owned(), rhs.into_owned(), strategy, span)?,
             span,
         )),
@@ -146,22 +145,31 @@ fn merge_records(
     strategy: MergeStrategy,
     span: Span,
 ) -> Result<Record, ShellError> {
-    for (col, rval) in rhs.into_iter() {
-        // in order to both avoid cloning (possibly nested) record values and maintain the ordering of record keys, we can swap a temporary value into the source record.
-        // if we were to remove the value, the ordering would be messed up as we might not insert back into the original index
-        // it's okay to swap a temporary value in, since we know it will be replaced by the end of the function call
-        //
-        // use an error here instead of something like null so if this somehow makes it into the output, the bug will be immediately obvious
-        let failed_error = ShellError::NushellFailed {
-            msg: "Merge failed to properly replace internal temporary value".to_owned(),
-        };
+    match strategy {
+        MergeStrategy::Shallow => {
+            for (col, rval) in rhs.into_iter() {
+                lhs.insert(col, rval);
+            }
+        }
+        strategy => {
+            for (col, rval) in rhs.into_iter() {
+                // in order to both avoid cloning (possibly nested) record values and maintain the ordering of record keys, we can swap a temporary value into the source record.
+                // if we were to remove the value, the ordering would be messed up as we might not insert back into the original index
+                // it's okay to swap a temporary value in, since we know it will be replaced by the end of the function call
+                //
+                // use an error here instead of something like null so if this somehow makes it into the output, the bug will be immediately obvious
+                let failed_error = ShellError::NushellFailed {
+                    msg: "Merge failed to properly replace internal temporary value".to_owned(),
+                };
 
-        let value = match lhs.insert(&col, Value::error(failed_error, span)) {
-            Some(lval) => do_merge(lval, rval, strategy, span, false)?,
-            None => rval,
-        };
+                let value = match lhs.insert(&col, Value::error(failed_error, span)) {
+                    Some(lval) => do_merge(lval, rval, strategy, span)?,
+                    None => rval,
+                };
 
-        lhs.insert(col, value);
+                lhs.insert(col, value);
+            }
+        }
     }
     Ok(lhs)
 }
