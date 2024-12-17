@@ -1,6 +1,5 @@
 use nu_engine::command_prelude::*;
 
-// TODO(rose) no clone
 #[derive(Copy, Clone)]
 pub(crate) enum MergeStrategy {
     /// Key-value pairs present in lhs and rhs are overwritten by values in rhs
