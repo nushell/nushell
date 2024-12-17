@@ -6,6 +6,7 @@ mod join;
 mod parse;
 mod split;
 mod type_;
+mod self_;
 
 use nu_test_support::nu;
 use std::path::MAIN_SEPARATOR;
