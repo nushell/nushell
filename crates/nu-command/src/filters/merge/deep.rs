@@ -20,7 +20,7 @@ Scalar values (like numbers and strings) in the input are overwritten by the cor
 Records in the input are merged similarly to the merge command, but recursing rather than overwriting inner records.
 
 The way lists and tables are merged is controlled by the `--strategy` flag:
-  - table: Merges tables element-wise, similarly to the merge command. Non-table lists are not merged.
+  - table: Merges tables element-wise, similarly to the merge command. Non-table lists are overwritten.
   - overwrite: Lists and tables are overwritten with their corresponding value from the argument, similarly to scalars.
   - append: Lists and tables in the input are appended with the corresponding list from the argument.
   - prepend: Lists and tables in the input are prepended with the corresponding list from the argument."#
