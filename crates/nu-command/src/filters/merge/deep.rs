@@ -14,11 +14,16 @@ impl Command for MergeDeep {
     }
 
     fn extra_description(&self) -> &str {
-        r#"How values are merged depends on their types.
-  - For scalar values like ints and strings, value from the argument simply
-    overwrites value from the input.
-  - For records, merging is similar to `merge`, happening recursively.
-  - For lists and tables, it is controlled by the `--strategy` flag."#
+        r#"The way that key-value pairs which exist in both the input and the argument are merged depends on their types.
+
+Scalar values (like numbers and strings) in the input are overwritten by the corresponding value from the argument.
+Records in the input are merged similarly to the merge command, but recursing rather than overwriting inner records.
+
+The way lists and tables are merged is controlled by the `--strategy` flag:
+  - table: Merges tables element-wise, similarly to the merge command. Non-table lists are not merged.
+  - overwrite: Lists and tables are overwritten with their corresponding value from the argument, similarly to scalars.
+  - append: Lists and tables in the input are appended with the corresponding list from the argument.
+  - prepend: Lists and tables in the input are prepended with the corresponding list from the argument."#
     }
 
     fn signature(&self) -> nu_protocol::Signature {
