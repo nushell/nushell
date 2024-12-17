@@ -1,4 +1,6 @@
-# Sample Nushell Environment Config File
+# Nushell Environment Config File Documentation
+#
+# version = "0.100.1"
 #
 # version = "0.100.1"
 #
@@ -8,4 +10,4 @@
 
 # To pretty-print the in-shell documentation for Nushell's various configuration
 # settings, you can run:
-config nu --sample | nu-highlight | less -R
+config nu --doc | nu-highlight | less -R
