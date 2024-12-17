@@ -124,6 +124,16 @@ enum Resource {
     CloudUrl(String, CloudOptions, Span)
 }
 
+impl Resource {
+    fn file_type(&self) ->Option<PolarsFileType> {
+        let extension = match self {
+            Self::File(p, _) => p.extension().map(|s| s.to_string_lossy()),
+            Self::CloudUrl(p, _, _) => p.ri
+        }
+    }
+    
+}
+
 fn command(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
@@ -131,13 +141,12 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let spanned_file: Spanned<String> = call.req(0)?;
 
-    let resources = if let Some(cloud_options) = crate::cloud::build_cloud_options(plugin, &spanned_file.item)? {
+    let resource = if let Some(cloud_options) = crate::cloud::build_cloud_options(plugin, &spanned_file.item)? {
         Resource::CloudUrl(spanned_file.item, cloud_options, spanned_file.span)
     } else {
-
-    }
-    let file_path = expand_path_with(&spanned_file.item, engine.get_current_dir()?, true);
-    let file_span = spanned_file.span;
+        let path = expand_path_with(&spanned_file.item, engine.get_current_dir()?, true);
+        Resource::File(path, spanned_file.span)
+    };
 
     let type_option: Option<(String, Span)> = call
         .get_flag("type")?
@@ -187,7 +196,7 @@ fn from_parquet(
     file_span: Span,
 ) -> Result<Value, ShellError> {
 
-    let cloud_options = crate::cloud::build_cloud_options(plugin, file_path)
+    let cloud_options = crate::cloud::build_cloud_options(plugin, file_path)?;
     if !call.has_flag("eager")? {
         let file: String = call.req(0)?;
         let mut args = ScanArgsParquet::default();
