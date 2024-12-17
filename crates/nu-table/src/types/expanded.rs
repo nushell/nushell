@@ -424,7 +424,14 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
     table.set_index_style(get_key_style(&cfg));
     table.set_indent(cfg.opts.config.table.padding);
 
-    let out = TableOutput::new(table, false, true, count_rows);
+    let mut out = TableOutput::new(table, false, true, count_rows);
+
+    configure_table(
+        &mut out,
+        cfg.opts.config,
+        &cfg.opts.style_computer,
+        cfg.opts.mode,
+    );
 
     maybe_expand_table(out, cfg.opts.width)
         .map(|value| value.map(|value| CellOutput::clean(value, count_rows, false)))
