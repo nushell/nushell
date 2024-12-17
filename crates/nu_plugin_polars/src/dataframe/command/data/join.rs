@@ -178,8 +178,8 @@ impl PluginCommand for LazyJoin {
             },
             Example {
                 description: "Perform a full join of two dataframes and coalesce columns",
-                example: r#"let table1 = [[A B]; ["common" "common"] ["table1" "only"]] | polars into-df;
-                let table2 = [[A C]; ["common" "common"] ["table2" "only"]] | polars into-df;
+                example: r#"let table1 = [[A B]; ["common" "common"] ["table1" "only"]] | polars into-df
+                let table2 = [[A C]; ["common" "common"] ["table2" "only"]] | polars into-df
                 $table1 | polars join -f $table2 --coalesce-columns A A"#,
                 result: Some(
                     NuDataFrame::new(
