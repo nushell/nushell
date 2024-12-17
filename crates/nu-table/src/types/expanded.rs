@@ -8,9 +8,9 @@ use tabled::grid::config::Position;
 
 use crate::{
     common::{
-        check_value, create_nu_table_config, error_sign, get_header_style, get_index_style,
-        load_theme, nu_value_to_string, nu_value_to_string_clean, nu_value_to_string_colored,
-        wrap_text, NuText, StringResult, TableResult, INDEX_COLUMN_NAME,
+        check_value, configure_table, error_sign, get_header_style, get_index_style, load_theme,
+        nu_value_to_string, nu_value_to_string_clean, nu_value_to_string_colored, wrap_text,
+        NuText, StringResult, TableResult, INDEX_COLUMN_NAME,
     },
     string_width,
     types::has_index,
@@ -47,12 +47,19 @@ impl ExpandedTable {
     pub fn build_list(self, vals: &[Value], opts: TableOpts<'_>) -> StringResult {
         let cfg = Cfg { opts, format: self };
         let output = expand_list(vals, cfg.clone())?;
-        let output = match output {
+        let mut output = match output {
             Some(out) => out,
             None => return Ok(None),
         };
 
-        maybe_expand_table(output, cfg.opts.width, &cfg.opts)
+        configure_table(
+            &mut output,
+            cfg.opts.config,
+            &cfg.opts.style_computer,
+            cfg.opts.mode,
+        );
+
+        maybe_expand_table(output, cfg.opts.width)
     }
 }
 
@@ -200,10 +207,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         }
 
         let mut table = NuTable::from(data);
-        table.set_indent(
-            cfg.opts.config.table.padding.left,
-            cfg.opts.config.table.padding.right,
-        );
+        table.set_indent(cfg.opts.config.table.padding);
         table.set_index_style(get_index_style(&cfg.opts.style_computer));
         set_data_styles(&mut table, data_styles);
 
@@ -363,10 +367,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     let mut table = NuTable::from(data);
     table.set_index_style(get_index_style(&cfg.opts.style_computer));
     table.set_header_style(get_header_style(&cfg.opts.style_computer));
-    table.set_indent(
-        cfg.opts.config.table.padding.left,
-        cfg.opts.config.table.padding.right,
-    );
+    table.set_indent(cfg.opts.config.table.padding);
     set_data_styles(&mut table, data_styles);
 
     Ok(Some(TableOutput::new(table, true, with_index, rows_count)))
@@ -421,14 +422,11 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
 
     let mut table = NuTable::from(data);
     table.set_index_style(get_key_style(&cfg));
-    table.set_indent(
-        cfg.opts.config.table.padding.left,
-        cfg.opts.config.table.padding.right,
-    );
+    table.set_indent(cfg.opts.config.table.padding);
 
     let out = TableOutput::new(table, false, true, count_rows);
 
-    maybe_expand_table(out, cfg.opts.width, &cfg.opts)
+    maybe_expand_table(out, cfg.opts.width)
         .map(|value| value.map(|value| CellOutput::clean(value, count_rows, false)))
 }
 
@@ -446,9 +444,9 @@ fn expand_value(value: &Value, width: usize, cfg: &Cfg<'_>) -> CellResult {
             let table = expand_list(vals, inner_cfg)?;
 
             match table {
-                Some(out) => {
-                    let cfg = create_table_cfg(cfg, &out);
-                    let value = out.table.draw(cfg, width);
+                Some(mut out) => {
+                    table_apply_config(&mut out, cfg);
+                    let value = out.table.draw(width);
                     match value {
                         Some(value) => Ok(Some(CellOutput::clean(value, out.count_rows, true))),
                         None => Ok(None),
@@ -539,7 +537,7 @@ fn expand_entry(item: &Value, cfg: Cfg<'_>) -> CellOutput {
             let inner_cfg = cfg_expand_next_level(cfg.clone(), span);
             let table = expand_list(vals, inner_cfg);
 
-            let out = match table {
+            let mut out = match table {
                 Ok(Some(out)) => out,
                 _ => {
                     let value = nu_value_to_string(item, cfg.opts.config, &cfg.opts.style_computer);
@@ -547,8 +545,9 @@ fn expand_entry(item: &Value, cfg: Cfg<'_>) -> CellOutput {
                 }
             };
 
-            let table_config = create_table_cfg(&cfg, &out);
-            let table = out.table.draw(table_config, usize::MAX);
+            table_apply_config(&mut out, &cfg);
+
+            let table = out.table.draw(usize::MAX);
             match table {
                 Some(table) => CellOutput::clean(table, out.count_rows, false),
                 None => {
@@ -592,20 +591,18 @@ fn list_to_string(
     buf
 }
 
-fn maybe_expand_table(out: TableOutput, term_width: usize, opts: &TableOpts<'_>) -> StringResult {
-    let mut table_config =
-        create_nu_table_config(opts.config, &opts.style_computer, &out, false, opts.mode);
-    let total_width = out.table.total_width(&table_config);
+fn maybe_expand_table(mut out: TableOutput, term_width: usize) -> StringResult {
+    let total_width = out.table.total_width();
     if total_width < term_width {
         const EXPAND_THRESHOLD: f32 = 0.80;
         let used_percent = total_width as f32 / term_width as f32;
         let need_expansion = total_width < term_width && used_percent > EXPAND_THRESHOLD;
         if need_expansion {
-            table_config.expand = true;
+            out.table.set_strategy(true);
         }
     }
 
-    let table = out.table.draw(table_config, term_width);
+    let table = out.table.draw(term_width);
 
     Ok(table)
 }
@@ -616,12 +613,11 @@ fn set_data_styles(table: &mut NuTable, styles: HashMap<Position, TextStyle>) {
     }
 }
 
-fn create_table_cfg(cfg: &Cfg<'_>, out: &TableOutput) -> crate::NuTableConfig {
-    create_nu_table_config(
+fn table_apply_config(out: &mut TableOutput, cfg: &Cfg<'_>) {
+    configure_table(
+        out,
         cfg.opts.config,
         &cfg.opts.style_computer,
-        out,
-        false,
         cfg.opts.mode,
     )
 }

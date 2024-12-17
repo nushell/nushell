@@ -2,7 +2,7 @@ use std::{cmp::min, collections::HashMap};
 
 use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
-use nu_protocol::TrimStrategy;
+use nu_protocol::{TableIndent, TrimStrategy};
 use nu_utils::strip_ansi_unlikely;
 
 use tabled::{
@@ -40,21 +40,8 @@ pub struct NuTable {
     data: NuRecords,
     styles: Styles,
     alignments: Alignments,
-    indent: (usize, usize),
+    config: TableConfig,
 }
-
-#[derive(Debug, Default, Clone)]
-struct TableConfig<Value> {
-    data: Value,
-    index: Value,
-    header: Value,
-    columns: HashMap<usize, Value>,
-    cells: HashMap<Position, Value>,
-}
-
-type Alignments = TableConfig<AlignmentHorizontal>;
-
-type Styles = TableConfig<Color>;
 
 impl NuTable {
     /// Creates an empty [`NuTable`] instance.
@@ -62,13 +49,21 @@ impl NuTable {
         Self {
             data: VecRecords::new(vec![vec![Text::default(); count_columns]; count_rows]),
             styles: Styles::default(),
-            indent: (1, 1),
             alignments: Alignments {
                 data: AlignmentHorizontal::Left,
                 index: AlignmentHorizontal::Right,
                 header: AlignmentHorizontal::Center,
                 columns: HashMap::default(),
                 cells: HashMap::default(),
+            },
+            config: TableConfig {
+                theme: TableTheme::basic(),
+                trim: TrimStrategy::truncate(None),
+                structure: TableStructure::new(false, false, false),
+                indent: TableIndent::new(1, 1),
+                header_on_border: false,
+                expand: false,
+                border_color: None,
             },
         }
     }
@@ -151,8 +146,32 @@ impl NuTable {
         self.alignments.data = convert_alignment(style.alignment);
     }
 
-    pub fn set_indent(&mut self, left: usize, right: usize) {
-        self.indent = (left, right);
+    pub fn set_indent(&mut self, indent: TableIndent) {
+        self.config.indent = indent;
+    }
+
+    pub fn set_theme(&mut self, theme: TableTheme) {
+        self.config.theme = theme;
+    }
+
+    pub fn set_structure(&mut self, index: bool, header: bool, footer: bool) {
+        self.config.structure = TableStructure::new(index, header, footer);
+    }
+
+    pub fn set_border_header(&mut self, on: bool) {
+        self.config.header_on_border = on;
+    }
+
+    pub fn set_trim(&mut self, strategy: TrimStrategy) {
+        self.config.trim = strategy;
+    }
+
+    pub fn set_strategy(&mut self, expand: bool) {
+        self.config.expand = expand;
+    }
+
+    pub fn set_border_color(&mut self, color: Style) {
+        self.config.border_color = (!color.is_plain()).then_some(color);
     }
 
     pub fn get_records_mut(&mut self) -> &mut NuRecords {
@@ -162,21 +181,15 @@ impl NuTable {
     /// Converts a table to a String.
     ///
     /// It returns None in case where table cannot be fit to a terminal width.
-    pub fn draw(self, config: NuTableConfig, termwidth: usize) -> Option<String> {
-        build_table(
-            self.data,
-            config,
-            self.alignments,
-            self.styles,
-            termwidth,
-            self.indent,
-        )
+    pub fn draw(self, termwidth: usize) -> Option<String> {
+        build_table(self, termwidth)
     }
 
     /// Return a total table width.
-    pub fn total_width(&self, config: &NuTableConfig) -> usize {
-        let config = get_config(&config.theme, false, None);
-        let widths = build_width(&self.data, self.indent.0 + self.indent.1);
+    pub fn total_width(&self) -> usize {
+        let config = create_config(&self.config.theme, false, None);
+        let pad = indent_sum(self.config.indent);
+        let widths = build_width(&self.data, pad);
         get_total_width2(&widths, &config)
     }
 }
@@ -190,33 +203,31 @@ impl From<Vec<Vec<Text<String>>>> for NuTable {
     }
 }
 
+type Alignments = CellConfiguration<AlignmentHorizontal>;
+
+type Styles = CellConfiguration<Color>;
+
+#[derive(Debug, Default, Clone)]
+struct CellConfiguration<Value> {
+    data: Value,
+    index: Value,
+    header: Value,
+    columns: HashMap<usize, Value>,
+    cells: HashMap<Position, Value>,
+}
+
 #[derive(Debug, Clone)]
-pub struct NuTableConfig {
-    pub theme: TableTheme,
-    pub trim: TrimStrategy,
-    pub split_color: Option<Style>,
-    pub expand: bool,
-    pub with_index: bool,
-    pub with_header: bool,
-    pub with_footer: bool,
-    pub header_on_border: bool,
+pub struct TableConfig {
+    theme: TableTheme,
+    trim: TrimStrategy,
+    border_color: Option<Style>,
+    expand: bool,
+    structure: TableStructure,
+    header_on_border: bool,
+    indent: TableIndent,
 }
 
-impl Default for NuTableConfig {
-    fn default() -> Self {
-        Self {
-            theme: TableTheme::basic(),
-            trim: TrimStrategy::truncate(None),
-            with_header: false,
-            with_index: false,
-            with_footer: false,
-            expand: false,
-            split_color: None,
-            header_on_border: false,
-        }
-    }
-}
-
+#[derive(Debug, Clone)]
 struct TableStructure {
     with_index: bool,
     with_header: bool,
@@ -233,64 +244,62 @@ impl TableStructure {
     }
 }
 
-fn build_table(
-    mut data: NuRecords,
-    cfg: NuTableConfig,
-    alignments: Alignments,
-    styles: Styles,
-    termwidth: usize,
-    indent: (usize, usize),
-) -> Option<String> {
-    if data.count_columns() == 0 || data.count_rows() == 0 {
+fn build_table(mut t: NuTable, termwidth: usize) -> Option<String> {
+    if t.count_columns() == 0 || t.count_rows() == 0 {
         return Some(String::new());
     }
 
-    let pad = indent.0 + indent.1;
-    let widths = maybe_truncate_columns(&mut data, &cfg, termwidth, pad);
+    let widths = table_truncate(&mut t, termwidth)?;
+    table_insert_footer(&mut t);
+    draw_table(t, widths, termwidth)
+}
+
+fn table_insert_footer(t: &mut NuTable) {
+    if t.config.structure.with_header && t.config.structure.with_footer {
+        duplicate_row(&mut t.data, 0);
+    }
+}
+
+fn table_truncate(t: &mut NuTable, termwidth: usize) -> Option<Vec<usize>> {
+    let pad = t.config.indent.left + t.config.indent.right;
+    let widths = maybe_truncate_columns(&mut t.data, &t.config, termwidth, pad);
     if widths.is_empty() {
         return None;
     }
 
-    if cfg.with_header && cfg.with_footer {
-        duplicate_row(&mut data, 0);
-    }
-
-    draw_table(data, alignments, styles, widths, cfg, termwidth, indent)
+    Some(widths)
 }
 
-fn draw_table(
-    data: NuRecords,
-    alignments: Alignments,
-    styles: Styles,
-    widths: Vec<usize>,
-    cfg: NuTableConfig,
-    termwidth: usize,
-    indent: (usize, usize),
-) -> Option<String> {
-    let structure = get_table_structure(&data, &cfg);
-    let sep_color = cfg.split_color;
-    let border_header = structure.with_header && cfg.header_on_border;
+fn draw_table(t: NuTable, widths: Vec<usize>, termwidth: usize) -> Option<String> {
+    let structure = get_table_structure(&t.data, &t.config);
+    let sep_color = t.config.border_color;
+    let border_header = structure.with_header && t.config.header_on_border;
 
-    let data: Vec<Vec<_>> = data.into();
+    // TODO: Optimize in tabled
+    let data: Vec<Vec<_>> = t.data.into();
     let mut table = Builder::from(data).build();
 
-    set_indent(&mut table, indent.0, indent.1);
-    load_theme(&mut table, &cfg.theme, &structure, sep_color);
-    align_table(&mut table, alignments, &structure);
-    colorize_table(&mut table, styles, &structure);
+    set_indent(&mut table, t.config.indent);
+    load_theme(&mut table, &t.config.theme, &structure, sep_color);
+    align_table(&mut table, t.alignments, &structure);
+    colorize_table(&mut table, t.styles, &structure);
 
-    let pad = indent.0 + indent.1;
-    let width_ctrl = WidthCtrl::new(widths, cfg, termwidth, pad);
+    let pad = indent_sum(t.config.indent);
+    let width_ctrl = WidthCtrl::new(widths, t.config, termwidth, pad);
 
     adjust_table(&mut table, width_ctrl, border_header, structure.with_footer);
 
     table_to_string(table, termwidth)
 }
 
-fn get_table_structure(data: &VecRecords<Text<String>>, cfg: &NuTableConfig) -> TableStructure {
-    let with_index = cfg.with_index;
-    let with_header = cfg.with_header && data.count_rows() > 1;
-    let with_footer = with_header && cfg.with_footer;
+fn indent_sum(indent: TableIndent) -> usize {
+    indent.left + indent.right
+}
+
+fn get_table_structure(data: &VecRecords<Text<String>>, cfg: &TableConfig) -> TableStructure {
+    let with_index = cfg.structure.with_index;
+    let with_header = cfg.structure.with_header && data.count_rows() > 1;
+    let with_footer = with_header && cfg.structure.with_footer;
 
     TableStructure::new(with_index, with_header, with_footer)
 }
@@ -307,8 +316,8 @@ fn adjust_table(table: &mut Table, width_ctrl: WidthCtrl, border_header: bool, w
     }
 }
 
-fn set_indent(table: &mut Table, left: usize, right: usize) {
-    table.with(Padding::new(left, right, 0, 0));
+fn set_indent(table: &mut Table, indent: TableIndent) {
+    table.with(Padding::new(indent.left, indent.right, 0, 0));
 }
 
 fn set_border_head(table: &mut Table, wctrl: WidthCtrl) {
@@ -377,13 +386,13 @@ fn table_to_string(table: Table, termwidth: usize) -> Option<String> {
 
 struct WidthCtrl {
     width: Vec<usize>,
-    cfg: NuTableConfig,
+    cfg: TableConfig,
     width_max: usize,
     pad: usize,
 }
 
 impl WidthCtrl {
-    fn new(width: Vec<usize>, cfg: NuTableConfig, max: usize, pad: usize) -> Self {
+    fn new(width: Vec<usize>, cfg: TableConfig, max: usize, pad: usize) -> Self {
         Self {
             width,
             cfg,
@@ -404,7 +413,7 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
 
         let need_truncation = total_width > self.width_max;
         if need_truncation {
-            let has_header = self.cfg.with_header && rec.count_rows() > 1;
+            let has_header = self.cfg.structure.with_header && rec.count_rows() > 1;
             let as_head = has_header && self.cfg.header_on_border;
 
             let trim = TableTrim::new(self.width, self.width_max, self.cfg.trim, as_head, self.pad);
@@ -654,14 +663,14 @@ fn load_theme(
 
 fn maybe_truncate_columns(
     data: &mut NuRecords,
-    cfg: &NuTableConfig,
+    cfg: &TableConfig,
     termwidth: usize,
     pad: usize,
 ) -> Vec<usize> {
     const TERMWIDTH_THRESHOLD: usize = 120;
 
     let preserve_content = termwidth > TERMWIDTH_THRESHOLD;
-    let has_header = cfg.with_header && data.count_rows() > 1;
+    let has_header = cfg.structure.with_header && data.count_rows() > 1;
     let is_header_on_border = has_header && cfg.header_on_border;
 
     let truncate = if is_header_on_border {
@@ -685,7 +694,7 @@ fn truncate_columns_by_content(
     const MIN_ACCEPTABLE_WIDTH: usize = 3;
     const TRAILING_COLUMN_WIDTH: usize = 5;
 
-    let config = get_config(theme, false, None);
+    let config = create_config(theme, false, None);
     let mut widths = build_width(&*data, pad);
     let total_width = get_total_width2(&widths, &config);
     if total_width <= termwidth {
@@ -765,7 +774,7 @@ fn truncate_columns_by_columns(
     let acceptable_width = 10 + pad;
     let trailing_column_width = 3 + pad;
 
-    let config = get_config(theme, false, None);
+    let config = create_config(theme, false, None);
     let mut widths = build_width(&*data, pad);
     let total_width = get_total_width2(&widths, &config);
     if total_width <= termwidth {
@@ -836,7 +845,7 @@ fn truncate_columns_by_head(
 ) -> Vec<usize> {
     const TRAILING_COLUMN_WIDTH: usize = 5;
 
-    let config = get_config(theme, false, None);
+    let config = create_config(theme, false, None);
     let mut widths = build_width(&*data, pad);
     let total_width = get_total_width2(&widths, &config);
     if total_width <= termwidth {
@@ -912,7 +921,7 @@ fn get_total_width2(widths: &[usize], cfg: &ColoredConfig) -> usize {
     total + countv + margin.left.size + margin.right.size
 }
 
-fn get_config(theme: &TableTheme, with_header: bool, color: Option<Style>) -> ColoredConfig {
+fn create_config(theme: &TableTheme, with_header: bool, color: Option<Style>) -> ColoredConfig {
     let structure = TableStructure::new(false, with_header, false);
     let mut table = Table::new([[""]]);
     load_theme(&mut table, theme, &structure, color);

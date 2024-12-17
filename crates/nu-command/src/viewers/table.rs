@@ -18,8 +18,8 @@ use nu_protocol::{
     ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode, ValueIterator,
 };
 use nu_table::{
-    common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuRecordsValue,
-    NuTable, StringResult, TableOpts, TableOutput,
+    common::configure_table, CollapsedTable, ExpandedTable, JustTable, NuRecordsValue, NuTable,
+    StringResult, TableOpts, TableOutput,
 };
 use nu_utils::{get_ls_colors, terminal_size};
 
@@ -1070,13 +1070,13 @@ fn create_empty_placeholder(
     let data = vec![vec![cell]];
     let mut table = NuTable::from(data);
     table.set_data_style(TextStyle::default().dimmed());
-    let out = TableOutput::from_table(table, false, false);
+    let mut out = TableOutput::from_table(table, false, false);
 
     let style_computer = &StyleComputer::from_config(engine_state, stack);
-    let config = create_nu_table_config(&config, style_computer, &out, false, TableMode::default());
+    configure_table(&mut out, &config, style_computer, TableMode::default());
 
     out.table
-        .draw(config, termwidth)
+        .draw(termwidth)
         .expect("Could not create empty table placeholder")
 }
 

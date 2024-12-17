@@ -3,9 +3,7 @@ use nu_protocol::{Config, FooterMode, ShellError, Span, TableMode, TrimStrategy,
 
 use terminal_size::{terminal_size, Height, Width};
 
-use crate::{
-    clean_charset, colorize_space_str, string_wrap, NuTableConfig, TableOutput, TableTheme,
-};
+use crate::{clean_charset, colorize_space_str, string_wrap, TableOutput, TableTheme};
 
 pub type NuText = (String, TextStyle);
 pub type TableResult = Result<Option<TableOutput>, ShellError>;
@@ -13,30 +11,31 @@ pub type StringResult = Result<Option<String>, ShellError>;
 
 pub const INDEX_COLUMN_NAME: &str = "index";
 
-pub fn create_nu_table_config(
+pub fn configure_table(
+    out: &mut TableOutput,
     config: &Config,
     comp: &StyleComputer,
-    out: &TableOutput,
-    expand: bool,
     mode: TableMode,
-) -> NuTableConfig {
+) {
+    let with_footer = is_footer_needed(config, out);
+    let theme = load_theme(mode);
+
+    out.table.set_theme(theme);
+    out.table
+        .set_structure(out.with_index, out.with_header, with_footer);
+    out.table.set_trim(config.table.trim.clone());
+    out.table
+        .set_border_header(config.table.header_on_separator);
+    out.table.set_border_color(lookup_separator_color(comp));
+}
+
+fn is_footer_needed(config: &Config, out: &TableOutput) -> bool {
     let mut count_rows = out.table.count_rows();
     if config.table.footer_inheritance {
         count_rows = out.count_rows;
     }
 
-    let with_footer = with_footer(config, out.with_header, count_rows);
-
-    NuTableConfig {
-        theme: load_theme(mode),
-        with_footer,
-        with_index: out.with_index,
-        with_header: out.with_header,
-        split_color: Some(lookup_separator_color(comp)),
-        trim: config.table.trim.clone(),
-        header_on_border: config.table.header_on_separator,
-        expand,
-    }
+    with_footer(config, out.with_header, count_rows)
 }
 
 pub fn nu_value_to_string_colored(val: &Value, cfg: &Config, comp: &StyleComputer) -> String {

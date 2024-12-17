@@ -5,7 +5,7 @@ use nu_protocol::{Config, Record, ShellError, Value};
 use crate::{
     clean_charset, colorize_space,
     common::{
-        check_value, create_nu_table_config, get_empty_style, get_header_style, get_index_style,
+        check_value, configure_table, get_empty_style, get_header_style, get_index_style,
         get_value_style, nu_value_to_string_colored, NuText, INDEX_COLUMN_NAME,
     },
     types::has_index,
@@ -30,15 +30,12 @@ fn list_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, Sh
         None => return Ok(None),
     };
 
-    out.table.set_indent(
-        opts.config.table.padding.left,
-        opts.config.table.padding.right,
-    );
+    out.table.set_indent(opts.config.table.padding);
 
     colorize_space(out.table.get_records_mut(), &opts.style_computer);
 
-    let config = create_nu_table_config(opts.config, &opts.style_computer, &out, false, opts.mode);
-    let table = out.table.draw(config, opts.width);
+    configure_table(&mut out, opts.config, &opts.style_computer, opts.mode);
+    let table = out.table.draw(opts.width);
 
     Ok(table)
 }
@@ -60,15 +57,11 @@ fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
 
     let mut table = NuTable::from(data);
     table.set_index_style(TextStyle::default_field());
-    table.set_indent(
-        opts.config.table.padding.left,
-        opts.config.table.padding.right,
-    );
+    table.set_indent(opts.config.table.padding);
 
-    let out = TableOutput::from_table(table, false, true);
-    let table_config =
-        create_nu_table_config(opts.config, &opts.style_computer, &out, false, opts.mode);
-    let table = out.table.draw(table_config, opts.width);
+    let mut out = TableOutput::from_table(table, false, true);
+    configure_table(&mut out, opts.config, &opts.style_computer, opts.mode);
+    let table = out.table.draw(opts.width);
 
     Ok(table)
 }

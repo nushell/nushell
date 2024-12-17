@@ -12,8 +12,11 @@ pub use expanded::ExpandedTable;
 pub use general::JustTable;
 
 pub struct TableOutput {
+    /// A table structure.
     pub table: NuTable,
+    /// A flag whether a header was present in the table.
     pub with_header: bool,
+    /// A flag whether a index was present in the table.
     pub with_index: bool,
     /// The value may be bigger then table.count_rows(),
     /// Specifically in case of expanded table we collect the whole structure size here.

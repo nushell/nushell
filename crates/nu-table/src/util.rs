@@ -69,9 +69,11 @@ pub fn clean_charset(text: &str) -> String {
             continue;
         }
 
-        if c < ' ' {
-            continue;
-        }
+        // note: Overall maybe we shall delete this check?
+        // it was made in order to cope with emojie issue.
+        // if c < ' ' && c != '\u{1b}' {
+        //    continue;
+        // }
 
         buf.push(c);
     }
