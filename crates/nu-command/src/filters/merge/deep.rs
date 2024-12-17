@@ -26,8 +26,6 @@ impl Command for MergeDeep {
             .input_output_types(vec![
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
-                // actually a non-table list of records, but there is no way to express this
-                (Type::list(Type::Any), Type::list(Type::Any)),
             ])
             .required(
                 "value",
