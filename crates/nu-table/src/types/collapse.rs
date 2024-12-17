@@ -1,6 +1,6 @@
 use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Record, Value};
+use nu_protocol::{Config, Value};
 use nu_utils::SharedCow;
 
 use crate::{
@@ -51,7 +51,7 @@ fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComp
 
                         (header, val)
                     })
-                    .collect::<Record>(),
+                    .collect(),
             );
         }
         Value::List { vals, .. } => {

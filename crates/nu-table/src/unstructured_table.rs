@@ -60,10 +60,7 @@ fn build_table(
         DimensionPriority::Last,
     ));
 
-    // color_config closures for "separator" are just given a null.
-    let color = style.compute("separator", &Value::nothing(Span::unknown()));
-    let color = color.paint(" ").to_string();
-    if let Ok(color) = Color::try_from(color) {
+    if let Some(color) = get_border_color(style) {
         if !is_color_empty(&color) {
             return build_table_with_border_color(table, color);
         }
@@ -347,4 +344,12 @@ impl<R, D> TableOption<R, CompactMultilineConfig, D> for SetBorderColor {
         let borders = Borders::filled(self.0);
         cfg.set_borders_color(borders);
     }
+}
+
+fn get_border_color(style: &StyleComputer<'_>) -> Option<Color> {
+    // color_config closures for "separator" are just given a null.
+    let color = style.compute("separator", &Value::nothing(Span::unknown()));
+    let color = color.paint(" ").to_string();
+    let color = Color::try_from(color);
+    color.ok()
 }
