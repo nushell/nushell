@@ -21,7 +21,7 @@ use nu_table::{
     common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuRecordsValue,
     NuTable, StringResult, TableOpts, TableOutput,
 };
-use nu_utils::get_ls_colors;
+use nu_utils::{get_ls_colors, terminal_size};
 
 use lscolors::{LsColors, Style};
 use url::Url;
@@ -1163,7 +1163,7 @@ fn get_cwd(engine_state: &EngineState, stack: &mut Stack) -> ShellResult<Option<
 fn get_table_width(width_param: Option<i64>) -> usize {
     if let Some(col) = width_param {
         col as usize
-    } else if let Ok((w, _h)) = crossterm::terminal::size() {
+    } else if let Ok((w, _h)) = terminal_size() {
         w as usize
     } else {
         DEFAULT_TABLE_WIDTH
