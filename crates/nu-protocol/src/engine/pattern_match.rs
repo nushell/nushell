@@ -128,7 +128,7 @@ impl Matcher for Pattern {
                             false
                         }
                     }
-                    Expr::String(x) => {
+                    Expr::String(x) | Expr::RawString(x) => {
                         if let Value::String { val, .. } = &value {
                             x == val
                         } else {

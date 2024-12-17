@@ -49,7 +49,10 @@ def iter_scan [] {
     let scanned = ([1 2 3] | iter scan 0 {|x, y| $x + $y})
     assert equal $scanned [0, 1, 3, 6]
 
-    let scanned = ([a b c d] | iter scan "" {|x, y| [$x, $y] | str join} -n)
+    let scanned = ([a b c d] | iter scan "" {|it, acc| [$acc, $it] | str join} -n)
+    assert equal $scanned ["a" "ab" "abc" "abcd"]
+
+    let scanned = ([a b c d] | iter scan "" {|it, acc| append $it | str join} -n)
     assert equal $scanned ["a" "ab" "abc" "abcd"]
 }
 

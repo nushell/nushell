@@ -2,7 +2,7 @@ use nu_test_support::nu;
 
 #[test]
 fn timeit_show_stdout() {
-    let actual = nu!("let t = timeit nu --testbin cococo abcdefg");
+    let actual = nu!("let t = timeit { nu --testbin cococo abcdefg }");
     assert_eq!(actual.out, "abcdefg");
 }
 

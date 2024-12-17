@@ -24,8 +24,8 @@ use nu_cli::gather_parent_env_vars;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, report_shell_error, ByteStream, Config, IntoValue, PipelineData,
-    ShellError, Span, Spanned, Value,
+    engine::EngineState, record, report_shell_error, ByteStream, Config, IntoValue, PipelineData,
+    ShellError, Span, Spanned, Type, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -147,22 +147,43 @@ fn main() -> Result<()> {
 
     let mut default_nu_lib_dirs_path = nushell_config_path.clone();
     default_nu_lib_dirs_path.push("scripts");
-    engine_state.add_env_var(
-        "NU_LIB_DIRS".to_string(),
+    // env.NU_LIB_DIRS to be replaced by constant (below) - Eventual deprecation
+    // but an empty list for now to allow older code to work
+    engine_state.add_env_var("NU_LIB_DIRS".to_string(), Value::test_list(vec![]));
+
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    let var_id = working_set.add_variable(
+        b"$NU_LIB_DIRS".into(),
+        Span::unknown(),
+        Type::List(Box::new(Type::String)),
+        false,
+    );
+    working_set.set_variable_const_val(
+        var_id,
         Value::test_list(vec![
             Value::test_string(default_nu_lib_dirs_path.to_string_lossy()),
             Value::test_string(default_nushell_completions_path.to_string_lossy()),
         ]),
     );
+    engine_state.merge_delta(working_set.render())?;
 
     let mut default_nu_plugin_dirs_path = nushell_config_path;
     default_nu_plugin_dirs_path.push("plugins");
-    engine_state.add_env_var(
-        "NU_PLUGIN_DIRS".to_string(),
+    engine_state.add_env_var("NU_PLUGIN_DIRS".to_string(), Value::test_list(vec![]));
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    let var_id = working_set.add_variable(
+        b"$NU_PLUGIN_DIRS".into(),
+        Span::unknown(),
+        Type::List(Box::new(Type::String)),
+        false,
+    );
+    working_set.set_variable_const_val(
+        var_id,
         Value::test_list(vec![Value::test_string(
             default_nu_plugin_dirs_path.to_string_lossy(),
         )]),
     );
+    engine_state.merge_delta(working_set.render())?;
     // End: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
 
     // This is the real secret sauce to having an in-memory sqlite db. You must
@@ -264,6 +285,11 @@ fn main() -> Result<()> {
     );
     perf!("$env.config setup", start_time, use_color);
 
+    engine_state.add_env_var(
+        "ENV_CONVERSIONS".to_string(),
+        Value::test_record(record! {}),
+    );
+
     start_time = std::time::Instant::now();
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
         let span = include_path.span;
@@ -273,7 +299,15 @@ fn main() -> Result<()> {
             .map(|x| Value::string(x.trim().to_string(), span))
             .collect();
 
-        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::list(vals, span));
+        let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+        let var_id = working_set.add_variable(
+            b"$NU_LIB_DIRS".into(),
+            span,
+            Type::List(Box::new(Type::String)),
+            false,
+        );
+        working_set.set_variable_const_val(var_id, Value::list(vals, span));
+        engine_state.merge_delta(working_set.render())?;
     }
     perf!("NU_LIB_DIRS setup", start_time, use_color);
 
@@ -286,9 +320,29 @@ fn main() -> Result<()> {
         "NU_VERSION".to_string(),
         Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
     );
-
     // Add SHLVL if interactive
     if engine_state.is_interactive {
+        engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
+        engine_state.add_env_var(
+            "PROMPT_INDICATOR_VI_NORMAL".to_string(),
+            Value::test_string("> "),
+        );
+        engine_state.add_env_var(
+            "PROMPT_INDICATOR_VI_INSERT".to_string(),
+            Value::test_string(": "),
+        );
+        engine_state.add_env_var(
+            "PROMPT_MULTILINE_INDICATOR".to_string(),
+            Value::test_string("::: "),
+        );
+        engine_state.add_env_var(
+            "TRANSIENT_PROMPT_MULTILINE_INDICATOR".to_string(),
+            Value::test_string(""),
+        );
+        engine_state.add_env_var(
+            "TRANSIENT_PROMPT_COMMAND_RIGHT".to_string(),
+            Value::test_string(""),
+        );
         let mut shlvl = engine_state
             .get_env_var("SHLVL")
             .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
