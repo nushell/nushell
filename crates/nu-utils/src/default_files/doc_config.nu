@@ -421,7 +421,7 @@ $env.config.hooks.command_not_found = []
 
 # The env_change hook accepts a record with environment variable names as keys, and a list
 # of hooks to run when that variable changes
-$env.config.hooks.env_change = {}          # When a specified environment variable changes
+$env.config.hooks.env_change = {}
 
 # -----------
 # Keybindings
@@ -476,7 +476,9 @@ $env.config.menus ++= [
         type: {
             layout: description
             columns: 4
-            col_width: 20 # Optional value. If missing all the screen width is used to calculate column width
+            # col_width is an optional value. If missing, the entire screen width is used to
+            # calculate the column width
+            col_width: 20
             col_padding: 2
             selection_rows: 4
             description_rows: 10
