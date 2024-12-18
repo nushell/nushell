@@ -22,7 +22,6 @@ impl Command for ConfigNu {
                 "Print a commented `config.nu` with documentation instead.",
                 Some('s'),
             )
-        // TODO: Signature narrower than what run actually supports theoretically
     }
 
     fn description(&self) -> &str {

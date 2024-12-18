@@ -3,6 +3,7 @@ mod casing;
 mod deansi;
 pub mod emoji;
 pub mod filesystem;
+pub mod flatten_json;
 pub mod locale;
 mod quoting;
 mod shared_cow;
@@ -20,6 +21,7 @@ pub use deansi::{
     strip_ansi_likely, strip_ansi_string_likely, strip_ansi_string_unlikely, strip_ansi_unlikely,
 };
 pub use emoji::contains_emoji;
+pub use flatten_json::JsonFlattener;
 pub use quoting::{escape_quote_string, needs_quoting};
 pub use shared_cow::SharedCow;
 

@@ -3736,6 +3736,7 @@ dependencies = [
  "nix 0.29.0",
  "num-format",
  "serde",
+ "serde_json",
  "strip-ansi-escapes",
  "sys-locale",
  "unicase",
