@@ -21,10 +21,10 @@ nu-protocol = { path = "../nu-protocol", version = "0.100.1", default-features =
 nu-utils = { path = "../nu-utils", version = "0.100.1", default-features = false }
 
 itertools = { workspace = true }
-shadow-rs = { version = "0.36", default-features = false }
+shadow-rs = { version = "0.37", default-features = false }
 
 [build-dependencies]
-shadow-rs = { version = "0.36", default-features = false }
+shadow-rs = { version = "0.37", default-features = false }
 
 [features]
 default = ["os"]
