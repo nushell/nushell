@@ -60,4 +60,9 @@ $env.config.color_config = {
     shape_variable: purple
     shape_vardecl: purple
     shape_raw_string: light_purple
+    shape_garbage: {
+        fg: white
+        bg: red
+        attr: b
+    }
 }
