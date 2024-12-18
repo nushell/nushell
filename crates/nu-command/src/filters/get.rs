@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::{ast::PathMember, Signals};
 
 #[derive(Clone)]
 pub struct Get;
@@ -72,9 +73,13 @@ If multiple cell paths are given, this will produce a list of values."#
         }
 
         if rest.is_empty() {
-            input
-                .follow_cell_path(&cell_path.members, call.head, !sensitive)
-                .map(|x| x.into_pipeline_data())
+            follow_cell_path_into_stream(
+                input,
+                engine_state.signals().clone(),
+                cell_path.members,
+                call.head,
+                !sensitive,
+            )
         } else {
             let mut output = vec![];
 
@@ -94,6 +99,7 @@ If multiple cell paths are given, this will produce a list of values."#
         }
         .map(|x| x.set_metadata(metadata))
     }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
@@ -136,6 +142,36 @@ If multiple cell paths are given, this will produce a list of values."#
                 result: None,
             },
         ]
+    }
+}
+
+pub fn follow_cell_path_into_stream(
+    data: PipelineData,
+    signals: Signals,
+    cell_path: Vec<PathMember>,
+    head: Span,
+    insensitive: bool,
+) -> Result<PipelineData, ShellError> {
+    match data {
+        PipelineData::ListStream(stream, ..) => {
+            let result = stream
+                .into_iter()
+                .map(move |value| {
+                    let span = value.span();
+
+                    match value.follow_cell_path(&cell_path, insensitive) {
+                        Ok(v) => v,
+                        Err(error) => Value::error(error, span),
+                    }
+                })
+                .into_pipeline_data(head, signals);
+
+            Ok(result)
+        }
+
+        _ => data
+            .follow_cell_path(&cell_path, head, insensitive)
+            .map(|x| x.into_pipeline_data()),
     }
 }
 
