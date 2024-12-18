@@ -148,7 +148,7 @@ impl<'a> JsonFlattener<'a> {
         &self,
         builder: &mut Map<String, SerdeValue>,
         identifier: &String,
-        obj: &Vec<SerdeValue>,
+        obj: &[SerdeValue],
     ) {
         for (k, v) in obj.iter().enumerate() {
             let with_key = format!("{identifier}{}{k}", self.separator);
