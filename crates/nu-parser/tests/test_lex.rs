@@ -160,6 +160,29 @@ fn lex_comment() {
 }
 
 #[test]
+fn lex_not_comment_needs_space_in_front_of_hashtag() {
+    let file = b"1..10 | each {echo test#testing }";
+
+    let output = lex(file, 0, &[], &[], false);
+
+    assert!(output.1.is_none());
+}
+
+#[test]
+fn lex_comment_with_space_in_front_of_hashtag() {
+    let file = b"1..10 | each {echo test #testing }";
+
+    let output = lex(file, 0, &[], &[], false);
+
+    assert!(output.1.is_some());
+    assert!(matches!(
+        output.1.unwrap(),
+        ParseError::UnexpectedEof(missing_token, span) if missing_token == "}"
+            && span == Span::new(33, 34)
+    ));
+}
+
+#[test]
 fn lex_is_incomplete() {
     let file = b"let x = 300 | ;";
 
