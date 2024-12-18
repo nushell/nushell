@@ -111,25 +111,6 @@ fn custom_completer() -> NuCompleter {
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
 }
 
-#[fixture]
-fn subcommand_completer() -> NuCompleter {
-    // Create a new engine
-    let (_, _, mut engine, mut stack) = new_engine();
-
-    let commands = r#"
-            $env.config.completions.algorithm = "fuzzy"
-            def foo [] {}
-            def "foo bar" [] {}
-            def "foo abaz" [] {}
-            def "foo aabcrr" [] {}
-            def food [] {}
-        "#;
-    assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack).is_ok());
-
-    // Instantiate a new completer
-    NuCompleter::new(Arc::new(engine), Arc::new(stack))
-}
-
 /// Use fuzzy completions but sort in alphabetical order
 #[fixture]
 fn fuzzy_alpha_sort_completer() -> NuCompleter {
@@ -1040,24 +1021,32 @@ fn command_watch_with_filecompletion() {
 }
 
 #[rstest]
-fn subcommand_completions(mut subcommand_completer: NuCompleter) {
-    let prefix = "foo br";
-    let suggestions = subcommand_completer.complete(prefix, prefix.len());
-    match_suggestions(
-        &vec!["foo bar".to_string(), "foo aabcrr".to_string()],
-        &suggestions,
-    );
+fn subcommand_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let commands = r#"
+            $env.config.completions.algorithm = "fuzzy"
+            def foo-test-command [] {}
+            def "foo-test-command bar" [] {}
+            def "foo-test-command aagap bcr" [] {}
+            def "food bar" [] {}
+        "#;
+    assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut subcommand_completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let prefix = "foo b";
+    let prefix = "fod br";
     let suggestions = subcommand_completer.complete(prefix, prefix.len());
     match_suggestions(
         &vec![
-            "foo bar".to_string(),
-            "foo abaz".to_string(),
-            "foo aabcrr".to_string(),
+            "food bar".to_string(),
+            "foo-test-command aagap bcr".to_string(),
+            "foo-test-command bar".to_string(),
         ],
         &suggestions,
     );
+
+    let prefix = "foot bar";
+    let suggestions = subcommand_completer.complete(prefix, prefix.len());
+    match_suggestions(&vec!["foo-test-command bar".to_string()], &suggestions);
 }
 
 #[test]
