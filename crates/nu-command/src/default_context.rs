@@ -351,6 +351,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             WithEnv,
             ConfigNu,
             ConfigEnv,
+            ConfigFlatten,
             ConfigMeta,
             ConfigReset,
         };
