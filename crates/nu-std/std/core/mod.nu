@@ -6,8 +6,8 @@ let dt = (datetime-diff (date now) 2019-05-10T09:59:12-07:00)
 
 let banner_msg = $"(ansi green)     __  ,(ansi reset)
 (ansi green) .--\(\)°'.' (ansi reset)Welcome to (ansi green)Nushell(ansi reset),
-(ansi green)'|, . ,'   (ansi reset)based on the (ansi green)nu(ansi reset) language,
-(ansi green) !_-\(_\\    (ansi reset)where all data is structured!
+(ansi green)'|, . ,'   (ansi reset)where all data is structured!
+(ansi green) !_-\(_\\    (ansi reset)v((version).version) ((version).build_os) 
 
 Please join our (ansi purple)Discord(ansi reset) community at (ansi purple)https://discord.gg/NtAbbGn(ansi reset)
 Our (ansi green_bold)GitHub(ansi reset) repository is at (ansi green_bold)https://github.com/nushell/nushell(ansi reset)
