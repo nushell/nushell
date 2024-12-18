@@ -37,7 +37,14 @@ impl Command for ConfigFlatten {
         // Get the Config instance from the EngineState
         let config = engine_state.get_config();
         // Serialize the Config instance to JSON
-        let serialized_config = serde_json::to_value(&**config).unwrap();
+        let serialized_config =
+            serde_json::to_value(&**config).map_err(|err| ShellError::GenericError {
+                error: format!("Failed to serialize config to json: {err}"),
+                msg: "".into(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })?;
         // Create a JsonFlattener instance with appropriate arguments
         let flattener = JsonFlattener {
             separator: ".",
