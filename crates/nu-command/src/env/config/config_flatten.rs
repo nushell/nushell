@@ -11,7 +11,7 @@ impl Command for ConfigFlatten {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .category(Category::Env)
+            .category(Category::Debug)
             .input_output_types(vec![(Type::Nothing, Type::record())])
     }
 
