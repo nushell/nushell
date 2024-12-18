@@ -21,7 +21,7 @@ pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use reedline::{CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu};
 pub use rm::RmConfig;
 pub use shell_integration::ShellIntegrationConfig;
-pub use table::{FooterMode, TableConfig, TableIndexMode, TableMode, TrimStrategy};
+pub use table::{FooterMode, TableConfig, TableIndent, TableIndexMode, TableMode, TrimStrategy};
 
 mod completions;
 mod datetime_format;
