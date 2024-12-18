@@ -6,7 +6,7 @@ fn main() -> shadow_rs::SdResult<()> {
     let hash = get_git_hash().unwrap_or_default();
     println!("cargo:rustc-env=NU_COMMIT_HASH={hash}");
 
-    shadow_rs::builder().build().unwrap()
+    shadow_rs::builder().build().expect("build should run successfully")
 }
 
 fn get_git_hash() -> Option<String> {
