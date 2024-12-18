@@ -34,21 +34,33 @@ impl Command for ViewSource {
 
         let source = match arg {
             Value::Int { val, .. } => {
-                let block = engine_state.get_block(nu_protocol::BlockId::new(val as usize));
-                if let Some(span) = block.span {
-                    let contents = engine_state.get_span_contents(span);
-                    Ok(Value::string(String::from_utf8_lossy(contents), call.head)
-                        .into_pipeline_data())
+                if let Some(block) =
+                    engine_state.try_get_block(nu_protocol::BlockId::new(val as usize))
+                {
+                    if let Some(span) = block.span {
+                        let contents = engine_state.get_span_contents(span);
+                        Ok(Value::string(String::from_utf8_lossy(contents), call.head)
+                            .into_pipeline_data())
+                    } else {
+                        Err(ShellError::GenericError {
+                            error: "Cannot view int value".to_string(),
+                            msg: "the block does not have a viewable span".to_string(),
+                            span: Some(arg_span),
+                            help: None,
+                            inner: vec![],
+                        })
+                    }
                 } else {
                     Err(ShellError::GenericError {
-                        error: "Cannot view int value".to_string(),
-                        msg: "the block does not have a viewable span".to_string(),
+                        error: format!("Block Id {} does not exist", arg.coerce_into_string()?),
+                        msg: "this number does not correspond to a block".to_string(),
                         span: Some(arg_span),
                         help: None,
                         inner: vec![],
                     })
                 }
             }
+
             Value::String { val, .. } => {
                 if let Some(decl_id) = engine_state.find_decl(val.as_bytes(), &[]) {
                     // arg is a command
