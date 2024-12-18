@@ -145,6 +145,13 @@ If multiple cell paths are given, this will produce a list of values."#
     }
 }
 
+// the PipelineData.follow_cell_path function, when given a
+// stream, collects it into a vec before doing its job
+//
+// this is fine, since it returns a Result<Value ShellError>,
+// but if we want to follow a PipelineData into a cell path and
+// return another PipelineData, then we have to take care to
+// make sure it streams
 pub fn follow_cell_path_into_stream(
     data: PipelineData,
     signals: Signals,
@@ -154,19 +161,32 @@ pub fn follow_cell_path_into_stream(
 ) -> Result<PipelineData, ShellError> {
     match data {
         PipelineData::ListStream(stream, ..) => {
-            let result = stream
-                .into_iter()
-                .map(move |value| {
-                    let span = value.span();
+            let has_int_member = cell_path.iter().any(|it| match it {
+                PathMember::String { .. } => false,
+                PathMember::Int { .. } => true,
+            });
 
-                    match value.follow_cell_path(&cell_path, insensitive) {
-                        Ok(v) => v,
-                        Err(error) => Value::error(error, span),
-                    }
-                })
-                .into_pipeline_data(head, signals);
+            if has_int_member {
+                // when given an integer/indexing, we fallback to
+                // the default nushell indexing behaviour
+                Value::list(stream.into_iter().collect(), head)
+                    .follow_cell_path(&cell_path, insensitive)
+                    .map(|it| it.into_pipeline_data())
+            } else {
+                let result = stream
+                    .into_iter()
+                    .map(move |value| {
+                        let span = value.span();
 
-            Ok(result)
+                        match value.follow_cell_path(&cell_path, insensitive) {
+                            Ok(v) => v,
+                            Err(error) => Value::error(error, span),
+                        }
+                    })
+                    .into_pipeline_data(head, signals);
+
+                Ok(result)
+            }
         }
 
         _ => data
