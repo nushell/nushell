@@ -189,7 +189,5 @@ fn http_put_timeout() {
     #[cfg(not(target_os = "windows"))]
     assert!(&actual.err.contains("timed out reading response"));
     #[cfg(target_os = "windows")]
-    assert!(&actual
-        .err
-        .contains("did not properly respond after a period of time"));
+    assert!(&actual.err.contains(super::WINDOWS_ERROR_TIMEOUT_SLOW_LINK));
 }
