@@ -140,7 +140,25 @@ fn map_value(input: &Value, args: &Arguments, head: Span) -> Value {
     match input {
         Value::Binary { val, .. } => {
             let len = val.len() as u64;
-            let start: usize = range.absolute_start(len).try_into().unwrap();
+            let start: u64 = range.absolute_start(len);
+            let start: usize = match start.try_into() {
+                Ok(start) => start,
+                Err(_) => {
+                    let span = input.span();
+                    return Value::error(
+                        ShellError::UnsupportedInput {
+                            msg: format!(
+                            "Absolute start position {start} was too large for your system arch."
+                        ),
+                            input: args.range.to_string(),
+                            msg_span: span,
+                            input_span: span,
+                        },
+                        head,
+                    );
+                }
+            };
+
             let bytes: Vec<u8> = match range.absolute_end(len) {
                 Bound::Unbounded => val[start..].into(),
                 Bound::Included(end) => val[start..=end as usize].into(),

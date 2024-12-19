@@ -81,10 +81,11 @@ mod int_range {
             self.start
         }
 
+        // Resolves the absolute start position given the length of the input value
         pub fn absolute_start(&self, len: u64) -> u64 {
             let max_index = len - 1;
             match self.start {
-                start if start < 0 => len.saturating_sub(start.unsigned_abs().into()),
+                start if start < 0 => len.saturating_sub(start.unsigned_abs()),
                 start => max_index.min(start as u64),
             }
         }
@@ -110,11 +111,11 @@ mod int_range {
             match self.end {
                 Bound::Unbounded => Bound::Unbounded,
                 Bound::Included(i) => Bound::Included(match i {
-                    i if i < 0 => len.saturating_sub(i.unsigned_abs() as u64),
+                    i if i < 0 => len.saturating_sub(i.unsigned_abs()),
                     i => max_index.min(i as u64),
                 }),
                 Bound::Excluded(i) => Bound::Excluded(match i {
-                    i if i < 0 => len.saturating_sub(i.unsigned_abs() as u64),
+                    i if i < 0 => len.saturating_sub(i.unsigned_abs()),
                     i => len.min(i as u64),
                 }),
             }
