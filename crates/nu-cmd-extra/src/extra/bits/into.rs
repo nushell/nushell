@@ -1,20 +1,6 @@
-use std::io::{self, Read, Write};
-
-use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
-use nu_protocol::Signals;
-use num_traits::ToPrimitive;
-
-pub struct Arguments {
-    cell_paths: Option<Vec<CellPath>>,
-}
-
-impl CmdArgument for Arguments {
-    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
-        self.cell_paths.take()
-    }
-}
+use nu_protocol::{report_parse_warning, ParseWarning};
 
 #[derive(Clone)]
 pub struct BitsInto;
@@ -42,15 +28,15 @@ impl Command for BitsInto {
                 SyntaxShape::CellPath,
                 "for a data structure input, convert data at the given cell paths",
             )
-            .category(Category::Conversions)
+            .category(Category::Deprecated)
     }
 
     fn description(&self) -> &str {
-        "Convert value to a binary primitive."
+        "Convert value to a binary string."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "cast"]
+        vec![]
     }
 
     fn run(
@@ -60,7 +46,17 @@ impl Command for BitsInto {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        into_bits(engine_state, stack, call, input)
+        let head = call.head;
+        report_parse_warning(
+            &StateWorkingSet::new(engine_state),
+            &ParseWarning::DeprecatedWarning {
+                old_command: "into bits".into(),
+                new_suggestion: "use `format bits`".into(),
+                span: head,
+                url: "`help format bits`".into(),
+            },
+        );
+        crate::extra::strings::format::format_bits(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -111,125 +107,6 @@ impl Command for BitsInto {
     }
 }
 
-fn into_bits(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let head = call.head;
-    let cell_paths = call.rest(engine_state, stack, 0)?;
-    let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-
-    if let PipelineData::ByteStream(stream, metadata) = input {
-        Ok(PipelineData::ByteStream(
-            byte_stream_to_bits(stream, head),
-            metadata,
-        ))
-    } else {
-        let args = Arguments { cell_paths };
-        operate(action, args, input, call.head, engine_state.signals())
-    }
-}
-
-fn byte_stream_to_bits(stream: ByteStream, head: Span) -> ByteStream {
-    if let Some(mut reader) = stream.reader() {
-        let mut is_first = true;
-        ByteStream::from_fn(
-            head,
-            Signals::empty(),
-            ByteStreamType::String,
-            move |buffer| {
-                let mut byte = [0];
-                if reader.read(&mut byte[..]).err_span(head)? > 0 {
-                    // Format the byte as bits
-                    if is_first {
-                        is_first = false;
-                    } else {
-                        buffer.push(b' ');
-                    }
-                    write!(buffer, "{:08b}", byte[0]).expect("format failed");
-                    Ok(true)
-                } else {
-                    // EOF
-                    Ok(false)
-                }
-            },
-        )
-    } else {
-        ByteStream::read(io::empty(), head, Signals::empty(), ByteStreamType::String)
-    }
-}
-
-fn convert_to_smallest_number_type(num: i64, span: Span) -> Value {
-    if let Some(v) = num.to_i8() {
-        let bytes = v.to_ne_bytes();
-        let mut raw_string = "".to_string();
-        for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
-        }
-        Value::string(raw_string.trim(), span)
-    } else if let Some(v) = num.to_i16() {
-        let bytes = v.to_ne_bytes();
-        let mut raw_string = "".to_string();
-        for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
-        }
-        Value::string(raw_string.trim(), span)
-    } else if let Some(v) = num.to_i32() {
-        let bytes = v.to_ne_bytes();
-        let mut raw_string = "".to_string();
-        for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
-        }
-        Value::string(raw_string.trim(), span)
-    } else {
-        let bytes = num.to_ne_bytes();
-        let mut raw_string = "".to_string();
-        for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
-        }
-        Value::string(raw_string.trim(), span)
-    }
-}
-
-pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
-    match input {
-        Value::Binary { val, .. } => {
-            let mut raw_string = "".to_string();
-            for ch in val {
-                raw_string.push_str(&format!("{:08b} ", ch));
-            }
-            Value::string(raw_string.trim(), span)
-        }
-        Value::Int { val, .. } => convert_to_smallest_number_type(*val, span),
-        Value::Filesize { val, .. } => convert_to_smallest_number_type(val.get(), span),
-        Value::Duration { val, .. } => convert_to_smallest_number_type(*val, span),
-        Value::String { val, .. } => {
-            let raw_bytes = val.as_bytes();
-            let mut raw_string = "".to_string();
-            for ch in raw_bytes {
-                raw_string.push_str(&format!("{:08b} ", ch));
-            }
-            Value::string(raw_string.trim(), span)
-        }
-        Value::Bool { val, .. } => {
-            let v = <i64 as From<bool>>::from(*val);
-            convert_to_smallest_number_type(v, span)
-        }
-        // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => input.clone(),
-        other => Value::error(
-            ShellError::OnlySupportsThisInputType {
-                exp_input_type: "int, filesize, string, duration, binary, or bool".into(),
-                wrong_type: other.get_type().to_string(),
-                dst_span: span,
-                src_span: other.span(),
-            },
-            span,
-        ),
-    }
-}
 
 #[cfg(test)]
 mod test {
