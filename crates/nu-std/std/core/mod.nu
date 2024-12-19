@@ -6,10 +6,11 @@ let dt = (datetime-diff (date now) 2019-05-10T09:59:12-07:00)
 let ver = (version)
 
 let banner_msg = $"(ansi green)     __  ,(ansi reset)
-(ansi green) .--\(\)°'.' (ansi reset)Welcome to (ansi green)Nushell(ansi reset) - the shell (ansi green)and(ansi reset)
-(ansi green)'|, . ,'   (ansi reset)language where all data is structured!
-(ansi green) !_-\(_\\    (ansi reset)v($ver.version) \(($ver.build_os)\)
+(ansi green) .--\(\)°'.' (ansi reset)Welcome to (ansi green)Nushell(ansi reset)
+(ansi green)'|, . ,'   (ansi reset)based on the (ansi green)nu(ansi reset) language,
+(ansi green) !_-\(_\\    (ansi reset)where all data is structured!
 
+Version: (ansi green)($ver.version) \(($ver.build_os)\)
 Please join our (ansi purple)Discord(ansi reset) community at (ansi purple)https://discord.gg/NtAbbGn(ansi reset)
 Our (ansi green_bold)GitHub(ansi reset) repository is at (ansi green_bold)https://github.com/nushell/nushell(ansi reset)
 Our (ansi green)Documentation(ansi reset) is located at (ansi green)https://nushell.sh(ansi reset)
