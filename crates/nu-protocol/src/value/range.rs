@@ -81,8 +81,44 @@ mod int_range {
             self.start
         }
 
+        // Resolves the absolute start position given the length of the input value
+        pub fn absolute_start(&self, len: u64) -> u64 {
+            let max_index = len - 1;
+            match self.start {
+                start if start < 0 => len.saturating_sub(start.unsigned_abs()),
+                start => max_index.min(start as u64),
+            }
+        }
+
+        /// Returns the distance between the start and end of the range
+        /// The result will always be 0 or positive
+        pub fn distance(&self) -> Bound<u64> {
+            match self.end {
+                Bound::Unbounded => Bound::Unbounded,
+                Bound::Included(end) if self.start > end => Bound::Included(0),
+                Bound::Excluded(end) if self.start > end => Bound::Excluded(0),
+                Bound::Included(end) => Bound::Included((end - self.start) as u64),
+                Bound::Excluded(end) => Bound::Excluded((end - self.start) as u64),
+            }
+        }
+
         pub fn end(&self) -> Bound<i64> {
             self.end
+        }
+
+        pub fn absolute_end(&self, len: u64) -> Bound<u64> {
+            let max_index = len - 1;
+            match self.end {
+                Bound::Unbounded => Bound::Unbounded,
+                Bound::Included(i) => Bound::Included(match i {
+                    i if i < 0 => len.saturating_sub(i.unsigned_abs()),
+                    i => max_index.min(i as u64),
+                }),
+                Bound::Excluded(i) => Bound::Excluded(match i {
+                    i if i < 0 => len.saturating_sub(i.unsigned_abs()),
+                    i => len.min(i as u64),
+                }),
+            }
         }
 
         pub fn step(&self) -> i64 {
@@ -91,6 +127,21 @@ mod int_range {
 
         pub fn is_unbounded(&self) -> bool {
             self.end == Bound::Unbounded
+        }
+
+        pub fn is_relative(&self) -> bool {
+            self.is_start_relative() || self.is_end_relative()
+        }
+
+        pub fn is_start_relative(&self) -> bool {
+            self.start < 0
+        }
+
+        pub fn is_end_relative(&self) -> bool {
+            match self.end {
+                Bound::Included(end) | Bound::Excluded(end) => end < 0,
+                _ => false,
+            }
         }
 
         pub fn contains(&self, value: i64) -> bool {
