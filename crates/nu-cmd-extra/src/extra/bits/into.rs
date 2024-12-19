@@ -107,7 +107,6 @@ impl Command for BitsInto {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;

@@ -220,7 +220,10 @@ fn bits_shift_right_binary4() -> TestResult {
 #[test]
 fn bits_shift_right_binary_exceeding() -> TestResult {
     // Compared to the int case this is made inclusive of the bit count
-    fail_test("0x[01 30] | bits shr 17 | format bits", "available bits (16)")
+    fail_test(
+        "0x[01 30] | bits shr 17 | format bits",
+        "available bits (16)",
+    )
 }
 
 #[test]
