@@ -6,8 +6,7 @@ export def banner [
 ] {
 let dt = (datetime-diff (date now) 2019-05-10T09:59:12-07:00)
 let ver = (version)
-
-let startup_time = $"('Startup Time: ' | ansi gradient --fgstart '0x20a000' --fgend '0x20ff00')($nu.startup-time)"
+let startup_time = $"(ansi green_bold)Startup Time: (ansi reset)($nu.startup-time)"
 
 let banner_msg = match $short {
     true => $"($startup_time)(char newline)"

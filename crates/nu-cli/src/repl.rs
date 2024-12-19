@@ -148,8 +148,8 @@ pub fn evaluate_repl(
 
     if load_std_lib.is_none() {
         match engine_state.get_config().show_banner {
-            Value::Bool { val: false, ..} => {}
-            Value::String { ref val, ..} if val == "short" => {
+            Value::Bool { val: false, .. } => {}
+            Value::String { ref val, .. } if val == "short" => {
                 eval_source(
                     engine_state,
                     &mut unique_stack,
