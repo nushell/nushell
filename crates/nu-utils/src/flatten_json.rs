@@ -227,9 +227,6 @@ impl<'a> JsonFlattener<'a> {
         if filtered_key.contains(".Record.val") {
             filtered_key = filtered_key.replace(".Record.val", "");
         }
-        if filtered_key.contains(".Closure.val") {
-            filtered_key = filtered_key.replace(".Closure.val", "");
-        }
         if filtered_key.contains(".List.vals") {
             filtered_key = filtered_key.replace(".List.vals", "");
         }
@@ -239,9 +236,14 @@ impl<'a> JsonFlattener<'a> {
         if filtered_key.contains(".Bool.val") {
             filtered_key = filtered_key.replace(".Bool.val", "");
         }
-        if filtered_key.contains(".block_id") {
-            filtered_key = filtered_key.replace(".block_id", "");
-        }
+        // For now, let's skip replacing these because they tell us which
+        // numbers are closures and blocks which is useful for extracting the content
+        // if filtered_key.contains(".Closure.val") {
+        //     filtered_key = filtered_key.replace(".Closure.val", "");
+        // }
+        // if filtered_key.contains(".block_id") {
+        //     filtered_key = filtered_key.replace(".block_id", "");
+        // }
         filtered_key
     }
 }
