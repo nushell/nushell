@@ -70,7 +70,3 @@ Counterpart to `scaffold_env.nu`.
 * This file is used *one-time* (typically) at **first** startup
 * If the `$nu.default-config-path` directory does not exist, the directory is created and then both `scaffold_env.nu` and `scaffold_config.nu` are written to it
 * Contains only commented lines explaining the purpose of the file to the user, along with information on the `config nu` command.
-
-## `sample_login.nu`
-
-This file is not used by any Nushell code. Of course, if the user has a `login.nu`, then it will be evaluated during startup of a login shell.
