@@ -1,10 +1,8 @@
 use crate::{
-    dataframe::values::NuSchema,
-    values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType},
-    EngineWrapper, PolarsPlugin,
+    cloud::build_cloud_options, dataframe::values::NuSchema, values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType}, EngineWrapper, PolarsPlugin
 };
-use nu_path::expand_path_with;
 use nu_utils::perf;
+use url::Url;
 
 use nu_plugin::PluginCommand;
 use nu_protocol::{
@@ -12,13 +10,7 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 
-use std::{
-    fs::File,
-    io::BufReader,
-    num::NonZeroUsize,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, sync::Arc};
 
 use polars::{
     lazy::frame::LazyJsonLineReader,
@@ -119,19 +111,39 @@ impl PluginCommand for OpenDataFrame {
     }
 }
 
-enum Resource {
-    File(PathBuf, Span),
-    CloudUrl(String, CloudOptions, Span)
+struct Resource {
+    path: String,
+    extension: Option<String>,
+    cloud_options: Option<CloudOptions>,
+    span: Span,
 }
 
 impl Resource {
-    fn file_type(&self) ->Option<PolarsFileType> {
-        let extension = match self {
-            Self::File(p, _) => p.extension().map(|s| s.to_string_lossy()),
-            Self::CloudUrl(p, _, _) => p.ri
-        }
+    fn new(plugin: &PolarsPlugin, spanned_path: &Spanned<String>) -> Result<Self, ShellError> {
+        let (path_buf, cloud_options) = if let Ok(url) = spanned_path.item.parse::<Url>() {
+            let cloud_options =
+                build_cloud_options(plugin, &url)?.ok_or(ShellError::GenericError {
+                    error: format!("Could not determine a supported cloud type from url: {url}"),
+                    msg: "".into(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                })?;
+            let p: PathBuf = url.path().into();
+            (p, Some(cloud_options))
+        } else {
+            (PathBuf::from(&spanned_path.item), None)
+        };
+        let extension = path_buf
+            .extension()
+            .and_then(|s| s.to_str().map(|s| s.to_string()));
+        Ok(Self {
+            path: spanned_path.item.clone(),
+            extension,
+            cloud_options,
+            span: spanned_path.span,
+        })
     }
-    
 }
 
 fn command(
@@ -141,32 +153,20 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let spanned_file: Spanned<String> = call.req(0)?;
 
-    let resource = if let Some(cloud_options) = crate::cloud::build_cloud_options(plugin, &spanned_file.item)? {
-        Resource::CloudUrl(spanned_file.item, cloud_options, spanned_file.span)
-    } else {
-        let path = expand_path_with(&spanned_file.item, engine.get_current_dir()?, true);
-        Resource::File(path, spanned_file.span)
-    };
-
+    let resource = Resource::new(plugin, &spanned_file)?;
     let type_option: Option<(String, Span)> = call
         .get_flag("type")?
         .map(|t: Spanned<String>| (t.item, t.span))
-        .or_else(|| {
-            file_path
-                .extension()
-                .map(|e| (e.to_string_lossy().into_owned(), spanned_file.span))
-        });
+        .or_else(|| resource.extension.clone().map(|e| (e, resource.span)));
 
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
-            PolarsFileType::Csv | PolarsFileType::Tsv => {
-                from_csv(plugin, engine, call, &file_path, file_span)
-            }
-            PolarsFileType::Parquet => from_parquet(plugin, engine, call, &file_path, file_span),
-            PolarsFileType::Arrow => from_arrow(plugin, engine, call, &file_path, file_span),
-            PolarsFileType::Json => from_json(plugin, engine, call, &file_path, file_span),
-            PolarsFileType::NdJson => from_ndjson(plugin, engine, call, &file_path, file_span),
-            PolarsFileType::Avro => from_avro(plugin, engine, call, &file_path, file_span),
+            PolarsFileType::Csv | PolarsFileType::Tsv => from_csv(plugin, engine, call, resource),
+            PolarsFileType::Parquet => from_parquet(plugin, engine, call, resource),
+            PolarsFileType::Arrow => from_arrow(plugin, engine, call, resource),
+            PolarsFileType::Json => from_json(plugin, engine, call, resource),
+            PolarsFileType::NdJson => from_ndjson(plugin, engine, call, resource),
+            PolarsFileType::Avro => from_avro(plugin, engine, call, resource),
             _ => Err(PolarsFileType::build_unsupported_error(
                 &ext,
                 &[
@@ -192,14 +192,13 @@ fn from_parquet(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
-    file_path: &Path,
-    file_span: Span,
+    resource: Resource,
 ) -> Result<Value, ShellError> {
-
-    let cloud_options = crate::cloud::build_cloud_options(plugin, file_path)?;
+    let file_path = resource.path;
+    let file_span = resource.span;
     if !call.has_flag("eager")? {
         let file: String = call.req(0)?;
-        let mut args = ScanArgsParquet::default();
+        let args = ScanArgsParquet::default();
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
             .map_err(|e| ShellError::GenericError {
                 error: "Parquet reader error".into(),
@@ -247,11 +246,11 @@ fn from_avro(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
-    file_path: &Path,
-    file_span: Span,
+    resource: Resource,
 ) -> Result<Value, ShellError> {
+    let file_path = resource.path;
+    let file_span = resource.span;
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
-
     let r = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
@@ -284,9 +283,10 @@ fn from_arrow(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
-    file_path: &Path,
-    file_span: Span,
+    resource: Resource,
 ) -> Result<Value, ShellError> {
+    let file_path = resource.path;
+    let file_span = resource.span;
     if !call.has_flag("eager")? {
         let file: String = call.req(0)?;
         let args = ScanArgsIpc {
@@ -346,9 +346,10 @@ fn from_json(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
-    file_path: &Path,
-    file_span: Span,
+    resource: Resource,
 ) -> Result<Value, ShellError> {
+    let file_path = resource.path;
+    let file_span = resource.span;
     let file = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
@@ -387,9 +388,10 @@ fn from_ndjson(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
-    file_path: &Path,
-    file_span: Span,
+    resource: Resource,
 ) -> Result<Value, ShellError> {
+    let file_path = resource.path;
+    let file_span = resource.span;
     let infer_schema: NonZeroUsize = call
         .get_flag("infer-schema")?
         .and_then(NonZeroUsize::new)
@@ -466,9 +468,10 @@ fn from_csv(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
-    file_path: &Path,
-    file_span: Span,
+    resource: Resource,
 ) -> Result<Value, ShellError> {
+    let file_path = resource.path;
+    let file_span = resource.span;
     let delimiter: Option<Spanned<String>> = call.get_flag("delimiter")?;
     let no_header: bool = call.has_flag("no-header")?;
     let infer_schema: usize = call
@@ -555,7 +558,7 @@ fn from_csv(
                     .with_encoding(CsvEncoding::LossyUtf8)
                     .with_truncate_ragged_lines(truncate_ragged_lines)
             })
-            .try_into_reader_with_file_path(Some(file_path.to_path_buf()))
+            .try_into_reader_with_file_path(Some(file_path.into()))
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating CSV reader".into(),
                 msg: e.to_string(),

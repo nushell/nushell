@@ -4245,6 +4245,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "typetag",
+ "url",
  "uuid",
 ]
 

@@ -1,5 +1,6 @@
 use nu_protocol::{ShellError, Span};
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum PolarsFileType {
     Csv,
     Tsv,
