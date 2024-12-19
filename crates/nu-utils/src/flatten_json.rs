@@ -236,6 +236,16 @@ impl<'a> JsonFlattener<'a> {
         if filtered_key.contains(".Bool.val") {
             filtered_key = filtered_key.replace(".Bool.val", "");
         }
+        if filtered_key.contains(".Truncate.suffix") {
+            filtered_key = filtered_key.replace(".Truncate.suffix", ".truncating_suffix");
+        }
+        if filtered_key.contains(".RowCount") {
+            filtered_key = filtered_key.replace(".RowCount", "");
+        }
+        if filtered_key.contains(".Wrap.try_to_keep_words") {
+            filtered_key =
+                filtered_key.replace(".Wrap.try_to_keep_words", ".wrapping_try_keep_words");
+        }
         // For now, let's skip replacing these because they tell us which
         // numbers are closures and blocks which is useful for extracting the content
         // if filtered_key.contains(".Closure.val") {
