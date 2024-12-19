@@ -3,11 +3,12 @@ use std/dt [datetime-diff, pretty-print-duration]
 # Print a banner for nushell with information about the project
 export def banner [] {
 let dt = (datetime-diff (date now) 2019-05-10T09:59:12-07:00)
+let ver = (version)
 
 let banner_msg = $"(ansi green)     __  ,(ansi reset)
-(ansi green) .--\(\)°'.' (ansi reset)Welcome to (ansi green)Nushell(ansi reset),
-(ansi green)'|, . ,'   (ansi reset)where all data is structured!
-(ansi green) !_-\(_\\    (ansi reset)v((version).version) ((version).build_os) 
+(ansi green) .--\(\)°'.' (ansi reset)Welcome to (ansi green)Nushell(ansi reset) - the shell (ansi green)and(ansi reset)
+(ansi green)'|, . ,'   (ansi reset)language where all data is structured!
+(ansi green) !_-\(_\\    (ansi reset)v($ver.version) \(($ver.build_os)\)
 
 Please join our (ansi purple)Discord(ansi reset) community at (ansi purple)https://discord.gg/NtAbbGn(ansi reset)
 Our (ansi green_bold)GitHub(ansi reset) repository is at (ansi green_bold)https://github.com/nushell/nushell(ansi reset)
