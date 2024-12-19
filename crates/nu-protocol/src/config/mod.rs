@@ -59,7 +59,7 @@ pub struct Config {
     pub rm: RmConfig,
     pub shell_integration: ShellIntegrationConfig,
     pub buffer_editor: Value,
-    pub show_banner: bool,
+    pub show_banner: Value,
     pub bracketed_paste: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
@@ -82,7 +82,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            show_banner: true,
+            show_banner: Value::bool(true, Span::unknown()),
 
             table: TableConfig::default(),
             rm: RmConfig::default(),
