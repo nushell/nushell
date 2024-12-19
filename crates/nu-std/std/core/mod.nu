@@ -6,7 +6,7 @@ let dt = (datetime-diff (date now) 2019-05-10T09:59:12-07:00)
 let ver = (version)
 
 let banner_msg = $"(ansi green)     __  ,(ansi reset)
-(ansi green) .--\(\)°'.' (ansi reset)Welcome to (ansi green)Nushell(ansi reset)
+(ansi green) .--\(\)°'.' (ansi reset)Welcome to (ansi green)Nushell(ansi reset),
 (ansi green)'|, . ,'   (ansi reset)based on the (ansi green)nu(ansi reset) language,
 (ansi green) !_-\(_\\    (ansi reset)where all data is structured!
 
