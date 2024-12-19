@@ -124,14 +124,13 @@ fn convert_nujson_to_value(
             k.into_iter()
                 .map(|(k, v)| {
                     let mut key = k.clone();
+                    // Keep .Closure.val and .block_id as part of the key during conversion to value
                     let value = convert_nujson_to_value(Some(key.clone()), v, engine_state, span);
+                    // Replace .Closure.val and .block_id from the key after the conversion
                     if key.contains(".Closure.val") || key.contains(".block_id") {
-                        key = key.replace(".Closure.val", "");
-                        key = key.replace(".block_id", "");
-                        (key, value)
-                    } else {
-                        (k, value)
+                        key = key.replace(".Closure.val", "").replace(".block_id", "");
                     }
+                    (key, value)
                 })
                 .collect(),
             span,
@@ -163,25 +162,15 @@ fn expand_closure(
     block_id: i64,
     engine_state: &EngineState,
 ) -> Option<String> {
-    if let Some(key) = key {
-        if key.contains(".Closure.val") || key.contains(".block_id") {
-            if let Some(block) =
-                engine_state.try_get_block(nu_protocol::BlockId::new(block_id as usize))
-            {
-                if let Some(span) = block.span {
-                    let contents = engine_state.get_span_contents(span);
-                    Some(String::from_utf8_lossy(contents).to_string())
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    } else {
-        None
+    match key {
+        Some(key) if key.contains(".Closure.val") || key.contains(".block_id") => engine_state
+            .try_get_block(nu_protocol::BlockId::new(block_id as usize))
+            .and_then(|block| block.span)
+            .map(|span| {
+                let contents = engine_state.get_span_contents(span);
+                String::from_utf8_lossy(contents).to_string()
+            }),
+        _ => None,
     }
 }
 
