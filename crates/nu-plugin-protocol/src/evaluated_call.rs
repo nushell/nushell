@@ -1,3 +1,4 @@
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::{self, Expression},
     engine::{Call, CallImpl, EngineState, Stack},
@@ -22,6 +23,8 @@ pub struct EvaluatedCall {
     pub head: Span,
     /// Values of positional arguments
     pub positional: Vec<Value>,
+    /// Whether positional arguments were used, including spreads
+    pub has_positional_args: bool,
     /// Names and values of named arguments
     pub named: Vec<(Spanned<String>, Option<Value>)>,
 }
@@ -32,6 +35,7 @@ impl EvaluatedCall {
         EvaluatedCall {
             head,
             positional: vec![],
+            has_positional_args: false,
             named: vec![],
         }
     }
@@ -49,6 +53,7 @@ impl EvaluatedCall {
     /// ```
     pub fn add_positional(&mut self, value: Value) -> &mut Self {
         self.positional.push(value);
+        self.has_positional_args = true;
         self
     }
 
@@ -88,6 +93,7 @@ impl EvaluatedCall {
     /// Builder variant of [`.add_positional()`](Self::add_positional).
     pub fn with_positional(mut self, value: Value) -> Self {
         self.add_positional(value);
+        self.has_positional_args = true;
         self
     }
 
@@ -144,6 +150,7 @@ impl EvaluatedCall {
         Ok(Self {
             head: call.head,
             positional,
+            has_positional_args: call.has_positional_args(stack, 0),
             named,
         })
     }
@@ -160,6 +167,7 @@ impl EvaluatedCall {
         Ok(Self {
             head: call.head,
             positional,
+            has_positional_args: call.has_positional_args(stack, 0),
             named,
         })
     }
@@ -178,6 +186,7 @@ impl EvaluatedCall {
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
+    /// #     has_positional_args: false,
     /// #     named: vec![(
     /// #         Spanned { item: "foo".to_owned(), span: null_span},
     /// #         None
@@ -194,6 +203,7 @@ impl EvaluatedCall {
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
+    /// #     has_positional_args: false,
     /// #     named: vec![(
     /// #         Spanned { item: "bar".to_owned(), span: null_span},
     /// #         None
@@ -210,6 +220,7 @@ impl EvaluatedCall {
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
+    /// #     has_positional_args: false,
     /// #     named: vec![(
     /// #         Spanned { item: "foo".to_owned(), span: null_span},
     /// #         Some(Value::bool(true, Span::unknown()))
@@ -226,6 +237,7 @@ impl EvaluatedCall {
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
+    /// #     has_positional_args: false,
     /// #     named: vec![(
     /// #         Spanned { item: "foo".to_owned(), span: null_span},
     /// #         Some(Value::bool(false, Span::unknown()))
@@ -242,6 +254,7 @@ impl EvaluatedCall {
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
+    /// #     has_positional_args: true,
     /// #     named: vec![(
     /// #         Spanned { item: "foo".to_owned(), span: null_span},
     /// #         Some(Value::int(1, Span::unknown()))
@@ -289,6 +302,7 @@ impl EvaluatedCall {
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
+    /// #     has_positional_args: true,
     /// #     named: vec![(
     /// #         Spanned { item: "foo".to_owned(), span: null_span},
     /// #         Some(Value::int(123, null_span))
@@ -310,6 +324,7 @@ impl EvaluatedCall {
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
+    /// #     has_positional_args: false,
     /// #     named: vec![],
     /// # };
     /// let opt_foo = match call.get_flag_value("foo") {
@@ -344,6 +359,7 @@ impl EvaluatedCall {
     /// #         Value::string("b".to_owned(), null_span),
     /// #         Value::string("c".to_owned(), null_span),
     /// #     ],
+    /// #     has_positional_args: true,
     /// #     named: vec![],
     /// # };
     /// let arg = match call.nth(1) {
@@ -370,6 +386,7 @@ impl EvaluatedCall {
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
+    /// #     has_positional_args: false,
     /// #     named: vec![(
     /// #         Spanned { item: "foo".to_owned(), span: null_span},
     /// #         Some(Value::int(123, null_span))
@@ -387,6 +404,7 @@ impl EvaluatedCall {
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
+    /// #     has_positional_args: false,
     /// #     named: vec![(
     /// #         Spanned { item: "bar".to_owned(), span: null_span},
     /// #         Some(Value::int(123, null_span))
@@ -404,6 +422,7 @@ impl EvaluatedCall {
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
+    /// #     has_positional_args: false,
     /// #     named: vec![(
     /// #         Spanned { item: "foo".to_owned(), span: null_span},
     /// #         Some(Value::string("abc".to_owned(), null_span))
@@ -436,6 +455,7 @@ impl EvaluatedCall {
     /// #         Value::string("two".to_owned(), null_span),
     /// #         Value::string("three".to_owned(), null_span),
     /// #     ],
+    /// #     has_positional_args: true,
     /// #     named: Vec::new(),
     /// # };
     /// let args = call.rest::<String>(0);
@@ -497,6 +517,7 @@ mod test {
                 Value::float(1.0, Span::new(0, 10)),
                 Value::string("something", Span::new(0, 10)),
             ],
+            has_positional_args: true,
             named: vec![
                 (
                     Spanned {

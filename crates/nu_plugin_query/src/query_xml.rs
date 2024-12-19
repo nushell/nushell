@@ -139,6 +139,7 @@ mod tests {
         let call = EvaluatedCall {
             head: Span::test_data(),
             positional: vec![],
+            has_positional_args: false,
             named: vec![],
         };
 
@@ -168,6 +169,7 @@ mod tests {
         let call = EvaluatedCall {
             head: Span::test_data(),
             positional: vec![],
+            has_positional_args: false,
             named: vec![],
         };
 

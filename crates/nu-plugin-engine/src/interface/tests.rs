@@ -809,6 +809,7 @@ fn interface_write_plugin_call_writes_run_with_value_input() -> Result<(), Shell
             call: EvaluatedCall {
                 head: Span::test_data(),
                 positional: vec![],
+                has_positional_args: false,
                 named: vec![],
             },
             input: PipelineData::Value(Value::test_int(-1), Some(metadata0.clone())),
@@ -850,6 +851,7 @@ fn interface_write_plugin_call_writes_run_with_stream_input() -> Result<(), Shel
             call: EvaluatedCall {
                 head: Span::test_data(),
                 positional: vec![],
+                has_positional_args: false,
                 named: vec![],
             },
             input: values
@@ -1078,6 +1080,7 @@ fn interface_run() -> Result<(), ShellError> {
             call: EvaluatedCall {
                 head: Span::test_data(),
                 positional: vec![],
+                has_positional_args: false,
                 named: vec![],
             },
             input: PipelineData::Empty,
@@ -1351,6 +1354,7 @@ fn prepare_plugin_call_run() {
                 call: EvaluatedCall {
                     head: span,
                     positional: vec![Value::test_int(4)],
+                    has_positional_args: true,
                     named: vec![("x".to_owned().into_spanned(span), Some(Value::test_int(6)))],
                 },
                 input: PipelineData::Empty,
@@ -1363,6 +1367,7 @@ fn prepare_plugin_call_run() {
                 call: EvaluatedCall {
                     head: span,
                     positional: vec![cv_ok.clone()],
+                    has_positional_args: true,
                     named: vec![("ok".to_owned().into_spanned(span), Some(cv_ok.clone()))],
                 },
                 input: PipelineData::Empty,
@@ -1375,6 +1380,7 @@ fn prepare_plugin_call_run() {
                 call: EvaluatedCall {
                     head: span,
                     positional: vec![cv_bad.clone()],
+                    has_positional_args: true,
                     named: vec![],
                 },
                 input: PipelineData::Empty,
@@ -1387,6 +1393,7 @@ fn prepare_plugin_call_run() {
                 call: EvaluatedCall {
                     head: span,
                     positional: vec![],
+                    has_positional_args: false,
                     named: vec![("bad".to_owned().into_spanned(span), Some(cv_bad.clone()))],
                 },
                 input: PipelineData::Empty,
@@ -1399,6 +1406,7 @@ fn prepare_plugin_call_run() {
                 call: EvaluatedCall {
                     head: span,
                     positional: vec![],
+                    has_positional_args: false,
                     named: vec![],
                 },
                 // Shouldn't check input - that happens somewhere else

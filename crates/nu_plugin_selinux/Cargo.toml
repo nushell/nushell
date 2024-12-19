@@ -1,0 +1,27 @@
+[package]
+authors = ["The Nushell Project Developers"]
+description = "Nushell commands with SELinux functionality."
+edition = "2021"
+license = "MIT"
+name = "nu_plugin_selinux"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_selinux"
+version = "0.100.1"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "nu_plugin_selinux"
+bench = false
+
+[lib]
+bench = false
+
+[dependencies]
+nu-protocol = { path = "../nu-protocol", version = "0.100.1" }
+nu-plugin = { path = "../nu-plugin", version = "0.100.1" }
+nu-command = { path = "../nu-command", version = "0.100.1" }
+
+selinux = "0.4.6"
+
+[dev-dependencies]
+nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.100.1" }

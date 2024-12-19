@@ -33,7 +33,8 @@ let plugins = [
     nu_plugin_example,
     nu_plugin_custom_values,
     nu_plugin_formats,
-    nu_plugin_polars
+    nu_plugin_polars,
+    nu_plugin_selinux
 ]
 
 for plugin in $plugins {
