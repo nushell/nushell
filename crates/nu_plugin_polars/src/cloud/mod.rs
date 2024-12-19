@@ -22,7 +22,7 @@ pub(crate) fn build_cloud_options(
     url: &Url,
 ) -> Result<Option<CloudOptions>, ShellError> {
     match determine_cloud_type(url) {
-        Some(CloudType::Aws) => aws::build_cloud_options(plugin).map(|c| Some(c)),
+        Some(CloudType::Aws) => aws::build_cloud_options(plugin).map(Some),
         _ => Ok(None),
     }
 }
