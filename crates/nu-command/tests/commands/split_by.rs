@@ -56,8 +56,11 @@ fn errors_if_non_record_input() {
             "
         ));
 
-        assert!(only_supports
-            .err
-            .contains("only Record input data is supported"));
+        assert!(
+            only_supports
+                .err
+                .contains("only Record input data is supported")
+                || only_supports.err.contains("expected: record")
+        );
     })
 }
