@@ -4,7 +4,7 @@ use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 use nu_protocol::Config;
 
-pub struct Arguments {
+struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
     config: Arc<Config>,
 }
