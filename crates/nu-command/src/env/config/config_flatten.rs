@@ -53,16 +53,21 @@ impl Command for ConfigFlatten {
         };
         // Flatten the JSON value
         let flattened_config_str = flattener.flatten(&serialized_config).to_string();
-        let flattened_values = convert_string_to_value(&flattened_config_str, call.head)?;
+        let flattened_values =
+            convert_string_to_value(&flattened_config_str, engine_state, call.head)?;
 
         Ok(flattened_values.into_pipeline_data())
     }
 }
 
 // From here below is taken from `from json`. Would be nice to have a nu-utils-value crate that could be shared
-fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
+fn convert_string_to_value(
+    string_input: &str,
+    engine_state: &EngineState,
+    span: Span,
+) -> Result<Value, ShellError> {
     match nu_json::from_str(string_input) {
-        Ok(value) => Ok(convert_nujson_to_value(value, span)),
+        Ok(value) => Ok(convert_nujson_to_value(None, value, engine_state, span)),
 
         Err(x) => match x {
             nu_json::Error::Syntax(_, row, col) => {
@@ -91,22 +96,42 @@ fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, Shel
     }
 }
 
-fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {
+fn convert_nujson_to_value(
+    key: Option<String>,
+    value: nu_json::Value,
+    engine_state: &EngineState,
+    span: Span,
+) -> Value {
     match value {
         nu_json::Value::Array(array) => Value::list(
             array
                 .into_iter()
-                .map(|x| convert_nujson_to_value(x, span))
+                .map(|x| convert_nujson_to_value(key.clone(), x, engine_state, span))
                 .collect(),
             span,
         ),
         nu_json::Value::Bool(b) => Value::bool(b, span),
         nu_json::Value::F64(f) => Value::float(f, span),
-        nu_json::Value::I64(i) => Value::int(i, span),
+        nu_json::Value::I64(i) => {
+            if let Some(closure_str) = expand_closure(key.clone(), i, engine_state) {
+                Value::string(closure_str, span)
+            } else {
+                Value::int(i, span)
+            }
+        }
         nu_json::Value::Null => Value::nothing(span),
         nu_json::Value::Object(k) => Value::record(
             k.into_iter()
-                .map(|(k, v)| (k, convert_nujson_to_value(v, span)))
+                .map(|(k, v)| {
+                    let mut key = k.clone();
+                    // Keep .Closure.val and .block_id as part of the key during conversion to value
+                    let value = convert_nujson_to_value(Some(key.clone()), v, engine_state, span);
+                    // Replace .Closure.val and .block_id from the key after the conversion
+                    if key.contains(".Closure.val") || key.contains(".block_id") {
+                        key = key.replace(".Closure.val", "").replace(".block_id", "");
+                    }
+                    (key, value)
+                })
                 .collect(),
             span,
         ),
@@ -121,11 +146,31 @@ fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {
                     },
                     span,
                 )
+            } else if let Some(closure_str) = expand_closure(key.clone(), u as i64, engine_state) {
+                Value::string(closure_str, span)
             } else {
                 Value::int(u as i64, span)
             }
         }
         nu_json::Value::String(s) => Value::string(s, span),
+    }
+}
+
+// If the block_id is a real block id, then it should expand into the closure contents, otherwise return None
+fn expand_closure(
+    key: Option<String>,
+    block_id: i64,
+    engine_state: &EngineState,
+) -> Option<String> {
+    match key {
+        Some(key) if key.contains(".Closure.val") || key.contains(".block_id") => engine_state
+            .try_get_block(nu_protocol::BlockId::new(block_id as usize))
+            .and_then(|block| block.span)
+            .map(|span| {
+                let contents = engine_state.get_span_contents(span);
+                String::from_utf8_lossy(contents).to_string()
+            }),
+        _ => None,
     }
 }
 
