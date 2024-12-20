@@ -63,5 +63,5 @@ async fn build_aws_cloud_configs() -> Result<Vec<(AmazonS3ConfigKey, String)>, S
 
 pub(crate) fn build_cloud_options(plugin: &PolarsPlugin) -> Result<CloudOptions, ShellError> {
     let configs = plugin.runtime.block_on(build_aws_cloud_configs())?;
-    Ok(CloudOptions::default().with_aws(configs.into_iter()))
+    Ok(CloudOptions::default().with_aws(configs))
 }

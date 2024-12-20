@@ -255,11 +255,11 @@ pub mod test {
 
     impl PolarsPlugin {
         /// Creates a new polars plugin in test mode
-        pub fn new_test_mode() -> Self {
-            PolarsPlugin {
+        pub fn new_test_mode() -> Result<Self, ShellError> {
+            Ok(PolarsPlugin {
                 disable_cache_drop: true,
-                ..PolarsPlugin::default()
-            }
+                ..PolarsPlugin::new()?
+            })
         }
     }
 
@@ -287,7 +287,7 @@ pub mod test {
         command: &impl PluginCommand,
         decls: Vec<Box<dyn Command>>,
     ) -> Result<(), ShellError> {
-        let plugin = PolarsPlugin::new_test_mode();
+        let plugin = PolarsPlugin::new_test_mode()?;
         let examples = command.examples();
 
         // we need to cache values in the examples
