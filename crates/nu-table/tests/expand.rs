@@ -1,20 +1,14 @@
 mod common;
 
-use common::{create_row, create_table};
+use common::{create_row, create_table, TestCase};
 
-use nu_table::{NuTableConfig, TableTheme as theme};
+use nu_table::TableTheme as theme;
 
 #[test]
 fn test_expand() {
     let table = create_table(
         vec![create_row(4); 3],
-        NuTableConfig {
-            theme: theme::rounded(),
-            with_header: true,
-            expand: true,
-            ..Default::default()
-        },
-        50,
+        TestCase::new(50).theme(theme::rounded()).header().expand(),
     );
 
     assert_eq!(
