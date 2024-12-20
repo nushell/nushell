@@ -14,7 +14,7 @@ impl Command for ExportEnv {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "block",
-                SyntaxShape::Block,
+                SyntaxShape::Block(true),
                 "The block to run to set the environment.",
             )
             .category(Category::Env)
