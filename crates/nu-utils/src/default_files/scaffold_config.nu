@@ -12,11 +12,7 @@
 # You can open this file in your default editor using:
 # config nu
 #
-# To pretty-print a sample config.nu with documentation, run:
-# config nu --sample | nu-highlight | less -R
-#
-# To pretty-print the default configuration values, run:
-# config nu --default | nu-highlight | less -R
+# See `help config nu` for more options
 #
 # You can remove these comments if you want or leave
 # them for future reference.

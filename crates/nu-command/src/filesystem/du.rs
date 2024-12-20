@@ -40,11 +40,6 @@ impl Command for Du {
                 "Starting directory.",
             )
             .switch(
-                "all",
-                "Output file sizes as well as directory sizes",
-                Some('a'),
-            )
-            .switch(
                 "deref",
                 "Dereference symlinks to their targets for size",
                 Some('r'),

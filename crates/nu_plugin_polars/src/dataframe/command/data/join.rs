@@ -8,7 +8,10 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
-use polars::prelude::{Expr, JoinType};
+use polars::{
+    df,
+    prelude::{Expr, JoinCoalesce, JoinType},
+};
 
 #[derive(Clone)]
 pub struct LazyJoin;
@@ -37,6 +40,7 @@ impl PluginCommand for LazyJoin {
             .switch("left", "left join between lazyframes", Some('l'))
             .switch("full", "full join between lazyframes", Some('f'))
             .switch("cross", "cross join between lazyframes", Some('c'))
+            .switch("coalesce-columns", "Sets the join coalesce strategy to colesce columns. Most useful when used with --full, which will not otherwise coalesce.", None)
             .named(
                 "suffix",
                 SyntaxShape::String,
@@ -173,6 +177,24 @@ impl PluginCommand for LazyJoin {
                 ),
             },
             Example {
+                description: "Perform a full join of two dataframes and coalesce columns",
+                example: r#"let table1 = [[A B]; ["common" "common"] ["table1" "only"]] | polars into-df
+                let table2 = [[A C]; ["common" "common"] ["table2" "only"]] | polars into-df
+                $table1 | polars join -f $table2 --coalesce-columns A A"#,
+                result: Some(
+                    NuDataFrame::new(
+                        false,
+                        df!(
+                            "A" => [Some("common"), Some("table2"), Some("table1")],
+                            "B" => [Some("common"), None, Some("only")],
+                            "C" => [Some("common"), Some("only"), None]
+                        )
+                        .expect("Should have created a DataFrame"),
+                    )
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
                 description: "Join one eager dataframe with another using a cross join",
                 example: r#"let tokens = [[monopoly_token]; [hat] [shoe] [boat]] | polars into-df
     let players = [[name, cash]; [Alice, 78] [Bob, 135]] | polars into-df
@@ -279,9 +301,17 @@ impl PluginCommand for LazyJoin {
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
         let from_eager = lazy.from_eager;
         let lazy = lazy.to_polars();
+
+        let coalesce = if call.has_flag("coalesce-columns")? {
+            JoinCoalesce::CoalesceColumns
+        } else {
+            JoinCoalesce::default()
+        };
+
         let lazy = if cross {
             lazy.join_builder()
                 .with(other)
+                .coalesce(coalesce)
                 .left_on(vec![])
                 .right_on(vec![])
                 .how(how)
@@ -291,6 +321,7 @@ impl PluginCommand for LazyJoin {
         } else {
             lazy.join_builder()
                 .with(other)
+                .coalesce(coalesce)
                 .left_on(left_on)
                 .right_on(right_on)
                 .how(how)
