@@ -1118,7 +1118,7 @@ enum TableView {
 
 fn maybe_strip_color(output: String, config: &Config) -> String {
     // the terminal is for when people do ls from vim, there should be no coloring there
-    if !config.use_ansi_coloring || !std::io::stdout().is_terminal() {
+    if !config.use_ansi_coloring.get() || !std::io::stdout().is_terminal() {
         // Draw the table without ansi colors
         nu_utils::strip_ansi_string_likely(output)
     } else {
