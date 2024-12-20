@@ -8,38 +8,39 @@ use rstest::rstest;
 use tempfile::TempDir;
 
 struct Test {
-    cfg_dir: TempDir,
+    cfg_and_data_dir: TempDir,
 }
 
 impl Test {
     fn new(history_format: &'static str) -> Self {
-        let cfg_dir = tempfile::Builder::new()
+        let cfg_and_data_dir = tempfile::Builder::new()
             .prefix("history_import_test")
             .tempdir()
             .unwrap();
         // Assigning to $env.config.history.file_format seems to work only in startup
         // configuration.
         std::fs::write(
-            cfg_dir.path().join("env.nu"),
+            cfg_and_data_dir.path().join("env.nu"),
             format!("$env.config.history.file_format = {history_format:?}"),
         )
         .unwrap();
-        Self { cfg_dir }
+        Self { cfg_and_data_dir }
     }
 
     fn nu(&self, cmd: impl AsRef<str>) -> Outcome {
-        let env = [(
-            "XDG_CONFIG_HOME".to_string(),
-            self.cfg_dir.path().to_str().unwrap().to_string(),
-        )];
-        let env_config = self.cfg_dir.path().join("env.nu");
+        let config_and_data_dir = self.cfg_and_data_dir.path().to_str().unwrap().to_string();
+        let env = [
+            ("XDG_CONFIG_HOME".to_string(), config_and_data_dir.clone()),
+            ("XDG_DATA_HOME".to_string(), config_and_data_dir),
+        ];
+        let env_config = self.cfg_and_data_dir.path().join("env.nu");
         nu!(envs: env, env_config: env_config, cmd.as_ref())
     }
 
     fn open_plaintext(&self) -> Result<FileBackedHistory, ReedlineError> {
         FileBackedHistory::with_file(
             100,
-            self.cfg_dir
+            self.cfg_and_data_dir
                 .path()
                 .join("nushell")
                 .join(HistoryFileFormat::Plaintext.default_file_name()),
@@ -48,7 +49,7 @@ impl Test {
 
     fn open_sqlite(&self) -> Result<SqliteBackedHistory, ReedlineError> {
         SqliteBackedHistory::with_file(
-            self.cfg_dir
+            self.cfg_and_data_dir
                 .path()
                 .join("nushell")
                 .join(HistoryFileFormat::Sqlite.default_file_name()),

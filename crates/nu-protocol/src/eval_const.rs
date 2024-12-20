@@ -153,9 +153,8 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
 
     record.push(
         "data-dir",
-        if let Some(path) = nu_path::data_dir() {
-            let mut canon_data_path = canonicalize_path(engine_state, path.as_ref());
-            canon_data_path.push("nushell");
+        if let Some(path) = nu_path::nu_data_dir() {
+            let canon_data_path = canonicalize_path(engine_state, path.as_ref());
             Value::string(canon_data_path.to_string_lossy(), span)
         } else {
             Value::error(

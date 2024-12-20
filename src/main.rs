@@ -137,8 +137,7 @@ fn main() -> Result<()> {
         }
     }
 
-    let default_nushell_completions_path = if let Some(mut path) = nu_path::data_dir() {
-        path.push("nushell");
+    let default_nushell_completions_path = if let Some(mut path) = nu_path::nu_data_dir() {
         path.push("completions");
         path.into()
     } else {
