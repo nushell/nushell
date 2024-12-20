@@ -182,7 +182,6 @@ pub(crate) fn run_repl(
 ) -> Result<(), miette::ErrReport> {
     trace!("run_repl");
     let mut stack = Stack::new();
-
     let start_time = std::time::Instant::now();
 
     if parsed_nu_cli_args.no_config_file.is_none() {

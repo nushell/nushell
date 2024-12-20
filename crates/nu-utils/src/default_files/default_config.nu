@@ -20,6 +20,8 @@ $env.config.color_config = {
     row_index: green_bold
     record: white
     list: white
+    closure: green_bold
+    glob:cyan_bold
     block: white
     hints: dark_gray
     search_result: { bg: red fg: white }
@@ -58,4 +60,9 @@ $env.config.color_config = {
     shape_variable: purple
     shape_vardecl: purple
     shape_raw_string: light_purple
+    shape_garbage: {
+        fg: white
+        bg: red
+        attr: b
+    }
 }

@@ -1,7 +1,7 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
-pub struct Arguments {
+struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
     compact: bool,
 }
@@ -142,7 +142,7 @@ fn into_binary(
     }
 }
 
-pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
     let value = match input {
         Value::Binary { .. } => input.clone(),
         Value::Int { val, .. } => Value::binary(val.to_ne_bytes().to_vec(), span),

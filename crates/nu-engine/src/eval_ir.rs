@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fs::File, sync::Arc};
 
-use nu_path::AbsolutePathBuf;
+use nu_path::{expand_path_with, AbsolutePathBuf};
 use nu_protocol::{
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
@@ -15,7 +15,7 @@ use nu_protocol::{
 };
 use nu_utils::IgnoreCaseExt;
 
-use crate::{eval::is_automatic_env_var, eval_block_with_early_return, redirect_env};
+use crate::{eval::is_automatic_env_var, eval_block_with_early_return};
 
 /// Evaluate the compiled representation of a [`Block`].
 pub fn eval_ir_block<D: DebugContext>(
@@ -872,7 +872,6 @@ fn literal_value(
             } else {
                 let cwd = ctx.engine_state.cwd(Some(ctx.stack))?;
                 let path = expand_path_with(ctx.stack, ctx.engine_state, path, cwd, true);
-
                 Value::string(path.to_string_lossy(), span)
             }
         }
@@ -892,7 +891,6 @@ fn literal_value(
                     .map(AbsolutePathBuf::into_std_path_buf)
                     .unwrap_or_default();
                 let path = expand_path_with(ctx.stack, ctx.engine_state, path, cwd, true);
-
                 Value::string(path.to_string_lossy(), span)
             }
         }
@@ -1490,4 +1488,27 @@ fn eval_iterate(
         );
         eval_iterate(ctx, dst, stream, end_index)
     }
+}
+
+/// Redirect environment from the callee stack to the caller stack
+fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_stack: &Stack) {
+    // TODO: make this more efficient
+    // Grab all environment variables from the callee
+    let caller_env_vars = caller_stack.get_env_var_names(engine_state);
+
+    // remove env vars that are present in the caller but not in the callee
+    // (the callee hid them)
+    for var in caller_env_vars.iter() {
+        if !callee_stack.has_env_var(engine_state, var) {
+            caller_stack.remove_env_var(engine_state, var);
+        }
+    }
+
+    // add new env vars from callee to caller
+    for (var, value) in callee_stack.get_stack_env_vars() {
+        caller_stack.add_env_var(var, value);
+    }
+
+    // set config to callee config, to capture any updates to that
+    caller_stack.config.clone_from(&callee_stack.config);
 }

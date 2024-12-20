@@ -70,23 +70,22 @@ impl Command for FromJson {
         let span = call.head;
 
         let strict = call.has_flag(engine_state, stack, "strict")?;
+        let metadata = input.metadata().map(|md| md.with_content_type(None));
 
         // TODO: turn this into a structured underline of the nu_json error
         if call.has_flag(engine_state, stack, "objects")? {
             // Return a stream of JSON values, one for each non-empty line
             match input {
-                PipelineData::Value(Value::String { val, .. }, metadata) => {
-                    Ok(PipelineData::ListStream(
-                        read_json_lines(
-                            Cursor::new(val),
-                            span,
-                            strict,
-                            engine_state.signals().clone(),
-                        ),
-                        metadata,
-                    ))
-                }
-                PipelineData::ByteStream(stream, metadata)
+                PipelineData::Value(Value::String { val, .. }, ..) => Ok(PipelineData::ListStream(
+                    read_json_lines(
+                        Cursor::new(val),
+                        span,
+                        strict,
+                        engine_state.signals().clone(),
+                    ),
+                    metadata,
+                )),
+                PipelineData::ByteStream(stream, ..)
                     if stream.type_() != ByteStreamType::Binary =>
                 {
                     if let Some(reader) = stream.reader() {
@@ -107,7 +106,7 @@ impl Command for FromJson {
             }
         } else {
             // Return a single JSON value
-            let (string_input, span, metadata) = input.collect_string_strict(span)?;
+            let (string_input, span, ..) = input.collect_string_strict(span)?;
 
             if string_input.is_empty() {
                 return Ok(Value::nothing(span).into_pipeline_data());
@@ -267,6 +266,10 @@ fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Valu
 
 #[cfg(test)]
 mod test {
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::{Metadata, MetadataSet};
+
     use super::*;
 
     #[test]
@@ -274,5 +277,34 @@ mod test {
         use crate::test_examples;
 
         test_examples(FromJson {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(FromJson {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(MetadataSet {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = r#"'{"a":1,"b":2}' | metadata set --content-type 'application/json' --datasource-ls | from json | metadata | $in"#;
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("source" => Value::test_string("ls"))),
+            result.expect("There should be a result")
+        )
     }
 }
