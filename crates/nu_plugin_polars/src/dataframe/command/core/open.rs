@@ -1,5 +1,8 @@
 use crate::{
-    cloud::build_cloud_options, dataframe::values::NuSchema, values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType}, EngineWrapper, PolarsPlugin
+    cloud::build_cloud_options,
+    dataframe::values::NuSchema,
+    values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType},
+    EngineWrapper, PolarsPlugin,
 };
 use nu_utils::perf;
 use url::Url;
@@ -159,14 +162,28 @@ fn command(
         .map(|t: Spanned<String>| (t.item, t.span))
         .or_else(|| resource.extension.clone().map(|e| (e, resource.span)));
 
+    let is_eager = call.has_flag("eager")?;
+
+    if is_eager && resource.cloud_options.is_some() {
+        return Err(ShellError::GenericError {
+            error: "Cloud URLs are not supported with --eager".into(),
+            msg: "".into(),
+            span: call.get_flag_span("eager"),
+            help: Some("Remove flag".into()),
+            inner: vec![],
+        });
+    }
+
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
-            PolarsFileType::Csv | PolarsFileType::Tsv => from_csv(plugin, engine, call, resource),
-            PolarsFileType::Parquet => from_parquet(plugin, engine, call, resource),
-            PolarsFileType::Arrow => from_arrow(plugin, engine, call, resource),
-            PolarsFileType::Json => from_json(plugin, engine, call, resource),
-            PolarsFileType::NdJson => from_ndjson(plugin, engine, call, resource),
-            PolarsFileType::Avro => from_avro(plugin, engine, call, resource),
+            PolarsFileType::Csv | PolarsFileType::Tsv => {
+                from_csv(plugin, engine, call, resource, is_eager)
+            }
+            PolarsFileType::Parquet => from_parquet(plugin, engine, call, resource, is_eager),
+            PolarsFileType::Arrow => from_arrow(plugin, engine, call, resource, is_eager),
+            PolarsFileType::Json => from_json(plugin, engine, call, resource, is_eager),
+            PolarsFileType::NdJson => from_ndjson(plugin, engine, call, resource, is_eager),
+            PolarsFileType::Avro => from_avro(plugin, engine, call, resource, is_eager),
             _ => Err(PolarsFileType::build_unsupported_error(
                 &ext,
                 &[
@@ -193,10 +210,11 @@ fn from_parquet(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
     resource: Resource,
+    is_eager: bool,
 ) -> Result<Value, ShellError> {
     let file_path = resource.path;
     let file_span = resource.span;
-    if !call.has_flag("eager")? {
+    if !is_eager {
         let file: String = call.req(0)?;
         let args = ScanArgsParquet::default();
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
@@ -247,6 +265,7 @@ fn from_avro(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
     resource: Resource,
+    _is_eager: bool, // ignore, lazy frames are not currently supported
 ) -> Result<Value, ShellError> {
     let file_path = resource.path;
     let file_span = resource.span;
@@ -284,10 +303,11 @@ fn from_arrow(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
     resource: Resource,
+    is_eager: bool,
 ) -> Result<Value, ShellError> {
     let file_path = resource.path;
     let file_span = resource.span;
-    if !call.has_flag("eager")? {
+    if !is_eager {
         let file: String = call.req(0)?;
         let args = ScanArgsIpc {
             n_rows: None,
@@ -347,6 +367,7 @@ fn from_json(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
     resource: Resource,
+    _is_eager: bool, // ignore = lazy frames not currently supported
 ) -> Result<Value, ShellError> {
     let file_path = resource.path;
     let file_span = resource.span;
@@ -389,6 +410,7 @@ fn from_ndjson(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
     resource: Resource,
+    is_eager: bool,
 ) -> Result<Value, ShellError> {
     let file_path = resource.path;
     let file_span = resource.span;
@@ -404,7 +426,7 @@ fn from_ndjson(
         .map(|schema| NuSchema::try_from(&schema))
         .transpose()?;
 
-    if !call.has_flag("eager")? {
+    if !is_eager {
         let start_time = std::time::Instant::now();
 
         let df = LazyJsonLineReader::new(file_path)
@@ -469,6 +491,7 @@ fn from_csv(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
     resource: Resource,
+    is_eager: bool,
 ) -> Result<Value, ShellError> {
     let file_path = resource.path;
     let file_span = resource.span;
@@ -485,7 +508,7 @@ fn from_csv(
         .transpose()?;
     let truncate_ragged_lines: bool = call.has_flag("truncate-ragged-lines")?;
 
-    if !call.has_flag("eager")? {
+    if !is_eager {
         let csv_reader = LazyCsvReader::new(file_path);
 
         let csv_reader = match delimiter {
