@@ -49,7 +49,7 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
     perf!(
         "add plugin file to engine_state",
         start_time,
-        engine_state.get_config().use_ansi_coloring
+        engine_state.get_config().use_ansi_coloring.get()
     );
 
     start_time = std::time::Instant::now();
@@ -129,7 +129,7 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
         perf!(
             &format!("read plugin file {}", plugin_path.display()),
             start_time,
-            engine_state.get_config().use_ansi_coloring
+            engine_state.get_config().use_ansi_coloring.get()
         );
         start_time = std::time::Instant::now();
 
@@ -145,7 +145,7 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
         perf!(
             &format!("load plugin file {}", plugin_path.display()),
             start_time,
-            engine_state.get_config().use_ansi_coloring
+            engine_state.get_config().use_ansi_coloring.get()
         );
     }
 }
@@ -345,7 +345,7 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
     perf!(
         "migrate old plugin file",
         start_time,
-        engine_state.get_config().use_ansi_coloring
+        engine_state.get_config().use_ansi_coloring.get()
     );
     true
 }

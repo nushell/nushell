@@ -265,7 +265,7 @@ pub fn eval_source(
     perf!(
         &format!("eval_source {}", &fname),
         start_time,
-        engine_state.get_config().use_ansi_coloring
+        engine_state.get_config().use_ansi_coloring.get()
     );
 
     exit_code

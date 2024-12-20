@@ -1,7 +1,9 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{dots::expand_ndots, expand_tilde, AbsolutePath};
-use nu_protocol::{did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals};
+use nu_protocol::{
+    did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
+};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
@@ -417,7 +419,7 @@ fn write_pipeline_data(
         stack.start_collect_value();
 
         // Turn off color as we pass data through
-        Arc::make_mut(&mut engine_state.config).use_ansi_coloring = false;
+        Arc::make_mut(&mut engine_state.config).use_ansi_coloring = UseAnsiColoring::False;
 
         // Invoke the `table` command.
         let output =
