@@ -15,13 +15,7 @@ use nu_table::{
     StringResult, TableOpts, TableOutput,
 };
 use nu_utils::{get_ls_colors, terminal_size};
-use std::{
-    collections::VecDeque,
-    io::{IsTerminal, Read},
-    path::PathBuf,
-    str::FromStr,
-    time::Instant,
-};
+use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr, time::Instant};
 use url::Url;
 
 const STREAM_PAGE_SIZE: usize = 1000;
@@ -1117,8 +1111,7 @@ enum TableView {
 }
 
 fn maybe_strip_color(output: String, config: &Config) -> String {
-    // the terminal is for when people do ls from vim, there should be no coloring there
-    if !config.use_ansi_coloring.get() || !std::io::stdout().is_terminal() {
+    if !config.use_ansi_coloring.get() {
         // Draw the table without ansi colors
         nu_utils::strip_ansi_string_likely(output)
     } else {
