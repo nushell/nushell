@@ -1,6 +1,5 @@
+use fancy_regex::{escape, Regex};
 use nu_engine::command_prelude::*;
-
-use regex::Regex;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -182,7 +181,7 @@ fn split_column(
     let regex = if args.has_regex {
         Regex::new(&args.separator.item)
     } else {
-        let escaped = regex::escape(&args.separator.item);
+        let escaped = escape(&args.separator.item);
         Regex::new(&escaped)
     }
     .map_err(|e| ShellError::GenericError {
@@ -220,10 +219,12 @@ fn split_column_helper(
         let split_result: Vec<_> = match max_split {
             Some(max_split) => separator
                 .splitn(&s, max_split)
+                .filter_map(|x| x.ok())
                 .filter(|x| !(collapse_empty && x.is_empty()))
                 .collect(),
             None => separator
                 .split(&s)
+                .filter_map(|x| x.ok())
                 .filter(|x| !(collapse_empty && x.is_empty()))
                 .collect(),
         };

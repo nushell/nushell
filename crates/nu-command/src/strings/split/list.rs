@@ -1,6 +1,5 @@
+use fancy_regex::Regex;
 use nu_engine::command_prelude::*;
-
-use regex::Regex;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -193,7 +192,7 @@ impl Matcher {
         Ok(match self {
             Matcher::Regex(regex) => {
                 if let Ok(rhs_str) = rhs.coerce_str() {
-                    regex.is_match(&rhs_str)
+                    regex.is_match(&rhs_str).unwrap_or(false)
                 } else {
                     false
                 }
