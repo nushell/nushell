@@ -139,6 +139,7 @@ pub fn eval_block(
 }
 
 pub fn check_example_evaluates_to_expected_output(
+    cmd_name: &str,
     example: &Example,
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
@@ -159,11 +160,17 @@ pub fn check_example_evaluates_to_expected_output(
     // If the command you are testing requires to compare another case, then
     // you need to define its equality in the Value struct
     if let Some(expected) = example.result.as_ref() {
+        let expected = DebuggableValue(expected);
+        let result = DebuggableValue(&result);
         assert_eq!(
-            DebuggableValue(&result),
-            DebuggableValue(expected),
-            "The example result differs from the expected value",
-        )
+            result,
+            expected,
+            "Error: The result of example '{}' for the command '{}' differs from the expected value.\n\nExpected: {:?}\nActual:   {:?}\n",
+            example.description,
+            cmd_name,
+            expected,
+            result,
+        );
     }
 }
 
