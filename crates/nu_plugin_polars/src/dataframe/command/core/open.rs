@@ -216,7 +216,10 @@ fn from_parquet(
     let file_span = resource.span;
     if !is_eager {
         let file: String = call.req(0)?;
-        let args = ScanArgsParquet::default();
+        let args = ScanArgsParquet {
+            cloud_options: resource.cloud_options.clone(),
+            ..Default::default()
+        };
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
             .map_err(|e| ShellError::GenericError {
                 error: "Parquet reader error".into(),
@@ -432,6 +435,7 @@ fn from_ndjson(
         let df = LazyJsonLineReader::new(file_path)
             .with_infer_schema_length(Some(infer_schema))
             .with_schema(maybe_schema.map(|s| s.into()))
+            .with_cloud_options(resource.cloud_options.clone())
             .finish()
             .map_err(|e| ShellError::GenericError {
                 error: format!("NDJSON reader error: {e}"),
@@ -509,7 +513,8 @@ fn from_csv(
     let truncate_ragged_lines: bool = call.has_flag("truncate-ragged-lines")?;
 
     if !is_eager {
-        let csv_reader = LazyCsvReader::new(file_path);
+        let csv_reader =
+            LazyCsvReader::new(file_path).with_cloud_options(resource.cloud_options.clone());
 
         let csv_reader = match delimiter {
             None => csv_reader,
