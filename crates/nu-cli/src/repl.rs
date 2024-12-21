@@ -1487,7 +1487,7 @@ mod test_auto_cd {
         };
 
         // Perform the auto-cd operation.
-        do_auto_cd(target, cwd, &mut stack, &mut engine_state, span);
+        do_auto_cd(target, cwd, &mut stack, &engine_state, span);
         let updated_cwd = engine_state.cwd(Some(&stack)).unwrap();
 
         // Check that `updated_cwd` and `after` point to the same place. They
