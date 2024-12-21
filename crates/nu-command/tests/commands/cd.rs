@@ -356,6 +356,10 @@ fn filesystem_from_non_root_change_to_another_drive_non_root_then_using_relative
         assert!(dirs.test.join("test_folder").exists());
         assert!(_actual.out.ends_with(r"\cd_test_22"));
         assert!(_actual.err.is_empty());
-        assert!(dirs.test.join("test_folder").join("test_file_on_x.txt").exists());
+        assert!(dirs
+            .test
+            .join("test_folder")
+            .join("test_file_on_x.txt")
+            .exists());
     })
 }

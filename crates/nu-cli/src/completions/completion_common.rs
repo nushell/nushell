@@ -176,6 +176,7 @@ pub fn complete_item(
 ) -> Vec<FileSuggestion> {
     let cleaned_partial = surround_remove(partial);
     let isdir = cleaned_partial.ends_with(is_separator);
+    #[cfg(windows)]
     let cleaned_partial =
         if let Some(absolute_path) = expand_pwd(stack, engine_state, Path::new(&cleaned_partial)) {
             if let Some(abs_path_str) = absolute_path.as_path().to_str() {
