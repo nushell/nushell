@@ -884,7 +884,6 @@ fn support_pwd_per_drive() {
                 open test_folder\result.out.txt
             "#
         );
-        eprintln!("std out: {}", _actual.out);
         assert_eq!(_actual.out, r"X:\test_folder_on_x\test_file_on_x.txt");
         assert!(_actual.err.is_empty());
     })

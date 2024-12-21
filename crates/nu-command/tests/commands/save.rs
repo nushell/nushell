@@ -525,3 +525,29 @@ fn parent_redirection_doesnt_affect_save() {
         assert_eq!(actual.trim_end(), "");
     })
 }
+
+#[cfg(windows)]
+#[test]
+fn support_pwd_per_drive() {
+    Playground::setup("save_test_pwd_per_drive", |dirs, sandbox| {
+        sandbox.mkdir("test_folder");
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst X: /D | touch out
+                subst X: test_folder
+                x:
+                mkdir test_folder_on_x
+                cd -
+                x:test_folder_on_x\
+                touch test_file_on_x.txt
+                cd -
+                ls test_folder | get name | save x:result.out.txt
+                subst X: /D | touch out
+                open test_folder\test_folder_on_x\result.out.txt
+            "#
+        );
+        assert_eq!(_actual.out, r"test_folder\test_folder_on_x");
+        assert!(_actual.err.is_empty());
+    })
+}
