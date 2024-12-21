@@ -55,6 +55,7 @@ url.workspace = true
 features = [
     "arg_where",
     "checked_arithmetic",
+    "cloud",
     "concat_str",
     "cross_join",
     "csv",
@@ -84,6 +85,7 @@ features = [
     "strings",
     "string_to_integer",
     "streaming",
+    "timezones",
     "temporal",
     "to_dummies",
 ]

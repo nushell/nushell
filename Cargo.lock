@@ -5097,6 +5097,7 @@ dependencies = [
  "blake3",
  "bytes",
  "chrono",
+ "chrono-tz 0.8.6",
  "fast-float",
  "flate2",
  "fs4",
@@ -5142,6 +5143,7 @@ checksum = "d5c8c057ef04feaf34b6ce52096bdea3a766fa4725f50442078c8a4ee86397bf"
 dependencies = [
  "ahash 0.8.11",
  "chrono",
+ "chrono-tz 0.8.6",
  "fallible-streaming-iterator",
  "hashbrown 0.15.2",
  "indexmap",
@@ -5163,6 +5165,7 @@ checksum = "4a8ca74f42e7b47cad241b36b98d991cc7fbb51b8d0695a055eb937588d1f310"
 dependencies = [
  "ahash 0.8.11",
  "bitflags 2.6.0",
+ "futures",
  "memchr",
  "once_cell",
  "polars-arrow",
@@ -5178,6 +5181,7 @@ dependencies = [
  "polars-time",
  "polars-utils",
  "rayon",
+ "tokio",
  "version_check",
 ]
 
@@ -5303,6 +5307,7 @@ dependencies = [
  "polars-row",
  "polars-utils",
  "rayon",
+ "tokio",
  "uuid",
  "version_check",
 ]

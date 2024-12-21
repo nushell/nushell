@@ -4,6 +4,8 @@ use crate::{
     values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType},
     EngineWrapper, PolarsPlugin,
 };
+use log::debug;
+use nu_path::expand_path_with;
 use nu_utils::perf;
 use url::Url;
 
@@ -13,7 +15,7 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 
-use std::{fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, sync::Arc};
+use std::{fmt::Debug, fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, sync::Arc};
 
 use polars::{
     lazy::frame::LazyJsonLineReader,
@@ -45,7 +47,7 @@ impl PluginCommand for OpenDataFrame {
         Signature::build(self.name())
             .required(
                 "file",
-                SyntaxShape::OneOf(vec![SyntaxShape::Filepath, SyntaxShape::String]),
+                SyntaxShape::String,
                 "file path or cloud url to load values from",
             )
             .switch("eager", "Open dataframe as an eager dataframe", None)
@@ -121,9 +123,27 @@ struct Resource {
     span: Span,
 }
 
+impl Debug for Resource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // We can't print out the cloud options as it might have
+        // secrets in it.. So just print whether or not it was defined
+        f.debug_struct("Resource")
+            .field("path", &self.path)
+            .field("extension", &self.extension)
+            .field("has_cloud_options", &self.cloud_options.is_some())
+            .field("span", &self.span)
+            .finish()
+    }
+}
+
 impl Resource {
-    fn new(plugin: &PolarsPlugin, spanned_path: &Spanned<String>) -> Result<Self, ShellError> {
-        let (path_buf, cloud_options) = if let Ok(url) = spanned_path.item.parse::<Url>() {
+    fn new(
+        plugin: &PolarsPlugin,
+        engine: &nu_plugin::EngineInterface,
+        spanned_path: &Spanned<String>,
+    ) -> Result<Self, ShellError> {
+        let mut path = spanned_path.item.clone();
+        let (path_buf, cloud_options) = if let Ok(url) = path.parse::<Url>() {
             let cloud_options =
                 build_cloud_options(plugin, &url)?.ok_or(ShellError::GenericError {
                     error: format!("Could not determine a supported cloud type from url: {url}"),
@@ -135,13 +155,15 @@ impl Resource {
             let p: PathBuf = url.path().into();
             (p, Some(cloud_options))
         } else {
-            (PathBuf::from(&spanned_path.item), None)
+            let new_path = expand_path_with(path, engine.get_current_dir()?, true);
+            path = new_path.to_string_lossy().to_string();
+            (new_path, None)
         };
         let extension = path_buf
             .extension()
             .and_then(|s| s.to_str().map(|s| s.to_string()));
         Ok(Self {
-            path: spanned_path.item.clone(),
+            path,
             extension,
             cloud_options,
             span: spanned_path.span,
@@ -155,12 +177,14 @@ fn command(
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<PipelineData, ShellError> {
     let spanned_file: Spanned<String> = call.req(0)?;
+    debug!("file: {}", spanned_file.item);
 
-    let resource = Resource::new(plugin, &spanned_file)?;
+    let resource = Resource::new(plugin, engine, &spanned_file)?;
     let type_option: Option<(String, Span)> = call
         .get_flag("type")?
         .map(|t: Spanned<String>| (t.item, t.span))
         .or_else(|| resource.extension.clone().map(|e| (e, resource.span)));
+    debug!("resource: {resource:?}");
 
     let is_eager = call.has_flag("eager")?;
 
@@ -215,12 +239,11 @@ fn from_parquet(
     let file_path = resource.path;
     let file_span = resource.span;
     if !is_eager {
-        let file: String = call.req(0)?;
         let args = ScanArgsParquet {
             cloud_options: resource.cloud_options.clone(),
             ..Default::default()
         };
-        let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
+        let df: NuLazyFrame = LazyFrame::scan_parquet(file_path, args)
             .map_err(|e| ShellError::GenericError {
                 error: "Parquet reader error".into(),
                 msg: format!("{e:?}"),
@@ -311,7 +334,6 @@ fn from_arrow(
     let file_path = resource.path;
     let file_span = resource.span;
     if !is_eager {
-        let file: String = call.req(0)?;
         let args = ScanArgsIpc {
             n_rows: None,
             cache: true,
@@ -322,7 +344,7 @@ fn from_arrow(
             hive_options: HiveOptions::default(),
         };
 
-        let df: NuLazyFrame = LazyFrame::scan_ipc(file, args)
+        let df: NuLazyFrame = LazyFrame::scan_ipc(file_path, args)
             .map_err(|e| ShellError::GenericError {
                 error: "IPC reader error".into(),
                 msg: format!("{e:?}"),
