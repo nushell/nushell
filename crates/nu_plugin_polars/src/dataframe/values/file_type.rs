@@ -1,5 +1,6 @@
 use nu_protocol::{ShellError, Span};
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum PolarsFileType {
     Csv,
     Tsv,
@@ -23,9 +24,12 @@ impl PolarsFileType {
             .collect::<Vec<&'static str>>()
             .join(", ");
 
-        ShellError::FileNotFoundCustom {
-            msg: format!("Unsupported type {extension} expected {type_string}"),
-            span,
+        ShellError::GenericError {
+            error: format!("Unsupported type {extension} expected {type_string}"),
+            msg: "".into(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
         }
     }
 

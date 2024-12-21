@@ -6,5 +6,12 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 fn main() {
     env_logger::init();
-    serve_plugin(&PolarsPlugin::default(), MsgPackSerializer {})
+
+    match PolarsPlugin::new() {
+        Ok(ref plugin) => serve_plugin(plugin, MsgPackSerializer {}),
+        Err(e) => {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
+    }
 }

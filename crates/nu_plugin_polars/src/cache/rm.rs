@@ -89,7 +89,7 @@ mod test {
 
     #[test]
     fn test_remove() -> Result<(), ShellError> {
-        let plugin = PolarsPlugin::new_test_mode().into();
+        let plugin = PolarsPlugin::new_test_mode()?.into();
         let pipeline_data = PluginTest::new("polars", plugin)?
             .add_decl(Box::new(First))?
             .add_decl(Box::new(Get))?
