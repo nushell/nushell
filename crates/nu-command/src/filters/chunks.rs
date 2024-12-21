@@ -233,7 +233,8 @@ mod test {
 
     #[test]
     fn chunk_read() {
-        let data = Cursor::new("hello world");
+        let s = "hello world";
+        let data = Cursor::new(s);
         let chunk_read = ChunkRead {
             reader: data,
             size: NonZeroUsize::new(4).unwrap(),
@@ -241,15 +242,16 @@ mod test {
         let chunks = chunk_read.map(|e| e.unwrap()).collect::<Vec<_>>();
         assert_eq!(
             chunks,
-            [b"hell".to_vec(), b"o wo".to_vec(), b"rld".to_vec()]
+            [s[..4].as_bytes(), s[4..8].as_bytes(), s[8..].as_bytes()]
         );
     }
 
     #[test]
     fn chunk_read_stream() {
-        let data = Cursor::new("hel")
-            .chain(Cursor::new("lo wor"))
-            .chain(Cursor::new("ld"));
+        let s = "hello world";
+        let data = Cursor::new(&s[..3])
+            .chain(Cursor::new(&s[3..9]))
+            .chain(Cursor::new(&s[9..]));
         let chunk_read = ChunkRead {
             reader: data,
             size: NonZeroUsize::new(4).unwrap(),
@@ -257,7 +259,7 @@ mod test {
         let chunks = chunk_read.map(|e| e.unwrap()).collect::<Vec<_>>();
         assert_eq!(
             chunks,
-            [b"hell".to_vec(), b"o wo".to_vec(), b"rld".to_vec()]
+            [s[..4].as_bytes(), s[4..8].as_bytes(), s[8..].as_bytes()]
         );
     }
 
