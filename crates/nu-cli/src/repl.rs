@@ -843,11 +843,11 @@ fn parse_operation(
 ///
 /// Execute an "auto-cd" operation, changing the current working directory.
 ///
-fn do_auto_cd(
+pub fn do_auto_cd(
     path: PathBuf,
     cwd: String,
     stack: &mut Stack,
-    engine_state: &mut EngineState,
+    engine_state: &EngineState,
     span: Span,
 ) {
     let path = {

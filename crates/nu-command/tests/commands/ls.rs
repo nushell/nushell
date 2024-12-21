@@ -1,6 +1,8 @@
+use nu_path::assert_path_eq;
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
+use std::path::Path;
 
 #[test]
 fn lists_regular_files() {
@@ -860,5 +862,34 @@ fn consistent_list_order() {
         ));
 
         assert_eq!(no_arg.out, with_arg.out);
+    })
+}
+
+#[cfg(windows)]
+#[test]
+fn support_pwd_per_drive() {
+    Playground::setup("ls_test_pwd_per_drive", |dirs, sandbox| {
+        sandbox.mkdir("test_folder");
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst X: /D | touch out
+                subst X: test_folder
+                x:
+                mkdir test_folder_on_x
+                cd -
+                x:test_folder_on_x\
+                touch test_file_on_x.txt
+                cd -
+                ls x: | get name | save test_folder\result.out.txt
+                subst X: /D | touch out
+                open test_folder\result.out.txt
+            "#
+        );
+        eprintln!("std out: {}", _actual.out);
+        assert_path_eq!(_actual.out, r"X:\test_folder_on_x\test_file_on_x.txt");
+        //assert!(_actual.err.is_empty());
+        //assert!(dirs.test.join("test_folder").exists());
+        //assert!(!dirs.test.join("test_folder").join("test_file.txt").exists());
     })
 }

@@ -16,6 +16,7 @@ bench = false
 workspace = true
 
 [dependencies]
+nu-cli = { path = "../nu-cli", version = "0.100.1"}
 nu-cmd-base = { path = "../nu-cmd-base", version = "0.100.1" }
 nu-color-config = { path = "../nu-color-config", version = "0.100.1" }
 nu-engine = { path = "../nu-engine", version = "0.100.1", default-features = false }
