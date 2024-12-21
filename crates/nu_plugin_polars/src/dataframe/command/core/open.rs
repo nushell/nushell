@@ -339,7 +339,7 @@ fn from_arrow(
             cache: true,
             rechunk: false,
             row_index: None,
-            cloud_options: None,
+            cloud_options: resource.cloud_options.clone(),
             include_file_paths: None,
             hive_options: HiveOptions::default(),
         };
