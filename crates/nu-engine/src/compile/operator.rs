@@ -1,12 +1,11 @@
+use super::{compile_expression, BlockBuilder, CompileError, RedirectModes};
+use crate::is_automatic_env_var;
 use nu_protocol::{
     ast::{Assignment, Boolean, CellPath, Expr, Expression, Math, Operator, PathMember},
     engine::StateWorkingSet,
     ir::{Instruction, Literal},
     IntoSpanned, RegId, Span, Spanned, ENV_VARIABLE_ID,
 };
-use nu_utils::IgnoreCaseExt;
-
-use super::{compile_expression, BlockBuilder, CompileError, RedirectModes};
 
 pub(crate) fn compile_binary_op(
     working_set: &StateWorkingSet,
@@ -200,10 +199,9 @@ pub(crate) fn compile_assignment(
                 };
 
                 // Some env vars can't be set by Nushell code.
-                const AUTOMATIC_NAMES: &[&str] = &["PWD", "FILE_PWD", "CURRENT_FILE"];
-                if AUTOMATIC_NAMES.iter().any(|name| key.eq_ignore_case(name)) {
+                if is_automatic_env_var(key, true) {
                     return Err(CompileError::AutomaticEnvVarSetManually {
-                        envvar_name: "PWD".into(),
+                        envvar_name: key.into(),
                         span: lhs.span,
                     });
                 }
