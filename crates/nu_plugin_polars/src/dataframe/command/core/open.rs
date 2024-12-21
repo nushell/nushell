@@ -295,6 +295,10 @@ fn from_avro(
 ) -> Result<Value, ShellError> {
     let file_path = resource.path;
     let file_span = resource.span;
+    if resource.cloud_options.is_some() {
+        return Err(cloud_not_supported(PolarsFileType::Avro, file_span));
+    }
+
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
     let r = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
@@ -396,6 +400,9 @@ fn from_json(
 ) -> Result<Value, ShellError> {
     let file_path = resource.path;
     let file_span = resource.span;
+    if resource.cloud_options.is_some() {
+        return Err(cloud_not_supported(PolarsFileType::Json, file_span));
+    }
     let file = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
@@ -629,5 +636,18 @@ fn from_csv(
 
         let df = NuDataFrame::new(false, df);
         df.cache_and_to_value(plugin, engine, call.head)
+    }
+}
+
+fn cloud_not_supported(file_type: PolarsFileType, span: Span) -> ShellError {
+    ShellError::GenericError {
+        error: format!(
+            "Cloud operations not supported for file type {}",
+            file_type.to_str()
+        ),
+        msg: "".into(),
+        span: Some(span),
+        help: None,
+        inner: vec![],
     }
 }
