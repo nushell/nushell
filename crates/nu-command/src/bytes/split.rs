@@ -23,6 +23,23 @@ impl Command for BytesSplit {
         "Split input into multiple items using a separator."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["separate", "stream"]
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            example: r#"0x[66 6F 6F 20 62 61 72 20 62 61 7A 20] | bytes split 0x[20]"#,
+            description: "",
+            result: Some(Value::test_list(vec![
+                Value::test_binary("foo"),
+                Value::test_binary("bar"),
+                Value::test_binary("baz"),
+                Value::test_binary(""),
+            ])),
+        }]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -65,5 +82,17 @@ impl Command for BytesSplit {
         } else {
             Ok(PipelineData::empty())
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(BytesSplit {})
     }
 }
