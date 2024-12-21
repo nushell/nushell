@@ -52,6 +52,7 @@ members = [
   "crates/nu_plugin_custom_values",
   "crates/nu_plugin_formats",
   "crates/nu_plugin_polars",
+  "crates/nu_plugin_selinux",
   "crates/nu_plugin_stress_internals",
   "crates/nu-std",
   "crates/nu-table",
@@ -148,6 +149,7 @@ rstest = { version = "0.23", default-features = false }
 rusqlite = "0.31"
 rust-embed = "8.5.0"
 scopeguard = { version = "1.2.0" }
+selinux = "0.4.6"
 serde = { version = "1.0" }
 serde_json = "1.0"
 serde_urlencoded = "0.7.1"
@@ -292,6 +294,8 @@ trash-support = ["nu-command/trash-support", "nu-cmd-lang/trash-support"]
 
 # SQLite commands for nushell
 sqlite = ["nu-command/sqlite", "nu-cmd-lang/sqlite"]
+
+selinux = ["nu-command/selinux"]
 
 [profile.release]
 opt-level = "s"     # Optimize for size

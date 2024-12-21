@@ -115,6 +115,7 @@ macro_rules! generate_tests {
                     Value::float(1.0, Span::new(0, 10)),
                     Value::string("something", Span::new(0, 10)),
                 ],
+                has_positional_args: true,
                 named: vec![(
                     Spanned {
                         item: "name".to_string(),

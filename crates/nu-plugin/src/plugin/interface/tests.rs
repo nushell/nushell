@@ -372,6 +372,7 @@ fn manager_consume_call_run_forwards_to_receiver_with_context() -> Result<(), Sh
             call: EvaluatedCall {
                 head: Span::test_data(),
                 positional: vec![],
+                has_positional_args: false,
                 named: vec![],
             },
             input: PipelineDataHeader::Empty,
@@ -406,6 +407,7 @@ fn manager_consume_call_run_forwards_to_receiver_with_pipeline_data() -> Result<
             call: EvaluatedCall {
                 head: Span::test_data(),
                 positional: vec![],
+                has_positional_args: false,
                 named: vec![],
             },
             input: PipelineDataHeader::list_stream(ListStreamInfo::new(6, Span::test_data())),
@@ -450,6 +452,7 @@ fn manager_consume_call_run_deserializes_custom_values_in_args() -> Result<(), S
             call: EvaluatedCall {
                 head: Span::test_data(),
                 positional: vec![value.clone()],
+                has_positional_args: true,
                 named: vec![(
                     Spanned {
                         item: "flag".into(),
