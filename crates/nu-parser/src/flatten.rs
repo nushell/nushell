@@ -644,7 +644,9 @@ fn flatten_pattern_into(match_pattern: &MatchPattern, output: &mut Vec<(Span, Fl
                 output.push((match_pattern.span, FlatShape::MatchPattern));
             }
         }
-        Pattern::Value(_) => output.push((match_pattern.span, FlatShape::MatchPattern)),
+        Pattern::Expression(_) | Pattern::Value(_) => {
+            output.push((match_pattern.span, FlatShape::MatchPattern))
+        }
         Pattern::Variable(var_id) => output.push((match_pattern.span, FlatShape::VarDecl(*var_id))),
         Pattern::Rest(var_id) => output.push((match_pattern.span, FlatShape::VarDecl(*var_id))),
         Pattern::Or(patterns) => {
