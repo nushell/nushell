@@ -28,16 +28,27 @@ impl Command for BytesSplit {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            example: r#"0x[66 6F 6F 20 62 61 72 20 62 61 7A 20] | bytes split 0x[20]"#,
-            description: "",
-            result: Some(Value::test_list(vec![
-                Value::test_binary("foo"),
-                Value::test_binary("bar"),
-                Value::test_binary("baz"),
-                Value::test_binary(""),
-            ])),
-        }]
+        vec![
+            Example {
+                example: r#"0x[66 6F 6F 20 62 61 72 20 62 61 7A 20] | bytes split 0x[20]"#,
+                description: "Split a binary value using a binary separator",
+                result: Some(Value::test_list(vec![
+                    Value::test_binary("foo"),
+                    Value::test_binary("bar"),
+                    Value::test_binary("baz"),
+                    Value::test_binary(""),
+                ])),
+            },
+            Example {
+                example: r#"0x[61 2D 2D 62 2D 2D 63] | bytes split "--""#,
+                description: "Split a binary value using a string separator",
+                result: Some(Value::test_list(vec![
+                    Value::test_binary("a"),
+                    Value::test_binary("b"),
+                    Value::test_binary("c"),
+                ])),
+            },
+        ]
     }
 
     fn run(
