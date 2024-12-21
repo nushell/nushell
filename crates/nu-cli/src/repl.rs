@@ -1476,7 +1476,7 @@ mod test_auto_cd {
     #[track_caller]
     fn check(before: impl AsRef<AbsolutePath>, input: &str, after: impl AsRef<AbsolutePath>) {
         // Setup EngineState and Stack.
-        let mut engine_state = EngineState::new();
+        let engine_state = EngineState::new();
         let mut stack = Stack::new();
         stack.set_cwd(before.as_ref()).unwrap();
 
