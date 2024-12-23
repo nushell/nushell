@@ -21,8 +21,8 @@ use std::{
     path::PathBuf,
     str::FromStr,
 };
-use web_time::Instant;
 use url::Url;
+use web_time::Instant;
 
 const STREAM_PAGE_SIZE: usize = 1000;
 
