@@ -8,13 +8,12 @@ use nu_path::expand_to_real_path;
 use nu_protocol::{engine::expand_path_with, DataSource, NuGlob, PipelineMetadata};
 use pathdiff::diff_paths;
 use rayon::prelude::*;
-
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
+    cmp::Ordering,
     path::PathBuf,
-    sync::mpsc,
-    sync::{Arc, Mutex},
+    sync::{mpsc, Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -980,10 +979,11 @@ fn read_dir(
         });
     if !use_threads {
         let mut collected = items.collect::<Vec<_>>();
-        collected.sort_by(|a, b| {
-            let a = a.as_ref().expect("path should be valid");
-            let b = b.as_ref().expect("path should be valid");
-            a.cmp(b)
+        collected.sort_by(|a, b| match (a, b) {
+            (Ok(a), Ok(b)) => a.cmp(b),
+            (Ok(_), Err(_)) => Ordering::Greater,
+            (Err(_), Ok(_)) => Ordering::Less,
+            (Err(_), Err(_)) => Ordering::Equal,
         });
         return Ok(Box::new(collected.into_iter()));
     }
