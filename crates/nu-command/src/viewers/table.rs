@@ -20,8 +20,8 @@ use std::{
     io::{IsTerminal, Read},
     path::PathBuf,
     str::FromStr,
-    time::Instant,
 };
+use web_time::Instant;
 use url::Url;
 
 const STREAM_PAGE_SIZE: usize = 1000;

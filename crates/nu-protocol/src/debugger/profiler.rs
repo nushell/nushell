@@ -10,7 +10,7 @@ use crate::{
     ir::IrBlock,
     record, PipelineData, ShellError, Span, Value,
 };
-use std::time::Instant;
+use web_time::Instant;
 use std::{borrow::Borrow, io::BufRead};
 
 #[derive(Debug, Clone, Copy)]
