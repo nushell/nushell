@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
 use nu_protocol::engine::Closure;
-use std::time::Instant;
+use web_time::Instant;
 
 #[derive(Clone)]
 pub struct TimeIt;
