@@ -163,7 +163,22 @@ jobs:
             echo "no changes in working directory";
           fi
 
-  build-wasm:
+  wasm:
+    env:
+      WASM_OPTIONS: --no-default-features --target wasm32-unknown-unknown
+
+    strategy:
+      matrix:
+        job:
+          - name: Build WASM
+            command: cargo build
+            args:
+          - name: Clippy WASM
+            command: cargo clippy
+            args: -- $CLIPPY_OPTIONS
+
+    name: ${{ matrix.job.name }}
+
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.1.7
@@ -174,22 +189,22 @@ jobs:
       - name: Add wasm32-unknown-unknown target
         run: rustup target add wasm32-unknown-unknown
 
-      - run: cargo build -p nu-cmd-base --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-cmd-extra --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-cmd-lang --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-color-config --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-command --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-derive-value --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-engine --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-glob --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-json --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-parser --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-path --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-pretty-hex --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-protocol --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-std --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-system --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-table --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-term-grid --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nu-utils --no-default-features --target wasm32-unknown-unknown
-      - run: cargo build -p nuon --no-default-features --target wasm32-unknown-unknown
+      - run: ${{ matrix.job.command }} -p nu-cmd-base $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-cmd-extra $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-cmd-lang $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-color-config $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-command $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-derive-value $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-engine $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-glob $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-json $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-parser $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-path $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-pretty-hex $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-protocol $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-std $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-system $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-table $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-term-grid $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-utils $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nuon $WASM_OPTIONS ${{ matrix.job.args }}
