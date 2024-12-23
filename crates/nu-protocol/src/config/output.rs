@@ -45,13 +45,19 @@ impl UseAnsiColoring {
     }
 }
 
+impl From<bool> for UseAnsiColoring {
+    fn from(value: bool) -> Self {
+        match value {
+            true => Self::True,
+            false => Self::False,
+        }
+    }
+}
+
 impl FromValue for UseAnsiColoring {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         if let Ok(v) = v.as_bool() {
-            return Ok(match v {
-                true => Self::True,
-                false => Self::False,
-            });
+            return Ok(v.into());
         }
 
         #[derive(FromValue)]
