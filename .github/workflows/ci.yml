@@ -166,7 +166,7 @@ jobs:
   wasm:
     env:
       WASM_OPTIONS: --no-default-features --target wasm32-unknown-unknown
-      CLIPPY_CONF_DIR: $GITHUB_WORKSPACE/clippy/wasm/
+      CLIPPY_CONF_DIR: ${{ github.workspace }}/clippy/wasm/
 
     strategy:
       matrix:
