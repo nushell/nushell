@@ -15,10 +15,8 @@ use nu_protocol::{
 use nu_utils::IgnoreCaseExt;
 
 use crate::{
-    convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return, redirect_env,
-    ENV_CONVERSIONS,
+    convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return, ENV_CONVERSIONS,
 };
-use crate::{eval::is_automatic_env_var, eval_block_with_early_return};
 
 /// Evaluate the compiled representation of a [`Block`].
 pub fn eval_ir_block<D: DebugContext>(
