@@ -148,7 +148,9 @@ impl Command for Open {
                     // Assigning content type should only happen in raw mode. Otherwise, the content
                     // will potentially be in one of the built-in nushell `from xxx` formats and therefore
                     // cease to be in the original content-type.... or so I'm told. :)
-                    let content_type = if raw {
+                    // However, nu files only open as text regardless.
+                    let is_nu = path.extension().map(|ext| ext == "nu").unwrap_or(false);
+                    let content_type = if raw || is_nu {
                         path.extension()
                             .map(|ext| ext.to_string_lossy().to_string())
                             .and_then(|ref s| detect_content_type(s))
