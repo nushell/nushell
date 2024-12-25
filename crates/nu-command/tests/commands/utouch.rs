@@ -83,7 +83,10 @@ fn creates_two_files() {
     })
 }
 
+// Windows forbids file names with reserved characters
+// https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
 #[test]
+#[cfg(not(windows))]
 fn creates_a_file_when_glob_has_no_matches() {
     Playground::setup("create_test_glob", |dirs, _sandbox| {
         nu!(
