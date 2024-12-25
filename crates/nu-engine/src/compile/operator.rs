@@ -331,43 +331,43 @@ pub(crate) fn compile_load_env(
     path: &[PathMember],
     out_reg: RegId,
 ) -> Result<(), CompileError> {
-    if path.is_empty() {
-        builder.push(
+    match path {
+        [] => builder.push(
             Instruction::LoadVariable {
                 dst: out_reg,
                 var_id: ENV_VARIABLE_ID,
             }
             .into_spanned(span),
-        )?;
-    } else {
-        let (key, optional) = match &path[0] {
-            PathMember::String { val, optional, .. } => (builder.data(val)?, *optional),
-            PathMember::Int { span, .. } => {
-                return Err(CompileError::AccessEnvByInt { span: *span })
-            }
-        };
-        let tail = &path[1..];
-
-        if optional {
-            builder.push(Instruction::LoadEnvOpt { dst: out_reg, key }.into_spanned(span))?;
-        } else {
-            builder.push(Instruction::LoadEnv { dst: out_reg, key }.into_spanned(span))?;
+        )?,
+        [PathMember::Int { span, .. }, ..] => {
+            return Err(CompileError::AccessEnvByInt { span: *span })
         }
+        [PathMember::String {
+            val: key, optional, ..
+        }, tail @ ..] => {
+            let key = builder.data(key)?;
 
-        if !tail.is_empty() {
-            let path = builder.literal(
-                Literal::CellPath(Box::new(CellPath {
-                    members: tail.to_vec(),
-                }))
-                .into_spanned(span),
-            )?;
-            builder.push(
-                Instruction::FollowCellPath {
-                    src_dst: out_reg,
-                    path,
-                }
-                .into_spanned(span),
-            )?;
+            builder.push(if *optional {
+                Instruction::LoadEnvOpt { dst: out_reg, key }.into_spanned(span)
+            } else {
+                Instruction::LoadEnv { dst: out_reg, key }.into_spanned(span)
+            })?;
+
+            if !tail.is_empty() {
+                let path = builder.literal(
+                    Literal::CellPath(Box::new(CellPath {
+                        members: tail.to_vec(),
+                    }))
+                    .into_spanned(span),
+                )?;
+                builder.push(
+                    Instruction::FollowCellPath {
+                        src_dst: out_reg,
+                        path,
+                    }
+                    .into_spanned(span),
+                )?;
+            }
         }
     }
     Ok(())
