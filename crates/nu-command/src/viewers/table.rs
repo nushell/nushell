@@ -15,8 +15,9 @@ use nu_table::{
     StringResult, TableOpts, TableOutput,
 };
 use nu_utils::{get_ls_colors, terminal_size};
-use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr, time::Instant};
+use std::{collections::VecDeque, io::{IsTerminal, Read}, path::PathBuf, str::FromStr, time::Instant};
 use url::Url;
+use web_time::Instant;
 
 const STREAM_PAGE_SIZE: usize = 1000;
 

@@ -3,7 +3,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::Expr,
     engine::{Call, EngineState, Stack, StateWorkingSet},
-    ShellError, Span, Value, VarId,
+    ShellError, Span, Type, Value, VarId,
 };
 use std::{
     collections::HashMap,
@@ -11,12 +11,51 @@ use std::{
     sync::Arc,
 };
 
-const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
+pub const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
 
-enum ConversionResult {
-    Ok(Value),
-    ConversionError(ShellError), // Failure during the conversion itself
-    CellPathError, // Error looking up the ENV_VAR.to_/from_string fields in $env.ENV_CONVERSIONS
+enum ConversionError {
+    ShellError(ShellError),
+    CellPathError,
+}
+
+impl From<ShellError> for ConversionError {
+    fn from(value: ShellError) -> Self {
+        Self::ShellError(value)
+    }
+}
+
+/// Translate environment variables from Strings to Values.
+pub fn convert_env_vars(
+    stack: &mut Stack,
+    engine_state: &EngineState,
+    conversions: &Value,
+) -> Result<(), ShellError> {
+    let conversions = conversions.as_record()?;
+    for (key, conversion) in conversions.into_iter() {
+        if let Some(val) = stack.get_env_var_insensitive(engine_state, key) {
+            match val.get_type() {
+                Type::String => {}
+                _ => continue,
+            }
+
+            let conversion = conversion
+                .as_record()?
+                .get("from_string")
+                .ok_or(ShellError::MissingRequiredColumn {
+                    column: "from_string",
+                    span: conversion.span(),
+                })?
+                .as_closure()?;
+
+            let new_val = ClosureEvalOnce::new(engine_state, stack, conversion.clone())
+                .debug(false)
+                .run_with_value(val.clone())?
+                .into_value(val.span())?;
+
+            stack.add_env_var(key.clone(), new_val);
+        }
+    }
+    Ok(())
 }
 
 /// Translate environment variables from Strings to Values. Requires config to be already set up in
@@ -36,11 +75,11 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Resu
         if let Value::String { .. } = val {
             // Only run from_string on string values
             match get_converted_value(engine_state, stack, name, val, "from_string") {
-                ConversionResult::Ok(v) => {
+                Ok(v) => {
                     let _ = new_scope.insert(name.to_string(), v);
                 }
-                ConversionResult::ConversionError(e) => error = error.or(Some(e)),
-                ConversionResult::CellPathError => {
+                Err(ConversionError::ShellError(e)) => error = error.or(Some(e)),
+                Err(ConversionError::CellPathError) => {
                     let _ = new_scope.insert(name.to_string(), val.clone());
                 }
             }
@@ -101,9 +140,9 @@ pub fn env_to_string(
     stack: &Stack,
 ) -> Result<String, ShellError> {
     match get_converted_value(engine_state, stack, env_name, value, "to_string") {
-        ConversionResult::Ok(v) => Ok(v.coerce_into_string()?),
-        ConversionResult::ConversionError(e) => Err(e),
-        ConversionResult::CellPathError => match value.coerce_string() {
+        Ok(v) => Ok(v.coerce_into_string()?),
+        Err(ConversionError::ShellError(e)) => Err(e),
+        Err(ConversionError::CellPathError) => match value.coerce_string() {
             Ok(s) => Ok(s),
             Err(_) => {
                 if env_name.to_lowercase() == "path" {
@@ -318,28 +357,24 @@ fn get_converted_value(
     name: &str,
     orig_val: &Value,
     direction: &str,
-) -> ConversionResult {
-    let conversions = stack.get_env_var(engine_state, ENV_CONVERSIONS);
-    let conversion = conversions
-        .as_ref()
-        .and_then(|val| val.as_record().ok())
-        .and_then(|record| record.get(name))
-        .and_then(|val| val.as_record().ok())
-        .and_then(|record| record.get(direction));
+) -> Result<Value, ConversionError> {
+    let conversion = stack
+        .get_env_var(engine_state, ENV_CONVERSIONS)
+        .ok_or(ConversionError::CellPathError)?
+        .as_record()?
+        .get(name)
+        .ok_or(ConversionError::CellPathError)?
+        .as_record()?
+        .get(direction)
+        .ok_or(ConversionError::CellPathError)?
+        .as_closure()?;
 
-    if let Some(conversion) = conversion {
-        conversion
-            .as_closure()
-            .and_then(|closure| {
-                ClosureEvalOnce::new(engine_state, stack, closure.clone())
-                    .debug(false)
-                    .run_with_value(orig_val.clone())
-            })
-            .and_then(|data| data.into_value(orig_val.span()))
-            .map_or_else(ConversionResult::ConversionError, ConversionResult::Ok)
-    } else {
-        ConversionResult::CellPathError
-    }
+    Ok(
+        ClosureEvalOnce::new(engine_state, stack, conversion.clone())
+            .debug(false)
+            .run_with_value(orig_val.clone())?
+            .into_value(orig_val.span())?,
+    )
 }
 
 fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Option<ShellError> {

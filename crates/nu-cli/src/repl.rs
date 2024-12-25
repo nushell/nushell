@@ -146,15 +146,30 @@ pub fn evaluate_repl(
     // Regenerate the $nu constant to contain the startup time and any other potential updates
     engine_state.generate_nu_constant();
 
-    if load_std_lib.is_none() && engine_state.get_config().show_banner {
-        eval_source(
-            engine_state,
-            &mut unique_stack,
-            r#"banner"#.as_bytes(),
-            "show_banner",
-            PipelineData::empty(),
-            false,
-        );
+    if load_std_lib.is_none() {
+        match engine_state.get_config().show_banner {
+            Value::Bool { val: false, .. } => {}
+            Value::String { ref val, .. } if val == "short" => {
+                eval_source(
+                    engine_state,
+                    &mut unique_stack,
+                    r#"banner --short"#.as_bytes(),
+                    "show short banner",
+                    PipelineData::empty(),
+                    false,
+                );
+            }
+            _ => {
+                eval_source(
+                    engine_state,
+                    &mut unique_stack,
+                    r#"banner"#.as_bytes(),
+                    "show_banner",
+                    PipelineData::empty(),
+                    false,
+                );
+            }
+        }
     }
 
     kitty_protocol_healthcheck(engine_state);

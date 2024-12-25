@@ -79,7 +79,7 @@ mod tests {
 
     #[test]
     fn test_to_lazy() -> Result<(), ShellError> {
-        let plugin: Arc<PolarsPlugin> = PolarsPlugin::new_test_mode().into();
+        let plugin: Arc<PolarsPlugin> = PolarsPlugin::new_test_mode()?.into();
         let mut plugin_test = PluginTest::new("polars", Arc::clone(&plugin))?;
         let pipeline_data = plugin_test.eval("[[a b]; [6 2] [1 4] [4 1]] | polars into-lazy")?;
         let value = pipeline_data.into_value(Span::test_data())?;
