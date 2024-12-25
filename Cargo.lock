@@ -3420,6 +3420,7 @@ dependencies = [
  "uuid",
  "v_htmlescape",
  "wax",
+ "web-time",
  "which",
  "windows 0.56.0",
  "winreg",
@@ -3659,6 +3660,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.6",
  "typetag",
+ "web-time",
  "windows-sys 0.48.0",
 ]
 
@@ -3687,6 +3689,7 @@ dependencies = [
  "ntapi",
  "procfs",
  "sysinfo 0.32.1",
+ "web-time",
  "windows 0.56.0",
 ]
 

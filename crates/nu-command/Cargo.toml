@@ -106,6 +106,7 @@ wax = { workspace = true }
 which = { workspace = true, optional = true }
 unicode-width = { workspace = true }
 data-encoding = { version = "2.6.0", features = ["alloc"] }
+web-time = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }
