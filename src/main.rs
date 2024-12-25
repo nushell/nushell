@@ -213,7 +213,10 @@ fn main() -> Result<()> {
 
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
 
-    let use_color = engine_state.get_config().use_ansi_coloring.get();
+    let use_color = engine_state
+        .get_config()
+        .use_ansi_coloring
+        .get(&engine_state);
 
     // Set up logger
     if let Some(level) = parsed_nu_cli_args

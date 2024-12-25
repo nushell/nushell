@@ -39,7 +39,7 @@ pub(crate) fn read_config_file(
 
         let start_time = std::time::Instant::now();
         let config = engine_state.get_config();
-        let use_color = config.use_ansi_coloring.get();
+        let use_color = config.use_ansi_coloring.get(engine_state);
         // Translate environment variables from Strings to Values
         if let Err(e) = convert_env_values(engine_state, stack) {
             report_shell_error(engine_state, &e);
@@ -53,7 +53,7 @@ pub(crate) fn read_config_file(
     } else {
         let start_time = std::time::Instant::now();
         let config = engine_state.get_config();
-        let use_color = config.use_ansi_coloring.get();
+        let use_color = config.use_ansi_coloring.get(engine_state);
         if let Err(e) = convert_env_values(engine_state, stack) {
             report_shell_error(engine_state, &e);
         }

@@ -655,6 +655,35 @@ impl Value {
         }
     }
 
+    /// Interprets this `Value` as a boolean based on typical conventions for environment values.
+    ///
+    /// The following rules are used:
+    /// - Values representing `false`:
+    ///   - Empty strings
+    ///   - The number `0` (as an integer or float)
+    ///   - `Nothing`
+    ///   - Explicit boolean `false`
+    /// - Values representing `true`:
+    ///   - Non-zero numbers (integer or float)
+    ///   - Non-empty strings
+    ///   - Explicit boolean `true`
+    ///
+    /// For all other, more complex variants of [`Value`], the function cannot determine a
+    /// boolean representation and returns `None`.
+    pub fn as_env_bool(&self) -> Option<bool> {
+        match self {
+            Value::Bool { val: false, .. }
+            | Value::Int { val: 0, .. }
+            | Value::Float { val: 0.0, .. }
+            | Value::Nothing { .. } => Some(false),
+            Value::String { val, .. } if val.as_str() == "" => Some(false),
+            Value::Bool { .. } | Value::Int { .. } | Value::Float { .. } | Value::String { .. } => {
+                Some(true)
+            }
+            _ => None,
+        }
+    }
+
     /// Returns a reference to the inner [`CustomValue`] trait object or an error if this `Value` is not a custom value
     pub fn as_custom_value(&self) -> Result<&dyn CustomValue, ShellError> {
         if let Value::Custom { val, .. } = self {

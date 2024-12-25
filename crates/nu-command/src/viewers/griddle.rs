@@ -72,7 +72,7 @@ prints out the list properly."#
             None => None,
         };
 
-        let use_color: bool = color_param && config.use_ansi_coloring.get();
+        let use_color: bool = color_param && config.use_ansi_coloring.get(engine_state);
         let cwd = engine_state.cwd(Some(stack))?;
 
         match input {

@@ -196,7 +196,7 @@ pub fn complete_item(
         .map(|cwd| Path::new(cwd.as_ref()).to_path_buf())
         .collect();
     let ls_colors = (engine_state.config.completions.use_ls_colors
-        && engine_state.config.use_ansi_coloring.get())
+        && engine_state.config.use_ansi_coloring.get(engine_state))
     .then(|| {
         let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
             Some(v) => env_to_string("LS_COLORS", v, engine_state, stack).ok(),

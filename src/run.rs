@@ -197,7 +197,10 @@ pub(crate) fn run_repl(
     }
 
     // Reload use_color from config in case it's different from the default value
-    let use_color = engine_state.get_config().use_ansi_coloring.get();
+    let use_color = engine_state
+        .get_config()
+        .use_ansi_coloring
+        .get(engine_state);
     perf!("setup_config", start_time, use_color);
 
     let start_time = std::time::Instant::now();
