@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineMetadata;
 
 #[derive(Clone)]
 pub struct ConfigNu;
@@ -70,13 +71,21 @@ impl Command for ConfigNu {
         // `--default` flag handling
         if default_flag {
             let head = call.head;
-            return Ok(Value::string(nu_utils::get_default_config(), head).into_pipeline_data());
+            return Ok(Value::string(nu_utils::get_default_config(), head)
+                .into_pipeline_data_with_metadata(
+                    PipelineMetadata::default()
+                        .with_content_type("application/x-nuscript".to_string().into()),
+                ));
         }
 
         // `--doc` flag handling
         if doc_flag {
             let head = call.head;
-            return Ok(Value::string(nu_utils::get_doc_config(), head).into_pipeline_data());
+            return Ok(Value::string(nu_utils::get_doc_config(), head)
+                .into_pipeline_data_with_metadata(
+                    PipelineMetadata::default()
+                        .with_content_type("application/x-nuscript".to_string().into()),
+                ));
         }
 
         super::config_::start_editor("config-path", engine_state, stack, call)
