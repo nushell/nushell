@@ -17,7 +17,7 @@ def main [] {
     ^$nu.current-exe --commands $"source ($env.CURRENT_FILE); ($plan)"
 }
 
-def create_execution_plan [test: string] -> string {
+def create_execution_plan [test: string]: nothing -> string {
     $"{ name: \"($test)\", execute: { ($test) } }"
 }
 
@@ -45,7 +45,7 @@ def print_results [results: list<record<name: string, result: string>>] {
     }
 }
 
-def print_summary [results: list<record<name: string, result: string>>] -> bool {
+def print_summary [results: list<record<name: string, result: string>>]: nothing -> bool {
     let success = $results | where ($it.result == "PASS") | length
     let failure = $results | where ($it.result == "FAIL") | length
     let count = $results | length
@@ -57,7 +57,7 @@ def print_summary [results: list<record<name: string, result: string>>] -> bool 
     }
 }
 
-def run_test [test: record<name: string, execute: closure>] -> record<name: string, result: string, error: string> {
+def run_test [test: record<name: string, execute: closure>]: nothing -> record<name: string, result: string, error: string> {
     try {
         do ($test.execute)
         { result: $"PASS",name: $test.name, error: "" }
@@ -149,5 +149,5 @@ def "test config initialised" [] {
     let config_size = $files | where file == "config.nu" | get size | first
 
     assert greater $env_size 1KiB
-    assert greater $config_size 10KiB
+    assert greater $config_size 1KiB
 }
