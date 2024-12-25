@@ -4055,6 +4055,7 @@ dependencies = [
  "indexmap",
  "log",
  "lru",
+ "memchr",
  "miette",
  "nix 0.29.0",
  "nu-derive-value",

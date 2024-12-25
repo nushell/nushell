@@ -183,6 +183,7 @@ which = "7.0.0"
 windows = "0.56"
 windows-sys = "0.48"
 winreg = "0.52"
+memchr = "2.7.4"
 
 [workspace.lints.clippy]
 # Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
