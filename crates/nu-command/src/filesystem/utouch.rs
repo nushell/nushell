@@ -245,6 +245,11 @@ impl Command for UTouch {
                 result: None,
             },
             Example {
+                description: r#"Changes the last modified and accessed time of all files with the .json extension to today's date"#,
+                example: "utouch *.json",
+                result: None,
+            },
+            Example {
                 description: "Changes the last accessed and modified times of files a, b and c to the current time but yesterday",
                 example: r#"utouch -d "yesterday" a b c"#,
                 result: None,
