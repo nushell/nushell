@@ -1,6 +1,7 @@
 use chrono::{DateTime, FixedOffset};
 use filetime::FileTime;
 use nu_engine::command_prelude::*;
+use nu_glob::glob;
 use nu_path::expand_path_with;
 use nu_protocol::NuGlob;
 use std::{io::ErrorKind, path::PathBuf};
@@ -149,9 +150,24 @@ impl Command for UTouch {
             if file_glob.item.as_ref() == "-" {
                 input_files.push(InputFile::Stdout);
             } else {
-                let path =
+                let file_path =
                     expand_path_with(file_glob.item.as_ref(), &cwd, file_glob.item.is_expand());
-                input_files.push(InputFile::Path(path));
+
+                let mut expanded_globs = glob(&file_path.to_string_lossy())
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Failed to process file path: {}",
+                            &file_path.to_string_lossy()
+                        )
+                    })
+                    .peekable();
+
+                if expanded_globs.peek().is_none() {
+                    input_files.push(InputFile::Path(file_path));
+                    continue;
+                }
+
+                input_files.extend(expanded_globs.filter_map(Result::ok).map(InputFile::Path));
             }
         }
 
