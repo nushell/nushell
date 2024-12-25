@@ -159,34 +159,26 @@ pub fn follow_cell_path_into_stream(
     head: Span,
     insensitive: bool,
 ) -> Result<PipelineData, ShellError> {
+    // when given an integer/indexing, we fallback to
+    // the default nushell indexing behaviour
+    let has_int_member = cell_path
+        .iter()
+        .any(|it| matches!(it, PathMember::Int { .. }));
     match data {
-        PipelineData::ListStream(stream, ..) => {
-            let has_int_member = cell_path.iter().any(|it| match it {
-                PathMember::String { .. } => false,
-                PathMember::Int { .. } => true,
-            });
+        PipelineData::ListStream(stream, ..) if !has_int_member => {
+            let result = stream
+                .into_iter()
+                .map(move |value| {
+                    let span = value.span();
 
-            if has_int_member {
-                // when given an integer/indexing, we fallback to
-                // the default nushell indexing behaviour
-                Value::list(stream.into_iter().collect(), head)
-                    .follow_cell_path(&cell_path, insensitive)
-                    .map(|it| it.into_pipeline_data())
-            } else {
-                let result = stream
-                    .into_iter()
-                    .map(move |value| {
-                        let span = value.span();
+                    match value.follow_cell_path(&cell_path, insensitive) {
+                        Ok(v) => v,
+                        Err(error) => Value::error(error, span),
+                    }
+                })
+                .into_pipeline_data(head, signals);
 
-                        match value.follow_cell_path(&cell_path, insensitive) {
-                            Ok(v) => v,
-                            Err(error) => Value::error(error, span),
-                        }
-                    })
-                    .into_pipeline_data(head, signals);
-
-                Ok(result)
-            }
+            Ok(result)
         }
 
         _ => data
