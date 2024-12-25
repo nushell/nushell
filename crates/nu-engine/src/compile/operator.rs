@@ -1,8 +1,8 @@
 use nu_protocol::{
-    ast::{Assignment, Boolean, CellPath, Expr, Expression, Math, Operator, PathMember},
+    ast::{Assignment, Boolean, CellPath, Expr, Expression, Math, Operator, PathMember, Pattern},
     engine::StateWorkingSet,
     ir::{Instruction, Literal},
-    IntoSpanned, RegId, Span, Spanned, ENV_VARIABLE_ID,
+    IntoSpanned, RegId, Span, Spanned, Value, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
@@ -59,56 +59,52 @@ pub(crate) fn compile_binary_op(
         )?;
 
         match op.item {
-            // `and` / `or` are short-circuiting, and we can get by with one register and a branch
-            Operator::Boolean(Boolean::And) => {
-                let true_label = builder.label(None);
-                builder.branch_if(lhs_reg, true_label, op.span)?;
+            // `and` / `or` are short-circuiting, use `match` to avoid running the RHS if LHS is
+            // the correct value. Be careful to support and/or on non-boolean values
+            Operator::Boolean(bool_op @ Boolean::And)
+            | Operator::Boolean(bool_op @ Boolean::Or) => {
+                // `and` short-circuits on false, and `or` short-circuits on true.
+                let short_circuit_value = match bool_op {
+                    Boolean::And => false,
+                    Boolean::Or => true,
+                    Boolean::Xor => unreachable!(),
+                };
 
-                // If the branch was not taken it's false, so short circuit to load false
-                let false_label = builder.label(None);
-                builder.jump(false_label, op.span)?;
+                // Short-circuit to return `lhs_reg`. `match` op does not consume `lhs_reg`.
+                let short_circuit_label = builder.label(None);
+                builder.r#match(
+                    Pattern::Value(Value::bool(short_circuit_value, op.span)),
+                    lhs_reg,
+                    short_circuit_label,
+                    op.span,
+                )?;
 
-                builder.set_label(true_label, builder.here())?;
+                // If the match failed then this was not the short-circuit value, so we have to run
+                // the RHS expression
+                let rhs_reg = builder.next_register()?;
                 compile_expression(
                     working_set,
                     builder,
                     rhs,
                     RedirectModes::value(rhs.span),
                     None,
-                    lhs_reg,
+                    rhs_reg,
                 )?;
 
-                let end_label = builder.label(None);
-                builder.jump(end_label, op.span)?;
-
-                // Consumed by `branch-if`, so we have to set it false again
-                builder.set_label(false_label, builder.here())?;
-                builder.load_literal(lhs_reg, Literal::Bool(false).into_spanned(lhs.span))?;
-
-                builder.set_label(end_label, builder.here())?;
-            }
-            Operator::Boolean(Boolean::Or) => {
-                let true_label = builder.label(None);
-                builder.branch_if(lhs_reg, true_label, op.span)?;
-
-                // If the branch was not taken it's false, so do the right-side expression
-                compile_expression(
-                    working_set,
-                    builder,
-                    rhs,
-                    RedirectModes::value(rhs.span),
-                    None,
-                    lhs_reg,
+                // It may seem intuitive that we can just return RHS here, but we do have to
+                // actually execute the binary-op in case this is not a boolean
+                builder.push(
+                    Instruction::BinaryOp {
+                        lhs_dst: lhs_reg,
+                        op: Operator::Boolean(bool_op),
+                        rhs: rhs_reg,
+                    }
+                    .into_spanned(op.span),
                 )?;
 
-                let end_label = builder.label(None);
-                builder.jump(end_label, op.span)?;
-
-                // Consumed by `branch-if`, so we have to set it true again
-                builder.set_label(true_label, builder.here())?;
-                builder.load_literal(lhs_reg, Literal::Bool(true).into_spanned(lhs.span))?;
-
-                builder.set_label(end_label, builder.here())?;
+                // In either the short-circuit case or other case, the result is in lhs_reg =
+                // out_reg
+                builder.set_label(short_circuit_label, builder.here())?;
             }
             _ => {
                 // Any other operator, via `binary-op`
