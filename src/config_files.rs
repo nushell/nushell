@@ -214,7 +214,6 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
         .iter()
         .chain(get_user_autoload_dirs(engine_state).iter())
         .for_each(|autoload_dir| {
-            println!("{:?}", autoload_dir);
             warn!("read_vendor_autoload_files: {}", autoload_dir.display());
 
             if autoload_dir.exists() {
