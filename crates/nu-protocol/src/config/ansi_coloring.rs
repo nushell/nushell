@@ -1,7 +1,7 @@
-use std::io::IsTerminal;
-use serde::{Deserialize, Serialize};
 use super::{ConfigErrors, ConfigPath, IntoValue, ShellError, UpdateFromValue, Value};
 use crate::{self as nu_protocol, engine::EngineState, FromValue};
+use serde::{Deserialize, Serialize};
+use std::io::IsTerminal;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, IntoValue, Serialize, Deserialize)]
 pub enum UseAnsiColoring {
@@ -131,19 +131,50 @@ mod tests {
         engine_state.config = Config {
             use_ansi_coloring: UseAnsiColoring::True,
             ..Default::default()
-        }.into();
+        }
+        .into();
 
         // explicit `True` ignores environment variables
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), true);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            true
+        );
 
         set_env(&mut engine_state, "clicolor", false);
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), true);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            true
+        );
         set_env(&mut engine_state, "clicolor", true);
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), true);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            true
+        );
         set_env(&mut engine_state, "no_color", true);
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), true);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            true
+        );
         set_env(&mut engine_state, "force_color", true);
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), true);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            true
+        );
     }
 
     #[test]
@@ -152,19 +183,50 @@ mod tests {
         engine_state.config = Config {
             use_ansi_coloring: UseAnsiColoring::False,
             ..Default::default()
-        }.into();
+        }
+        .into();
 
         // explicit `False` ignores environment variables
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), false);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            false
+        );
 
         set_env(&mut engine_state, "clicolor", false);
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), false);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            false
+        );
         set_env(&mut engine_state, "clicolor", true);
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), false);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            false
+        );
         set_env(&mut engine_state, "no_color", true);
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), false);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            false
+        );
         set_env(&mut engine_state, "force_color", true);
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), false);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            false
+        );
     }
 
     #[test]
@@ -173,26 +235,56 @@ mod tests {
         engine_state.config = Config {
             use_ansi_coloring: UseAnsiColoring::Auto,
             ..Default::default()
-        }.into();
+        }
+        .into();
 
         // no environment variables, behavior depends on terminal state
         let is_terminal = std::io::stdout().is_terminal();
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), is_terminal);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            is_terminal
+        );
 
         // `clicolor` determines ANSI behavior if no higher-priority variables are set
         set_env(&mut engine_state, "clicolor", true);
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), true);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            true
+        );
 
         set_env(&mut engine_state, "clicolor", false);
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), false);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            false
+        );
 
         // `no_color` overrides `clicolor` and terminal state
         set_env(&mut engine_state, "no_color", true);
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), false);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            false
+        );
 
         // `force_color` overrides everything
         set_env(&mut engine_state, "force_color", true);
-        assert_eq!(engine_state.get_config().use_ansi_coloring.get(&engine_state), true);
+        assert_eq!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state),
+            true
+        );
     }
 }
-
