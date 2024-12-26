@@ -3,6 +3,7 @@ use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::{NuGlob, ShellError, Span, Spanned};
 use std::{
     fs,
+    io::ErrorKind,
     path::{Component, Path, PathBuf},
 };
 
@@ -72,20 +73,32 @@ pub fn glob_from(
         if is_symlink {
             (path.parent().map(|parent| parent.to_path_buf()), path)
         } else {
-            let path = if let Ok(p) = canonicalize_with(path.clone(), cwd) {
-                if p.to_string_lossy().contains(GLOB_CHARS) {
+            let path = match canonicalize_with(path.clone(), cwd) {
+                Ok(p) if p.to_string_lossy().contains(GLOB_CHARS) => {
                     // our path might contains GLOB_CHARS too
                     // in such case, we need to escape our path to make
                     // glob work successfully
                     PathBuf::from(nu_glob::Pattern::escape(&p.to_string_lossy()))
-                } else {
-                    p
                 }
-            } else {
-                return Err(ShellError::DirectoryNotFound {
-                    dir: path.to_string_lossy().to_string(),
-                    span: pattern.span,
-                });
+                Ok(p) => p,
+                Err(err) => {
+                    return match err.kind() {
+                        ErrorKind::PermissionDenied => Err(ShellError::GenericError {
+                            error: "Permission denied".into(),
+                            msg: err.to_string(),
+                            span: None,
+                            help: None,
+                            inner: vec![],
+                        }),
+                        // Previously, all these errors were treated as "directory not found."
+                        // Now, permission denied errors are handled separately.
+                        // TODO: Refine handling of I/O errors for more precise responses.
+                        _ => Err(ShellError::DirectoryNotFound {
+                            dir: path.to_string_lossy().to_string(),
+                            span: pattern.span,
+                        }),
+                    };
+                }
             };
             (path.parent().map(|parent| parent.to_path_buf()), path)
         }
