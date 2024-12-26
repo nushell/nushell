@@ -3906,4 +3906,43 @@ mod tests {
             assert_eq!("-0316-02-11T06:13:20+00:00", formatted);
         }
     }
+
+    #[test]
+    fn test_env_as_bool() {
+        // explicit false values
+        assert_eq!(Value::test_bool(false).as_env_bool(), Some(false));
+        assert_eq!(Value::test_int(0).as_env_bool(), Some(false));
+        assert_eq!(Value::test_float(0.0).as_env_bool(), Some(false));
+        assert_eq!(Value::test_string("").as_env_bool(), Some(false));
+        assert_eq!(Value::test_string("0").as_env_bool(), Some(false));
+        assert_eq!(Value::test_nothing().as_env_bool(), Some(false));
+
+        // explicit true values
+        assert_eq!(Value::test_bool(true).as_env_bool(), Some(true));
+        assert_eq!(Value::test_int(1).as_env_bool(), Some(true));
+        assert_eq!(Value::test_float(1.0).as_env_bool(), Some(true));
+        assert_eq!(Value::test_string("1").as_env_bool(), Some(true));
+
+        // implicit true values
+        assert_eq!(Value::test_int(42).as_env_bool(), Some(true));
+        assert_eq!(Value::test_float(0.5).as_env_bool(), Some(true));
+        assert_eq!(Value::test_string("not zero").as_env_bool(), Some(true));
+
+        // complex values returning None
+        assert_eq!(Value::test_record(Record::default()).as_env_bool(), None);
+        assert_eq!(
+            Value::test_list(vec![Value::test_int(1)]).as_env_bool(),
+            None
+        );
+        assert_eq!(
+            Value::test_date(
+                chrono::DateTime::parse_from_rfc3339("2024-01-01T12:00:00+00:00").unwrap(),
+            )
+            .as_env_bool(),
+            None
+        );
+        assert_eq!(Value::test_glob("*.rs").as_env_bool(), None);
+        assert_eq!(Value::test_binary(vec![1, 2, 3]).as_env_bool(), None);
+        assert_eq!(Value::test_duration(3600).as_env_bool(), None);
+    }
 }
