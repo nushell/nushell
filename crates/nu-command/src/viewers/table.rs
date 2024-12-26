@@ -226,6 +226,7 @@ struct TableConfig {
     term_width: usize,
     theme: TableMode,
     abbreviation: Option<usize>,
+    use_ansi_coloring: bool,
 }
 
 impl TableConfig {
@@ -235,6 +236,7 @@ impl TableConfig {
         theme: TableMode,
         abbreviation: Option<usize>,
         index: Option<usize>,
+        use_ansi_coloring: bool,
     ) -> Self {
         Self {
             index,
@@ -242,6 +244,7 @@ impl TableConfig {
             term_width,
             abbreviation,
             theme,
+            use_ansi_coloring,
         }
     }
 }
@@ -275,12 +278,15 @@ fn parse_table_config(
 
     let term_width = get_width_param(width_param);
 
+    let use_ansi_coloring = state.get_config().use_ansi_coloring.get(state);
+
     Ok(TableConfig::new(
         table_view,
         term_width,
         theme,
         abbrivation,
         index,
+        use_ansi_coloring,
     ))
 }
 
@@ -558,7 +564,7 @@ fn handle_record(
     let result = build_table_kv(record, cfg.table_view, opts, span)?;
 
     let result = match result {
-        Some(output) => maybe_strip_color(output, input.engine_state),
+        Some(output) => maybe_strip_color(output, cfg.use_ansi_coloring),
         None => report_unsuccessful_output(input.engine_state.signals(), cfg.term_width),
     };
 
@@ -944,7 +950,7 @@ impl Iterator for PagingTableCreator {
 
         convert_table_to_output(
             table,
-            &self.engine_state,
+            &self.cfg,
             self.engine_state.signals(),
             self.cfg.term_width,
         )
@@ -1106,12 +1112,8 @@ enum TableView {
     },
 }
 
-fn maybe_strip_color(output: String, engine_state: &EngineState) -> String {
-    if !engine_state
-        .get_config()
-        .use_ansi_coloring
-        .get(engine_state)
-    {
+fn maybe_strip_color(output: String, use_ansi_coloring: bool) -> String {
+    if !use_ansi_coloring {
         // Draw the table without ansi colors
         nu_utils::strip_ansi_string_likely(output)
     } else {
@@ -1147,13 +1149,13 @@ fn create_empty_placeholder(
 
 fn convert_table_to_output(
     table: Result<Option<String>, ShellError>,
-    engine_state: &EngineState,
+    cfg: &TableConfig,
     signals: &Signals,
     term_width: usize,
 ) -> Option<Result<Vec<u8>, ShellError>> {
     match table {
         Ok(Some(table)) => {
-            let table = maybe_strip_color(table, engine_state);
+            let table = maybe_strip_color(table, cfg.use_ansi_coloring);
 
             let mut bytes = table.as_bytes().to_vec();
             bytes.push(b'\n'); // nu-table tables don't come with a newline on the end
