@@ -16,7 +16,8 @@ pub use helper::extract_value;
 pub use history::{HistoryConfig, HistoryFileFormat};
 pub use hooks::Hooks;
 pub use ls::LsConfig;
-pub use output::{ErrorStyle, UseAnsiColoring};
+pub use output::ErrorStyle;
+pub use ansi_coloring::UseAnsiColoring;
 pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use reedline::{CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu};
 pub use rm::RmConfig;
@@ -37,6 +38,7 @@ mod plugin_gc;
 mod prelude;
 mod reedline;
 mod rm;
+mod ansi_coloring;
 mod shell_integration;
 mod table;
 
