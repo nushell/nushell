@@ -660,7 +660,7 @@ impl Value {
     /// The following rules are used:
     /// - Values representing `false`:
     ///   - Empty strings
-    ///   - The number `0` (as an integer or float)
+    ///   - The number `0` (as an integer, float or string)
     ///   - `Nothing`
     ///   - Explicit boolean `false`
     /// - Values representing `true`:
@@ -676,7 +676,10 @@ impl Value {
             | Value::Int { val: 0, .. }
             | Value::Float { val: 0.0, .. }
             | Value::Nothing { .. } => Some(false),
-            Value::String { val, .. } if val.as_str() == "" => Some(false),
+            Value::String { val, .. } => match val.as_str() {
+                "" | "0" => Some(false),
+                _ => Some(true),
+            },
             Value::Bool { .. } | Value::Int { .. } | Value::Float { .. } | Value::String { .. } => {
                 Some(true)
             }
