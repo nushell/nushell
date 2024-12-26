@@ -61,7 +61,7 @@ pub fn evaluate_repl(
     // from the Arc. This lets us avoid copying stack variables needlessly
     let mut unique_stack = stack.clone();
     let config = engine_state.get_config();
-    let use_color = config.use_ansi_coloring;
+    let use_color = config.use_ansi_coloring.get(engine_state);
 
     confirm_stdin_is_terminal()?;
 
@@ -390,7 +390,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         )))
         .with_quick_completions(config.completions.quick)
         .with_partial_completions(config.completions.partial)
-        .with_ansi_colors(config.use_ansi_coloring)
+        .with_ansi_colors(config.use_ansi_coloring.get(engine_state))
         .with_cwd(Some(
             engine_state
                 .cwd(None)
@@ -410,7 +410,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let style_computer = StyleComputer::from_config(engine_state, &stack_arc);
 
     start_time = std::time::Instant::now();
-    line_editor = if config.use_ansi_coloring {
+    line_editor = if config.use_ansi_coloring.get(engine_state) {
         line_editor.with_hinter(Box::new({
             // As of Nov 2022, "hints" color_config closures only get `null` passed in.
             let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));

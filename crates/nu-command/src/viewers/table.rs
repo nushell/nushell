@@ -15,12 +15,7 @@ use nu_table::{
     StringResult, TableOpts, TableOutput,
 };
 use nu_utils::{get_ls_colors, terminal_size};
-use std::{
-    collections::VecDeque,
-    io::{IsTerminal, Read},
-    path::PathBuf,
-    str::FromStr,
-};
+use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr};
 use url::Url;
 use web_time::Instant;
 
@@ -231,6 +226,7 @@ struct TableConfig {
     term_width: usize,
     theme: TableMode,
     abbreviation: Option<usize>,
+    use_ansi_coloring: bool,
 }
 
 impl TableConfig {
@@ -240,6 +236,7 @@ impl TableConfig {
         theme: TableMode,
         abbreviation: Option<usize>,
         index: Option<usize>,
+        use_ansi_coloring: bool,
     ) -> Self {
         Self {
             index,
@@ -247,6 +244,7 @@ impl TableConfig {
             term_width,
             abbreviation,
             theme,
+            use_ansi_coloring,
         }
     }
 }
@@ -280,12 +278,15 @@ fn parse_table_config(
 
     let term_width = get_width_param(width_param);
 
+    let use_ansi_coloring = state.get_config().use_ansi_coloring.get(state);
+
     Ok(TableConfig::new(
         table_view,
         term_width,
         theme,
         abbrivation,
         index,
+        use_ansi_coloring,
     ))
 }
 
@@ -563,7 +564,7 @@ fn handle_record(
     let result = build_table_kv(record, cfg.table_view, opts, span)?;
 
     let result = match result {
-        Some(output) => maybe_strip_color(output, &config),
+        Some(output) => maybe_strip_color(output, cfg.use_ansi_coloring),
         None => report_unsuccessful_output(input.engine_state.signals(), cfg.term_width),
     };
 
@@ -947,14 +948,9 @@ impl Iterator for PagingTableCreator {
 
         self.row_offset += batch_size;
 
-        let config = {
-            let state = &self.engine_state;
-            let stack = &self.stack;
-            stack.get_config(state)
-        };
         convert_table_to_output(
             table,
-            &config,
+            &self.cfg,
             self.engine_state.signals(),
             self.cfg.term_width,
         )
@@ -1116,9 +1112,8 @@ enum TableView {
     },
 }
 
-fn maybe_strip_color(output: String, config: &Config) -> String {
-    // the terminal is for when people do ls from vim, there should be no coloring there
-    if !config.use_ansi_coloring || !std::io::stdout().is_terminal() {
+fn maybe_strip_color(output: String, use_ansi_coloring: bool) -> String {
+    if !use_ansi_coloring {
         // Draw the table without ansi colors
         nu_utils::strip_ansi_string_likely(output)
     } else {
@@ -1154,13 +1149,13 @@ fn create_empty_placeholder(
 
 fn convert_table_to_output(
     table: Result<Option<String>, ShellError>,
-    config: &Config,
+    cfg: &TableConfig,
     signals: &Signals,
     term_width: usize,
 ) -> Option<Result<Vec<u8>, ShellError>> {
     match table {
         Ok(Some(table)) => {
-            let table = maybe_strip_color(table, config);
+            let table = maybe_strip_color(table, cfg.use_ansi_coloring);
 
             let mut bytes = table.as_bytes().to_vec();
             bytes.push(b'\n'); // nu-table tables don't come with a newline on the end

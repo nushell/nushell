@@ -1,5 +1,6 @@
 use super::{config_update_string_enum, prelude::*};
-use crate as nu_protocol;
+
+use crate::{self as nu_protocol};
 
 #[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ErrorStyle {
