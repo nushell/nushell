@@ -680,7 +680,7 @@ impl Value {
                 "" | "0" => Some(false),
                 _ => Some(true),
             },
-            Value::Bool { .. } | Value::Int { .. } | Value::Float { .. } | Value::String { .. } => {
+            Value::Bool { .. } | Value::Int { .. } | Value::Float { .. } => {
                 Some(true)
             }
             _ => None,
