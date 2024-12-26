@@ -16,7 +16,7 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-cli = { path = "../nu-cli", version = "0.101.0", optional = true }
+	nu-cli = { path = "../nu-cli", version = "0.101.0", optional = true }
 nu-cmd-base = { path = "../nu-cmd-base", version = "0.101.0" }
 nu-color-config = { path = "../nu-color-config", version = "0.101.0" }
 nu-engine = { path = "../nu-engine", version = "0.101.0", default-features = false }
@@ -143,7 +143,7 @@ os = [
 	"js",
 	"network",
 	"nu-cli",
-	"nu-protocol/os", 
+	"nu-protocol/os",
 	"nu-utils/os",
 
 	# os-dependant dependencies
