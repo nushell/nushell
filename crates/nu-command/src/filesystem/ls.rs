@@ -316,6 +316,7 @@ fn ls_for_one_pattern(
     };
 
     let hidden_dir_specified = is_hidden_dir(pattern_arg.as_ref());
+
     let path = pattern_arg.into_spanned(p_tag);
     let (prefix, paths) = if just_read_dir {
         let expanded = expand_path_with(
@@ -362,40 +363,42 @@ fn ls_for_one_pattern(
     };
 
     pool.install(|| {
-        paths_peek
-            .par_bridge()
-            .filter_map(move |x| match x {
-                Ok(path) => {
-                    let metadata = match std::fs::symlink_metadata(&path) {
-                        Ok(metadata) => Some(metadata),
-                        Err(_) => None,
-                    };
-                    let hidden_dir_clone = Arc::clone(&hidden_dirs);
-                    let mut hidden_dir_mutex = hidden_dir_clone
-                        .lock()
-                        .expect("Unable to acquire lock for hidden_dirs");
-                    if path_contains_hidden_folder(&path, &hidden_dir_mutex) {
-                        return None;
-                    }
-
-                    if !all && !hidden_dir_specified && is_hidden_dir(&path) {
-                        if path.is_dir() {
-                            hidden_dir_mutex.push(path);
-                            drop(hidden_dir_mutex);
+        rayon::spawn(move || {
+            let result = paths_peek
+                .par_bridge()
+                .filter_map(move |x| match x {
+                    Ok(path) => {
+                        let metadata = match std::fs::symlink_metadata(&path) {
+                            Ok(metadata) => Some(metadata),
+                            Err(_) => None,
+                        };
+                        let hidden_dir_clone = Arc::clone(&hidden_dirs);
+                        let mut hidden_dir_mutex = hidden_dir_clone
+                            .lock()
+                            .expect("Unable to acquire lock for hidden_dirs");
+                        if path_contains_hidden_folder(&path, &hidden_dir_mutex) {
+                            return None;
                         }
-                        return None;
-                    }
 
-                    let display_name = if short_names {
-                        path.file_name().map(|os| os.to_string_lossy().to_string())
-                    } else if full_paths || absolute_path {
-                        Some(path.to_string_lossy().to_string())
-                    } else if let Some(prefix) = &prefix {
-                        if let Ok(remainder) = path.strip_prefix(prefix) {
-                            if directory {
-                                // When the path is the same as the cwd, path_diff should be "."
-                                let path_diff =
-                                    if let Some(path_diff_not_dot) = diff_paths(&path, &cwd) {
+                        if !all && !hidden_dir_specified && is_hidden_dir(&path) {
+                            if path.is_dir() {
+                                hidden_dir_mutex.push(path);
+                                drop(hidden_dir_mutex);
+                            }
+                            return None;
+                        }
+
+                        let display_name = if short_names {
+                            path.file_name().map(|os| os.to_string_lossy().to_string())
+                        } else if full_paths || absolute_path {
+                            Some(path.to_string_lossy().to_string())
+                        } else if let Some(prefix) = &prefix {
+                            if let Ok(remainder) = path.strip_prefix(prefix) {
+                                if directory {
+                                    // When the path is the same as the cwd, path_diff should be "."
+                                    let path_diff = if let Some(path_diff_not_dot) =
+                                        diff_paths(&path, &cwd)
+                                    {
                                         let path_diff_not_dot = path_diff_not_dot.to_string_lossy();
                                         if path_diff_not_dot.is_empty() {
                                             ".".to_string()
@@ -406,25 +409,57 @@ fn ls_for_one_pattern(
                                         path.to_string_lossy().to_string()
                                     };
 
-                                Some(path_diff)
-                            } else {
-                                let new_prefix = if let Some(pfx) = diff_paths(prefix, &cwd) {
-                                    pfx
+                                    Some(path_diff)
                                 } else {
-                                    prefix.to_path_buf()
-                                };
+                                    let new_prefix = if let Some(pfx) = diff_paths(prefix, &cwd) {
+                                        pfx
+                                    } else {
+                                        prefix.to_path_buf()
+                                    };
 
-                                Some(new_prefix.join(remainder).to_string_lossy().to_string())
+                                    Some(new_prefix.join(remainder).to_string_lossy().to_string())
+                                }
+                            } else {
+                                Some(path.to_string_lossy().to_string())
                             }
                         } else {
                             Some(path.to_string_lossy().to_string())
                         }
-                    } else {
-                        Some(path.to_string_lossy().to_string())
+                        .ok_or_else(|| ShellError::GenericError {
+                            error: format!("Invalid file name: {:}", path.to_string_lossy()),
+                            msg: "invalid file name".into(),
+                            span: Some(call_span),
+                            help: None,
+                            inner: vec![],
+                        });
+
+                        match display_name {
+                            Ok(name) => {
+                                let entry = dir_entry_dict(
+                                    &path,
+                                    &name,
+                                    metadata.as_ref(),
+                                    call_span,
+                                    long,
+                                    du,
+                                    &signals_clone,
+                                    use_mime_type,
+                                    args.full_paths,
+                                );
+                                match entry {
+                                    Ok(value) => Some(value),
+                                    Err(err) => Some(Value::error(err, call_span)),
+                                }
+                            }
+                            Err(err) => Some(Value::error(err, call_span)),
+                        }
                     }
-                    .ok_or_else(|| ShellError::GenericError {
-                        error: format!("Invalid file name: {:}", path.to_string_lossy()),
-                        msg: "invalid file name".into(),
+                    Err(err) => Some(Value::error(err, call_span)),
+                })
+                .try_for_each(|stream| {
+                    tx.send(stream).map_err(|e| ShellError::GenericError {
+                        error: "Error streaming data".into(),
+                        msg: e.to_string(),
                         span: Some(call_span),
                         help: None,
                         inner: vec![],
@@ -456,21 +491,18 @@ fn ls_for_one_pattern(
             })
             .try_for_each(|stream| {
                 tx.send(stream).map_err(|e| ShellError::GenericError {
-                    error: "Error streaming data".into(),
+                    error: "Unable to create a rayon pool".into(),
                     msg: e.to_string(),
                     span: Some(call_span),
                     help: None,
                     inner: vec![],
-                })
-            })
-    })
-    .map_err(|err| ShellError::GenericError {
-        error: "Unable to create a rayon pool".into(),
-        msg: err.to_string(),
-        span: Some(call_span),
-        help: None,
-        inner: vec![],
-    })?;
+                });
+
+            if let Err(error) = result {
+                let _ = tx.send(Value::error(error, call_span));
+            }
+        });
+    });
 
     Ok(rx
         .into_iter()

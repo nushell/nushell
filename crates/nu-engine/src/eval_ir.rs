@@ -15,7 +15,9 @@ use nu_protocol::{
 };
 use nu_utils::IgnoreCaseExt;
 
-use crate::{eval::is_automatic_env_var, eval_block_with_early_return, redirect_env};
+use crate::{
+    convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return, ENV_CONVERSIONS,
+};
 
 /// Evaluate the compiled representation of a [`Block`].
 pub fn eval_ir_block<D: DebugContext>(
@@ -385,9 +387,15 @@ fn eval_instruction<D: DebugContext>(
 
             if !is_automatic_env_var(&key, true) {
                 let is_config = key == "config";
-                ctx.stack.add_env_var(key.into_owned(), value);
+                let update_conversions = key == ENV_CONVERSIONS;
+
+                ctx.stack.add_env_var(key.into_owned(), value.clone());
+
                 if is_config {
                     ctx.stack.update_config(ctx.engine_state)?;
+                }
+                if update_conversions {
+                    convert_env_vars(ctx.stack, ctx.engine_state, &value)?;
                 }
                 Ok(Continue)
             } else {

@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu-command"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-command"
-version = "0.101.0"
+version = "0.101.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -16,22 +16,22 @@ bench = false
 workspace = true
 
 [dependencies]
-	nu-cli = { path = "../nu-cli", version = "0.101.0", optional = true }
-nu-cmd-base = { path = "../nu-cmd-base", version = "0.101.0" }
-nu-color-config = { path = "../nu-color-config", version = "0.101.0" }
-nu-engine = { path = "../nu-engine", version = "0.101.0", default-features = false }
-nu-glob = { path = "../nu-glob", version = "0.101.0" }
-nu-json = { path = "../nu-json", version = "0.101.0" }
-nu-parser = { path = "../nu-parser", version = "0.101.0" }
-nu-path = { path = "../nu-path", version = "0.101.0" }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.101.0" }
-nu-protocol = { path = "../nu-protocol", version = "0.101.0", default-features = false }
-nu-system = { path = "../nu-system", version = "0.101.0" }
-nu-table = { path = "../nu-table", version = "0.101.0" }
-nu-term-grid = { path = "../nu-term-grid", version = "0.101.0" }
-nu-utils = { path = "../nu-utils", version = "0.101.0", default-features = false }
+nu-cli = { path = "../nu-cli", version = "0.101.1", optional = true }
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.101.1" }
+nu-color-config = { path = "../nu-color-config", version = "0.101.1" }
+nu-engine = { path = "../nu-engine", version = "0.101.1", default-features = false }
+nu-glob = { path = "../nu-glob", version = "0.101.1" }
+nu-json = { path = "../nu-json", version = "0.101.1" }
+nu-parser = { path = "../nu-parser", version = "0.101.1" }
+nu-path = { path = "../nu-path", version = "0.101.1" }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.101.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.101.1", default-features = false }
+nu-system = { path = "../nu-system", version = "0.101.1" }
+nu-table = { path = "../nu-table", version = "0.101.1" }
+nu-term-grid = { path = "../nu-term-grid", version = "0.101.1" }
+nu-utils = { path = "../nu-utils", version = "0.101.1", default-features = false }
 nu-ansi-term = { workspace = true }
-nuon = { path = "../nuon", version = "0.101.0" }
+nuon = { path = "../nuon", version = "0.101.1" }
 
 alphanumeric-sort = { workspace = true }
 base64 = { workspace = true }
@@ -85,7 +85,7 @@ scopeguard = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["preserve_order"] }
 serde_urlencoded = { workspace = true }
-serde_yaml = { workspace = true }
+serde_yml = { workspace = true }
 sha2 = { workspace = true }
 sysinfo = { workspace = true }
 tabled = { workspace = true, features = ["ansi"], default-features = false }
@@ -107,6 +107,7 @@ wax = { workspace = true }
 which = { workspace = true, optional = true }
 unicode-width = { workspace = true }
 data-encoding = { version = "2.6.0", features = ["alloc"] }
+web-time = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }
@@ -189,8 +190,8 @@ sqlite = ["rusqlite"]
 trash-support = ["trash"]
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.101.0" }
-nu-test-support = { path = "../nu-test-support", version = "0.101.0" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.101.1" }
+nu-test-support = { path = "../nu-test-support", version = "0.101.1" }
 
 dirs = { workspace = true }
 mockito = { workspace = true, default-features = false }

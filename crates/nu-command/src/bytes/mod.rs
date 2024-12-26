@@ -9,6 +9,7 @@ mod length;
 mod remove;
 mod replace;
 mod reverse;
+mod split;
 mod starts_with;
 
 pub use add::BytesAdd;
@@ -22,4 +23,5 @@ pub use length::BytesLen;
 pub use remove::BytesRemove;
 pub use replace::BytesReplace;
 pub use reverse::BytesReverse;
+pub use split::BytesSplit;
 pub use starts_with::BytesStartsWith;
