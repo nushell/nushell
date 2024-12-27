@@ -362,17 +362,6 @@ fn get_converted_value(
     )
 }
 
-pub fn path_convert_from_string(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-) -> Result<(), ShellError> {
-    if let Some(value) = engine_state.get_env_var_insensitive("PATH") {
-        let span = value.span();
-        stack.add_env_var("path".to_string(), Value::string("/", Span::unknown()))
-    };
-    Ok(())
-}
-
 fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Option<ShellError> {
     let mut error = None;
 
