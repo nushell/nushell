@@ -1,9 +1,9 @@
 # Default Nushell Environment Config File
 # These "sensible defaults" are set before the user's `env.nu` is loaded
 #
-# version = "0.100.1"
+# version = "0.101.1"
 
-$env.PROMPT_COMMAND = $env.PROMPT_COMMAND? | default {|| 
+$env.PROMPT_COMMAND = $env.PROMPT_COMMAND? | default {||
     let dir = match (do -i { $env.PWD | path relative-to $nu.home-path }) {
         null => $env.PWD
         '' => '~'
@@ -17,7 +17,7 @@ $env.PROMPT_COMMAND = $env.PROMPT_COMMAND? | default {||
     $path_segment | str replace --all (char path_sep) $"($separator_color)(char path_sep)($path_color)"
 }
 
-$env.PROMPT_COMMAND_RIGHT = $env.PROMPT_COMMAND_RIGHT? | default {|| 
+$env.PROMPT_COMMAND_RIGHT = $env.PROMPT_COMMAND_RIGHT? | default {||
     # create a right prompt in magenta with green separators and am/pm underlined
     let time_segment = ([
         (ansi reset)

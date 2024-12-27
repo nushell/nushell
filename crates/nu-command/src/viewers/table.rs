@@ -3,11 +3,7 @@
 //        the goal is to configure it once...
 
 use std::{
-    collections::VecDeque,
-    io::{IsTerminal, Read},
-    path::PathBuf,
-    str::FromStr,
-    time::Instant,
+    collections::VecDeque, io::IsTerminal, io::Read, path::PathBuf, str::FromStr, time::Instant,
 };
 
 use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
@@ -220,6 +216,7 @@ struct TableConfig {
     theme: TableMode,
     abbreviation: Option<usize>,
     index: Option<usize>,
+    use_ansi_coloring: bool,
 }
 
 impl TableConfig {
@@ -229,6 +226,7 @@ impl TableConfig {
         theme: TableMode,
         abbreviation: Option<usize>,
         index: Option<usize>,
+        use_ansi_coloring: bool,
     ) -> Self {
         Self {
             view,
@@ -236,6 +234,7 @@ impl TableConfig {
             theme,
             abbreviation,
             index,
+            use_ansi_coloring,
         }
     }
 }
@@ -261,6 +260,7 @@ struct CLIArgs {
     expand_flatten_separator: Option<String>,
     collapse: bool,
     index: Option<usize>,
+    use_ansi_coloring: bool,
 }
 
 fn parse_table_config(
@@ -278,6 +278,7 @@ fn parse_table_config(
         args.theme,
         args.abbrivation,
         args.index,
+        args.use_ansi_coloring,
     );
 
     Ok(cfg)
@@ -310,7 +311,10 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         get_theme_flag(call, state, stack)?.unwrap_or_else(|| stack.get_config(state).table.mode);
     let index = get_index_flag(call, state, stack)?;
 
+    let use_ansi_coloring = state.get_config().use_ansi_coloring.get(state);
+
     Ok(CLIArgs {
+        theme,
         abbrivation,
         collapse,
         expand,
@@ -318,8 +322,8 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         expand_flatten,
         expand_flatten_separator,
         width,
-        theme,
         index,
+        use_ansi_coloring,
     })
 }
 
@@ -562,7 +566,7 @@ fn handle_record(input: CmdInput, mut record: Record) -> ShellResult<PipelineDat
     let result = build_table_kv(record, input.cfg.view.clone(), opts, span)?;
 
     let result = match result {
-        Some(output) => maybe_strip_color(output, &config),
+        Some(output) => maybe_strip_color(output, input.cfg.use_ansi_coloring),
         None => report_unsuccessful_output(input.engine_state.signals(), input.cfg.width),
     };
 
@@ -893,9 +897,9 @@ impl Iterator for PagingTableCreator {
 
         convert_table_to_output(
             table,
-            &self.config,
             self.engine_state.signals(),
             self.table_config.width,
+            self.table_config.use_ansi_coloring,
         )
     }
 }
@@ -1044,9 +1048,9 @@ fn render_path_name(
     Some(Value::string(val, span))
 }
 
-fn maybe_strip_color(output: String, config: &Config) -> String {
+fn maybe_strip_color(output: String, use_ansi_coloring: bool) -> String {
     // the terminal is for when people do ls from vim, there should be no coloring there
-    if !config.use_ansi_coloring || !std::io::stdout().is_terminal() {
+    if !use_ansi_coloring || !std::io::stdout().is_terminal() {
         // Draw the table without ansi colors
         nu_utils::strip_ansi_string_likely(output)
     } else {
@@ -1082,13 +1086,13 @@ fn create_empty_placeholder(
 
 fn convert_table_to_output(
     table: ShellResult<Option<String>>,
-    config: &Config,
     signals: &Signals,
     term_width: usize,
+    use_ansi_coloring: bool,
 ) -> Option<ShellResult<Vec<u8>>> {
     match table {
         Ok(Some(table)) => {
-            let table = maybe_strip_color(table, config);
+            let table = maybe_strip_color(table, use_ansi_coloring);
 
             let mut bytes = table.as_bytes().to_vec();
             bytes.push(b'\n'); // nu-table tables don't come with a newline on the end

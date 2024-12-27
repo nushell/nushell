@@ -94,8 +94,8 @@ pub fn get_scaffold_env() -> &'static str {
     include_str!("default_files/scaffold_env.nu")
 }
 
-pub fn get_sample_env() -> &'static str {
-    include_str!("default_files/sample_env.nu")
+pub fn get_doc_env() -> &'static str {
+    include_str!("default_files/doc_env.nu")
 }
 
 pub fn get_default_config() -> &'static str {
@@ -106,8 +106,8 @@ pub fn get_scaffold_config() -> &'static str {
     include_str!("default_files/scaffold_config.nu")
 }
 
-pub fn get_sample_config() -> &'static str {
-    include_str!("default_files/sample_config.nu")
+pub fn get_doc_config() -> &'static str {
+    include_str!("default_files/doc_config.nu")
 }
 
 pub fn get_ls_colors(lscolors_env_string: Option<String>) -> LsColors {

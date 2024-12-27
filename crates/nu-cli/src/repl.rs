@@ -61,7 +61,7 @@ pub fn evaluate_repl(
     // from the Arc. This lets us avoid copying stack variables needlessly
     let mut unique_stack = stack.clone();
     let config = engine_state.get_config();
-    let use_color = config.use_ansi_coloring;
+    let use_color = config.use_ansi_coloring.get(engine_state);
 
     confirm_stdin_is_terminal()?;
 
@@ -146,15 +146,30 @@ pub fn evaluate_repl(
     // Regenerate the $nu constant to contain the startup time and any other potential updates
     engine_state.generate_nu_constant();
 
-    if load_std_lib.is_none() && engine_state.get_config().show_banner {
-        eval_source(
-            engine_state,
-            &mut unique_stack,
-            r#"banner"#.as_bytes(),
-            "show_banner",
-            PipelineData::empty(),
-            false,
-        );
+    if load_std_lib.is_none() {
+        match engine_state.get_config().show_banner {
+            Value::Bool { val: false, .. } => {}
+            Value::String { ref val, .. } if val == "short" => {
+                eval_source(
+                    engine_state,
+                    &mut unique_stack,
+                    r#"banner --short"#.as_bytes(),
+                    "show short banner",
+                    PipelineData::empty(),
+                    false,
+                );
+            }
+            _ => {
+                eval_source(
+                    engine_state,
+                    &mut unique_stack,
+                    r#"banner"#.as_bytes(),
+                    "show_banner",
+                    PipelineData::empty(),
+                    false,
+                );
+            }
+        }
     }
 
     kitty_protocol_healthcheck(engine_state);
@@ -375,7 +390,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         )))
         .with_quick_completions(config.completions.quick)
         .with_partial_completions(config.completions.partial)
-        .with_ansi_colors(config.use_ansi_coloring)
+        .with_ansi_colors(config.use_ansi_coloring.get(engine_state))
         .with_cwd(Some(
             engine_state
                 .cwd(None)
@@ -395,7 +410,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let style_computer = StyleComputer::from_config(engine_state, &stack_arc);
 
     start_time = std::time::Instant::now();
-    line_editor = if config.use_ansi_coloring {
+    line_editor = if config.use_ansi_coloring.get(engine_state) {
         line_editor.with_hinter(Box::new({
             // As of Nov 2022, "hints" color_config closures only get `null` passed in.
             let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));

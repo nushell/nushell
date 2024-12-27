@@ -1,5 +1,8 @@
 # env.nu
 #
+# Installed by:
+# version = "0.101.1"
+#
 # Previously, environment variables were typically configured in `env.nu`.
 # In general, most configuration can and should be performed in `config.nu`
 # or one of the autoload directories.
@@ -9,11 +12,7 @@
 #
 # See https://www.nushell.sh/book/configuration.html
 #
-# To pretty-print a sample of the configuration settings, run:
-# config nu --sample | nu-highlight | less -R
-#
-# To pretty-print the default env.nu, run:
-# config env --default | nu-highlight | less -R
+# Also see `help config env` for more options.
 #
 # You can remove these comments if you want or leave
 # them for future reference.

@@ -14,9 +14,11 @@ use log::debug;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
 mod cache;
+mod cloud;
 pub mod dataframe;
 pub use dataframe::*;
 use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Span, Spanned, Value};
+use tokio::runtime::Runtime;
 use values::CustomValueType;
 
 use crate::values::PolarsPluginCustomValue;
@@ -52,11 +54,27 @@ impl EngineWrapper for &EngineInterface {
     }
 }
 
-#[derive(Default)]
 pub struct PolarsPlugin {
     pub(crate) cache: Cache,
     /// For testing purposes only
     pub(crate) disable_cache_drop: bool,
+    pub(crate) runtime: Runtime,
+}
+
+impl PolarsPlugin {
+    pub fn new() -> Result<Self, ShellError> {
+        Ok(Self {
+            cache: Cache::default(),
+            disable_cache_drop: false,
+            runtime: Runtime::new().map_err(|e| ShellError::GenericError {
+                error: format!("Could not instantiate tokio: {e}"),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            })?,
+        })
+    }
 }
 
 impl Plugin for PolarsPlugin {
@@ -237,11 +255,11 @@ pub mod test {
 
     impl PolarsPlugin {
         /// Creates a new polars plugin in test mode
-        pub fn new_test_mode() -> Self {
-            PolarsPlugin {
+        pub fn new_test_mode() -> Result<Self, ShellError> {
+            Ok(PolarsPlugin {
                 disable_cache_drop: true,
-                ..PolarsPlugin::default()
-            }
+                ..PolarsPlugin::new()?
+            })
         }
     }
 
@@ -269,7 +287,7 @@ pub mod test {
         command: &impl PluginCommand,
         decls: Vec<Box<dyn Command>>,
     ) -> Result<(), ShellError> {
-        let plugin = PolarsPlugin::new_test_mode();
+        let plugin = PolarsPlugin::new_test_mode()?;
         let examples = command.examples();
 
         // we need to cache values in the examples

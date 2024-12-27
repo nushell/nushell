@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu-utils"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-utils"
-version = "0.100.1"
+version = "0.101.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
@@ -24,6 +24,7 @@ log = { workspace = true }
 num-format = { workspace = true }
 strip-ansi-escapes = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 sys-locale = "0.3"
 unicase = "2.8.0"
 

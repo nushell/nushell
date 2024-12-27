@@ -258,7 +258,7 @@ fn get_documentation(
         long_desc.push_str("  ");
         long_desc.push_str(example.description);
 
-        if !nu_config.use_ansi_coloring {
+        if !nu_config.use_ansi_coloring.get(engine_state) {
             let _ = write!(long_desc, "\n  > {}\n", example.example);
         } else {
             let code_string = nu_highlight_string(example.example, engine_state, stack);
@@ -329,7 +329,7 @@ fn get_documentation(
 
     long_desc.push('\n');
 
-    if !nu_config.use_ansi_coloring {
+    if !nu_config.use_ansi_coloring.get(engine_state) {
         nu_utils::strip_ansi_string_likely(long_desc)
     } else {
         long_desc

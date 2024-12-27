@@ -191,6 +191,16 @@ fn env_var_case_insensitive() {
 }
 
 #[test]
+fn env_conversion_on_assignment() {
+    let actual = nu!(r#"
+        $env.FOO = "bar:baz:quox"
+        $env.ENV_CONVERSIONS = { FOO: { from_string: {|| split row ":"} } }
+        $env.FOO | to nuon
+    "#);
+    assert_eq!(actual.out, "[bar, baz, quox]");
+}
+
+#[test]
 fn std_log_env_vars_are_not_overridden() {
     let actual = nu_with_std!(
         envs: vec![

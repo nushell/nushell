@@ -274,7 +274,7 @@ fn run_in_noninteractive_mode() {
 #[test]
 fn run_with_no_newline() {
     let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
-        .args(["--no-newline", "-c", "\"hello world\""])
+        .args(["-n", "--no-newline", "-c", "\"hello world\""])
         .output()
         .expect("failed to run nu");
 

@@ -61,6 +61,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             SplitBy,
             Take,
             Merge,
+            MergeDeep,
             Move,
             TakeWhile,
             TakeUntil,
@@ -160,6 +161,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             MetadataSet,
             TimeIt,
             View,
+            ViewBlocks,
             ViewFiles,
             ViewIr,
             ViewSource,
@@ -349,8 +351,10 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             WithEnv,
             ConfigNu,
             ConfigEnv,
+            ConfigFlatten,
             ConfigMeta,
             ConfigReset,
+            ConfigUseColors,
         };
 
         // Math
@@ -377,6 +381,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Bytes,
             BytesLen,
+            BytesSplit,
             BytesStartsWith,
             BytesEndsWith,
             BytesReverse,

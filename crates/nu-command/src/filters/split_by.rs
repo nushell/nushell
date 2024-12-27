@@ -14,7 +14,7 @@ impl Command for SplitBy {
         Signature::build("split-by")
             .input_output_types(vec![(Type::record(), Type::record())])
             .optional("splitter", SyntaxShape::Any, "The splitter value to use.")
-            .category(Category::Filters)
+            .category(Category::Deprecated)
     }
 
     fn description(&self) -> &str {

@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.100.1"
+# version = "0.101.1"
 $env.config.color_config = {
     separator: white
     leading_trailing_space_bg: { attr: n }
@@ -60,4 +60,9 @@ $env.config.color_config = {
     shape_variable: purple
     shape_vardecl: purple
     shape_raw_string: light_purple
+    shape_garbage: {
+        fg: white
+        bg: red
+        attr: b
+    }
 }
