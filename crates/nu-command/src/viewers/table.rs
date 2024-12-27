@@ -2,9 +2,11 @@
 //        overall reduce the redundant calls to StyleComputer etc.
 //        the goal is to configure it once...
 
-use std::{
-    collections::VecDeque, io::IsTerminal, io::Read, path::PathBuf, str::FromStr, time::Instant,
-};
+use std::{collections::VecDeque, io::IsTerminal, io::Read, path::PathBuf, str::FromStr};
+
+use lscolors::{LsColors, Style};
+use url::Url;
+use web_time::Instant;
 
 use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
 use nu_engine::{command_prelude::*, env_to_string};
@@ -18,9 +20,6 @@ use nu_table::{
     StringResult, TableOpts, TableOutput,
 };
 use nu_utils::{get_ls_colors, terminal_size};
-
-use lscolors::{LsColors, Style};
-use url::Url;
 
 type ShellResult<T> = Result<T, ShellError>;
 type NuPathBuf = nu_path::PathBuf<Absolute>;
