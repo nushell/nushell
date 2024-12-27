@@ -2,10 +2,7 @@ use nu_cli::do_auto_cd;
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{dots::expand_ndots, expand_tilde, AbsolutePath};
-use nu_protocol::{
-    did_you_mean, engine::expand_path_with, process::ChildProcess, ByteStream, NuGlob, OutDest,
-    Signals,
-};
+use nu_protocol::{did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
@@ -74,8 +71,13 @@ impl Command for External {
         };
 
         if call.req::<Value>(engine_state, stack, 1).is_err() && expanded_name.is_dir() {
-            expanded_name =
-                expand_path_with(stack, engine_state, expanded_name, cwd.clone(), false);
+            expanded_name = nu_protocol::engine::expand_path_with(
+                stack,
+                engine_state,
+                expanded_name,
+                cwd.clone(),
+                false,
+            );
             // do_auto_cd() report ShellError via report_shell_error() and does not return error.
             do_auto_cd(
                 expanded_name,
