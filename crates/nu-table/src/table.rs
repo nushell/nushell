@@ -275,9 +275,8 @@ fn draw_table(t: NuTable, widths: Vec<usize>, termwidth: usize) -> Option<String
     let sep_color = t.config.border_color;
     let border_header = structure.with_header && t.config.header_on_border;
 
-    // TODO: Optimize in tabled
     let data: Vec<Vec<_>> = t.data.into();
-    let mut table = Builder::from(data).build();
+    let mut table = Builder::from_vec(data).build();
 
     set_indent(&mut table, t.config.indent);
     load_theme(&mut table, &t.config.theme, &structure, sep_color);
