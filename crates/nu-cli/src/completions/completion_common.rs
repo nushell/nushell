@@ -65,7 +65,7 @@ fn complete_rec(
 
         for entry in result.filter_map(|e| e.ok()) {
             let entry_name = entry.file_name().to_string_lossy().into_owned();
-            let entry_isdir = entry.path().is_dir();
+            let entry_isdir = entry.path().is_dir() && !entry.path().is_symlink();
             let mut built = built.clone();
             built.parts.push(entry_name.clone());
             built.isdir = entry_isdir;
