@@ -30,7 +30,7 @@ It's been this long since (ansi green)Nushell(ansi reset)'s first commit:
 "
 }
 
-match $env.config?.use_ansi_coloring? {
+match (config use-colors) {
     false => { $banner_msg | ansi strip }
     _ => $banner_msg
 }
