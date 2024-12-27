@@ -362,6 +362,9 @@ fn ls_for_one_pattern(
         create_pool(1)?
     };
 
+    // Ref can't escape to closure, so clone it.
+    let engine_state = engine_state.clone();
+    let stack = stack.clone();
     pool.install(|| {
         rayon::spawn(move || {
             let result = paths_peek
@@ -442,7 +445,8 @@ fn ls_for_one_pattern(
                                     call_span,
                                     long,
                                     du,
-                                    &signals_clone,
+                                    &engine_state,
+                                    &stack,
                                     use_mime_type,
                                     args.full_paths,
                                 );
@@ -463,36 +467,11 @@ fn ls_for_one_pattern(
                         span: Some(call_span),
                         help: None,
                         inner: vec![],
-                    });
-
-                    match display_name {
-                        Ok(name) => {
-                            let entry = dir_entry_dict(
-                                &path,
-                                &name,
-                                metadata.as_ref(),
-                                call_span,
-                                long,
-                                du,
-                                engine_state,
-                                stack,
-                                use_mime_type,
-                                args.full_paths,
-                            );
-                            match entry {
-                                Ok(value) => Some(value),
-                                Err(err) => Some(Value::error(err, call_span)),
-                            }
-                        }
-                        Err(err) => Some(Value::error(err, call_span)),
-                    }
-                }
-                Err(err) => Some(Value::error(err, call_span)),
-            })
-            .try_for_each(|stream| {
-                tx.send(stream).map_err(|e| ShellError::GenericError {
+                    })
+                })
+                .map_err(|err| ShellError::GenericError {
                     error: "Unable to create a rayon pool".into(),
-                    msg: e.to_string(),
+                    msg: err.to_string(),
                     span: Some(call_span),
                     help: None,
                     inner: vec![],
