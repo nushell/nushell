@@ -1,6 +1,7 @@
 // use nu_test_support::fs::{file_contents, Stub};
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+
+//use nu_test_support::nu;
+//use nu_test_support::playground::Playground;
 
 // #[cfg(windows)]
 // #[test]
