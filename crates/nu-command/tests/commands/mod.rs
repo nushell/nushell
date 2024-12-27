@@ -110,6 +110,7 @@ mod window;
 
 mod debug;
 mod filesystem;
+mod ucp;
 mod uname;
 mod uniq;
 mod uniq_by;

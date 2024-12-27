@@ -9,7 +9,6 @@ mod rename;
 mod rm;
 mod save;
 mod touch;
-mod ucp;
 mod umkdir;
 mod utouch;
 mod watch;
