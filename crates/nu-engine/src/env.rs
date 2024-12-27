@@ -89,22 +89,7 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Resu
         }
     }
 
-    #[cfg(not(windows))]
-    {
-        error = error.or_else(|| ensure_path(&mut new_scope, "PATH"));
-    }
-
-    #[cfg(windows)]
-    {
-        let first_result = ensure_path(&mut new_scope, "Path");
-        if first_result.is_some() {
-            let second_result = ensure_path(&mut new_scope, "PATH");
-
-            if second_result.is_some() {
-                error = error.or(first_result);
-            }
-        }
-    }
+    error = error.or_else(|| ensure_path(&mut new_scope, "PATH"));
 
     if let Ok(last_overlay_name) = &stack.last_overlay_name() {
         if let Some(env_vars) = Arc::make_mut(&mut engine_state.env_vars).get_mut(last_overlay_name)
@@ -375,6 +360,17 @@ fn get_converted_value(
             .run_with_value(orig_val.clone())?
             .into_value(orig_val.span())?,
     )
+}
+
+pub fn path_convert_from_string(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Result<(), ShellError> {
+    if let Some(value) = engine_state.get_env_var_insensitive("PATH") {
+        let span = value.span();
+        stack.add_env_var("path".to_string(), Value::string("/", Span::unknown()))
+    };
+    Ok(())
 }
 
 fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Option<ShellError> {

@@ -51,18 +51,6 @@ pub(crate) fn read_config_file(
             use_color
         );
     } else {
-        let start_time = std::time::Instant::now();
-        let config = engine_state.get_config();
-        let use_color = config.use_ansi_coloring.get(engine_state);
-        if let Err(e) = convert_env_values(engine_state, stack) {
-            report_shell_error(engine_state, &e);
-        }
-        perf!(
-            "translate env vars before default_config.nu",
-            start_time,
-            use_color
-        );
-
         eval_default_config(engine_state, stack, get_default_config(), is_env_config);
     };
 
