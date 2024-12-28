@@ -1,7 +1,7 @@
 use core::fmt::Write;
 
 use nu_engine::get_columns;
-use nu_protocol::{Range, ShellError, Span, Value};
+use nu_protocol::{ObviousFloat, Range, ShellError, Span, Value};
 use nu_utils::{escape_quote_string, needs_quoting};
 
 use std::ops::Bound;
@@ -111,14 +111,7 @@ fn value_to_string(
         Value::Error { error, .. } => Err(*error.clone()),
         // FIXME: make filesizes use the shortest lossless representation.
         Value::Filesize { val, .. } => Ok(format!("{}b", val.get())),
-        Value::Float { val, .. } => {
-            // This serialises these as 'nan', 'inf' and '-inf', respectively.
-            if &val.round() == val && val.is_finite() {
-                Ok(format!("{}.0", *val))
-            } else {
-                Ok(val.to_string())
-            }
-        }
+        Value::Float { val, .. } => Ok(ObviousFloat(*val).to_string()),
         Value::Int { val, .. } => Ok(val.to_string()),
         Value::List { vals, .. } => {
             let headers = get_columns(vals);

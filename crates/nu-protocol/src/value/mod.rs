@@ -41,6 +41,20 @@ use std::{
     path::PathBuf,
 };
 
+pub struct ObviousFloat(pub f64);
+
+impl Display for ObviousFloat {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let val = self.0;
+        // This serialises these as 'nan', 'inf' and '-inf', respectively.
+        if val.round() == val && val.is_finite() {
+            write!(f, "{}.0", val)
+        } else {
+            write!(f, "{}", val)
+        }
+    }
+}
+
 /// Core structured values that pass through the pipeline in Nushell.
 // NOTE: Please do not reorder these enum cases without thinking through the
 // impact on the PartialOrd implementation and the global sort order
