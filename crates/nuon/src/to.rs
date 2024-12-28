@@ -4,8 +4,6 @@ use nu_engine::get_columns;
 use nu_protocol::{ObviousFloat, Range, ShellError, Span, Value};
 use nu_utils::{escape_quote_string, needs_quoting};
 
-use std::ops::Bound;
-
 /// control the way Nushell [`Value`] is converted to NUON data
 pub enum ToStyle {
     /// no indentation at all
@@ -170,23 +168,7 @@ fn value_to_string(
         Value::Nothing { .. } => Ok("null".to_string()),
         Value::Range { val, .. } => match **val {
             Range::IntRange(range) => Ok(range.to_string()),
-            Range::FloatRange(range) => {
-                let start =
-                    value_to_string(&Value::float(range.start(), span), span, depth + 1, indent)?;
-                match range.end() {
-                    Bound::Included(end) => Ok(format!(
-                        "{}..{}",
-                        start,
-                        value_to_string(&Value::float(end, span), span, depth + 1, indent)?
-                    )),
-                    Bound::Excluded(end) => Ok(format!(
-                        "{}..<{}",
-                        start,
-                        value_to_string(&Value::float(end, span), span, depth + 1, indent)?
-                    )),
-                    Bound::Unbounded => Ok(format!("{start}..",)),
-                }
-            }
+            Range::FloatRange(range) => Ok(range.to_string()),
         },
         Value::Record { val, .. } => {
             let mut collection = vec![];
