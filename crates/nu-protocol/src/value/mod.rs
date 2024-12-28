@@ -41,6 +41,7 @@ use std::{
     path::PathBuf,
 };
 
+/// A f64 wrapper that formats whole numbers with a decimal point.
 pub struct ObviousFloat(pub f64);
 
 impl Display for ObviousFloat {
