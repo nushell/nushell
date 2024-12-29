@@ -16,7 +16,7 @@ impl Command for StorDelete {
             .required_named(
                 "table-name",
                 SyntaxShape::String,
-                "name of the table you want to delete/delete from",
+                "name of the table you want to delete or delete from",
                 Some('t'),
             )
             .named(
