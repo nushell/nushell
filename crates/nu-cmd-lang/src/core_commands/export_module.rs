@@ -20,7 +20,7 @@ impl Command for ExportModule {
             .required("module", SyntaxShape::String, "Module name or module path.")
             .optional(
                 "block",
-                SyntaxShape::Block,
+                SyntaxShape::Block(true),
                 "Body of the module if 'module' parameter is not a path.",
             )
             .category(Category::Core)
