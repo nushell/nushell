@@ -87,15 +87,27 @@ fn creates_two_files() {
 // https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
 #[test]
 #[cfg(not(windows))]
-fn creates_a_file_when_glob_has_no_matches() {
+fn creates_a_file_when_glob_is_quoted() {
     Playground::setup("create_test_glob", |dirs, _sandbox| {
         nu!(
             cwd: dirs.test(),
-            "utouch *.txt"
+            "utouch '*.txt'"
         );
 
         let path = dirs.test().join("*.txt");
         assert!(path.exists());
+    })
+}
+
+#[test]
+fn fails_when_glob_has_no_matches() {
+    Playground::setup("create_test_glob_no_matches", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "utouch *.txt"
+        );
+
+        assert!(actual.err.contains("Error while parsing file glob *.txt"));
     })
 }
 

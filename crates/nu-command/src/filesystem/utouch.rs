@@ -153,6 +153,11 @@ impl Command for UTouch {
                 let file_path =
                     expand_path_with(file_glob.item.as_ref(), &cwd, file_glob.item.is_expand());
 
+                if !file_glob.item.is_expand() {
+                    input_files.push(InputFile::Path(file_path));
+                    continue;
+                }
+
                 let mut expanded_globs = glob(&file_path.to_string_lossy())
                     .unwrap_or_else(|_| {
                         panic!(
@@ -163,6 +168,36 @@ impl Command for UTouch {
                     .peekable();
 
                 if expanded_globs.peek().is_none() {
+                    let file_name = file_path.file_name().unwrap_or_else(|| {
+                        panic!(
+                            "Failed to process file path: {}",
+                            &file_path.to_string_lossy()
+                        )
+                    });
+
+                    if file_name.to_string_lossy().contains("*")
+                        || file_name.to_string_lossy().contains("?")
+                        || file_name.to_string_lossy().contains("{")
+                        || file_name.to_string_lossy().contains("[")
+                    {
+                        return Err(ShellError::GenericError {
+                            error: format!(
+                                "Error while parsing file glob {}",
+                                file_name.to_string_lossy()
+                            ),
+                            msg: format!(
+                                "No matches found for glob pattern {}",
+                                file_name.to_string_lossy()
+                            ),
+                            span: Some(file_glob.span),
+                            help: Some(format!(
+                                "Use quotes if you want to create a file named {}",
+                                file_name.to_string_lossy()
+                            )),
+                            inner: vec![],
+                        });
+                    }
+
                     input_files.push(InputFile::Path(file_path));
                     continue;
                 }
