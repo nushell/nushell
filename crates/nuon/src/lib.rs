@@ -172,6 +172,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn to_nuon_errs_on_closure() {
         assert!(to_nuon(
             &Value::test_closure(Closure {

@@ -23,7 +23,7 @@ impl Command for Inspect {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
@@ -40,7 +40,7 @@ impl Command for Inspect {
 
         let (cols, _rows) = terminal_size().unwrap_or((0, 0));
 
-        let table = inspect_table::build_table(input_val, description, cols as usize);
+        let table = inspect_table::build_table(engine_state, input_val, description, cols as usize);
 
         // Note that this is printed to stderr. The reason for this is so it doesn't disrupt the regular nushell
         // tabular output. If we printed to stdout, nushell would get confused with two outputs.

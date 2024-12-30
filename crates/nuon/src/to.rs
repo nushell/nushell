@@ -84,12 +84,7 @@ fn value_to_string(
             }
             Ok(format!("0x[{s}]"))
         }
-        Value::Closure { .. } => Err(ShellError::UnsupportedInput {
-            msg: "closures are currently not nuon-compatible".into(),
-            input: "value originates from here".into(),
-            msg_span: span,
-            input_span: v.span(),
-        }),
+        Value::Closure { val, .. } => Ok(format!("closure_{}", val.block_id.get())),
         Value::Bool { val, .. } => {
             if *val {
                 Ok("true".to_string())

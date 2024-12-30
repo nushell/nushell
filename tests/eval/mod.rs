@@ -103,7 +103,7 @@ fn literal_binary() {
 
 #[test]
 fn literal_closure() {
-    test_eval("{||}", Matches("<Closure"))
+    test_eval("{||}", Matches("closure_"))
 }
 
 #[test]

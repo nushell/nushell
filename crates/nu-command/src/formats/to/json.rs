@@ -47,7 +47,7 @@ impl Command for ToJson {
         // allow ranges to expand and turn into array
         let input = input.try_expand_range()?;
         let value = input.into_value(span)?;
-        let json_value = value_to_json_value(&value)?;
+        let json_value = value_to_json_value(engine_state, &value)?;
 
         let json_result = if raw {
             nu_json::to_string_raw(&json_value)
@@ -105,7 +105,10 @@ impl Command for ToJson {
     }
 }
 
-pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
+pub fn value_to_json_value(
+    engine_state: &EngineState,
+    v: &Value,
+) -> Result<nu_json::Value, ShellError> {
     let span = v.span();
     Ok(match v {
         Value::Bool { val, .. } => nu_json::Value::Bool(*val),
@@ -127,31 +130,44 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
                 .collect::<Result<Vec<nu_json::Value>, ShellError>>()?,
         ),
 
-        Value::List { vals, .. } => nu_json::Value::Array(json_list(vals)?),
+        Value::List { vals, .. } => nu_json::Value::Array(json_list(engine_state, vals)?),
         Value::Error { error, .. } => return Err(*error.clone()),
-        Value::Closure { .. } | Value::Range { .. } => nu_json::Value::Null,
+        Value::Closure { val, .. } => {
+            let block = engine_state.get_block(val.block_id);
+            if let Some(span) = block.span {
+                let contents_bytes = engine_state.get_span_contents(span);
+                let contents_string = String::from_utf8_lossy(contents_bytes);
+                nu_json::Value::String(contents_string.to_string())
+            } else {
+                nu_json::Value::String(String::new())
+            }
+        }
+        Value::Range { .. } => nu_json::Value::Null,
         Value::Binary { val, .. } => {
             nu_json::Value::Array(val.iter().map(|x| nu_json::Value::U64(*x as u64)).collect())
         }
         Value::Record { val, .. } => {
             let mut m = nu_json::Map::new();
             for (k, v) in &**val {
-                m.insert(k.clone(), value_to_json_value(v)?);
+                m.insert(k.clone(), value_to_json_value(engine_state, v)?);
             }
             nu_json::Value::Object(m)
         }
         Value::Custom { val, .. } => {
             let collected = val.to_base_value(span)?;
-            value_to_json_value(&collected)?
+            value_to_json_value(engine_state, &collected)?
         }
     })
 }
 
-fn json_list(input: &[Value]) -> Result<Vec<nu_json::Value>, ShellError> {
+fn json_list(
+    engine_state: &EngineState,
+    input: &[Value],
+) -> Result<Vec<nu_json::Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {
-        out.push(value_to_json_value(value)?);
+        out.push(value_to_json_value(engine_state, value)?);
     }
 
     Ok(out)
