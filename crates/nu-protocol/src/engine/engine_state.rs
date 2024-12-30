@@ -1163,7 +1163,7 @@ mod test_cwd {
 
     use crate::{
         engine::{EngineState, Stack},
-        Span, Value,
+        Value,
     };
     use nu_path::{assert_path_eq, AbsolutePath, Path};
     use tempfile::{NamedTempFile, TempDir};
