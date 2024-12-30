@@ -1226,14 +1226,7 @@ mod test_cwd {
     #[test]
     fn pwd_is_non_string_value() {
         let mut engine_state = EngineState::new();
-        engine_state.add_env_var(
-            "PWD".into(),
-            Value::Glob {
-                val: "*".into(),
-                no_expand: false,
-                internal_span: Span::unknown(),
-            },
-        );
+        engine_state.add_env_var("PWD".into(), Value::test_glob("*"));
         engine_state.cwd(None).unwrap_err();
     }
 

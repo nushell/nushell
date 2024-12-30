@@ -336,6 +336,7 @@ fn get_index_flag(
         Some(value) => value,
         None => return Ok(Some(0)),
     };
+    let span = value.span();
 
     match value {
         Value::Bool { val, .. } => {
@@ -345,13 +346,13 @@ fn get_index_flag(
                 Ok(None)
             }
         }
-        Value::Int { val, internal_span } => {
+        Value::Int { val, .. } => {
             if val < 0 {
                 Err(ShellError::UnsupportedInput {
                     msg: String::from("got a negative integer"),
                     input: val.to_string(),
                     msg_span: call.span(),
-                    input_span: internal_span,
+                    input_span: span,
                 })
             } else {
                 Ok(Some(val as usize))
