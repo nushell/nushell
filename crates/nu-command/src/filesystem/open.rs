@@ -91,7 +91,7 @@ impl Command for Open {
                         file: path.item.to_string(),
                         span,
                     },
-                    // that particular error in `nu_engine::glob_from` doesn't have a span attached 
+                    // that particular error in `nu_engine::glob_from` doesn't have a span attached
                     // to it, so let's add it
                     ShellError::GenericError {
                         error,
