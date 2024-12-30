@@ -24,7 +24,7 @@ pub use menus::NuHelpCompleter;
 pub use nu_highlight::NuHighlight;
 pub use print::Print;
 pub use prompt::NushellPrompt;
-pub use repl::evaluate_repl;
+pub use repl::{do_auto_cd, evaluate_repl};
 pub use syntax_highlight::NuHighlighter;
 pub use util::{eval_source, gather_parent_env_vars};
 pub use validation::NuValidator;

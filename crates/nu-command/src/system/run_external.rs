@@ -1,3 +1,4 @@
+use nu_cli::do_auto_cd;
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{dots::expand_ndots, expand_tilde, AbsolutePath};
@@ -63,13 +64,32 @@ impl Command for External {
             _ => Cow::Owned(name.clone().coerce_into_string()?),
         };
 
-        let expanded_name = match &name {
+        let mut expanded_name = match &name {
             // Expand tilde and ndots on the name if it's a bare string / glob (#13000)
             Value::Glob { no_expand, .. } if !*no_expand => {
                 expand_ndots_safe(expand_tilde(&*name_str))
             }
             _ => Path::new(&*name_str).to_owned(),
         };
+
+        if call.req::<Value>(engine_state, stack, 1).is_err() && expanded_name.is_dir() {
+            expanded_name = nu_protocol::engine::expand_path_with(
+                stack,
+                engine_state,
+                expanded_name,
+                cwd.clone(),
+                false,
+            );
+            // do_auto_cd() report ShellError via report_shell_error() and does not return error.
+            do_auto_cd(
+                expanded_name,
+                cwd.to_string_lossy().to_string(),
+                stack,
+                engine_state,
+                Span::unknown(),
+            );
+            return Ok(PipelineData::Empty);
+        }
 
         // On Windows, the user could have run the cmd.exe built-in "assoc" command
         // Example: "assoc .nu=nuscript" and then run the cmd.exe built-in "ftype" command
