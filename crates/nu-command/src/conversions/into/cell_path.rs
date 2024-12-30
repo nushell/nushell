@@ -184,16 +184,11 @@ fn value_to_cell_path(value: &Value, span: Span) -> Result<Value, ShellError> {
 }
 
 fn value_to_path_member(val: &Value, span: Span) -> Result<PathMember, ShellError> {
+    let val_span = val.span();
     let member = match val {
-        Value::Int {
-            val,
-            internal_span: span,
-        } => int_to_path_member(*val, *span)?,
-        Value::String {
-            val,
-            internal_span: span,
-        } => PathMember::string(val.into(), false, *span),
-        Value::Record { val, internal_span } => record_to_path_member(val, *internal_span, span)?,
+        Value::Int { val, .. } => int_to_path_member(*val, val_span)?,
+        Value::String { val, .. } => PathMember::string(val.into(), false, val_span),
+        Value::Record { val, .. } => record_to_path_member(val, val_span, span)?,
         other => {
             return Err(ShellError::CantConvert {
                 to_type: "int or string".to_string(),
