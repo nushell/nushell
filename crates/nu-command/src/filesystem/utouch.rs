@@ -177,18 +177,14 @@ impl Command for UTouch {
 
                     if file_name.to_string_lossy().contains("*")
                         || file_name.to_string_lossy().contains("?")
-                        || file_name.to_string_lossy().contains("{")
                         || file_name.to_string_lossy().contains("[")
                     {
                         return Err(ShellError::GenericError {
                             error: format!(
-                                "Error while parsing file glob {}",
+                                "No matches found for glob {}",
                                 file_name.to_string_lossy()
                             ),
-                            msg: format!(
-                                "No matches found for glob pattern {}",
-                                file_name.to_string_lossy()
-                            ),
+                            msg: "No matches found for glob".into(),
                             span: Some(file_glob.span),
                             help: Some(format!(
                                 "Use quotes if you want to create a file named {}",

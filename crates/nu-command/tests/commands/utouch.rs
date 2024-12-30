@@ -100,14 +100,40 @@ fn creates_a_file_when_glob_is_quoted() {
 }
 
 #[test]
-fn fails_when_glob_has_no_matches() {
+fn fails_when_glob_star_has_no_matches() {
     Playground::setup("create_test_glob_no_matches", |dirs, _sandbox| {
         let actual = nu!(
             cwd: dirs.test(),
             "utouch *.txt"
         );
 
-        assert!(actual.err.contains("Error while parsing file glob *.txt"));
+        assert!(actual.err.contains("No matches found for glob *.txt"));
+    })
+}
+
+#[test]
+fn fails_when_glob_question_mark_has_no_matches() {
+    Playground::setup("create_test_glob_no_matches", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "utouch file?.txt"
+        );
+
+        assert!(actual.err.contains("No matches found for glob file?.txt"));
+    })
+}
+
+#[test]
+fn fails_when_glob_bracket_has_no_matches() {
+    Playground::setup("create_test_glob_no_matches", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "utouch file[^0-9].txt"
+        );
+
+        assert!(actual
+            .err
+            .contains("No matches found for glob file[^0-9].txt"));
     })
 }
 
@@ -142,36 +168,6 @@ fn change_modified_time_of_file_to_today() {
 }
 
 #[test]
-fn change_modified_time_of_files_matching_glob_to_today() {
-    Playground::setup("change_mtime_test_glob", |dirs, sandbox| {
-        sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
-        let path = dirs.test().join("file.txt");
-
-        // Set file.txt's times to the past before the test to make sure `utouch` actually changes the mtime to today
-        filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
-
-        nu!(
-            cwd: dirs.test(),
-            "utouch -m *.txt"
-        );
-
-        let metadata = path.metadata().unwrap();
-
-        // Check only the date since the time may not match exactly
-        let today = Local::now().date_naive();
-        let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
-
-        assert_eq!(today, mtime_day);
-
-        // Check that atime remains unchanged
-        assert_eq!(
-            TIME_ONE,
-            FileTime::from_system_time(metadata.accessed().unwrap())
-        );
-    })
-}
-
-#[test]
 fn change_access_time_of_file_to_today() {
     Playground::setup("change_time_test_18", |dirs, sandbox| {
         sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
@@ -183,36 +179,6 @@ fn change_access_time_of_file_to_today() {
         nu!(
             cwd: dirs.test(),
             "utouch -a file.txt"
-        );
-
-        let metadata = path.metadata().unwrap();
-
-        // Check only the date since the time may not match exactly
-        let today = Local::now().date_naive();
-        let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
-
-        assert_eq!(today, atime_day);
-
-        // Check that mtime remains unchanged
-        assert_eq!(
-            TIME_ONE,
-            FileTime::from_system_time(metadata.modified().unwrap())
-        );
-    })
-}
-
-#[test]
-fn change_access_time_of_files_matching_glob_to_today() {
-    Playground::setup("change_atime_test_glob", |dirs, sandbox| {
-        sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
-        let path = dirs.test().join("file.txt");
-
-        // Set file.txt's times to the past before the test to make sure `utouch` actually changes the atime to today
-        filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
-
-        nu!(
-            cwd: dirs.test(),
-            "utouch -a *.txt"
         );
 
         let metadata = path.metadata().unwrap();
@@ -266,7 +232,7 @@ fn change_modified_and_access_time_of_files_matching_glob_to_today() {
 
         nu!(
             cwd: dirs.test(),
-            "utouch -a -m *.txt"
+            "utouch *.txt"
         );
 
         let metadata = path.metadata().unwrap();
@@ -311,34 +277,6 @@ fn change_file_times_if_exists_with_no_create() {
             nu!(
                 cwd: dirs.test(),
                 "utouch -c file.txt"
-            );
-
-            let metadata = path.metadata().unwrap();
-
-            // Check only the date since the time may not match exactly
-            let today = Local::now().date_naive();
-            let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
-            let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
-
-            assert_eq!(today, mtime_day);
-            assert_eq!(today, atime_day);
-        },
-    )
-}
-
-#[test]
-fn change_file_times_if_glob_has_matches_with_no_create() {
-    Playground::setup(
-        "change_file_times_if_glob_matches_with_no_create",
-        |dirs, sandbox| {
-            sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
-            let path = dirs.test().join("file.txt");
-
-            filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
-
-            nu!(
-                cwd: dirs.test(),
-                "utouch -c *.txt"
             );
 
             let metadata = path.metadata().unwrap();
