@@ -409,7 +409,7 @@ fn test_metadata_without_raw() {
     Playground::setup("open_files_content_type_test", |dirs, _| {
         let result = nu!(cwd: dirs.formats(), "(open random_numbers.csv | metadata | get content_type?) == null");
         assert_eq!(result.out, "true");
-        let result = nu!(cwd: dirs.formats(), "open random_numbers.csv | metadata");
+        let result = nu!(cwd: dirs.formats(), "open random_numbers.csv | metadata | get source?");
         assert!(result.out.contains("random_numbers.csv"));
         let result = nu!(cwd: dirs.formats(), "(open caco3_plastics.tsv | metadata | get content_type?) == null");
         assert_eq!(result.out, "true");
