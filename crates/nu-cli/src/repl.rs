@@ -1579,6 +1579,13 @@ mod test_auto_cd {
         symlink(&dir, &link).unwrap();
         let input = if cfg!(windows) { r".\link" } else { "./link" };
         check(tempdir, input, link);
+
+        let dir = tempdir.join("foo").join("bar");
+        std::fs::create_dir_all(&dir).unwrap();
+        let link = tempdir.join("link2");
+        symlink(&dir, &link).unwrap();
+        let input = "..";
+        check(link, input, tempdir);
     }
 
     #[test]
