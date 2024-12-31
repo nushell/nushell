@@ -229,3 +229,23 @@ fn std_log_env_vars_have_defaults() {
     assert!(actual.err.contains("%MSG%"));
     assert!(actual.err.contains("%Y-"));
 }
+
+#[test]
+fn env_shlvl() {
+    let actual = nu!("
+        $env.SHLVL = 5
+        nu -i -c 'print $env.SHLVL'
+    ");
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn env_shlvl_in_exec() {
+    let actual = nu!("
+        $env.SHLVL = 29
+        nu -i -c \"exec nu -i -c 'print $env.SHLVL'\"
+    ");
+
+    assert_eq!(actual.out, "30");
+}
