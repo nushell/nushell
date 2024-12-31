@@ -403,3 +403,47 @@ fn test_content_types_with_open_raw() {
         assert!(result.out.contains("application/yaml"));
     })
 }
+
+#[test]
+fn test_metadata_without_raw() {
+    Playground::setup("open_files_content_type_test", |dirs, _| {
+        let result = nu!(cwd: dirs.formats(), "(open random_numbers.csv | metadata | get content_type?) == null");
+        assert_eq!(result.out, "true");
+        let result = nu!(cwd: dirs.formats(), "open random_numbers.csv | metadata");
+        assert!(result.out.contains("random_numbers.csv"));
+        let result = nu!(cwd: dirs.formats(), "(open caco3_plastics.tsv | metadata | get content_type?) == null");
+        assert_eq!(result.out, "true");
+        let result = nu!(cwd: dirs.formats(), "open caco3_plastics.tsv | metadata");
+        assert!(result.out.contains("caco3_plastics.tsv"));
+        let result = nu!(cwd: dirs.formats(), "(open sample-simple.json | metadata | get content_type?) == null");
+        assert_eq!(result.out, "true");
+        let result = nu!(cwd: dirs.formats(), "open sample-simple.json | metadata");
+        assert!(result.out.contains("sample-simple.json"));
+        // Only when not using nu_plugin_formats
+        let result = nu!(cwd: dirs.formats(), "open sample.ini | metadata");
+        assert!(result.out.contains("text/plain"));
+        assert!(result.out.contains("sample.ini"));
+        let result = nu!(cwd: dirs.formats(), "(open sample_data.xlsx | metadata | get content_type?) == null");
+        assert_eq!(result.out, "true");
+        let result = nu!(cwd: dirs.formats(), "open sample_data.xlsx | metadata");
+        assert!(result.out.contains("sample_data.xlsx"));
+        let result =
+            nu!(cwd: dirs.formats(), "(open sample_def.nu | metadata | get source?) == null");
+        assert_eq!(result.out, "false");
+        let result = nu!(cwd: dirs.formats(), "open sample_def.nu | metadata");
+        assert!(result.out.contains("application/x-nuscript"));
+        // Only when not using nu_plugin_formats
+        let result = nu!(cwd: dirs.formats(), "open sample.eml | metadata");
+        assert!(result.out.contains("message/rfc822"));
+        assert!(result.out.contains("sample.eml"));
+        let result = nu!(cwd: dirs.formats(), "(open cargo_sample.toml | metadata | get content_type?) == null");
+        assert_eq!(result.out, "true");
+        let result = nu!(cwd: dirs.formats(), "open cargo_sample.toml | metadata");
+        assert!(result.out.contains("cargo_sample.toml"));
+        let result =
+            nu!(cwd: dirs.formats(), "(open appveyor.yml | metadata | get content_type?) == null");
+        assert_eq!(result.out, "true");
+        let result = nu!(cwd: dirs.formats(), "open appveyor.yml | metadata");
+        assert!(result.out.contains("appveyor.yml"));
+    })
+}
