@@ -1,5 +1,6 @@
 extern crate nu_test_support;
 
+mod commands;
 mod const_;
 mod eval;
 mod hooks;
