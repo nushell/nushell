@@ -257,6 +257,13 @@ impl Command for External {
             call.head,
         )?;
 
+        if matches!(stdout, OutDest::Pipe) {
+            let bytes = child.into_bytes()?;
+            return Ok(PipelineData::ByteStream(
+                ByteStream::read_binary(bytes, call.head, engine_state.signals().clone()),
+                None,
+            ));
+        }
         if matches!(stdout, OutDest::Pipe | OutDest::PipeSeparate)
             || matches!(stderr, OutDest::Pipe | OutDest::PipeSeparate)
         {
