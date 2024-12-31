@@ -419,6 +419,7 @@ impl Value {
     /// if you do not need to keep the original `Value` around.
     ///
     /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Bool`
     /// - `Int`
     /// - `Float`
     /// - `String`
@@ -432,7 +433,8 @@ impl Value {
     ///     assert_eq!(
     ///         matches!(
     ///             val,
-    ///             Value::Int { .. }
+    ///             Value::Bool { .. }
+    ///                 | Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
     ///                 | Value::Glob { .. }
@@ -450,6 +452,7 @@ impl Value {
     /// Returns this `Value` converted to a `String` or an error if it cannot be converted
     ///
     /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Bool`
     /// - `Int`
     /// - `Float`
     /// - `String`
@@ -463,7 +466,8 @@ impl Value {
     ///     assert_eq!(
     ///         matches!(
     ///             val,
-    ///             Value::Int { .. }
+    ///             Value::Bool { .. }
+    ///                 | Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
     ///                 | Value::Glob { .. }
@@ -477,6 +481,7 @@ impl Value {
     pub fn coerce_into_string(self) -> Result<String, ShellError> {
         let span = self.span();
         match self {
+            Value::Bool { val, .. } => Ok(val.to_string()),
             Value::Int { val, .. } => Ok(val.to_string()),
             Value::Float { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val),
