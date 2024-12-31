@@ -366,6 +366,7 @@ impl Value {
     /// Returns this `Value` converted to a `str` or an error if it cannot be converted
     ///
     /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Bool`
     /// - `Int`
     /// - `Float`
     /// - `String`
@@ -379,7 +380,8 @@ impl Value {
     ///     assert_eq!(
     ///         matches!(
     ///             val,
-    ///             Value::Int { .. }
+    ///             Value::Bool { .. }
+    ///                 | Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
     ///                 | Value::Glob { .. }
@@ -392,6 +394,7 @@ impl Value {
     /// ```
     pub fn coerce_str(&self) -> Result<Cow<str>, ShellError> {
         match self {
+            Value::Bool { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::Int { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::Float { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::String { val, .. } => Ok(Cow::Borrowed(val)),
