@@ -91,6 +91,21 @@ impl Command for Open {
                         file: path.item.to_string(),
                         span,
                     },
+                    // that particular error in `nu_engine::glob_from` doesn't have a span attached
+                    // to it, so let's add it
+                    ShellError::GenericError {
+                        error,
+                        msg,
+                        span: _,
+                        help,
+                        inner,
+                    } if error.as_str() == "Permission denied" => ShellError::GenericError {
+                        error,
+                        msg,
+                        span: Some(arg_span),
+                        help,
+                        inner,
+                    },
                     _ => err,
                 })?
                 .1
