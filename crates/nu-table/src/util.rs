@@ -55,27 +55,25 @@ pub fn clean_charset(text: &str) -> String {
     // We could shrink it but...it will be another realloc which make no scense.
     let mut buf = String::with_capacity(text.len());
 
+    // note: (Left just in case)
+    // note: This check could be added in order to cope with emojie issue.
+    // if c < ' ' && c != '\u{1b}' {
+    //    continue;
+    // }
+
     for c in text.chars() {
-        if c == '\n' {
-            buf.push(c);
-            continue;
+        match c {
+            '\r' => continue,
+            '\t' => {
+                buf.push(' ');
+                buf.push(' ');
+                buf.push(' ');
+                buf.push(' ');
+            }
+            c => {
+                buf.push(c);
+            }
         }
-
-        if c == '\t' {
-            buf.push(' ');
-            buf.push(' ');
-            buf.push(' ');
-            buf.push(' ');
-            continue;
-        }
-
-        // note: Overall maybe we shall delete this check?
-        // it was made in order to cope with emojie issue.
-        // if c < ' ' && c != '\u{1b}' {
-        //    continue;
-        // }
-
-        buf.push(c);
     }
 
     buf
