@@ -340,11 +340,9 @@ fn expand_glob(
     span: Span,
     signals: &Signals,
 ) -> Result<Vec<OsString>, ShellError> {
-    const GLOB_CHARS: &[char] = &['*', '?', '['];
-
-    // For an argument that doesn't include the GLOB_CHARS, just do the `expand_tilde`
+    // For an argument that isn't a glob, just do the `expand_tilde`
     // and `expand_ndots` expansion
-    if !arg.contains(GLOB_CHARS) {
+    if !nu_glob::is_glob(arg) {
         let path = expand_ndots_safe(expand_tilde(arg));
         return Ok(vec![path.into()]);
     }
