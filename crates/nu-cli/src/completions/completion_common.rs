@@ -65,7 +65,7 @@ fn complete_rec(
 
         for entry in result.filter_map(|e| e.ok()) {
             let entry_name = entry.file_name().to_string_lossy().into_owned();
-            let entry_isdir = entry.path().is_dir();
+            let entry_isdir = entry.path().is_dir() && !entry.path().is_symlink();
             let mut built = built.clone();
             built.parts.push(entry_name.clone());
             built.isdir = entry_isdir;
@@ -196,14 +196,14 @@ pub fn complete_item(
         .map(|cwd| Path::new(cwd.as_ref()).to_path_buf())
         .collect();
     let ls_colors = (engine_state.config.completions.use_ls_colors
-        && engine_state.config.use_ansi_coloring)
-        .then(|| {
-            let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
-                Some(v) => env_to_string("LS_COLORS", v, engine_state, stack).ok(),
-                None => None,
-            };
-            get_ls_colors(ls_colors_env_str)
-        });
+        && engine_state.config.use_ansi_coloring.get(engine_state))
+    .then(|| {
+        let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
+            Some(v) => env_to_string("LS_COLORS", v, engine_state, stack).ok(),
+            None => None,
+        };
+        get_ls_colors(ls_colors_env_str)
+    });
 
     let mut cwds = cwd_pathbufs.clone();
     let mut prefix_len = 0;

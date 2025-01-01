@@ -52,14 +52,17 @@ pub fn table_to_query_string(
 ) -> Result<String, ShellError> {
     let row_vec = table
         .iter()
-        .map(|val| match val {
-            Value::Record { val, internal_span } => key_value_from_record(val, *internal_span),
-            _ => Err(ShellError::UnsupportedInput {
-                msg: "expected a table".into(),
-                input: "not a table, contains non-record values".into(),
-                msg_span: head,
-                input_span: span,
-            }),
+        .map(|val| {
+            let val_span = val.span();
+            match val {
+                Value::Record { val, .. } => key_value_from_record(val, val_span),
+                _ => Err(ShellError::UnsupportedInput {
+                    msg: "expected a table".into(),
+                    input: "not a table, contains non-record values".into(),
+                    msg_span: head,
+                    input_span: span,
+                }),
+            }
         })
         .collect::<Result<Vec<_>, ShellError>>()?;
 

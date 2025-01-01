@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::{ast::PathMember, Signals};
 
 #[derive(Clone)]
 pub struct Get;
@@ -72,9 +73,13 @@ If multiple cell paths are given, this will produce a list of values."#
         }
 
         if rest.is_empty() {
-            input
-                .follow_cell_path(&cell_path.members, call.head, !sensitive)
-                .map(|x| x.into_pipeline_data())
+            follow_cell_path_into_stream(
+                input,
+                engine_state.signals().clone(),
+                cell_path.members,
+                call.head,
+                !sensitive,
+            )
         } else {
             let mut output = vec![];
 
@@ -94,6 +99,7 @@ If multiple cell paths are given, this will produce a list of values."#
         }
         .map(|x| x.set_metadata(metadata))
     }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
@@ -136,6 +142,48 @@ If multiple cell paths are given, this will produce a list of values."#
                 result: None,
             },
         ]
+    }
+}
+
+// the PipelineData.follow_cell_path function, when given a
+// stream, collects it into a vec before doing its job
+//
+// this is fine, since it returns a Result<Value ShellError>,
+// but if we want to follow a PipelineData into a cell path and
+// return another PipelineData, then we have to take care to
+// make sure it streams
+pub fn follow_cell_path_into_stream(
+    data: PipelineData,
+    signals: Signals,
+    cell_path: Vec<PathMember>,
+    head: Span,
+    insensitive: bool,
+) -> Result<PipelineData, ShellError> {
+    // when given an integer/indexing, we fallback to
+    // the default nushell indexing behaviour
+    let has_int_member = cell_path
+        .iter()
+        .any(|it| matches!(it, PathMember::Int { .. }));
+    match data {
+        PipelineData::ListStream(stream, ..) if !has_int_member => {
+            let result = stream
+                .into_iter()
+                .map(move |value| {
+                    let span = value.span();
+
+                    match value.follow_cell_path(&cell_path, insensitive) {
+                        Ok(v) => v,
+                        Err(error) => Value::error(error, span),
+                    }
+                })
+                .into_pipeline_data(head, signals);
+
+            Ok(result)
+        }
+
+        _ => data
+            .follow_cell_path(&cell_path, head, insensitive)
+            .map(|x| x.into_pipeline_data()),
     }
 }
 

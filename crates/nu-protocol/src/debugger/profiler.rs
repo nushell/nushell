@@ -10,8 +10,8 @@ use crate::{
     ir::IrBlock,
     record, PipelineData, ShellError, Span, Value,
 };
-use std::time::Instant;
 use std::{borrow::Borrow, io::BufRead};
+use web_time::Instant;
 
 #[derive(Debug, Clone, Copy)]
 struct ElementId(usize);

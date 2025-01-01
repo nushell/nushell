@@ -354,6 +354,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ConfigFlatten,
             ConfigMeta,
             ConfigReset,
+            ConfigUseColors,
         };
 
         // Math
@@ -380,6 +381,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Bytes,
             BytesLen,
+            BytesSplit,
             BytesStartsWith,
             BytesEndsWith,
             BytesReverse,

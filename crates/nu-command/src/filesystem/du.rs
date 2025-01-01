@@ -165,6 +165,7 @@ fn du_for_one_pattern(
     span: Span,
     signals: &Signals,
 ) -> Result<impl Iterator<Item = Value> + Send, ShellError> {
+    let signals_clone = signals.clone();
     let exclude = args.exclude.map_or(Ok(None), move |x| {
         Pattern::new(x.item.as_ref())
             .map(Some)
@@ -174,7 +175,7 @@ fn du_for_one_pattern(
             })
     })?;
 
-    let mut paths = match args.path {
+    let paths = match args.path {
         Some(p) => nu_engine::glob_from(&p, current_dir, span, None),
         // The * pattern should never fail.
         None => nu_engine::glob_from(
@@ -202,22 +203,22 @@ fn du_for_one_pattern(
         long,
     };
 
-    let mut output: Vec<Value> = vec![];
-    for p in paths.by_ref() {
-        match p {
-            Ok(a) => {
-                if a.is_dir() {
-                    output.push(DirInfo::new(a, &params, max_depth, span, signals)?.into());
-                } else if let Ok(v) = FileInfo::new(a, deref, span, params.long) {
-                    output.push(v.into());
+    Ok(paths.filter_map(move |p| match p {
+        Ok(a) => {
+            if a.is_dir() {
+                match DirInfo::new(a, &params, max_depth, span, &signals_clone) {
+                    Ok(v) => Some(Value::from(v)),
+                    Err(_) => None,
+                }
+            } else {
+                match FileInfo::new(a, deref, span, params.long) {
+                    Ok(v) => Some(Value::from(v)),
+                    Err(_) => None,
                 }
             }
-            Err(e) => {
-                output.push(Value::error(e, span));
-            }
         }
-    }
-    Ok(output.into_iter())
+        Err(e) => Some(Value::error(e, span)),
+    }))
 }
 
 #[cfg(test)]

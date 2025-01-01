@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.100.1"
+# version = "0.101.1"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -244,12 +244,20 @@ $env.config.shell_integration.reset_application_mode = true
 # Nushell.
 $env.config.bracketed_paste = true
 
-# use_ansi_coloring (bool):
-# true/false to enable/disable the use of ANSI colors in Nushell internal commands.
-# When disabled, output from Nushell built-in commands will display only in the default
-# foreground color.
-# Note: Does not apply to the `ansi` command.
-$env.config.use_ansi_coloring = true
+# use_ansi_coloring ("auto" or bool):
+# The default value `"auto"` dynamically determines if ANSI coloring is used.
+# It evaluates the following environment variables in decreasingly priority:
+# `FORCE_COLOR`, `NO_COLOR`, and `CLICOLOR`.
+# - If `FORCE_COLOR` is set, coloring is always enabled.
+# - If `NO_COLOR` is set, coloring is disabled.
+# - If `CLICOLOR` is set, its value (0 or 1) decides whether coloring is used.
+# If none of these are set, it checks whether the standard output is a terminal 
+# and enables coloring if it is.
+# A value of `true` or `false` overrides this behavior, explicitly enabling or 
+# disabling ANSI coloring in Nushell's internal commands.
+# When disabled, built-in commands will only use the default foreground color.
+# Note: This setting does not affect the `ansi` command.
+$env.config.use_ansi_coloring = "auto"
 
 # ----------------------
 # Error Display Settings
