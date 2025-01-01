@@ -107,6 +107,26 @@ fn literal_closure() {
 }
 
 #[test]
+fn literal_closure_to_nuon() {
+    test_eval("{||} | to nuon", Eq("{||}"))
+}
+
+#[test]
+fn literal_closure_to_json() {
+    test_eval("{||} | to json", Eq("\"{||}\""))
+}
+
+#[test]
+fn literal_closure_to_toml() {
+    test_eval("{a: {||}} | to toml", Eq("a = \"{||}\""))
+}
+
+#[test]
+fn literal_closure_to_yaml() {
+    test_eval("{||} | to yaml", Eq("'{||}'"))
+}
+
+#[test]
 fn literal_range() {
     test_eval("0..2..10", Matches("10"))
 }

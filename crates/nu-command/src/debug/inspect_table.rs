@@ -1,7 +1,7 @@
 // note: Seems like could be simplified
 //       IMHO: it shall not take 300+ lines :)
 
-// use nu_engine::command_prelude::EngineState;
+use self::{global_horizontal_char::SetHorizontalChar, set_widths::SetWidths};
 use nu_protocol::engine::EngineState;
 use nu_protocol::Value;
 use nu_table::{string_width, string_wrap};
@@ -10,8 +10,6 @@ use tabled::{
     settings::{peaker::Priority, width::Wrap, Settings, Style},
     Table,
 };
-
-use self::{global_horizontal_char::SetHorizontalChar, set_widths::SetWidths};
 
 pub fn build_table(
     engine_state: &EngineState,

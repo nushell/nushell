@@ -184,7 +184,10 @@ fn local_into_string(
                 let contents_string = String::from_utf8_lossy(contents_bytes);
                 contents_string.to_string()
             } else {
-                String::new()
+                format!(
+                    "unable to retrieve block contents for text block_id {}",
+                    val.block_id.get()
+                )
             }
         }
         Value::Nothing { .. } => String::new(),

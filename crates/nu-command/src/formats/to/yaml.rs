@@ -81,7 +81,10 @@ pub fn value_to_yaml_value(
                 let contents_string = String::from_utf8_lossy(contents_bytes);
                 serde_yml::Value::String(contents_string.to_string())
             } else {
-                serde_yml::Value::Null
+                serde_yml::Value::String(format!(
+                    "unable to retrieve block contents for yaml block_id {}",
+                    val.block_id.get()
+                ))
             }
         }
         Value::Nothing { .. } => serde_yml::Value::Null,

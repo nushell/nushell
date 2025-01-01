@@ -67,7 +67,10 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
                 let contents_string = String::from_utf8_lossy(contents_bytes);
                 toml::Value::String(contents_string.to_string())
             } else {
-                toml::Value::String(String::new())
+                toml::Value::String(format!(
+                    "unable to retrieve block contents for toml block_id {}",
+                    val.block_id.get()
+                ))
             }
         }
         Value::Nothing { .. } => toml::Value::String("<Nothing>".to_string()),
@@ -135,7 +138,7 @@ fn value_to_toml_value(
     head: Span,
 ) -> Result<toml::Value, ShellError> {
     match v {
-        Value::Record { .. } => helper(engine_state, v),
+        Value::Record { .. } | Value::Closure { .. } => helper(engine_state, v),
         // Propagate existing errors
         Value::Error { error, .. } => Err(*error.clone()),
         _ => Err(ShellError::UnsupportedInput {

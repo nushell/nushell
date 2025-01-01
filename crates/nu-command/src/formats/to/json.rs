@@ -139,7 +139,10 @@ pub fn value_to_json_value(
                 let contents_string = String::from_utf8_lossy(contents_bytes);
                 nu_json::Value::String(contents_string.to_string())
             } else {
-                nu_json::Value::String(String::new())
+                nu_json::Value::String(format!(
+                    "unable to retrieve block contents for json block_id {}",
+                    val.block_id.get()
+                ))
             }
         }
         Value::Range { .. } => nu_json::Value::Null,
