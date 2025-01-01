@@ -2,11 +2,16 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{dots::expand_ndots, expand_tilde, AbsolutePath};
 use nu_protocol::{
-    did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
+    did_you_mean,
+    process::{ChildPipe, ChildProcess},
+    ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
 };
-use nu_system::ForegroundChild;
+use nu_system::{ExitStatus, ForegroundChild};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
+use std::io::Cursor;
+use std::io::Read;
+use std::num::NonZero;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::{
@@ -257,23 +262,38 @@ impl Command for External {
             call.head,
         )?;
 
-        if matches!(stdout, OutDest::Pipe) {
-            let bytes = child.into_bytes()?;
-            return Ok(PipelineData::ByteStream(
-                ByteStream::read_binary(bytes, call.head, engine_state.signals().clone()),
-                None,
-            ));
-        }
-        if matches!(stdout, OutDest::Pipe | OutDest::PipeSeparate)
-            || matches!(stderr, OutDest::Pipe | OutDest::PipeSeparate)
-        {
-            child.ignore_error(true);
-        }
+        if engine_state.get_config().pipefail {
+            let output = child.wait_with_output()?;
+            let mut child = ChildProcess::from_raw(None, None, None, call.head);
+            if let Some(stdout) = output.stdout {
+                child.stdout = Some(ChildPipe::Tee(Box::new(Cursor::new(stdout))));
+            }
+            if let Some(stderr) = output.stderr {
+                child.stderr = Some(ChildPipe::Tee(Box::new(Cursor::new(stderr))));
+            }
+            if output.exit_status.code() != 0 {
+                Err(ShellError::NonZeroExitCode {
+                    exit_code: NonZero::new(output.exit_status.code()).unwrap(),
+                    span: call.head,
+                })
+            } else {
+                Ok(PipelineData::ByteStream(
+                    ByteStream::child(child, call.head),
+                    None,
+                ))
+            }
+        } else {
+            if matches!(stdout, OutDest::Pipe | OutDest::PipeSeparate)
+                || matches!(stderr, OutDest::Pipe | OutDest::PipeSeparate)
+            {
+                child.ignore_error(true);
+            }
 
-        Ok(PipelineData::ByteStream(
-            ByteStream::child(child, call.head),
-            None,
-        ))
+            Ok(PipelineData::ByteStream(
+                ByteStream::child(child, call.head),
+                None,
+            ))
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
