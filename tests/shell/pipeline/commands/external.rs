@@ -655,9 +655,9 @@ fn arg_dont_run_subcommand_if_surrounded_with_quote() {
 }
 
 #[test]
-fn exit_code_pipefail() {
-    Playground::setup("pipefail", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.config.pipefail = true")]);
+fn exit_code_errexit() {
+    Playground::setup("errexit", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.config.errexit = true")]);
 
         let actual = nu!(
             env_config: "tmp_env.nu",

@@ -69,7 +69,7 @@ pub struct Config {
     pub datetime_format: DatetimeFormatConfig,
     pub error_style: ErrorStyle,
     pub display_errors: DisplayErrors,
-    pub pipefail: bool,
+    pub errexit: bool,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
     /// Configuration for plugins.
@@ -126,7 +126,7 @@ impl Default for Config {
             error_style: ErrorStyle::Fancy,
             display_errors: DisplayErrors::default(),
 
-            pipefail: false,
+            errexit: false,
             use_kitty_protocol: false,
             highlight_resolved_externals: false,
 
@@ -187,7 +187,7 @@ impl UpdateFromValue for Config {
                     .update(val, path, errors),
                 "bracketed_paste" => self.bracketed_paste.update(val, path, errors),
                 "use_kitty_protocol" => self.use_kitty_protocol.update(val, path, errors),
-                "pipefail" => self.pipefail.update(val, path, errors),
+                "errexit" => self.errexit.update(val, path, errors),
                 "highlight_resolved_externals" => {
                     self.highlight_resolved_externals.update(val, path, errors)
                 }

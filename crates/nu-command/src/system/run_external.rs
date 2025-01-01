@@ -261,7 +261,7 @@ impl Command for External {
             call.head,
         )?;
 
-        if engine_state.get_config().pipefail {
+        if engine_state.get_config().errexit {
             // Should wait the command running to complete.
             // Then nushell is able to check the exit status.
             //
