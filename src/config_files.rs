@@ -212,6 +212,8 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
     // to determine the order of directories to evaluate
     get_vendor_autoload_dirs(engine_state)
         .iter()
+        // User autoload directories are evaluated after vendor, which means that
+        // the user can override vendor autoload files
         .chain(get_user_autoload_dirs(engine_state).iter())
         .for_each(|autoload_dir| {
             warn!("read_vendor_autoload_files: {}", autoload_dir.display());
