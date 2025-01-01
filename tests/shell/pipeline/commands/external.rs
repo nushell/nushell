@@ -1,6 +1,7 @@
 use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::nu;
+use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
+use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -651,4 +652,19 @@ fn arg_dont_run_subcommand_if_surrounded_with_quote() {
     assert_eq!(actual.out, "(echo aa)");
     let actual = nu!("nu --testbin cococo '(echo aa)'");
     assert_eq!(actual.out, "(echo aa)");
+}
+
+#[test]
+fn exit_code_pipefail() {
+    Playground::setup("pipefail", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.config.pipefail = true")]);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            "nu --testbin fail | print 'aa'",
+        );
+        assert_eq!(actual.out, "");
+        assert_eq!(actual.status.code(), Some(1));
+    })
 }

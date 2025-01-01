@@ -6,11 +6,10 @@ use nu_protocol::{
     process::{ChildPipe, ChildProcess},
     ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
 };
-use nu_system::{ExitStatus, ForegroundChild};
+use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 use std::io::Cursor;
-use std::io::Read;
 use std::num::NonZero;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -263,6 +262,11 @@ impl Command for External {
         )?;
 
         if engine_state.get_config().pipefail {
+            // Should wait the command running to complete.
+            // Then nushell is able to check the exit status.
+            //
+            // use `child.wait_with_output()` to get stdout, stderr, exit_status of child command.
+            // then building `ChildProcess` manually again.
             let output = child.wait_with_output()?;
             let mut child = ChildProcess::from_raw(None, None, None, call.head);
             if let Some(stdout) = output.stdout {
@@ -273,7 +277,8 @@ impl Command for External {
             }
             if output.exit_status.code() != 0 {
                 Err(ShellError::NonZeroExitCode {
-                    exit_code: NonZero::new(output.exit_status.code()).unwrap(),
+                    exit_code: NonZero::new(output.exit_status.code())
+                        .expect("already checked non-zero exit code"),
                     span: call.head,
                 })
             } else {
