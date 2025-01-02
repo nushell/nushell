@@ -82,7 +82,7 @@ impl Command for UTouch {
         let change_mtime: bool = call.has_flag(engine_state, stack, "modified")?;
         let change_atime: bool = call.has_flag(engine_state, stack, "access")?;
         let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
-        let no_deref: bool = call.has_flag(engine_state, stack, "no-dereference")?;
+        let no_deref: bool = call.has_flag(engine_state, stack, "no-deref")?;
         let file_globs = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         let cwd = engine_state.cwd(Some(stack))?;
 
