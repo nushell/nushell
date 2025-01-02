@@ -21,7 +21,7 @@ impl Command for Touch {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .rest(
                 "files",
-                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Filepath]),
+                SyntaxShape::Filepath,
                 "The file(s) to create."
             )
             .named(
