@@ -1339,7 +1339,7 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(18, suggestions.len());
+    assert_eq!(19, suggestions.len());
 
     let expected: Vec<String> = vec![
         "cache-dir".into(),
@@ -1359,6 +1359,7 @@ fn variables_completions() {
         "plugin-path".into(),
         "startup-time".into(),
         "temp-path".into(),
+        "user-autoload-dirs".into(),
         "vendor-autoload-dirs".into(),
     ];
 
