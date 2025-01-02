@@ -12,7 +12,7 @@ pub struct UTouch;
 
 impl Command for UTouch {
     fn name(&self) -> &str {
-        "utouch"
+        "touch"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -20,7 +20,7 @@ impl Command for UTouch {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("utouch")
+        Signature::build("touch")
             .input_output_types(vec![ (Type::Nothing, Type::Nothing) ])
             .rest(
                 "files",
@@ -82,7 +82,7 @@ impl Command for UTouch {
         let change_mtime: bool = call.has_flag(engine_state, stack, "modified")?;
         let change_atime: bool = call.has_flag(engine_state, stack, "access")?;
         let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
-        let no_deref: bool = call.has_flag(engine_state, stack, "no-dereference")?;
+        let no_deref: bool = call.has_flag(engine_state, stack, "no-deref")?;
         let file_globs = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         let cwd = engine_state.cwd(Some(stack))?;
 
@@ -220,12 +220,11 @@ impl Command for UTouch {
                 },
                 TouchError::InvalidDateFormat(date) => ShellError::IncorrectValue {
                     msg: format!("Invalid date: {}", date),
-                    val_span: date_span.expect("utouch should've been given a date"),
+                    val_span: date_span.expect("touch should've been given a date"),
                     call_span: call.head,
                 },
                 TouchError::ReferenceFileInaccessible(reference_path, io_err) => {
-                    let span =
-                        reference_span.expect("utouch should've been given a reference file");
+                    let span = reference_span.expect("touch should've been given a reference file");
                     if io_err.kind() == ErrorKind::NotFound {
                         ShellError::FileNotFound {
                             span,
@@ -259,47 +258,47 @@ impl Command for UTouch {
         vec![
             Example {
                 description: "Creates \"fixture.json\"",
-                example: "utouch fixture.json",
+                example: "touch fixture.json",
                 result: None,
             },
             Example {
                 description: "Creates files a, b and c",
-                example: "utouch a b c",
+                example: "touch a b c",
                 result: None,
             },
             Example {
                 description: r#"Changes the last modified time of "fixture.json" to today's date"#,
-                example: "utouch -m fixture.json",
+                example: "touch -m fixture.json",
                 result: None,
             },
             Example {
                 description: r#"Changes the last modified and accessed time of all files with the .json extension to today's date"#,
-                example: "utouch *.json",
+                example: "touch *.json",
                 result: None,
             },
             Example {
                 description: "Changes the last accessed and modified times of files a, b and c to the current time but yesterday",
-                example: r#"utouch -d "yesterday" a b c"#,
+                example: r#"touch -d "yesterday" a b c"#,
                 result: None,
             },
             Example {
                 description: r#"Changes the last modified time of files d and e to "fixture.json"'s last modified time"#,
-                example: r#"utouch -m -r fixture.json d e"#,
+                example: r#"touch -m -r fixture.json d e"#,
                 result: None,
             },
             Example {
                 description: r#"Changes the last accessed time of "fixture.json" to a datetime"#,
-                example: r#"utouch -a -t 2019-08-24T12:30:30 fixture.json"#,
+                example: r#"touch -a -t 2019-08-24T12:30:30 fixture.json"#,
                 result: None,
             },
             Example {
                 description: r#"Change the last accessed and modified times of stdout"#,
-                example: r#"utouch -"#,
+                example: r#"touch -"#,
                 result: None,
             },
             Example {
                 description: r#"Changes the last accessed and modified times of file a to 1 month before "fixture.json"'s last modified time"#,
-                example: r#"utouch -r fixture.json -d "-1 month" a"#,
+                example: r#"touch -r fixture.json -d "-1 month" a"#,
                 result: None,
             },
         ]
