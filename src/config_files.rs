@@ -6,6 +6,7 @@ use nu_engine::convert_env_values;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
+    eval_const::{get_user_autoload_dirs, get_vendor_autoload_dirs},
     report_parse_error, report_shell_error, Config, ParseError, PipelineData, Spanned,
 };
 use nu_utils::{get_default_config, get_default_env, get_scaffold_config, get_scaffold_env, perf};
@@ -197,24 +198,29 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
 
     // The evaluation order is first determined by the semantics of `get_vendor_autoload_dirs`
     // to determine the order of directories to evaluate
-    for autoload_dir in nu_protocol::eval_const::get_vendor_autoload_dirs(engine_state) {
-        warn!("read_vendor_autoload_files: {}", autoload_dir.display());
+    get_vendor_autoload_dirs(engine_state)
+        .iter()
+        // User autoload directories are evaluated after vendor, which means that
+        // the user can override vendor autoload files
+        .chain(get_user_autoload_dirs(engine_state).iter())
+        .for_each(|autoload_dir| {
+            warn!("read_vendor_autoload_files: {}", autoload_dir.display());
 
-        if autoload_dir.exists() {
-            // on a second levels files are lexicographically sorted by the string of the filename
-            let entries = read_and_sort_directory(&autoload_dir);
-            if let Ok(entries) = entries {
-                for entry in entries {
-                    if !entry.ends_with(".nu") {
-                        continue;
+            if autoload_dir.exists() {
+                // on a second levels files are lexicographically sorted by the string of the filename
+                let entries = read_and_sort_directory(autoload_dir);
+                if let Ok(entries) = entries {
+                    for entry in entries {
+                        if !entry.ends_with(".nu") {
+                            continue;
+                        }
+                        let path = autoload_dir.join(entry);
+                        warn!("AutoLoading: {:?}", path);
+                        eval_config_contents(path, engine_state, stack);
                     }
-                    let path = autoload_dir.join(entry);
-                    warn!("AutoLoading: {:?}", path);
-                    eval_config_contents(path, engine_state, stack);
                 }
             }
-        }
-    }
+        });
 }
 
 fn eval_default_config(
