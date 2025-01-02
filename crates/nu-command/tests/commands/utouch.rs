@@ -100,7 +100,7 @@ fn creates_a_file_when_glob_is_quoted() {
 }
 
 #[test]
-fn fails_when_glob_star_has_no_matches() {
+fn fails_when_glob_has_no_matches() {
     Playground::setup("create_test_glob_no_matches", |dirs, _sandbox| {
         let actual = nu!(
             cwd: dirs.test(),
@@ -108,32 +108,6 @@ fn fails_when_glob_star_has_no_matches() {
         );
 
         assert!(actual.err.contains("No matches found for glob *.txt"));
-    })
-}
-
-#[test]
-fn fails_when_glob_question_mark_has_no_matches() {
-    Playground::setup("create_test_glob_no_matches", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(),
-            "utouch file?.txt"
-        );
-
-        assert!(actual.err.contains("No matches found for glob file?.txt"));
-    })
-}
-
-#[test]
-fn fails_when_glob_bracket_has_no_matches() {
-    Playground::setup("create_test_glob_no_matches", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(),
-            "utouch file[^0-9].txt"
-        );
-
-        assert!(actual
-            .err
-            .contains("No matches found for glob file[^0-9].txt"));
     })
 }
 

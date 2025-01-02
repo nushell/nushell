@@ -1,7 +1,7 @@
 use chrono::{DateTime, FixedOffset};
 use filetime::FileTime;
 use nu_engine::command_prelude::*;
-use nu_glob::glob;
+use nu_glob::{glob, is_glob};
 use nu_path::expand_path_with;
 use nu_protocol::NuGlob;
 use std::{io::ErrorKind, path::PathBuf};
@@ -175,10 +175,7 @@ impl Command for UTouch {
                         )
                     });
 
-                    if file_name.to_string_lossy().contains("*")
-                        || file_name.to_string_lossy().contains("?")
-                        || file_name.to_string_lossy().contains("[")
-                    {
+                    if is_glob(&file_name.to_string_lossy()) {
                         return Err(ShellError::GenericError {
                             error: format!(
                                 "No matches found for glob {}",
