@@ -194,6 +194,17 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         ),
     );
 
+    record.push(
+        "user-autoload-dirs",
+        Value::list(
+            get_user_autoload_dirs(engine_state)
+                .iter()
+                .map(|path| Value::string(path.to_string_lossy(), span))
+                .collect(),
+            span,
+        ),
+    );
+
     record.push("temp-path", {
         let canon_temp_path = canonicalize_path(engine_state, &std::env::temp_dir());
         Value::string(canon_temp_path.to_string_lossy(), span)
