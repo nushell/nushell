@@ -21,7 +21,7 @@ impl Command for Touch {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .rest(
                 "files",
-                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Filepath]),
+                SyntaxShape::Filepath,
                 "The file(s) to create."
             )
             .named(
@@ -242,6 +242,11 @@ impl Command for Touch {
             Example {
                 description: r#"Changes the last modified time of file d and e to "fixture.json"'s last modified time"#,
                 example: r#"touch -m -r fixture.json d e"#,
+                result: None,
+            },
+            Example {
+                description: r#"Update times of all JSON files in folder"#,
+                example: r#"touch ...(glob *.json)"#,
                 result: None,
             },
         ]
