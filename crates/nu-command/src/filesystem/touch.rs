@@ -246,7 +246,7 @@ impl Command for Touch {
             },
             Example {
                 description: r#"Update times of all JSON files in folder"#,
-                example: r#"touch ...(glob *.json)"#,
+                example: r#"touch ...(ls *.json).name"#,
                 result: None,
             },
         ]
