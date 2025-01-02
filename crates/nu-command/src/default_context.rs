@@ -241,7 +241,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Start,
             Rm,
             Save,
-            Touch,
             UTouch,
             Glob,
             Watch,
