@@ -385,7 +385,10 @@ fn change_file_mtime_to_reference() {
     })
 }
 
+// TODO when https://github.com/uutils/coreutils/issues/6629 is fixed,
+// unignore this test
 #[test]
+#[ignore]
 fn change_file_times_to_reference_file_with_date() {
     Playground::setup(
         "change_file_times_to_reference_file_with_date",
@@ -517,7 +520,10 @@ fn change_modified_and_access_time_of_dir_to_today() {
     })
 }
 
+// TODO when https://github.com/uutils/coreutils/issues/6629 is fixed,
+// unignore this test
 #[test]
+#[ignore]
 fn change_file_times_to_date() {
     Playground::setup("change_file_times_to_date", |dirs, sandbox| {
         sandbox.with_files(&[Stub::EmptyFile("target_file")]);
