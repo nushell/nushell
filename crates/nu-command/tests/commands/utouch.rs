@@ -83,6 +83,34 @@ fn creates_two_files() {
     })
 }
 
+// Windows forbids file names with reserved characters
+// https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
+#[test]
+#[cfg(not(windows))]
+fn creates_a_file_when_glob_is_quoted() {
+    Playground::setup("create_test_glob", |dirs, _sandbox| {
+        nu!(
+            cwd: dirs.test(),
+            "utouch '*.txt'"
+        );
+
+        let path = dirs.test().join("*.txt");
+        assert!(path.exists());
+    })
+}
+
+#[test]
+fn fails_when_glob_has_no_matches() {
+    Playground::setup("create_test_glob_no_matches", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "utouch *.txt"
+        );
+
+        assert!(actual.err.contains("No matches found for glob *.txt"));
+    })
+}
+
 #[test]
 fn change_modified_time_of_file_to_today() {
     Playground::setup("change_time_test_9", |dirs, sandbox| {
@@ -154,6 +182,31 @@ fn change_modified_and_access_time_of_file_to_today() {
         nu!(
             cwd: dirs.test(),
             "utouch -a -m file.txt"
+        );
+
+        let metadata = path.metadata().unwrap();
+
+        // Check only the date since the time may not match exactly
+        let today = Local::now().date_naive();
+        let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
+        let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
+
+        assert_eq!(today, mtime_day);
+        assert_eq!(today, atime_day);
+    })
+}
+
+#[test]
+fn change_modified_and_access_time_of_files_matching_glob_to_today() {
+    Playground::setup("change_mtime_atime_test_glob", |dirs, sandbox| {
+        sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
+
+        let path = dirs.test().join("file.txt");
+        filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
+
+        nu!(
+            cwd: dirs.test(),
+            "utouch *.txt"
         );
 
         let metadata = path.metadata().unwrap();

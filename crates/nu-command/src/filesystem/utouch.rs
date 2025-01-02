@@ -1,6 +1,7 @@
 use chrono::{DateTime, FixedOffset};
 use filetime::FileTime;
 use nu_engine::command_prelude::*;
+use nu_glob::{glob, is_glob};
 use nu_path::expand_path_with;
 use nu_protocol::NuGlob;
 use std::{io::ErrorKind, path::PathBuf};
@@ -149,9 +150,52 @@ impl Command for UTouch {
             if file_glob.item.as_ref() == "-" {
                 input_files.push(InputFile::Stdout);
             } else {
-                let path =
+                let file_path =
                     expand_path_with(file_glob.item.as_ref(), &cwd, file_glob.item.is_expand());
-                input_files.push(InputFile::Path(path));
+
+                if !file_glob.item.is_expand() {
+                    input_files.push(InputFile::Path(file_path));
+                    continue;
+                }
+
+                let mut expanded_globs = glob(&file_path.to_string_lossy())
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Failed to process file path: {}",
+                            &file_path.to_string_lossy()
+                        )
+                    })
+                    .peekable();
+
+                if expanded_globs.peek().is_none() {
+                    let file_name = file_path.file_name().unwrap_or_else(|| {
+                        panic!(
+                            "Failed to process file path: {}",
+                            &file_path.to_string_lossy()
+                        )
+                    });
+
+                    if is_glob(&file_name.to_string_lossy()) {
+                        return Err(ShellError::GenericError {
+                            error: format!(
+                                "No matches found for glob {}",
+                                file_name.to_string_lossy()
+                            ),
+                            msg: "No matches found for glob".into(),
+                            span: Some(file_glob.span),
+                            help: Some(format!(
+                                "Use quotes if you want to create a file named {}",
+                                file_name.to_string_lossy()
+                            )),
+                            inner: vec![],
+                        });
+                    }
+
+                    input_files.push(InputFile::Path(file_path));
+                    continue;
+                }
+
+                input_files.extend(expanded_globs.filter_map(Result::ok).map(InputFile::Path));
             }
         }
 
@@ -226,6 +270,11 @@ impl Command for UTouch {
             Example {
                 description: r#"Changes the last modified time of "fixture.json" to today's date"#,
                 example: "utouch -m fixture.json",
+                result: None,
+            },
+            Example {
+                description: r#"Changes the last modified and accessed time of all files with the .json extension to today's date"#,
+                example: "utouch *.json",
                 result: None,
             },
             Example {
