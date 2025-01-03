@@ -1009,6 +1009,8 @@ fn eval_call<D: DebugContext>(
     let args_len = caller_stack.arguments.get_len(*args_base);
     let decl = engine_state.get_decl(decl_id);
 
+    check_input_types(&input, decl.signature(), head)?;
+
     // Set up redirect modes
     let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
 
@@ -1264,6 +1266,66 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
             help: None,
         })
     }
+}
+
+/// Type check pipeline input against command's input types
+fn check_input_types(
+    input: &PipelineData,
+    signature: Signature,
+    head: Span,
+) -> Result<(), ShellError> {
+    let io_types = signature.input_output_types;
+    let pipe_type = input.get_type();
+
+    // If a command doesn't have any input/output types, then treat command input type as any
+    if io_types.is_empty() {
+        return Ok(());
+    }
+
+    let is_empty_list = match input {
+        PipelineData::Value(Value::List { ref vals, .. }, _) => vals.is_empty(),
+        PipelineData::ListStream(_, _) => true, // a list stream _could_ be an empty list
+        _ => false,
+    };
+
+    // Check if the input type is compatible with *any* of the command's possible input types
+    if io_types.iter().any(|(command_type, _)| {
+        // Check if equivalent types, _or_ we have an empty list and the command type is list or table
+        pipe_type.is_subtype(command_type)
+            || (is_empty_list && matches!(command_type, Type::List(_) | Type::Table(_)))
+    }) {
+        return Ok(());
+    }
+
+    let mut input_types = io_types
+        .iter()
+        .map(|(input, _)| input.to_string())
+        .collect::<Vec<String>>();
+
+    let expected_string = match input_types.len() {
+        0 => {
+            return Err(ShellError::NushellFailed {
+                msg: "Command input type strings is empty, despite being non-zero earlier"
+                    .to_string(),
+            })
+        }
+        1 => input_types.swap_remove(0),
+        2 => input_types.join(" and "),
+        _ => {
+            input_types
+                .last_mut()
+                .expect("Vector with length >2 has no elements")
+                .insert_str(0, "and ");
+            input_types.join(", ")
+        }
+    };
+
+    Err(ShellError::OnlySupportsThisInputType {
+        exp_input_type: expected_string,
+        wrong_type: pipe_type.to_string(),
+        dst_span: head,
+        src_span: input.span().unwrap_or(Span::unknown()),
+    })
 }
 
 /// Get variable from [`Stack`] or [`EngineState`]
