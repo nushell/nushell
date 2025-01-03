@@ -240,6 +240,12 @@ fn env_shlvl_commandstring_does_not_increment() {
     assert_eq!(actual.out, "5");
 }
 
+// Note: Do not use -i / --interactive in tests.
+// -i attempts to acquire a terminal, and if more than one
+// test tries to obtain a terminal at the same time, the
+// test run will likely hang, at least for some users.
+// Instead, use -e / --execute with an `exit` to test REPL
+// functionality as demonstrated below.
 #[test]
 fn env_shlvl_in_repl() {
     let actual = nu!("
