@@ -231,17 +231,30 @@ fn std_log_env_vars_have_defaults() {
 }
 
 #[test]
-fn env_shlvl() {
+fn env_shlvl_commandstring_does_not_increment() {
     let actual = nu!("
         $env.SHLVL = 5
-        nu -i -c 'print $env.SHLVL'
+        nu -c 'print $env.SHLVL; exit'
+    ");
+
+    assert_eq!(actual.out, "5");
+}
+
+#[test]
+fn env_shlvl_in_repl() {
+    let actual = nu!("
+        $env.SHLVL = 5
+        nu --no-std-lib -n -e 'print $env.SHLVL; exit'
     ");
 
     assert_eq!(actual.out, "6");
+}
 
+#[test]
+fn env_shlvl_in_exec_repl() {
     let actual = nu!("
         $env.SHLVL = 29
-        nu -i -c \"exec nu -i -c 'print $env.SHLVL'\"
+        nu -c \"exec nu --no-std-lib -n -e 'print $env.SHLVL; exit'\"
     ");
 
     assert_eq!(actual.out, "30");
