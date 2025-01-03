@@ -1,10 +1,7 @@
 use lsp_types::{
-    notification::{
-        DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, Notification,
-    },
-    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, Url,
+    notification::{DidOpenTextDocument, DidSaveTextDocument, Notification},
+    DidOpenTextDocumentParams, DidSaveTextDocumentParams, Uri,
 };
-use ropey::Rope;
 
 use crate::LanguageServer;
 
@@ -12,85 +9,23 @@ impl LanguageServer {
     pub(crate) fn handle_lsp_notification(
         &mut self,
         notification: lsp_server::Notification,
-    ) -> Option<Url> {
+    ) -> Option<Uri> {
+        self.docs
+            .listen(notification.method.as_str(), &notification.params);
         match notification.method.as_str() {
-            DidOpenTextDocument::METHOD => Self::handle_notification_payload::<
-                DidOpenTextDocumentParams,
-                _,
-            >(notification, |param| {
-                if let Ok(file_path) = param.text_document.uri.to_file_path() {
-                    let rope = Rope::from_str(&param.text_document.text);
-                    self.ropes.insert(file_path, rope);
-                    Some(param.text_document.uri)
-                } else {
-                    None
-                }
-            }),
-            DidChangeTextDocument::METHOD => {
-                Self::handle_notification_payload::<DidChangeTextDocumentParams, _>(
-                    notification,
-                    |params| self.update_rope(params),
-                )
+            DidOpenTextDocument::METHOD => {
+                let params: DidOpenTextDocumentParams =
+                    serde_json::from_value(notification.params.clone())
+                        .expect("Expect receive DidOpenTextDocumentParams");
+                Some(params.text_document.uri)
             }
-            DidCloseTextDocument::METHOD => Self::handle_notification_payload::<
-                DidCloseTextDocumentParams,
-                _,
-            >(notification, |param| {
-                if let Ok(file_path) = param.text_document.uri.to_file_path() {
-                    self.ropes.remove(&file_path);
-                }
-                None
-            }),
+            DidSaveTextDocument::METHOD => {
+                let params: DidSaveTextDocumentParams =
+                    serde_json::from_value(notification.params.clone())
+                        .expect("Expect receive DidOpenTextDocumentParams");
+                Some(params.text_document.uri)
+            }
             _ => None,
-        }
-    }
-
-    fn handle_notification_payload<P, H>(
-        notification: lsp_server::Notification,
-        mut param_handler: H,
-    ) -> Option<Url>
-    where
-        P: serde::de::DeserializeOwned,
-        H: FnMut(P) -> Option<Url>,
-    {
-        if let Ok(params) = serde_json::from_value::<P>(notification.params) {
-            param_handler(params)
-        } else {
-            None
-        }
-    }
-
-    fn update_rope(&mut self, params: DidChangeTextDocumentParams) -> Option<Url> {
-        if let Ok(file_path) = params.text_document.uri.to_file_path() {
-            for content_change in params.content_changes.into_iter() {
-                let entry = self.ropes.entry(file_path.clone());
-                match content_change.range {
-                    Some(range) => {
-                        entry.and_modify(|rope| {
-                            let start = Self::lsp_position_to_location(
-                                &range.start,
-                                rope,
-                                &self.position_encoding,
-                            );
-                            let end = Self::lsp_position_to_location(
-                                &range.end,
-                                rope,
-                                &self.position_encoding,
-                            );
-
-                            rope.remove(start..end);
-                            rope.insert(start, &content_change.text);
-                        });
-                    }
-                    None => {
-                        entry.and_modify(|r| *r = Rope::from_str(&content_change.text));
-                    }
-                }
-            }
-
-            Some(params.text_document.uri)
-        } else {
-            None
         }
     }
 }
@@ -99,20 +34,22 @@ impl LanguageServer {
 mod tests {
     use assert_json_diff::assert_json_eq;
     use lsp_server::Message;
-    use lsp_types::{Range, Url};
+    use lsp_types::Range;
     use nu_test_support::fs::fixtures;
 
-    use crate::tests::{hover, initialize_language_server, open, open_unchecked, update};
+    use crate::tests::{
+        hover, initialize_language_server, open, open_unchecked, pathbuf_to_uri, update,
+    };
 
     #[test]
     fn hover_correct_documentation_on_let() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("hover");
         script.push("var.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = pathbuf_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
@@ -136,13 +73,13 @@ mod tests {
 
     #[test]
     fn hover_on_command_after_full_content_change() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("hover");
         script.push("command.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = pathbuf_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
         update(
@@ -177,13 +114,13 @@ hello"#,
 
     #[test]
     fn hover_on_command_after_partial_content_change() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("hover");
         script.push("command.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = pathbuf_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
         update(
@@ -222,13 +159,13 @@ hello"#,
 
     #[test]
     fn open_document_with_utf_char() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("notifications");
         script.push("issue_11522.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = pathbuf_to_uri(&script);
 
         let result = open(&client_connection, script);
 

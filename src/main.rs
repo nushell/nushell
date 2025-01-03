@@ -460,7 +460,7 @@ fn main() -> Result<()> {
             );
         }
 
-        LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state)?
+        LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests()?
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,

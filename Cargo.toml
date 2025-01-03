@@ -103,7 +103,8 @@ log = "0.4"
 lru = "0.12"
 lscolors = { version = "0.17", default-features = false }
 lsp-server = "0.7.5"
-lsp-types = { version = "0.95.0", features = ["proposed"] }
+lsp-types = { version = "0.97.0", features = ["proposed"] }
+lsp-textdocument = "0.4.0"
 mach2 = "0.4"
 md5 = { version = "0.10", package = "md-5" }
 miette = "7.3"
@@ -139,10 +140,8 @@ rand_chacha = "0.3.1"
 ratatui = "0.26"
 rayon = "1.10"
 reedline = "0.38.0"
-regex = "1.9.5"
 rmp = "0.8"
 rmp-serde = "1.3"
-ropey = "1.6.1"
 roxmltree = "0.20"
 rstest = { version = "0.23", default-features = false }
 rusqlite = "0.31"
