@@ -1,10 +1,8 @@
 use core::fmt::Write;
 
 use nu_engine::get_columns;
-use nu_protocol::{Range, ShellError, Span, Value};
+use nu_protocol::{ObviousFloat, Range, ShellError, Span, Value};
 use nu_utils::{escape_quote_string, needs_quoting};
-
-use std::ops::Bound;
 
 /// control the way Nushell [`Value`] is converted to NUON data
 pub enum ToStyle {
@@ -111,14 +109,7 @@ fn value_to_string(
         Value::Error { error, .. } => Err(*error.clone()),
         // FIXME: make filesizes use the shortest lossless representation.
         Value::Filesize { val, .. } => Ok(format!("{}b", val.get())),
-        Value::Float { val, .. } => {
-            // This serialises these as 'nan', 'inf' and '-inf', respectively.
-            if &val.round() == val && val.is_finite() {
-                Ok(format!("{}.0", *val))
-            } else {
-                Ok(val.to_string())
-            }
-        }
+        Value::Float { val, .. } => Ok(ObviousFloat(*val).to_string()),
         Value::Int { val, .. } => Ok(val.to_string()),
         Value::List { vals, .. } => {
             let headers = get_columns(vals);
@@ -177,23 +168,7 @@ fn value_to_string(
         Value::Nothing { .. } => Ok("null".to_string()),
         Value::Range { val, .. } => match **val {
             Range::IntRange(range) => Ok(range.to_string()),
-            Range::FloatRange(range) => {
-                let start =
-                    value_to_string(&Value::float(range.start(), span), span, depth + 1, indent)?;
-                match range.end() {
-                    Bound::Included(end) => Ok(format!(
-                        "{}..{}",
-                        start,
-                        value_to_string(&Value::float(end, span), span, depth + 1, indent)?
-                    )),
-                    Bound::Excluded(end) => Ok(format!(
-                        "{}..<{}",
-                        start,
-                        value_to_string(&Value::float(end, span), span, depth + 1, indent)?
-                    )),
-                    Bound::Unbounded => Ok(format!("{start}..",)),
-                }
-            }
+            Range::FloatRange(range) => Ok(range.to_string()),
         },
         Value::Record { val, .. } => {
             let mut collection = vec![];

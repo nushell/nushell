@@ -179,27 +179,56 @@ fn to_nuon_records() {
 
 #[test]
 fn to_nuon_range() {
-    let actual = nu!(pipeline(
-        r#"
-            1..42
-            | to nuon
-        "#
-    ));
-
+    let actual = nu!(r#"1..42 | to nuon"#);
     assert_eq!(actual.out, "1..42");
+
+    let actual = nu!(r#"1..<42 | to nuon"#);
+    assert_eq!(actual.out, "1..<42");
+
+    let actual = nu!(r#"1..4..42 | to nuon"#);
+    assert_eq!(actual.out, "1..4..42");
+
+    let actual = nu!(r#"1..4..<42 | to nuon"#);
+    assert_eq!(actual.out, "1..4..<42");
+
+    let actual = nu!(r#"1.0..42.0 | to nuon"#);
+    assert_eq!(actual.out, "1.0..42.0");
+
+    let actual = nu!(r#"1.0..<42.0 | to nuon"#);
+    assert_eq!(actual.out, "1.0..<42.0");
+
+    let actual = nu!(r#"1.0..4.0..42.0 | to nuon"#);
+    assert_eq!(actual.out, "1.0..4.0..42.0");
+
+    let actual = nu!(r#"1.0..4.0..<42.0 | to nuon"#);
+    assert_eq!(actual.out, "1.0..4.0..<42.0");
 }
 
 #[test]
 fn from_nuon_range() {
-    let actual = nu!(pipeline(
-        r#"
-            "1..42"
-            | from nuon
-            | describe
-        "#
-    ));
+    let actual = nu!(r#"'1..42' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1..42");
 
-    assert_eq!(actual.out, "range");
+    let actual = nu!(r#"'1..<42' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1..<42");
+
+    let actual = nu!(r#"'1..4..42' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1..4..42");
+
+    let actual = nu!(r#"'1..4..<42' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1..4..<42");
+
+    let actual = nu!(r#"'1.0..42.0' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1.0..42.0");
+
+    let actual = nu!(r#"'1.0..<42.0' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1.0..<42.0");
+
+    let actual = nu!(r#"'1.0..4.0..42.0' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1.0..4.0..42.0");
+
+    let actual = nu!(r#"'1.0..4.0..<42.0' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1.0..4.0..<42.0");
 }
 
 #[test]
