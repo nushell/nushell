@@ -238,10 +238,7 @@ fn env_shlvl() {
     ");
 
     assert_eq!(actual.out, "6");
-}
 
-#[test]
-fn env_shlvl_in_exec() {
     let actual = nu!("
         $env.SHLVL = 29
         nu -i -c \"exec nu -i -c 'print $env.SHLVL'\"
