@@ -58,7 +58,8 @@ pub fn sort_by(
     natural: bool,
 ) -> Result<(), ShellError> {
     if comparators.is_empty() {
-        // This uses the same format as the 'requires a column name' error in split_by.rs
+        // This uses the same format as the 'requires a column name' error in (the now
+        // removed) split_by.rs
         return Err(ShellError::GenericError {
             error: "expected name".into(),
             msg: "requires a cell path or closure to sort data".into(),
