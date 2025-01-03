@@ -196,7 +196,7 @@ fn variables_customcompletion_subcommands_with_customcompletion_2(
     match_suggestions(&expected, &suggestions);
 }
 
-/// $env.config should be overriden by the custom completer's options
+/// $env.config should be overridden by the custom completer's options
 #[test]
 fn customcompletions_override_options() {
     let mut completer = custom_completer_with_options(
