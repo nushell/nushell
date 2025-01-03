@@ -667,7 +667,7 @@ impl Value {
     ///
     /// The following rules are used:
     /// - Values representing `false`:
-    ///   - Empty strings
+    ///   - Empty strings or strings that equal to "false" in any case
     ///   - The number `0` (as an integer, float or string)
     ///   - `Nothing`
     ///   - Explicit boolean `false`
@@ -680,12 +680,12 @@ impl Value {
     /// boolean representation and returns `None`.
     pub fn as_env_bool(&self) -> Option<bool> {
         match self {
-            Value::Bool { val: false, .. }
-            | Value::Int { val: 0, .. }
-            | Value::Float { val: 0.0, .. }
-            | Value::Nothing { .. } => Some(false),
-            Value::String { val, .. } => match val.as_str() {
-                "" | "0" => Some(false),
+            Value::Bool { val: false, .. } | Value::Int { val: 0, .. } | Value::Nothing { .. } => {
+                Some(false)
+            }
+            Value::Float { val, .. } if val <= &f64::EPSILON => Some(false),
+            Value::String { val, .. } => match val.trim().to_ascii_lowercase().as_str() {
+                "" | "0" | "false" => Some(false),
                 _ => Some(true),
             },
             Value::Bool { .. } | Value::Int { .. } | Value::Float { .. } => Some(true),
