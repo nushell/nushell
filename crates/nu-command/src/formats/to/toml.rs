@@ -43,7 +43,6 @@ impl Command for ToToml {
 // Helper method to recursively convert nu_protocol::Value -> toml::Value
 // This shouldn't be called at the top-level
 fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellError> {
-    let span = v.span();
     Ok(match &v {
         Value::Bool { val, .. } => toml::Value::Boolean(*val),
         Value::Int { val, .. } => toml::Value::Integer(*val),
@@ -61,10 +60,18 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
             toml::Value::Table(m)
         }
         Value::List { vals, .. } => toml::Value::Array(toml_list(engine_state, vals)?),
-        Value::Closure { .. } => {
-            let code = engine_state.get_span_contents(span);
-            let code = String::from_utf8_lossy(code).to_string();
-            toml::Value::String(code)
+        Value::Closure { val, .. } => {
+            let block = engine_state.get_block(val.block_id);
+            if let Some(span) = block.span {
+                let contents_bytes = engine_state.get_span_contents(span);
+                let contents_string = String::from_utf8_lossy(contents_bytes);
+                toml::Value::String(contents_string.to_string())
+            } else {
+                toml::Value::String(format!(
+                    "unable to retrieve block contents for toml block_id {}",
+                    val.block_id.get()
+                ))
+            }
         }
         Value::Nothing { .. } => toml::Value::String("<Nothing>".to_string()),
         Value::Error { error, .. } => return Err(*error.clone()),
@@ -131,7 +138,7 @@ fn value_to_toml_value(
     head: Span,
 ) -> Result<toml::Value, ShellError> {
     match v {
-        Value::Record { .. } => helper(engine_state, v),
+        Value::Record { .. } | Value::Closure { .. } => helper(engine_state, v),
         // Propagate existing errors
         Value::Error { error, .. } => Err(*error.clone()),
         _ => Err(ShellError::UnsupportedInput {

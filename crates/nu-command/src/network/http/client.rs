@@ -205,6 +205,7 @@ pub enum HttpBody {
 
 // remove once all commands have been migrated
 pub fn send_request(
+    engine_state: &EngineState,
     request: Request,
     http_body: HttpBody,
     content_type: Option<String>,
@@ -238,7 +239,9 @@ pub fn send_request(
             };
 
             match body_type {
-                BodyType::Json => send_json_request(&request_url, body, req, span, signals),
+                BodyType::Json => {
+                    send_json_request(engine_state, &request_url, body, req, span, signals)
+                }
                 BodyType::Form => send_form_request(&request_url, body, req, span, signals),
                 BodyType::Multipart => {
                     send_multipart_request(&request_url, body, req, span, signals)
@@ -252,6 +255,7 @@ pub fn send_request(
 }
 
 fn send_json_request(
+    engine_state: &EngineState,
     request_url: &str,
     body: Value,
     req: Request,
@@ -260,7 +264,7 @@ fn send_json_request(
 ) -> Result<Response, ShellErrorOrRequestError> {
     match body {
         Value::Int { .. } | Value::Float { .. } | Value::List { .. } | Value::Record { .. } => {
-            let data = value_to_json_value(&body)?;
+            let data = value_to_json_value(engine_state, &body)?;
             send_cancellable_request(request_url, Box::new(|| req.send_json(data)), span, signals)
         }
         // If the body type is string, assume it is string json content.

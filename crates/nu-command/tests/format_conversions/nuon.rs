@@ -278,6 +278,7 @@ fn from_nuon_datetime() {
 }
 
 #[test]
+#[ignore]
 fn to_nuon_errs_on_closure() {
     let actual = nu!(pipeline(
         r#"

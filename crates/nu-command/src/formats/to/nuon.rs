@@ -60,7 +60,7 @@ impl Command for ToNuon {
         let span = call.head;
         let value = input.into_value(span)?;
 
-        match nuon::to_nuon(&value, style, Some(span)) {
+        match nuon::to_nuon(engine_state, &value, style, Some(span)) {
             Ok(serde_nuon_string) => Ok(Value::string(serde_nuon_string, span)
                 .into_pipeline_data_with_metadata(Some(metadata))),
             _ => Ok(Value::error(

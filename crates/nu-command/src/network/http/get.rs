@@ -182,6 +182,7 @@ fn helper(
     request = request_add_custom_headers(args.headers, request)?;
 
     let response = send_request(
+        engine_state,
         request.clone(),
         HttpBody::None,
         None,
