@@ -402,6 +402,9 @@ fn main() -> Result<()> {
             "chop" => test_bins::chop(),
             "repeater" => test_bins::repeater(),
             "repeat_bytes" => test_bins::repeat_bytes(),
+            // Important: nu_repl must be called with `--testbin=nu_repl`
+            // `--testbin nu_repl` will not work due to argument count logic
+            // in test_bins.rs
             "nu_repl" => test_bins::nu_repl(),
             "input_bytes_length" => test_bins::input_bytes_length(),
             _ => std::process::exit(1),
