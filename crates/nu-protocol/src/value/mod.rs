@@ -677,19 +677,19 @@ impl Value {
     ///   - Explicit boolean `true`
     ///
     /// For all other, more complex variants of [`Value`], the function cannot determine a
-    /// boolean representation and returns `None`.
-    pub fn as_env_bool(&self) -> Option<bool> {
+    /// boolean representation and returns `Err`.
+    pub fn coerce_bool(&self) -> Result<bool, ShellError> {
         match self {
             Value::Bool { val: false, .. } | Value::Int { val: 0, .. } | Value::Nothing { .. } => {
-                Some(false)
+                Ok(false)
             }
-            Value::Float { val, .. } if val <= &f64::EPSILON => Some(false),
+            Value::Float { val, .. } if val <= &f64::EPSILON => Ok(false),
             Value::String { val, .. } => match val.trim().to_ascii_lowercase().as_str() {
-                "" | "0" | "false" => Some(false),
-                _ => Some(true),
+                "" | "0" | "false" => Ok(false),
+                _ => Ok(true),
             },
-            Value::Bool { .. } | Value::Int { .. } | Value::Float { .. } => Some(true),
-            _ => None,
+            Value::Bool { .. } | Value::Int { .. } | Value::Float { .. } => Ok(true),
+            _ => self.cant_convert_to("bool"),
         }
     }
 
@@ -3916,39 +3916,36 @@ mod tests {
     #[test]
     fn test_env_as_bool() {
         // explicit false values
-        assert_eq!(Value::test_bool(false).as_env_bool(), Some(false));
-        assert_eq!(Value::test_int(0).as_env_bool(), Some(false));
-        assert_eq!(Value::test_float(0.0).as_env_bool(), Some(false));
-        assert_eq!(Value::test_string("").as_env_bool(), Some(false));
-        assert_eq!(Value::test_string("0").as_env_bool(), Some(false));
-        assert_eq!(Value::test_nothing().as_env_bool(), Some(false));
+        assert_eq!(Value::test_bool(false).coerce_bool(), Ok(false));
+        assert_eq!(Value::test_int(0).coerce_bool(), Ok(false));
+        assert_eq!(Value::test_float(0.0).coerce_bool(), Ok(false));
+        assert_eq!(Value::test_string("").coerce_bool(), Ok(false));
+        assert_eq!(Value::test_string("0").coerce_bool(), Ok(false));
+        assert_eq!(Value::test_nothing().coerce_bool(), Ok(false));
 
         // explicit true values
-        assert_eq!(Value::test_bool(true).as_env_bool(), Some(true));
-        assert_eq!(Value::test_int(1).as_env_bool(), Some(true));
-        assert_eq!(Value::test_float(1.0).as_env_bool(), Some(true));
-        assert_eq!(Value::test_string("1").as_env_bool(), Some(true));
+        assert_eq!(Value::test_bool(true).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_int(1).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_float(1.0).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_string("1").coerce_bool(), Ok(true));
 
         // implicit true values
-        assert_eq!(Value::test_int(42).as_env_bool(), Some(true));
-        assert_eq!(Value::test_float(0.5).as_env_bool(), Some(true));
-        assert_eq!(Value::test_string("not zero").as_env_bool(), Some(true));
+        assert_eq!(Value::test_int(42).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_float(0.5).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_string("not zero").coerce_bool(), Ok(true));
 
         // complex values returning None
-        assert_eq!(Value::test_record(Record::default()).as_env_bool(), None);
-        assert_eq!(
-            Value::test_list(vec![Value::test_int(1)]).as_env_bool(),
-            None
-        );
-        assert_eq!(
-            Value::test_date(
-                chrono::DateTime::parse_from_rfc3339("2024-01-01T12:00:00+00:00").unwrap(),
-            )
-            .as_env_bool(),
-            None
-        );
-        assert_eq!(Value::test_glob("*.rs").as_env_bool(), None);
-        assert_eq!(Value::test_binary(vec![1, 2, 3]).as_env_bool(), None);
-        assert_eq!(Value::test_duration(3600).as_env_bool(), None);
+        assert!(Value::test_record(Record::default()).coerce_bool().is_err());
+        assert!(Value::test_list(vec![Value::test_int(1)])
+            .coerce_bool()
+            .is_err());
+        assert!(Value::test_date(
+            chrono::DateTime::parse_from_rfc3339("2024-01-01T12:00:00+00:00").unwrap(),
+        )
+        .coerce_bool()
+        .is_err());
+        assert!(Value::test_glob("*.rs").coerce_bool().is_err());
+        assert!(Value::test_binary(vec![1, 2, 3]).coerce_bool().is_err());
+        assert!(Value::test_duration(3600).coerce_bool().is_err());
     }
 }

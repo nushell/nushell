@@ -187,9 +187,9 @@ fn action(input: &Value, args: &IntoBoolCmdArgument, span: Span) -> Value {
             Ok(val) => Value::bool(val, span),
             Err(error) => Value::error(error, span),
         },
-        _ => match input.as_env_bool() {
-            Some(val) => Value::bool(val, span),
-            None => err(),
+        _ => match input.coerce_bool() {
+            Ok(val) => Value::bool(val, span),
+            Err(_) => err(),
         },
     }
 }

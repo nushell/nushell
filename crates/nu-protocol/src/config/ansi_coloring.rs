@@ -48,7 +48,7 @@ impl UseAnsiColoring {
         let env_value = |env_name| {
             engine_state
                 .get_env_var_insensitive(env_name)
-                .and_then(Value::as_env_bool)
+                .and_then(|v| v.coerce_bool().ok())
                 .unwrap_or(false)
         };
 
@@ -61,7 +61,7 @@ impl UseAnsiColoring {
         }
 
         if let Some(cli_color) = engine_state.get_env_var_insensitive("clicolor") {
-            if let Some(cli_color) = cli_color.as_env_bool() {
+            if let Ok(cli_color) = cli_color.coerce_bool() {
                 return cli_color;
             }
         }
