@@ -232,10 +232,17 @@ fn std_log_env_vars_have_defaults() {
 
 #[test]
 fn env_shlvl() {
-    let actual = nu!(r#"
+    let actual = nu!("
         $env.SHLVL = 5
-        nu --no-std-lib -n -e "print $env.SHLVL; exit"
-    "#);
+        nu -i -c 'print $env.SHLVL'
+    ");
 
     assert_eq!(actual.out, "6");
+
+    let actual = nu!("
+        $env.SHLVL = 29
+        nu -i -c \"exec nu -i -c 'print $env.SHLVL'\"
+    ");
+
+    assert_eq!(actual.out, "30");
 }
