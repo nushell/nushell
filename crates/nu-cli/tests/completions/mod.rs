@@ -201,20 +201,23 @@ fn variables_customcompletion_subcommands_with_customcompletion_2(
 fn customcompletions_override_options() {
     let mut completer = custom_completer_with_options(
         r#"$env.config.completions.algorithm = "fuzzy"
-           $env.config.completions.case_sensitive = true"#,
+           $env.config.completions.case_sensitive = false"#,
         r#"completion_algorithm: "prefix",
            positional: false,
-           case_sensitive: false,
+           case_sensitive: true,
            sort: true"#,
         &["Foo Abcdef", "Abcdef", "Acd Bar"],
     );
 
     // positional: false should make it do substring matching
     // sort: true should force sorting
-    // And custom options should make matching case insensitive
     let expected: Vec<String> = vec!["Abcdef".into(), "Foo Abcdef".into()];
-    let suggestions = completer.complete("my-command aBcD", 15);
+    let suggestions = completer.complete("my-command Abcd", 15);
     match_suggestions(&expected, &suggestions);
+
+    // Custom options should make case-sensitive
+    let suggestions = completer.complete("my-command aBcD", 15);
+    assert!(suggestions.is_empty());
 }
 
 /// $env.config should be inherited by the custom completer's options
@@ -222,7 +225,7 @@ fn customcompletions_override_options() {
 fn customcompletions_inherit_options() {
     let mut completer = custom_completer_with_options(
         r#"$env.config.completions.algorithm = "fuzzy"
-           $env.config.completions.case_sensitive = true"#,
+           $env.config.completions.case_sensitive = false"#,
         "",
         &["Foo Abcdef", "Abcdef", "Acd Bar"],
     );
@@ -234,7 +237,7 @@ fn customcompletions_inherit_options() {
 
     // Custom options should make matching case insensitive
     let suggestions = completer.complete("my-command acd", 14);
-    assert!(suggestions.is_empty());
+    match_suggestions(&expected, &suggestions);
 }
 
 #[test]
