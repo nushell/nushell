@@ -663,7 +663,7 @@ fn comment_in_multiple_pipelines() -> TestResult {
 
 #[test]
 fn date_literal() -> TestResult {
-    run_test(r#"2022-09-10 | date to-record | get day"#, "10")
+    run_test(r#"2022-09-10 | into record | get day"#, "10")
 }
 
 #[test]
