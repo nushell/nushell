@@ -588,14 +588,13 @@ mod tests {
     use assert_json_diff::{assert_json_eq, assert_json_include};
     use lsp_types::{
         notification::{
-            DidChangeTextDocument, DidOpenTextDocument, DidSaveTextDocument, Exit, Initialized,
-            Notification,
+            DidChangeTextDocument, DidOpenTextDocument, Exit, Initialized, Notification,
         },
         request::{Completion, GotoDefinition, HoverRequest, Initialize, Request, Shutdown},
         CompletionParams, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-        DidSaveTextDocumentParams, GotoDefinitionParams, InitializeParams, InitializedParams,
-        PartialResultParams, Position, TextDocumentContentChangeEvent, TextDocumentIdentifier,
-        TextDocumentItem, TextDocumentPositionParams, WorkDoneProgressParams,
+        GotoDefinitionParams, InitializeParams, InitializedParams, PartialResultParams, Position,
+        TextDocumentContentChangeEvent, TextDocumentIdentifier, TextDocumentItem,
+        TextDocumentPositionParams, WorkDoneProgressParams,
     };
     use nu_test_support::fs::{fixtures, root};
     use std::sync::mpsc::Receiver;
