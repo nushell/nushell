@@ -59,7 +59,7 @@ The output can be heavily customized. By default, the following columns are incl
                 be shown with the --expand-source flag.
 - pc          : The index of the instruction within the block.
 - instruction : The pretty printed instruction being evaluated.
-- duration_ms : How long it took to run the instruction in milliseconds.
+- duration    : How long it took to run the instruction.
 - (optional) span        : Span associated with the instruction. Can be viewed via the `view span`
                            command. Enabled with the --spans flag.
 - (optional) output      : The output value of the instruction. Enabled with the --values flag.
