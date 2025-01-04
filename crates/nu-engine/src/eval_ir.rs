@@ -1273,6 +1273,14 @@ fn check_input_types(
         return Ok(());
     }
 
+    // If a command only has a nothing input type, then allow any input data
+    match io_types.first() {
+        Some((Type::Nothing, _)) if io_types.len() == 1 => {
+            return Ok(());
+        }
+        _ => (),
+    }
+
     // Check if the input type is compatible with *any* of the command's possible input types
     if io_types
         .iter()
