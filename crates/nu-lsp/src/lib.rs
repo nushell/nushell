@@ -53,6 +53,13 @@ where
     .expect("Failed to convert Url to lsp_types::Uri.")
 }
 
+pub fn uri_to_path(uri: &Uri) -> PathBuf {
+    Url::from_str(uri.as_str())
+        .expect("Failed to convert Uri to Url")
+        .to_file_path()
+        .expect("Failed to convert Uri to path")
+}
+
 impl LanguageServer {
     pub fn initialize_stdio_connection(engine_state: EngineState) -> Result<Self> {
         let (connection, io_threads) = Connection::stdio();
@@ -157,15 +164,14 @@ impl LanguageServer {
     ) -> Option<(Arc<Block>, usize, StateWorkingSet<'a>, &FullTextDocument)> {
         let mut working_set = StateWorkingSet::new(engine_state);
         let file = self.docs.get_document(&uri)?;
-        let file_path = uri.path().as_str();
+        let file_path = uri_to_path(&uri);
+        let file_path_str = file_path.to_str()?;
         let contents = file.get_content(None).as_bytes();
-        let _ = working_set
-            .files
-            .push(PathBuf::from(file_path), Span::unknown());
-        let block = parse(&mut working_set, Some(file_path), contents, false);
+        let _ = working_set.files.push(file_path.clone(), Span::unknown());
+        let block = parse(&mut working_set, Some(file_path_str), contents, false);
         let offset = working_set
-            .get_span_for_filename(file_path)
-            .unwrap_or_else(|| panic!("Failed at get_span_for_filename {}", file_path))
+            .get_span_for_filename(file_path_str)
+            .unwrap_or_else(|| panic!("Failed at get_span_for_filename {}", file_path_str))
             .start;
         // TODO: merge delta back to engine_state?
         // self.engine_state.merge_delta(working_set.render());
@@ -711,13 +717,7 @@ mod tests {
         client_connection: &Connection,
         uri: Uri,
     ) -> Result<lsp_server::Notification, String> {
-        let text = std::fs::read_to_string(
-            Url::from_str(uri.as_str())
-                .expect("Failed to convert Uri to Url")
-                .to_file_path()
-                .expect("Failed to convert Url to path"),
-        )
-        .map_err(|e| e.to_string())?;
+        let text = std::fs::read_to_string(uri_to_path(&uri)).map_err(|e| e.to_string())?;
 
         client_connection
             .sender
