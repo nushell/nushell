@@ -294,22 +294,13 @@ fn bind_args_to(
             .expect("internal error: all custom parameters must have var_ids");
         if let Some(result) = val_iter.next() {
             let param_type = param.shape.to_type();
-            if required && !result.get_type().is_subtype(&param_type) {
-                // need to check if result is an empty list, and param_type is table or list
-                // nushell needs to pass type checking for the case.
-                let empty_list_matches = result
-                    .as_list()
-                    .map(|l| l.is_empty() && matches!(param_type, Type::List(_) | Type::Table(_)))
-                    .unwrap_or(false);
-
-                if !empty_list_matches {
-                    return Err(ShellError::CantConvert {
-                        to_type: param.shape.to_type().to_string(),
-                        from_type: result.get_type().to_string(),
-                        span: result.span(),
-                        help: None,
-                    });
-                }
+            if required && !result.is_subtype(&param_type) {
+                return Err(ShellError::CantConvert {
+                    to_type: param.shape.to_type().to_string(),
+                    from_type: result.get_type().to_string(),
+                    span: result.span(),
+                    help: None,
+                });
             }
             stack.add_var(var_id, result);
         } else if let Some(value) = &param.default_value {
