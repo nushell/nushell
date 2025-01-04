@@ -13,10 +13,7 @@ impl Command for Columns {
             .input_output_types(vec![
                 (Type::table(), Type::List(Box::new(Type::String))),
                 (Type::record(), Type::List(Box::new(Type::String))),
-                // HACK any custom value is allowed, so use Custom("custom") hack to satisify pipeline input type checking
-                (Type::custom("custom"), Type::List(Box::new(Type::String))),
             ])
-            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 

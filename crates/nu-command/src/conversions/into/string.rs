@@ -48,7 +48,7 @@ impl Command for SubCommand {
                 // HACK any custom value is allowed, so use Custom("custom") hack to satisify pipeline input type checking
                 (Type::custom("custom"), Type::String),
             ])
-            .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032 (and custom value hack)
+            .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

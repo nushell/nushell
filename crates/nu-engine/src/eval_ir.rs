@@ -1281,22 +1281,10 @@ fn check_input_types(
         _ => (),
     }
 
-    // HACK there's no way to represent _any_ custom value, so add an additional check for Custom("custom")
-    // to allow commands which accept any custom value to pass type checking
-    let custom_val_subtype_hack =
-        |input: &PipelineData, command_type: &Type| match (input, command_type) {
-            (PipelineData::Value(Value::Custom { .. }, ..), Type::Custom(inner))
-                if **inner == *"custom" =>
-            {
-                true
-            }
-            _ => input.is_subtype(command_type),
-        };
-
     // Check if the input type is compatible with *any* of the command's possible input types
     if io_types
         .iter()
-        .any(|(command_type, _)| custom_val_subtype_hack(input, command_type))
+        .any(|(command_type, _)| input.is_subtype(command_type))
     {
         return Ok(());
     }
