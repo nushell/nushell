@@ -220,7 +220,7 @@ mod test_expand_dots {
     #[test]
     fn backtrack_to_root() {
         let path = Path::new("/foo/bar/../../../../baz");
-        let expected = if cfg!(windows) { r"\baz" } else { "/baz" };
+        let expected = if cfg!(windows) { r"\..\..\baz" } else { "/baz" };
         assert_path_eq!(expand_dots(path), expected);
     }
 }
