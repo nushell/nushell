@@ -108,22 +108,22 @@ fn literal_closure() {
 
 #[test]
 fn literal_closure_to_nuon() {
-    test_eval("{||} | to nuon", Eq("{||}"))
+    test_eval("{||} | to nuon --serialize", Eq("{||}"))
 }
 
 #[test]
 fn literal_closure_to_json() {
-    test_eval("{||} | to json", Eq("\"{||}\""))
+    test_eval("{||} | to json --serialize", Eq("\"{||}\""))
 }
 
 #[test]
 fn literal_closure_to_toml() {
-    test_eval("{a: {||}} | to toml", Eq("a = \"{||}\""))
+    test_eval("{a: {||}} | to toml --serialize", Eq("a = \"{||}\""))
 }
 
 #[test]
 fn literal_closure_to_yaml() {
-    test_eval("{||} | to yaml", Eq("'{||}'"))
+    test_eval("{||} | to yaml --serialize", Eq("'{||}'"))
 }
 
 #[test]

@@ -220,6 +220,7 @@ fn generate_key(engine_state: &EngineState, item: &ValueCounter) -> Result<Strin
         &value,
         nuon::ToStyle::Raw,
         Some(Span::unknown()),
+        false,
     )
 }
 

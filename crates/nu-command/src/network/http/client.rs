@@ -213,6 +213,9 @@ pub fn send_request(
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     let request_url = request.url().to_string();
+    // hard code serialze_types to false because closures probably shouldn't be
+    // deserialized for send_request but it's required by send_json_request
+    let serialze_types = false;
 
     match http_body {
         HttpBody::None => {
@@ -239,9 +242,15 @@ pub fn send_request(
             };
 
             match body_type {
-                BodyType::Json => {
-                    send_json_request(engine_state, &request_url, body, req, span, signals)
-                }
+                BodyType::Json => send_json_request(
+                    engine_state,
+                    &request_url,
+                    body,
+                    req,
+                    span,
+                    signals,
+                    serialze_types,
+                ),
                 BodyType::Form => send_form_request(&request_url, body, req, span, signals),
                 BodyType::Multipart => {
                     send_multipart_request(&request_url, body, req, span, signals)
@@ -261,10 +270,11 @@ fn send_json_request(
     req: Request,
     span: Span,
     signals: &Signals,
+    serialize_types: bool,
 ) -> Result<Response, ShellErrorOrRequestError> {
     match body {
         Value::Int { .. } | Value::Float { .. } | Value::List { .. } | Value::Record { .. } => {
-            let data = value_to_json_value(engine_state, &body)?;
+            let data = value_to_json_value(engine_state, &body, serialize_types)?;
             send_cancellable_request(request_url, Box::new(|| req.send_json(data)), span, signals)
         }
         // If the body type is string, assume it is string json content.

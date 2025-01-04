@@ -31,7 +31,7 @@ mod tests {
             assert_eq!(val, m);
         }
         assert_eq!(
-            to_nuon(&engine_state, &val, ToStyle::Raw, None).unwrap(),
+            to_nuon(&engine_state, &val, ToStyle::Raw, None, false).unwrap(),
             input
         );
     }
@@ -188,6 +188,7 @@ mod tests {
             }),
             ToStyle::Raw,
             None,
+            false,
         )
         .unwrap_err()
         .to_string()
@@ -211,7 +212,8 @@ mod tests {
                 &engine_state,
                 &from_nuon("0x[1f ff]", None).unwrap(),
                 ToStyle::Raw,
-                None
+                None,
+                false,
             )
             .unwrap(),
             "0x[1FFF]"
@@ -256,7 +258,14 @@ mod tests {
         let engine_state = EngineState::new();
 
         assert_eq!(
-            to_nuon(&engine_state, &Value::test_float(1.0), ToStyle::Raw, None).unwrap(),
+            to_nuon(
+                &engine_state,
+                &Value::test_float(1.0),
+                ToStyle::Raw,
+                None,
+                false
+            )
+            .unwrap(),
             "1.0"
         );
     }
@@ -270,7 +279,8 @@ mod tests {
                 &engine_state,
                 &Value::test_float(f64::INFINITY),
                 ToStyle::Raw,
-                None
+                None,
+                false,
             )
             .unwrap(),
             "inf"
@@ -286,7 +296,8 @@ mod tests {
                 &engine_state,
                 &Value::test_float(f64::NEG_INFINITY),
                 ToStyle::Raw,
-                None
+                None,
+                false,
             )
             .unwrap(),
             "-inf"
@@ -302,7 +313,8 @@ mod tests {
                 &engine_state,
                 &Value::test_float(-f64::NAN),
                 ToStyle::Raw,
-                None
+                None,
+                false,
             )
             .unwrap(),
             "NaN"
@@ -329,7 +341,8 @@ mod tests {
                     ))
                 ]),
                 ToStyle::Raw,
-                None
+                None,
+                false,
             )
             .unwrap(),
             None,
@@ -341,7 +354,13 @@ mod tests {
     fn to_nuon_quotes_empty_string() {
         let engine_state = EngineState::new();
 
-        let res = to_nuon(&engine_state, &Value::test_string(""), ToStyle::Raw, None);
+        let res = to_nuon(
+            &engine_state,
+            &Value::test_string(""),
+            ToStyle::Raw,
+            None,
+            false,
+        );
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), r#""""#);
     }
@@ -405,7 +424,8 @@ mod tests {
                     ))
                 ]),
                 ToStyle::Raw,
-                None
+                None,
+                false,
             )
             .unwrap(),
             "[[a, b, \"c d\"]; [1, 2, 3], [4, 5, 6]]"
@@ -419,7 +439,8 @@ mod tests {
                     "rank" => Value::test_int(10)
                 )),
                 ToStyle::Raw,
-                None
+                None,
+                false,
             )
             .unwrap(),
             "{\"ro name\": sam, rank: 10}"

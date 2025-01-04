@@ -13,6 +13,11 @@ impl Command for ToToml {
     fn signature(&self) -> Signature {
         Signature::build("to toml")
             .input_output_types(vec![(Type::record(), Type::String)])
+            .switch(
+                "serialize",
+                "serialize nushell types that cannot be deserialized",
+                Some('s'),
+            )
             .category(Category::Formats)
     }
 
@@ -31,18 +36,24 @@ impl Command for ToToml {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        to_toml(engine_state, input, head)
+        let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
+
+        to_toml(engine_state, input, head, serialize_types)
     }
 }
 
 // Helper method to recursively convert nu_protocol::Value -> toml::Value
 // This shouldn't be called at the top-level
-fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellError> {
+fn helper(
+    engine_state: &EngineState,
+    v: &Value,
+    serialize_types: bool,
+) -> Result<toml::Value, ShellError> {
     Ok(match &v {
         Value::Bool { val, .. } => toml::Value::Boolean(*val),
         Value::Int { val, .. } => toml::Value::Integer(*val),
@@ -55,22 +66,28 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
         Value::Record { val, .. } => {
             let mut m = toml::map::Map::new();
             for (k, v) in &**val {
-                m.insert(k.clone(), helper(engine_state, v)?);
+                m.insert(k.clone(), helper(engine_state, v, serialize_types)?);
             }
             toml::Value::Table(m)
         }
-        Value::List { vals, .. } => toml::Value::Array(toml_list(engine_state, vals)?),
+        Value::List { vals, .. } => {
+            toml::Value::Array(toml_list(engine_state, vals, serialize_types)?)
+        }
         Value::Closure { val, .. } => {
-            let block = engine_state.get_block(val.block_id);
-            if let Some(span) = block.span {
-                let contents_bytes = engine_state.get_span_contents(span);
-                let contents_string = String::from_utf8_lossy(contents_bytes);
-                toml::Value::String(contents_string.to_string())
+            if serialize_types {
+                let block = engine_state.get_block(val.block_id);
+                if let Some(span) = block.span {
+                    let contents_bytes = engine_state.get_span_contents(span);
+                    let contents_string = String::from_utf8_lossy(contents_bytes);
+                    toml::Value::String(contents_string.to_string())
+                } else {
+                    toml::Value::String(format!(
+                        "unable to retrieve block contents for toml block_id {}",
+                        val.block_id.get()
+                    ))
+                }
             } else {
-                toml::Value::String(format!(
-                    "unable to retrieve block contents for toml block_id {}",
-                    val.block_id.get()
-                ))
+                toml::Value::String(format!("closure_{}", val.block_id.get()))
             }
         }
         Value::Nothing { .. } => toml::Value::String("<Nothing>".to_string()),
@@ -93,11 +110,15 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
     })
 }
 
-fn toml_list(engine_state: &EngineState, input: &[Value]) -> Result<Vec<toml::Value>, ShellError> {
+fn toml_list(
+    engine_state: &EngineState,
+    input: &[Value],
+    serialize_types: bool,
+) -> Result<Vec<toml::Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {
-        out.push(helper(engine_state, value)?);
+        out.push(helper(engine_state, value, serialize_types)?);
     }
 
     Ok(out)
@@ -136,9 +157,10 @@ fn value_to_toml_value(
     engine_state: &EngineState,
     v: &Value,
     head: Span,
+    serialize_types: bool,
 ) -> Result<toml::Value, ShellError> {
     match v {
-        Value::Record { .. } | Value::Closure { .. } => helper(engine_state, v),
+        Value::Record { .. } | Value::Closure { .. } => helper(engine_state, v, serialize_types),
         // Propagate existing errors
         Value::Error { error, .. } => Err(*error.clone()),
         _ => Err(ShellError::UnsupportedInput {
@@ -154,11 +176,12 @@ fn to_toml(
     engine_state: &EngineState,
     input: PipelineData,
     span: Span,
+    serialize_types: bool,
 ) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata();
     let value = input.into_value(span)?;
 
-    let toml_value = value_to_toml_value(engine_state, &value, span)?;
+    let toml_value = value_to_toml_value(engine_state, &value, span, serialize_types)?;
     match toml_value {
         toml::Value::Array(ref vec) => match vec[..] {
             [toml::Value::Table(_)] => toml_into_pipeline_data(
@@ -225,6 +248,7 @@ mod tests {
     #[test]
     fn to_toml_creates_correct_date() {
         let engine_state = EngineState::new();
+        let serialize_types = false;
 
         let test_date = Value::date(
             chrono::FixedOffset::east_opt(60 * 120)
@@ -249,7 +273,7 @@ mod tests {
             offset: Some(toml::value::Offset::Custom { minutes: 120 }),
         });
 
-        let result = helper(&engine_state, &test_date);
+        let result = helper(&engine_state, &test_date, serialize_types);
 
         assert!(result.is_ok_and(|res| res == reference_date));
     }
@@ -261,6 +285,7 @@ mod tests {
         //
 
         let engine_state = EngineState::new();
+        let serialize_types = false;
 
         let mut m = indexmap::IndexMap::new();
         m.insert("rust".to_owned(), Value::test_string("editor"));
@@ -276,6 +301,7 @@ mod tests {
             &engine_state,
             &Value::record(m.into_iter().collect(), Span::test_data()),
             Span::test_data(),
+            serialize_types,
         )
         .expect("Expected Ok from valid TOML dictionary");
         assert_eq!(
@@ -292,12 +318,14 @@ mod tests {
             &engine_state,
             &Value::test_string("not_valid"),
             Span::test_data(),
+            serialize_types,
         )
         .expect_err("Expected non-valid toml (String) to cause error!");
         value_to_toml_value(
             &engine_state,
             &Value::list(vec![Value::test_string("1")], Span::test_data()),
             Span::test_data(),
+            serialize_types,
         )
         .expect_err("Expected non-valid toml (Table) to cause error!");
     }

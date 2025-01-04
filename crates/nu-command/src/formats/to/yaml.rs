@@ -12,6 +12,11 @@ impl Command for ToYaml {
     fn signature(&self) -> Signature {
         Signature::build("to yaml")
             .input_output_types(vec![(Type::Any, Type::String)])
+            .switch(
+                "serialize",
+                "serialize nushell types that cannot be deserialized",
+                Some('s'),
+            )
             .category(Category::Formats)
     }
 
@@ -30,19 +35,22 @@ impl Command for ToYaml {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
         let input = input.try_expand_range()?;
-        to_yaml(engine_state, input, head)
+
+        to_yaml(engine_state, input, head, serialize_types)
     }
 }
 
 pub fn value_to_yaml_value(
     engine_state: &EngineState,
     v: &Value,
+    serialize_types: bool,
 ) -> Result<serde_yml::Value, ShellError> {
     Ok(match &v {
         Value::Bool { val, .. } => serde_yml::Value::Bool(*val),
@@ -60,7 +68,7 @@ pub fn value_to_yaml_value(
             for (k, v) in &**val {
                 m.insert(
                     serde_yml::Value::String(k.clone()),
-                    value_to_yaml_value(engine_state, v)?,
+                    value_to_yaml_value(engine_state, v, serialize_types)?,
                 );
             }
             serde_yml::Value::Mapping(m)
@@ -69,22 +77,26 @@ pub fn value_to_yaml_value(
             let mut out = vec![];
 
             for value in vals {
-                out.push(value_to_yaml_value(engine_state, value)?);
+                out.push(value_to_yaml_value(engine_state, value, serialize_types)?);
             }
 
             serde_yml::Value::Sequence(out)
         }
         Value::Closure { val, .. } => {
-            let block = engine_state.get_block(val.block_id);
-            if let Some(span) = block.span {
-                let contents_bytes = engine_state.get_span_contents(span);
-                let contents_string = String::from_utf8_lossy(contents_bytes);
-                serde_yml::Value::String(contents_string.to_string())
+            if serialize_types {
+                let block = engine_state.get_block(val.block_id);
+                if let Some(span) = block.span {
+                    let contents_bytes = engine_state.get_span_contents(span);
+                    let contents_string = String::from_utf8_lossy(contents_bytes);
+                    serde_yml::Value::String(contents_string.to_string())
+                } else {
+                    serde_yml::Value::String(format!(
+                        "unable to retrieve block contents for yaml block_id {}",
+                        val.block_id.get()
+                    ))
+                }
             } else {
-                serde_yml::Value::String(format!(
-                    "unable to retrieve block contents for yaml block_id {}",
-                    val.block_id.get()
-                ))
+                serde_yml::Value::Null
             }
         }
         Value::Nothing { .. } => serde_yml::Value::Null,
@@ -113,6 +125,7 @@ fn to_yaml(
     engine_state: &EngineState,
     input: PipelineData,
     head: Span,
+    serialize_types: bool,
 ) -> Result<PipelineData, ShellError> {
     let metadata = input
         .metadata()
@@ -121,7 +134,7 @@ fn to_yaml(
         .with_content_type(Some("application/yaml".into()));
     let value = input.into_value(head)?;
 
-    let yaml_value = value_to_yaml_value(engine_state, &value)?;
+    let yaml_value = value_to_yaml_value(engine_state, &value, serialize_types)?;
     match serde_yml::to_string(&yaml_value) {
         Ok(serde_yml_string) => {
             Ok(Value::string(serde_yml_string, head)
@@ -142,11 +155,9 @@ fn to_yaml(
 
 #[cfg(test)]
 mod test {
-    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
-
-    use crate::{Get, Metadata};
-
     use super::*;
+    use crate::{Get, Metadata};
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
     #[test]
     fn test_examples() {

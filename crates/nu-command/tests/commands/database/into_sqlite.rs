@@ -299,6 +299,8 @@ fn into_sqlite_existing_db_append() {
 #[test]
 fn into_sqlite_big_insert() {
     let engine_state = EngineState::new();
+    // don't serialize closures
+    let serialize_types = false;
     Playground::setup("big_insert", |dirs, playground| {
         const NUM_ROWS: usize = 10_000;
         const NUON_FILE_NAME: &str = "data.nuon";
@@ -336,6 +338,7 @@ fn into_sqlite_big_insert() {
                 &value,
                 nuon::ToStyle::Raw,
                 Some(Span::unknown()),
+                serialize_types,
             )
             .unwrap()
                 + &line_ending();
