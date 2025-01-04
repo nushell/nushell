@@ -30,6 +30,8 @@ If multiple cell paths are given, this will produce a list of values."#
                 ),
                 (Type::table(), Type::Any),
                 (Type::record(), Type::Any),
+                // HACK any custom value is allowed, so use Custom("custom") hack to satisify pipeline input type checking
+                (Type::custom("custom"), Type::Any),
             ])
             .required(
                 "cell_path",
