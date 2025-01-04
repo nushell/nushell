@@ -65,7 +65,7 @@ pub fn eval_call<D: DebugContext>(
             if let Some(arg) = call.positional_nth(param_idx) {
                 let result = eval_expression::<D>(engine_state, caller_stack, arg)?;
                 let param_type = param.shape.to_type();
-                if required && !result.is_subtype(&param_type) {
+                if required && !result.is_subtype_of(&param_type) {
                     return Err(ShellError::CantConvert {
                         to_type: param.shape.to_type().to_string(),
                         from_type: result.get_type().to_string(),

@@ -29,8 +29,8 @@ pub fn check_example_input_and_output_types_match_command_signature(
                 signature_input_output_types
                     .iter()
                     .any(|(sig_in_type, sig_out_type)| {
-                        example_input_type.is_subtype(sig_in_type)
-                            && example_output_type.is_subtype(sig_out_type)
+                        example_input_type.is_subtype_of(sig_in_type)
+                            && example_output_type.is_subtype_of(sig_out_type)
                             && {
                                 witnessed_type_transformations
                                     .insert((sig_in_type.clone(), sig_out_type.clone()));

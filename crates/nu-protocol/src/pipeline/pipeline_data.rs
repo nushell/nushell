@@ -136,11 +136,11 @@ impl PipelineData {
     ///
     /// A `ByteStream` is a subtype of [`string`](Type::String) if it is coercible into a string.
     /// Likewise, a `ByteStream` is a subtype of [`binary`](Type::Binary) if it is coercible into a binary value.
-    pub fn is_subtype(&self, other: &Type) -> bool {
+    pub fn is_subtype_of(&self, other: &Type) -> bool {
         match (self, other) {
             (_, Type::Any) => true,
             (PipelineData::Empty, Type::Nothing) => true,
-            (PipelineData::Value(val, ..), ty) => val.is_subtype(ty),
+            (PipelineData::Value(val, ..), ty) => val.is_subtype_of(ty),
 
             // a list stream could be a list with any type, including a table
             (PipelineData::ListStream(..), Type::List(..) | Type::Table(..)) => true,

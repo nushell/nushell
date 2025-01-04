@@ -1248,7 +1248,7 @@ fn gather_arguments(
 
 /// Type check helper. Produces `CantConvert` error if `val` is not compatible with `ty`.
 fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
-    if val.is_subtype(ty) {
+    if val.is_subtype_of(ty) {
         Ok(())
     } else {
         Err(ShellError::CantConvert {
@@ -1292,7 +1292,7 @@ fn check_input_types(
     // Check if the input type is compatible with *any* of the command's possible input types
     if io_types
         .iter()
-        .any(|(command_type, _)| input.is_subtype(command_type))
+        .any(|(command_type, _)| input.is_subtype_of(command_type))
     {
         return Ok(());
     }
