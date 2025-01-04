@@ -14,7 +14,7 @@ impl LanguageServer {
         engine_state.generate_nu_constant();
 
         let Some((_, offset, working_set, file)) =
-            self.update_engine_state(&mut engine_state, uri.clone())
+            self.update_engine_state(&mut engine_state, &uri)
         else {
             return Ok(());
         };

@@ -57,7 +57,7 @@ pub fn uri_to_path(uri: &Uri) -> PathBuf {
     Url::from_str(uri.as_str())
         .expect("Failed to convert Uri to Url")
         .to_file_path()
-        .expect("Failed to convert Uri to path")
+        .expect("Failed to convert Url to path")
 }
 
 impl LanguageServer {
@@ -160,11 +160,11 @@ impl LanguageServer {
     pub fn update_engine_state<'a>(
         &mut self,
         engine_state: &'a mut EngineState,
-        uri: Uri,
+        uri: &Uri,
     ) -> Option<(Arc<Block>, usize, StateWorkingSet<'a>, &FullTextDocument)> {
         let mut working_set = StateWorkingSet::new(engine_state);
-        let file = self.docs.get_document(&uri)?;
-        let file_path = uri_to_path(&uri);
+        let file = self.docs.get_document(uri)?;
+        let file_path = uri_to_path(uri);
         let file_path_str = file_path.to_str()?;
         let contents = file.get_content(None).as_bytes();
         let _ = working_set.files.push(file_path.clone(), Span::unknown());
@@ -277,7 +277,7 @@ impl LanguageServer {
             .uri
             .to_owned();
         let (block, file_offset, working_set, file) =
-            self.update_engine_state(&mut engine_state, path_uri.clone())?;
+            self.update_engine_state(&mut engine_state, &path_uri)?;
         let flattened = flatten_block(&working_set, &block);
         let (id, _, _) = Self::find_id(
             flattened,
@@ -321,7 +321,7 @@ impl LanguageServer {
             .uri
             .to_owned();
         let (block, file_offset, working_set, file) =
-            self.update_engine_state(&mut engine_state, path_uri.clone())?;
+            self.update_engine_state(&mut engine_state, &path_uri)?;
         let flattened = flatten_block(&working_set, &block);
         let (id, _, _) = Self::find_id(
             flattened,
@@ -768,19 +768,6 @@ mod tests {
                             range_length: None,
                             text,
                         }],
-                    })
-                    .unwrap(),
-                },
-            ))
-            .unwrap();
-        client_connection
-            .sender
-            .send(lsp_server::Message::Notification(
-                lsp_server::Notification {
-                    method: DidSaveTextDocument::METHOD.to_string(),
-                    params: serde_json::to_value(DidSaveTextDocumentParams {
-                        text_document: lsp_types::TextDocumentIdentifier { uri },
-                        text: None,
                     })
                     .unwrap(),
                 },
