@@ -525,3 +525,12 @@ fn parent_redirection_doesnt_affect_save() {
         assert_eq!(actual.trim_end(), "");
     })
 }
+
+#[test]
+fn force_save_to_dir() {
+    let actual = nu!(cwd: "crates/nu-command/tests/commands", r#"
+        "aaa" | save -f ..
+        "#);
+
+    assert!(actual.err.contains("Is a directory"));
+}
