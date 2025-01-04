@@ -112,7 +112,6 @@ mod take;
 mod tee;
 mod terminal;
 mod to_text;
-mod touch;
 mod transpose;
 mod try_;
 mod ucp;

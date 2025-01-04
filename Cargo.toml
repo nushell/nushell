@@ -246,7 +246,7 @@ assert_cmd = "2.0"
 dirs = { workspace = true }
 tango-bench = "0.6"
 pretty_assertions = { workspace = true }
-regex = { workspace = true }
+fancy-regex = { workspace = true }
 rstest = { workspace = true, default-features = false }
 serial_test = "3.2"
 tempfile = { workspace = true }

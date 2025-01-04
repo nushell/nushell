@@ -61,6 +61,16 @@ On Windows based systems, Nushell will wait for the command to finish and then e
         let envs = env_to_strings(engine_state, stack)?;
         command.env_clear();
         command.envs(envs);
+        // Decrement SHLVL as removing the current shell from the stack
+        // (only works in interactive mode, same as initialization)
+        if engine_state.is_interactive {
+            let shlvl = engine_state
+                .get_env_var("SHLVL")
+                .and_then(|shlvl_env| shlvl_env.coerce_str().ok()?.parse::<i64>().ok())
+                .unwrap_or(1)
+                .saturating_sub(1);
+            command.env("SHLVL", shlvl.to_string());
+        }
 
         // Configure args.
         let args = crate::eval_arguments_from_call(engine_state, stack, call)?;

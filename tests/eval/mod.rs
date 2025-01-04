@@ -1,5 +1,5 @@
+use fancy_regex::Regex;
 use nu_test_support::{nu, playground::Playground};
-use regex::Regex;
 
 #[test]
 fn record_with_redefined_key() {
@@ -45,7 +45,7 @@ fn test_eval(source: &str, expected_out: ExpectedOut) {
             Matches(regex) => {
                 let compiled_regex = Regex::new(regex).expect("regex failed to compile");
                 assert!(
-                    compiled_regex.is_match(&actual.out),
+                    compiled_regex.is_match(&actual.out).unwrap_or(false),
                     "eval out does not match: {}\n{}",
                     regex,
                     actual.out,
@@ -55,7 +55,7 @@ fn test_eval(source: &str, expected_out: ExpectedOut) {
             Error(regex) => {
                 let compiled_regex = Regex::new(regex).expect("regex failed to compile");
                 assert!(
-                    compiled_regex.is_match(&actual.err),
+                    compiled_regex.is_match(&actual.err).unwrap_or(false),
                     "eval err does not match: {}",
                     regex
                 );
