@@ -1281,6 +1281,11 @@ fn check_input_types(
         _ => (),
     }
 
+    // Custom values bypass input type checking
+    if matches!(input, PipelineData::Value(Value::Custom { .. }, ..)) {
+        return Ok(());
+    }
+
     // Check if the input type is compatible with *any* of the command's possible input types
     if io_types
         .iter()
