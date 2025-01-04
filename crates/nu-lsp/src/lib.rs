@@ -682,7 +682,7 @@ mod tests {
                 params: serde_json::to_value(GotoDefinitionParams {
                     text_document_position_params: TextDocumentPositionParams {
                         text_document: TextDocumentIdentifier {
-                            uri: Uri::from_str(none_existent_path.to_str().unwrap()).unwrap(),
+                            uri: path_to_uri(&none_existent_path),
                         },
                         position: Position {
                             line: 0,
