@@ -1312,12 +1312,15 @@ fn check_input_types(
         }
     };
 
-    Err(ShellError::OnlySupportsThisInputType {
-        exp_input_type: expected_string,
-        wrong_type: input.get_type().to_string(),
-        dst_span: head,
-        src_span: input.span().unwrap_or(Span::unknown()),
-    })
+    match input {
+        PipelineData::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),
+        _ => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: expected_string,
+            wrong_type: input.get_type().to_string(),
+            dst_span: head,
+            src_span: input.span().unwrap_or(Span::unknown()),
+        }),
+    }
 }
 
 /// Get variable from [`Stack`] or [`EngineState`]
