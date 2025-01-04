@@ -42,12 +42,12 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::String)),
                 ),
-                // FIXME into string allows custom values, and there's no way to represent all custom values other than Type::Any
-                (Type::Any, Type::String),
+                // HACK any custom value is allowed, so use Custom("custom") hack to satisify pipeline input type checking
+                (Type::custom("custom"), Type::String),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
-            .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
+            .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032 (and custom value hack)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
