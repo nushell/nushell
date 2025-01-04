@@ -1267,25 +1267,17 @@ fn check_input_types(
     head: Span,
 ) -> Result<(), ShellError> {
     let io_types = signature.input_output_types;
-    let pipe_type = input.get_type();
 
     // If a command doesn't have any input/output types, then treat command input type as any
     if io_types.is_empty() {
         return Ok(());
     }
 
-    let is_empty_list = match input {
-        PipelineData::Value(Value::List { ref vals, .. }, _) => vals.is_empty(),
-        PipelineData::ListStream(_, _) => true, // a list stream _could_ be an empty list
-        _ => false,
-    };
-
     // Check if the input type is compatible with *any* of the command's possible input types
-    if io_types.iter().any(|(command_type, _)| {
-        // Check if equivalent types, _or_ we have an empty list and the command type is list or table
-        pipe_type.is_subtype(command_type)
-            || (is_empty_list && matches!(command_type, Type::List(_) | Type::Table(_)))
-    }) {
+    if io_types
+        .iter()
+        .any(|(command_type, _)| input.is_subtype(command_type))
+    {
         return Ok(());
     }
 
@@ -1314,7 +1306,7 @@ fn check_input_types(
 
     Err(ShellError::OnlySupportsThisInputType {
         exp_input_type: expected_string,
-        wrong_type: pipe_type.to_string(),
+        wrong_type: input.get_type().to_string(),
         dst_span: head,
         src_span: input.span().unwrap_or(Span::unknown()),
     })

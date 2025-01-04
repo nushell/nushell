@@ -830,6 +830,8 @@ impl Value {
 
         // All cases matched explicitly to ensure this does not accidentally allocate `Type` if any composite types are introduced in the future
         match (self, other) {
+            (_, Type::Any) => true,
+
             // `Type` allocation for scalar types is trivial
             (
                 Value::Bool { .. }
@@ -850,12 +852,12 @@ impl Value {
             ) => self.get_type().is_subtype(other),
 
             // matching composite types
-            (val @ Value::Record { .. }, Type::Record(inner)) => record_compatible(val, &**inner),
+            (val @ Value::Record { .. }, Type::Record(inner)) => record_compatible(val, inner),
             (Value::List { vals, .. }, Type::List(inner)) => {
                 vals.iter().all(|val| val.is_subtype(inner))
             }
             (Value::List { vals, .. }, Type::Table(inner)) => {
-                vals.iter().all(|val| record_compatible(val, &**inner))
+                vals.iter().all(|val| record_compatible(val, inner))
             }
             (Value::Custom { val, .. }, Type::Custom(inner)) => val.type_name() == **inner,
 
@@ -3943,6 +3945,7 @@ mod tests {
         #[test]
         fn test_list() {
             let ty_int_list = Type::list(Type::Int);
+            let ty_str_list = Type::list(Type::String);
             let ty_any_list = Type::list(Type::Any);
             let ty_list_list_int = Type::list(Type::list(Type::Int));
 
@@ -3953,6 +3956,7 @@ mod tests {
             ]);
 
             assert_subtype_equivalent(&list, &ty_int_list);
+            assert_subtype_equivalent(&list, &ty_str_list);
             assert_subtype_equivalent(&list, &ty_any_list);
 
             let list = Value::test_list(vec![
@@ -3962,6 +3966,7 @@ mod tests {
             ]);
 
             assert_subtype_equivalent(&list, &ty_int_list);
+            assert_subtype_equivalent(&list, &ty_str_list);
             assert_subtype_equivalent(&list, &ty_any_list);
 
             let list = Value::test_list(vec![Value::test_list(vec![Value::test_int(1)])]);
