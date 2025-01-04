@@ -114,7 +114,7 @@ fn error_reduce_fold_type_mismatch() {
 fn error_reduce_empty() {
     let actual = nu!(pipeline("reduce { |it, acc| $acc + $it }"));
 
-    assert!(actual.err.contains("needs input"));
+    assert!(actual.err.contains("no input value was piped in"));
 }
 
 #[test]
