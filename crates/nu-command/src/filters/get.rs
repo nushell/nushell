@@ -30,6 +30,7 @@ If multiple cell paths are given, this will produce a list of values."#
                 ),
                 (Type::table(), Type::Any),
                 (Type::record(), Type::Any),
+                (Type::Nothing, Type::Nothing),
             ])
             .required(
                 "cell_path",
@@ -70,6 +71,13 @@ If multiple cell paths are given, this will produce a list of values."#
             for path in &mut rest {
                 path.make_optional();
             }
+        } else if matches!(input, PipelineData::Value(Value::Nothing { .. }, ..)) {
+            return Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "table or record".into(),
+                wrong_type: "nothing".into(),
+                dst_span: span,
+                src_span: input.span().unwrap_or(Span::unknown()),
+            });
         }
 
         if rest.is_empty() {
