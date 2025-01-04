@@ -75,7 +75,7 @@ If multiple cell paths are given, this will produce a list of values."#
 
         match input {
             PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: span }),
-            // Allow chaning of get -i
+            // Allow chaining of get -i
             PipelineData::Value(val @ Value::Nothing { .. }, ..) if !ignore_errors => {
                 return Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "table or record".into(),
