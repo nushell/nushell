@@ -1281,8 +1281,11 @@ fn check_input_types(
         _ => (),
     }
 
-    // Custom values bypass input type checking
-    if matches!(input, PipelineData::Value(Value::Custom { .. }, ..)) {
+    // Errors and custom values bypass input type checking
+    if matches!(
+        input,
+        PipelineData::Value(Value::Error { .. } | Value::Custom { .. }, ..)
+    ) {
         return Ok(());
     }
 

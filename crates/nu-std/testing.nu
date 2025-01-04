@@ -28,7 +28,7 @@ def valid-annotations [] {
 # Returns a table containing the list of function names together with their annotations (comments above the declaration)
 def get-annotated [
     file: path
-]: path -> table<function_name: string, annotation: string> {
+]: nothing -> table<function_name: string, annotation: string> {
     let raw_file = (
         open $file
         | lines
