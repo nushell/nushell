@@ -55,8 +55,8 @@ impl PluginCommand for Unpivot {
                 Some('l'),
             )
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("NuDataFrame".into()),
+                Type::Custom("NuDataFrame".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

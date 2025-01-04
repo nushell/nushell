@@ -29,12 +29,12 @@ impl PluginCommand for ExprIsIn {
             .required("list", SyntaxShape::Any, "List to check if values are in")
             .input_output_types(vec![
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    Type::Custom("NuExpression".into()),
+                    Type::Custom("NuExpression".into()),
                 ),
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    Type::Custom("NuDataFrame".into()),
+                    Type::Custom("NuDataFrame".into()),
                 ),
             ])
             .category(Category::Custom("expression".into()))

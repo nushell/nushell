@@ -35,12 +35,12 @@ impl PluginCommand for LazyQuantile {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    Type::Custom("NuExpression".into()),
+                    Type::Custom("NuExpression".into()),
                 ),
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    Type::Custom("NuDataFrame".into()),
+                    Type::Custom("NuDataFrame".into()),
                 ),
             ])
             .category(Category::Custom("lazyframe".into()))

@@ -67,12 +67,12 @@ impl PluginCommand for Cumulative {
             .switch("reverse", "Reverse cumulative calculation", Some('r'))
             .input_output_types(vec![
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    Type::Custom("NuDataFrame".into()),
+                    Type::Custom("NuDataFrame".into()),
                 ),
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    Type::Custom("NuExpression".into()),
+                    Type::Custom("NuExpression".into()),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))

@@ -34,8 +34,8 @@ impl PluginCommand for AsDate {
             .required("format", SyntaxShape::String, "formatting date string")
             .switch("not-exact", "the format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01)", Some('n'))
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("NuDataFrame".into()),
+                Type::Custom("NuDataFrame".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

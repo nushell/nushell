@@ -61,8 +61,8 @@ impl PluginCommand for Rolling {
             .required("type", SyntaxShape::String, "rolling operation")
             .required("window", SyntaxShape::Int, "Window size for rolling")
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("NuDataFrame".into()),
+                Type::Custom("NuDataFrame".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

@@ -27,7 +27,7 @@ impl PluginCommand for ToLazyFrame {
                 r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
                 Some('s'),
             )
-            .input_output_type(Type::Any, Type::Custom("dataframe".into()))
+            .input_output_type(Type::Any, Type::Custom("NuDataFrame".into()))
             .category(Category::Custom("lazyframe".into()))
     }
 

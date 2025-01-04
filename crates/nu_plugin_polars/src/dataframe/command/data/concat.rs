@@ -44,7 +44,7 @@ impl PluginCommand for ConcatDF {
                 SyntaxShape::Any,
                 "The dataframes to concatenate",
             )
-            .input_output_type(Type::Any, Type::Custom("dataframe".into()))
+            .input_output_type(Type::Any, Type::Custom("NuDataFrame".into()))
             .category(Category::Custom("dataframe".into()))
     }
 

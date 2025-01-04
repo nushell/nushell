@@ -24,8 +24,8 @@ impl PluginCommand for Dummies {
         Signature::build(self.name())
             .switch("drop-first", "Drop first row", Some('d'))
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("NuDataFrame".into()),
+                Type::Custom("NuDataFrame".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

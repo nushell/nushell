@@ -39,8 +39,8 @@ impl PluginCommand for ExprDatePart {
                 "Part of the date to capture.  Possible values are year, quarter, month, week, weekday, day, hour, minute, second, millisecond, microsecond, nanosecond",
             )
             .input_output_type(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                Type::Custom("NuExpression".into()),
+                Type::Custom("NuExpression".into()),
             )
             .category(Category::Custom("expression".into()))
     }

@@ -31,8 +31,8 @@ impl PluginCommand for LazyFillNA {
                 "Expression to use to fill the NAN values",
             )
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("NuDataFrame".into()),
+                Type::Custom("NuDataFrame".into()),
             )
             .category(Category::Custom("lazyframe".into()))
     }

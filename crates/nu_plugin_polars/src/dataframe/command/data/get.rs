@@ -28,8 +28,8 @@ impl PluginCommand for GetDF {
         Signature::build(self.name())
             .rest("rest", SyntaxShape::Any, "column names to sort dataframe")
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("NuDataFrame".into()),
+                Type::Custom("NuDataFrame".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

@@ -20,8 +20,8 @@ impl PluginCommand for AppendDF {
             .required("other", SyntaxShape::Any, "other dataframe to append")
             .switch("col", "append as new columns instead of rows", Some('c'))
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("NuDataFrame".into()),
+                Type::Custom("NuDataFrame".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

@@ -26,8 +26,8 @@ impl PluginCommand for ExprAggGroups {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                Type::Custom("NuExpression".into()),
+                Type::Custom("NuExpression".into()),
             )])
             .category(Category::Custom("dataframe".into()))
     }

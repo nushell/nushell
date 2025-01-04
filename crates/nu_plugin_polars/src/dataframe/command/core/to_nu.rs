@@ -37,8 +37,8 @@ impl PluginCommand for ToNu {
             .switch("tail", "shows tail rows", Some('t'))
             .switch("index", "add an index column", Some('i'))
             .input_output_types(vec![
-                (Type::Custom("expression".into()), Type::Any),
-                (Type::Custom("dataframe".into()), Type::table()),
+                (Type::Custom("NuExpression".into()), Type::Any),
+                (Type::Custom("NuDataFrame".into()), Type::table()),
             ])
             .category(Category::Custom("dataframe".into()))
     }

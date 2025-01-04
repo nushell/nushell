@@ -27,12 +27,12 @@ impl PluginCommand for NUnique {
         Signature::build(self.name())
             .input_output_types(vec![
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    Type::Custom("NuExpression".into()),
+                    Type::Custom("NuExpression".into()),
                 ),
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    Type::Custom("NuDataFrame".into()),
+                    Type::Custom("NuDataFrame".into()),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))

@@ -32,8 +32,8 @@ impl PluginCommand for LazyFilter {
                 "Expression that define the column selection",
             )
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("NuDataFrame".into()),
+                Type::Custom("NuDataFrame".into()),
             )
             .category(Category::Custom("lazyframe".into()))
     }

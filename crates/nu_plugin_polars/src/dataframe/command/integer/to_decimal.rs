@@ -39,8 +39,8 @@ impl PluginCommand for ToDecimal {
                 "Number of decimal points to infer",
             )
             .input_output_type(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                Type::Custom("NuExpression".into()),
+                Type::Custom("NuExpression".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

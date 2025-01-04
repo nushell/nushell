@@ -36,8 +36,8 @@ impl PluginCommand for ExprWhen {
                 "expression that will be applied when predicate is true",
             )
             .input_output_type(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                Type::Custom("NuExpression".into()),
+                Type::Custom("NuExpression".into()),
             )
             .category(Category::Custom("expression".into()))
     }

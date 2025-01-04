@@ -27,8 +27,8 @@ impl PluginCommand for SliceDF {
             .required("offset", SyntaxShape::Int, "start of slice")
             .required("size", SyntaxShape::Int, "size of slice")
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("NuDataFrame".into()),
+                Type::Custom("NuDataFrame".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }
