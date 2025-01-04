@@ -110,8 +110,6 @@ fn validate(vec: &[Value], columns: &[String], span: Span) -> Result<(), ShellEr
         let val_span = v.span();
         if let Value::Record { val: record, .. } = &v {
             if columns.is_empty() {
-                // This uses the same format as the 'requires a column name' error in (the now removed)
-                // split_by.rs
                 return Err(ShellError::GenericError {
                     error: "expected name".into(),
                     msg: "requires a column name to filter table data".into(),
