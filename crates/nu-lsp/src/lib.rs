@@ -592,7 +592,6 @@ mod tests {
         TextDocumentItem, TextDocumentPositionParams, WorkDoneProgressParams,
     };
     use nu_test_support::fs::{fixtures, root};
-    use std::path::Path;
     use std::sync::mpsc::Receiver;
 
     pub fn initialize_language_server() -> (Connection, Receiver<Result<()>>) {
@@ -712,8 +711,13 @@ mod tests {
         client_connection: &Connection,
         uri: Uri,
     ) -> Result<lsp_server::Notification, String> {
-        let text =
-            std::fs::read_to_string(Path::new(uri.path().as_str())).map_err(|e| e.to_string())?;
+        let text = std::fs::read_to_string(
+            Url::from_str(uri.as_str())
+                .expect("Failed to convert Uri to Url")
+                .to_file_path()
+                .expect("Failed to convert Url to path"),
+        )
+        .map_err(|e| e.to_string())?;
 
         client_connection
             .sender
