@@ -394,7 +394,7 @@ fn list_not_table_error() {
         "#
     ));
 
-    assert!(actual.err.contains("can't convert"))
+    assert!(actual.err.contains("Input type not supported"))
 }
 
 #[test]
