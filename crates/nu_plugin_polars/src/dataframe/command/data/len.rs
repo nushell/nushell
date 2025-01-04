@@ -22,7 +22,7 @@ impl PluginCommand for ExprLen {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(Type::Any, Type::Custom("NuExpression".into()))
+            .input_output_type(Type::Any, Type::Custom("expression".into()))
             .category(Category::Custom("dataframe".into()))
     }
 

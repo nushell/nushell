@@ -31,7 +31,7 @@ impl PluginCommand for ExprCol {
                 SyntaxShape::String,
                 "Name of column to be used. '*' can be used for all columns.",
             )
-            .input_output_type(Type::Any, Type::Custom("NuExpression".into()))
+            .input_output_type(Type::Any, Type::Custom("expression".into()))
             .category(Category::Custom("expression".into()))
     }
 

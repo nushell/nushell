@@ -28,7 +28,7 @@ impl PluginCommand for ExprOtherwise {
                 SyntaxShape::Any,
                 "expression to apply when no when predicate matches",
             )
-            .input_output_type(Type::Any, Type::Custom("NuExpression".into()))
+            .input_output_type(Type::Any, Type::Custom("expression".into()))
             .category(Category::Custom("expression".into()))
     }
 

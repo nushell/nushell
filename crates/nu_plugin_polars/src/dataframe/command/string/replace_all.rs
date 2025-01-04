@@ -45,12 +45,12 @@ impl PluginCommand for ReplaceAll {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("NuDataFrame".into()),
-                    Type::Custom("NuDataFrame".into()),
+                    Type::Custom("dataframe".into()),
+                    Type::Custom("dataframe".into()),
                 ),
                 (
-                    Type::Custom("NuExpression".into()),
-                    Type::Custom("NuExpression".into()),
+                    Type::Custom("expression".into()),
+                    Type::Custom("expression".into()),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))

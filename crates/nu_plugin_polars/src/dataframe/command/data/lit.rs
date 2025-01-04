@@ -25,7 +25,7 @@ impl PluginCommand for ExprLit {
                 SyntaxShape::Any,
                 "literal to construct the expression",
             )
-            .input_output_type(Type::Any, Type::Custom("NuExpression".into()))
+            .input_output_type(Type::Any, Type::Custom("expression".into()))
             .category(Category::Custom("expression".into()))
     }
 

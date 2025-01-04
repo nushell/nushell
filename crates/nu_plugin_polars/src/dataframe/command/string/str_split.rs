@@ -28,8 +28,8 @@ impl PluginCommand for StrSplit {
         Signature::build(self.name())
             .required("expr", SyntaxShape::Any, "Separator expression")
             .input_output_types(vec![(
-                Type::Custom("NuExpression".into()),
-                Type::Custom("NuExpression".into()),
+                Type::Custom("expression".into()),
+                Type::Custom("expression".into()),
             )])
             .category(Category::Custom("dataframe".into()))
     }

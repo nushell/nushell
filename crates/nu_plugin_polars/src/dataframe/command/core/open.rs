@@ -93,7 +93,7 @@ impl PluginCommand for OpenDataFrame {
                 Some('s')
             )
             .switch("truncate-ragged-lines", "Truncate lines that are longer than the schema. CSV file", None)
-            .input_output_type(Type::Any, Type::Custom("NuDataFrame".into()))
+            .input_output_type(Type::Any, Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
 

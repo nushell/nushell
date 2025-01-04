@@ -25,8 +25,8 @@ impl PluginCommand for ExprNot {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(
-                Type::Custom("NuExpression".into()),
-                Type::Custom("NuExpression".into()),
+                Type::Custom("expression".into()),
+                Type::Custom("expression".into()),
             )])
             .category(Category::Custom("dataframe".into()))
     }

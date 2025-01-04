@@ -33,8 +33,8 @@ impl PluginCommand for QueryDf {
         Signature::build(self.name())
             .required("sql", SyntaxShape::String, "sql query")
             .input_output_type(
-                Type::Custom("NuDataFrame".into()),
-                Type::Custom("NuDataFrame".into()),
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

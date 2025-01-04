@@ -23,8 +23,8 @@ impl PluginCommand for SchemaCmd {
         Signature::build(self.name())
             .switch("datatype-list", "creates a lazy dataframe", Some('l'))
             .input_output_type(
-                Type::Custom("NuDataFrame".into()),
-                Type::Custom("NuDataFrame".into()),
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

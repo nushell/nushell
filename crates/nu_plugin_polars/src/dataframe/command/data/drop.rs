@@ -28,8 +28,8 @@ impl PluginCommand for DropDF {
         Signature::build(self.name())
             .rest("rest", SyntaxShape::Any, "column names to be dropped")
             .input_output_type(
-                Type::Custom("NuDataFrame".into()),
-                Type::Custom("NuDataFrame".into()),
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

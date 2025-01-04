@@ -31,8 +31,8 @@ impl PluginCommand for LazyFillNull {
                 "Expression to use to fill the null values",
             )
             .input_output_type(
-                Type::Custom("NuDataFrame".into()),
-                Type::Custom("NuDataFrame".into()),
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
             )
             .category(Category::Custom("lazyframe".into()))
     }

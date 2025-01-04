@@ -35,7 +35,7 @@ impl PluginCommand for ExprConcatStr {
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
                 "Expression(s) that define the string concatenation",
             )
-            .input_output_type(Type::Any, Type::Custom("NuExpression".into()))
+            .input_output_type(Type::Any, Type::Custom("expression".into()))
             .category(Category::Custom("expression".into()))
     }
 

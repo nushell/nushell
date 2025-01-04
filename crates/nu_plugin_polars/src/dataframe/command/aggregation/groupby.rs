@@ -32,8 +32,8 @@ impl PluginCommand for ToLazyGroupBy {
                 "Expression(s) that define the lazy group-by",
             )
             .input_output_type(
-                Type::Custom("NuDataFrame".into()),
-                Type::Custom("NuDataFrame".into()),
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
             )
             .category(Category::Custom("lazyframe".into()))
     }

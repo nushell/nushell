@@ -26,8 +26,8 @@ impl PluginCommand for NotSeries {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_type(
-                Type::Custom("NuDataFrame".into()),
-                Type::Custom("NuDataFrame".into()),
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

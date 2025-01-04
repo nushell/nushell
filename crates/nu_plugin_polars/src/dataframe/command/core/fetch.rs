@@ -29,8 +29,8 @@ impl PluginCommand for LazyFetch {
                 "number of rows to be fetched from lazyframe",
             )
             .input_output_type(
-                Type::Custom("NuDataFrame".into()),
-                Type::Custom("NuDataFrame".into()),
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
             )
             .category(Category::Custom("lazyframe".into()))
     }

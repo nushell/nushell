@@ -22,7 +22,7 @@ impl PluginCommand for ColumnsDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(Type::Custom("NuDataFrame".into()), Type::Any)
+            .input_output_type(Type::Custom("dataframe".into()), Type::Any)
             .category(Category::Custom("dataframe".into()))
     }
 
