@@ -3955,6 +3955,7 @@ dependencies = [
  "reedline",
  "serde",
  "serde_json",
+ "url",
 ]
 
 [[package]]

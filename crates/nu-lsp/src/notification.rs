@@ -37,9 +37,8 @@ mod tests {
     use lsp_types::Range;
     use nu_test_support::fs::fixtures;
 
-    use crate::tests::{
-        hover, initialize_language_server, open, open_unchecked, pathbuf_to_uri, update,
-    };
+    use crate::path_to_uri;
+    use crate::tests::{hover, initialize_language_server, open, open_unchecked, update};
 
     #[test]
     fn hover_correct_documentation_on_let() {
@@ -49,7 +48,7 @@ mod tests {
         script.push("lsp");
         script.push("hover");
         script.push("var.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
@@ -79,7 +78,7 @@ mod tests {
         script.push("lsp");
         script.push("hover");
         script.push("command.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
         update(
@@ -120,7 +119,7 @@ hello"#,
         script.push("lsp");
         script.push("hover");
         script.push("command.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
         update(
@@ -165,7 +164,7 @@ hello"#,
         script.push("lsp");
         script.push("notifications");
         script.push("issue_11522.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         let result = open(&client_connection, script);
 

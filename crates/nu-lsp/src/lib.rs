@@ -16,7 +16,13 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     DeclId, Span, Value, VarId,
 };
-use std::{path::PathBuf, str::FromStr, sync::Arc, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::Arc,
+    time::Duration,
+};
+use url::Url;
 
 mod diagnostics;
 mod notification;
@@ -33,6 +39,18 @@ pub struct LanguageServer {
     io_threads: Option<IoThreads>,
     docs: TextDocuments,
     engine_state: EngineState,
+}
+
+pub fn path_to_uri<P>(path: P) -> Uri
+where
+    P: AsRef<Path>,
+{
+    Uri::from_str(
+        Url::from_file_path(path)
+            .expect("Failed to convert path to Url")
+            .as_str(),
+    )
+    .expect("Failed to convert Url to lsp_types::Uri.")
 }
 
 impl LanguageServer {
@@ -62,8 +80,6 @@ impl LanguageServer {
             definition_provider: Some(OneOf::Left(true)),
             hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
             completion_provider: Some(lsp_types::CompletionOptions::default()),
-            // document_symbol_provider: Some(lsp_types::OneOf::Left(true)),
-            // workspace_symbol_provider: Some(lsp_types::OneOf::Left(true)),
             ..Default::default()
         })
         .expect("Must be serializable");
@@ -221,15 +237,14 @@ impl LanguageServer {
     ) -> Option<GotoDefinitionResponse> {
         for cached_file in working_set.files() {
             if cached_file.covered_span.contains(span.start) {
-                let target_uri = Uri::from_str(format!("file://{}", &cached_file.name).as_str())
-                    .expect("Failed to convert CachedFile name to Uri.");
+                let target_uri = path_to_uri(&*cached_file.name);
                 if let Some(doc) = self.docs.get_document(&target_uri) {
                     return Some(GotoDefinitionResponse::Scalar(Location {
                         uri: target_uri,
                         range: Self::span_to_range(span, doc, cached_file.covered_span.start),
                     }));
                 } else {
-                    // in case where the document is not opened yet, typically included by ``
+                    // in case where the document is not opened yet, typically included by `nu -I`
                     let temp_doc = FullTextDocument::new(
                         "Unk".to_string(),
                         0,
@@ -576,17 +591,9 @@ mod tests {
         PartialResultParams, Position, TextDocumentContentChangeEvent, TextDocumentIdentifier,
         TextDocumentItem, TextDocumentPositionParams, WorkDoneProgressParams,
     };
-    use nu_test_support::{
-        fs::{fixtures, root},
-        nu_path::AbsolutePathBuf,
-    };
+    use nu_test_support::fs::{fixtures, root};
     use std::path::Path;
     use std::sync::mpsc::Receiver;
-
-    pub fn pathbuf_to_uri(path: &AbsolutePathBuf) -> Uri {
-        Uri::from_str(format!("file://{}", path.to_str().unwrap()).as_str())
-            .expect("Failed to convert path to Uri.")
-    }
 
     pub fn initialize_language_server() -> (Connection, Receiver<Result<()>>) {
         use std::sync::mpsc;
@@ -825,7 +832,7 @@ mod tests {
         script.push("lsp");
         script.push("goto");
         script.push("var.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
@@ -856,7 +863,7 @@ mod tests {
         script.push("lsp");
         script.push("goto");
         script.push("command.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
@@ -887,7 +894,7 @@ mod tests {
         script.push("lsp");
         script.push("goto");
         script.push("command_unicode.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
@@ -918,7 +925,7 @@ mod tests {
         script.push("lsp");
         script.push("goto");
         script.push("command.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
@@ -972,7 +979,7 @@ mod tests {
         script.push("lsp");
         script.push("hover");
         script.push("var.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
@@ -999,7 +1006,7 @@ mod tests {
         script.push("lsp");
         script.push("hover");
         script.push("command.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
@@ -1029,7 +1036,7 @@ mod tests {
         script.push("lsp");
         script.push("hover");
         script.push("command.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
@@ -1084,7 +1091,7 @@ mod tests {
         script.push("lsp");
         script.push("completion");
         script.push("var.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
@@ -1121,7 +1128,7 @@ mod tests {
         script.push("lsp");
         script.push("completion");
         script.push("command.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
@@ -1159,7 +1166,7 @@ mod tests {
         script.push("lsp");
         script.push("completion");
         script.push("utf_pipeline.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
@@ -1197,7 +1204,7 @@ mod tests {
         script.push("lsp");
         script.push("completion");
         script.push("keyword.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 

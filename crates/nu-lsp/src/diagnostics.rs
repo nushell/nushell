@@ -50,7 +50,8 @@ mod tests {
     use assert_json_diff::assert_json_eq;
     use nu_test_support::fs::fixtures;
 
-    use crate::tests::{initialize_language_server, open_unchecked, pathbuf_to_uri, update};
+    use crate::path_to_uri;
+    use crate::tests::{initialize_language_server, open_unchecked, update};
 
     #[test]
     fn publish_diagnostics_variable_does_not_exists() {
@@ -60,7 +61,7 @@ mod tests {
         script.push("lsp");
         script.push("diagnostics");
         script.push("var.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         let notification = open_unchecked(&client_connection, script.clone());
 
@@ -91,7 +92,7 @@ mod tests {
         script.push("lsp");
         script.push("diagnostics");
         script.push("var.nu");
-        let script = pathbuf_to_uri(&script);
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
         let notification = update(
