@@ -22,13 +22,13 @@ impl LanguageServer {
             DidSaveTextDocument::METHOD => {
                 let params: DidSaveTextDocumentParams =
                     serde_json::from_value(notification.params.clone())
-                        .expect("Expect receive DidOpenTextDocumentParams");
+                        .expect("Expect receive DidSaveTextDocumentParams");
                 Some(params.text_document.uri)
             }
             DidChangeTextDocument::METHOD => {
                 let params: DidChangeTextDocumentParams =
                     serde_json::from_value(notification.params.clone())
-                        .expect("Expect receive DidOpenTextDocumentParams");
+                        .expect("Expect receive DidChangeTextDocumentParams");
                 Some(params.text_document.uri)
             }
             _ => None,
