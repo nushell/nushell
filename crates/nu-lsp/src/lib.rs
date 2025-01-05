@@ -236,19 +236,15 @@ impl LanguageServer {
         None
     }
 
-    fn get_goto_response(
-        &self,
-        working_set: &StateWorkingSet,
-        span: &Span,
-    ) -> Option<GotoDefinitionResponse> {
+    fn get_location_by_span(&self, working_set: &StateWorkingSet, span: &Span) -> Option<Location> {
         for cached_file in working_set.files() {
             if cached_file.covered_span.contains(span.start) {
                 let target_uri = path_to_uri(&*cached_file.name);
                 if let Some(doc) = self.docs.get_document(&target_uri) {
-                    return Some(GotoDefinitionResponse::Scalar(Location {
+                    return Some(Location {
                         uri: target_uri,
                         range: Self::span_to_range(span, doc, cached_file.covered_span.start),
-                    }));
+                    });
                 } else {
                     // in case where the document is not opened yet, typically included by `nu -I`
                     let temp_doc = FullTextDocument::new(
@@ -256,10 +252,10 @@ impl LanguageServer {
                         0,
                         String::from_utf8((*cached_file.content).to_vec()).expect("Invalid UTF-8"),
                     );
-                    return Some(GotoDefinitionResponse::Scalar(Location {
+                    return Some(Location {
                         uri: target_uri,
                         range: Self::span_to_range(span, &temp_doc, cached_file.covered_span.start),
-                    }));
+                    });
                 }
             }
         }
@@ -285,29 +281,20 @@ impl LanguageServer {
             file_offset,
         )?;
 
-        match id {
+        let span = match id {
             Id::Declaration(decl_id) => {
-                if let Some(block_id) = working_set.get_decl(decl_id).block_id() {
-                    let block = working_set.get_block(block_id);
-                    if let Some(span) = &block.span {
-                        return self.get_goto_response(&working_set, span);
-                    }
-                }
+                let block_id = working_set.get_decl(decl_id).block_id()?;
+                working_set.get_block(block_id).span
             }
             Id::Variable(var_id) => {
                 let var = working_set.get_variable(var_id);
-                for cached_file in working_set.files() {
-                    if cached_file
-                        .covered_span
-                        .contains(var.declaration_span.start)
-                    {
-                        return self.get_goto_response(&working_set, &var.declaration_span);
-                    }
-                }
+                Some(var.declaration_span)
             }
-            Id::Value(_) => {}
-        }
-        None
+            _ => None,
+        }?;
+        Some(GotoDefinitionResponse::Scalar(
+            self.get_location_by_span(&working_set, &span)?,
+        ))
     }
 
     fn hover(&mut self, params: &HoverParams) -> Option<Hover> {
