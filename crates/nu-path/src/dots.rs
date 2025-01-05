@@ -73,6 +73,23 @@ pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
     simiplified(&result)
 }
 
+/// Expand ndots, but only if it looks like it probably contains them, because there is some lossy
+/// path normalization that happens.
+pub fn expand_ndots_safe(path: impl AsRef<Path>) -> PathBuf {
+    let string = path.as_ref().to_string_lossy();
+
+    // Use ndots if it contains at least `...`, since that's the minimum trigger point.
+    // Don't use it if it contains ://, because that looks like a URL scheme and the path normalization
+    // will mess with that.
+    // Don't use it if it starts with `./`, as to not break golang wildcard syntax
+    // (since generally you're probably not using `./` with ndots)
+    if string.contains("...") && !string.contains("://") && !string.starts_with("./") {
+        expand_ndots(path)
+    } else {
+        path.as_ref().to_owned()
+    }
+}
+
 #[cfg(windows)]
 fn simiplified(path: &std::path::Path) -> PathBuf {
     path.to_winuser_path()
@@ -168,6 +185,12 @@ mod test_expand_ndots {
             "/foo/bar/.."
         };
         assert_path_eq!(expand_ndots(path), expected);
+    }
+
+    #[test]
+    fn leading_dot_slash() {
+        let path = Path::new("./...");
+        assert_path_eq!(expand_ndots_safe(path), "./...");
     }
 }
 
