@@ -61,7 +61,8 @@ pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
                 // no-op
             }
             _ => {
-                if result.as_os_str() == "/" && component == Component::ParentDir {
+                let prev_component = result.components().last();
+                if prev_component == Some(Component::RootDir) && component == Component::ParentDir {
                     continue;
                 }
                 result.push(component)
