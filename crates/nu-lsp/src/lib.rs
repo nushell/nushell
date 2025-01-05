@@ -239,7 +239,11 @@ impl LanguageServer {
     fn get_location_by_span(&self, working_set: &StateWorkingSet, span: &Span) -> Option<Location> {
         for cached_file in working_set.files() {
             if cached_file.covered_span.contains(span.start) {
-                let target_uri = path_to_uri(&*cached_file.name);
+                let path = Path::new(&*cached_file.name);
+                if !(path.exists() && path.is_file()) {
+                    return None;
+                }
+                let target_uri = path_to_uri(path);
                 if let Some(doc) = self.docs.get_document(&target_uri) {
                     return Some(Location {
                         uri: target_uri,
