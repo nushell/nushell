@@ -885,7 +885,9 @@ impl Iterator for PagingTableCreator {
                     &self.engine_state,
                     &self.stack,
                 );
-                Some(Ok(result.into_bytes()))
+                let mut bytes = result.into_bytes();
+                bytes.push(b'\n');
+                Some(Ok(bytes))
             } else {
                 None
             };

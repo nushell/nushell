@@ -52,69 +52,6 @@ If multiple cell paths are given, this will produce a list of values."#
             .category(Category::Filters)
     }
 
-    fn run(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
-        let mut cell_path: CellPath = call.req(engine_state, stack, 0)?;
-        let mut rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
-        let sensitive = call.has_flag(engine_state, stack, "sensitive")?;
-        let metadata = input.metadata();
-
-        if ignore_errors {
-            cell_path.make_optional();
-            for path in &mut rest {
-                path.make_optional();
-            }
-        }
-
-        match input {
-            PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: span }),
-            // Allow chaining of get -i
-            PipelineData::Value(val @ Value::Nothing { .. }, ..) if !ignore_errors => {
-                return Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "table or record".into(),
-                    wrong_type: "nothing".into(),
-                    dst_span: span,
-                    src_span: val.span(),
-                })
-            }
-            _ => (),
-        }
-
-        if rest.is_empty() {
-            follow_cell_path_into_stream(
-                input,
-                engine_state.signals().clone(),
-                cell_path.members,
-                call.head,
-                !sensitive,
-            )
-        } else {
-            let mut output = vec![];
-
-            let paths = std::iter::once(cell_path).chain(rest);
-
-            let input = input.into_value(span)?;
-
-            for path in paths {
-                let val = input.clone().follow_cell_path(&path.members, !sensitive);
-
-                output.push(val?);
-            }
-
-            Ok(output
-                .into_iter()
-                .into_pipeline_data(span, engine_state.signals().clone()))
-        }
-        .map(|x| x.set_metadata(metadata))
-    }
-
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
@@ -157,6 +94,106 @@ If multiple cell paths are given, this will produce a list of values."#
                 result: None,
             },
         ]
+    }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let cell_path: CellPath = call.req_const(working_set, 0)?;
+        let rest: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let ignore_errors = call.has_flag_const(working_set, "ignore-errors")?;
+        let sensitive = call.has_flag_const(working_set, "sensitive")?;
+        let metadata = input.metadata();
+        action(
+            input,
+            cell_path,
+            rest,
+            ignore_errors,
+            sensitive,
+            working_set.permanent().signals().clone(),
+            call.head,
+        )
+        .map(|x| x.set_metadata(metadata))
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let cell_path: CellPath = call.req(engine_state, stack, 0)?;
+        let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
+        let sensitive = call.has_flag(engine_state, stack, "sensitive")?;
+        let metadata = input.metadata();
+        action(
+            input,
+            cell_path,
+            rest,
+            ignore_errors,
+            sensitive,
+            engine_state.signals().clone(),
+            call.head,
+        )
+        .map(|x| x.set_metadata(metadata))
+    }
+}
+
+fn action(
+    input: PipelineData,
+    mut cell_path: CellPath,
+    mut rest: Vec<CellPath>,
+    ignore_errors: bool,
+    sensitive: bool,
+    signals: Signals,
+    span: Span,
+) -> Result<PipelineData, ShellError> {
+    if ignore_errors {
+        cell_path.make_optional();
+        for path in &mut rest {
+            path.make_optional();
+        }
+    }
+
+    match input {
+        PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: span }),
+        // Allow chaining of get -i
+        PipelineData::Value(val @ Value::Nothing { .. }, ..) if !ignore_errors => {
+            return Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "table or record".into(),
+                wrong_type: "nothing".into(),
+                dst_span: span,
+                src_span: val.span(),
+            })
+        }
+        _ => (),
+    }
+
+    if rest.is_empty() {
+        follow_cell_path_into_stream(input, signals, cell_path.members, span, !sensitive)
+    } else {
+        let mut output = vec![];
+
+        let paths = std::iter::once(cell_path).chain(rest);
+
+        let input = input.into_value(span)?;
+
+        for path in paths {
+            let val = input.clone().follow_cell_path(&path.members, !sensitive);
+
+            output.push(val?);
+        }
+
+        Ok(output.into_iter().into_pipeline_data(span, signals))
     }
 }
 

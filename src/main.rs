@@ -323,36 +323,6 @@ fn main() -> Result<()> {
         "NU_VERSION".to_string(),
         Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
     );
-    // Add SHLVL if interactive
-    if engine_state.is_interactive {
-        engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
-        engine_state.add_env_var(
-            "PROMPT_INDICATOR_VI_NORMAL".to_string(),
-            Value::test_string("> "),
-        );
-        engine_state.add_env_var(
-            "PROMPT_INDICATOR_VI_INSERT".to_string(),
-            Value::test_string(": "),
-        );
-        engine_state.add_env_var(
-            "PROMPT_MULTILINE_INDICATOR".to_string(),
-            Value::test_string("::: "),
-        );
-        engine_state.add_env_var(
-            "TRANSIENT_PROMPT_MULTILINE_INDICATOR".to_string(),
-            Value::test_string(""),
-        );
-        engine_state.add_env_var(
-            "TRANSIENT_PROMPT_COMMAND_RIGHT".to_string(),
-            Value::test_string(""),
-        );
-        let mut shlvl = engine_state
-            .get_env_var("SHLVL")
-            .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
-            .unwrap_or(0);
-        shlvl += 1;
-        engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
-    }
 
     if parsed_nu_cli_args.no_std_lib.is_none() {
         load_standard_library(&mut engine_state)?;
@@ -490,7 +460,7 @@ fn main() -> Result<()> {
             );
         }
 
-        LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state)?
+        LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests()?
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,
@@ -510,6 +480,35 @@ fn main() -> Result<()> {
             input,
         );
     } else {
+        // Environment variables that apply only when in REPL
+        engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
+        engine_state.add_env_var(
+            "PROMPT_INDICATOR_VI_NORMAL".to_string(),
+            Value::test_string("> "),
+        );
+        engine_state.add_env_var(
+            "PROMPT_INDICATOR_VI_INSERT".to_string(),
+            Value::test_string(": "),
+        );
+        engine_state.add_env_var(
+            "PROMPT_MULTILINE_INDICATOR".to_string(),
+            Value::test_string("::: "),
+        );
+        engine_state.add_env_var(
+            "TRANSIENT_PROMPT_MULTILINE_INDICATOR".to_string(),
+            Value::test_string(""),
+        );
+        engine_state.add_env_var(
+            "TRANSIENT_PROMPT_COMMAND_RIGHT".to_string(),
+            Value::test_string(""),
+        );
+        let mut shlvl = engine_state
+            .get_env_var("SHLVL")
+            .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
+            .unwrap_or(0);
+        shlvl += 1;
+        engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
+
         run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)?
     }
 

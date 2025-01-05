@@ -165,7 +165,13 @@ impl PipelineData {
     pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
         match self {
             PipelineData::Empty => Ok(Value::nothing(span)),
-            PipelineData::Value(value, ..) => Ok(value.with_span(span)),
+            PipelineData::Value(value, ..) => {
+                if value.span() == Span::unknown() {
+                    Ok(value.with_span(span))
+                } else {
+                    Ok(value)
+                }
+            }
             PipelineData::ListStream(stream, ..) => Ok(stream.into_value()),
             PipelineData::ByteStream(stream, ..) => stream.into_value(),
         }

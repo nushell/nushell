@@ -63,8 +63,6 @@ pub fn evaluate_repl(
     let config = engine_state.get_config();
     let use_color = config.use_ansi_coloring.get(engine_state);
 
-    confirm_stdin_is_terminal()?;
-
     let mut entry_num = 0;
 
     // Let's grab the shell_integration configs
@@ -103,6 +101,8 @@ pub fn evaluate_repl(
         );
         engine_state.merge_env(&mut unique_stack)?;
     }
+
+    confirm_stdin_is_terminal()?;
 
     let hostname = System::host_name();
     if shell_integration_osc2 {
