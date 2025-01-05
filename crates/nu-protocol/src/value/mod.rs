@@ -812,13 +812,19 @@ impl Value {
         }
     }
 
-    /// Compare value's type with another type
+    /// Determine of the [`Value`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`
     ///
-    /// Differs from the behavior of get_type().is_subtype() in the following ways:
-    /// - Does not allocate any composite `Type` values
-    /// - Empty lists are considered subtypes of all list<T> types
-    /// - Lists of mixed records can still be considered tables.
-    ///   For example, the type of [{a: 1, b: 2}, {a: 1}] is a subtype of table<a: int>
+    /// If you have a [`Value`], this method should always be used over chaining [`Value::get_type`] with [`Type::is_subtype_of`](crate::Type::is_subtype_of).
+    ///
+    /// This method is able to leverage that information encoded in a `Value` to provide more accurate
+    /// type comparison than if one were to collect the type into [`Type`](crate::Type) value with [`Value::get_type`].
+    ///
+    /// Empty lists are considered subtypes of all list<T> types.
+    ///
+    /// Lists of mixed records where some column is present in all record is a subtype of `table<column>`.
+    /// For example, `[{a: 1, b: 2}, {a: 1}]` is a subtype of `table<a: int>` (but not `table<a: int, b: int>`).
+    ///
+    /// See also: [`PipelineData::is_subtype_of`](crate::PipelineData::is_subtype_of)
     pub fn is_subtype_of(&self, other: &Type) -> bool {
         // records are structurally typed
         let record_compatible = |val: &Value, other: &[(String, Type)]| match val {
