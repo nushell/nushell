@@ -110,15 +110,18 @@ export def repeat [
     1..$n | each { $item }
 }
 
+# null device file
+export const null_device = if $nu.os-info.name == "windows" {
+	'\\.\NUL'
+} else {
+	'/dev/null'
+}
+
 # return a null device file.
 #
 # # Examples
 #     run a command and ignore it's stderr output
 #     > cat xxx.txt e> (null-device)
 export def null-device []: nothing -> path {
-    if ($nu.os-info.name | str downcase) == "windows" {
-        '\\.\NUL'
-    } else {
-        "/dev/null"
-    }
+    $null_device
 }
