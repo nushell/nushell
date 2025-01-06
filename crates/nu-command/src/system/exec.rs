@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nu_engine::{command_prelude::*, env_to_strings};
 
 #[derive(Clone)]
@@ -11,7 +13,11 @@ impl Command for Exec {
     fn signature(&self) -> Signature {
         Signature::build("exec")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .required("command", SyntaxShape::String, "The command to execute.")
+            .rest(
+                "command",
+                SyntaxShape::OneOf(vec![SyntaxShape::Any, SyntaxShape::GlobPattern]),
+                "External command to run, with arguments.",
+            )
             .allows_unknown_args()
             .category(Category::System)
     }
@@ -33,15 +39,29 @@ On Windows based systems, Nushell will wait for the command to finish and then e
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cwd = engine_state.cwd(Some(stack))?;
+        let rest = call.rest::<Value>(engine_state, stack, 0)?;
+        let name_args = rest.split_first();
+
+        let Some((name, call_args)) = name_args else {
+            return Err(ShellError::MissingParameter {
+                param_name: "no command given".into(),
+                span: call.head,
+            });
+        };
+
+        let name_str: Cow<str> = match &name {
+            Value::Glob { val, .. } => Cow::Borrowed(val),
+            Value::String { val, .. } => Cow::Borrowed(val),
+            _ => Cow::Owned(name.clone().coerce_into_string()?),
+        };
 
         // Find the absolute path to the executable. If the command is not
         // found, display a helpful error message.
-        let name: Spanned<String> = call.req(engine_state, stack, 0)?;
         let executable = {
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
-            let Some(executable) = crate::which(&name.item, &paths, cwd.as_ref()) else {
+            let Some(executable) = crate::which(&name_str.as_ref(), &paths, cwd.as_ref()) else {
                 return Err(crate::command_not_found(
-                    &name.item,
+                    &name_str,
                     call.head,
                     engine_state,
                     stack,
@@ -73,7 +93,7 @@ On Windows based systems, Nushell will wait for the command to finish and then e
         }
 
         // Configure args.
-        let args = crate::eval_arguments_from_call(engine_state, stack, call)?;
+        let args = crate::eval_external_arguments(engine_state, stack, call_args.to_vec())?;
         command.args(args.into_iter().map(|s| s.item));
 
         // Execute the child process, replacing/terminating the current process
