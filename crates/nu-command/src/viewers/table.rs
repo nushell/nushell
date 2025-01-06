@@ -886,7 +886,10 @@ impl Iterator for PagingTableCreator {
                     &self.stack,
                 );
                 let mut bytes = result.into_bytes();
-                bytes.push(b'\n');
+                // Add extra newline if show_empty is enabled
+                if !bytes.is_empty() {
+                    bytes.push(b'\n');
+                }
                 Some(Ok(bytes))
             } else {
                 None
