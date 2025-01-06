@@ -98,6 +98,19 @@ impl Command for Open {
                 let path = path?;
                 let path = Path::new(&path);
 
+                // Now that we have the path, we can check if it's the null device.
+                // If path matches NULL_DEVICE, just return early
+                // This is to enable this type of functionality without producing an error.
+                // use std/util [null-device, null_device]
+                // open (null-device)
+                // open $null_device
+                // source (null-device) # doesn't work since it's not const
+                // source $null_device  # should work since $null_device is const
+
+                if path.to_string_lossy() == nu_utils::NULL_DEVICE {
+                    return Ok(PipelineData::Empty);
+                }
+
                 if permission_denied(path) {
                     #[cfg(unix)]
                     let error_msg = match path.metadata() {

@@ -26,6 +26,20 @@ pub fn glob_from(
     ),
     ShellError,
 > {
+    // if pattern matches NULL_DEVICE, just return early and use it as the path
+    // This is to enable this type of functionality without producing an error.
+    // use std/util [null-device, null_device]
+    // open (null-device)
+    // open $null_device
+    // source (null-device) # doesn't work since it's not const
+    // source $null_device  # should work since $null_device is const
+    if pattern.item.as_ref() == nu_utils::NULL_DEVICE {
+        return Ok((
+            None,
+            Box::new(std::iter::once(Ok(PathBuf::from(nu_utils::NULL_DEVICE)))),
+        ));
+    }
+
     let no_glob_for_pattern = matches!(pattern.item, NuGlob::DoNotExpand(_));
     let (prefix, pattern) = if nu_glob::is_glob(pattern.item.as_ref()) {
         // Pattern contains glob, split it

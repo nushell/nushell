@@ -488,3 +488,10 @@ pub fn terminal_size() -> io::Result<(u16, u16)> {
     #[cfg(not(feature = "os"))]
     return Err(io::Error::from(io::ErrorKind::Unsupported));
 }
+
+// The cross platform NULL_DEVICE used in `open`, `glob_from`, and `source` commands
+pub const NULL_DEVICE: &str = if cfg!(windows) {
+    "\\\\.\\NUL"
+} else {
+    "/dev/null"
+};

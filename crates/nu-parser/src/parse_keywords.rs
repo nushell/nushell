@@ -3507,6 +3507,59 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                     }
                 };
 
+                // if filename matches NULL_DEVICE, just return early and use it
+                // This is to enable this type of functionality without producing an error.
+                // use std/util [null-device, null_device]
+                // open (null-device)
+                // open $null_device
+                // source (null-device) # doesn't work since it's not const
+                // source $null_device  # should work since $null_device is const
+                //
+                // This is all really a hack just to get NULL_DEVICE to pass through unmolested.
+                if filename == nu_utils::NULL_DEVICE {
+                    let block = parse(
+                        working_set,
+                        Some(&filename),
+                        nu_utils::NULL_DEVICE.as_bytes(),
+                        scoped,
+                    );
+                    // Remove the file from the stack of files being processed.
+                    working_set.files.pop();
+
+                    // Save the block into the working set
+                    let block_id = working_set.add_block(block);
+
+                    let mut call_with_block = call;
+
+                    call_with_block.set_parser_info(
+                        "block_id".to_string(),
+                        Expression::new(
+                            working_set,
+                            Expr::Int(block_id.get() as i64),
+                            spans[1],
+                            Type::Any,
+                        ),
+                    );
+
+                    // store the file path as a string to be gathered later
+                    call_with_block.set_parser_info(
+                        "block_id_name".to_string(),
+                        Expression::new(
+                            working_set,
+                            Expr::Filepath(filename, false),
+                            spans[1],
+                            Type::String,
+                        ),
+                    );
+
+                    return Pipeline::from_vec(vec![Expression::new(
+                        working_set,
+                        Expr::Call(call_with_block),
+                        Span::concat(spans),
+                        Type::Any,
+                    )]);
+                }
+
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(LIB_DIRS_VAR)) {
                     if let Some(contents) = path.read(working_set) {
                         // Add the file to the stack of files being processed.

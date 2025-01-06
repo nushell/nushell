@@ -47,6 +47,21 @@ impl Command for Source {
         // 2. The block_id_name that corresponded to the file name at the 0th position
         let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
         let block_id_name: String = call.req_parser_info(engine_state, stack, "block_id_name")?;
+
+        // Now that we have the block name, we can check if it's the null device.
+        // If block_id_name matches NULL_DEVICE, just return early
+        // This is to enable this type of functionality without producing an error.
+        // use std/util [null-device, null_device]
+        // open (null-device)
+        // open $null_device
+        // source (null-device) # doesn't work since it's not const
+        // source $null_device  # should work since $null_device is const
+        //
+        // Note: we're removing the last character from the block_id_name since it's a trailing slash or backslash
+        if block_id_name[0..block_id_name.len() - 1] == *nu_utils::NULL_DEVICE {
+            // If it's the null-device, short circuit and return the input as is
+            return Ok(input);
+        }
         let block_id = BlockId::new(block_id as usize);
         let block = engine_state.get_block(block_id).clone();
         let cwd = engine_state.cwd_as_string(Some(stack))?;
