@@ -321,12 +321,12 @@ fn main() -> Result<()> {
     gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
     perf!("gather env vars", start_time, use_color);
 
-    let stack = Stack::new();
+    let mut stack = Stack::new();
     start_time = std::time::Instant::now();
     let config = engine_state.get_config();
     let use_color = config.use_ansi_coloring.get(&engine_state);
     // Translate environment variables from Strings to Values
-    if let Err(e) = convert_env_values(&mut engine_state, &stack) {
+    if let Err(e) = convert_env_values(&mut engine_state, &mut stack) {
         report_shell_error(&engine_state, &e);
     }
     perf!("Convert path to list", start_time, use_color);

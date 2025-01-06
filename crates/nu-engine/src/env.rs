@@ -64,7 +64,7 @@ pub fn convert_env_vars(
 /// It returns Option instead of Result since we do want to translate all the values we can and
 /// skip errors. This function is called in the main() so we want to keep running, we cannot just
 /// exit.
-pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Result<(), ShellError> {
+pub fn convert_env_values(engine_state: &mut EngineState, stack: &mut Stack) -> Result<(), ShellError> {
     let mut error = None;
 
     let mut new_scope = HashMap::new();
@@ -89,7 +89,7 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Resu
         }
     }
 
-    error = error.or_else(|| ensure_path(&mut new_scope, "PATH"));
+    error = error.or_else(|| ensure_path(engine_state, stack));
 
     if let Ok(last_overlay_name) = &stack.last_overlay_name() {
         if let Some(env_vars) = Arc::make_mut(&mut engine_state.env_vars).get_mut(last_overlay_name)
@@ -362,11 +362,11 @@ fn get_converted_value(
     )
 }
 
-fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Option<ShellError> {
+fn ensure_path(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellError> {
     let mut error = None;
 
     // If PATH/Path is still a string, force-convert it to a list
-    if let Some(value) = scope.get(env_path_name) {
+    if let Some(value) = stack.get_env_var_insensitive(engine_state, "Path") {
         let span = value.span();
         match value {
             Value::String { val, .. } => {
@@ -375,15 +375,15 @@ fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Optio
                     .map(|p| Value::string(p.to_string_lossy().to_string(), span))
                     .collect();
 
-                scope.insert(env_path_name.to_string(), Value::list(paths, span));
+                stack.add_env_var("path".to_string(), Value::list(paths, span));
             }
             Value::List { vals, .. } => {
                 // Must be a list of strings
                 if !vals.iter().all(|v| matches!(v, Value::String { .. })) {
                     error = error.or_else(|| {
                         Some(ShellError::GenericError {
-                            error: format!("Wrong {env_path_name} environment variable value"),
-                            msg: format!("{env_path_name} must be a list of strings"),
+                            error: format!("Wrong Path environment variable value"),
+                            msg: format!("Path must be a list of strings"),
                             span: Some(span),
                             help: None,
                             inner: vec![],
@@ -398,8 +398,8 @@ fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Optio
 
                 error = error.or_else(|| {
                     Some(ShellError::GenericError {
-                        error: format!("Wrong {env_path_name} environment variable value"),
-                        msg: format!("{env_path_name} must be a list of strings"),
+                        error: format!("Wrong Path environment variable value"),
+                        msg: format!("Path must be a list of strings"),
                         span: Some(span),
                         help: None,
                         inner: vec![],
