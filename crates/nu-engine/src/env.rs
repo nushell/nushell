@@ -385,8 +385,8 @@ fn ensure_path(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellErr
                 if !vals.iter().all(|v| matches!(v, Value::String { .. })) {
                     error = error.or_else(|| {
                         Some(ShellError::GenericError {
-                            error: format!("Wrong Path environment variable value"),
-                            msg: format!("Path must be a list of strings"),
+                            error: "Wrong Path environment variable value".into(),
+                            msg: "Path must be a list of strings".into(),
                             span: Some(span),
                             help: None,
                             inner: vec![],
@@ -401,8 +401,8 @@ fn ensure_path(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellErr
 
                 error = error.or_else(|| {
                     Some(ShellError::GenericError {
-                        error: format!("Wrong Path environment variable value"),
-                        msg: format!("Path must be a list of strings"),
+                        error: "Wrong Path environment variable value".into(),
+                        msg: "Path must be a list of strings".into(),
                         span: Some(span),
                         help: None,
                         inner: vec![],
