@@ -4031,6 +4031,7 @@ mod tests {
                 ("c".into(), Type::Int),
             ]));
             let ty_ab = Type::Table(Box::new([("a".into(), Type::Int), ("b".into(), Type::Int)]));
+            let ty_list_any = Type::list(Type::Any);
 
             let record_abc = Value::test_record(record! {
                 "a" => Value::test_int(1),
@@ -4049,6 +4050,7 @@ mod tests {
             assert_subtype_equivalent(&table_abc, &ty_ab);
             assert_subtype_equivalent(&table_ab, &ty_abc);
             assert_subtype_equivalent(&table_ab, &ty_ab);
+            assert_subtype_equivalent(&table_abc, &ty_list_any);
 
             let table_mixed = Value::test_list(vec![record_abc.clone(), record_ab.clone()]);
             assert_subtype_equivalent(&table_mixed, &ty_abc);
