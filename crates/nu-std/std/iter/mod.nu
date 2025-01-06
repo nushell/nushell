@@ -30,11 +30,7 @@
 export def find [ # -> any | null  
     fn: closure          # the closure used to perform the search 
 ] {
-    try {
-       filter $fn | get 0?
-    } catch {
-       null
-    }
+    filter {|it| try {do $fn $it} } | try { first }
 }
 
 # Returns the index of the first element that matches the predicate or
@@ -60,20 +56,9 @@ export def find [ # -> any | null
 export def find-index [ # -> int
     fn: closure                # the closure used to perform the search
 ] {
-    let matches = (
-        enumerate
-        | each {|it|
-            if (do $fn $it.item) {
-                $it.index
-            }
-        }
-    )
-
-    if ($matches | is-empty) {
-        -1
-    } else {
-        $matches | first
-    }
+    enumerate
+    | find {|it| $it.item | do $fn $it.item }
+    | try { get index } catch { -1 }
 }
 
 # Returns a new list with the separator between adjacent
