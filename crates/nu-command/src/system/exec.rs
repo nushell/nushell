@@ -59,7 +59,7 @@ On Windows based systems, Nushell will wait for the command to finish and then e
         // found, display a helpful error message.
         let executable = {
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
-            let Some(executable) = crate::which(&name_str.as_ref(), &paths, cwd.as_ref()) else {
+            let Some(executable) = crate::which(name_str.as_ref(), &paths, cwd.as_ref()) else {
                 return Err(crate::command_not_found(
                     &name_str,
                     call.head,
