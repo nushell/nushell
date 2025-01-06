@@ -25,8 +25,9 @@ use nu_engine::convert_env_values;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::{EngineState, Stack}, record, report_shell_error, ByteStream, Config, IntoValue, PipelineData,
-    ShellError, Span, Spanned, Type, Value,
+    engine::{EngineState, Stack},
+    record, report_shell_error, ByteStream, Config, IntoValue, PipelineData, ShellError, Span,
+    Spanned, Type, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -328,11 +329,7 @@ fn main() -> Result<()> {
     if let Err(e) = convert_env_values(&mut engine_state, &stack) {
         report_shell_error(&engine_state, &e);
     }
-    perf!(
-        "Convert path to list",
-        start_time,
-        use_color
-    );
+    perf!("Convert path to list", start_time, use_color);
 
     engine_state.add_env_var(
         "NU_VERSION".to_string(),
@@ -526,7 +523,12 @@ fn main() -> Result<()> {
         shlvl += 1;
         engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
 
-        run_repl(&mut engine_state, stack, parsed_nu_cli_args, entire_start_time)?
+        run_repl(
+            &mut engine_state,
+            stack,
+            parsed_nu_cli_args,
+            entire_start_time,
+        )?
     }
 
     Ok(())
