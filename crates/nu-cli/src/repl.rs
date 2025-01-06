@@ -19,7 +19,7 @@ use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::util::get_editor;
 use nu_color_config::StyleComputer;
 #[allow(deprecated)]
-use nu_engine::{current_dir_str, env_to_strings};
+use nu_engine::{convert_env_values, current_dir_str, env_to_strings};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
@@ -78,6 +78,13 @@ pub fn evaluate_repl(
         engine_state.clone(),
         stack.clone(),
     );
+
+    let start_time = std::time::Instant::now();
+    // Translate environment variables from Strings to Values
+    if let Err(e) = convert_env_values(engine_state, &unique_stack) {
+        report_shell_error(engine_state, &e);
+    }
+    perf!("translate env vars", start_time, use_color);
 
     // seed env vars
     unique_stack.add_env_var(
