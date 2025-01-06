@@ -64,7 +64,10 @@ pub fn convert_env_vars(
 /// It returns Option instead of Result since we do want to translate all the values we can and
 /// skip errors. This function is called in the main() so we want to keep running, we cannot just
 /// exit.
-pub fn convert_env_values(engine_state: &mut EngineState, stack: &mut Stack) -> Result<(), ShellError> {
+pub fn convert_env_values(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+) -> Result<(), ShellError> {
     let mut error = None;
 
     let mut new_scope = HashMap::new();
