@@ -22,7 +22,11 @@ impl Command for Use {
         Signature::build("use")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("module", SyntaxShape::String, "Module or module file.")
+            .required(
+                "module",
+                SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]),
+                "Module or module file.",
+            )
             .rest(
                 "members",
                 SyntaxShape::Any,
@@ -54,6 +58,9 @@ This command is a parser keyword. For details, check:
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        if call.get_parser_info(caller_stack, "noop").is_some() {
+            return Ok(PipelineData::empty());
+        }
         let Some(Expression {
             expr: Expr::ImportPattern(import_pattern),
             ..

@@ -2367,18 +2367,37 @@ pub fn parse_use(
 
     let import_pattern_expr = parse_import_pattern(working_set, args_spans);
 
-    let import_pattern = if let Expression {
-        expr: Expr::ImportPattern(import_pattern),
-        ..
-    } = &import_pattern_expr
-    {
-        import_pattern.clone()
-    } else {
-        working_set.error(ParseError::UnknownState(
-            "internal error: Import pattern positional is not import pattern".into(),
-            import_pattern_expr.span,
-        ));
-        return (garbage_pipeline(working_set, spans), vec![]);
+    let import_pattern = match &import_pattern_expr {
+        Expression {
+            expr: Expr::Nothing,
+            ..
+        } => {
+            let mut call = call;
+            call.set_parser_info(
+                "noop".to_string(),
+                Expression::new_unknown(Expr::Nothing, Span::unknown(), Type::Nothing),
+            );
+            return (
+                Pipeline::from_vec(vec![Expression::new(
+                    working_set,
+                    Expr::Call(call),
+                    Span::concat(spans),
+                    Type::Any,
+                )]),
+                vec![],
+            );
+        }
+        Expression {
+            expr: Expr::ImportPattern(import_pattern),
+            ..
+        } => import_pattern.clone(),
+        _ => {
+            working_set.error(ParseError::UnknownState(
+                "internal error: Import pattern positional is not import pattern".into(),
+                import_pattern_expr.span,
+            ));
+            return (garbage_pipeline(working_set, spans), vec![]);
+        }
     };
 
     let (mut import_pattern, module, module_id) = if let Some(module_id) = import_pattern.head.id {
