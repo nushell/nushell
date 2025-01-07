@@ -2774,6 +2774,19 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
+            Ok(Value::Nothing { .. }) => {
+                let mut call = call;
+                call.set_parser_info(
+                    "noop".to_string(),
+                    Expression::new_unknown(Expr::Bool(true), Span::unknown(), Type::Bool),
+                );
+                return Pipeline::from_vec(vec![Expression::new(
+                    working_set,
+                    Expr::Call(call),
+                    call_span,
+                    Type::Any,
+                )]);
+            }
             Ok(val) => match val.coerce_into_string() {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
