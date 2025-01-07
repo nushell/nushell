@@ -1,6 +1,6 @@
 use core::fmt::Write;
 use nu_engine::get_columns;
-use nu_protocol::ObviousFloat;
+use nu_protocol::format::ObviousFloat;
 use nu_protocol::{engine::EngineState, Range, ShellError, Span, Value};
 use nu_utils::{escape_quote_string, needs_quoting};
 

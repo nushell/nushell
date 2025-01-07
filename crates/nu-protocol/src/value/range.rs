@@ -231,7 +231,8 @@ mod int_range {
 
 mod float_range {
     use crate::{
-        ast::RangeInclusion, IntRange, ObviousFloat, Range, ShellError, Signals, Span, Value,
+        ast::RangeInclusion, format::ObviousFloat, IntRange, Range, ShellError, Signals, Span,
+        Value,
     };
     use serde::{Deserialize, Serialize};
     use std::{cmp::Ordering, fmt::Display, ops::Bound};

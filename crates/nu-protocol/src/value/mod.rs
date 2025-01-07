@@ -8,6 +8,7 @@ mod range;
 #[cfg(test)]
 mod test_derive;
 
+pub mod format;
 pub mod record;
 pub use custom_value::CustomValue;
 pub use duration::*;
@@ -40,21 +41,6 @@ use std::{
     ops::Bound,
     path::PathBuf,
 };
-
-/// A f64 wrapper that formats whole numbers with a decimal point.
-pub struct ObviousFloat(pub f64);
-
-impl Display for ObviousFloat {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let val = self.0;
-        // This serialises these as 'nan', 'inf' and '-inf', respectively.
-        if val.round() == val && val.is_finite() {
-            write!(f, "{}.0", val)
-        } else {
-            write!(f, "{}", val)
-        }
-    }
-}
 
 /// Core structured values that pass through the pipeline in Nushell.
 // NOTE: Please do not reorder these enum cases without thinking through the
