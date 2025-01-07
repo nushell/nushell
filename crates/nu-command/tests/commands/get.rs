@@ -207,3 +207,9 @@ fn ignore_multiple() {
 
     assert_eq!(actual.out, "[[null], [null]]");
 }
+
+#[test]
+fn test_const() {
+    let actual = nu!(r#"const x = [1 2 3] | get 1; $x"#);
+    assert_eq!(actual.out, "2");
+}

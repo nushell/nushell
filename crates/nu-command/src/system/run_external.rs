@@ -1,7 +1,7 @@
 use nu_cli::do_auto_cd;
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
-use nu_path::{dots::expand_ndots, expand_tilde, AbsolutePath};
+use nu_path::{dots::expand_ndots_safe, expand_tilde, AbsolutePath};
 use nu_protocol::{
     did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
 };
@@ -360,11 +360,9 @@ fn expand_glob(
     span: Span,
     signals: &Signals,
 ) -> Result<Vec<OsString>, ShellError> {
-    const GLOB_CHARS: &[char] = &['*', '?', '['];
-
-    // For an argument that doesn't include the GLOB_CHARS, just do the `expand_tilde`
+    // For an argument that isn't a glob, just do the `expand_tilde`
     // and `expand_ndots` expansion
-    if !arg.contains(GLOB_CHARS) {
+    if !nu_glob::is_glob(arg) {
         let path = expand_ndots_safe(expand_tilde(arg));
         return Ok(vec![path.into()]);
     }
@@ -658,21 +656,6 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
     } else {
         // FIXME?: what if `arg.is_empty()`?
         Ok(Cow::Borrowed(arg))
-    }
-}
-
-/// Expand ndots, but only if it looks like it probably contains them, because there is some lossy
-/// path normalization that happens.
-fn expand_ndots_safe(path: impl AsRef<Path>) -> PathBuf {
-    let string = path.as_ref().to_string_lossy();
-
-    // Use ndots if it contains at least `...`, since that's the minimum trigger point, and don't
-    // use it if it contains ://, because that looks like a URL scheme and the path normalization
-    // will mess with that.
-    if string.contains("...") && !string.contains("://") {
-        expand_ndots(path)
-    } else {
-        path.as_ref().to_owned()
     }
 }
 

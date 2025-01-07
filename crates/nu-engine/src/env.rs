@@ -89,22 +89,7 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Resu
         }
     }
 
-    #[cfg(not(windows))]
-    {
-        error = error.or_else(|| ensure_path(&mut new_scope, "PATH"));
-    }
-
-    #[cfg(windows)]
-    {
-        let first_result = ensure_path(&mut new_scope, "Path");
-        if first_result.is_some() {
-            let second_result = ensure_path(&mut new_scope, "PATH");
-
-            if second_result.is_some() {
-                error = error.or(first_result);
-            }
-        }
-    }
+    error = error.or_else(|| ensure_path(&mut new_scope, "PATH"));
 
     if let Ok(last_overlay_name) = &stack.last_overlay_name() {
         if let Some(env_vars) = Arc::make_mut(&mut engine_state.env_vars).get_mut(last_overlay_name)

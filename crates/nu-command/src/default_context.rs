@@ -58,7 +58,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Interleave,
             Items,
             Join,
-            SplitBy,
             Take,
             Merge,
             MergeDeep,
@@ -241,7 +240,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Start,
             Rm,
             Save,
-            Touch,
             UTouch,
             Glob,
             Watch,
@@ -276,8 +274,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             DateHumanize,
             DateListTimezones,
             DateNow,
-            DateToRecord,
-            DateToTable,
             DateToTimezone,
         };
 
@@ -354,6 +350,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ConfigFlatten,
             ConfigMeta,
             ConfigReset,
+            ConfigUseColors,
         };
 
         // Math

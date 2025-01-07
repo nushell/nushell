@@ -152,7 +152,6 @@ fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
 
 /// Expand tilde ("~") into a home directory if it is the first path component
 pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
-    // TODO: Extend this to work with "~user" style of home paths
     expand_tilde_with_home(path, dirs::home_dir())
 }
 
