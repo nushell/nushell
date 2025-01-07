@@ -32,7 +32,9 @@ pub fn convert_env_vars(
 ) -> Result<(), ShellError> {
     let conversions = conversions.as_record()?;
     for (key, conversion) in conversions.into_iter() {
-        if let Some(val) = stack.get_env_var_insensitive(engine_state, key) {
+        if let Some((case_preserve_env_name, val)) =
+            stack.get_env_var_insensitive(engine_state, key)
+        {
             match val.get_type() {
                 Type::String => {}
                 _ => continue,
@@ -52,7 +54,7 @@ pub fn convert_env_vars(
                 .run_with_value(val.clone())?
                 .into_value(val.span())?;
 
-            stack.add_env_var(key.clone(), new_val);
+            stack.add_env_var(case_preserve_env_name.to_string(), new_val);
         }
     }
     Ok(())
@@ -245,7 +247,7 @@ pub fn path_str(
     span: Span,
 ) -> Result<String, ShellError> {
     let (pathname, pathval) = match stack.get_env_var_insensitive(engine_state, "path") {
-        Some(v) => Ok((if cfg!(windows) { "Path" } else { "PATH" }, v)),
+        Some((_, v)) => Ok((if cfg!(windows) { "Path" } else { "PATH" }, v)),
         None => Err(ShellError::EnvVarNotFoundAtRuntime {
             envvar_name: if cfg!(windows) {
                 "Path".to_string()
@@ -367,15 +369,9 @@ fn get_converted_value(
 
 fn ensure_path(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellError> {
     let mut error = None;
-    let env_vars = engine_state.render_env_vars();
-    let preserve_case_name = env_vars
-        .iter()
-        .find(|(env_name, _)| env_name.to_lowercase() == "path")
-        .map(|(env_name, _)| env_name)
-        .unwrap_or(&"PATH");
 
     // If PATH/Path is still a string, force-convert it to a list
-    if let Some(value) = stack.get_env_var_insensitive(engine_state, "Path") {
+    if let Some((preserve_case_name, value)) = stack.get_env_var_insensitive(engine_state, "Path") {
         let span = value.span();
         match value {
             Value::String { val, .. } => {
