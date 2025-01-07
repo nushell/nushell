@@ -58,7 +58,12 @@ impl Command for Source {
         // source $null_device  # should work since $null_device is const
         //
         // Note: we're removing the last character from the block_id_name since it's a trailing slash or backslash
-        if block_id_name[0..block_id_name.len() - 1] == *nu_utils::NULL_DEVICE {
+        let block_id_name = if cfg!(windows) {
+            block_id_name[0..block_id_name.len() - 1].to_string()
+        } else {
+            block_id_name.to_string()
+        };
+        if block_id_name == *nu_utils::NULL_DEVICE {
             // If it's the null-device, short circuit and return the input as is
             return Ok(input);
         }
