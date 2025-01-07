@@ -367,6 +367,12 @@ fn get_converted_value(
 
 fn ensure_path(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellError> {
     let mut error = None;
+    let env_vars = engine_state.render_env_vars();
+    let preserve_case_name = env_vars
+        .iter()
+        .find(|(env_name, _)| env_name.to_lowercase() == "path")
+        .map(|(env_name, _)| env_name)
+        .unwrap_or(&"PATH");
 
     // If PATH/Path is still a string, force-convert it to a list
     if let Some(value) = stack.get_env_var_insensitive(engine_state, "Path") {
@@ -378,15 +384,17 @@ fn ensure_path(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellErr
                     .map(|p| Value::string(p.to_string_lossy().to_string(), span))
                     .collect();
 
-                stack.add_env_var("path".to_string(), Value::list(paths, span));
+                stack.add_env_var(preserve_case_name.to_string(), Value::list(paths, span));
             }
             Value::List { vals, .. } => {
                 // Must be a list of strings
                 if !vals.iter().all(|v| matches!(v, Value::String { .. })) {
                     error = error.or_else(|| {
                         Some(ShellError::GenericError {
-                            error: "Wrong Path environment variable value".into(),
-                            msg: "Path must be a list of strings".into(),
+                            error: format!(
+                                "Incorrect {preserve_case_name} environment variable value"
+                            ),
+                            msg: format!("{preserve_case_name} must be a list of strings"),
                             span: Some(span),
                             help: None,
                             inner: vec![],
@@ -401,8 +409,8 @@ fn ensure_path(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellErr
 
                 error = error.or_else(|| {
                     Some(ShellError::GenericError {
-                        error: "Wrong Path environment variable value".into(),
-                        msg: "Path must be a list of strings".into(),
+                        error: format!("Incorrect {preserve_case_name} environment variable value"),
+                        msg: format!("{preserve_case_name} must be a list of strings"),
                         span: Some(span),
                         help: None,
                         inner: vec![],
