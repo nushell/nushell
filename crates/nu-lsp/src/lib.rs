@@ -2,7 +2,10 @@
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
-    request::{Completion, GotoDefinition, HoverRequest, Request},
+    request::{
+        Completion, DocumentSymbolRequest, GotoDefinition, HoverRequest, Request,
+        WorkspaceSymbolRequest,
+    },
     CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
     GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location,
     MarkupContent, MarkupKind, OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit,
@@ -13,7 +16,7 @@ use nu_cli::{NuCompleter, SuggestionKind};
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     ast::Block,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{CachedFile, EngineState, Stack, StateWorkingSet},
     DeclId, Span, Value, VarId,
 };
 use std::{
@@ -22,10 +25,12 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use symbols::SymbolCache;
 use url::Url;
 
 mod diagnostics;
 mod notification;
+mod symbols;
 
 #[derive(Debug)]
 enum Id {
@@ -39,12 +44,10 @@ pub struct LanguageServer {
     io_threads: Option<IoThreads>,
     docs: TextDocuments,
     engine_state: EngineState,
+    symbol_cache: SymbolCache,
 }
 
-pub fn path_to_uri<P>(path: P) -> Uri
-where
-    P: AsRef<Path>,
-{
+pub fn path_to_uri(path: impl AsRef<Path>) -> Uri {
     Uri::from_str(
         Url::from_file_path(path)
             .expect("Failed to convert path to Url")
@@ -58,6 +61,12 @@ pub fn uri_to_path(uri: &Uri) -> PathBuf {
         .expect("Failed to convert Uri to Url")
         .to_file_path()
         .expect("Failed to convert Url to path")
+}
+
+pub fn span_to_range(span: &Span, file: &FullTextDocument, offset: usize) -> Range {
+    let start = file.position_at(span.start.saturating_sub(offset) as u32);
+    let end = file.position_at(span.end.saturating_sub(offset) as u32);
+    Range { start, end }
 }
 
 impl LanguageServer {
@@ -76,6 +85,7 @@ impl LanguageServer {
             io_threads,
             docs: TextDocuments::new(),
             engine_state,
+            symbol_cache: SymbolCache::new(),
         })
     }
 
@@ -87,6 +97,8 @@ impl LanguageServer {
             definition_provider: Some(OneOf::Left(true)),
             hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
             completion_provider: Some(lsp_types::CompletionOptions::default()),
+            document_symbol_provider: Some(OneOf::Left(true)),
+            workspace_symbol_provider: Some(OneOf::Left(true)),
             ..Default::default()
         })
         .expect("Must be serializable");
@@ -131,6 +143,14 @@ impl LanguageServer {
                         Completion::METHOD => {
                             Self::handle_lsp_request(request, |params| self.complete(params))
                         }
+                        DocumentSymbolRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.document_symbol(params))
+                        }
+                        WorkspaceSymbolRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| {
+                                self.workspace_symbol(params)
+                            })
+                        }
                         _ => {
                             continue;
                         }
@@ -144,6 +164,7 @@ impl LanguageServer {
                 Message::Response(_) => {}
                 Message::Notification(notification) => {
                     if let Some(updated_file) = self.handle_lsp_notification(notification) {
+                        self.symbol_cache.mark_dirty(updated_file.clone(), true);
                         self.publish_diagnostics_for_file(updated_file)?;
                     }
                 }
@@ -157,7 +178,13 @@ impl LanguageServer {
         Ok(())
     }
 
-    pub fn update_engine_state<'a>(
+    pub fn new_engine_state(&self) -> EngineState {
+        let mut engine_state = self.engine_state.clone();
+        engine_state.add_env_var("PWD".into(), Value::test_string("."));
+        engine_state
+    }
+
+    pub fn parse_file<'a>(
         &mut self,
         engine_state: &'a mut EngineState,
         uri: &Uri,
@@ -176,6 +203,40 @@ impl LanguageServer {
         // TODO: merge delta back to engine_state?
         // self.engine_state.merge_delta(working_set.render());
         Some((block, offset, working_set, file))
+    }
+
+    fn get_location_by_span<'a>(
+        &self,
+        files: impl Iterator<Item = &'a CachedFile>,
+        span: &Span,
+    ) -> Option<Location> {
+        for cached_file in files.into_iter() {
+            if cached_file.covered_span.contains(span.start) {
+                let path = Path::new(&*cached_file.name);
+                if !(path.exists() && path.is_file()) {
+                    return None;
+                }
+                let target_uri = path_to_uri(path);
+                if let Some(doc) = self.docs.get_document(&target_uri) {
+                    return Some(Location {
+                        uri: target_uri,
+                        range: span_to_range(span, doc, cached_file.covered_span.start),
+                    });
+                } else {
+                    // in case where the document is not opened yet, typically included by `nu -I`
+                    let temp_doc = FullTextDocument::new(
+                        "nu".to_string(),
+                        0,
+                        String::from_utf8((*cached_file.content).to_vec()).expect("Invalid UTF-8"),
+                    );
+                    return Some(Location {
+                        uri: target_uri,
+                        range: span_to_range(span, &temp_doc, cached_file.covered_span.start),
+                    });
+                }
+            }
+        }
+        None
     }
 
     fn handle_lsp_request<P, H, R>(req: lsp_server::Request, mut param_handler: H) -> Response
@@ -207,12 +268,6 @@ impl LanguageServer {
         }
     }
 
-    fn span_to_range(span: &Span, file: &FullTextDocument, offset: usize) -> Range {
-        let start = file.position_at(span.start.saturating_sub(offset) as u32);
-        let end = file.position_at(span.end.saturating_sub(offset) as u32);
-        Range { start, end }
-    }
-
     fn find_id(
         flattened: Vec<(Span, FlatShape)>,
         location: usize,
@@ -236,40 +291,8 @@ impl LanguageServer {
         None
     }
 
-    fn get_location_by_span(&self, working_set: &StateWorkingSet, span: &Span) -> Option<Location> {
-        for cached_file in working_set.files() {
-            if cached_file.covered_span.contains(span.start) {
-                let path = Path::new(&*cached_file.name);
-                if !(path.exists() && path.is_file()) {
-                    return None;
-                }
-                let target_uri = path_to_uri(path);
-                if let Some(doc) = self.docs.get_document(&target_uri) {
-                    return Some(Location {
-                        uri: target_uri,
-                        range: Self::span_to_range(span, doc, cached_file.covered_span.start),
-                    });
-                } else {
-                    // in case where the document is not opened yet, typically included by `nu -I`
-                    let temp_doc = FullTextDocument::new(
-                        "Unk".to_string(),
-                        0,
-                        String::from_utf8((*cached_file.content).to_vec()).expect("Invalid UTF-8"),
-                    );
-                    return Some(Location {
-                        uri: target_uri,
-                        range: Self::span_to_range(span, &temp_doc, cached_file.covered_span.start),
-                    });
-                }
-            }
-        }
-        None
-    }
-
     fn goto_definition(&mut self, params: &GotoDefinitionParams) -> Option<GotoDefinitionResponse> {
-        let mut engine_state = self.engine_state.clone();
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+        let mut engine_state = self.new_engine_state();
 
         let path_uri = params
             .text_document_position_params
@@ -277,7 +300,7 @@ impl LanguageServer {
             .uri
             .to_owned();
         let (block, file_offset, working_set, file) =
-            self.update_engine_state(&mut engine_state, &path_uri)?;
+            self.parse_file(&mut engine_state, &path_uri)?;
         let flattened = flatten_block(&working_set, &block);
         let (id, _, _) = Self::find_id(
             flattened,
@@ -297,14 +320,12 @@ impl LanguageServer {
             _ => None,
         }?;
         Some(GotoDefinitionResponse::Scalar(
-            self.get_location_by_span(&working_set, &span)?,
+            self.get_location_by_span(working_set.files(), &span)?,
         ))
     }
 
     fn hover(&mut self, params: &HoverParams) -> Option<Hover> {
-        let mut engine_state = self.engine_state.clone();
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+        let mut engine_state = self.new_engine_state();
 
         let path_uri = params
             .text_document_position_params
@@ -312,7 +333,7 @@ impl LanguageServer {
             .uri
             .to_owned();
         let (block, file_offset, working_set, file) =
-            self.update_engine_state(&mut engine_state, &path_uri)?;
+            self.parse_file(&mut engine_state, &path_uri)?;
         let flattened = flatten_block(&working_set, &block);
         let (id, _, _) = Self::find_id(
             flattened,

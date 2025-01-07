@@ -73,6 +73,10 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.num_virtual_paths() + self.permanent_state.num_virtual_paths()
     }
 
+    pub fn num_vars(&self) -> usize {
+        self.delta.num_vars() + self.permanent_state.num_vars()
+    }
+
     pub fn num_decls(&self) -> usize {
         self.delta.num_decls() + self.permanent_state.num_decls()
     }

@@ -1,21 +1,16 @@
-use crate::LanguageServer;
+use crate::{span_to_range, LanguageServer};
 use lsp_types::{
     notification::{Notification, PublishDiagnostics},
     Diagnostic, DiagnosticSeverity, PublishDiagnosticsParams, Uri,
 };
 use miette::{IntoDiagnostic, Result};
-use nu_protocol::Value;
 
 impl LanguageServer {
     pub(crate) fn publish_diagnostics_for_file(&mut self, uri: Uri) -> Result<()> {
-        let mut engine_state = self.engine_state.clone();
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+        let mut engine_state = self.new_engine_state();
         engine_state.generate_nu_constant();
 
-        let Some((_, offset, working_set, file)) =
-            self.update_engine_state(&mut engine_state, &uri)
-        else {
+        let Some((_, offset, working_set, file)) = self.parse_file(&mut engine_state, &uri) else {
             return Ok(());
         };
 
@@ -29,7 +24,7 @@ impl LanguageServer {
             let message = err.to_string();
 
             diagnostics.diagnostics.push(Diagnostic {
-                range: Self::span_to_range(&err.span(), file, offset),
+                range: span_to_range(&err.span(), file, offset),
                 severity: Some(DiagnosticSeverity::ERROR),
                 message,
                 ..Default::default()
