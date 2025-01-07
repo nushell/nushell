@@ -3494,6 +3494,20 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                     }
                 };
 
+                if val.is_nothing() {
+                    let mut call = call;
+                    call.set_parser_info(
+                        "noop".to_string(),
+                        Expression::new_unknown(Expr::Nothing, Span::unknown(), Type::Nothing),
+                    );
+                    return Pipeline::from_vec(vec![Expression::new(
+                        working_set,
+                        Expr::Call(call),
+                        Span::concat(spans),
+                        Type::Any,
+                    )]);
+                }
+
                 let filename = match val.coerce_into_string() {
                     Ok(s) => s,
                     Err(err) => {

@@ -16,7 +16,7 @@ impl Command for Source {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .required(
                 "filename",
-                SyntaxShape::Filepath,
+                SyntaxShape::OneOf(vec![SyntaxShape::Filepath, SyntaxShape::Nothing]),
                 "The filepath to the script file to source.",
             )
             .category(Category::Core)
@@ -42,6 +42,9 @@ impl Command for Source {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        if call.get_parser_info(stack, "noop").is_some() {
+            return Ok(PipelineData::empty());
+        }
         // Note: two hidden positionals are used here that are injected by the parser:
         // 1. The block_id that corresponded to the 0th position
         // 2. The block_id_name that corresponded to the file name at the 0th position
