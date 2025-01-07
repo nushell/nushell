@@ -6,8 +6,6 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-const GLOB_CHARS: &[char] = &['*', '?', '['];
-
 /// This function is like `nu_glob::glob` from the `glob` crate, except it is relative to a given cwd.
 ///
 /// It returns a tuple of two values: the first is an optional prefix that the expanded filenames share.
@@ -29,7 +27,7 @@ pub fn glob_from(
     ShellError,
 > {
     let no_glob_for_pattern = matches!(pattern.item, NuGlob::DoNotExpand(_));
-    let (prefix, pattern) = if pattern.item.as_ref().contains(GLOB_CHARS) {
+    let (prefix, pattern) = if nu_glob::is_glob(pattern.item.as_ref()) {
         // Pattern contains glob, split it
         let mut p = PathBuf::new();
         let path = PathBuf::from(&pattern.item.as_ref());
@@ -38,7 +36,7 @@ pub fn glob_from(
 
         for c in components {
             if let Component::Normal(os) = c {
-                if os.to_string_lossy().contains(GLOB_CHARS) {
+                if nu_glob::is_glob(os.to_string_lossy().as_ref()) {
                     break;
                 }
             }
@@ -73,8 +71,8 @@ pub fn glob_from(
             (path.parent().map(|parent| parent.to_path_buf()), path)
         } else {
             let path = if let Ok(p) = canonicalize_with(path.clone(), cwd) {
-                if p.to_string_lossy().contains(GLOB_CHARS) {
-                    // our path might contains GLOB_CHARS too
+                if nu_glob::is_glob(p.to_string_lossy().as_ref()) {
+                    // our path might contain glob metacharacters too.
                     // in such case, we need to escape our path to make
                     // glob work successfully
                     PathBuf::from(nu_glob::Pattern::escape(&p.to_string_lossy()))

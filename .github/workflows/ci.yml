@@ -96,7 +96,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1.10.1
 
       - name: Install Nushell
-        run: cargo install --path . --locked --no-default-features
+        run: cargo install --path . --locked --no-default-features --force
 
       - name: Standard library tests
         run: nu -c 'use crates/nu-std/testing.nu; testing run-tests --path crates/nu-std'

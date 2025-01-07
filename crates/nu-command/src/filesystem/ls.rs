@@ -33,8 +33,6 @@ struct Args {
     call_span: Span,
 }
 
-const GLOB_CHARS: &[char] = &['*', '?', '['];
-
 impl Command for Ls {
     fn name(&self) -> &str {
         "ls"
@@ -291,7 +289,7 @@ fn ls_for_one_pattern(
                 {
                     return Ok(Value::test_nothing().into_pipeline_data());
                 }
-                just_read_dir = !(pat.item.is_expand() && pat.item.as_ref().contains(GLOB_CHARS));
+                just_read_dir = !(pat.item.is_expand() && nu_glob::is_glob(pat.item.as_ref()));
             }
 
             // it's absolute path if:

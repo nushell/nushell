@@ -62,50 +62,29 @@ fn extern_completer() -> NuCompleter {
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
 }
 
-#[fixture]
-fn completer_strings_with_options() -> NuCompleter {
-    // Create a new engine
+fn custom_completer_with_options(
+    global_opts: &str,
+    completer_opts: &str,
+    completions: &[&str],
+) -> NuCompleter {
     let (_, _, mut engine, mut stack) = new_engine();
-    // Add record value as example
-    let record = r#"
-        # To test that the config setting has no effect on the custom completions
-        $env.config.completions.algorithm = "fuzzy"
-        def animals [] {
-            {
-                # Very rare and totally real animals
-                completions: ["Abcdef", "Foo Abcdef", "Acd Bar" ],
-                options: {
-                    completion_algorithm: "prefix",
-                    positional: false,
-                    case_sensitive: false,
-                }
-            }
-        }
-        def my-command [animal: string@animals] { print $animal }"#;
-    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
-
-    // Instantiate a new completer
-    NuCompleter::new(Arc::new(engine), Arc::new(stack))
-}
-
-#[fixture]
-fn completer_strings_no_sort() -> NuCompleter {
-    // Create a new engine
-    let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"
-        def animals [] {
-            {
-                completions: ["zzzfoo", "foo", "not matched", "abcfoo" ],
-                options: {
-                    completion_algorithm: "fuzzy",
-                    sort: false,
-                }
-            }
-        }
-        def my-command [animal: string@animals] { print $animal }"#;
+    let command = format!(
+        r#"
+        {}
+        def comp [] {{
+            {{ completions: [{}], options: {{ {} }} }}
+        }}
+        def my-command [arg: string@comp] {{}}"#,
+        global_opts,
+        completions
+            .iter()
+            .map(|comp| format!("'{}'", comp))
+            .collect::<Vec<_>>()
+            .join(", "),
+        completer_opts,
+    );
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
-    // Instantiate a new completer
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
 }
 
@@ -217,23 +196,59 @@ fn variables_customcompletion_subcommands_with_customcompletion_2(
     match_suggestions(&expected, &suggestions);
 }
 
-#[rstest]
-fn customcompletions_substring_matching(mut completer_strings_with_options: NuCompleter) {
-    let suggestions = completer_strings_with_options.complete("my-command Abcd", 15);
+/// $env.config should be overridden by the custom completer's options
+#[test]
+fn customcompletions_override_options() {
+    let mut completer = custom_completer_with_options(
+        r#"$env.config.completions.algorithm = "fuzzy"
+           $env.config.completions.case_sensitive = false"#,
+        r#"completion_algorithm: "prefix",
+           positional: false,
+           case_sensitive: true,
+           sort: true"#,
+        &["Foo Abcdef", "Abcdef", "Acd Bar"],
+    );
+
+    // positional: false should make it do substring matching
+    // sort: true should force sorting
     let expected: Vec<String> = vec!["Abcdef".into(), "Foo Abcdef".into()];
+    let suggestions = completer.complete("my-command Abcd", 15);
+    match_suggestions(&expected, &suggestions);
+
+    // Custom options should make case-sensitive
+    let suggestions = completer.complete("my-command aBcD", 15);
+    assert!(suggestions.is_empty());
+}
+
+/// $env.config should be inherited by the custom completer's options
+#[test]
+fn customcompletions_inherit_options() {
+    let mut completer = custom_completer_with_options(
+        r#"$env.config.completions.algorithm = "fuzzy"
+           $env.config.completions.case_sensitive = false"#,
+        "",
+        &["Foo Abcdef", "Abcdef", "Acd Bar"],
+    );
+
+    // Make sure matching is fuzzy
+    let suggestions = completer.complete("my-command Acd", 14);
+    let expected: Vec<String> = vec!["Acd Bar".into(), "Abcdef".into(), "Foo Abcdef".into()];
+    match_suggestions(&expected, &suggestions);
+
+    // Custom options should make matching case insensitive
+    let suggestions = completer.complete("my-command acd", 14);
     match_suggestions(&expected, &suggestions);
 }
 
-#[rstest]
-fn customcompletions_case_insensitive(mut completer_strings_with_options: NuCompleter) {
-    let suggestions = completer_strings_with_options.complete("my-command foo", 14);
-    let expected: Vec<String> = vec!["Foo Abcdef".into()];
-    match_suggestions(&expected, &suggestions);
-}
-
-#[rstest]
-fn customcompletions_no_sort(mut completer_strings_no_sort: NuCompleter) {
-    let suggestions = completer_strings_no_sort.complete("my-command foo", 14);
+#[test]
+fn customcompletions_no_sort() {
+    let mut completer = custom_completer_with_options(
+        "",
+        r#"completion_algorithm: "fuzzy",
+           sort: false"#,
+        &["zzzfoo", "foo", "not matched", "abcfoo"],
+    );
+    let suggestions = completer.complete("my-command foo", 14);
     let expected: Vec<String> = vec!["zzzfoo".into(), "foo".into(), "abcfoo".into()];
     match_suggestions(&expected, &suggestions);
 }
@@ -1357,7 +1372,7 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(18, suggestions.len());
+    assert_eq!(19, suggestions.len());
 
     let expected: Vec<String> = vec![
         "cache-dir".into(),
@@ -1377,6 +1392,7 @@ fn variables_completions() {
         "plugin-path".into(),
         "startup-time".into(),
         "temp-path".into(),
+        "user-autoload-dirs".into(),
         "vendor-autoload-dirs".into(),
     ];
 

@@ -95,44 +95,44 @@ Commands that work in the pipeline fit into one of three categories:
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 
 ```shell
-> ls | where type == "dir" | table
-╭────┬──────────┬──────┬─────────┬───────────────╮
-│ #  │   name   │ type │  size   │   modified    │
-├────┼──────────┼──────┼─────────┼───────────────┤
-│  0 │ .cargo   │ dir  │     0 B │ 9 minutes ago │
-│  1 │ assets   │ dir  │     0 B │ 2 weeks ago   │
-│  2 │ crates   │ dir  │ 4.0 KiB │ 2 weeks ago   │
-│  3 │ docker   │ dir  │     0 B │ 2 weeks ago   │
-│  4 │ docs     │ dir  │     0 B │ 2 weeks ago   │
-│  5 │ images   │ dir  │     0 B │ 2 weeks ago   │
-│  6 │ pkg_mgrs │ dir  │     0 B │ 2 weeks ago   │
-│  7 │ samples  │ dir  │     0 B │ 2 weeks ago   │
-│  8 │ src      │ dir  │ 4.0 KiB │ 2 weeks ago   │
-│  9 │ target   │ dir  │     0 B │ a day ago     │
-│ 10 │ tests    │ dir  │ 4.0 KiB │ 2 weeks ago   │
-│ 11 │ wix      │ dir  │     0 B │ 2 weeks ago   │
-╰────┴──────────┴──────┴─────────┴───────────────╯
+ls | where type == "dir" | table
+# => ╭────┬──────────┬──────┬─────────┬───────────────╮
+# => │ #  │   name   │ type │  size   │   modified    │
+# => ├────┼──────────┼──────┼─────────┼───────────────┤
+# => │  0 │ .cargo   │ dir  │     0 B │ 9 minutes ago │
+# => │  1 │ assets   │ dir  │     0 B │ 2 weeks ago   │
+# => │  2 │ crates   │ dir  │ 4.0 KiB │ 2 weeks ago   │
+# => │  3 │ docker   │ dir  │     0 B │ 2 weeks ago   │
+# => │  4 │ docs     │ dir  │     0 B │ 2 weeks ago   │
+# => │  5 │ images   │ dir  │     0 B │ 2 weeks ago   │
+# => │  6 │ pkg_mgrs │ dir  │     0 B │ 2 weeks ago   │
+# => │  7 │ samples  │ dir  │     0 B │ 2 weeks ago   │
+# => │  8 │ src      │ dir  │ 4.0 KiB │ 2 weeks ago   │
+# => │  9 │ target   │ dir  │     0 B │ a day ago     │
+# => │ 10 │ tests    │ dir  │ 4.0 KiB │ 2 weeks ago   │
+# => │ 11 │ wix      │ dir  │     0 B │ 2 weeks ago   │
+# => ╰────┴──────────┴──────┴─────────┴───────────────╯
 ```
 
 Because most of the time you'll want to see the output of a pipeline, `table` is assumed.
 We could have also written the above:
 
 ```shell
-> ls | where type == "dir"
+ls | where type == "dir"
 ```
 
 Being able to use the same commands and compose them differently is an important philosophy in Nu.
 For example, we could use the built-in `ps` command to get a list of the running processes, using the same `where` as above.
 
 ```shell
-> ps | where cpu > 0
-╭───┬───────┬───────────┬───────┬───────────┬───────────╮
-│ # │  pid  │   name    │  cpu  │    mem    │  virtual  │
-├───┼───────┼───────────┼───────┼───────────┼───────────┤
-│ 0 │  2240 │ Slack.exe │ 16.40 │ 178.3 MiB │ 232.6 MiB │
-│ 1 │ 16948 │ Slack.exe │ 16.32 │ 205.0 MiB │ 197.9 MiB │
-│ 2 │ 17700 │ nu.exe    │  3.77 │  26.1 MiB │   8.8 MiB │
-╰───┴───────┴───────────┴───────┴───────────┴───────────╯
+ps | where cpu > 0
+# => ╭───┬───────┬───────────┬───────┬───────────┬───────────╮
+# => │ # │  pid  │   name    │  cpu  │    mem    │  virtual  │
+# => ├───┼───────┼───────────┼───────┼───────────┼───────────┤
+# => │ 0 │  2240 │ Slack.exe │ 16.40 │ 178.3 MiB │ 232.6 MiB │
+# => │ 1 │ 16948 │ Slack.exe │ 16.32 │ 205.0 MiB │ 197.9 MiB │
+# => │ 2 │ 17700 │ nu.exe    │  3.77 │  26.1 MiB │   8.8 MiB │
+# => ╰───┴───────┴───────────┴───────┴───────────┴───────────╯
 ```
 
 ### Opening files
@@ -141,46 +141,46 @@ Nu can load file and URL contents as raw text or structured data (if it recogniz
 For example, you can load a .toml file as structured data and explore it:
 
 ```shell
-> open Cargo.toml
-╭──────────────────┬────────────────────╮
-│ bin              │ [table 1 row]      │
-│ dependencies     │ {record 25 fields} │
-│ dev-dependencies │ {record 8 fields}  │
-│ features         │ {record 10 fields} │
-│ package          │ {record 13 fields} │
-│ patch            │ {record 1 field}   │
-│ profile          │ {record 3 fields}  │
-│ target           │ {record 3 fields}  │
-│ workspace        │ {record 1 field}   │
-╰──────────────────┴────────────────────╯
+open Cargo.toml
+# => ╭──────────────────┬────────────────────╮
+# => │ bin              │ [table 1 row]      │
+# => │ dependencies     │ {record 25 fields} │
+# => │ dev-dependencies │ {record 8 fields}  │
+# => │ features         │ {record 10 fields} │
+# => │ package          │ {record 13 fields} │
+# => │ patch            │ {record 1 field}   │
+# => │ profile          │ {record 3 fields}  │
+# => │ target           │ {record 3 fields}  │
+# => │ workspace        │ {record 1 field}   │
+# => ╰──────────────────┴────────────────────╯
 ```
 
 We can pipe this into a command that gets the contents of one of the columns:
 
 ```shell
-> open Cargo.toml | get package
-╭───────────────┬────────────────────────────────────╮
-│ authors       │ [list 1 item]                      │
-│ default-run   │ nu                                 │
-│ description   │ A new type of shell                │
-│ documentation │ https://www.nushell.sh/book/       │
-│ edition       │ 2018                               │
-│ exclude       │ [list 1 item]                      │
-│ homepage      │ https://www.nushell.sh             │
-│ license       │ MIT                                │
-│ metadata      │ {record 1 field}                   │
-│ name          │ nu                                 │
-│ repository    │ https://github.com/nushell/nushell │
-│ rust-version  │ 1.60                               │
-│ version       │ 0.72.0                             │
-╰───────────────┴────────────────────────────────────╯
+open Cargo.toml | get package
+# => ╭───────────────┬────────────────────────────────────╮
+# => │ authors       │ [list 1 item]                      │
+# => │ default-run   │ nu                                 │
+# => │ description   │ A new type of shell                │
+# => │ documentation │ https://www.nushell.sh/book/       │
+# => │ edition       │ 2018                               │
+# => │ exclude       │ [list 1 item]                      │
+# => │ homepage      │ https://www.nushell.sh             │
+# => │ license       │ MIT                                │
+# => │ metadata      │ {record 1 field}                   │
+# => │ name          │ nu                                 │
+# => │ repository    │ https://github.com/nushell/nushell │
+# => │ rust-version  │ 1.60                               │
+# => │ version       │ 0.72.0                             │
+# => ╰───────────────┴────────────────────────────────────╯
 ```
 
 And if needed we can drill down further:
 
 ```shell
-> open Cargo.toml | get package.version
-0.72.0
+open Cargo.toml | get package.version
+# => 0.72.0
 ```
 
 ### Plugins

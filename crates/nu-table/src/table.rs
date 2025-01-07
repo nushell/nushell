@@ -1,31 +1,38 @@
-use crate::{convert_style, table_theme::TableTheme};
+use std::{cmp::min, collections::HashMap};
+
 use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
-use nu_protocol::TrimStrategy;
+use nu_protocol::{TableIndent, TrimStrategy};
 use nu_utils::strip_ansi_unlikely;
-use std::{cmp::min, collections::HashMap};
+
 use tabled::{
     builder::Builder,
     grid::{
         ansi::ANSIBuf,
         colors::Colors,
-        config::{AlignmentHorizontal, ColoredConfig, Entity, EntityMap, Position},
+        config::{AlignmentHorizontal, ColoredConfig, Entity, Position},
         dimension::CompleteDimensionVecRecords,
         records::{
             vec_records::{Cell, Text, VecRecords},
-            ExactRecords, PeekableRecords, Records, Resizable,
+            ExactRecords, Records, Resizable,
         },
     },
     settings::{
+        format::FormatContent,
         formatting::AlignmentStrategy,
-        object::{Columns, Segment},
-        peaker::Peaker,
+        object::{Columns, Row, Rows},
+        peaker::Priority,
         themes::ColumnNames,
         width::Truncate,
-        Alignment, Color, Modify, Padding, Settings, TableOption, Width,
+        Alignment, Color, Format, Modify, ModifyList, Padding, Settings, TableOption, Width,
     },
     Table,
 };
+
+use crate::{convert_style, is_color_empty, table_theme::TableTheme};
+
+pub type NuRecords = VecRecords<NuRecordsValue>;
+pub type NuRecordsValue = Text<String>;
 
 /// NuTable is a table rendering implementation.
 #[derive(Debug, Clone)]
@@ -33,27 +40,7 @@ pub struct NuTable {
     data: NuRecords,
     styles: Styles,
     alignments: Alignments,
-    indent: (usize, usize),
-}
-
-pub type NuRecords = VecRecords<NuTableCell>;
-pub type NuTableCell = Text<String>;
-
-#[derive(Debug, Default, Clone)]
-struct Styles {
-    index: ANSIBuf,
-    header: ANSIBuf,
-    data: EntityMap<ANSIBuf>,
-    data_is_set: bool,
-}
-
-#[derive(Debug, Clone)]
-struct Alignments {
-    data: AlignmentHorizontal,
-    index: AlignmentHorizontal,
-    header: AlignmentHorizontal,
-    columns: HashMap<usize, AlignmentHorizontal>,
-    cells: HashMap<Position, AlignmentHorizontal>,
+    config: TableConfig,
 }
 
 impl NuTable {
@@ -62,13 +49,21 @@ impl NuTable {
         Self {
             data: VecRecords::new(vec![vec![Text::default(); count_columns]; count_rows]),
             styles: Styles::default(),
-            indent: (1, 1),
             alignments: Alignments {
                 data: AlignmentHorizontal::Left,
                 index: AlignmentHorizontal::Right,
                 header: AlignmentHorizontal::Center,
                 columns: HashMap::default(),
                 cells: HashMap::default(),
+            },
+            config: TableConfig {
+                theme: TableTheme::basic(),
+                trim: TrimStrategy::truncate(None),
+                structure: TableStructure::new(false, false, false),
+                indent: TableIndent::new(1, 1),
+                header_on_border: false,
+                expand: false,
+                border_color: None,
             },
         }
     }
@@ -87,11 +82,23 @@ impl NuTable {
         self.data[pos.0][pos.1] = Text::new(text);
     }
 
+    pub fn insert_row(&mut self, index: usize, row: Vec<String>) {
+        let data = &mut self.data[index];
+
+        for (col, text) in row.into_iter().enumerate() {
+            data[col] = Text::new(text);
+        }
+    }
+
+    pub fn set_row(&mut self, index: usize, row: Vec<NuRecordsValue>) {
+        assert_eq!(self.data[index].len(), row.len());
+        self.data[index] = row;
+    }
+
     pub fn set_column_style(&mut self, column: usize, style: TextStyle) {
         if let Some(style) = style.color_style {
-            let style = ANSIBuf::from(convert_style(style));
-            self.styles.data.insert(Entity::Column(column), style);
-            self.styles.data_is_set = true;
+            let style = convert_style(style);
+            self.styles.columns.insert(column, style);
         }
 
         let alignment = convert_alignment(style.alignment);
@@ -102,9 +109,8 @@ impl NuTable {
 
     pub fn insert_style(&mut self, pos: Position, style: TextStyle) {
         if let Some(style) = style.color_style {
-            let style = ANSIBuf::from(convert_style(style));
-            self.styles.data.insert(Entity::Cell(pos.0, pos.1), style);
-            self.styles.data_is_set = true;
+            let style = convert_style(style);
+            self.styles.cells.insert(pos, style);
         }
 
         let alignment = convert_alignment(style.alignment);
@@ -115,7 +121,7 @@ impl NuTable {
 
     pub fn set_header_style(&mut self, style: TextStyle) {
         if let Some(style) = style.color_style {
-            let style = ANSIBuf::from(convert_style(style));
+            let style = convert_style(style);
             self.styles.header = style;
         }
 
@@ -124,7 +130,7 @@ impl NuTable {
 
     pub fn set_index_style(&mut self, style: TextStyle) {
         if let Some(style) = style.color_style {
-            let style = ANSIBuf::from(convert_style(style));
+            let style = convert_style(style);
             self.styles.index = style;
         }
 
@@ -133,16 +139,39 @@ impl NuTable {
 
     pub fn set_data_style(&mut self, style: TextStyle) {
         if let Some(style) = style.color_style {
-            let style = ANSIBuf::from(convert_style(style));
-            self.styles.data.insert(Entity::Global, style);
-            self.styles.data_is_set = true;
+            let style = convert_style(style);
+            self.styles.data = style;
         }
 
         self.alignments.data = convert_alignment(style.alignment);
     }
 
-    pub fn set_indent(&mut self, left: usize, right: usize) {
-        self.indent = (left, right);
+    pub fn set_indent(&mut self, indent: TableIndent) {
+        self.config.indent = indent;
+    }
+
+    pub fn set_theme(&mut self, theme: TableTheme) {
+        self.config.theme = theme;
+    }
+
+    pub fn set_structure(&mut self, index: bool, header: bool, footer: bool) {
+        self.config.structure = TableStructure::new(index, header, footer);
+    }
+
+    pub fn set_border_header(&mut self, on: bool) {
+        self.config.header_on_border = on;
+    }
+
+    pub fn set_trim(&mut self, strategy: TrimStrategy) {
+        self.config.trim = strategy;
+    }
+
+    pub fn set_strategy(&mut self, expand: bool) {
+        self.config.expand = expand;
+    }
+
+    pub fn set_border_color(&mut self, color: Style) {
+        self.config.border_color = (!color.is_plain()).then_some(color);
     }
 
     pub fn get_records_mut(&mut self) -> &mut NuRecords {
@@ -152,21 +181,15 @@ impl NuTable {
     /// Converts a table to a String.
     ///
     /// It returns None in case where table cannot be fit to a terminal width.
-    pub fn draw(self, config: NuTableConfig, termwidth: usize) -> Option<String> {
-        build_table(
-            self.data,
-            config,
-            self.alignments,
-            self.styles,
-            termwidth,
-            self.indent,
-        )
+    pub fn draw(self, termwidth: usize) -> Option<String> {
+        build_table(self, termwidth)
     }
 
     /// Return a total table width.
-    pub fn total_width(&self, config: &NuTableConfig) -> usize {
-        let config = get_config(&config.theme, false, None);
-        let widths = build_width(&self.data, self.indent.0 + self.indent.1);
+    pub fn total_width(&self) -> usize {
+        let config = create_config(&self.config.theme, false, None);
+        let pad = indent_sum(self.config.indent);
+        let widths = build_width(&self.data, pad);
         get_total_width2(&widths, &config)
     }
 }
@@ -180,148 +203,173 @@ impl From<Vec<Vec<Text<String>>>> for NuTable {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct NuTableConfig {
-    pub theme: TableTheme,
-    pub trim: TrimStrategy,
-    pub split_color: Option<Style>,
-    pub expand: bool,
-    pub with_index: bool,
-    pub with_header: bool,
-    pub with_footer: bool,
-    pub header_on_border: bool,
+type Alignments = CellConfiguration<AlignmentHorizontal>;
+
+type Styles = CellConfiguration<Color>;
+
+#[derive(Debug, Default, Clone)]
+struct CellConfiguration<Value> {
+    data: Value,
+    index: Value,
+    header: Value,
+    columns: HashMap<usize, Value>,
+    cells: HashMap<Position, Value>,
 }
 
-impl Default for NuTableConfig {
-    fn default() -> Self {
+#[derive(Debug, Clone)]
+pub struct TableConfig {
+    theme: TableTheme,
+    trim: TrimStrategy,
+    border_color: Option<Style>,
+    expand: bool,
+    structure: TableStructure,
+    header_on_border: bool,
+    indent: TableIndent,
+}
+
+#[derive(Debug, Clone)]
+struct TableStructure {
+    with_index: bool,
+    with_header: bool,
+    with_footer: bool,
+}
+
+impl TableStructure {
+    fn new(with_index: bool, with_header: bool, with_footer: bool) -> Self {
         Self {
-            theme: TableTheme::basic(),
-            trim: TrimStrategy::truncate(None),
-            with_header: false,
-            with_index: false,
-            with_footer: false,
-            expand: false,
-            split_color: None,
-            header_on_border: false,
+            with_index,
+            with_header,
+            with_footer,
         }
     }
 }
 
-fn build_table(
-    mut data: NuRecords,
-    cfg: NuTableConfig,
-    alignments: Alignments,
-    styles: Styles,
-    termwidth: usize,
-    indent: (usize, usize),
-) -> Option<String> {
-    if data.count_columns() == 0 || data.count_rows() == 0 {
+fn build_table(mut t: NuTable, termwidth: usize) -> Option<String> {
+    if t.count_columns() == 0 || t.count_rows() == 0 {
         return Some(String::new());
     }
 
-    let pad = indent.0 + indent.1;
-    let widths = maybe_truncate_columns(&mut data, &cfg, termwidth, pad);
+    let widths = table_truncate(&mut t, termwidth)?;
+    table_insert_footer(&mut t);
+    draw_table(t, widths, termwidth)
+}
+
+fn table_insert_footer(t: &mut NuTable) {
+    if t.config.structure.with_header && t.config.structure.with_footer {
+        duplicate_row(&mut t.data, 0);
+    }
+}
+
+fn table_truncate(t: &mut NuTable, termwidth: usize) -> Option<Vec<usize>> {
+    let pad = t.config.indent.left + t.config.indent.right;
+    let widths = maybe_truncate_columns(&mut t.data, &t.config, termwidth, pad);
     if widths.is_empty() {
         return None;
     }
 
-    if cfg.with_header && cfg.with_footer {
-        duplicate_row(&mut data, 0);
-    }
-
-    draw_table(data, alignments, styles, widths, cfg, termwidth, indent)
+    Some(widths)
 }
 
-fn draw_table(
-    data: NuRecords,
-    alignments: Alignments,
-    styles: Styles,
-    widths: Vec<usize>,
-    cfg: NuTableConfig,
-    termwidth: usize,
-    indent: (usize, usize),
-) -> Option<String> {
-    let with_index = cfg.with_index;
-    let with_header = cfg.with_header && data.count_rows() > 1;
-    let with_footer = with_header && cfg.with_footer;
-    let sep_color = cfg.split_color;
-    let border_header = cfg.header_on_border;
+fn draw_table(t: NuTable, widths: Vec<usize>, termwidth: usize) -> Option<String> {
+    let structure = get_table_structure(&t.data, &t.config);
+    let sep_color = t.config.border_color;
+    let border_header = structure.with_header && t.config.header_on_border;
 
-    let data: Vec<Vec<_>> = data.into();
-    let mut table = Builder::from(data).build();
+    let data: Vec<Vec<_>> = t.data.into();
+    let mut table = Builder::from_vec(data).build();
 
-    set_indent(&mut table, indent.0, indent.1);
-    load_theme(&mut table, &cfg.theme, with_footer, with_header, sep_color);
-    align_table(&mut table, alignments, with_index, with_header, with_footer);
-    colorize_table(&mut table, styles, with_index, with_header, with_footer);
+    set_indent(&mut table, t.config.indent);
+    load_theme(&mut table, &t.config.theme, &structure, sep_color);
+    align_table(&mut table, t.alignments, &structure);
+    colorize_table(&mut table, t.styles, &structure);
 
-    let pad = indent.0 + indent.1;
-    let width_ctrl = TableWidthCtrl::new(widths, cfg, termwidth, pad);
+    let pad = indent_sum(t.config.indent);
+    let width_ctrl = WidthCtrl::new(widths, t.config, termwidth, pad);
 
-    if with_header && border_header {
-        set_border_head(&mut table, with_footer, width_ctrl);
-    } else {
-        table.with(width_ctrl);
-    }
+    adjust_table(&mut table, width_ctrl, border_header, structure.with_footer);
 
     table_to_string(table, termwidth)
 }
 
-fn set_indent(table: &mut Table, left: usize, right: usize) {
-    table.with(Padding::new(left, right, 0, 0));
+fn indent_sum(indent: TableIndent) -> usize {
+    indent.left + indent.right
 }
 
-fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) {
-    if with_footer {
-        let count_rows = table.count_rows();
-        let last_row_index = count_rows - 1;
+fn get_table_structure(data: &VecRecords<Text<String>>, cfg: &TableConfig) -> TableStructure {
+    let with_index = cfg.structure.with_index;
+    let with_header = cfg.structure.with_header && data.count_rows() > 1;
+    let with_footer = with_header && cfg.structure.with_footer;
 
-        // note: funnily last and row must be equal at this point but we do not rely on it just in case.
+    TableStructure::new(with_index, with_header, with_footer)
+}
 
-        let mut first_row = GetRow(0, Vec::new());
-        let mut head_settings = GetRowSettings(0, AlignmentHorizontal::Left, None);
-        let mut last_row = GetRow(last_row_index, Vec::new());
-
-        table.with(&mut first_row);
-        table.with(&mut head_settings);
-        table.with(&mut last_row);
-
-        let head = first_row.1;
-        let footer = last_row.1;
-        let alignment = head_settings.1;
-        let head_color = head_settings.2.clone();
-        let footer_color = head_settings.2;
-
-        table.with(
-            Settings::default()
-                .with(StripColorFromRow(0))
-                .with(StripColorFromRow(count_rows - 1))
-                .with(wctrl)
-                .with(MoveRowNext::new(0, 0))
-                .with(MoveRowPrev::new(last_row_index - 1, last_row_index))
-                .with(SetLineHeaders::new(0, head, alignment, head_color))
-                .with(SetLineHeaders::new(
-                    last_row_index - 1,
-                    footer,
-                    alignment,
-                    footer_color,
-                )),
-        );
+fn adjust_table(table: &mut Table, width_ctrl: WidthCtrl, border_header: bool, with_footer: bool) {
+    if border_header {
+        if with_footer {
+            set_border_head_with_footer(table, width_ctrl);
+        } else {
+            set_border_head(table, width_ctrl);
+        }
     } else {
-        let mut row = GetRow(0, Vec::new());
-        let mut row_opts = GetRowSettings(0, AlignmentHorizontal::Left, None);
-
-        table.with(&mut row);
-        table.with(&mut row_opts);
-
-        table.with(
-            Settings::default()
-                .with(StripColorFromRow(0))
-                .with(wctrl)
-                .with(MoveRowNext::new(0, 0))
-                .with(SetLineHeaders::new(0, row.1, row_opts.1, row_opts.2)),
-        );
+        table.with(width_ctrl);
     }
+}
+
+fn set_indent(table: &mut Table, indent: TableIndent) {
+    table.with(Padding::new(indent.left, indent.right, 0, 0));
+}
+
+fn set_border_head(table: &mut Table, wctrl: WidthCtrl) {
+    let mut row = GetRow(0, Vec::new());
+    let mut row_opts = GetRowSettings(0, AlignmentHorizontal::Left, None);
+
+    table.with(&mut row);
+    table.with(&mut row_opts);
+
+    table.with(
+        Settings::default()
+            .with(strip_color_from_row(0))
+            .with(wctrl)
+            .with(MoveRowNext::new(0, 0))
+            .with(SetLineHeaders::new(0, row.1, row_opts.1, row_opts.2)),
+    );
+}
+
+fn set_border_head_with_footer(table: &mut Table, wctrl: WidthCtrl) {
+    // note: funnily last and row must be equal at this point but we do not rely on it just in case.
+
+    let count_rows = table.count_rows();
+    let last_row_index = count_rows - 1;
+
+    let mut first_row = GetRow(0, Vec::new());
+    let mut head_settings = GetRowSettings(0, AlignmentHorizontal::Left, None);
+    let mut last_row = GetRow(last_row_index, Vec::new());
+
+    table.with(&mut first_row);
+    table.with(&mut head_settings);
+    table.with(&mut last_row);
+
+    let head = first_row.1;
+    let footer = last_row.1;
+    let alignment = head_settings.1;
+    let head_color = head_settings.2.clone();
+    let footer_color = head_settings.2;
+
+    table.with(
+        Settings::default()
+            .with(strip_color_from_row(0))
+            .with(strip_color_from_row(count_rows - 1))
+            .with(wctrl)
+            .with(MoveRowNext::new(0, 0))
+            .with(MoveRowPrev::new(last_row_index - 1, last_row_index))
+            .with(SetLineHeaders::new(0, head, alignment, head_color))
+            .with(SetLineHeaders::new(
+                last_row_index - 1,
+                footer,
+                alignment,
+                footer_color,
+            )),
+    );
 }
 
 fn table_to_string(table: Table, termwidth: usize) -> Option<String> {
@@ -335,15 +383,15 @@ fn table_to_string(table: Table, termwidth: usize) -> Option<String> {
     }
 }
 
-struct TableWidthCtrl {
+struct WidthCtrl {
     width: Vec<usize>,
-    cfg: NuTableConfig,
+    cfg: TableConfig,
     width_max: usize,
     pad: usize,
 }
 
-impl TableWidthCtrl {
-    fn new(width: Vec<usize>, cfg: NuTableConfig, max: usize, pad: usize) -> Self {
+impl WidthCtrl {
+    fn new(width: Vec<usize>, cfg: TableConfig, max: usize, pad: usize) -> Self {
         Self {
             width,
             cfg,
@@ -353,7 +401,7 @@ impl TableWidthCtrl {
     }
 }
 
-impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for TableWidthCtrl {
+impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for WidthCtrl {
     fn change(
         self,
         rec: &mut NuRecords,
@@ -362,24 +410,24 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
     ) {
         let total_width = get_total_width2(&self.width, cfg);
 
-        if total_width > self.width_max {
-            let has_header = self.cfg.with_header && rec.count_rows() > 1;
-            let trim_as_head = has_header && self.cfg.header_on_border;
+        let need_truncation = total_width > self.width_max;
+        if need_truncation {
+            let has_header = self.cfg.structure.with_header && rec.count_rows() > 1;
+            let as_head = has_header && self.cfg.header_on_border;
 
-            TableTrim::new(
-                self.width,
-                self.width_max,
-                self.cfg.trim,
-                trim_as_head,
-                self.pad,
-            )
-            .change(rec, cfg, dim);
-        } else if self.cfg.expand && self.width_max > total_width {
-            let opt = (SetDimensions(self.width), Width::increase(self.width_max));
-            TableOption::<VecRecords<_>, _, _>::change(opt, rec, cfg, dim)
-        } else {
-            SetDimensions(self.width).change(rec, cfg, dim);
+            let trim = TableTrim::new(self.width, self.width_max, self.cfg.trim, as_head, self.pad);
+            trim.change(rec, cfg, dim);
+            return;
         }
+
+        let need_expansion = self.cfg.expand && self.width_max > total_width;
+        if need_expansion {
+            let opt = (SetDimensions(self.width), Width::increase(self.width_max));
+            TableOption::<VecRecords<_>, _, _>::change(opt, rec, cfg, dim);
+            return;
+        }
+
+        SetDimensions(self.width).change(rec, cfg, dim);
     }
 }
 
@@ -427,13 +475,13 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
             TrimStrategy::Wrap { try_to_keep_words } => {
                 let wrap = Width::wrap(self.width_max)
                     .keep_words(try_to_keep_words)
-                    .priority(PriorityMax);
+                    .priority(Priority::max(false));
 
                 let opt = (SetDimensions(self.width), wrap);
                 TableOption::<NuRecords, _, _>::change(opt, recs, cfg, dims);
             }
             TrimStrategy::Truncate { suffix } => {
-                let mut truncate = Width::truncate(self.width_max).priority(PriorityMax);
+                let mut truncate = Width::truncate(self.width_max).priority(Priority::max(false));
                 if let Some(suffix) = suffix {
                     truncate = truncate.suffix(suffix).suffix_try_color(true);
                 }
@@ -515,7 +563,7 @@ fn trim_as_header(
                 let wrap = Width::wrap(width).keep_words(*try_to_keep_words);
 
                 let opt = Modify::new(Columns::single(i)).with(wrap);
-                TableOption::<VecRecords<Text<String>>, _, _>::change(opt, recs, cfg, dims);
+                TableOption::<VecRecords<_>, _, _>::change(opt, recs, cfg, dims);
             }
             TrimStrategy::Truncate { suffix } => {
                 let mut truncate = Width::truncate(width);
@@ -524,7 +572,7 @@ fn trim_as_header(
                 }
 
                 let opt = Modify::new(Columns::single(i)).with(truncate);
-                TableOption::<VecRecords<Text<String>>, _, _>::change(opt, recs, cfg, dims);
+                TableOption::<VecRecords<_>, _, _>::change(opt, recs, cfg, dims);
             }
         }
     }
@@ -532,82 +580,75 @@ fn trim_as_header(
     TableOption::change(SetDimensions(widths), recs, cfg, dims);
 }
 
-fn align_table(
-    table: &mut Table,
-    alignments: Alignments,
-    with_index: bool,
-    with_header: bool,
-    with_footer: bool,
-) {
-    table
-        .with(Modify::new(Segment::all()).with(AlignmentStrategy::PerLine))
-        .with(SetAlignment(alignments.data, Entity::Global));
+fn align_table(table: &mut Table, alignments: Alignments, structure: &TableStructure) {
+    table.with(AlignmentStrategy::PerLine);
+    table.with(Alignment::from(alignments.data));
 
     for (column, alignment) in alignments.columns {
-        table.with(SetAlignment(alignment, Entity::Column(column)));
+        table.modify(Columns::single(column), Alignment::from(alignment));
     }
 
     for (pos, alignment) in alignments.cells {
-        table.with(SetAlignment(alignment, Entity::Cell(pos.0, pos.1)));
+        table.modify(pos, Alignment::from(alignment));
     }
 
-    if with_header {
-        table.with(SetAlignment(alignments.header, Entity::Row(0)));
+    if structure.with_header {
+        table.modify(Rows::first(), Alignment::from(alignments.header));
 
-        if with_footer {
-            table.with(SetAlignment(
-                alignments.header,
-                Entity::Row(table.count_rows() - 1),
-            ));
+        if structure.with_footer {
+            table.modify(Rows::last(), Alignment::from(alignments.header));
         }
     }
 
-    if with_index {
-        table.with(SetAlignment(alignments.index, Entity::Column(0)));
+    if structure.with_index {
+        table.modify(Columns::first(), Alignment::from(alignments.index));
     }
 }
 
-fn colorize_table(
-    table: &mut Table,
-    mut styles: Styles,
-    with_index: bool,
-    with_header: bool,
-    with_footer: bool,
-) {
-    if with_index {
-        styles.data.insert(Entity::Column(0), styles.index);
-        styles.data_is_set = true;
+fn colorize_table(table: &mut Table, styles: Styles, structure: &TableStructure) {
+    if !is_color_empty(&styles.data) {
+        table.with(styles.data);
     }
 
-    if with_header {
-        styles.data.insert(Entity::Row(0), styles.header.clone());
-        styles.data_is_set = true;
-
-        if with_footer {
-            let count_rows = table.count_rows();
-            if count_rows > 1 {
-                let last_row = count_rows - 1;
-                styles.data.insert(Entity::Row(last_row), styles.header);
-            }
+    for (column, color) in styles.columns {
+        if !is_color_empty(&color) {
+            table.modify(Columns::single(column), color);
         }
     }
 
-    if styles.data_is_set {
-        table.get_config_mut().set_colors(styles.data);
+    for (pos, color) in styles.cells {
+        if !is_color_empty(&color) {
+            table.modify(pos, color);
+        }
+    }
+
+    if structure.with_index && !is_color_empty(&styles.index) {
+        table.modify(Columns::first(), styles.index);
+    }
+
+    if structure.with_header && !is_color_empty(&styles.header) {
+        table.modify(Rows::first(), styles.header.clone());
+    }
+
+    if structure.with_footer && !is_color_empty(&styles.header) {
+        table.modify(Rows::last(), styles.header);
     }
 }
 
 fn load_theme(
     table: &mut Table,
     theme: &TableTheme,
-    with_footer: bool,
-    with_header: bool,
+    structure: &TableStructure,
     sep_color: Option<Style>,
 ) {
-    let mut theme = theme.get_theme();
+    let mut theme = theme.as_base().clone();
 
-    if !with_header {
-        theme.set_horizontal_lines(Default::default());
+    if !structure.with_header {
+        let borders = *theme.get_borders();
+        theme.remove_horizontal_lines();
+        theme.set_borders(borders);
+    } else if structure.with_footer {
+        theme_copy_horizontal_line(&mut theme, 1, table.count_rows() - 1);
     }
 
     table.with(theme);
@@ -615,29 +656,20 @@ fn load_theme(
     if let Some(style) = sep_color {
         let color = convert_style(style);
         let color = ANSIBuf::from(color);
-        // todo: use .modify(Segment::all(), color) --> it has this optimization
         table.get_config_mut().set_border_color_default(color);
-    }
-
-    if !with_header {
-        // todo: remove and use theme.remove_horizontal_lines();
-        table.with(RemoveHorizontalLine);
-    } else if with_footer {
-        // todo: remove and set it on theme rather then here...
-        table.with(CopyFirstHorizontalLineAtLast);
     }
 }
 
 fn maybe_truncate_columns(
     data: &mut NuRecords,
-    cfg: &NuTableConfig,
+    cfg: &TableConfig,
     termwidth: usize,
     pad: usize,
 ) -> Vec<usize> {
     const TERMWIDTH_THRESHOLD: usize = 120;
 
     let preserve_content = termwidth > TERMWIDTH_THRESHOLD;
-    let has_header = cfg.with_header && data.count_rows() > 1;
+    let has_header = cfg.structure.with_header && data.count_rows() > 1;
     let is_header_on_border = has_header && cfg.header_on_border;
 
     let truncate = if is_header_on_border {
@@ -661,7 +693,7 @@ fn truncate_columns_by_content(
     const MIN_ACCEPTABLE_WIDTH: usize = 3;
     const TRAILING_COLUMN_WIDTH: usize = 5;
 
-    let config = get_config(theme, false, None);
+    let config = create_config(theme, false, None);
     let mut widths = build_width(&*data, pad);
     let total_width = get_total_width2(&widths, &config);
     if total_width <= termwidth {
@@ -741,7 +773,7 @@ fn truncate_columns_by_columns(
     let acceptable_width = 10 + pad;
     let trailing_column_width = 3 + pad;
 
-    let config = get_config(theme, false, None);
+    let config = create_config(theme, false, None);
     let mut widths = build_width(&*data, pad);
     let total_width = get_total_width2(&widths, &config);
     if total_width <= termwidth {
@@ -812,7 +844,7 @@ fn truncate_columns_by_head(
 ) -> Vec<usize> {
     const TRAILING_COLUMN_WIDTH: usize = 5;
 
-    let config = get_config(theme, false, None);
+    let config = create_config(theme, false, None);
     let mut widths = build_width(&*data, pad);
     let total_width = get_total_width2(&widths, &config);
     if total_width <= termwidth {
@@ -880,18 +912,6 @@ fn truncate_columns_by_head(
     widths
 }
 
-/// The same as [`tabled::settings::peaker::PriorityMax`] but prioritizes left columns first in case
-/// of equal width.
-#[derive(Debug, Default, Clone)]
-pub struct PriorityMax;
-
-impl Peaker for PriorityMax {
-    fn peak(&mut self, _: &[usize], widths: &[usize]) -> Option<usize> {
-        let col = (0..widths.len()).rev().max_by_key(|&i| widths[i]);
-        col.filter(|&col| widths[col] != 0)
-    }
-}
-
 fn get_total_width2(widths: &[usize], cfg: &ColoredConfig) -> usize {
     let total = widths.iter().sum::<usize>();
     let countv = cfg.count_vertical(widths.len());
@@ -900,9 +920,10 @@ fn get_total_width2(widths: &[usize], cfg: &ColoredConfig) -> usize {
     total + countv + margin.left.size + margin.right.size
 }
 
-fn get_config(theme: &TableTheme, with_header: bool, color: Option<Style>) -> ColoredConfig {
+fn create_config(theme: &TableTheme, with_header: bool, color: Option<Style>) -> ColoredConfig {
+    let structure = TableStructure::new(false, with_header, false);
     let mut table = Table::new([[""]]);
-    load_theme(&mut table, theme, false, with_header, color);
+    load_theme(&mut table, theme, &structure, color);
     table.get_config().clone()
 }
 
@@ -944,14 +965,6 @@ fn convert_alignment(alignment: nu_color_config::Alignment) -> AlignmentHorizont
         nu_color_config::Alignment::Center => AlignmentHorizontal::Center,
         nu_color_config::Alignment::Left => AlignmentHorizontal::Left,
         nu_color_config::Alignment::Right => AlignmentHorizontal::Right,
-    }
-}
-
-struct SetAlignment(AlignmentHorizontal, Entity);
-
-impl<R, D> TableOption<R, ColoredConfig, D> for SetAlignment {
-    fn change(self, _: &mut R, cfg: &mut ColoredConfig, _: &mut D) {
-        cfg.set_alignment_horizontal(self.1, self.0);
     }
 }
 
@@ -1045,16 +1058,8 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
         cfg: &mut ColoredConfig,
         dims: &mut CompleteDimensionVecRecords<'_>,
     ) {
-        let mut columns = self.columns;
-
-        match dims.get_widths() {
-            Some(widths) => {
-                columns = columns
-                    .into_iter()
-                    .zip(widths.iter().cloned()) // it must be always safe to do
-                    .map(|(s, width)| Truncate::truncate(&s, width).into_owned())
-                    .collect();
-            }
+        let widths = match dims.get_widths() {
+            Some(widths) => widths,
             None => {
                 // we don't have widths cached; which means that NO width adjustments were done
                 // which means we are OK to leave columns as they are.
@@ -1065,15 +1070,21 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
             }
         };
 
-        set_column_names(
-            recs,
-            cfg,
-            dims,
-            columns,
-            self.line,
-            self.alignment,
-            self.color,
-        )
+        let columns: Vec<_> = self
+            .columns
+            .into_iter()
+            .zip(widths.iter().cloned()) // it must be always safe to do
+            .map(|(s, width)| Truncate::truncate(&s, width).into_owned())
+            .collect();
+
+        let mut names = ColumnNames::new(columns)
+            .line(self.line)
+            .alignment(Alignment::from(self.alignment));
+        if let Some(color) = self.color {
+            names = names.color(color);
+        }
+
+        names.change(recs, cfg, dims);
     }
 
     fn hint_change(&self) -> Option<Entity> {
@@ -1142,26 +1153,23 @@ fn row_shift_next(recs: &mut NuRecords, cfg: &mut ColoredConfig, row: usize, lin
         return;
     }
 
-    if !has_line {
-        let _ = remove_row(recs, row);
-        let count_rows = recs.count_rows();
-        shift_alignments_down(cfg, row, count_rows, count_columns);
-        shift_colors_down(cfg, row, count_rows, count_columns);
-        shift_lines_up(cfg, count_rows, &[line + 1]);
-        shift_lines_up(cfg, count_rows, &[count_rows]);
-        return;
-    }
-
-    let _ = remove_row(recs, row);
+    recs.remove_row(row);
     let count_rows = recs.count_rows();
+
     shift_alignments_down(cfg, row, count_rows, count_columns);
     shift_colors_down(cfg, row, count_rows, count_columns);
-    remove_lines(cfg, count_rows, &[line + 1]);
+
+    if !has_line {
+        shift_lines_up(cfg, count_rows, &[line + 1]);
+    } else {
+        remove_lines(cfg, count_rows, &[line + 1]);
+    }
+
     shift_lines_up(cfg, count_rows, &[count_rows]);
 }
 
 fn row_shift_prev(recs: &mut NuRecords, cfg: &mut ColoredConfig, row: usize, line: usize) {
-    let count_rows = recs.count_rows();
+    let mut count_rows = recs.count_rows();
     let count_columns = recs.count_columns();
     let has_line = cfg.has_horizontal(line, count_rows);
     let has_prev_line = cfg.has_horizontal(line - 1, count_rows);
@@ -1169,14 +1177,14 @@ fn row_shift_prev(recs: &mut NuRecords, cfg: &mut ColoredConfig, row: usize, lin
         return;
     }
 
+    recs.remove_row(row);
+
     if !has_line {
-        let _ = remove_row(recs, row);
-        // shift_lines_down(table, &[line - 1]);
         return;
     }
 
-    let _ = remove_row(recs, row);
-    let count_rows = count_rows - 1;
+    count_rows -= 1;
+
     shift_alignments_down(cfg, row, count_rows, count_columns);
     shift_colors_down(cfg, row, count_rows, count_columns);
     remove_lines(cfg, count_rows, &[line - 1]);
@@ -1230,73 +1238,17 @@ fn shift_lines_up(cfg: &mut ColoredConfig, count_rows: usize, lines: &[usize]) {
     }
 }
 
-fn set_column_names(
-    records: &mut NuRecords,
-    cfg: &mut ColoredConfig,
-    dims: &mut CompleteDimensionVecRecords<'_>,
-    head: Vec<String>,
-    line: usize,
-    align: AlignmentHorizontal,
-    color: Option<Color>,
-) {
-    let mut names = ColumnNames::new(head)
-        .line(line)
-        .alignment(Alignment::from(align));
-    if let Some(color) = color {
-        names = names.color(color);
-    }
-
-    ColumnNames::change(names, records, cfg, dims)
-}
-
-fn remove_row(recs: &mut NuRecords, row: usize) -> Vec<String> {
-    let count_columns = recs.count_columns();
-    let columns = (0..count_columns)
-        .map(|column| recs.get_text((row, column)).to_owned())
-        .collect::<Vec<_>>();
-
-    recs.remove_row(row);
-
-    columns
-}
-
-// todo; use Format?
-struct StripColorFromRow(usize);
-
-impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for StripColorFromRow {
-    fn change(
-        self,
-        recs: &mut NuRecords,
-        _: &mut ColoredConfig,
-        _: &mut CompleteDimensionVecRecords<'_>,
-    ) {
-        for cell in &mut recs[self.0] {
-            *cell = Text::new(strip_ansi_unlikely(cell.as_ref()).into_owned());
-        }
+fn theme_copy_horizontal_line(theme: &mut tabled::settings::Theme, from: usize, to: usize) {
+    if let Some(line) = theme.get_horizontal_line(from) {
+        theme.insert_horizontal_line(to, *line);
     }
 }
 
-struct RemoveHorizontalLine;
-
-impl<D> TableOption<NuRecords, ColoredConfig, D> for RemoveHorizontalLine {
-    fn change(self, recs: &mut NuRecords, cfg: &mut ColoredConfig, _: &mut D) {
-        cfg.remove_horizontal_line(1, recs.count_rows());
+#[allow(clippy::type_complexity)]
+fn strip_color_from_row(row: usize) -> ModifyList<Row, FormatContent<fn(&str) -> String>> {
+    fn foo(s: &str) -> String {
+        strip_ansi_unlikely(s).into_owned()
     }
-}
 
-struct CopyFirstHorizontalLineAtLast;
-
-impl<D> TableOption<NuRecords, ColoredConfig, D> for CopyFirstHorizontalLineAtLast {
-    fn change(self, recs: &mut NuRecords, cfg: &mut ColoredConfig, _: &mut D) {
-        if recs.count_rows() <= 2 {
-            return;
-        }
-
-        let line = match cfg.get_horizontal_line(1) {
-            Some(line) => *line,
-            None => return,
-        };
-
-        cfg.insert_horizontal_line(recs.count_rows() - 1, line);
-    }
+    Modify::new(Rows::single(row)).with(Format::content(foo))
 }

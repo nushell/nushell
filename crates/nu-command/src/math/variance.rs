@@ -90,9 +90,9 @@ fn sum_of_squares(values: &[Value], span: Span) -> Result<Value, ShellError> {
         let v = match &value {
             Value::Int { .. } | Value::Float { .. } => Ok(value),
             Value::Error { error, .. } => Err(*error.clone()),
-            _ => Err(ShellError::UnsupportedInput {
-                msg: "Attempted to compute the sum of squares of a non-int, non-float value"
-                    .to_string(),
+            other => Err(ShellError::UnsupportedInput {
+                msg: format!("Attempted to compute the sum of squares of a non-int, non-float value '{}' with a type of `{}`.",
+                        other.coerce_string()?, other.get_type()),
                 input: "value originates from here".into(),
                 msg_span: span,
                 input_span: value.span(),

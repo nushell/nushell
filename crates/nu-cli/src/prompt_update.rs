@@ -87,14 +87,6 @@ fn get_prompt_string(
                     x.insert_str(0, "\x1b[0m")
                 };
 
-                // Just remove the very last newline.
-                if x.ends_with('\n') {
-                    x.pop();
-                }
-
-                if x.ends_with('\r') {
-                    x.pop();
-                }
                 x
             });
             // Let's keep this for debugging purposes with nu --log-level warn
