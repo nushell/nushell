@@ -15,17 +15,16 @@ use nu_protocol::{
 };
 use std::{cmp::Ordering, path::Path};
 
-#[derive(Debug, Eq, PartialEq)]
+/// Struct stored in cache, uri not included
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct Symbol {
     name: String,
     kind: SymbolKind,
-    uri: Uri,
     range: Range,
 }
 
 impl Hash for Symbol {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.uri.hash(state);
         self.range.start.hash(state);
         self.range.end.hash(state);
     }
@@ -51,11 +50,11 @@ impl Ord for Symbol {
 }
 
 impl Symbol {
-    fn to_symbol_information(&self) -> SymbolInformation {
+    fn to_symbol_information(&self, uri: &Uri) -> SymbolInformation {
         #[allow(deprecated)]
         SymbolInformation {
             location: Location {
-                uri: self.uri.clone(),
+                uri: uri.clone(),
                 range: self.range,
             },
             name: self.name.to_owned(),
@@ -72,7 +71,7 @@ pub struct SymbolCache {
     /// Fuzzy matcher for symbol names
     matcher: SkimMatcherV2,
     /// File Uri --> Symbols
-    cache: BTreeMap<Uri, Vec<SymbolInformation>>,
+    cache: BTreeMap<Uri, Vec<Symbol>>,
     /// If marked as dirty, parse on next request
     dirty_flags: BTreeMap<Uri, bool>,
 }
@@ -93,7 +92,6 @@ impl SymbolCache {
     fn get_symbol_by_id(
         working_set: &StateWorkingSet,
         id: Id,
-        uri: &Uri,
         doc: &FullTextDocument,
         doc_span: &Span,
     ) -> Option<Symbol> {
@@ -108,7 +106,6 @@ impl SymbolCache {
                 Some(Symbol {
                     name: decl.name().to_string(),
                     kind: SymbolKind::FUNCTION,
-                    uri: uri.clone(),
                     range: span_to_range(&span, doc, doc_span.start),
                 })
             }
@@ -132,7 +129,6 @@ impl SymbolCache {
                 Some(Symbol {
                     name: name.to_string(),
                     kind: SymbolKind::VARIABLE,
-                    uri: uri.clone(),
                     range,
                 })
             }
@@ -142,16 +138,14 @@ impl SymbolCache {
 
     fn extract_all_symbols(
         working_set: &StateWorkingSet,
-        uri: &Uri,
         doc: &FullTextDocument,
         cached_file: &CachedFile,
-    ) -> Vec<SymbolInformation> {
+    ) -> Vec<Symbol> {
         let mut all_symbols: Vec<Symbol> = (0..working_set.num_decls())
             .filter_map(|id| {
                 Self::get_symbol_by_id(
                     working_set,
                     Id::Declaration(DeclId::new(id)),
-                    uri,
                     doc,
                     &cached_file.covered_span,
                 )
@@ -160,7 +154,6 @@ impl SymbolCache {
                 Self::get_symbol_by_id(
                     working_set,
                     Id::Variable(VarId::new(id)),
-                    uri,
                     doc,
                     &cached_file.covered_span,
                 )
@@ -171,9 +164,6 @@ impl SymbolCache {
             .collect();
         all_symbols.sort();
         all_symbols
-            .into_iter()
-            .map(|s| s.to_symbol_information())
-            .collect()
     }
 
     /// Update the symbols of given uri if marked as dirty
@@ -201,14 +191,14 @@ impl SymbolCache {
                 }
                 let target_uri = path_to_uri(path);
                 let new_symbols = if let Some(doc) = docs.get_document(&target_uri) {
-                    Self::extract_all_symbols(&working_set, &target_uri, doc, cached_file)
+                    Self::extract_all_symbols(&working_set, doc, cached_file)
                 } else {
                     let temp_doc = FullTextDocument::new(
                         "nu".to_string(),
                         0,
                         String::from_utf8((*cached_file.content).to_vec()).expect("Invalid UTF-8"),
                     );
-                    Self::extract_all_symbols(&working_set, &target_uri, &temp_doc, cached_file)
+                    Self::extract_all_symbols(&working_set, &temp_doc, cached_file)
                 };
                 self.cache.insert(target_uri.clone(), new_symbols);
                 self.mark_dirty(target_uri, false);
@@ -223,13 +213,23 @@ impl SymbolCache {
         }
     }
 
-    pub fn get_fuzzy_matched(&self, query: &str) -> Vec<SymbolInformation> {
+    pub fn get_symbols_by_uri(&self, uri: &Uri) -> Option<Vec<SymbolInformation>> {
+        Some(
+            self.cache
+                .get(uri)?
+                .iter()
+                .map(|s| s.clone().to_symbol_information(uri))
+                .collect(),
+        )
+    }
+
+    pub fn get_fuzzy_matched_symbols(&self, query: &str) -> Vec<SymbolInformation> {
         self.cache
-            .values()
-            .flat_map(|s| s.clone())
+            .iter()
+            .flat_map(|(uri, symbols)| symbols.iter().map(|s| s.clone().to_symbol_information(uri)))
             .filter_map(|s| {
                 self.matcher.fuzzy_match(&s.name, query)?;
-                Some(s.clone())
+                Some(s)
             })
             .collect()
     }
@@ -248,7 +248,7 @@ impl LanguageServer {
         let uri = params.text_document.uri.to_owned();
         self.symbol_cache.update(&uri, &engine_state, &self.docs);
         Some(DocumentSymbolResponse::Flat(
-            self.symbol_cache.cache.get(&uri)?.clone(),
+            self.symbol_cache.get_symbols_by_uri(&uri)?,
         ))
     }
 
@@ -261,7 +261,8 @@ impl LanguageServer {
             self.symbol_cache.update_all(&engine_state, &self.docs);
         }
         Some(WorkspaceSymbolResponse::Flat(
-            self.symbol_cache.get_fuzzy_matched(params.query.as_str()),
+            self.symbol_cache
+                .get_fuzzy_matched_symbols(params.query.as_str()),
         ))
     }
 }
