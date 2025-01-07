@@ -8,6 +8,7 @@ mod range;
 #[cfg(test)]
 mod test_derive;
 
+pub mod format;
 pub mod record;
 pub use custom_value::CustomValue;
 pub use duration::*;
