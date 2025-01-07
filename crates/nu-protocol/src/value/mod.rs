@@ -48,120 +48,120 @@ use std::{
 pub enum Value {
     Bool {
         val: bool,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Int {
         val: i64,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Float {
         val: f64,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     String {
         val: String,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Glob {
         val: String,
         no_expand: bool,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Filesize {
         val: Filesize,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Duration {
         val: i64,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Date {
         val: DateTime<FixedOffset>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Range {
         val: Box<Range>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Record {
         val: SharedCow<Record>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     List {
         vals: Vec<Value>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Closure {
         val: Box<Closure>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Error {
         error: Box<ShellError>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Binary {
         val: Vec<u8>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     CellPath {
         val: CellPath,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Custom {
         val: Box<dyn CustomValue>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Nothing {
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
@@ -366,6 +366,7 @@ impl Value {
     /// Returns this `Value` converted to a `str` or an error if it cannot be converted
     ///
     /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Bool`
     /// - `Int`
     /// - `Float`
     /// - `String`
@@ -379,7 +380,8 @@ impl Value {
     ///     assert_eq!(
     ///         matches!(
     ///             val,
-    ///             Value::Int { .. }
+    ///             Value::Bool { .. }
+    ///                 | Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
     ///                 | Value::Glob { .. }
@@ -392,6 +394,7 @@ impl Value {
     /// ```
     pub fn coerce_str(&self) -> Result<Cow<str>, ShellError> {
         match self {
+            Value::Bool { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::Int { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::Float { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::String { val, .. } => Ok(Cow::Borrowed(val)),
@@ -419,6 +422,7 @@ impl Value {
     /// if you do not need to keep the original `Value` around.
     ///
     /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Bool`
     /// - `Int`
     /// - `Float`
     /// - `String`
@@ -432,7 +436,8 @@ impl Value {
     ///     assert_eq!(
     ///         matches!(
     ///             val,
-    ///             Value::Int { .. }
+    ///             Value::Bool { .. }
+    ///                 | Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
     ///                 | Value::Glob { .. }
@@ -450,6 +455,7 @@ impl Value {
     /// Returns this `Value` converted to a `String` or an error if it cannot be converted
     ///
     /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Bool`
     /// - `Int`
     /// - `Float`
     /// - `String`
@@ -463,7 +469,8 @@ impl Value {
     ///     assert_eq!(
     ///         matches!(
     ///             val,
-    ///             Value::Int { .. }
+    ///             Value::Bool { .. }
+    ///                 | Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
     ///                 | Value::Glob { .. }
@@ -477,6 +484,7 @@ impl Value {
     pub fn coerce_into_string(self) -> Result<String, ShellError> {
         let span = self.span();
         match self {
+            Value::Bool { val, .. } => Ok(val.to_string()),
             Value::Int { val, .. } => Ok(val.to_string()),
             Value::Float { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val),
@@ -652,6 +660,36 @@ impl Value {
             Ok(val)
         } else {
             self.cant_convert_to("cell path")
+        }
+    }
+
+    /// Interprets this `Value` as a boolean based on typical conventions for environment values.
+    ///
+    /// The following rules are used:
+    /// - Values representing `false`:
+    ///   - Empty strings or strings that equal to "false" in any case
+    ///   - The number `0` (as an integer, float or string)
+    ///   - `Nothing`
+    ///   - Explicit boolean `false`
+    /// - Values representing `true`:
+    ///   - Non-zero numbers (integer or float)
+    ///   - Non-empty strings
+    ///   - Explicit boolean `true`
+    ///
+    /// For all other, more complex variants of [`Value`], the function cannot determine a
+    /// boolean representation and returns `Err`.
+    pub fn coerce_bool(&self) -> Result<bool, ShellError> {
+        match self {
+            Value::Bool { val: false, .. } | Value::Int { val: 0, .. } | Value::Nothing { .. } => {
+                Ok(false)
+            }
+            Value::Float { val, .. } if val <= &f64::EPSILON => Ok(false),
+            Value::String { val, .. } => match val.trim().to_ascii_lowercase().as_str() {
+                "" | "0" | "false" => Ok(false),
+                _ => Ok(true),
+            },
+            Value::Bool { .. } | Value::Int { .. } | Value::Float { .. } => Ok(true),
+            _ => self.cant_convert_to("bool"),
         }
     }
 
@@ -3873,5 +3911,41 @@ mod tests {
             let formatted = string.split(' ').next().unwrap();
             assert_eq!("-0316-02-11T06:13:20+00:00", formatted);
         }
+    }
+
+    #[test]
+    fn test_env_as_bool() {
+        // explicit false values
+        assert_eq!(Value::test_bool(false).coerce_bool(), Ok(false));
+        assert_eq!(Value::test_int(0).coerce_bool(), Ok(false));
+        assert_eq!(Value::test_float(0.0).coerce_bool(), Ok(false));
+        assert_eq!(Value::test_string("").coerce_bool(), Ok(false));
+        assert_eq!(Value::test_string("0").coerce_bool(), Ok(false));
+        assert_eq!(Value::test_nothing().coerce_bool(), Ok(false));
+
+        // explicit true values
+        assert_eq!(Value::test_bool(true).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_int(1).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_float(1.0).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_string("1").coerce_bool(), Ok(true));
+
+        // implicit true values
+        assert_eq!(Value::test_int(42).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_float(0.5).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_string("not zero").coerce_bool(), Ok(true));
+
+        // complex values returning None
+        assert!(Value::test_record(Record::default()).coerce_bool().is_err());
+        assert!(Value::test_list(vec![Value::test_int(1)])
+            .coerce_bool()
+            .is_err());
+        assert!(Value::test_date(
+            chrono::DateTime::parse_from_rfc3339("2024-01-01T12:00:00+00:00").unwrap(),
+        )
+        .coerce_bool()
+        .is_err());
+        assert!(Value::test_glob("*.rs").coerce_bool().is_err());
+        assert!(Value::test_binary(vec![1, 2, 3]).coerce_bool().is_err());
+        assert!(Value::test_duration(3600).coerce_bool().is_err());
     }
 }

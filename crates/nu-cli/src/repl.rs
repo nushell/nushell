@@ -19,7 +19,7 @@ use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::util::get_editor;
 use nu_color_config::StyleComputer;
 #[allow(deprecated)]
-use nu_engine::{convert_env_values, current_dir_str, env_to_strings};
+use nu_engine::{current_dir_str, env_to_strings};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
@@ -61,9 +61,7 @@ pub fn evaluate_repl(
     // from the Arc. This lets us avoid copying stack variables needlessly
     let mut unique_stack = stack.clone();
     let config = engine_state.get_config();
-    let use_color = config.use_ansi_coloring;
-
-    confirm_stdin_is_terminal()?;
+    let use_color = config.use_ansi_coloring.get(engine_state);
 
     let mut entry_num = 0;
 
@@ -80,13 +78,6 @@ pub fn evaluate_repl(
         engine_state.clone(),
         stack.clone(),
     );
-
-    let start_time = std::time::Instant::now();
-    // Translate environment variables from Strings to Values
-    if let Err(e) = convert_env_values(engine_state, &unique_stack) {
-        report_shell_error(engine_state, &e);
-    }
-    perf!("translate env vars", start_time, use_color);
 
     // seed env vars
     unique_stack.add_env_var(
@@ -110,6 +101,8 @@ pub fn evaluate_repl(
         );
         engine_state.merge_env(&mut unique_stack)?;
     }
+
+    confirm_stdin_is_terminal()?;
 
     let hostname = System::host_name();
     if shell_integration_osc2 {
@@ -390,7 +383,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         )))
         .with_quick_completions(config.completions.quick)
         .with_partial_completions(config.completions.partial)
-        .with_ansi_colors(config.use_ansi_coloring)
+        .with_ansi_colors(config.use_ansi_coloring.get(engine_state))
         .with_cwd(Some(
             engine_state
                 .cwd(None)
@@ -410,7 +403,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let style_computer = StyleComputer::from_config(engine_state, &stack_arc);
 
     start_time = std::time::Instant::now();
-    line_editor = if config.use_ansi_coloring {
+    line_editor = if config.use_ansi_coloring.get(engine_state) {
         line_editor.with_hinter(Box::new({
             // As of Nov 2022, "hints" color_config closures only get `null` passed in.
             let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
@@ -816,8 +809,10 @@ fn parse_operation(
 ) -> Result<ReplOperation, ErrReport> {
     let tokens = lex(s.as_bytes(), 0, &[], &[], false);
     // Check if this is a single call to a directory, if so auto-cd
-    #[allow(deprecated)]
-    let cwd = nu_engine::env::current_dir_str(engine_state, stack).unwrap_or_default();
+    let cwd = engine_state
+        .cwd(Some(stack))
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
     let mut orig = s.clone();
     if orig.starts_with('`') {
         orig = trim_quotes_str(&orig).to_string()
@@ -1577,6 +1572,13 @@ mod test_auto_cd {
         symlink(&dir, &link).unwrap();
         let input = if cfg!(windows) { r".\link" } else { "./link" };
         check(tempdir, input, link);
+
+        let dir = tempdir.join("foo").join("bar");
+        std::fs::create_dir_all(&dir).unwrap();
+        let link = tempdir.join("link2");
+        symlink(&dir, &link).unwrap();
+        let input = "..";
+        check(link, input, tempdir);
     }
 
     #[test]

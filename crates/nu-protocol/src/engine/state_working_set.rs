@@ -406,6 +406,7 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.exit_scope();
     }
 
+    /// Find the [`DeclId`](nu_protocol::id::DeclId) corresponding to a predeclaration with `name`.
     pub fn find_predecl(&self, name: &[u8]) -> Option<DeclId> {
         let mut removed_overlays = vec![];
 
@@ -424,6 +425,10 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
+    /// Find the [`DeclId`](nu_protocol::id::DeclId) corresponding to a declaration with `name`.
+    ///
+    /// Extends [`EngineState::find_decl`] to also search for predeclarations (if [`StateWorkingSet::search_predecls`] is set),
+    /// and declarations from scopes existing only in [`StateDelta`].
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
         let mut removed_overlays = vec![];
 
@@ -462,6 +467,10 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.find_decl(name, &removed_overlays)
     }
 
+    /// Find the name of the declaration corresponding to `decl_id`.
+    ///
+    /// Extends [`EngineState::find_decl_name`] to also search for predeclarations (if [`StateWorkingSet::search_predecls`] is set),
+    /// and declarations from scopes existing only in [`StateDelta`].
     pub fn find_decl_name(&self, decl_id: DeclId) -> Option<&[u8]> {
         let mut removed_overlays = vec![];
 
@@ -503,6 +512,10 @@ impl<'a> StateWorkingSet<'a> {
             .find_decl_name(decl_id, &removed_overlays)
     }
 
+    /// Find the [`ModuleId`](nu_protocol::id::ModuleId) corresponding to `name`.
+    ///
+    /// Extends [`EngineState::find_module`] to also search for ,
+    /// and declarations from scopes existing only in [`StateDelta`].
     pub fn find_module(&self, name: &[u8]) -> Option<ModuleId> {
         let mut removed_overlays = vec![];
 
@@ -836,6 +849,7 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.has_overlay(name)
     }
 
+    /// Find the overlay corresponding to `name`.
     pub fn find_overlay(&self, name: &[u8]) -> Option<&OverlayFrame> {
         for scope_frame in self.delta.scope.iter().rev() {
             if let Some(overlay_id) = scope_frame.find_overlay(name) {

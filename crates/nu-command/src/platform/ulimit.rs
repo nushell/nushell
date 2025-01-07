@@ -431,12 +431,13 @@ fn parse_limit(
     hard_limit: rlim_t,
     call_span: Span,
 ) -> Result<rlim_t, ShellError> {
+    let val_span = limit_value.span();
     match limit_value {
-        Value::Int { val, internal_span } => {
+        Value::Int { val, .. } => {
             let value = rlim_t::try_from(*val).map_err(|e| ShellError::CantConvert {
                 to_type: "rlim_t".into(),
                 from_type: "i64".into(),
-                span: *internal_span,
+                span: val_span,
                 help: Some(e.to_string()),
             })?;
 
@@ -447,25 +448,25 @@ fn parse_limit(
                 Ok(limit)
             }
         }
-        Value::Filesize { val, internal_span } => {
+        Value::Filesize { val, .. } => {
             if res.multiplier != 1024 {
                 return Err(ShellError::TypeMismatch {
                     err_message: format!(
                         "filesize is not compatible with resource {:?}",
                         res.resource
                     ),
-                    span: *internal_span,
+                    span: val_span,
                 });
             }
 
             rlim_t::try_from(*val).map_err(|e| ShellError::CantConvert {
                 to_type: "rlim_t".into(),
                 from_type: "i64".into(),
-                span: *internal_span,
+                span: val_span,
                 help: Some(e.to_string()),
             })
         }
-        Value::String { val, internal_span } => {
+        Value::String { val, .. } => {
             if val == "unlimited" {
                 Ok(RLIM_INFINITY)
             } else if val == "soft" {
@@ -479,7 +480,7 @@ fn parse_limit(
             } else {
                 return Err(ShellError::IncorrectValue {
                     msg: "Only unlimited, soft and hard are supported for strings".into(),
-                    val_span: *internal_span,
+                    val_span,
                     call_span,
                 });
             }

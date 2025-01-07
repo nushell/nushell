@@ -73,9 +73,7 @@ fn sum_of_a_row_containing_a_table_is_an_error() {
         cwd: "tests/fixtures/formats/",
         "open sample-sys-output.json | math sum"
     );
-    assert!(actual
-        .err
-        .contains("Attempted to compute the sum of a value that cannot be summed"));
+    assert!(actual.err.contains("can't convert record"));
 }
 
 #[test]

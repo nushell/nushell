@@ -194,6 +194,17 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         ),
     );
 
+    record.push(
+        "user-autoload-dirs",
+        Value::list(
+            get_user_autoload_dirs(engine_state)
+                .iter()
+                .map(|path| Value::string(path.to_string_lossy(), span))
+                .collect(),
+            span,
+        ),
+    );
+
     record.push("temp-path", {
         let canon_temp_path = canonicalize_path(engine_state, &std::env::temp_dir());
         Value::string(canon_temp_path.to_string_lossy(), span)
@@ -306,10 +317,9 @@ pub fn get_vendor_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
         .map(into_autoload_path_fn)
         .for_each(&mut append_fn);
 
-    option_env!("NU_VENDOR_AUTOLOAD_DIR")
-        .into_iter()
-        .map(PathBuf::from)
-        .for_each(&mut append_fn);
+    if let Some(path) = option_env!("NU_VENDOR_AUTOLOAD_DIR") {
+        append_fn(PathBuf::from(path));
+    }
 
     #[cfg(target_os = "macos")]
     std::env::var("XDG_DATA_HOME")
@@ -326,15 +336,37 @@ pub fn get_vendor_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
         .into_iter()
         .for_each(&mut append_fn);
 
-    dirs::data_dir()
-        .into_iter()
-        .map(into_autoload_path_fn)
-        .for_each(&mut append_fn);
+    if let Some(data_dir) = dirs::data_dir() {
+        append_fn(into_autoload_path_fn(data_dir));
+    }
 
-    std::env::var_os("NU_VENDOR_AUTOLOAD_DIR")
-        .into_iter()
-        .map(PathBuf::from)
-        .for_each(&mut append_fn);
+    if let Some(path) = std::env::var_os("NU_VENDOR_AUTOLOAD_DIR") {
+        append_fn(PathBuf::from(path));
+    }
+
+    dirs
+}
+
+pub fn get_user_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
+    // User autoload directories - Currently just `autoload` in the default
+    // configuration directory
+    let into_autoload_path_fn = |mut path: PathBuf| {
+        path.push("nushell");
+        path.push("autoload");
+        path
+    };
+
+    let mut dirs = Vec::new();
+
+    let mut append_fn = |path: PathBuf| {
+        if !dirs.contains(&path) {
+            dirs.push(path)
+        }
+    };
+
+    if let Some(config_dir) = dirs::config_dir() {
+        append_fn(into_autoload_path_fn(config_dir));
+    }
 
     dirs
 }

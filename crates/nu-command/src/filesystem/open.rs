@@ -160,22 +160,12 @@ impl Command for Open {
                         }
                     };
 
-                    // Assigning content type should only happen in raw mode. Otherwise, the content
-                    // will potentially be in one of the built-in nushell `from xxx` formats and therefore
-                    // cease to be in the original content-type.... or so I'm told. :)
-                    let content_type = if raw {
-                        path.extension()
-                            .map(|ext| ext.to_string_lossy().to_string())
-                            .and_then(|ref s| detect_content_type(s))
-                    } else {
-                        None
-                    };
-
+                    // No content_type by default - Is added later if no converter is found
                     let stream = PipelineData::ByteStream(
                         ByteStream::file(file, call_span, engine_state.signals().clone()),
                         Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),
-                            content_type,
+                            content_type: None,
                         }),
                     );
 
@@ -218,7 +208,20 @@ impl Command for Open {
                                 }
                                 })?);
                         }
-                        None => output.push(stream),
+                        None => {
+                            // If no converter was found, add content-type metadata
+                            let content_type = path
+                                .extension()
+                                .map(|ext| ext.to_string_lossy().to_string())
+                                .and_then(|ref s| detect_content_type(s));
+
+                            let stream_with_content_type =
+                                stream.set_metadata(Some(PipelineMetadata {
+                                    data_source: DataSource::FilePath(path.to_path_buf()),
+                                    content_type,
+                                }));
+                            output.push(stream_with_content_type);
+                        }
                     }
                 }
             }

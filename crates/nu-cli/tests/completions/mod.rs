@@ -176,7 +176,7 @@ fn variables_dollar_sign_with_variablecompletion() {
     let target_dir = "$ ";
     let suggestions = completer.complete(target_dir, target_dir.len());
 
-    assert_eq!(8, suggestions.len());
+    assert_eq!(9, suggestions.len());
 }
 
 #[rstest]
@@ -335,6 +335,7 @@ fn file_completions() {
         folder(dir.join("directory_completion")),
         file(dir.join("nushell")),
         folder(dir.join("test_a")),
+        file(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
@@ -368,6 +369,7 @@ fn file_completions() {
         folder(dir.join("directory_completion")),
         file(dir.join("nushell")),
         folder(dir.join("test_a")),
+        file(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
@@ -445,6 +447,7 @@ fn custom_command_rest_any_args_file_completions() {
         folder(dir.join("directory_completion")),
         file(dir.join("nushell")),
         folder(dir.join("test_a")),
+        file(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
@@ -464,6 +467,7 @@ fn custom_command_rest_any_args_file_completions() {
         folder(dir.join("directory_completion")),
         file(dir.join("nushell")),
         folder(dir.join("test_a")),
+        file(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
@@ -763,6 +767,7 @@ fn command_ls_with_filecompletion() {
         "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
+        "test_a_symlink".to_string(),
         "test_b\\".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder\\".to_string(),
@@ -774,6 +779,7 @@ fn command_ls_with_filecompletion() {
         "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
+        "test_a_symlink".to_string(),
         "test_b/".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder/".to_string(),
@@ -805,6 +811,7 @@ fn command_open_with_filecompletion() {
         "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
+        "test_a_symlink".to_string(),
         "test_b\\".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder\\".to_string(),
@@ -816,6 +823,7 @@ fn command_open_with_filecompletion() {
         "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
+        "test_a_symlink".to_string(),
         "test_b/".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder/".to_string(),
@@ -847,6 +855,7 @@ fn command_rm_with_globcompletion() {
         "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
+        "test_a_symlink".to_string(),
         "test_b\\".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder\\".to_string(),
@@ -858,6 +867,7 @@ fn command_rm_with_globcompletion() {
         "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
+        "test_a_symlink".to_string(),
         "test_b/".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder/".to_string(),
@@ -882,6 +892,7 @@ fn command_cp_with_globcompletion() {
         "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
+        "test_a_symlink".to_string(),
         "test_b\\".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder\\".to_string(),
@@ -893,6 +904,7 @@ fn command_cp_with_globcompletion() {
         "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
+        "test_a_symlink".to_string(),
         "test_b/".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder/".to_string(),
@@ -917,6 +929,7 @@ fn command_save_with_filecompletion() {
         "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
+        "test_a_symlink".to_string(),
         "test_b\\".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder\\".to_string(),
@@ -928,6 +941,7 @@ fn command_save_with_filecompletion() {
         "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
+        "test_a_symlink".to_string(),
         "test_b/".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder/".to_string(),
@@ -952,6 +966,7 @@ fn command_touch_with_filecompletion() {
         "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
+        "test_a_symlink".to_string(),
         "test_b\\".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder\\".to_string(),
@@ -963,6 +978,7 @@ fn command_touch_with_filecompletion() {
         "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
+        "test_a_symlink".to_string(),
         "test_b/".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder/".to_string(),
@@ -987,6 +1003,7 @@ fn command_watch_with_filecompletion() {
         "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
+        "test_a_symlink".to_string(),
         "test_b\\".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder\\".to_string(),
@@ -998,6 +1015,7 @@ fn command_watch_with_filecompletion() {
         "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
+        "test_a_symlink".to_string(),
         "test_b/".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder/".to_string(),
@@ -1339,7 +1357,7 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(18, suggestions.len());
+    assert_eq!(19, suggestions.len());
 
     let expected: Vec<String> = vec![
         "cache-dir".into(),
@@ -1359,6 +1377,7 @@ fn variables_completions() {
         "plugin-path".into(),
         "startup-time".into(),
         "temp-path".into(),
+        "user-autoload-dirs".into(),
         "vendor-autoload-dirs".into(),
     ];
 
@@ -1452,9 +1471,17 @@ fn alias_of_command_and_flags() {
 
     let suggestions = completer.complete("ll t", 4);
     #[cfg(windows)]
-    let expected_paths: Vec<String> = vec!["test_a\\".to_string(), "test_b\\".to_string()];
+    let expected_paths: Vec<String> = vec![
+        "test_a\\".to_string(),
+        "test_a_symlink".to_string(),
+        "test_b\\".to_string(),
+    ];
     #[cfg(not(windows))]
-    let expected_paths: Vec<String> = vec!["test_a/".to_string(), "test_b/".to_string()];
+    let expected_paths: Vec<String> = vec![
+        "test_a/".to_string(),
+        "test_a_symlink".to_string(),
+        "test_b/".to_string(),
+    ];
 
     match_suggestions(&expected_paths, &suggestions)
 }
@@ -1471,9 +1498,17 @@ fn alias_of_basic_command() {
 
     let suggestions = completer.complete("ll t", 4);
     #[cfg(windows)]
-    let expected_paths: Vec<String> = vec!["test_a\\".to_string(), "test_b\\".to_string()];
+    let expected_paths: Vec<String> = vec![
+        "test_a\\".to_string(),
+        "test_a_symlink".to_string(),
+        "test_b\\".to_string(),
+    ];
     #[cfg(not(windows))]
-    let expected_paths: Vec<String> = vec!["test_a/".to_string(), "test_b/".to_string()];
+    let expected_paths: Vec<String> = vec![
+        "test_a/".to_string(),
+        "test_a_symlink".to_string(),
+        "test_b/".to_string(),
+    ];
 
     match_suggestions(&expected_paths, &suggestions)
 }
@@ -1493,9 +1528,17 @@ fn alias_of_another_alias() {
 
     let suggestions = completer.complete("lf t", 4);
     #[cfg(windows)]
-    let expected_paths: Vec<String> = vec!["test_a\\".to_string(), "test_b\\".to_string()];
+    let expected_paths: Vec<String> = vec![
+        "test_a\\".to_string(),
+        "test_a_symlink".to_string(),
+        "test_b\\".to_string(),
+    ];
     #[cfg(not(windows))]
-    let expected_paths: Vec<String> = vec!["test_a/".to_string(), "test_b/".to_string()];
+    let expected_paths: Vec<String> = vec![
+        "test_a/".to_string(),
+        "test_a_symlink".to_string(),
+        "test_b/".to_string(),
+    ];
 
     match_suggestions(&expected_paths, &suggestions)
 }
@@ -1544,6 +1587,7 @@ fn unknown_command_completion() {
         "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
+        "test_a_symlink".to_string(),
         "test_b\\".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder\\".to_string(),
@@ -1555,6 +1599,7 @@ fn unknown_command_completion() {
         "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
+        "test_a_symlink".to_string(),
         "test_b/".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder/".to_string(),
@@ -1606,6 +1651,7 @@ fn filecompletions_triggers_after_cursor() {
         "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
+        "test_a_symlink".to_string(),
         "test_b\\".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder\\".to_string(),
@@ -1617,6 +1663,7 @@ fn filecompletions_triggers_after_cursor() {
         "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
+        "test_a_symlink".to_string(),
         "test_b/".to_string(),
         ".hidden_file".to_string(),
         ".hidden_folder/".to_string(),

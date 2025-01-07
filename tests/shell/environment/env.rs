@@ -229,3 +229,39 @@ fn std_log_env_vars_have_defaults() {
     assert!(actual.err.contains("%MSG%"));
     assert!(actual.err.contains("%Y-"));
 }
+
+#[test]
+fn env_shlvl_commandstring_does_not_increment() {
+    let actual = nu!("
+        $env.SHLVL = 5
+        nu -c 'print $env.SHLVL; exit'
+    ");
+
+    assert_eq!(actual.out, "5");
+}
+
+// Note: Do not use -i / --interactive in tests.
+// -i attempts to acquire a terminal, and if more than one
+// test tries to obtain a terminal at the same time, the
+// test run will likely hang, at least for some users.
+// Instead, use -e / --execute with an `exit` to test REPL
+// functionality as demonstrated below.
+#[test]
+fn env_shlvl_in_repl() {
+    let actual = nu!("
+        $env.SHLVL = 5
+        nu --no-std-lib -n -e 'print $env.SHLVL; exit'
+    ");
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn env_shlvl_in_exec_repl() {
+    let actual = nu!("
+        $env.SHLVL = 29
+        nu -c \"exec nu --no-std-lib -n -e 'print $env.SHLVL; exit'\"
+    ");
+
+    assert_eq!(actual.out, "30");
+}

@@ -6,6 +6,7 @@ use helper::*;
 use prelude::*;
 use std::collections::HashMap;
 
+pub use ansi_coloring::UseAnsiColoring;
 pub use completions::{
     CompletionAlgorithm, CompletionConfig, CompletionSort, ExternalCompleterConfig,
 };
@@ -21,8 +22,9 @@ pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use reedline::{CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu};
 pub use rm::RmConfig;
 pub use shell_integration::ShellIntegrationConfig;
-pub use table::{FooterMode, TableConfig, TableIndexMode, TableMode, TrimStrategy};
+pub use table::{FooterMode, TableConfig, TableIndent, TableIndexMode, TableMode, TrimStrategy};
 
+mod ansi_coloring;
 mod completions;
 mod datetime_format;
 mod display_errors;
@@ -49,7 +51,7 @@ pub struct Config {
     pub footer_mode: FooterMode,
     pub float_precision: i64,
     pub recursion_limit: i64,
-    pub use_ansi_coloring: bool,
+    pub use_ansi_coloring: UseAnsiColoring,
     pub completions: CompletionConfig,
     pub edit_mode: EditBindings,
     pub history: HistoryConfig,
@@ -106,7 +108,7 @@ impl Default for Config {
             footer_mode: FooterMode::RowCount(25),
             float_precision: 2,
             buffer_editor: Value::nothing(Span::unknown()),
-            use_ansi_coloring: true,
+            use_ansi_coloring: UseAnsiColoring::default(),
             bracketed_paste: true,
             edit_mode: EditBindings::default(),
 

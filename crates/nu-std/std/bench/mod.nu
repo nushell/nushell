@@ -41,21 +41,21 @@ export def main [
     --verbose (-v) # be more verbose (namely prints the progress)
     --pretty # shows the results in human-readable format: "<mean> +/- <stddev>"
 ] {
-    let times = (
+    let times: list<duration> = (
         seq 1 $rounds | each {|i|
             if $verbose { print -n $"($i) / ($rounds)\r" }
-            timeit { do $code } | into int | into float
+            timeit { do $code }
         }
     )
 
     if $verbose { print $"($rounds) / ($rounds)" }
 
     let report = {
-        mean: ($times | math avg | from ns)
-        min: ($times | math min | from ns)
-        max: ($times | math max | from ns)
-        std: ($times | math stddev | from ns)
-        times: ($times | each { from ns })
+        mean: ($times | math avg)
+        min: ($times | math min)
+        max: ($times | math max)
+        std: ($times | into int | math stddev | into int | into duration)
+        times: ($times)
     }
 
     if $pretty {
@@ -63,9 +63,4 @@ export def main [
     } else {
         $report
     }
-}
-
-# convert an integer amount of nanoseconds to a real duration
-def "from ns" [] {
-    [$in "ns"] | str join | into duration
 }
