@@ -109,8 +109,6 @@ mod window;
 
 mod debug;
 mod filesystem;
-mod open;
-mod save;
 mod ucp;
 mod uname;
 mod uniq;
@@ -119,7 +117,6 @@ mod update;
 mod upsert;
 mod url;
 mod use_;
-mod utouch;
 mod where_;
 mod which;
 mod while_;
