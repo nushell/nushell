@@ -15,6 +15,7 @@ impl Command for Reject {
             .input_output_types(vec![
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
+                (Type::list(Type::Any), Type::list(Type::Any)),
             ])
             .switch(
                 "ignore-errors",
@@ -159,6 +160,14 @@ impl Command for Reject {
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! { "name" => Value::test_string("Cargo.toml") }),
                     Value::test_record(record! { "name" => Value::test_string("Cargo.lock") }),
+                ])),
+            },
+            Example {
+                description: "Reject item in list",
+                example: "[1 2 3] | reject 1",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(3),
                 ])),
             },
         ]

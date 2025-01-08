@@ -13,7 +13,6 @@ impl Command for FromCsv {
         Signature::build("from csv")
             .input_output_types(vec![
                 (Type::String, Type::table()),
-                (Type::String, Type::list(Type::Any)),
             ])
             .named(
                 "separator",

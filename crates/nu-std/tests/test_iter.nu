@@ -37,7 +37,7 @@ def iter_intersperse [] {
     let res = (1..4 | iter intersperse 0)
     assert equal $res [1 0 2 0 3 0 4]
 
-    let res = (4 | iter intersperse 1)
+    let res = ([4] | iter intersperse 1)
     assert equal $res [4]
 }
 
@@ -92,7 +92,7 @@ def iter_zip_with [] {
 
     assert equal $res [3 5 7]
 
-    let res = (42 | iter zip-with [1 2 3] {|a, b| $a // $b})
+    let res = ([42] | iter zip-with [1 2 3] {|a, b| $a // $b})
     assert equal $res [42]
 
     let res = (2..5 | iter zip-with 4 {|a, b| $a * $b})

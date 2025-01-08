@@ -13,6 +13,8 @@ impl Command for Rotate {
             .input_output_types(vec![
                 (Type::record(), Type::table()),
                 (Type::table(), Type::table()),
+                (Type::list(Type::Any), Type::table()),
+                (Type::String, Type::table()),
             ])
             .switch("ccw", "rotate counter clockwise", None)
             .rest(
@@ -21,6 +23,7 @@ impl Command for Rotate {
                 "the names to give columns once rotated",
             )
             .category(Category::Filters)
+            .allow_variants_without_examples(true)
     }
 
     fn description(&self) -> &str {

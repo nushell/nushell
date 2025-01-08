@@ -813,6 +813,66 @@ impl Value {
         }
     }
 
+    /// Determine of the [`Value`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`
+    ///
+    /// If you have a [`Value`], this method should always be used over chaining [`Value::get_type`] with [`Type::is_subtype_of`](crate::Type::is_subtype_of).
+    ///
+    /// This method is able to leverage that information encoded in a `Value` to provide more accurate
+    /// type comparison than if one were to collect the type into [`Type`](crate::Type) value with [`Value::get_type`].
+    ///
+    /// Empty lists are considered subtypes of all list<T> types.
+    ///
+    /// Lists of mixed records where some column is present in all record is a subtype of `table<column>`.
+    /// For example, `[{a: 1, b: 2}, {a: 1}]` is a subtype of `table<a: int>` (but not `table<a: int, b: int>`).
+    ///
+    /// See also: [`PipelineData::is_subtype_of`](crate::PipelineData::is_subtype_of)
+    pub fn is_subtype_of(&self, other: &Type) -> bool {
+        // records are structurally typed
+        let record_compatible = |val: &Value, other: &[(String, Type)]| match val {
+            Value::Record { val, .. } => other
+                .iter()
+                .all(|(key, ty)| val.get(key).is_some_and(|inner| inner.is_subtype_of(ty))),
+            _ => false,
+        };
+
+        // All cases matched explicitly to ensure this does not accidentally allocate `Type` if any composite types are introduced in the future
+        match (self, other) {
+            (_, Type::Any) => true,
+
+            // `Type` allocation for scalar types is trivial
+            (
+                Value::Bool { .. }
+                | Value::Int { .. }
+                | Value::Float { .. }
+                | Value::String { .. }
+                | Value::Glob { .. }
+                | Value::Filesize { .. }
+                | Value::Duration { .. }
+                | Value::Date { .. }
+                | Value::Range { .. }
+                | Value::Closure { .. }
+                | Value::Error { .. }
+                | Value::Binary { .. }
+                | Value::CellPath { .. }
+                | Value::Nothing { .. },
+                _,
+            ) => self.get_type().is_subtype_of(other),
+
+            // matching composite types
+            (val @ Value::Record { .. }, Type::Record(inner)) => record_compatible(val, inner),
+            (Value::List { vals, .. }, Type::List(inner)) => {
+                vals.iter().all(|val| val.is_subtype_of(inner))
+            }
+            (Value::List { vals, .. }, Type::Table(inner)) => {
+                vals.iter().all(|val| record_compatible(val, inner))
+            }
+            (Value::Custom { val, .. }, Type::Custom(inner)) => val.type_name() == **inner,
+
+            // non-matching composite types
+            (Value::Record { .. } | Value::List { .. } | Value::Custom { .. }, _) => false,
+        }
+    }
+
     pub fn get_data_by_key(&self, name: &str) -> Option<Value> {
         let span = self.span();
         match self {
@@ -3877,6 +3937,136 @@ mod tests {
                 list_of_ints_and_floats.get_type(),
                 Type::List(Box::new(Type::Number))
             );
+        }
+    }
+
+    mod is_subtype {
+        use crate::Type;
+
+        use super::*;
+
+        fn assert_subtype_equivalent(value: &Value, ty: &Type) {
+            assert_eq!(value.is_subtype_of(ty), value.get_type().is_subtype_of(ty));
+        }
+
+        #[test]
+        fn test_list() {
+            let ty_int_list = Type::list(Type::Int);
+            let ty_str_list = Type::list(Type::String);
+            let ty_any_list = Type::list(Type::Any);
+            let ty_list_list_int = Type::list(Type::list(Type::Int));
+
+            let list = Value::test_list(vec![
+                Value::test_int(1),
+                Value::test_int(2),
+                Value::test_int(3),
+            ]);
+
+            assert_subtype_equivalent(&list, &ty_int_list);
+            assert_subtype_equivalent(&list, &ty_str_list);
+            assert_subtype_equivalent(&list, &ty_any_list);
+
+            let list = Value::test_list(vec![
+                Value::test_int(1),
+                Value::test_string("hi"),
+                Value::test_int(3),
+            ]);
+
+            assert_subtype_equivalent(&list, &ty_int_list);
+            assert_subtype_equivalent(&list, &ty_str_list);
+            assert_subtype_equivalent(&list, &ty_any_list);
+
+            let list = Value::test_list(vec![Value::test_list(vec![Value::test_int(1)])]);
+
+            assert_subtype_equivalent(&list, &ty_list_list_int);
+
+            // The type of an empty lists is a subtype of any list or table type
+            let ty_table = Type::Table(Box::new([
+                ("a".into(), Type::Int),
+                ("b".into(), Type::Int),
+                ("c".into(), Type::Int),
+            ]));
+            let empty = Value::test_list(vec![]);
+
+            assert_subtype_equivalent(&empty, &ty_any_list);
+            assert!(empty.is_subtype_of(&ty_int_list));
+            assert!(empty.is_subtype_of(&ty_table));
+        }
+
+        #[test]
+        fn test_record() {
+            let ty_abc = Type::Record(Box::new([
+                ("a".into(), Type::Int),
+                ("b".into(), Type::Int),
+                ("c".into(), Type::Int),
+            ]));
+            let ty_ab = Type::Record(Box::new([("a".into(), Type::Int), ("b".into(), Type::Int)]));
+            let ty_inner = Type::Record(Box::new([("inner".into(), ty_abc.clone())]));
+
+            let record_abc = Value::test_record(record! {
+                "a" => Value::test_int(1),
+                "b" => Value::test_int(2),
+                "c" => Value::test_int(3),
+            });
+            let record_ab = Value::test_record(record! {
+                "a" => Value::test_int(1),
+                "b" => Value::test_int(2),
+            });
+
+            assert_subtype_equivalent(&record_abc, &ty_abc);
+            assert_subtype_equivalent(&record_abc, &ty_ab);
+            assert_subtype_equivalent(&record_ab, &ty_abc);
+            assert_subtype_equivalent(&record_ab, &ty_ab);
+
+            let record_inner = Value::test_record(record! {
+                "inner" => record_abc
+            });
+            assert_subtype_equivalent(&record_inner, &ty_inner);
+        }
+
+        #[test]
+        fn test_table() {
+            let ty_abc = Type::Table(Box::new([
+                ("a".into(), Type::Int),
+                ("b".into(), Type::Int),
+                ("c".into(), Type::Int),
+            ]));
+            let ty_ab = Type::Table(Box::new([("a".into(), Type::Int), ("b".into(), Type::Int)]));
+            let ty_list_any = Type::list(Type::Any);
+
+            let record_abc = Value::test_record(record! {
+                "a" => Value::test_int(1),
+                "b" => Value::test_int(2),
+                "c" => Value::test_int(3),
+            });
+            let record_ab = Value::test_record(record! {
+                "a" => Value::test_int(1),
+                "b" => Value::test_int(2),
+            });
+
+            let table_abc = Value::test_list(vec![record_abc.clone(), record_abc.clone()]);
+            let table_ab = Value::test_list(vec![record_ab.clone(), record_ab.clone()]);
+
+            assert_subtype_equivalent(&table_abc, &ty_abc);
+            assert_subtype_equivalent(&table_abc, &ty_ab);
+            assert_subtype_equivalent(&table_ab, &ty_abc);
+            assert_subtype_equivalent(&table_ab, &ty_ab);
+            assert_subtype_equivalent(&table_abc, &ty_list_any);
+
+            let table_mixed = Value::test_list(vec![record_abc.clone(), record_ab.clone()]);
+            assert_subtype_equivalent(&table_mixed, &ty_abc);
+            assert!(table_mixed.is_subtype_of(&ty_ab));
+
+            let ty_a = Type::Table(Box::new([("a".into(), Type::Any)]));
+            let table_mixed_types = Value::test_list(vec![
+                Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                }),
+                Value::test_record(record! {
+                    "a" => Value::test_string("a"),
+                }),
+            ]);
+            assert!(table_mixed_types.is_subtype_of(&ty_a));
         }
     }
 

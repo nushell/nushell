@@ -19,24 +19,24 @@ pub fn check_example_input_and_output_types_match_command_signature(
 
     // Skip tests that don't have results to compare to
     if let Some(example_output) = example.result.as_ref() {
-        if let Some(example_input_type) =
+        if let Some(example_input) =
             eval_pipeline_without_terminal_expression(example.example, cwd, engine_state)
         {
-            let example_input_type = example_input_type.get_type();
-            let example_output_type = example_output.get_type();
-
             let example_matches_signature =
                 signature_input_output_types
                     .iter()
                     .any(|(sig_in_type, sig_out_type)| {
-                        example_input_type.is_subtype(sig_in_type)
-                            && example_output_type.is_subtype(sig_out_type)
+                        example_input.is_subtype_of(sig_in_type)
+                            && example_output.is_subtype_of(sig_out_type)
                             && {
                                 witnessed_type_transformations
                                     .insert((sig_in_type.clone(), sig_out_type.clone()));
                                 true
                             }
                     });
+
+            let example_input_type = example_input.get_type();
+            let example_output_type = example_output.get_type();
 
             // The example type checks as a cell path operation if both:
             // 1. The command is declared to operate on cell paths.
