@@ -336,6 +336,51 @@ fn source_empty_file() {
 }
 
 #[test]
+fn source_use_null() {
+    let actual = nu!(r#"source null"#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+
+    let actual = nu!(r#"source-env null"#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+
+    let actual = nu!(r#"use null"#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+
+    let actual = nu!(r#"overlay use null"#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn source_use_file_named_null() {
+    Playground::setup("source_file_named_null", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "null",
+            r#"export-env { print "hello world" }"#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), r#"source "null""#);
+        assert!(actual.out.contains("hello world"));
+        assert!(actual.err.is_empty());
+
+        let actual = nu!(cwd: dirs.test(), r#"source-env "null""#);
+        assert!(actual.out.contains("hello world"));
+        assert!(actual.err.is_empty());
+
+        let actual = nu!(cwd: dirs.test(), r#"use "null""#);
+        assert!(actual.out.contains("hello world"));
+        assert!(actual.err.is_empty());
+
+        let actual = nu!(cwd: dirs.test(), r#"overlay use "null""#);
+        assert!(actual.out.contains("hello world"));
+        assert!(actual.err.is_empty());
+    })
+}
+
+#[test]
 fn main_script_help_uses_script_name1() {
     // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
     Playground::setup("main_filename", |dirs, sandbox| {
