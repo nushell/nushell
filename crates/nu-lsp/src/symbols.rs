@@ -11,7 +11,7 @@ use lsp_types::{
 use nu_parser::parse;
 use nu_protocol::{
     engine::{CachedFile, EngineState, StateWorkingSet},
-    DeclId, Span, Type, VarId,
+    DeclId, Span, VarId,
 };
 use std::{cmp::Ordering, path::Path};
 
@@ -118,12 +118,7 @@ impl SymbolCache {
                 let range = span_to_range(&span, doc, doc_span.start);
                 let name = doc.get_content(Some(range));
                 // TODO: better way to filter closures with type any
-                if name.contains('\r')
-                    || name.contains('\n')
-                    || name.contains('{')
-                    || var.ty == Type::Closure
-                    || var.ty == Type::Block
-                {
+                if name.contains('\r') || name.contains('\n') || name.contains('{') {
                     return None;
                 }
                 Some(Symbol {
@@ -244,9 +239,11 @@ impl LanguageServer {
         &mut self,
         params: &DocumentSymbolParams,
     ) -> Option<DocumentSymbolResponse> {
-        let engine_state = self.new_engine_state();
         let uri = params.text_document.uri.to_owned();
-        self.symbol_cache.update(&uri, &engine_state, &self.docs);
+        if *self.symbol_cache.dirty_flags.get(&uri).unwrap_or(&true) {
+            let engine_state = self.new_engine_state();
+            self.symbol_cache.update(&uri, &engine_state, &self.docs);
+        }
         Some(DocumentSymbolResponse::Flat(
             self.symbol_cache.get_symbols_by_uri(&uri)?,
         ))

@@ -1,12 +1,13 @@
 use crate::{span_to_range, LanguageServer};
 use lsp_types::{
     notification::{Notification, PublishDiagnostics},
-    Diagnostic, DiagnosticSeverity, PublishDiagnosticsParams, Uri,
+    Diagnostic, DiagnosticSeverity, DocumentDiagnosticParams, PublishDiagnosticsParams,
 };
 use miette::{IntoDiagnostic, Result};
 
 impl LanguageServer {
-    pub(crate) fn publish_diagnostics_for_file(&mut self, uri: Uri) -> Result<()> {
+    pub(crate) fn publish_diagnostics(&mut self, params: DocumentDiagnosticParams) -> Result<()> {
+        let uri = params.text_document.uri.to_owned();
         let mut engine_state = self.new_engine_state();
         engine_state.generate_nu_constant();
 
@@ -43,10 +44,39 @@ impl LanguageServer {
 #[cfg(test)]
 mod tests {
     use assert_json_diff::assert_json_eq;
+    use lsp_server::{Connection, Message};
+    use lsp_types::{
+        request::{DocumentDiagnosticRequest, Request},
+        DocumentDiagnosticParams, PartialResultParams, TextDocumentIdentifier, Uri,
+        WorkDoneProgressParams,
+    };
     use nu_test_support::fs::fixtures;
 
     use crate::path_to_uri;
     use crate::tests::{initialize_language_server, open_unchecked, update};
+
+    pub fn diagnose(client_connection: &Connection, uri: Uri) -> Message {
+        client_connection
+            .sender
+            .send(Message::Request(lsp_server::Request {
+                id: 1.into(),
+                method: DocumentDiagnosticRequest::METHOD.to_string(),
+                params: serde_json::to_value(DocumentDiagnosticParams {
+                    text_document: TextDocumentIdentifier { uri },
+                    partial_result_params: PartialResultParams::default(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
+                    previous_result_id: None,
+                    identifier: None,
+                })
+                .unwrap(),
+            }))
+            .unwrap();
+
+        client_connection
+            .receiver
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap()
+    }
 
     #[test]
     fn publish_diagnostics_variable_does_not_exists() {
@@ -57,9 +87,8 @@ mod tests {
         script.push("diagnostics");
         script.push("var.nu");
         let script = path_to_uri(&script);
-
-        let notification = open_unchecked(&client_connection, script.clone());
-
+        open_unchecked(&client_connection, script.clone());
+        let notification = diagnose(&client_connection, script.clone());
         assert_json_eq!(
             notification,
             serde_json::json!({
@@ -90,7 +119,7 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let notification = update(
+        update(
             &client_connection,
             script.clone(),
             String::from("$env"),
@@ -105,6 +134,7 @@ mod tests {
                 },
             }),
         );
+        let notification = diagnose(&client_connection, script.clone());
 
         assert_json_eq!(
             notification,
