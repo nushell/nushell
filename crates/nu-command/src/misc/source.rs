@@ -110,6 +110,16 @@ impl Command for Source {
                 example: r#"source ./foo.nu; say-hi"#,
                 result: None,
             },
+            Example {
+                description: "Sourcing `null` is a no-op.",
+                example: r#"source null"#,
+                result: None,
+            },
+            Example {
+                description: "Source can be used with const variables.",
+                example: r#"const file = if $nu.is-interactive { "interactive.nu" } else { null }; source $file"#,
+                result: None,
+            }
         ]
     }
 }
