@@ -9,6 +9,7 @@ use lsp_types::{
     Uri, WorkspaceSymbolParams, WorkspaceSymbolResponse,
 };
 use nu_parser::parse;
+use nu_protocol::ModuleId;
 use nu_protocol::{
     engine::{CachedFile, EngineState, StateWorkingSet},
     DeclId, Span, VarId,
@@ -127,6 +128,18 @@ impl SymbolCache {
                     range,
                 })
             }
+            Id::Module(module_id) => {
+                let module = working_set.get_module(module_id);
+                let span = module.span?;
+                if !doc_span.contains(span.start) {
+                    return None;
+                }
+                Some(Symbol {
+                    name: String::from_utf8(module.name()).ok()?,
+                    kind: SymbolKind::MODULE,
+                    range: span_to_range(&span, doc, doc_span.start),
+                })
+            }
             _ => None,
         }
     }
@@ -149,6 +162,14 @@ impl SymbolCache {
                 Self::get_symbol_by_id(
                     working_set,
                     Id::Variable(VarId::new(id)),
+                    doc,
+                    &cached_file.covered_span,
+                )
+            }))
+            .chain((0..working_set.num_modules()).filter_map(|id| {
+                Self::get_symbol_by_id(
+                    working_set,
+                    Id::Module(ModuleId::new(id)),
                     doc,
                     &cached_file.covered_span,
                 )
@@ -391,8 +412,8 @@ mod tests {
                     character: 0,
                 },
                 end: lsp_types::Position {
-                    line: 2,
-                    character: 26,
+                    line: 4,
+                    character: 29,
                 },
             }),
         );
@@ -470,6 +491,17 @@ mod tests {
                   "range": {
                     "start": { "line": 0, "character": 13 },
                     "end": { "line": 0, "character": 20 }
+                  }
+                }
+              },
+              {
+                "name": "module_bar",
+                "kind": 2,
+                "location": {
+                  "uri": script_bar,
+                  "range": {
+                    "start": { "line": 4, "character": 26 },
+                    "end": { "line": 4, "character": 27 }
                   }
                 }
               }

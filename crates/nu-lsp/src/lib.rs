@@ -17,7 +17,7 @@ use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     ast::Block,
     engine::{CachedFile, EngineState, Stack, StateWorkingSet},
-    DeclId, Span, Value, VarId,
+    DeclId, ModuleId, Span, Value, VarId,
 };
 use std::{
     path::{Path, PathBuf},
@@ -37,6 +37,7 @@ enum Id {
     Variable(VarId),
     Declaration(DeclId),
     Value(FlatShape),
+    Module(ModuleId),
 }
 
 pub struct LanguageServer {
@@ -281,7 +282,7 @@ impl LanguageServer {
                     FlatShape::Variable(var_id) | FlatShape::VarDecl(var_id) => {
                         return Some((Id::Variable(*var_id), offset, span));
                     }
-                    FlatShape::InternalCall(decl_id) => {
+                    FlatShape::InternalCall(decl_id) | FlatShape::Custom(decl_id) => {
                         return Some((Id::Declaration(*decl_id), offset, span));
                     }
                     _ => return Some((Id::Value(shape), offset, span)),
@@ -316,6 +317,10 @@ impl LanguageServer {
             Id::Variable(var_id) => {
                 let var = working_set.get_variable(var_id);
                 Some(var.declaration_span)
+            }
+            Id::Module(module_id) => {
+                let module = working_set.get_module(module_id);
+                module.span
             }
             _ => None,
         }?;
@@ -536,6 +541,7 @@ impl LanguageServer {
                     range: None,
                 })
             }
+            _ => None,
         }
     }
 
