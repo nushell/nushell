@@ -59,7 +59,7 @@ fn creates_a_file_when_it_doesnt_exist() {
     Playground::setup("create_test_1", |dirs, _sandbox| {
         nu!(
             cwd: dirs.test(),
-            "utouch i_will_be_created.txt"
+            "touch i_will_be_created.txt"
         );
 
         let path = dirs.test().join("i_will_be_created.txt");
@@ -72,7 +72,7 @@ fn creates_two_files() {
     Playground::setup("create_test_2", |dirs, _sandbox| {
         nu!(
             cwd: dirs.test(),
-            "utouch a b"
+            "touch a b"
         );
 
         let path = dirs.test().join("a");
@@ -83,18 +83,46 @@ fn creates_two_files() {
     })
 }
 
+// Windows forbids file names with reserved characters
+// https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
+#[test]
+#[cfg(not(windows))]
+fn creates_a_file_when_glob_is_quoted() {
+    Playground::setup("create_test_glob", |dirs, _sandbox| {
+        nu!(
+            cwd: dirs.test(),
+            "touch '*.txt'"
+        );
+
+        let path = dirs.test().join("*.txt");
+        assert!(path.exists());
+    })
+}
+
+#[test]
+fn fails_when_glob_has_no_matches() {
+    Playground::setup("create_test_glob_no_matches", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "touch *.txt"
+        );
+
+        assert!(actual.err.contains("No matches found for glob *.txt"));
+    })
+}
+
 #[test]
 fn change_modified_time_of_file_to_today() {
     Playground::setup("change_time_test_9", |dirs, sandbox| {
         sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
         let path = dirs.test().join("file.txt");
 
-        // Set file.txt's times to the past before the test to make sure `utouch` actually changes the mtime to today
+        // Set file.txt's times to the past before the test to make sure `touch` actually changes the mtime to today
         filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
 
         nu!(
             cwd: dirs.test(),
-            "utouch -m file.txt"
+            "touch -m file.txt"
         );
 
         let metadata = path.metadata().unwrap();
@@ -119,12 +147,12 @@ fn change_access_time_of_file_to_today() {
         sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
         let path = dirs.test().join("file.txt");
 
-        // Set file.txt's times to the past before the test to make sure `utouch` actually changes the atime to today
+        // Set file.txt's times to the past before the test to make sure `touch` actually changes the atime to today
         filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
 
         nu!(
             cwd: dirs.test(),
-            "utouch -a file.txt"
+            "touch -a file.txt"
         );
 
         let metadata = path.metadata().unwrap();
@@ -153,7 +181,32 @@ fn change_modified_and_access_time_of_file_to_today() {
 
         nu!(
             cwd: dirs.test(),
-            "utouch -a -m file.txt"
+            "touch -a -m file.txt"
+        );
+
+        let metadata = path.metadata().unwrap();
+
+        // Check only the date since the time may not match exactly
+        let today = Local::now().date_naive();
+        let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
+        let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
+
+        assert_eq!(today, mtime_day);
+        assert_eq!(today, atime_day);
+    })
+}
+
+#[test]
+fn change_modified_and_access_time_of_files_matching_glob_to_today() {
+    Playground::setup("change_mtime_atime_test_glob", |dirs, sandbox| {
+        sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
+
+        let path = dirs.test().join("file.txt");
+        filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
+
+        nu!(
+            cwd: dirs.test(),
+            "touch *.txt"
         );
 
         let metadata = path.metadata().unwrap();
@@ -173,14 +226,14 @@ fn not_create_file_if_it_not_exists() {
     Playground::setup("change_time_test_28", |dirs, _sandbox| {
         let outcome = nu!(
             cwd: dirs.test(),
-            "utouch -c file.txt"
+            "touch -c file.txt"
         );
 
         let path = dirs.test().join("file.txt");
 
         assert!(!path.exists());
 
-        // If --no-create is improperly handled `utouch` may error when trying to change the times of a nonexistent file
+        // If --no-create is improperly handled `touch` may error when trying to change the times of a nonexistent file
         assert!(outcome.status.success())
     })
 }
@@ -197,7 +250,7 @@ fn change_file_times_if_exists_with_no_create() {
 
             nu!(
                 cwd: dirs.test(),
-                "utouch -c file.txt"
+                "touch -c file.txt"
             );
 
             let metadata = path.metadata().unwrap();
@@ -218,7 +271,7 @@ fn creates_file_three_dots() {
     Playground::setup("create_test_1", |dirs, _sandbox| {
         nu!(
             cwd: dirs.test(),
-            "utouch file..."
+            "touch file..."
         );
 
         let path = dirs.test().join("file...");
@@ -231,7 +284,7 @@ fn creates_file_four_dots() {
     Playground::setup("create_test_1", |dirs, _sandbox| {
         nu!(
             cwd: dirs.test(),
-            "utouch file...."
+            "touch file...."
         );
 
         let path = dirs.test().join("file....");
@@ -244,7 +297,7 @@ fn creates_file_four_dots_quotation_marks() {
     Playground::setup("create_test_1", |dirs, _sandbox| {
         nu!(
             cwd: dirs.test(),
-            "utouch 'file....'"
+            "touch 'file....'"
         );
 
         let path = dirs.test().join("file....");
@@ -278,7 +331,7 @@ fn change_file_times_to_reference_file() {
 
         nu!(
             cwd: dirs.test(),
-            "utouch -r reference_file target_file"
+            "touch -r reference_file target_file"
         );
 
         assert_eq!(
@@ -314,7 +367,7 @@ fn change_file_mtime_to_reference() {
 
         nu!(
             cwd: dirs.test(),
-            "utouch -mr reference_file target_file"
+            "touch -mr reference_file target_file"
         );
 
         assert_eq!(
@@ -363,7 +416,7 @@ fn change_file_times_to_reference_file_with_date() {
 
             nu!(
                 cwd: dirs.test(),
-                r#"utouch -r reference_file -d "yesterday" target_file"#
+                r#"touch -r reference_file -d "yesterday" target_file"#
             );
 
             let (got_atime, got_mtime) = file_times(target);
@@ -392,7 +445,7 @@ fn change_file_times_to_timestamp() {
             .unwrap()
             .to_rfc3339();
 
-        nu!(cwd: dirs.test(), format!("utouch --timestamp {} target_file", timestamp));
+        nu!(cwd: dirs.test(), format!("touch --timestamp {} target_file", timestamp));
 
         assert_eq!((TIME_ONE, TIME_ONE), file_times(target));
     })
@@ -408,7 +461,7 @@ fn change_modified_time_of_dir_to_today() {
 
         nu!(
             cwd: dirs.test(),
-            "utouch -m test_dir"
+            "touch -m test_dir"
         );
 
         // Check only the date since the time may not match exactly
@@ -430,7 +483,7 @@ fn change_access_time_of_dir_to_today() {
 
         nu!(
             cwd: dirs.test(),
-            "utouch -a test_dir"
+            "touch -a test_dir"
         );
 
         // Check only the date since the time may not match exactly
@@ -452,7 +505,7 @@ fn change_modified_and_access_time_of_dir_to_today() {
 
         nu!(
             cwd: dirs.test(),
-            "utouch -a -m test_dir"
+            "touch -a -m test_dir"
         );
 
         let metadata = path.metadata().unwrap();
@@ -476,7 +529,7 @@ fn change_file_times_to_date() {
         sandbox.with_files(&[Stub::EmptyFile("target_file")]);
 
         let expected = Utc::now().checked_sub_signed(TimeDelta::hours(2)).unwrap();
-        nu!(cwd: dirs.test(), "utouch -d '-2 hours' target_file");
+        nu!(cwd: dirs.test(), "touch -d '-2 hours' target_file");
 
         let (got_atime, got_mtime) = file_times(dirs.test().join("target_file"));
         let got_atime =
@@ -506,7 +559,7 @@ fn change_dir_three_dots_times() {
 
         nu!(
             cwd: dirs.test(),
-            "utouch test_dir..."
+            "touch test_dir..."
         );
 
         let metadata = path.metadata().unwrap();
@@ -545,7 +598,7 @@ fn change_dir_times_to_reference_dir() {
 
         nu!(
             cwd: dirs.test(),
-            "utouch -r reference_dir target_dir"
+            "touch -r reference_dir target_dir"
         );
 
         assert_eq!(
@@ -586,7 +639,7 @@ fn change_dir_atime_to_reference() {
 
         nu!(
             cwd: dirs.test(),
-            "utouch -ar reference_dir target_dir"
+            "touch -ar reference_dir target_dir"
         );
 
         assert_eq!(
@@ -606,13 +659,13 @@ fn change_dir_atime_to_reference() {
 
 #[test]
 fn create_a_file_with_tilde() {
-    Playground::setup("utouch with tilde", |dirs, _| {
-        let actual = nu!(cwd: dirs.test(), "utouch '~tilde'");
+    Playground::setup("touch with tilde", |dirs, _| {
+        let actual = nu!(cwd: dirs.test(), "touch '~tilde'");
         assert!(actual.err.is_empty());
         assert!(files_exist_at(&[Path::new("~tilde")], dirs.test()));
 
         // pass variable
-        let actual = nu!(cwd: dirs.test(), "let f = '~tilde2'; utouch $f");
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde2'; touch $f");
         assert!(actual.err.is_empty());
         assert!(files_exist_at(&[Path::new("~tilde2")], dirs.test()));
     })
@@ -620,10 +673,10 @@ fn create_a_file_with_tilde() {
 
 #[test]
 fn respects_cwd() {
-    Playground::setup("utouch_respects_cwd", |dirs, _sandbox| {
+    Playground::setup("touch_respects_cwd", |dirs, _sandbox| {
         nu!(
             cwd: dirs.test(),
-            "mkdir 'dir'; cd 'dir'; utouch 'i_will_be_created.txt'"
+            "mkdir 'dir'; cd 'dir'; touch 'i_will_be_created.txt'"
         );
 
         let path = dirs.test().join("dir/i_will_be_created.txt");
@@ -633,10 +686,10 @@ fn respects_cwd() {
 
 #[test]
 fn reference_respects_cwd() {
-    Playground::setup("utouch_reference_respects_cwd", |dirs, _sandbox| {
+    Playground::setup("touch_reference_respects_cwd", |dirs, _sandbox| {
         nu!(
             cwd: dirs.test(),
-            "mkdir 'dir'; cd 'dir'; utouch 'ref.txt'; utouch --reference 'ref.txt' 'foo.txt'"
+            "mkdir 'dir'; cd 'dir'; touch 'ref.txt'; touch --reference 'ref.txt' 'foo.txt'"
         );
 
         let path = dirs.test().join("dir/foo.txt");
@@ -646,8 +699,8 @@ fn reference_respects_cwd() {
 
 #[test]
 fn recognizes_stdout() {
-    Playground::setup("utouch_recognizes_stdout", |dirs, _sandbox| {
-        nu!(cwd: dirs.test(), "utouch -");
+    Playground::setup("touch_recognizes_stdout", |dirs, _sandbox| {
+        nu!(cwd: dirs.test(), "touch -");
         assert!(!dirs.test().join("-").exists());
     })
 }
