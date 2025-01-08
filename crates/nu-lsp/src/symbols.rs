@@ -239,11 +239,9 @@ impl LanguageServer {
         &mut self,
         params: &DocumentSymbolParams,
     ) -> Option<DocumentSymbolResponse> {
+        let engine_state = self.new_engine_state();
         let uri = params.text_document.uri.to_owned();
-        if *self.symbol_cache.dirty_flags.get(&uri).unwrap_or(&true) {
-            let engine_state = self.new_engine_state();
-            self.symbol_cache.update(&uri, &engine_state, &self.docs);
-        }
+        self.symbol_cache.update(&uri, &engine_state, &self.docs);
         Some(DocumentSymbolResponse::Flat(
             self.symbol_cache.get_symbols_by_uri(&uri)?,
         ))

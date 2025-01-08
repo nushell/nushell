@@ -3,13 +3,13 @@ use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
     request::{
-        Completion, DocumentDiagnosticRequest, DocumentSymbolRequest, GotoDefinition, HoverRequest,
-        Request, WorkspaceSymbolRequest,
+        Completion, DocumentSymbolRequest, GotoDefinition, HoverRequest, Request,
+        WorkspaceSymbolRequest,
     },
     CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
-    DocumentDiagnosticParams, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents,
-    HoverParams, Location, MarkupContent, MarkupKind, OneOf, Range, ServerCapabilities,
-    TextDocumentSyncKind, TextEdit, Uri,
+    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location,
+    MarkupContent, MarkupKind, OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit,
+    Uri,
 };
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{NuCompleter, SuggestionKind};
@@ -97,9 +97,6 @@ impl LanguageServer {
             definition_provider: Some(OneOf::Left(true)),
             hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
             completion_provider: Some(lsp_types::CompletionOptions::default()),
-            diagnostic_provider: Some(lsp_types::DiagnosticServerCapabilities::Options(
-                lsp_types::DiagnosticOptions::default(),
-            )),
             document_symbol_provider: Some(OneOf::Left(true)),
             workspace_symbol_provider: Some(OneOf::Left(true)),
             ..Default::default()
@@ -154,14 +151,6 @@ impl LanguageServer {
                                 self.workspace_symbol(params)
                             })
                         }
-                        DocumentDiagnosticRequest::METHOD => {
-                            if let Ok(params) =
-                                serde_json::from_value::<DocumentDiagnosticParams>(request.params)
-                            {
-                                self.publish_diagnostics(params)?;
-                            };
-                            continue;
-                        }
                         _ => {
                             continue;
                         }
@@ -176,16 +165,8 @@ impl LanguageServer {
                 Message::Notification(notification) => {
                     if let Some(updated_file) = self.handle_lsp_notification(notification) {
                         self.symbol_cache.mark_dirty(updated_file.clone(), true);
+                        self.publish_diagnostics_for_file(updated_file)?;
                     }
-                    self.connection
-                        .sender
-                        .send(lsp_server::Message::Notification(
-                            lsp_server::Notification::new(
-                                "Acknowledge".to_string(),
-                                "Notification received",
-                            ),
-                        ))
-                        .into_diagnostic()?;
                 }
             }
         }
