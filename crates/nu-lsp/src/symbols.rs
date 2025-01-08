@@ -202,6 +202,11 @@ impl SymbolCache {
         };
     }
 
+    pub fn drop(&mut self, uri: &Uri) {
+        self.cache.remove(uri);
+        self.dirty_flags.remove(uri);
+    }
+
     pub fn update_all(&mut self, engine_state: &EngineState, docs: &TextDocuments) {
         for uri in docs.documents().keys() {
             self.update(uri, engine_state, docs);
