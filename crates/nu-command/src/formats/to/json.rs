@@ -25,6 +25,11 @@ impl Command for ToJson {
                 "specify indentation tab quantity",
                 Some('t'),
             )
+            .switch(
+                "serialize",
+                "serialize nushell types that cannot be deserialized",
+                Some('s'),
+            )
             .category(Category::Formats)
     }
 
@@ -42,12 +47,13 @@ impl Command for ToJson {
         let raw = call.has_flag(engine_state, stack, "raw")?;
         let use_tabs = call.get_flag(engine_state, stack, "tabs")?;
         let indent = call.get_flag(engine_state, stack, "indent")?;
+        let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
 
         let span = call.head;
         // allow ranges to expand and turn into array
         let input = input.try_expand_range()?;
         let value = input.into_value(span)?;
-        let json_value = value_to_json_value(&value)?;
+        let json_value = value_to_json_value(engine_state, &value, serialize_types)?;
 
         let json_result = if raw {
             nu_json::to_string_raw(&json_value)
@@ -105,7 +111,11 @@ impl Command for ToJson {
     }
 }
 
-pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
+pub fn value_to_json_value(
+    engine_state: &EngineState,
+    v: &Value,
+    serialize_types: bool,
+) -> Result<nu_json::Value, ShellError> {
     let span = v.span();
     Ok(match v {
         Value::Bool { val, .. } => nu_json::Value::Bool(*val),
@@ -127,31 +137,57 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
                 .collect::<Result<Vec<nu_json::Value>, ShellError>>()?,
         ),
 
-        Value::List { vals, .. } => nu_json::Value::Array(json_list(vals)?),
+        Value::List { vals, .. } => {
+            nu_json::Value::Array(json_list(engine_state, vals, serialize_types)?)
+        }
         Value::Error { error, .. } => return Err(*error.clone()),
-        Value::Closure { .. } | Value::Range { .. } => nu_json::Value::Null,
+        Value::Closure { val, .. } => {
+            if serialize_types {
+                let block = engine_state.get_block(val.block_id);
+                if let Some(span) = block.span {
+                    let contents_bytes = engine_state.get_span_contents(span);
+                    let contents_string = String::from_utf8_lossy(contents_bytes);
+                    nu_json::Value::String(contents_string.to_string())
+                } else {
+                    nu_json::Value::String(format!(
+                        "unable to retrieve block contents for json block_id {}",
+                        val.block_id.get()
+                    ))
+                }
+            } else {
+                nu_json::Value::Null
+            }
+        }
+        Value::Range { .. } => nu_json::Value::Null,
         Value::Binary { val, .. } => {
             nu_json::Value::Array(val.iter().map(|x| nu_json::Value::U64(*x as u64)).collect())
         }
         Value::Record { val, .. } => {
             let mut m = nu_json::Map::new();
             for (k, v) in &**val {
-                m.insert(k.clone(), value_to_json_value(v)?);
+                m.insert(
+                    k.clone(),
+                    value_to_json_value(engine_state, v, serialize_types)?,
+                );
             }
             nu_json::Value::Object(m)
         }
         Value::Custom { val, .. } => {
             let collected = val.to_base_value(span)?;
-            value_to_json_value(&collected)?
+            value_to_json_value(engine_state, &collected, serialize_types)?
         }
     })
 }
 
-fn json_list(input: &[Value]) -> Result<Vec<nu_json::Value>, ShellError> {
+fn json_list(
+    engine_state: &EngineState,
+    input: &[Value],
+    serialize_types: bool,
+) -> Result<Vec<nu_json::Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {
-        out.push(value_to_json_value(value)?);
+        out.push(value_to_json_value(engine_state, value, serialize_types)?);
     }
 
     Ok(out)

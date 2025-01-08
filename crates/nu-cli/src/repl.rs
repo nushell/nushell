@@ -809,8 +809,10 @@ fn parse_operation(
 ) -> Result<ReplOperation, ErrReport> {
     let tokens = lex(s.as_bytes(), 0, &[], &[], false);
     // Check if this is a single call to a directory, if so auto-cd
-    #[allow(deprecated)]
-    let cwd = nu_engine::env::current_dir_str(engine_state, stack).unwrap_or_default();
+    let cwd = engine_state
+        .cwd(Some(stack))
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
     let mut orig = s.clone();
     if orig.starts_with('`') {
         orig = trim_quotes_str(&orig).to_string()
@@ -1570,6 +1572,13 @@ mod test_auto_cd {
         symlink(&dir, &link).unwrap();
         let input = if cfg!(windows) { r".\link" } else { "./link" };
         check(tempdir, input, link);
+
+        let dir = tempdir.join("foo").join("bar");
+        std::fs::create_dir_all(&dir).unwrap();
+        let link = tempdir.join("link2");
+        symlink(&dir, &link).unwrap();
+        let input = "..";
+        check(link, input, tempdir);
     }
 
     #[test]

@@ -183,12 +183,14 @@ mod int_range {
 
     impl Display for IntRange {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            // what about self.step?
-            let start = self.start;
+            write!(f, "{}..", self.start)?;
+            if self.step != 1 {
+                write!(f, "{}..", self.start + self.step)?;
+            }
             match self.end {
-                Bound::Included(end) => write!(f, "{start}..{end}"),
-                Bound::Excluded(end) => write!(f, "{start}..<{end}"),
-                Bound::Unbounded => write!(f, "{start}.."),
+                Bound::Included(end) => write!(f, "{end}"),
+                Bound::Excluded(end) => write!(f, "<{end}"),
+                Bound::Unbounded => Ok(()),
             }
         }
     }
@@ -228,7 +230,10 @@ mod int_range {
 }
 
 mod float_range {
-    use crate::{ast::RangeInclusion, IntRange, Range, ShellError, Signals, Span, Value};
+    use crate::{
+        ast::RangeInclusion, format::ObviousFloat, IntRange, Range, ShellError, Signals, Span,
+        Value,
+    };
     use serde::{Deserialize, Serialize};
     use std::{cmp::Ordering, fmt::Display, ops::Bound};
 
@@ -434,12 +439,14 @@ mod float_range {
 
     impl Display for FloatRange {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            // what about self.step?
-            let start = self.start;
+            write!(f, "{}..", ObviousFloat(self.start))?;
+            if self.step != 1f64 {
+                write!(f, "{}..", ObviousFloat(self.start + self.step))?;
+            }
             match self.end {
-                Bound::Included(end) => write!(f, "{start}..{end}"),
-                Bound::Excluded(end) => write!(f, "{start}..<{end}"),
-                Bound::Unbounded => write!(f, "{start}.."),
+                Bound::Included(end) => write!(f, "{}", ObviousFloat(end)),
+                Bound::Excluded(end) => write!(f, "<{}", ObviousFloat(end)),
+                Bound::Unbounded => Ok(()),
             }
         }
     }

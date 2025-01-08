@@ -8,6 +8,7 @@ mod range;
 #[cfg(test)]
 mod test_derive;
 
+pub mod format;
 pub mod record;
 pub use custom_value::CustomValue;
 pub use duration::*;
@@ -968,7 +969,7 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
-            Value::Closure { val, .. } => format!("<Closure {}>", val.block_id.get()),
+            Value::Closure { val, .. } => format!("closure_{}", val.block_id.get()),
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),

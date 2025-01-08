@@ -625,11 +625,24 @@ fn build_table_kv(
 }
 
 fn build_table_batch(
-    vals: Vec<Value>,
+    mut vals: Vec<Value>,
     view: TableView,
     opts: TableOpts<'_>,
     span: Span,
 ) -> StringResult {
+    // convert each custom value to its base value so it can be properly
+    // displayed in a table
+    for val in &mut vals {
+        let span = val.span();
+
+        if let Value::Custom { val: custom, .. } = val {
+            *val = custom
+                .to_base_value(span)
+                .or_else(|err| Result::<_, ShellError>::Ok(Value::error(err, span)))
+                .expect("error converting custom value to base value")
+        }
+    }
+
     match view {
         TableView::General => JustTable::table(&vals, opts),
         TableView::Expanded {
@@ -886,7 +899,10 @@ impl Iterator for PagingTableCreator {
                     &self.stack,
                 );
                 let mut bytes = result.into_bytes();
-                bytes.push(b'\n');
+                // Add extra newline if show_empty is enabled
+                if !bytes.is_empty() {
+                    bytes.push(b'\n');
+                }
                 Some(Ok(bytes))
             } else {
                 None

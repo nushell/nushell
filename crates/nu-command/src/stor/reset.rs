@@ -49,9 +49,25 @@ impl Command for StorReset {
         ));
 
         if let Ok(conn) = db.open_connection() {
+            conn.execute("PRAGMA foreign_keys = OFF", [])
+                .map_err(|err| ShellError::GenericError {
+                    error: "Failed to turn off foreign_key protections for reset".into(),
+                    msg: err.to_string(),
+                    span: Some(Span::test_data()),
+                    help: None,
+                    inner: vec![],
+                })?;
             db.drop_all_tables(&conn)
                 .map_err(|err| ShellError::GenericError {
-                    error: "Failed to open SQLite connection in memory from reset".into(),
+                    error: "Failed to drop all tables in memory from reset".into(),
+                    msg: err.to_string(),
+                    span: Some(Span::test_data()),
+                    help: None,
+                    inner: vec![],
+                })?;
+            conn.execute("PRAGMA foreign_keys = ON", [])
+                .map_err(|err| ShellError::GenericError {
+                    error: "Failed to turn on foreign_key protections for reset".into(),
                     msg: err.to_string(),
                     span: Some(Span::test_data()),
                     help: None,

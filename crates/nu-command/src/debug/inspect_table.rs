@@ -1,19 +1,23 @@
 // note: Seems like could be simplified
 //       IMHO: it shall not take 300+ lines :)
 
+use self::{global_horizontal_char::SetHorizontalChar, set_widths::SetWidths};
+use nu_protocol::engine::EngineState;
 use nu_protocol::Value;
 use nu_table::{string_width, string_wrap};
-
 use tabled::{
     grid::config::ColoredConfig,
     settings::{peaker::Priority, width::Wrap, Settings, Style},
     Table,
 };
 
-use self::{global_horizontal_char::SetHorizontalChar, set_widths::SetWidths};
-
-pub fn build_table(value: Value, description: String, termsize: usize) -> String {
-    let (head, mut data) = util::collect_input(value);
+pub fn build_table(
+    engine_state: &EngineState,
+    value: Value,
+    description: String,
+    termsize: usize,
+) -> String {
+    let (head, mut data) = util::collect_input(engine_state, value);
     let count_columns = head.len();
     data.insert(0, head);
 
@@ -195,10 +199,14 @@ fn push_empty_column(data: &mut Vec<Vec<String>>) {
 mod util {
     use crate::debug::explain::debug_string_without_formatting;
     use nu_engine::get_columns;
+    use nu_protocol::engine::EngineState;
     use nu_protocol::Value;
 
     /// Try to build column names and a table grid.
-    pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<String>>) {
+    pub fn collect_input(
+        engine_state: &EngineState,
+        value: Value,
+    ) -> (Vec<String>, Vec<Vec<String>>) {
         let span = value.span();
         match value {
             Value::Record { val: record, .. } => {
@@ -210,7 +218,7 @@ mod util {
                     },
                     match vals
                         .into_iter()
-                        .map(|s| debug_string_without_formatting(&s))
+                        .map(|s| debug_string_without_formatting(engine_state, &s))
                         .collect::<Vec<String>>()
                     {
                         vals if vals.is_empty() => vec![],
@@ -220,7 +228,7 @@ mod util {
             }
             Value::List { vals, .. } => {
                 let mut columns = get_columns(&vals);
-                let data = convert_records_to_dataset(&columns, vals);
+                let data = convert_records_to_dataset(engine_state, &columns, vals);
 
                 if columns.is_empty() {
                     columns = vec![String::from("")];
@@ -232,7 +240,7 @@ mod util {
                 let lines = val
                     .lines()
                     .map(|line| Value::string(line.to_string(), span))
-                    .map(|val| vec![debug_string_without_formatting(&val)])
+                    .map(|val| vec![debug_string_without_formatting(engine_state, &val)])
                     .collect();
 
                 (vec![String::from("")], lines)
@@ -240,47 +248,59 @@ mod util {
             Value::Nothing { .. } => (vec![], vec![]),
             value => (
                 vec![String::from("")],
-                vec![vec![debug_string_without_formatting(&value)]],
+                vec![vec![debug_string_without_formatting(engine_state, &value)]],
             ),
         }
     }
 
-    fn convert_records_to_dataset(cols: &[String], records: Vec<Value>) -> Vec<Vec<String>> {
+    fn convert_records_to_dataset(
+        engine_state: &EngineState,
+        cols: &[String],
+        records: Vec<Value>,
+    ) -> Vec<Vec<String>> {
         if !cols.is_empty() {
-            create_table_for_record(cols, &records)
+            create_table_for_record(engine_state, cols, &records)
         } else if cols.is_empty() && records.is_empty() {
             vec![]
         } else if cols.len() == records.len() {
             vec![records
                 .into_iter()
-                .map(|s| debug_string_without_formatting(&s))
+                .map(|s| debug_string_without_formatting(engine_state, &s))
                 .collect()]
         } else {
             records
                 .into_iter()
-                .map(|record| vec![debug_string_without_formatting(&record)])
+                .map(|record| vec![debug_string_without_formatting(engine_state, &record)])
                 .collect()
         }
     }
 
-    fn create_table_for_record(headers: &[String], items: &[Value]) -> Vec<Vec<String>> {
+    fn create_table_for_record(
+        engine_state: &EngineState,
+        headers: &[String],
+        items: &[Value],
+    ) -> Vec<Vec<String>> {
         let mut data = vec![Vec::new(); items.len()];
 
         for (i, item) in items.iter().enumerate() {
-            let row = record_create_row(headers, item);
+            let row = record_create_row(engine_state, headers, item);
             data[i] = row;
         }
 
         data
     }
 
-    fn record_create_row(headers: &[String], item: &Value) -> Vec<String> {
+    fn record_create_row(
+        engine_state: &EngineState,
+        headers: &[String],
+        item: &Value,
+    ) -> Vec<String> {
         if let Value::Record { val, .. } = item {
             headers
                 .iter()
                 .map(|col| {
                     val.get(col)
-                        .map(debug_string_without_formatting)
+                        .map(|v| debug_string_without_formatting(engine_state, v))
                         .unwrap_or_else(String::new)
                 })
                 .collect()
