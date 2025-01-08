@@ -56,7 +56,7 @@ produce a table, a list will produce a list, and a record will produce a record.
         let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let mut new_columns: Vec<CellPath> = vec![];
         for col_val in columns {
-            let col_span = &col_val.span();
+            let col_span = col_val.span();
             match col_val {
                 Value::CellPath { val, .. } => {
                     new_columns.push(val);
@@ -65,25 +65,25 @@ produce a table, a list will produce a list, and a record will produce a record.
                     let cv = CellPath {
                         members: vec![PathMember::String {
                             val,
-                            span: *col_span,
+                            span: col_span,
                             optional: false,
                         }],
                     };
                     new_columns.push(cv);
                 }
-                Value::Int { val, internal_span } => {
+                Value::Int { val, .. } => {
                     if val < 0 {
                         return Err(ShellError::CantConvert {
                             to_type: "cell path".into(),
                             from_type: "negative number".into(),
-                            span: internal_span,
+                            span: col_span,
                             help: None,
                         });
                     }
                     let cv = CellPath {
                         members: vec![PathMember::Int {
                             val: val as usize,
-                            span: *col_span,
+                            span: col_span,
                             optional: false,
                         }],
                     };

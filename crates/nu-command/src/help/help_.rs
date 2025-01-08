@@ -1,5 +1,5 @@
 use crate::help::{help_aliases, help_commands, help_modules};
-use fancy_regex::Regex;
+use fancy_regex::{escape, Regex};
 use nu_ansi_term::Style;
 use nu_engine::command_prelude::*;
 use nu_utils::IgnoreCaseExt;
@@ -193,7 +193,7 @@ pub fn highlight_search_string(
     string_style: &Style,
     highlight_style: &Style,
 ) -> Result<String, ShellError> {
-    let escaped_needle = regex::escape(needle);
+    let escaped_needle = escape(needle);
     let regex_string = format!("(?i){escaped_needle}");
     let regex = match Regex::new(&regex_string) {
         Ok(regex) => regex,

@@ -67,7 +67,7 @@ fn complete_rec(
 
         for entry in result.filter_map(|e| e.ok()) {
             let entry_name = entry.file_name().to_string_lossy().into_owned();
-            let entry_isdir = entry.path().is_dir();
+            let entry_isdir = entry.path().is_dir() && !entry.path().is_symlink();
             let mut built = built.clone();
             built.parts.push(entry_name.clone());
             built.isdir = entry_isdir;
@@ -299,8 +299,7 @@ pub fn complete_item(
 // Fix files or folders with quotes or hashes
 pub fn escape_path(path: String, dir: bool) -> String {
     // make glob pattern have the highest priority.
-    let glob_contaminated = path.contains(['[', '*', ']', '?']);
-    if glob_contaminated {
+    if nu_glob::is_glob(path.as_str()) {
         return if path.contains('\'') {
             // decide to use double quote, also need to escape `"` in path
             // or else users can't do anything with completed path either.

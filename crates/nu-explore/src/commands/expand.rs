@@ -69,12 +69,9 @@ fn convert_value_to_string(
     } else {
         let config = engine_state.get_config();
         let style_computer = StyleComputer::from_config(engine_state, stack);
+        let table =
+            nu_common::try_build_table(value, engine_state.signals(), config, style_computer);
 
-        Ok(nu_common::try_build_table(
-            engine_state.signals(),
-            config,
-            &style_computer,
-            value,
-        ))
+        Ok(table)
     }
 }
