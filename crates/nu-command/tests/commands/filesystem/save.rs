@@ -526,6 +526,15 @@ fn parent_redirection_doesnt_affect_save() {
     })
 }
 
+#[test]
+fn force_save_to_dir() {
+    let actual = nu!(cwd: "crates/nu-command/tests/commands", r#"
+        "aaa" | save -f ..
+        "#);
+
+    assert!(actual.err.contains("Is a directory"));
+}
+
 #[cfg(windows)]
 #[test]
 fn support_pwd_per_drive() {
