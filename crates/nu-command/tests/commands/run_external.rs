@@ -167,7 +167,7 @@ fn external_args_with_quoted(prefix: &str) {
 
 // don't use template for this once since echo with no prefix is an internal command
 // and arguments flags are treated as arguments to run-external
-// (but wrapping them in quotes defeats the point of thest )
+// (but wrapping them in quotes defeats the point of test)
 #[cfg(not(windows))]
 #[test]
 fn external_arg_with_option_like_embedded_quotes() {
