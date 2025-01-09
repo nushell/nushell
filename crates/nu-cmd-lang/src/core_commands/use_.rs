@@ -25,7 +25,7 @@ impl Command for Use {
             .required(
                 "module",
                 SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]),
-                "Module or module file.",
+                "Module or module file (`null` for no-op).",
             )
             .rest(
                 "members",

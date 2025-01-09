@@ -25,7 +25,7 @@ impl Command for OverlayUse {
             .required(
                 "name",
                 SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]),
-                "Module name to use overlay for.",
+                "Module name to use overlay for (`null` for no-op).",
             )
             .optional(
                 "as",

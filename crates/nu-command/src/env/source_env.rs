@@ -20,7 +20,7 @@ impl Command for SourceEnv {
             .required(
                 "filename",
                 SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]), // type is string to avoid automatically canonicalizing the path
-                "The filepath to the script file to source the environment from.",
+                "The filepath to the script file to source the environment from (`null` for no-op).",
             )
             .category(Category::Core)
     }

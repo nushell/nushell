@@ -17,7 +17,7 @@ impl Command for Source {
             .required(
                 "filename",
                 SyntaxShape::OneOf(vec![SyntaxShape::Filepath, SyntaxShape::Nothing]),
-                "The filepath to the script file to source.",
+                "The filepath to the script file to source (`null` for no-op).",
             )
             .category(Category::Core)
     }
