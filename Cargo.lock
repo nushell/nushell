@@ -3834,6 +3834,7 @@ dependencies = [
  "rmp",
  "roxmltree",
  "rstest",
+ "rstest_reuse",
  "rusqlite",
  "scopeguard",
  "serde",
@@ -6298,6 +6299,17 @@ dependencies = [
  "rustc_version",
  "syn 2.0.90",
  "unicode-ident",
+]
+
+[[package]]
+name = "rstest_reuse"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3a8fb4672e840a587a66fc577a5491375df51ddb88f2a2c2a792598c326fe14"
+dependencies = [
+ "quote",
+ "rand",
+ "syn 2.0.90",
 ]
 
 [[package]]
