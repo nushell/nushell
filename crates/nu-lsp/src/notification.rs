@@ -1,6 +1,10 @@
 use lsp_types::{
-    notification::{DidChangeTextDocument, DidOpenTextDocument, DidSaveTextDocument, Notification},
-    DidChangeTextDocumentParams, DidOpenTextDocumentParams, DidSaveTextDocumentParams, Uri,
+    notification::{
+        DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, DidSaveTextDocument,
+        Notification,
+    },
+    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
+    DidSaveTextDocumentParams, Uri,
 };
 
 use crate::LanguageServer;
@@ -30,6 +34,13 @@ impl LanguageServer {
                     serde_json::from_value(notification.params.clone())
                         .expect("Expect receive DidChangeTextDocumentParams");
                 Some(params.text_document.uri)
+            }
+            DidCloseTextDocument::METHOD => {
+                let params: DidCloseTextDocumentParams =
+                    serde_json::from_value(notification.params.clone())
+                        .expect("Expect receive DidCloseTextDocumentParams");
+                self.symbol_cache.drop(&params.text_document.uri);
+                None
             }
             _ => None,
         }

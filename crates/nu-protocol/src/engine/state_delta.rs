@@ -64,6 +64,10 @@ impl StateDelta {
         self.virtual_paths.len()
     }
 
+    pub fn num_vars(&self) -> usize {
+        self.vars.len()
+    }
+
     pub fn num_decls(&self) -> usize {
         self.decls.len()
     }

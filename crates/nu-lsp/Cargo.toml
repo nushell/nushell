@@ -22,6 +22,7 @@ miette = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 url = { workspace = true }
+fuzzy-matcher = { workspace = true }
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.101.1" }
