@@ -36,7 +36,7 @@ impl Command for External {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .rest(
                 "command",
-                SyntaxShape::OneOf(vec![SyntaxShape::Any, SyntaxShape::GlobPattern]),
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Any]),
                 "External command to run, with arguments.",
             )
             .category(Category::System)
