@@ -44,6 +44,13 @@ impl ElementInfo {
     }
 }
 
+/// Whether [`Profiler`] should report duration as [`Value::Duration`]
+#[derive(Debug, Clone, Copy)]
+pub enum DurationMode {
+    Milliseconds,
+    Value,
+}
+
 /// Options for [`Profiler`]
 #[derive(Debug, Clone)]
 pub struct ProfilerOptions {
@@ -55,6 +62,7 @@ pub struct ProfilerOptions {
     pub collect_exprs: bool,
     pub collect_instructions: bool,
     pub collect_lines: bool,
+    pub duration_mode: DurationMode,
 }
 
 /// Basic profiler, used in `debug profile`
@@ -475,10 +483,16 @@ fn collect_data(
         row.push("output", val.clone());
     }
 
-    row.push(
-        "duration",
-        Value::duration(element.duration_ns, profiler_span),
-    );
+    match profiler.opts.duration_mode {
+        DurationMode::Milliseconds => {
+            let val = Value::float(element.duration_ns as f64 / 1000.0 / 1000.0, profiler_span);
+            row.push("duration_ms", val);
+        }
+        DurationMode::Value => {
+            let val = Value::duration(element.duration_ns, profiler_span);
+            row.push("duration", val);
+        }
+    };
 
     let mut rows = vec![Value::record(row, profiler_span)];
 
