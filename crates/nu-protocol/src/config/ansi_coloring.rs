@@ -48,6 +48,7 @@ impl UseAnsiColoring {
         let env_value = |env_name| {
             engine_state
                 .get_env_var_insensitive(env_name)
+                .map(|(_, v)| v)
                 .and_then(|v| v.coerce_bool().ok())
                 .unwrap_or(false)
         };
@@ -60,7 +61,7 @@ impl UseAnsiColoring {
             return false;
         }
 
-        if let Some(cli_color) = engine_state.get_env_var_insensitive("clicolor") {
+        if let Some((_, cli_color)) = engine_state.get_env_var_insensitive("clicolor") {
             if let Ok(cli_color) = cli_color.coerce_bool() {
                 return cli_color;
             }

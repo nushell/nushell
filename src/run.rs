@@ -14,6 +14,7 @@ use nu_utils::perf;
 
 pub(crate) fn run_commands(
     engine_state: &mut EngineState,
+    mut stack: Stack,
     parsed_nu_cli_args: command::NushellCliArgs,
     use_color: bool,
     commands: &Spanned<String>,
@@ -24,8 +25,6 @@ pub(crate) fn run_commands(
 
     let start_time = std::time::Instant::now();
     let create_scaffold = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
-
-    let mut stack = Stack::new();
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
     // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
@@ -107,6 +106,7 @@ pub(crate) fn run_commands(
 
 pub(crate) fn run_file(
     engine_state: &mut EngineState,
+    mut stack: Stack,
     parsed_nu_cli_args: command::NushellCliArgs,
     use_color: bool,
     script_name: String,
@@ -114,7 +114,6 @@ pub(crate) fn run_file(
     input: PipelineData,
 ) {
     trace!("run_file");
-    let mut stack = Stack::new();
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
     // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
@@ -177,11 +176,11 @@ pub(crate) fn run_file(
 
 pub(crate) fn run_repl(
     engine_state: &mut EngineState,
+    mut stack: Stack,
     parsed_nu_cli_args: command::NushellCliArgs,
     entire_start_time: std::time::Instant,
 ) -> Result<(), miette::ErrReport> {
     trace!("run_repl");
-    let mut stack = Stack::new();
     let start_time = std::time::Instant::now();
 
     if parsed_nu_cli_args.no_config_file.is_none() {
