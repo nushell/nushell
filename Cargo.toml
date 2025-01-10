@@ -156,7 +156,7 @@ strip-ansi-escapes = "0.2.0"
 syn = "2.0"
 sysinfo = "0.32"
 tabled = { version = "0.17.0", default-features = false }
-tempfile = "3.14"
+tempfile = "3.15"
 terminal_size = "0.4"
 titlecase = "3.0"
 toml = "0.8"

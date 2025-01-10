@@ -35,10 +35,13 @@ impl PluginCommand for ExprWhen {
                 SyntaxShape::Any,
                 "expression that will be applied when predicate is true",
             )
-            .input_output_type(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
-            )
+            .input_output_types(vec![
+                (Type::Nothing, Type::Custom("expression".into())),
+                (
+                    Type::Custom("expression".into()),
+                    Type::Custom("expression".into()),
+                ),
+            ])
             .category(Category::Custom("expression".into()))
     }
 

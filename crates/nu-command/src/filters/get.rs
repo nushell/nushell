@@ -30,6 +30,7 @@ If multiple cell paths are given, this will produce a list of values."#
                 ),
                 (Type::table(), Type::Any),
                 (Type::record(), Type::Any),
+                (Type::Nothing, Type::Nothing),
             ])
             .required(
                 "cell_path",
@@ -161,6 +162,20 @@ fn action(
         for path in &mut rest {
             path.make_optional();
         }
+    }
+
+    match input {
+        PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: span }),
+        // Allow chaining of get -i
+        PipelineData::Value(val @ Value::Nothing { .. }, ..) if !ignore_errors => {
+            return Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "table or record".into(),
+                wrong_type: "nothing".into(),
+                dst_span: span,
+                src_span: val.span(),
+            })
+        }
+        _ => (),
     }
 
     if rest.is_empty() {

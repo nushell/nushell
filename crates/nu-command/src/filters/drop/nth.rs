@@ -13,10 +13,11 @@ impl Command for DropNth {
 
     fn signature(&self) -> Signature {
         Signature::build("drop nth")
-            .input_output_types(vec![(
-                Type::List(Box::new(Type::Any)),
-                Type::List(Box::new(Type::Any)),
-            )])
+            .input_output_types(vec![
+                (Type::Range, Type::list(Type::Number)),
+                (Type::list(Type::Any), Type::list(Type::Any)),
+            ])
+            .allow_variants_without_examples(true)
             .required(
                 "row number or row range",
                 // FIXME: we can make this accept either Int or Range when we can compose SyntaxShapes

@@ -19,8 +19,8 @@ impl Command for SourceEnv {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .required(
                 "filename",
-                SyntaxShape::String, // type is string to avoid automatically canonicalizing the path
-                "The filepath to the script file to source the environment from.",
+                SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]), // type is string to avoid automatically canonicalizing the path
+                "The filepath to the script file to source the environment from (`null` for no-op).",
             )
             .category(Category::Core)
     }
@@ -45,6 +45,10 @@ impl Command for SourceEnv {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        if call.get_parser_info(caller_stack, "noop").is_some() {
+            return Ok(PipelineData::empty());
+        }
+
         let source_filename: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
 
         // Note: this hidden positional is the block_id that corresponded to the 0th position
@@ -99,10 +103,17 @@ impl Command for SourceEnv {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Sources the environment from foo.nu in the current context",
-            example: r#"source-env foo.nu"#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Sources the environment from foo.nu in the current context",
+                example: r#"source-env foo.nu"#,
+                result: None,
+            },
+            Example {
+                description: "Sourcing `null` is a no-op.",
+                example: r#"source-env null"#,
+                result: None,
+            },
+        ]
     }
 }

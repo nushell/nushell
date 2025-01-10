@@ -35,6 +35,7 @@ Note that history item IDs are ignored when importing from file."#
             .category(Category::History)
             .input_output_types(vec![
                 (Type::Nothing, Type::Nothing),
+                (Type::String, Type::Nothing),
                 (Type::List(Box::new(Type::String)), Type::Nothing),
                 (Type::table(), Type::Nothing),
             ])
