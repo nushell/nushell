@@ -1,4 +1,3 @@
-#[cfg(windows)]
 use nu_test_support::{nu, playground::Playground};
 
 #[cfg(windows)]
@@ -59,4 +58,44 @@ fn watch_test_pwd_per_drive() {
             "
         );
     })
+}
+
+#[cfg(unix)]
+#[test]
+fn watch_test_pwd_per_drive() {
+    Playground::setup("watch_test_pwd_per_drive", |dirs, sandbox| {
+        sandbox.mkdir("test_folder");
+        let _actual = nu!(
+            cwd: dirs.test(),
+            "
+                    mkdir test_folder
+                    cd test_folder
+                    mkdir test_folder_on_x
+
+                    let pwd = $env.PWD
+                    let script = \"watch test_folder_on_x { |op, path| $\\\"(date now): $($op) - $($path)\\\\n\\\" | save --append \" + $pwd + \"/change.txt } out+err> \" + $pwd + \"/watch.nu.log\"
+                    echo $script | save -f nu-watch.sh
+
+                    mut line =      \"#!/bin/bash\\n\"
+                    $line = $line + \"nuExecutable='nu'\\n\"
+                    $line = $line + \"nuScript='source \" + $pwd + \"/nu-watch.sh'\\n\"
+                    $line = $line + \"logFile='\" + $pwd + \"/watch.bash.log'\\n\"
+                    $line = $line + \"$nuExecutable -c 'source \" + $pwd + \"/nu-watch.sh' > $logFile 2>&1 &\\n\"
+                    $line = $line + \"bg_pid=$!\\n\"
+                    $line = $line + \"touch \" + $pwd + \"/test_folder_on_x/test_file_on_x.txt\\n\"
+                    $line = $line + \"sleep 3\\n\"
+                    $line = $line + \"rm \" + $pwd + \"/test_folder_on_x/test_file_on_x.txt\\n\"
+                    $line = $line + \"sleep 3\\n\"
+                    $line = $line + \"kill $bg_pid\\n\"
+                    $line = $line + \"echo \\\"Stopped background job\\\"\\n\"
+                    echo $line | save -f bash_background_job.sh
+                    chmod +x bash_background_job.sh
+                    ./bash_background_job.sh
+                "
+        );
+        eprintln!("StdOut: {}", _actual.out);
+        let _expected_file = dirs.test().join("test_folder/change.txt");
+        assert!(_expected_file.exists());
+        assert!(_actual.err.is_empty());
+    });
 }
