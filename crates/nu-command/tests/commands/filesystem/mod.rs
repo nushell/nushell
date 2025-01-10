@@ -11,5 +11,6 @@ mod save;
 mod touch;
 mod ucp;
 mod umkdir;
+mod umv;
 mod utouch;
 mod watch;
