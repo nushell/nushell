@@ -78,9 +78,9 @@ fn watch_test_pwd_per_drive() {
                     $line = $line + \"$nuExecutable -c 'source \" + $pwd + \"/nu-watch.sh' > $logFile 2>&1 &\\n\"
                     $line = $line + \"bg_pid=$!\\n\"
                     $line = $line + \"touch \" + $pwd + \"/test_folder_on_x/test_file_on_x.txt\\n\"
-                    $line = $line + \"sleep 3\\n\"
+                    $line = $line + \"sleep 5\\n\"
                     $line = $line + \"rm \" + $pwd + \"/test_folder_on_x/test_file_on_x.txt\\n\"
-                    $line = $line + \"sleep 3\\n\"
+                    $line = $line + \"sleep 5\\n\"
                     $line = $line + \"kill $bg_pid\\n\"
                     $line = $line + \"echo \\\"Stopped background job\\\"\\n\"
                     echo $line | save -f bash_background_job.sh
