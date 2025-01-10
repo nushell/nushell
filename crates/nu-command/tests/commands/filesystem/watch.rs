@@ -21,10 +21,6 @@ fn watch_test_pwd_per_drive() {
                 $line = $line + \"$nuScript = '\" + $pwd + \"\\\\nu-watch.sh'\\n\"
                 $line = $line + \"$logFile = '\" + $pwd + \"\\\\watch.log'\\n\"
                 $line = $line + \"$errorFile = '\" + $pwd + \"\\\\watch.err'\\n\"
-                $line = $line + \"if (!(Test-Path -Path $nuScript)) {\\n\"
-                $line = $line + \"    Write-Output 'Nushell script not found:' + $nuScript\\n\"
-                $line = $line + \"    exit 1\\n\"
-                $line = $line + \"}\\n\"
                 $line = $line + \"$job = Start-Job -Name NuWatch -ScriptBlock {\\n\"
                 $line = $line + \"    param($nuExe, $script, $log, $err)\\n\"
                 $line = $line + \"    Start-Process -FilePath $nuExe `\\n\"
@@ -35,9 +31,9 @@ fn watch_test_pwd_per_drive() {
                 $line = $line + \"} -ArgumentList $nuExecutable, $nuScript, $logFile, $errorFile\\n\"
                 $line = $line + \"Write-Output 'Started job with ID: '$($job.Id)\\n\"
                 $line = $line + \"dir > '\" + $pwd + \"\\\\test_folder_on_x\\\\test_file_on_x.txt'\\n\"
-                $line = $line + \"sleep 3\\n\"
-                $line = $line + \"dir > '\" + $pwd + \"\\\\test_folder_on_x\\\\test_file_on_x.txt'\\n\"
-                $line = $line + \"sleep 3\\n\"
+                $line = $line + \"sleep 5\\n\"
+                $line = $line + \"rm '\" + $pwd + \"\\\\test_folder_on_x\\\\test_file_on_x.txt'\\n\"
+                $line = $line + \"sleep 5\\n\"
                 $line = $line + \"Get-Process -Name nu | Stop-Process -Force\\n\"
                 $line = $line + \"get-job | Stop-Job\\n\"
                 $line = $line + \"get-job | Remove-Job\\n\"
@@ -46,7 +42,6 @@ fn watch_test_pwd_per_drive() {
                 powershell -File powershell_background_job.ps1
             "
         );
-        eprintln!("StdOut: {}", _actual.out);
         let expected_file = dirs.test().join("test_folder\\change.txt");
         assert!(expected_file.exists());
         assert!(_actual.err.is_empty());
@@ -93,7 +88,6 @@ fn watch_test_pwd_per_drive() {
                     ./bash_background_job.sh
                 "
         );
-        eprintln!("StdOut: {}", _actual.out);
         let _expected_file = dirs.test().join("test_folder/change.txt");
         assert!(_expected_file.exists());
         assert!(_actual.err.is_empty());
