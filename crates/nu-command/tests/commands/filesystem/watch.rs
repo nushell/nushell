@@ -60,9 +60,14 @@ fn watch_test_pwd_per_drive() {
 fn watch_test_pwd_per_drive() {
     Playground::setup("watch_test_pwd_per_drive", |dirs, sandbox| {
         sandbox.mkdir("test_folder");
+        #[cfg(target_os = "macos")]
+        let shell = "/bin/zsh"; // Use zsh for macOS
+        #[cfg(not(target_os = "macos"))]
+        let shell = "/bin/bash"; // Use bash for other UNIX systems
         let _actual = nu!(
             cwd: dirs.test(),
-            "
+            &format!(
+                "
                     mkdir test_folder
                     cd test_folder
                     mkdir test_folder_on_x
@@ -71,7 +76,7 @@ fn watch_test_pwd_per_drive() {
                     let script = \"watch test_folder_on_x { |op, path| $\\\"(date now): $($op) - $($path)\\\\n\\\" | save --append \" + $pwd + \"/change.txt } out+err> \" + $pwd + \"/watch.nu.log\"
                     echo $script | save -f nu-watch.sh
 
-                    mut line =      \"#!/bin/bash\\n\"
+                    mut line =      \"#!{}\\n\";  // Use the dynamically selected shell
                     $line = $line + \"nuExecutable='nu'\\n\"
                     $line = $line + \"nuScript='source \" + $pwd + \"/nu-watch.sh'\\n\"
                     $line = $line + \"logFile='\" + $pwd + \"/watch.bash.log'\\n\"
@@ -83,10 +88,12 @@ fn watch_test_pwd_per_drive() {
                     $line = $line + \"sleep 5\\n\"
                     $line = $line + \"kill $bg_pid\\n\"
                     $line = $line + \"echo \\\"Stopped background job\\\"\\n\"
-                    echo $line | save -f bash_background_job.sh
-                    chmod +x bash_background_job.sh
-                    ./bash_background_job.sh
-                "
+                    echo $line | save -f background_job.sh
+                    chmod +x background_job.sh
+                    ./background_job.sh
+                ",
+                shell
+            )
         );
         let _expected_file = dirs.test().join("test_folder/change.txt");
         assert!(_expected_file.exists());
