@@ -21,11 +21,13 @@ use command::gather_commandline_args;
 use log::{trace, Level};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
+use nu_engine::convert_env_values;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, record, report_shell_error, ByteStream, Config, IntoValue, PipelineData,
-    ShellError, Span, Spanned, Type, Value,
+    engine::{EngineState, Stack},
+    record, report_shell_error, ByteStream, Config, IntoValue, PipelineData, ShellError, Span,
+    Spanned, Type, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -319,6 +321,16 @@ fn main() -> Result<()> {
     gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
     perf!("gather env vars", start_time, use_color);
 
+    let mut stack = Stack::new();
+    start_time = std::time::Instant::now();
+    let config = engine_state.get_config();
+    let use_color = config.use_ansi_coloring.get(&engine_state);
+    // Translate environment variables from Strings to Values
+    if let Err(e) = convert_env_values(&mut engine_state, &mut stack) {
+        report_shell_error(&engine_state, &e);
+    }
+    perf!("Convert path to list", start_time, use_color);
+
     engine_state.add_env_var(
         "NU_VERSION".to_string(),
         Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
@@ -464,6 +476,7 @@ fn main() -> Result<()> {
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,
+            stack,
             parsed_nu_cli_args,
             use_color,
             &commands,
@@ -473,6 +486,7 @@ fn main() -> Result<()> {
     } else if !script_name.is_empty() {
         run_file(
             &mut engine_state,
+            stack,
             parsed_nu_cli_args,
             use_color,
             script_name,
@@ -509,7 +523,12 @@ fn main() -> Result<()> {
         shlvl += 1;
         engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
 
-        run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)?
+        run_repl(
+            &mut engine_state,
+            stack,
+            parsed_nu_cli_args,
+            entire_start_time,
+        )?
     }
 
     Ok(())
