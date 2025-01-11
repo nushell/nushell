@@ -91,78 +91,8 @@ used as the next argument to the closure, otherwise generation stops.
         let iter = std::iter::from_fn(move || {
             let arg = state.take()?;
 
-            let (output, next_input) = match closure.run_with_value(arg) {
-                // no data -> output nothing and stop.
-                Ok(PipelineData::Empty) => (None, None),
-
-                Ok(PipelineData::Value(value, ..)) => {
-                    let span = value.span();
-                    match value {
-                        // {out: ..., next: ...} -> output and continue
-                        Value::Record { val, .. } => {
-                            let iter = val.into_owned().into_iter();
-                            let mut out = None;
-                            let mut next = None;
-                            let mut err = None;
-
-                            for (k, v) in iter {
-                                if k.eq_ignore_ascii_case("out") {
-                                    out = Some(v);
-                                } else if k.eq_ignore_ascii_case("next") {
-                                    next = Some(v);
-                                } else {
-                                    let error = ShellError::GenericError {
-                                        error: "Invalid block return".into(),
-                                        msg: format!("Unexpected record key '{}'", k),
-                                        span: Some(span),
-                                        help: None,
-                                        inner: vec![],
-                                    };
-                                    err = Some(Value::error(error, head));
-                                    break;
-                                }
-                            }
-
-                            if err.is_some() {
-                                (err, None)
-                            } else {
-                                (out, next)
-                            }
-                        }
-
-                        // some other value -> error and stop
-                        _ => {
-                            let error = ShellError::GenericError {
-                                error: "Invalid block return".into(),
-                                msg: format!("Expected record, found {}", value.get_type()),
-                                span: Some(span),
-                                help: None,
-                                inner: vec![],
-                            };
-
-                            (Some(Value::error(error, head)), None)
-                        }
-                    }
-                }
-
-                Ok(other) => {
-                    let error = other
-                        .into_value(head)
-                        .map(|val| ShellError::GenericError {
-                            error: "Invalid block return".into(),
-                            msg: format!("Expected record, found {}", val.get_type()),
-                            span: Some(val.span()),
-                            help: None,
-                            inner: vec![],
-                        })
-                        .unwrap_or_else(|err| err);
-
-                    (Some(Value::error(error, head)), None)
-                }
-
-                // error -> error and stop
-                Err(error) => (Some(Value::error(error, head)), None),
-            };
+            let closure_result = closure.run_with_value(arg);
+            let (output, next_input) = parse_closure_result(closure_result, head);
 
             // We use `state` to control when to stop, not `output`. By wrapping
             // it in a `Some`, we allow the generator to output `None` as a valid output
@@ -206,6 +136,84 @@ fn get_initial_state(
                 })
             }
         }
+    }
+}
+
+fn parse_closure_result(
+    closure_result: Result<PipelineData, ShellError>,
+    head: Span,
+) -> (Option<Value>, Option<Value>) {
+    match closure_result {
+        // no data -> output nothing and stop.
+        Ok(PipelineData::Empty) => (None, None),
+
+        Ok(PipelineData::Value(value, ..)) => {
+            let span = value.span();
+            match value {
+                // {out: ..., next: ...} -> output and continue
+                Value::Record { val, .. } => {
+                    let iter = val.into_owned().into_iter();
+                    let mut out = None;
+                    let mut next = None;
+                    let mut err = None;
+
+                    for (k, v) in iter {
+                        if k.eq_ignore_ascii_case("out") {
+                            out = Some(v);
+                        } else if k.eq_ignore_ascii_case("next") {
+                            next = Some(v);
+                        } else {
+                            let error = ShellError::GenericError {
+                                error: "Invalid block return".into(),
+                                msg: format!("Unexpected record key '{}'", k),
+                                span: Some(span),
+                                help: None,
+                                inner: vec![],
+                            };
+                            err = Some(Value::error(error, head));
+                            break;
+                        }
+                    }
+
+                    if err.is_some() {
+                        (err, None)
+                    } else {
+                        (out, next)
+                    }
+                }
+
+                // some other value -> error and stop
+                _ => {
+                    let error = ShellError::GenericError {
+                        error: "Invalid block return".into(),
+                        msg: format!("Expected record, found {}", value.get_type()),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    };
+
+                    (Some(Value::error(error, head)), None)
+                }
+            }
+        }
+
+        Ok(other) => {
+            let error = other
+                .into_value(head)
+                .map(|val| ShellError::GenericError {
+                    error: "Invalid block return".into(),
+                    msg: format!("Expected record, found {}", val.get_type()),
+                    span: Some(val.span()),
+                    help: None,
+                    inner: vec![],
+                })
+                .unwrap_or_else(|err| err);
+
+            (Some(Value::error(error, head)), None)
+        }
+
+        // error -> error and stop
+        Err(error) => (Some(Value::error(error, head)), None),
     }
 }
 
