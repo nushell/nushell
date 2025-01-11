@@ -403,7 +403,7 @@ mod tests {
     }
 
     #[test]
-    fn inlay_hint_parameter_nams() {
+    fn inlay_hint_parameter_names() {
         let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
