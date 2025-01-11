@@ -118,10 +118,6 @@ impl SymbolCache {
                 }
                 let range = span_to_range(&span, doc, doc_span.start);
                 let name = doc.get_content(Some(range));
-                // TODO: better way to filter closures with type any
-                if name.contains('\r') || name.contains('\n') || name.contains('{') {
-                    return None;
-                }
                 Some(Symbol {
                     name: name.to_string(),
                     kind: SymbolKind::VARIABLE,
@@ -341,6 +337,29 @@ mod tests {
             .receiver
             .recv_timeout(std::time::Duration::from_secs(2))
             .unwrap()
+    }
+
+    #[test]
+    // for variable `$in/$it`, should not appear in symbols
+    fn document_symbol_special_variables() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("symbols");
+        script.push("span.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = document_symbol_test(&client_connection, script.clone());
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(result, serde_json::json!([]));
     }
 
     #[test]

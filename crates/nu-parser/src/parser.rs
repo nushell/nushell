@@ -3435,7 +3435,7 @@ pub fn parse_full_signature(working_set: &mut StateWorkingSet, spans: &[Span]) -
 }
 
 pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
-    let var_id = working_set.add_variable(b"$it".to_vec(), Span::concat(spans), Type::Any, false);
+    let var_id = working_set.add_variable(b"$it".to_vec(), Span::unknown(), Type::Any, false);
     let expression = parse_math_expression(working_set, spans, Some(var_id));
     let span = Span::concat(spans);
 
@@ -6633,7 +6633,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: Expression) -
 
     // IN_VARIABLE_ID should get replaced with a unique variable, so that we don't have to
     // execute as a closure
-    let var_id = working_set.add_variable(b"$in".into(), expr.span, Type::Any, false);
+    let var_id = working_set.add_variable(b"$in".into(), Span::unknown(), Type::Any, false);
     let mut expr = expr.clone();
     expr.replace_in_variable(working_set, var_id);
 
