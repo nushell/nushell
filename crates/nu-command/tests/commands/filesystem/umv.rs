@@ -31,6 +31,7 @@ fn test_pwd_per_drive() {
             "#
         );
         assert!(!expected_file.exists());
+        eprintln!("StdOut: {}", _actual.out);
         let expected_file = dirs.test().join("test_folder\\test_folder_on_x\\mv.txt");
         assert!(expected_file.exists());
         let _actual = nu!(
