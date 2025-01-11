@@ -260,6 +260,7 @@ fn describe_value_inner(
         | Value::Int { .. }
         | Value::Float { .. }
         | Value::Filesize { .. }
+        | Value::FileMode { .. }
         | Value::Duration { .. }
         | Value::Date { .. }
         | Value::Range { .. }

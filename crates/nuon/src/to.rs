@@ -137,6 +137,7 @@ fn value_to_string(
         Value::Error { error, .. } => Err(*error.clone()),
         // FIXME: make filesizes use the shortest lossless representation.
         Value::Filesize { val, .. } => Ok(format!("{}b", val.get())),
+        Value::FileMode { val, .. } => Ok(format!("{}", val.get_mode_string())),
         Value::Float { val, .. } => Ok(ObviousFloat(*val).to_string()),
         Value::Int { val, .. } => Ok(val.to_string()),
         Value::List { vals, .. } => {

@@ -495,6 +495,7 @@ fn value_should_be_printed(
         Value::Bool { .. }
         | Value::Int { .. }
         | Value::Filesize { .. }
+        | Value::FileMode { .. }
         | Value::Duration { .. }
         | Value::Date { .. }
         | Value::Range { .. }

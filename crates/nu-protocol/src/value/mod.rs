@@ -1,5 +1,6 @@
 mod custom_value;
 mod duration;
+mod file_mode;
 mod filesize;
 mod from_value;
 mod glob;
@@ -12,6 +13,7 @@ pub mod format;
 pub mod record;
 pub use custom_value::CustomValue;
 pub use duration::*;
+pub use file_mode::*;
 pub use filesize::*;
 pub use from_value::FromValue;
 pub use glob::*;
@@ -87,6 +89,13 @@ pub enum Value {
         val: Filesize,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
+        internal_span: Span,
+    },
+    FileMode {
+        val: FileMode,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
@@ -174,6 +183,10 @@ impl Clone for Value {
             Value::Bool { val, internal_span } => Value::bool(*val, *internal_span),
             Value::Int { val, internal_span } => Value::int(*val, *internal_span),
             Value::Filesize { val, internal_span } => Value::Filesize {
+                val: *val,
+                internal_span: *internal_span,
+            },
+            Value::FileMode { val, internal_span } => Value::FileMode {
                 val: *val,
                 internal_span: *internal_span,
             },
@@ -719,6 +732,7 @@ impl Value {
             | Value::Int { internal_span, .. }
             | Value::Float { internal_span, .. }
             | Value::Filesize { internal_span, .. }
+            | Value::FileMode { internal_span, .. }
             | Value::Duration { internal_span, .. }
             | Value::Date { internal_span, .. }
             | Value::Range { internal_span, .. }
@@ -742,6 +756,7 @@ impl Value {
             | Value::Int { internal_span, .. }
             | Value::Float { internal_span, .. }
             | Value::Filesize { internal_span, .. }
+            | Value::FileMode { internal_span, .. }
             | Value::Duration { internal_span, .. }
             | Value::Date { internal_span, .. }
             | Value::Range { internal_span, .. }
@@ -771,6 +786,7 @@ impl Value {
             Value::Int { .. } => Type::Int,
             Value::Float { .. } => Type::Float,
             Value::Filesize { .. } => Type::Filesize,
+            Value::FileMode { .. } => Type::FileMode,
             Value::Duration { .. } => Type::Duration,
             Value::Date { .. } => Type::Date,
             Value::Range { .. } => Type::Range,
@@ -847,6 +863,7 @@ impl Value {
                 | Value::String { .. }
                 | Value::Glob { .. }
                 | Value::Filesize { .. }
+                | Value::FileMode { .. }
                 | Value::Duration { .. }
                 | Value::Date { .. }
                 | Value::Range { .. }
@@ -937,6 +954,7 @@ impl Value {
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
+            Value::FileMode { val, .. } => val.to_string(),
             Value::Duration { val, .. } => format_duration(*val),
             Value::Date { val, .. } => match &config.datetime_format.normal {
                 Some(format) => self.format_datetime(val, format),
@@ -1846,6 +1864,7 @@ impl Value {
             | Value::Int { .. }
             | Value::Float { .. }
             | Value::Filesize { .. }
+            | Value::FileMode { .. }
             | Value::Duration { .. }
             | Value::Date { .. }
             | Value::Range { .. }
@@ -1920,6 +1939,13 @@ impl Value {
 
     pub fn filesize(val: impl Into<Filesize>, span: Span) -> Value {
         Value::Filesize {
+            val: val.into(),
+            internal_span: span,
+        }
+    }
+
+    pub fn file_mode(val: impl Into<FileMode>, span: Span) -> Value {
+        Value::FileMode {
             val: val.into(),
             internal_span: span,
         }
@@ -2182,6 +2208,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Glob { .. } => Some(Ordering::Less),
                 Value::Filesize { .. } => Some(Ordering::Less),
+                Value::FileMode { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2201,6 +2228,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Glob { .. } => Some(Ordering::Less),
                 Value::Filesize { .. } => Some(Ordering::Less),
+                Value::FileMode { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2220,6 +2248,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Glob { .. } => Some(Ordering::Less),
                 Value::Filesize { .. } => Some(Ordering::Less),
+                Value::FileMode { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2239,6 +2268,7 @@ impl PartialOrd for Value {
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Filesize { .. } => Some(Ordering::Less),
+                Value::FileMode { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2258,6 +2288,7 @@ impl PartialOrd for Value {
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Filesize { .. } => Some(Ordering::Less),
+                Value::FileMode { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2277,6 +2308,27 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::FileMode { .. } => Some(Ordering::Less),
+                Value::Duration { .. } => Some(Ordering::Less),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Closure { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+            },
+            (Value::FileMode { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::FileMode { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2296,6 +2348,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::FileMode { .. } => Some(Ordering::Greater),
                 Value::Duration { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2315,6 +2368,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::FileMode { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2334,6 +2388,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::FileMode { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
@@ -2353,6 +2408,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::FileMode { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
@@ -2398,6 +2454,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::FileMode { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
@@ -2417,6 +2474,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::FileMode { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
@@ -2436,6 +2494,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::FileMode { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
@@ -2455,6 +2514,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::FileMode { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
@@ -2474,6 +2534,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::FileMode { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
@@ -2494,6 +2555,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::FileMode { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),

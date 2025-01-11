@@ -255,6 +255,7 @@ pub fn debug_string_without_formatting(engine_state: &EngineState, value: &Value
         Value::Int { val, .. } => val.to_string(),
         Value::Float { val, .. } => val.to_string(),
         Value::Filesize { val, .. } => val.to_string(),
+        Value::FileMode { val, .. } => val.to_string(),
         Value::Duration { val, .. } => val.to_string(),
         Value::Date { val, .. } => format!("{val:?}"),
         Value::Range { val, .. } => val.to_string(),

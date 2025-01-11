@@ -628,10 +628,7 @@ pub(crate) fn dir_entry_dict(
                 use std::os::unix::fs::MetadataExt;
 
                 let mode = md.permissions().mode();
-                record.push(
-                    "mode",
-                    Value::string(umask::Mode::from(mode).to_string(), span),
-                );
+                record.push("mode", Value::file_mode(mode, span));
 
                 let nlinks = md.nlink();
                 record.push("num_links", Value::int(nlinks as i64, span));

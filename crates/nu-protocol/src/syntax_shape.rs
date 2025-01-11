@@ -59,6 +59,9 @@ pub enum SyntaxShape {
     /// A filesize value is allowed, eg `10kb`
     Filesize,
 
+    /// A filesize value is allowed, eg ``
+    FileMode,
+
     /// A floating point value, eg `1.0`
     Float,
 
@@ -156,6 +159,7 @@ impl SyntaxShape {
             SyntaxShape::Directory => Type::String,
             SyntaxShape::Float => Type::Float,
             SyntaxShape::Filesize => Type::Filesize,
+            SyntaxShape::FileMode => Type::FileMode,
             SyntaxShape::FullCellPath => Type::Any,
             SyntaxShape::GlobPattern => Type::Glob,
             SyntaxShape::Error => Type::Error,
@@ -236,6 +240,7 @@ impl Display for SyntaxShape {
                 }
             }
             SyntaxShape::Filesize => write!(f, "filesize"),
+            SyntaxShape::FileMode => write!(f, "filemode"),
             SyntaxShape::Duration => write!(f, "duration"),
             SyntaxShape::DateTime => write!(f, "datetime"),
             SyntaxShape::Operator => write!(f, "operator"),
