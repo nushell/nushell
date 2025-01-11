@@ -475,12 +475,16 @@ impl EngineState {
         None
     }
 
-    pub fn get_env_var_insensitive(&self, name: &str) -> Option<&Value> {
+    // Returns Some((name, value)) if found, None otherwise.
+    // When updating environment variables, make sure to use
+    // the same case (the returned "name") as the original
+    // environment variable name.
+    pub fn get_env_var_insensitive(&self, name: &str) -> Option<(&String, &Value)> {
         for overlay_id in self.scope.active_overlays.iter().rev() {
             let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
             if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
                 if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
-                    return Some(v.1);
+                    return Some((v.0, v.1));
                 }
             }
         }

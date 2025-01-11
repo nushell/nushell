@@ -258,10 +258,39 @@ fn env_shlvl_in_repl() {
 
 #[test]
 fn env_shlvl_in_exec_repl() {
-    let actual = nu!("
+    let actual = nu!(r#"
         $env.SHLVL = 29
-        nu -c \"exec nu --no-std-lib -n -e 'print $env.SHLVL; exit'\"
-    ");
+        nu -c "exec nu --no-std-lib -n -e 'print $env.SHLVL; exit'"
+    "#);
 
     assert_eq!(actual.out, "30");
+}
+
+#[test]
+fn path_is_a_list_in_repl() {
+    let actual = nu!(r#"
+        nu -c "exec nu --no-std-lib -n -e 'print ($env.pATh | describe); exit'"
+    "#);
+
+    assert_eq!(actual.out, "list<string>");
+}
+
+#[test]
+fn path_is_a_list() {
+    let actual = nu!("
+        print ($env.path | describe)
+    ");
+
+    assert_eq!(actual.out, "list<string>");
+}
+
+#[test]
+fn path_is_a_list_in_script() {
+    Playground::setup("has_file_pwd", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("checkpath.nu", "$env.path | describe")]);
+
+        let actual = nu!(cwd: dirs.test(), "nu checkpath.nu");
+
+        assert!(actual.out.ends_with("list<string>"));
+    })
 }
