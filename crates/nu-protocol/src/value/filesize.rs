@@ -543,13 +543,13 @@ impl DisplayFilesize {
 impl fmt::Display for DisplayFilesize {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
-            filesize,
+            filesize: Filesize(filesize),
             unit,
             precision,
         } = *self;
         let precision = precision.or(f.precision());
         match unit {
-            FilesizeUnit::B => write!(f, "{} B", filesize.0),
+            FilesizeUnit::B => write!(f, "{filesize} B"),
             FilesizeUnit::KiB
             | FilesizeUnit::MiB
             | FilesizeUnit::GiB
@@ -557,7 +557,7 @@ impl fmt::Display for DisplayFilesize {
             | FilesizeUnit::PiB
             | FilesizeUnit::EiB => {
                 // This won't give exact results for large filesizes and/or units.
-                let val = filesize.0 as f64 / unit.as_bytes() as f64;
+                let val = filesize as f64 / unit.as_bytes() as f64;
                 if let Some(precision) = precision {
                     write!(f, "{val:.precision$} {unit}")
                 } else {
@@ -572,8 +572,8 @@ impl fmt::Display for DisplayFilesize {
             | FilesizeUnit::EB => {
                 // Format an exact, possibly fractional, string representation of `filesize`.
                 let bytes = unit.as_bytes() as i64;
-                let whole = filesize.0 / bytes;
-                let fract = (filesize.0 % bytes).unsigned_abs();
+                let whole = filesize / bytes;
+                let fract = (filesize % bytes).unsigned_abs();
                 if precision == Some(0) || (precision.is_none() && fract == 0) {
                     write!(f, "{whole} {unit}")
                 } else {
