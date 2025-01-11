@@ -344,12 +344,12 @@ fn filesystem_from_non_root_change_to_another_drive_non_root_then_using_relative
             r#"
                 subst X: /D | touch out
                 subst X: test_folder
-                sleep 1sec
+                sleep 5sec
                 cd x:
                 touch test_file_on_x.txt
-                echo $env.PWD
+                sleep 5sec
                 cd -
-                sleep 1sec
+                sleep 5sec
                 echo $env.PWD
             "#
         );
