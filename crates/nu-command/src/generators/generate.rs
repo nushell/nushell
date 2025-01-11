@@ -36,11 +36,14 @@ impl Command for Generate {
 containing two optional keys: 'out' and 'next'. Each invocation, the 'out'
 value, if present, is added to the stream. If a 'next' key is present, it is
 used as the next argument to the closure, otherwise generation stops.
-"#
+
+Additionally, if an input stream is provided, on each invocation an element of
+the input stream is provided as pipeline input to the closure. In this case
+generation also stops when the input stream stops."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["unfold", "stream", "yield", "expand"]
+        vec!["unfold", "stream", "yield", "expand", "state", "scan"]
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -72,6 +75,17 @@ used as the next argument to the closure, otherwise generation stops.
                 description:
                     "Generate a continuous stream of Fibonacci numbers, using default parameters",
                 result: None,
+            },
+            Example {
+                example: "1..5 | generate {|sum=0| let sum = $in + $sum; {out: $sum, next: $sum} }",
+                description: "Generate a running sum of the inputs",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(3),
+                    Value::test_int(6),
+                    Value::test_int(10),
+                    Value::test_int(15),
+                ])),
             },
         ]
     }
