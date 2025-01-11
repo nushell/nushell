@@ -157,13 +157,15 @@ fn generate_allows_pipeline_input() {
 
 #[test]
 fn generate_with_input_is_streaming() {
-    let actual = nu!(pipeline(r#"
-    1..10
-    | each {|x| print -en $x; $x}
-    | generate {|sum=0| let sum = $in + $sum; {out: $sum, next: $sum}}
-    | first 5
-    | to nuon
-    "#));
+    let actual = nu!(pipeline(
+        r#"
+        1..10
+        | each {|x| print -en $x; $x}
+        | generate {|sum=0| let sum = $in + $sum; {out: $sum, next: $sum}}
+        | first 5
+        | to nuon
+        "#
+    ));
 
     assert_eq!(actual.out, "[1, 3, 6, 10, 15]");
     assert_eq!(actual.err, "12345");
