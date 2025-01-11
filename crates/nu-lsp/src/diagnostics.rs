@@ -118,4 +118,28 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn publish_diagnostics_none() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("diagnostics");
+        script.push("pwd.nu");
+        let script = path_to_uri(&script);
+
+        let notification = open_unchecked(&client_connection, script.clone());
+
+        assert_json_eq!(
+            notification,
+            serde_json::json!({
+                "method": "textDocument/publishDiagnostics",
+                "params": {
+                    "uri": script,
+                    "diagnostics": []
+                }
+            })
+        );
+    }
 }

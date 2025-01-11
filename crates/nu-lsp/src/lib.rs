@@ -189,7 +189,8 @@ impl LanguageServer {
 
     pub fn new_engine_state(&self) -> EngineState {
         let mut engine_state = self.engine_state.clone();
-        engine_state.add_env_var("PWD".into(), Value::test_string("."));
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
         engine_state
     }
 
