@@ -32,7 +32,7 @@ fn watch_test_pwd_per_drive() {
                 $line = $line + \"Write-Output 'Started job with ID: '$($job.Id)\\n\"
                 $line = $line + \"dir > '\" + $pwd + \"\\\\test_folder_on_p\\\\test_file_on_p.txt'\\n\"
                 $line = $line + \"sleep 1\\n\"
-                $line = $line + \"rm '\" + $pwd + \"\\\\test_folder_on_p\\\\test_file_on_o.txt'\\n\"
+                $line = $line + \"rm '\" + $pwd + \"\\\\test_folder_on_p\\\\test_file_on_p.txt'\\n\"
                 $line = $line + \"sleep 1\\n\"
                 $line = $line + \"dir > '\" + $pwd + \"\\\\test_folder_on_p\\\\test_file_on_p.txt'\\n\"
                 $line = $line + \"sleep 1\\n\"
