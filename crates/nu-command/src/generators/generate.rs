@@ -76,7 +76,7 @@ used as the next argument to the closure, otherwise generation stops.
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
@@ -84,26 +84,35 @@ used as the next argument to the closure, otherwise generation stops.
         let block = engine_state.get_block(closure.block_id);
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
-        // A type of Option<S> is used to represent state. Invocation
-        // will stop on None. Using Option<S> allows functions to output
-        // one final value before stopping.
-        let mut state = Some(get_initial_state(initial, &block.signature, call.head)?);
-        let iter = std::iter::from_fn(move || {
-            let arg = state.take()?;
+        match input {
+            PipelineData::Empty => {
+                // A type of Option<S> is used to represent state. Invocation
+                // will stop on None. Using Option<S> allows functions to output
+                // one final value before stopping.
+                let mut state = Some(get_initial_state(initial, &block.signature, call.head)?);
+                let iter = std::iter::from_fn(move || {
+                    let arg = state.take()?;
 
-            let closure_result = closure.run_with_value(arg);
-            let (output, next_input) = parse_closure_result(closure_result, head);
+                    let closure_result = closure.run_with_value(arg);
+                    let (output, next_input) = parse_closure_result(closure_result, head);
 
-            // We use `state` to control when to stop, not `output`. By wrapping
-            // it in a `Some`, we allow the generator to output `None` as a valid output
-            // value.
-            state = next_input;
-            Some(output)
-        });
+                    // We use `state` to control when to stop, not `output`. By wrapping
+                    // it in a `Some`, we allow the generator to output `None` as a valid output
+                    // value.
+                    state = next_input;
+                    Some(output)
+                });
 
-        Ok(iter
-            .flatten()
-            .into_pipeline_data(call.head, engine_state.signals().clone()))
+                Ok(iter
+                    .flatten()
+                    .into_pipeline_data(call.head, engine_state.signals().clone()))
+            }
+            _ => Err(ShellError::PipelineMismatch {
+                exp_input_type: "nothing".to_string(),
+                dst_span: head,
+                src_span: input.span().unwrap_or(head),
+            }),
+        }
     }
 }
 
