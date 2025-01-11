@@ -3,13 +3,13 @@ use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
     request::{
-        Completion, DocumentSymbolRequest, GotoDefinition, HoverRequest, Request,
+        Completion, DocumentSymbolRequest, GotoDefinition, HoverRequest, InlayHintRequest, Request,
         WorkspaceSymbolRequest,
     },
     CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
-    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location,
-    MarkupContent, MarkupKind, OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit,
-    Uri,
+    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams, InlayHint,
+    Location, MarkupContent, MarkupKind, OneOf, Range, ServerCapabilities, TextDocumentSyncKind,
+    TextEdit, Uri,
 };
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{NuCompleter, SuggestionKind};
@@ -19,6 +19,7 @@ use nu_protocol::{
     engine::{CachedFile, EngineState, Stack, StateWorkingSet},
     DeclId, ModuleId, Span, Value, VarId,
 };
+use std::collections::BTreeMap;
 use std::{
     path::{Path, PathBuf},
     str::FromStr,
@@ -29,6 +30,7 @@ use symbols::SymbolCache;
 use url::Url;
 
 mod diagnostics;
+mod hints;
 mod notification;
 mod symbols;
 
@@ -46,6 +48,7 @@ pub struct LanguageServer {
     docs: TextDocuments,
     engine_state: EngineState,
     symbol_cache: SymbolCache,
+    inlay_hints: BTreeMap<Uri, Vec<InlayHint>>,
 }
 
 pub fn path_to_uri(path: impl AsRef<Path>) -> Uri {
@@ -87,6 +90,7 @@ impl LanguageServer {
             docs: TextDocuments::new(),
             engine_state,
             symbol_cache: SymbolCache::new(),
+            inlay_hints: BTreeMap::new(),
         })
     }
 
@@ -100,6 +104,7 @@ impl LanguageServer {
             completion_provider: Some(lsp_types::CompletionOptions::default()),
             document_symbol_provider: Some(OneOf::Left(true)),
             workspace_symbol_provider: Some(OneOf::Left(true)),
+            inlay_hint_provider: Some(OneOf::Left(true)),
             ..Default::default()
         })
         .expect("Must be serializable");
@@ -152,6 +157,9 @@ impl LanguageServer {
                                 self.workspace_symbol(params)
                             })
                         }
+                        InlayHintRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.get_inlay_hints(params))
+                        }
                         _ => {
                             continue;
                         }
@@ -189,6 +197,7 @@ impl LanguageServer {
         &mut self,
         engine_state: &'a mut EngineState,
         uri: &Uri,
+        need_hints: bool,
     ) -> Option<(Arc<Block>, usize, StateWorkingSet<'a>, &FullTextDocument)> {
         let mut working_set = StateWorkingSet::new(engine_state);
         let file = self.docs.get_document(uri)?;
@@ -197,12 +206,14 @@ impl LanguageServer {
         let contents = file.get_content(None).as_bytes();
         let _ = working_set.files.push(file_path.clone(), Span::unknown());
         let block = parse(&mut working_set, Some(file_path_str), contents, false);
-        let offset = working_set
-            .get_span_for_filename(file_path_str)
-            .unwrap_or_else(|| panic!("Failed at get_span_for_filename {}", file_path_str))
-            .start;
+        let offset = working_set.get_span_for_filename(file_path_str)?.start;
         // TODO: merge delta back to engine_state?
         // self.engine_state.merge_delta(working_set.render());
+
+        if need_hints {
+            let file_inlay_hints = self.extract_inlay_hints(&working_set, &block, offset, file);
+            self.inlay_hints.insert(uri.clone(), file_inlay_hints);
+        }
         Some((block, offset, working_set, file))
     }
 
@@ -301,7 +312,7 @@ impl LanguageServer {
             .uri
             .to_owned();
         let (block, file_offset, working_set, file) =
-            self.parse_file(&mut engine_state, &path_uri)?;
+            self.parse_file(&mut engine_state, &path_uri, false)?;
         let flattened = flatten_block(&working_set, &block);
         let (id, _, _) = Self::find_id(
             flattened,
@@ -338,7 +349,7 @@ impl LanguageServer {
             .uri
             .to_owned();
         let (block, file_offset, working_set, file) =
-            self.parse_file(&mut engine_state, &path_uri)?;
+            self.parse_file(&mut engine_state, &path_uri, false)?;
         let flattened = flatten_block(&working_set, &block);
         let (id, _, _) = Self::find_id(
             flattened,
@@ -371,7 +382,7 @@ impl LanguageServer {
                 }
 
                 // Usage
-                description.push_str("### Usage \n```nu\n");
+                description.push_str("-----\n### Usage \n```nu\n");
                 let signature = decl.signature();
                 description.push_str(&format!("  {}", signature.name));
                 if !signature.named.is_empty() {
@@ -803,7 +814,7 @@ mod tests {
         }
     }
 
-    fn goto_definition(
+    fn send_goto_definition_request(
         client_connection: &Connection,
         uri: Uri,
         line: u32,
@@ -844,7 +855,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = goto_definition(&client_connection, script.clone(), 2, 12);
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 12);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -856,9 +867,9 @@ mod tests {
             serde_json::json!({
                 "uri": script,
                 "range": {
-                "start": { "line": 0, "character": 4 },
-                "end": { "line": 0, "character": 12 }
-            }
+                    "start": { "line": 0, "character": 4 },
+                    "end": { "line": 0, "character": 12 }
+                }
             })
         );
     }
@@ -875,7 +886,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = goto_definition(&client_connection, script.clone(), 4, 1);
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 1);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -906,7 +917,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = goto_definition(&client_connection, script.clone(), 4, 2);
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 2);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -937,7 +948,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = goto_definition(&client_connection, script.clone(), 1, 14);
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 14);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -956,7 +967,12 @@ mod tests {
         );
     }
 
-    pub fn hover(client_connection: &Connection, uri: Uri, line: u32, character: u32) -> Message {
+    pub fn send_hover_request(
+        client_connection: &Connection,
+        uri: Uri,
+        line: u32,
+        character: u32,
+    ) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -991,7 +1007,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = hover(&client_connection, script.clone(), 2, 0);
+        let resp = send_hover_request(&client_connection, script.clone(), 2, 0);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1018,7 +1034,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = hover(&client_connection, script.clone(), 3, 0);
+        let resp = send_hover_request(&client_connection, script.clone(), 3, 0);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1030,7 +1046,7 @@ mod tests {
             serde_json::json!({
                     "contents": {
                     "kind": "markdown",
-                    "value": "Renders some greeting message\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                    "value": "Renders some greeting message\n-----\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                 }
             })
         );
@@ -1048,7 +1064,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = hover(&client_connection, script.clone(), 5, 8);
+        let resp = send_hover_request(&client_connection, script.clone(), 5, 8);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1060,13 +1076,18 @@ mod tests {
             serde_json::json!({
                     "contents": {
                     "kind": "markdown",
-                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
+                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n-----\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
                 }
             })
         );
     }
 
-    fn complete(client_connection: &Connection, uri: Uri, line: u32, character: u32) -> Message {
+    fn send_complete_request(
+        client_connection: &Connection,
+        uri: Uri,
+        line: u32,
+        character: u32,
+    ) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -1103,7 +1124,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = complete(&client_connection, script, 2, 9);
+        let resp = send_complete_request(&client_connection, script, 2, 9);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1140,7 +1161,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = complete(&client_connection, script, 0, 8);
+        let resp = send_complete_request(&client_connection, script, 0, 8);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1178,7 +1199,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = complete(&client_connection, script, 0, 13);
+        let resp = send_complete_request(&client_connection, script, 0, 13);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1216,7 +1237,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = complete(&client_connection, script, 0, 2);
+        let resp = send_complete_request(&client_connection, script, 0, 2);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
