@@ -30,11 +30,16 @@ fn test_pwd_per_drive() {
             r#"
                 mv test_folder\test_folder_on_x\test_file_on_x.txt x:test_folder_on_x\mv.txt
                 sleep 1sec
-                subst X: /D | touch out
             "#
         );
         assert!(!expected_file.exists());
         let expected_file = dirs.test().join("test_folder\\test_folder_on_x\\mv.txt");
         assert!(expected_file.exists());
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst X: /D | touch out
+            "#
+        );
     })
 }
