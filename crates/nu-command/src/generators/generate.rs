@@ -11,7 +11,12 @@ impl Command for Generate {
 
     fn signature(&self) -> Signature {
         Signature::build("generate")
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Any)))])
+            .input_output_types(vec![
+                (Type::Nothing, Type::list(Type::Any)),
+                (Type::list(Type::Any), Type::list(Type::Any)),
+                (Type::table(), Type::list(Type::Any)),
+                (Type::Range, Type::list(Type::Any)),
+            ])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
@@ -103,6 +108,23 @@ used as the next argument to the closure, otherwise generation stops.
                     Some(output)
                 });
 
+                Ok(iter
+                    .flatten()
+                    .into_pipeline_data(call.head, engine_state.signals().clone()))
+            }
+            input @ (PipelineData::Value(Value::Range { .. }, ..)
+            | PipelineData::Value(Value::List { .. }, ..)
+            | PipelineData::ListStream(..)) => {
+                let mut state = Some(get_initial_state(initial, &block.signature, call.head)?);
+                let iter = input.into_iter().map_while(move |in_val| {
+                    let arg = state.take()?;
+                    let closure_result = closure
+                        .add_arg(arg)
+                        .run_with_input(in_val.into_pipeline_data());
+                    let (output, next_input) = parse_closure_result(closure_result, head);
+                    state = next_input;
+                    Some(output)
+                });
                 Ok(iter
                     .flatten()
                     .into_pipeline_data(call.head, engine_state.signals().clone()))
