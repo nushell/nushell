@@ -10,7 +10,8 @@ impl LanguageServer {
         let mut engine_state = self.new_engine_state();
         engine_state.generate_nu_constant();
 
-        let Some((_, offset, working_set, file)) = self.parse_file(&mut engine_state, &uri) else {
+        let Some((_, offset, working_set, file)) = self.parse_file(&mut engine_state, &uri, true)
+        else {
             return Ok(());
         };
 
