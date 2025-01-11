@@ -107,16 +107,13 @@ export def scan [ # -> list<any>
     init: any            # initial value to seed the initial state
     fn: closure          # the closure to perform the scan
     --noinit(-n)         # remove the initial value from the result
-] {                      
-    reduce --fold [$init] {|e, acc|
-        let acc_last = $acc | last
-        $acc ++ [($acc_last | do $fn $e $acc_last)]
-    }
-    | if $noinit {
-        $in | skip
-    } else {
-        $in
-    }
+] {
+    generate {|acc|
+        let IN = $in
+        let out = $acc | do $fn $IN $acc
+        {next: $out, out: $out}
+    } $init
+    | if not $noinit { prepend $init } else { }
 }
 
 # Returns a list of values for which the supplied closure does not
