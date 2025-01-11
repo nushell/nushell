@@ -16,7 +16,6 @@ fn test_pwd_per_drive() {
                 cd -
                 x:test_folder_on_x\
                 touch test_file_on_x.txt
-                sleep 1sec
                 cd -
             "#
         );
@@ -29,7 +28,6 @@ fn test_pwd_per_drive() {
             cwd: dirs.test(),
             r#"
                 mv X:test_folder_on_x\test_file_on_x.txt x:test_folder_on_x\mv.txt
-                sleep 1sec
             "#
         );
         assert!(!expected_file.exists());
