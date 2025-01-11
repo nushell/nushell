@@ -298,9 +298,7 @@ fn ls_for_one_pattern(
             //    here `expand_to_real_path` call is required, because `~/aaa` should be absolute
             //    path.
             let absolute_path = Path::new(pat.item.as_ref()).is_absolute()
-                || (pat.item.is_expand()
-                    && (expand_to_real_path(pat.item.as_ref()).is_absolute()
-                        || tmp_expanded.is_absolute()));
+                || (pat.item.is_expand() && expand_to_real_path(pat.item.as_ref()).is_absolute());
             (pat.item, absolute_path)
         }
         None => {
