@@ -249,6 +249,8 @@ fn rm(
         }
 
         match nu_engine::glob_from(
+            stack,
+            engine_state,
             &target,
             &currentdir_path,
             call.head,

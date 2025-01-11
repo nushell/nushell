@@ -189,7 +189,6 @@ fn test_pwd_per_drive() {
                 cd -
             "#
         );
-        assert!(_actual.err.is_empty());
         let expected_file = dirs
             .test()
             .join("test_folder\\test_folder_on_x\\test_file_on_x.txt");

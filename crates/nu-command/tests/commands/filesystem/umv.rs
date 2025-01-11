@@ -27,7 +27,7 @@ fn test_pwd_per_drive() {
         let _actual = nu!(
             cwd: dirs.test(),
             r#"
-                mv X:test_folder_on_x\test_file_on_x.txt x:test_folder_on_x\mv.txt
+                mv X:test_file_on_x.txt x:mv.txt
             "#
         );
         assert!(!expected_file.exists());

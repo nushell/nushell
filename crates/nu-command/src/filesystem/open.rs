@@ -85,7 +85,7 @@ impl Command for Open {
             let arg_span = path.span;
             // let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
-            for path in nu_engine::glob_from(&path, &cwd, call_span, None)
+            for path in nu_engine::glob_from(stack, engine_state, &path, &cwd, call_span, None)
                 .map_err(|err| match err {
                     ShellError::DirectoryNotFound { span, .. } => ShellError::FileNotFound {
                         file: path.item.to_string(),

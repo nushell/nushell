@@ -117,10 +117,15 @@ impl Command for Du {
                     max_depth,
                     min_size,
                 };
-                Ok(
-                    du_for_one_pattern(args, &current_dir, tag, engine_state.signals())?
-                        .into_pipeline_data(tag, engine_state.signals().clone()),
-                )
+                Ok(du_for_one_pattern(
+                    stack,
+                    engine_state,
+                    args,
+                    &current_dir,
+                    tag,
+                    engine_state.signals(),
+                )?
+                .into_pipeline_data(tag, engine_state.signals().clone()))
             }
             Some(paths) => {
                 let mut result_iters = vec![];
@@ -134,6 +139,8 @@ impl Command for Du {
                         min_size,
                     };
                     result_iters.push(du_for_one_pattern(
+                        stack,
+                        engine_state,
                         args,
                         &current_dir,
                         tag,
@@ -160,6 +167,8 @@ impl Command for Du {
 }
 
 fn du_for_one_pattern(
+    stack: &Stack,
+    engine_state: &EngineState,
     args: DuArgs,
     current_dir: &Path,
     span: Span,
@@ -176,9 +185,11 @@ fn du_for_one_pattern(
     })?;
 
     let paths = match args.path {
-        Some(p) => nu_engine::glob_from(&p, current_dir, span, None),
+        Some(p) => nu_engine::glob_from(stack, engine_state, &p, current_dir, span, None),
         // The * pattern should never fail.
         None => nu_engine::glob_from(
+            stack,
+            engine_state,
             &Spanned {
                 item: NuGlob::Expand("*".into()),
                 span: Span::unknown(),

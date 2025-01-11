@@ -1,6 +1,9 @@
 use nu_glob::MatchOptions;
-use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::{NuGlob, ShellError, Span, Spanned};
+use nu_path::canonicalize_with;
+use nu_protocol::{
+    engine::{expand_path_with, EngineState, Stack},
+    NuGlob, ShellError, Span, Spanned,
+};
 use std::{
     fs,
     io::ErrorKind,
@@ -16,6 +19,8 @@ use std::{
 /// The second of the two values is an iterator over the matching filepaths.
 #[allow(clippy::type_complexity)]
 pub fn glob_from(
+    stack: &Stack,
+    engine_state: &EngineState,
     pattern: &Spanned<NuGlob>,
     cwd: &Path,
     span: Span,
@@ -56,13 +61,13 @@ pub fn glob_from(
         }
 
         // Now expand `p` to get full prefix
-        let path = expand_path_with(p, cwd, pattern.item.is_expand());
+        let path = expand_path_with(stack, engine_state, p, cwd, pattern.item.is_expand());
         let escaped_prefix = PathBuf::from(nu_glob::Pattern::escape(&path.to_string_lossy()));
 
         (Some(path), escaped_prefix.join(just_pattern))
     } else {
         let path = PathBuf::from(&pattern.item.as_ref());
-        let path = expand_path_with(path, cwd, pattern.item.is_expand());
+        let path = expand_path_with(stack, engine_state, path, cwd, pattern.item.is_expand());
         let is_symlink = match fs::symlink_metadata(&path) {
             Ok(attr) => attr.file_type().is_symlink(),
             Err(_) => false,

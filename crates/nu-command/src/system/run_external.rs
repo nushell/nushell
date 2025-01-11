@@ -325,9 +325,16 @@ pub fn eval_arguments_from_call(
         match arg {
             // Expand globs passed to run-external
             Value::Glob { val, no_expand, .. } if !no_expand => args.extend(
-                expand_glob(&val, cwd.as_std_path(), span, engine_state.signals())?
-                    .into_iter()
-                    .map(|s| s.into_spanned(span)),
+                expand_glob(
+                    stack,
+                    engine_state,
+                    &val,
+                    cwd.as_std_path(),
+                    span,
+                    engine_state.signals(),
+                )?
+                .into_iter()
+                .map(|s| s.into_spanned(span)),
             ),
             other => args
                 .push(OsString::from(coerce_into_string(engine_state, other)?).into_spanned(span)),
@@ -355,6 +362,8 @@ fn coerce_into_string(engine_state: &EngineState, val: Value) -> Result<String, 
 /// Note: This matches the default behavior of Bash, but is known to be
 /// error-prone. We might want to change this behavior in the future.
 fn expand_glob(
+    stack: &Stack,
+    engine_state: &EngineState,
     arg: &str,
     cwd: &Path,
     span: Span,
@@ -370,7 +379,8 @@ fn expand_glob(
     // We must use `nu_engine::glob_from` here, in order to ensure we get paths from the correct
     // dir
     let glob = NuGlob::Expand(arg.to_owned()).into_spanned(span);
-    if let Ok((prefix, matches)) = nu_engine::glob_from(&glob, cwd, span, None) {
+    if let Ok((prefix, matches)) = nu_engine::glob_from(stack, engine_state, &glob, cwd, span, None)
+    {
         let mut result: Vec<OsString> = vec![];
 
         for m in matches {
