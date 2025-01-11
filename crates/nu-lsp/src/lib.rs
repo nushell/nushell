@@ -1,75 +1,100 @@
 #![doc = include_str!("../README.md")]
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
+use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
-    request::{Completion, GotoDefinition, HoverRequest, Request},
+    request::{
+        Completion, DocumentSymbolRequest, GotoDefinition, HoverRequest, InlayHintRequest, Request,
+        WorkspaceSymbolRequest,
+    },
     CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
-    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location,
-    MarkupContent, MarkupKind, OneOf, Position, PositionEncodingKind, Range, ServerCapabilities,
-    TextDocumentSyncKind, TextEdit, Url,
+    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams, InlayHint,
+    Location, MarkupContent, MarkupKind, OneOf, Range, ServerCapabilities, TextDocumentSyncKind,
+    TextEdit, Uri,
 };
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{NuCompleter, SuggestionKind};
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
+    ast::Block,
     engine::{CachedFile, EngineState, Stack, StateWorkingSet},
-    DeclId, Span, Value, VarId,
+    DeclId, ModuleId, Span, Value, VarId,
 };
-use ropey::Rope;
-use serde_json::json;
+use std::collections::BTreeMap;
 use std::{
-    collections::BTreeMap,
     path::{Path, PathBuf},
+    str::FromStr,
     sync::Arc,
     time::Duration,
 };
+use symbols::SymbolCache;
+use url::Url;
 
 mod diagnostics;
+mod hints;
 mod notification;
+mod symbols;
 
 #[derive(Debug)]
 enum Id {
     Variable(VarId),
     Declaration(DeclId),
     Value(FlatShape),
+    Module(ModuleId),
 }
 
 pub struct LanguageServer {
     connection: Connection,
     io_threads: Option<IoThreads>,
-    ropes: BTreeMap<PathBuf, Rope>,
-    position_encoding: PositionEncodingKind,
+    docs: TextDocuments,
+    engine_state: EngineState,
+    symbol_cache: SymbolCache,
+    inlay_hints: BTreeMap<Uri, Vec<InlayHint>>,
+}
+
+pub fn path_to_uri(path: impl AsRef<Path>) -> Uri {
+    Uri::from_str(
+        Url::from_file_path(path)
+            .expect("Failed to convert path to Url")
+            .as_str(),
+    )
+    .expect("Failed to convert Url to lsp_types::Uri.")
+}
+
+pub fn uri_to_path(uri: &Uri) -> PathBuf {
+    Url::from_str(uri.as_str())
+        .expect("Failed to convert Uri to Url")
+        .to_file_path()
+        .expect("Failed to convert Url to path")
+}
+
+pub fn span_to_range(span: &Span, file: &FullTextDocument, offset: usize) -> Range {
+    let start = file.position_at(span.start.saturating_sub(offset) as u32);
+    let end = file.position_at(span.end.saturating_sub(offset) as u32);
+    Range { start, end }
 }
 
 impl LanguageServer {
-    pub fn initialize_stdio_connection() -> Result<Self> {
+    pub fn initialize_stdio_connection(engine_state: EngineState) -> Result<Self> {
         let (connection, io_threads) = Connection::stdio();
-        Self::initialize_connection(connection, Some(io_threads))
+        Self::initialize_connection(connection, Some(io_threads), engine_state)
     }
 
     fn initialize_connection(
         connection: Connection,
         io_threads: Option<IoThreads>,
+        engine_state: EngineState,
     ) -> Result<Self> {
         Ok(Self {
             connection,
             io_threads,
-            ropes: BTreeMap::new(),
-            position_encoding: PositionEncodingKind::UTF16,
+            docs: TextDocuments::new(),
+            engine_state,
+            symbol_cache: SymbolCache::new(),
+            inlay_hints: BTreeMap::new(),
         })
     }
 
-    fn get_offset_encoding(&self, initialization_params: serde_json::Value) -> String {
-        initialization_params
-            .pointer("/capabilities/offsetEncoding/0")
-            .unwrap_or(
-                initialization_params
-                    .pointer("/capabilities/offset_encoding/0")
-                    .unwrap_or(&json!("utf-16")),
-            )
-            .to_string()
-    }
-
-    pub fn serve_requests(mut self, engine_state: EngineState) -> Result<()> {
+    pub fn serve_requests(mut self) -> Result<()> {
         let server_capabilities = serde_json::to_value(ServerCapabilities {
             text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Kind(
                 TextDocumentSyncKind::INCREMENTAL,
@@ -77,20 +102,21 @@ impl LanguageServer {
             definition_provider: Some(OneOf::Left(true)),
             hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
             completion_provider: Some(lsp_types::CompletionOptions::default()),
+            document_symbol_provider: Some(OneOf::Left(true)),
+            workspace_symbol_provider: Some(OneOf::Left(true)),
+            inlay_hint_provider: Some(OneOf::Left(true)),
             ..Default::default()
         })
         .expect("Must be serializable");
 
-        let initialization_params = self
+        let _ = self
             .connection
             .initialize_while(server_capabilities, || {
-                !engine_state.signals().interrupted()
+                !self.engine_state.signals().interrupted()
             })
             .into_diagnostic()?;
-        self.position_encoding =
-            PositionEncodingKind::from(self.get_offset_encoding(initialization_params));
 
-        while !engine_state.signals().interrupted() {
+        while !self.engine_state.signals().interrupted() {
             let msg = match self
                 .connection
                 .receiver
@@ -113,23 +139,27 @@ impl LanguageServer {
                         return Ok(());
                     }
 
-                    let mut engine_state = engine_state.clone();
                     let resp = match request.method.as_str() {
-                        GotoDefinition::METHOD => Self::handle_lsp_request(
-                            &mut engine_state,
-                            request,
-                            |engine_state, params| self.goto_definition(engine_state, params),
-                        ),
-                        HoverRequest::METHOD => Self::handle_lsp_request(
-                            &mut engine_state,
-                            request,
-                            |engine_state, params| self.hover(engine_state, params),
-                        ),
-                        Completion::METHOD => Self::handle_lsp_request(
-                            &mut engine_state,
-                            request,
-                            |engine_state, params| self.complete(engine_state, params),
-                        ),
+                        GotoDefinition::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.goto_definition(params))
+                        }
+                        HoverRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.hover(params))
+                        }
+                        Completion::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.complete(params))
+                        }
+                        DocumentSymbolRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.document_symbol(params))
+                        }
+                        WorkspaceSymbolRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| {
+                                self.workspace_symbol(params)
+                            })
+                        }
+                        InlayHintRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.get_inlay_hints(params))
+                        }
                         _ => {
                             continue;
                         }
@@ -143,8 +173,8 @@ impl LanguageServer {
                 Message::Response(_) => {}
                 Message::Notification(notification) => {
                     if let Some(updated_file) = self.handle_lsp_notification(notification) {
-                        let mut engine_state = engine_state.clone();
-                        self.publish_diagnostics_for_file(updated_file, &mut engine_state)?;
+                        self.symbol_cache.mark_dirty(updated_file.clone(), true);
+                        self.publish_diagnostics_for_file(updated_file)?;
                     }
                 }
             }
@@ -157,21 +187,82 @@ impl LanguageServer {
         Ok(())
     }
 
-    fn handle_lsp_request<P, H, R>(
-        engine_state: &mut EngineState,
-        req: lsp_server::Request,
-        mut param_handler: H,
-    ) -> Response
+    pub fn new_engine_state(&self) -> EngineState {
+        let mut engine_state = self.engine_state.clone();
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+        engine_state
+    }
+
+    pub fn parse_file<'a>(
+        &mut self,
+        engine_state: &'a mut EngineState,
+        uri: &Uri,
+        need_hints: bool,
+    ) -> Option<(Arc<Block>, usize, StateWorkingSet<'a>, &FullTextDocument)> {
+        let mut working_set = StateWorkingSet::new(engine_state);
+        let file = self.docs.get_document(uri)?;
+        let file_path = uri_to_path(uri);
+        let file_path_str = file_path.to_str()?;
+        let contents = file.get_content(None).as_bytes();
+        let _ = working_set.files.push(file_path.clone(), Span::unknown());
+        let block = parse(&mut working_set, Some(file_path_str), contents, false);
+        let offset = working_set.get_span_for_filename(file_path_str)?.start;
+        // TODO: merge delta back to engine_state?
+        // self.engine_state.merge_delta(working_set.render());
+
+        if need_hints {
+            let file_inlay_hints = self.extract_inlay_hints(&working_set, &block, offset, file);
+            self.inlay_hints.insert(uri.clone(), file_inlay_hints);
+        }
+        Some((block, offset, working_set, file))
+    }
+
+    fn get_location_by_span<'a>(
+        &self,
+        files: impl Iterator<Item = &'a CachedFile>,
+        span: &Span,
+    ) -> Option<Location> {
+        for cached_file in files.into_iter() {
+            if cached_file.covered_span.contains(span.start) {
+                let path = Path::new(&*cached_file.name);
+                if !(path.exists() && path.is_file()) {
+                    return None;
+                }
+                let target_uri = path_to_uri(path);
+                if let Some(doc) = self.docs.get_document(&target_uri) {
+                    return Some(Location {
+                        uri: target_uri,
+                        range: span_to_range(span, doc, cached_file.covered_span.start),
+                    });
+                } else {
+                    // in case where the document is not opened yet, typically included by `nu -I`
+                    let temp_doc = FullTextDocument::new(
+                        "nu".to_string(),
+                        0,
+                        String::from_utf8((*cached_file.content).to_vec()).expect("Invalid UTF-8"),
+                    );
+                    return Some(Location {
+                        uri: target_uri,
+                        range: span_to_range(span, &temp_doc, cached_file.covered_span.start),
+                    });
+                }
+            }
+        }
+        None
+    }
+
+    fn handle_lsp_request<P, H, R>(req: lsp_server::Request, mut param_handler: H) -> Response
     where
         P: serde::de::DeserializeOwned,
-        H: FnMut(&mut EngineState, &P) -> Option<R>,
+        H: FnMut(&P) -> Option<R>,
         R: serde::ser::Serialize,
     {
         match serde_json::from_value::<P>(req.params) {
             Ok(params) => Response {
                 id: req.id,
                 result: Some(
-                    param_handler(engine_state, &params)
+                    param_handler(&params)
                         .and_then(|response| serde_json::to_value(response).ok())
                         .unwrap_or(serde_json::Value::Null),
                 ),
@@ -190,94 +281,11 @@ impl LanguageServer {
         }
     }
 
-    fn span_to_range(
-        span: &Span,
-        rope_of_file: &Rope,
-        offset: usize,
-        position_encoding: &PositionEncodingKind,
-    ) -> Range {
-        let start = Self::lsp_byte_offset_to_utf_cu_position(
-            span.start.saturating_sub(offset),
-            rope_of_file,
-            position_encoding,
-        );
-        let end = Self::lsp_byte_offset_to_utf_cu_position(
-            span.end.saturating_sub(offset),
-            rope_of_file,
-            position_encoding,
-        );
-        Range { start, end }
-    }
-
-    fn lsp_byte_offset_to_utf_cu_position(
-        offset: usize,
-        rope_of_file: &Rope,
-        position_encoding: &PositionEncodingKind,
-    ) -> Position {
-        let line = rope_of_file.try_byte_to_line(offset).unwrap_or(0);
-        match position_encoding.as_str() {
-            "\"utf-8\"" => {
-                let character = offset - rope_of_file.line_to_byte(line);
-                Position {
-                    line: line as u32,
-                    character: character as u32,
-                }
-            }
-            _ => {
-                let character = rope_of_file.char_to_utf16_cu(rope_of_file.byte_to_char(offset))
-                    - rope_of_file.char_to_utf16_cu(rope_of_file.line_to_char(line));
-                Position {
-                    line: line as u32,
-                    character: character as u32,
-                }
-            }
-        }
-    }
-
-    fn utf16_cu_position_to_char(rope_of_file: &Rope, position: &Position) -> usize {
-        let line_utf_idx =
-            rope_of_file.char_to_utf16_cu(rope_of_file.line_to_char(position.line as usize));
-        rope_of_file.utf16_cu_to_char(line_utf_idx + position.character as usize)
-    }
-
-    pub fn lsp_position_to_location(
-        position: &Position,
-        rope_of_file: &Rope,
-        position_encoding: &PositionEncodingKind,
-    ) -> usize {
-        match position_encoding.as_str() {
-            "\"utf-8\"" => rope_of_file.byte_to_char(
-                rope_of_file.line_to_byte(position.line as usize) + position.character as usize,
-            ),
-            _ => Self::utf16_cu_position_to_char(rope_of_file, position),
-        }
-    }
-
-    fn lsp_position_to_byte_offset(&self, position: &Position, rope_of_file: &Rope) -> usize {
-        match self.position_encoding.as_str() {
-            "\"utf-8\"" => {
-                rope_of_file.line_to_byte(position.line as usize) + position.character as usize
-            }
-            _ => rope_of_file
-                .try_char_to_byte(Self::utf16_cu_position_to_char(rope_of_file, position))
-                .expect("Character index out of range!"),
-        }
-    }
-
     fn find_id(
-        working_set: &mut StateWorkingSet,
-        path: &Path,
-        file: &Rope,
+        flattened: Vec<(Span, FlatShape)>,
         location: usize,
+        offset: usize,
     ) -> Option<(Id, usize, Span)> {
-        let file_path = path.to_string_lossy();
-
-        // TODO: think about passing down the rope into the working_set
-        let contents = file.bytes().collect::<Vec<u8>>();
-        let block = parse(working_set, Some(&file_path), &contents, false);
-        let flattened = flatten_block(working_set, &block);
-
-        let offset = working_set.get_span_for_filename(&file_path)?.start;
         let location = location + offset;
 
         for (span, shape) in flattened {
@@ -286,7 +294,7 @@ impl LanguageServer {
                     FlatShape::Variable(var_id) | FlatShape::VarDecl(var_id) => {
                         return Some((Id::Variable(*var_id), offset, span));
                     }
-                    FlatShape::InternalCall(decl_id) => {
+                    FlatShape::InternalCall(decl_id) | FlatShape::Custom(decl_id) => {
                         return Some((Id::Declaration(*decl_id), offset, span));
                     }
                     _ => return Some((Id::Value(shape), offset, span)),
@@ -296,122 +304,58 @@ impl LanguageServer {
         None
     }
 
-    fn rope<'a, 'b: 'a>(&'b self, file_url: &Url) -> Option<(&'a Rope, &'a PathBuf)> {
-        let file_path = file_url.to_file_path().ok()?;
+    fn goto_definition(&mut self, params: &GotoDefinitionParams) -> Option<GotoDefinitionResponse> {
+        let mut engine_state = self.new_engine_state();
 
-        self.ropes
-            .get_key_value(&file_path)
-            .map(|(path, rope)| (rope, path))
-    }
-
-    fn read_in_file<'a>(
-        &self,
-        engine_state: &'a mut EngineState,
-        file_url: &Url,
-    ) -> Option<(&Rope, &PathBuf, StateWorkingSet<'a>)> {
-        let (file, path) = self.rope(file_url)?;
-
-        engine_state.file = Some(path.to_owned());
-
-        let working_set = StateWorkingSet::new(engine_state);
-
-        Some((file, path, working_set))
-    }
-
-    fn rope_file_from_cached_file(&mut self, cached_file: &CachedFile) -> Result<(Url, &Rope), ()> {
-        let uri = Url::from_file_path(&*cached_file.name)?;
-        let rope_of_file = self.ropes.entry(uri.to_file_path()?).or_insert_with(|| {
-            let raw_string = String::from_utf8_lossy(&cached_file.content);
-            Rope::from_str(&raw_string)
-        });
-        Ok((uri, rope_of_file))
-    }
-
-    fn goto_definition(
-        &mut self,
-        engine_state: &mut EngineState,
-        params: &GotoDefinitionParams,
-    ) -> Option<GotoDefinitionResponse> {
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
-
-        let (file, path, mut working_set) = self.read_in_file(
-            engine_state,
-            &params.text_document_position_params.text_document.uri,
-        )?;
-
+        let path_uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .to_owned();
+        let (block, file_offset, working_set, file) =
+            self.parse_file(&mut engine_state, &path_uri, false)?;
+        let flattened = flatten_block(&working_set, &block);
         let (id, _, _) = Self::find_id(
-            &mut working_set,
-            path,
-            file,
-            self.lsp_position_to_byte_offset(&params.text_document_position_params.position, file),
+            flattened,
+            file.offset_at(params.text_document_position_params.position) as usize,
+            file_offset,
         )?;
 
-        match id {
+        let span = match id {
             Id::Declaration(decl_id) => {
-                if let Some(block_id) = working_set.get_decl(decl_id).block_id() {
-                    let block = working_set.get_block(block_id);
-                    if let Some(span) = &block.span {
-                        for cached_file in working_set.files() {
-                            if cached_file.covered_span.contains(span.start) {
-                                let position_encoding = self.position_encoding.clone();
-                                let (uri, rope_of_file) =
-                                    self.rope_file_from_cached_file(cached_file).ok()?;
-                                return Some(GotoDefinitionResponse::Scalar(Location {
-                                    uri,
-                                    range: Self::span_to_range(
-                                        span,
-                                        rope_of_file,
-                                        cached_file.covered_span.start,
-                                        &position_encoding,
-                                    ),
-                                }));
-                            }
-                        }
-                    }
-                }
+                let block_id = working_set.get_decl(decl_id).block_id()?;
+                working_set.get_block(block_id).span
             }
             Id::Variable(var_id) => {
                 let var = working_set.get_variable(var_id);
-                for cached_file in working_set.files() {
-                    if cached_file
-                        .covered_span
-                        .contains(var.declaration_span.start)
-                    {
-                        let position_encoding = self.position_encoding.clone();
-                        let (uri, rope_of_file) =
-                            self.rope_file_from_cached_file(cached_file).ok()?;
-                        return Some(GotoDefinitionResponse::Scalar(Location {
-                            uri,
-                            range: Self::span_to_range(
-                                &var.declaration_span,
-                                rope_of_file,
-                                cached_file.covered_span.start,
-                                &position_encoding,
-                            ),
-                        }));
-                    }
-                }
+                Some(var.declaration_span)
             }
-            Id::Value(_) => {}
-        }
-        None
+            Id::Module(module_id) => {
+                let module = working_set.get_module(module_id);
+                module.span
+            }
+            _ => None,
+        }?;
+        Some(GotoDefinitionResponse::Scalar(
+            self.get_location_by_span(working_set.files(), &span)?,
+        ))
     }
 
-    fn hover(&mut self, engine_state: &mut EngineState, params: &HoverParams) -> Option<Hover> {
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+    fn hover(&mut self, params: &HoverParams) -> Option<Hover> {
+        let mut engine_state = self.new_engine_state();
 
-        let (file, path, mut working_set) = self.read_in_file(
-            engine_state,
-            &params.text_document_position_params.text_document.uri,
-        )?;
-
+        let path_uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .to_owned();
+        let (block, file_offset, working_set, file) =
+            self.parse_file(&mut engine_state, &path_uri, false)?;
+        let flattened = flatten_block(&working_set, &block);
         let (id, _, _) = Self::find_id(
-            &mut working_set,
-            path,
-            file,
-            self.lsp_position_to_byte_offset(&params.text_document_position_params.position, file),
+            flattened,
+            file.offset_at(params.text_document_position_params.position) as usize,
+            file_offset,
         )?;
 
         match id {
@@ -439,7 +383,7 @@ impl LanguageServer {
                 }
 
                 // Usage
-                description.push_str("### Usage \n```nu\n");
+                description.push_str("-----\n### Usage \n```nu\n");
                 let signature = decl.signature();
                 description.push_str(&format!("  {}", signature.name));
                 if !signature.named.is_empty() {
@@ -609,29 +553,19 @@ impl LanguageServer {
                     range: None,
                 })
             }
+            _ => None,
         }
     }
 
-    fn complete(
-        &mut self,
-        engine_state: &mut EngineState,
-        params: &CompletionParams,
-    ) -> Option<CompletionResponse> {
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
-
-        let (rope_of_file, _, _) = self.read_in_file(
-            engine_state,
-            &params.text_document_position.text_document.uri,
-        )?;
+    fn complete(&mut self, params: &CompletionParams) -> Option<CompletionResponse> {
+        let path_uri = params.text_document_position.text_document.uri.to_owned();
+        let file = self.docs.get_document(&path_uri)?;
 
         let mut completer =
-            NuCompleter::new(Arc::new(engine_state.clone()), Arc::new(Stack::new()));
+            NuCompleter::new(Arc::new(self.engine_state.clone()), Arc::new(Stack::new()));
 
-        let location =
-            self.lsp_position_to_byte_offset(&params.text_document_position.position, rope_of_file);
-        let results =
-            completer.fetch_completions_at(&rope_of_file.to_string()[..location], location);
+        let location = file.offset_at(params.text_document_position.position) as usize;
+        let results = completer.fetch_completions_at(&file.get_content(None)[..location], location);
         if results.is_empty() {
             None
         } else {
@@ -688,26 +622,23 @@ mod tests {
         },
         request::{Completion, GotoDefinition, HoverRequest, Initialize, Request, Shutdown},
         CompletionParams, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-        GotoDefinitionParams, InitializeParams, InitializedParams, PartialResultParams,
+        GotoDefinitionParams, InitializeParams, InitializedParams, PartialResultParams, Position,
         TextDocumentContentChangeEvent, TextDocumentIdentifier, TextDocumentItem,
-        TextDocumentPositionParams, Url, WorkDoneProgressParams,
+        TextDocumentPositionParams, WorkDoneProgressParams,
     };
     use nu_test_support::fs::{fixtures, root};
     use std::sync::mpsc::Receiver;
 
-    pub fn initialize_language_server(
-        client_offset_encoding: Option<Vec<String>>,
-    ) -> (Connection, Receiver<Result<()>>) {
+    pub fn initialize_language_server() -> (Connection, Receiver<Result<()>>) {
         use std::sync::mpsc;
         let (client_connection, server_connection) = Connection::memory();
-        let lsp_server = LanguageServer::initialize_connection(server_connection, None).unwrap();
+        let engine_state = nu_cmd_lang::create_default_context();
+        let engine_state = nu_command::add_shell_command_context(engine_state);
+        let lsp_server =
+            LanguageServer::initialize_connection(server_connection, None, engine_state).unwrap();
 
         let (send, recv) = mpsc::channel();
-        std::thread::spawn(move || {
-            let engine_state = nu_cmd_lang::create_default_context();
-            let engine_state = nu_command::add_shell_command_context(engine_state);
-            send.send(lsp_server.serve_requests(engine_state))
-        });
+        std::thread::spawn(move || send.send(lsp_server.serve_requests()));
 
         client_connection
             .sender
@@ -716,7 +647,6 @@ mod tests {
                 method: Initialize::METHOD.to_string(),
                 params: serde_json::to_value(InitializeParams {
                     capabilities: lsp_types::ClientCapabilities {
-                        offset_encoding: client_offset_encoding,
                         ..Default::default()
                     },
                     ..Default::default()
@@ -742,7 +672,7 @@ mod tests {
 
     #[test]
     fn shutdown_on_request() {
-        let (client_connection, recv) = initialize_language_server(None);
+        let (client_connection, recv) = initialize_language_server();
 
         client_connection
             .sender
@@ -768,7 +698,7 @@ mod tests {
 
     #[test]
     fn goto_definition_for_none_existing_file() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut none_existent_path = root();
         none_existent_path.push("none-existent.nu");
@@ -781,7 +711,7 @@ mod tests {
                 params: serde_json::to_value(GotoDefinitionParams {
                     text_document_position_params: TextDocumentPositionParams {
                         text_document: TextDocumentIdentifier {
-                            uri: Url::from_file_path(none_existent_path).unwrap(),
+                            uri: path_to_uri(&none_existent_path),
                         },
                         position: Position {
                             line: 0,
@@ -808,16 +738,15 @@ mod tests {
         assert_json_eq!(result, serde_json::json!(null));
     }
 
-    pub fn open_unchecked(client_connection: &Connection, uri: Url) -> lsp_server::Notification {
+    pub fn open_unchecked(client_connection: &Connection, uri: Uri) -> lsp_server::Notification {
         open(client_connection, uri).unwrap()
     }
 
     pub fn open(
         client_connection: &Connection,
-        uri: Url,
+        uri: Uri,
     ) -> Result<lsp_server::Notification, String> {
-        let text =
-            std::fs::read_to_string(uri.to_file_path().unwrap()).map_err(|e| e.to_string())?;
+        let text = std::fs::read_to_string(uri_to_path(&uri)).map_err(|e| e.to_string())?;
 
         client_connection
             .sender
@@ -849,7 +778,7 @@ mod tests {
 
     pub fn update(
         client_connection: &Connection,
-        uri: Url,
+        uri: Uri,
         text: String,
         range: Option<Range>,
     ) -> lsp_server::Notification {
@@ -860,7 +789,7 @@ mod tests {
                     method: DidChangeTextDocument::METHOD.to_string(),
                     params: serde_json::to_value(DidChangeTextDocumentParams {
                         text_document: lsp_types::VersionedTextDocumentIdentifier {
-                            uri,
+                            uri: uri.clone(),
                             version: 2,
                         },
                         content_changes: vec![TextDocumentContentChangeEvent {
@@ -886,9 +815,9 @@ mod tests {
         }
     }
 
-    fn goto_definition(
+    fn send_goto_definition_request(
         client_connection: &Connection,
-        uri: Url,
+        uri: Uri,
         line: u32,
         character: u32,
     ) -> Message {
@@ -917,17 +846,17 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("goto");
         script.push("var.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = goto_definition(&client_connection, script.clone(), 2, 12);
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 12);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -937,28 +866,28 @@ mod tests {
         assert_json_eq!(
             result,
             serde_json::json!({
-               "uri": script,
-               "range": {
-                  "start": { "line": 0, "character": 4 },
-                  "end": { "line": 0, "character": 12 }
-               }
+                "uri": script,
+                "range": {
+                    "start": { "line": 0, "character": 4 },
+                    "end": { "line": 0, "character": 12 }
+                }
             })
         );
     }
 
     #[test]
     fn goto_definition_of_command() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("goto");
         script.push("command.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = goto_definition(&client_connection, script.clone(), 4, 1);
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 1);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -968,29 +897,28 @@ mod tests {
         assert_json_eq!(
             result,
             serde_json::json!({
-               "uri": script,
-               "range": {
-                  "start": { "line": 0, "character": 17 },
-                  "end": { "line": 2, "character": 1 }
-               }
+                "uri": script,
+                "range": {
+                "start": { "line": 0, "character": 17 },
+                "end": { "line": 2, "character": 1 }
+            }
             })
         );
     }
 
     #[test]
-    fn goto_definition_of_command_utf8() {
-        let (client_connection, _recv) =
-            initialize_language_server(Some(vec!["utf-8".to_string(), "utf-16".to_string()]));
+    fn goto_definition_of_command_unicode() {
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("goto");
         script.push("command_unicode.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = goto_definition(&client_connection, script.clone(), 4, 1);
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 2);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1000,59 +928,28 @@ mod tests {
         assert_json_eq!(
             result,
             serde_json::json!({
-               "uri": script,
-               "range": {
-                  "start": { "line": 0, "character": 28 },
-                  "end": { "line": 2, "character": 1 }
-               }
-            })
-        );
-    }
-
-    #[test]
-    fn goto_definition_of_command_utf16() {
-        let (client_connection, _recv) = initialize_language_server(None);
-
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("goto");
-        script.push("command_unicode.nu");
-        let script = Url::from_file_path(script).unwrap();
-
-        open_unchecked(&client_connection, script.clone());
-
-        let resp = goto_definition(&client_connection, script.clone(), 4, 1);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
-
-        assert_json_eq!(
-            result,
-            serde_json::json!({
-               "uri": script,
-               "range": {
-                  "start": { "line": 0, "character": 19 },
-                  "end": { "line": 2, "character": 1 }
-               }
+                "uri": script,
+                "range": {
+                "start": { "line": 0, "character": 19 },
+                "end": { "line": 2, "character": 1 }
+            }
             })
         );
     }
 
     #[test]
     fn goto_definition_of_command_parameter() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("goto");
         script.push("command.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = goto_definition(&client_connection, script.clone(), 1, 14);
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 14);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1062,16 +959,21 @@ mod tests {
         assert_json_eq!(
             result,
             serde_json::json!({
-               "uri": script,
-               "range": {
-                  "start": { "line": 0, "character": 11 },
-                  "end": { "line": 0, "character": 15 }
-               }
+                "uri": script,
+                "range": {
+                "start": { "line": 0, "character": 11 },
+                "end": { "line": 0, "character": 15 }
+            }
             })
         );
     }
 
-    pub fn hover(client_connection: &Connection, uri: Url, line: u32, character: u32) -> Message {
+    pub fn send_hover_request(
+        client_connection: &Connection,
+        uri: Uri,
+        line: u32,
+        character: u32,
+    ) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -1096,17 +998,17 @@ mod tests {
 
     #[test]
     fn hover_on_variable() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("hover");
         script.push("var.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = hover(&client_connection, script.clone(), 2, 0);
+        let resp = send_hover_request(&client_connection, script.clone(), 2, 0);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1123,17 +1025,17 @@ mod tests {
 
     #[test]
     fn hover_on_custom_command() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("hover");
         script.push("command.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = hover(&client_connection, script.clone(), 3, 0);
+        let resp = send_hover_request(&client_connection, script.clone(), 3, 0);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1143,9 +1045,9 @@ mod tests {
         assert_json_eq!(
             result,
             serde_json::json!({
-                "contents": {
+                    "contents": {
                     "kind": "markdown",
-                    "value": "Renders some greeting message\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                    "value": "Renders some greeting message\n-----\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                 }
             })
         );
@@ -1153,17 +1055,17 @@ mod tests {
 
     #[test]
     fn hover_on_str_join() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("hover");
         script.push("command.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = hover(&client_connection, script.clone(), 5, 8);
+        let resp = send_hover_request(&client_connection, script.clone(), 5, 8);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1173,15 +1075,20 @@ mod tests {
         assert_json_eq!(
             result,
             serde_json::json!({
-                "contents": {
+                    "contents": {
                     "kind": "markdown",
-                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
+                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n-----\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
                 }
             })
         );
     }
 
-    fn complete(client_connection: &Connection, uri: Url, line: u32, character: u32) -> Message {
+    fn send_complete_request(
+        client_connection: &Connection,
+        uri: Uri,
+        line: u32,
+        character: u32,
+    ) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -1208,17 +1115,17 @@ mod tests {
 
     #[test]
     fn complete_on_variable() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("completion");
         script.push("var.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = complete(&client_connection, script, 2, 9);
+        let resp = send_complete_request(&client_connection, script, 2, 9);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1228,34 +1135,34 @@ mod tests {
         assert_json_eq!(
             result,
             serde_json::json!([
-               {
-                  "label": "$greeting",
-                  "textEdit": {
-                     "newText": "$greeting",
-                     "range": {
-                        "start": { "character": 5, "line": 2 },
-                        "end": { "character": 9, "line": 2 }
-                     }
-                  },
-                  "kind": 6
-               }
+                {
+                    "label": "$greeting",
+                    "textEdit": {
+                    "newText": "$greeting",
+                    "range": {
+                    "start": { "character": 5, "line": 2 },
+                "end": { "character": 9, "line": 2 }
+            }
+            },
+                "kind": 6
+            }
             ])
         );
     }
 
     #[test]
     fn complete_command_with_space() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("completion");
         script.push("command.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = complete(&client_connection, script, 0, 8);
+        let resp = send_complete_request(&client_connection, script, 0, 8);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1265,36 +1172,35 @@ mod tests {
         assert_json_eq!(
             result,
             serde_json::json!([
-               {
-                  "label": "config nu",
-                  "detail": "Edit nu configurations.",
-                  "textEdit": {
-                     "range": {
-                        "start": { "line": 0, "character": 0 },
-                        "end": { "line": 0, "character": 8 },
-                     },
-                     "newText": "config nu"
-                  },
-                  "kind": 3
-               }
+                {
+                    "label": "config nu",
+                    "detail": "Edit nu configurations.",
+                    "textEdit": {
+                    "range": {
+                    "start": { "line": 0, "character": 0 },
+                "end": { "line": 0, "character": 8 },
+            },
+                "newText": "config nu"
+            },
+                "kind": 3
+            }
             ])
         );
     }
 
     #[test]
-    fn complete_command_with_utf8_line() {
-        let (client_connection, _recv) =
-            initialize_language_server(Some(vec!["utf-8".to_string()]));
+    fn complete_command_with_line() {
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("completion");
         script.push("utf_pipeline.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = complete(&client_connection, script, 0, 14);
+        let resp = send_complete_request(&client_connection, script, 0, 13);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1304,74 +1210,35 @@ mod tests {
         assert_json_eq!(
             result,
             serde_json::json!([
-               {
-                  "label": "str trim",
-                  "detail": "Trim whitespace or specific character.",
-                  "textEdit": {
-                     "range": {
-                        "start": { "line": 0, "character": 9 },
-                        "end": { "line": 0, "character": 14 },
-                     },
-                     "newText": "str trim"
-                  },
-                  "kind": 3
-               }
-            ])
-        );
-    }
-
-    #[test]
-    fn complete_command_with_utf16_line() {
-        let (client_connection, _recv) =
-            initialize_language_server(Some(vec!["utf-16".to_string()]));
-
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("completion");
-        script.push("utf_pipeline.nu");
-        let script = Url::from_file_path(script).unwrap();
-
-        open_unchecked(&client_connection, script.clone());
-
-        let resp = complete(&client_connection, script, 0, 13);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
-
-        assert_json_eq!(
-            result,
-            serde_json::json!([
-               {
-                  "label": "str trim",
-                  "detail": "Trim whitespace or specific character.",
-                  "textEdit": {
-                     "range": {
-                        "start": { "line": 0, "character": 8 },
-                        "end": { "line": 0, "character": 13 },
-                     },
-                     "newText": "str trim"
-                  },
-                  "kind": 3
-               }
+                {
+                    "label": "str trim",
+                    "detail": "Trim whitespace or specific character.",
+                    "textEdit": {
+                    "range": {
+                    "start": { "line": 0, "character": 8 },
+                "end": { "line": 0, "character": 13 },
+            },
+                "newText": "str trim"
+            },
+                "kind": 3
+            }
             ])
         );
     }
 
     #[test]
     fn complete_keyword() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("completion");
         script.push("keyword.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = complete(&client_connection, script, 0, 2);
+        let resp = send_complete_request(&client_connection, script, 0, 2);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1384,14 +1251,14 @@ mod tests {
                 {
                     "label": "overlay",
                     "textEdit": {
-                        "newText": "overlay",
-                        "range": {
-                            "start": { "character": 0, "line": 0 },
-                            "end": { "character": 2, "line": 0 }
-                        }
-                    },
-                    "kind": 14
-                },
+                    "newText": "overlay",
+                    "range": {
+                    "start": { "character": 0, "line": 0 },
+                "end": { "character": 2, "line": 0 }
+            }
+            },
+                "kind": 14
+            },
             ])
         );
     }

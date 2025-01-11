@@ -248,6 +248,16 @@ fn external_command_ndots_args() {
 }
 
 #[test]
+fn external_command_ndots_leading_dot_slash() {
+    // Don't expand ndots with a leading `./`
+    let actual = nu!(r#"
+        nu --testbin cococo ./... ./....
+    "#);
+
+    assert_eq!(actual.out, "./... ./....");
+}
+
+#[test]
 fn external_command_url_args() {
     // If ndots is not handled correctly, we can lose the double forward slashes that are needed
     // here

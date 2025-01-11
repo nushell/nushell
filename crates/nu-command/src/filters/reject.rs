@@ -15,6 +15,7 @@ impl Command for Reject {
             .input_output_types(vec![
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
+                (Type::list(Type::Any), Type::list(Type::Any)),
             ])
             .switch(
                 "ignore-errors",
@@ -161,20 +162,26 @@ impl Command for Reject {
                     Value::test_record(record! { "name" => Value::test_string("Cargo.lock") }),
                 ])),
             },
+            Example {
+                description: "Reject item in list",
+                example: "[1 2 3] | reject 1",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(3),
+                ])),
+            },
         ]
     }
 }
 
 fn reject(
-    _engine_state: &EngineState,
+    engine_state: &EngineState,
     span: Span,
     input: PipelineData,
     cell_paths: Vec<CellPath>,
 ) -> Result<PipelineData, ShellError> {
     let mut unique_rows: HashSet<usize> = HashSet::new();
     let metadata = input.metadata();
-    let val = input.into_value(span)?;
-    let mut val = val;
     let mut new_columns = vec![];
     let mut new_rows = vec![];
     for column in cell_paths {
@@ -212,10 +219,37 @@ fn reject(
     });
 
     new_columns.append(&mut new_rows);
-    for cell_path in new_columns {
-        val.remove_data_at_cell_path(&cell_path.members)?;
+
+    match input {
+        PipelineData::ListStream(stream, ..) => {
+            let result = stream
+                .into_iter()
+                .map(move |mut value| {
+                    let span = value.span();
+
+                    for cell_path in new_columns.iter() {
+                        if let Err(error) = value.remove_data_at_cell_path(&cell_path.members) {
+                            return Value::error(error, span);
+                        }
+                    }
+
+                    value
+                })
+                .into_pipeline_data(span, engine_state.signals().clone());
+
+            Ok(result)
+        }
+
+        input => {
+            let mut val = input.into_value(span)?;
+
+            for cell_path in new_columns {
+                val.remove_data_at_cell_path(&cell_path.members)?;
+            }
+
+            Ok(val.into_pipeline_data_with_metadata(metadata))
+        }
     }
-    Ok(val.into_pipeline_data_with_metadata(metadata))
 }
 
 #[cfg(test)]

@@ -149,7 +149,7 @@ impl View for TryView {
         layout: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
-    ) -> Option<Transition> {
+    ) -> Transition {
         if self.view_mode {
             let table = self
                 .table
@@ -160,28 +160,28 @@ impl View for TryView {
 
             if was_at_the_top && matches!(key.code, KeyCode::Up | KeyCode::PageUp) {
                 self.view_mode = false;
-                return Some(Transition::Ok);
+                return Transition::Ok;
             }
 
             if matches!(key.code, KeyCode::Tab) {
                 self.view_mode = false;
-                return Some(Transition::Ok);
+                return Transition::Ok;
             }
 
             let result = table.handle_input(engine_state, stack, layout, info, key);
 
             return match result {
-                Some(Transition::Ok | Transition::Cmd { .. }) => Some(Transition::Ok),
-                Some(Transition::Exit) => {
+                Transition::Ok | Transition::Cmd { .. } => Transition::Ok,
+                Transition::Exit => {
                     self.view_mode = false;
-                    Some(Transition::Ok)
+                    Transition::Ok
                 }
-                None => None,
+                Transition::None => Transition::None,
             };
         }
 
         match &key.code {
-            KeyCode::Esc => Some(Transition::Exit),
+            KeyCode::Esc => Transition::Exit,
             KeyCode::Backspace => {
                 if !self.command.is_empty() {
                     self.command.pop();
@@ -194,7 +194,7 @@ impl View for TryView {
                     }
                 }
 
-                Some(Transition::Ok)
+                Transition::Ok
             }
             KeyCode::Char(c) => {
                 self.command.push(*c);
@@ -206,14 +206,14 @@ impl View for TryView {
                     }
                 }
 
-                Some(Transition::Ok)
+                Transition::Ok
             }
             KeyCode::Down | KeyCode::Tab => {
                 if self.table.is_some() {
                     self.view_mode = true;
                 }
 
-                Some(Transition::Ok)
+                Transition::Ok
             }
             KeyCode::Enter => {
                 match self.try_run(engine_state, stack) {
@@ -221,9 +221,9 @@ impl View for TryView {
                     Err(err) => info.report = Some(Report::error(format!("Error: {err}"))),
                 }
 
-                Some(Transition::Ok)
+                Transition::Ok
             }
-            _ => None,
+            _ => Transition::None,
         }
     }
 

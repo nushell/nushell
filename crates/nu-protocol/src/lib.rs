@@ -1,3 +1,4 @@
+#![cfg_attr(not(feature = "os"), allow(unused))]
 #![doc = include_str!("../README.md")]
 mod alias;
 pub mod ast;
@@ -17,6 +18,7 @@ pub mod parser_path;
 mod pipeline;
 #[cfg(feature = "plugin")]
 mod plugin;
+#[cfg(feature = "os")]
 pub mod process;
 mod signature;
 pub mod span;

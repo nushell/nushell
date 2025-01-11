@@ -23,7 +23,7 @@ fn groups() {
 
 #[test]
 fn errors_if_given_unknown_column_name() {
-    let sample = r#"{
+    let sample = r#"[{
     "nu": {
         "committers": [
             {"name": "Andrés N. Robalino"},
@@ -41,7 +41,7 @@ fn errors_if_given_unknown_column_name() {
             ["punto", "cero"]
         ]
     }
-}
+}]
 "#;
 
     let actual = nu!(pipeline(&format!(

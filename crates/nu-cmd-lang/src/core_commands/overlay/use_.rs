@@ -24,8 +24,8 @@ impl Command for OverlayUse {
             .allow_variants_without_examples(true)
             .required(
                 "name",
-                SyntaxShape::String,
-                "Module name to use overlay for.",
+                SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]),
+                "Module name to use overlay for (`null` for no-op).",
             )
             .optional(
                 "as",
@@ -61,6 +61,11 @@ impl Command for OverlayUse {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let noop = call.get_parser_info(caller_stack, "noop");
+        if noop.is_some() {
+            return Ok(PipelineData::empty());
+        }
+
         let mut name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
         name_arg.item = trim_quotes_str(&name_arg.item).to_string();
 

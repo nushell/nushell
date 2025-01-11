@@ -113,7 +113,8 @@ MessagePack: https://msgpack.org/
             objects,
             signals: engine_state.signals().clone(),
         };
-        match input {
+        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        let out = match input {
             // Deserialize from a byte buffer
             PipelineData::Value(Value::Binary { val: bytes, .. }, _) => {
                 read_msgpack(Cursor::new(bytes), opts)
@@ -136,7 +137,8 @@ MessagePack: https://msgpack.org/
                 dst_span: call.head,
                 src_span: input.span().unwrap_or(call.head),
             }),
-        }
+        };
+        out.map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -510,6 +512,10 @@ fn assert_eof(input: &mut impl io::Read, span: Span) -> Result<(), ShellError> {
 
 #[cfg(test)]
 mod test {
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::{Metadata, MetadataSet, ToMsgpack};
+
     use super::*;
 
     #[test]
@@ -517,5 +523,35 @@ mod test {
         use crate::test_examples;
 
         test_examples(FromMsgpack {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(ToMsgpack {}));
+            working_set.add_decl(Box::new(FromMsgpack {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(MetadataSet {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = r#"{a: 1 b: 2} | to msgpack | metadata set --datasource-ls | from msgpack | metadata | $in"#;
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("source" => Value::test_string("ls"))),
+            result.expect("There should be a result")
+        )
     }
 }

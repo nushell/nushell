@@ -30,9 +30,13 @@ impl PluginCommand for ProfileDF {
     }
 
     fn description(&self) -> &str {
-        "Profile a lazy dataframe. This will run the query and return a record containing the materialized DataFrame and a DataFrame that contains profiling information of each node that is executed.
+        "Profile a lazy dataframe."
+    }
 
-The units of the timings are microseconds."
+    fn extra_description(&self) -> &str {
+        r#"This will run the query and return a record containing the materialized DataFrame and a DataFrame that contains profiling information of each node that is executed.
+
+The units of the timings are microseconds."#
     }
 
     fn examples(&self) -> Vec<Example> {

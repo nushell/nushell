@@ -89,7 +89,7 @@ pub trait View {
         layout: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
-    ) -> Option<Transition>;
+    ) -> Transition;
 
     fn show_data(&mut self, _: usize) -> bool {
         false
@@ -116,7 +116,7 @@ impl View for Box<dyn View> {
         layout: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
-    ) -> Option<Transition> {
+    ) -> Transition {
         self.as_mut()
             .handle_input(engine_state, stack, layout, info, key)
     }

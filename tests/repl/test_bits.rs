@@ -99,7 +99,7 @@ fn bits_shift_left_list() -> TestResult {
 #[test]
 fn bits_shift_left_binary1() -> TestResult {
     run_test(
-        "0x[01 30 80] | bits shl 3 | into bits",
+        "0x[01 30 80] | bits shl 3 | format bits",
         "00001001 10000100 00000000",
     )
 }
@@ -108,7 +108,7 @@ fn bits_shift_left_binary1() -> TestResult {
 fn bits_shift_left_binary2() -> TestResult {
     // Whole byte case
     run_test(
-        "0x[01 30 80] | bits shl 8 | into bits",
+        "0x[01 30 80] | bits shl 8 | format bits",
         "00110000 10000000 00000000",
     )
 }
@@ -117,7 +117,7 @@ fn bits_shift_left_binary2() -> TestResult {
 fn bits_shift_left_binary3() -> TestResult {
     // Compared to the int case this is made inclusive of the bit count
     run_test(
-        "0x[01 30 80] | bits shl 24 | into bits",
+        "0x[01 30 80] | bits shl 24 | format bits",
         "00000000 00000000 00000000",
     )
 }
@@ -126,7 +126,7 @@ fn bits_shift_left_binary3() -> TestResult {
 fn bits_shift_left_binary4() -> TestResult {
     // Shifting by both bytes and bits
     run_test(
-        "0x[01 30 80] | bits shl 15 | into bits",
+        "0x[01 30 80] | bits shl 15 | format bits",
         "01000000 00000000 00000000",
     )
 }
@@ -134,7 +134,7 @@ fn bits_shift_left_binary4() -> TestResult {
 #[test]
 fn bits_shift_left_binary_exceeding() -> TestResult {
     // Compared to the int case this is made inclusive of the bit count
-    fail_test("0x[01 30] | bits shl 17 | into bits", "")
+    fail_test("0x[01 30] | bits shl 17 | format bits", "")
 }
 
 #[test]
@@ -185,7 +185,7 @@ fn bits_shift_right_list() -> TestResult {
 #[test]
 fn bits_shift_right_binary1() -> TestResult {
     run_test(
-        "0x[01 30 80] | bits shr 3 | into bits",
+        "0x[01 30 80] | bits shr 3 | format bits",
         "00000000 00100110 00010000",
     )
 }
@@ -194,7 +194,7 @@ fn bits_shift_right_binary1() -> TestResult {
 fn bits_shift_right_binary2() -> TestResult {
     // Whole byte case
     run_test(
-        "0x[01 30 80] | bits shr 8 | into bits",
+        "0x[01 30 80] | bits shr 8 | format bits",
         "00000000 00000001 00110000",
     )
 }
@@ -203,7 +203,7 @@ fn bits_shift_right_binary2() -> TestResult {
 fn bits_shift_right_binary3() -> TestResult {
     // Compared to the int case this is made inclusive of the bit count
     run_test(
-        "0x[01 30 80] | bits shr 24 | into bits",
+        "0x[01 30 80] | bits shr 24 | format bits",
         "00000000 00000000 00000000",
     )
 }
@@ -212,7 +212,7 @@ fn bits_shift_right_binary3() -> TestResult {
 fn bits_shift_right_binary4() -> TestResult {
     // Shifting by both bytes and bits
     run_test(
-        "0x[01 30 80] | bits shr 15 | into bits",
+        "0x[01 30 80] | bits shr 15 | format bits",
         "00000000 00000000 00000010",
     )
 }
@@ -220,7 +220,10 @@ fn bits_shift_right_binary4() -> TestResult {
 #[test]
 fn bits_shift_right_binary_exceeding() -> TestResult {
     // Compared to the int case this is made inclusive of the bit count
-    fail_test("0x[01 30] | bits shr 17 | into bits", "available bits (16)")
+    fail_test(
+        "0x[01 30] | bits shr 17 | format bits",
+        "available bits (16)",
+    )
 }
 
 #[test]
@@ -261,7 +264,7 @@ fn bits_rotate_left_exceeding2() -> TestResult {
 #[test]
 fn bits_rotate_left_binary1() -> TestResult {
     run_test(
-        "0x[01 30 80] | bits rol 3 | into bits",
+        "0x[01 30 80] | bits rol 3 | format bits",
         "00001001 10000100 00000000",
     )
 }
@@ -270,7 +273,7 @@ fn bits_rotate_left_binary1() -> TestResult {
 fn bits_rotate_left_binary2() -> TestResult {
     // Whole byte case
     run_test(
-        "0x[01 30 80] | bits rol 8 | into bits",
+        "0x[01 30 80] | bits rol 8 | format bits",
         "00110000 10000000 00000001",
     )
 }
@@ -279,7 +282,7 @@ fn bits_rotate_left_binary2() -> TestResult {
 fn bits_rotate_left_binary3() -> TestResult {
     // Compared to the int case this is made inclusive of the bit count
     run_test(
-        "0x[01 30 80] | bits rol 24 | into bits",
+        "0x[01 30 80] | bits rol 24 | format bits",
         "00000001 00110000 10000000",
     )
 }
@@ -288,7 +291,7 @@ fn bits_rotate_left_binary3() -> TestResult {
 fn bits_rotate_left_binary4() -> TestResult {
     // Shifting by both bytes and bits
     run_test(
-        "0x[01 30 80] | bits rol 15 | into bits",
+        "0x[01 30 80] | bits rol 15 | format bits",
         "01000000 00000000 10011000",
     )
 }
@@ -331,7 +334,7 @@ fn bits_rotate_right_exceeding2() -> TestResult {
 #[test]
 fn bits_rotate_right_binary1() -> TestResult {
     run_test(
-        "0x[01 30 80] | bits ror 3 | into bits",
+        "0x[01 30 80] | bits ror 3 | format bits",
         "00000000 00100110 00010000",
     )
 }
@@ -340,7 +343,7 @@ fn bits_rotate_right_binary1() -> TestResult {
 fn bits_rotate_right_binary2() -> TestResult {
     // Whole byte case
     run_test(
-        "0x[01 30 80] | bits ror 8 | into bits",
+        "0x[01 30 80] | bits ror 8 | format bits",
         "10000000 00000001 00110000",
     )
 }
@@ -349,7 +352,7 @@ fn bits_rotate_right_binary2() -> TestResult {
 fn bits_rotate_right_binary3() -> TestResult {
     // Compared to the int case this is made inclusive of the bit count
     run_test(
-        "0x[01 30 80] | bits ror 24 | into bits",
+        "0x[01 30 80] | bits ror 24 | format bits",
         "00000001 00110000 10000000",
     )
 }
@@ -358,7 +361,7 @@ fn bits_rotate_right_binary3() -> TestResult {
 fn bits_rotate_right_binary4() -> TestResult {
     // Shifting by both bytes and bits
     run_test(
-        "0x[01 30 80] | bits ror 15 | into bits",
+        "0x[01 30 80] | bits ror 15 | format bits",
         "01100001 00000000 00000010",
     )
 }

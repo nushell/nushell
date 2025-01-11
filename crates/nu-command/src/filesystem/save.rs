@@ -102,6 +102,7 @@ impl Command for Save {
                     ByteStreamSource::File(source) => {
                         stream_to_file(source, size, signals, file, span, progress)?;
                     }
+                    #[cfg(feature = "os")]
                     ByteStreamSource::Child(mut child) => {
                         fn write_or_consume_stderr(
                             stderr: ChildPipe,
@@ -421,7 +422,22 @@ fn prepare_path(
 fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> {
     let file = match (append, path.exists()) {
         (true, true) => std::fs::OpenOptions::new().append(true).open(path),
-        _ => std::fs::File::create(path),
+        _ => {
+            // This is a temporary solution until `std::fs::File::create` is fixed on Windows (rust-lang/rust#134893)
+            // A TOCTOU problem exists here, which may cause wrong error message to be shown
+            #[cfg(target_os = "windows")]
+            if path.is_dir() {
+                // It should be `io::ErrorKind::IsADirectory` but it's not available in stable yet (1.83)
+                Err(io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    "Is a directory (os error 21)",
+                ))
+            } else {
+                std::fs::File::create(path)
+            }
+            #[cfg(not(target_os = "windows"))]
+            std::fs::File::create(path)
+        }
     };
 
     file.map_err(|e| ShellError::GenericError {

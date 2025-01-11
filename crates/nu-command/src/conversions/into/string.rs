@@ -38,6 +38,7 @@ impl Command for SubCommand {
                 (Type::Filesize, Type::String),
                 (Type::Date, Type::String),
                 (Type::Duration, Type::String),
+                (Type::Range, Type::String),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::String)),

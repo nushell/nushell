@@ -17,13 +17,33 @@ fn shorthand_env_3() -> TestResult {
 }
 
 #[test]
-fn default_nu_lib_dirs_type() {
+fn default_nu_lib_dirs_env_type() {
+    // Previously, this was a list<string>
+    // While we are transitioning to const NU_LIB_DIRS
+    // the env version will be empty, and thus a
+    // list<any>
     let actual = nu!("$env.NU_LIB_DIRS | describe");
+    assert_eq!(actual.out, "list<any>");
+}
+
+#[test]
+fn default_nu_lib_dirs_type() {
+    let actual = nu!("$NU_LIB_DIRS | describe");
     assert_eq!(actual.out, "list<string>");
 }
 
 #[test]
-fn default_nu_plugin_dirs_type() {
+fn default_nu_plugin_dirs_env_type() {
+    // Previously, this was a list<string>
+    // While we are transitioning to const NU_PLUGIN_DIRS
+    // the env version will be empty, and thus a
+    // list<any>
     let actual = nu!("$env.NU_PLUGIN_DIRS | describe");
+    assert_eq!(actual.out, "list<any>");
+}
+
+#[test]
+fn default_nu_plugin_dirs_type() {
+    let actual = nu!("$NU_PLUGIN_DIRS | describe");
     assert_eq!(actual.out, "list<string>");
 }

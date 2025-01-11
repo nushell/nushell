@@ -1,7 +1,9 @@
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
-use nu_path::{dots::expand_ndots, expand_tilde, AbsolutePath};
-use nu_protocol::{did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals};
+use nu_engine::{command_prelude::*, env_to_strings};
+use nu_path::{dots::expand_ndots_safe, expand_tilde, AbsolutePath};
+use nu_protocol::{
+    did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
+};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
@@ -295,8 +297,7 @@ pub fn eval_arguments_from_call(
     call: &Call,
 ) -> Result<Vec<Spanned<OsString>>, ShellError> {
     let cwd = engine_state.cwd(Some(stack))?;
-    let eval_expression = get_eval_expression(engine_state);
-    let call_args = call.rest_iter_flattened(engine_state, stack, eval_expression, 1)?;
+    let call_args = call.rest::<Value>(engine_state, stack, 1)?;
     let mut args: Vec<Spanned<OsString>> = Vec::with_capacity(call_args.len());
 
     for arg in call_args {
@@ -339,11 +340,9 @@ fn expand_glob(
     span: Span,
     signals: &Signals,
 ) -> Result<Vec<OsString>, ShellError> {
-    const GLOB_CHARS: &[char] = &['*', '?', '['];
-
-    // For an argument that doesn't include the GLOB_CHARS, just do the `expand_tilde`
+    // For an argument that isn't a glob, just do the `expand_tilde`
     // and `expand_ndots` expansion
-    if !arg.contains(GLOB_CHARS) {
+    if !nu_glob::is_glob(arg) {
         let path = expand_ndots_safe(expand_tilde(arg));
         return Ok(vec![path.into()]);
     }
@@ -418,7 +417,7 @@ fn write_pipeline_data(
         stack.start_collect_value();
 
         // Turn off color as we pass data through
-        Arc::make_mut(&mut engine_state.config).use_ansi_coloring = false;
+        Arc::make_mut(&mut engine_state.config).use_ansi_coloring = UseAnsiColoring::False;
 
         // Invoke the `table` command.
         let output =
@@ -637,21 +636,6 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
     } else {
         // FIXME?: what if `arg.is_empty()`?
         Ok(Cow::Borrowed(arg))
-    }
-}
-
-/// Expand ndots, but only if it looks like it probably contains them, because there is some lossy
-/// path normalization that happens.
-fn expand_ndots_safe(path: impl AsRef<Path>) -> PathBuf {
-    let string = path.as_ref().to_string_lossy();
-
-    // Use ndots if it contains at least `...`, since that's the minimum trigger point, and don't
-    // use it if it contains ://, because that looks like a URL scheme and the path normalization
-    // will mess with that.
-    if string.contains("...") && !string.contains("://") {
-        expand_ndots(path)
-    } else {
-        path.as_ref().to_owned()
     }
 }
 

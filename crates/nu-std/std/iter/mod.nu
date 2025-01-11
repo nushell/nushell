@@ -21,8 +21,8 @@
 #
 # let haystack = ["shell", "abc", "around", "nushell", "std"] 
 #
-# let found = ($haystack | iter find {|it| $it starts-with "a" })
-# let not_found = ($haystack | iter find {|it| $it mod 2 == 0})
+# let found = ($haystack | iter find {|e| $e starts-with "a" })
+# let not_found = ($haystack | iter find {|e| $e mod 2 == 0})
 # 
 # assert equal $found "abc"
 # assert equal $not_found null
@@ -30,11 +30,7 @@
 export def find [ # -> any | null  
     fn: closure          # the closure used to perform the search 
 ] {
-    try {
-       filter $fn | get 0?
-    } catch {
-       null
-    }
+    filter {|e| try {do $fn $e} } | try { first }
 }
 
 # Returns the index of the first element that matches the predicate or
@@ -60,20 +56,9 @@ export def find [ # -> any | null
 export def find-index [ # -> int
     fn: closure                # the closure used to perform the search
 ] {
-    let matches = (
-        enumerate
-        | each {|it|
-            if (do $fn $it.item) {
-                $it.index
-            }
-        }
-    )
-
-    if ($matches | is-empty) {
-        -1
-    } else {
-        $matches | first
-    }
+    enumerate
+    | find {|e| $e.item | do $fn $e.item }
+    | try { get index } catch { -1 }
 }
 
 # Returns a new list with the separator between adjacent
@@ -89,8 +74,8 @@ export def find-index [ # -> int
 export def intersperse [ # -> list<any>
     separator: any              # the separator to be used
 ] {
-    reduce --fold [] {|it, acc|
-         $acc ++ [$it, $separator]
+    reduce --fold [] {|e, acc|
+         $acc ++ [$e, $separator]
     } 
     | match $in {
          [] => [],
@@ -101,8 +86,9 @@ export def intersperse [ # -> list<any>
 # Returns a list of intermediate steps performed by `reduce`
 # (`fold`). It takes two arguments, an initial value to seed the
 # initial state and a closure that takes two arguments, the first
-# being the internal state and the second the list element in the
-# current iteration.
+# being the list element in the current iteration and the second
+# the internal state.
+# The internal state is also provided as pipeline input.
 #
 # # Example
 # ```
@@ -122,8 +108,9 @@ export def scan [ # -> list<any>
     fn: closure          # the closure to perform the scan
     --noinit(-n)         # remove the initial value from the result
 ] {                      
-    reduce --fold [$init] {|it, acc|
-        $acc ++ [(do $fn ($acc | last) $it)]
+    reduce --fold [$init] {|e, acc|
+        let acc_last = $acc | last
+        $acc ++ [($acc_last | do $fn $e $acc_last)]
     }
     | if $noinit {
         $in | skip
@@ -140,22 +127,22 @@ export def scan [ # -> list<any>
 # ```nu
 # use std ["assert equal" "iter filter-map"]
 #
-# let res = ([2 5 "4" 7] | iter filter-map {|it| $it ** 2})
+# let res = ([2 5 "4" 7] | iter filter-map {|e| $e ** 2})
 #
 # assert equal $res [4 25 49]
 # ```
 export def filter-map [ # -> list<any>
     fn: closure                # the closure to apply to the input
 ] {
-    each {|$it|
+    each {|$e|
         try {
-            do $fn $it 
+            do $fn $e 
         } catch {
             null 
         }
     } 
-    | filter {|it|
-        $it != null
+    | filter {|e|
+        $e != null
     }
 }
 
@@ -166,14 +153,14 @@ export def filter-map [ # -> list<any>
 # use std ["assert equal" "iter flat-map"]
 #
 # let res = (
-#     [[1 2 3] [2 3 4] [5 6 7]] | iter flat-map {|it| $it | math sum}
+#     [[1 2 3] [2 3 4] [5 6 7]] | iter flat-map {|e| $e | math sum}
 # )
 # assert equal $res [6 9 18]
 # ```
 export def flat-map [ # -> list<any>
     fn: closure              # the closure to map to the nested structures
 ] {
-    each {|it| do $fn $it } | flatten
+    each {|e| do $fn $e } | flatten
 }
 
 # Zips two structures and applies a closure to each of the zips
@@ -193,8 +180,8 @@ export def zip-with [ # -> list<any>
     fn: closure              # the closure to apply to the zips
 ] {
     zip $other 
-    | each {|it|
-        reduce {|it, acc| do $fn $acc $it }
+    | each {|e|
+        reduce {|e, acc| do $fn $acc $e }
     }
 }
 

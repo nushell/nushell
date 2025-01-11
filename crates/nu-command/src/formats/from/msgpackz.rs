@@ -43,7 +43,8 @@ impl Command for FromMsgpackz {
             objects,
             signals: engine_state.signals().clone(),
         };
-        match input {
+        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        let out = match input {
             // Deserialize from a byte buffer
             PipelineData::Value(Value::Binary { val: bytes, .. }, _) => {
                 let reader = brotli::Decompressor::new(Cursor::new(bytes), BUFFER_SIZE);
@@ -68,6 +69,7 @@ impl Command for FromMsgpackz {
                 dst_span: call.head,
                 src_span: span,
             }),
-        }
+        };
+        out.map(|pd| pd.set_metadata(metadata))
     }
 }

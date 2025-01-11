@@ -1,7 +1,6 @@
-use super::util::get_rest_for_glob_pattern;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, get_eval_block};
-use nu_protocol::{ast, ByteStream, DataSource, NuGlob, PipelineMetadata};
+use nu_protocol::{ast, DataSource, NuGlob, PipelineMetadata};
 use std::path::Path;
 
 #[cfg(feature = "sqlite")]
@@ -53,7 +52,7 @@ impl Command for Open {
         let call_span = call.head;
         #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
-        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         let eval_block = get_eval_block(engine_state);
 
         if paths.is_empty() && !call.has_positional_args(stack, 0) {
@@ -91,6 +90,21 @@ impl Command for Open {
                     ShellError::DirectoryNotFound { span, .. } => ShellError::FileNotFound {
                         file: path.item.to_string(),
                         span,
+                    },
+                    // that particular error in `nu_engine::glob_from` doesn't have a span attached
+                    // to it, so let's add it
+                    ShellError::GenericError {
+                        error,
+                        msg,
+                        span: _,
+                        help,
+                        inner,
+                    } if error.as_str() == "Permission denied" => ShellError::GenericError {
+                        error,
+                        msg,
+                        span: Some(arg_span),
+                        help,
+                        inner,
                     },
                     _ => err,
                 })?
@@ -146,22 +160,12 @@ impl Command for Open {
                         }
                     };
 
-                    // Assigning content type should only happen in raw mode. Otherwise, the content
-                    // will potentially be in one of the built-in nushell `from xxx` formats and therefore
-                    // cease to be in the original content-type.... or so I'm told. :)
-                    let content_type = if raw {
-                        path.extension()
-                            .map(|ext| ext.to_string_lossy().to_string())
-                            .and_then(|ref s| detect_content_type(s))
-                    } else {
-                        None
-                    };
-
+                    // No content_type by default - Is added later if no converter is found
                     let stream = PipelineData::ByteStream(
                         ByteStream::file(file, call_span, engine_state.signals().clone()),
                         Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),
-                            content_type,
+                            content_type: None,
                         }),
                     );
 
@@ -204,7 +208,20 @@ impl Command for Open {
                                 }
                                 })?);
                         }
-                        None => output.push(stream),
+                        None => {
+                            // If no converter was found, add content-type metadata
+                            let content_type = path
+                                .extension()
+                                .map(|ext| ext.to_string_lossy().to_string())
+                                .and_then(|ref s| detect_content_type(s));
+
+                            let stream_with_content_type =
+                                stream.set_metadata(Some(PipelineMetadata {
+                                    data_source: DataSource::FilePath(path.to_path_buf()),
+                                    content_type,
+                                }));
+                            output.push(stream_with_content_type);
+                        }
                     }
                 }
             }

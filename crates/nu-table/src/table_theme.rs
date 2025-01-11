@@ -1,67 +1,63 @@
-use tabled::settings::style::{HorizontalLine, Style};
-use tabled::settings::themes::Theme;
+use tabled::settings::{
+    style::{HorizontalLine, Style},
+    themes::Theme,
+};
 
 #[derive(Debug, Clone)]
 pub struct TableTheme {
-    theme: Theme,
-    full_theme: Theme,
-    has_inner: bool,
+    base: Theme,
+    full: Theme,
 }
 
 impl TableTheme {
-    pub fn new(theme: impl Into<Theme>, full_theme: impl Into<Theme>, has_inner: bool) -> Self {
+    fn new(base: impl Into<Theme>, full: impl Into<Theme>) -> Self {
         Self {
-            theme: theme.into(),
-            full_theme: full_theme.into(),
-            has_inner,
+            base: base.into(),
+            full: full.into(),
         }
     }
 
     pub fn basic() -> TableTheme {
-        Self::new(Style::ascii(), Style::ascii(), true)
+        Self::new(Style::ascii(), Style::ascii())
     }
 
     pub fn thin() -> TableTheme {
-        Self::new(Style::modern(), Style::modern(), true)
+        Self::new(Style::modern(), Style::modern())
     }
 
     pub fn light() -> TableTheme {
         let mut theme = Theme::from_style(Style::blank());
         theme.insert_horizontal_line(1, HorizontalLine::new('─').intersection('─'));
 
-        Self::new(theme, Style::modern(), true)
+        Self::new(theme, Style::modern())
     }
 
     pub fn psql() -> TableTheme {
-        Self::new(Style::psql(), Style::psql(), true)
+        Self::new(Style::psql(), Style::psql())
     }
 
     pub fn markdown() -> TableTheme {
-        Self::new(Style::markdown(), Style::markdown(), true)
+        Self::new(Style::markdown(), Style::markdown())
     }
 
     pub fn dots() -> TableTheme {
         let theme = Style::dots().remove_horizontal();
 
-        Self::new(theme, Style::dots(), true)
+        Self::new(theme, Style::dots())
     }
 
     pub fn restructured() -> TableTheme {
-        Self::new(
-            Style::re_structured_text(),
-            Style::re_structured_text(),
-            true,
-        )
+        Self::new(Style::re_structured_text(), Style::re_structured_text())
     }
 
     pub fn ascii_rounded() -> TableTheme {
-        Self::new(Style::ascii_rounded(), Style::ascii_rounded(), true)
+        Self::new(Style::ascii_rounded(), Style::ascii_rounded())
     }
 
     pub fn basic_compact() -> TableTheme {
         let theme = Style::ascii().remove_horizontal();
 
-        Self::new(theme, Style::ascii(), true)
+        Self::new(theme, Style::ascii())
     }
 
     pub fn compact() -> TableTheme {
@@ -72,7 +68,7 @@ impl TableTheme {
             .remove_horizontal()
             .horizontals([(1, hline)]);
 
-        Self::new(theme, Style::modern(), true)
+        Self::new(theme, Style::modern())
     }
 
     pub fn with_love() -> TableTheme {
@@ -99,7 +95,7 @@ impl TableTheme {
             .intersection_left('❤')
             .intersection('❤');
 
-        Self::new(theme, full_theme, true)
+        Self::new(theme, full_theme)
     }
 
     pub fn compact_double() -> TableTheme {
@@ -112,7 +108,7 @@ impl TableTheme {
             .remove_horizontal()
             .horizontals([(1, hline)]);
 
-        Self::new(theme, Style::extended(), true)
+        Self::new(theme, Style::extended())
     }
 
     pub fn rounded() -> TableTheme {
@@ -122,7 +118,7 @@ impl TableTheme {
             .corner_bottom_left('╰')
             .corner_bottom_right('╯');
 
-        Self::new(Style::rounded(), full, true)
+        Self::new(Style::rounded(), full)
     }
 
     pub fn reinforced() -> TableTheme {
@@ -132,7 +128,7 @@ impl TableTheme {
             .corner_bottom_left('┗')
             .corner_bottom_right('┛');
 
-        Self::new(full.clone().remove_horizontal(), full, true)
+        Self::new(full.clone().remove_horizontal(), full)
     }
 
     pub fn heavy() -> TableTheme {
@@ -157,38 +153,18 @@ impl TableTheme {
             .intersection_right('┫')
             .intersection('╋');
 
-        Self::new(theme, full, true)
+        Self::new(theme, full)
     }
 
     pub fn none() -> TableTheme {
-        Self::new(Style::blank(), Style::blank(), true)
+        Self::new(Style::blank(), Style::blank())
     }
 
-    pub fn has_top(&self) -> bool {
-        self.theme.borders_has_top()
+    pub fn as_full(&self) -> &Theme {
+        &self.full
     }
 
-    pub fn has_left(&self) -> bool {
-        self.theme.borders_has_left()
-    }
-
-    pub fn has_right(&self) -> bool {
-        self.theme.borders_has_right()
-    }
-
-    pub fn has_inner(&self) -> bool {
-        self.has_inner
-    }
-
-    pub fn has_horizontals(&self) -> bool {
-        self.full_theme.get_borders().has_horizontal()
-    }
-
-    pub fn get_theme_full(&self) -> Theme {
-        self.full_theme.clone()
-    }
-
-    pub fn get_theme(&self) -> Theme {
-        self.theme.clone()
+    pub fn as_base(&self) -> &Theme {
+        &self.base
     }
 }

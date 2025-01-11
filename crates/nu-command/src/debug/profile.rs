@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
 use nu_protocol::{
-    debugger::{Profiler, ProfilerOptions},
+    debugger::{DurationMode, Profiler, ProfilerOptions},
     engine::Closure,
 };
 
@@ -31,6 +31,11 @@ impl Command for DebugProfile {
                 Some('v'),
             )
             .switch("lines", "Collect line numbers", Some('l'))
+            .switch(
+                "duration-values",
+                "Report instruction duration as duration values rather than milliseconds",
+                Some('d'),
+            )
             .named(
                 "max-depth",
                 SyntaxShape::Int,
@@ -59,7 +64,7 @@ The output can be heavily customized. By default, the following columns are incl
                 be shown with the --expand-source flag.
 - pc          : The index of the instruction within the block.
 - instruction : The pretty printed instruction being evaluated.
-- duration_ms : How long it took to run the instruction in milliseconds.
+- duration    : How long it took to run the instruction.
 - (optional) span        : Span associated with the instruction. Can be viewed via the `view span`
                            command. Enabled with the --spans flag.
 - (optional) output      : The output value of the instruction. Enabled with the --values flag.
@@ -108,10 +113,15 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
         let collect_expanded_source = call.has_flag(engine_state, stack, "expanded-source")?;
         let collect_values = call.has_flag(engine_state, stack, "values")?;
         let collect_lines = call.has_flag(engine_state, stack, "lines")?;
+        let duration_values = call.has_flag(engine_state, stack, "duration-values")?;
         let max_depth = call
             .get_flag(engine_state, stack, "max-depth")?
             .unwrap_or(2);
 
+        let duration_mode = match duration_values {
+            true => DurationMode::Value,
+            false => DurationMode::Milliseconds,
+        };
         let profiler = Profiler::new(
             ProfilerOptions {
                 max_depth,
@@ -122,6 +132,7 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
                 collect_exprs: false,
                 collect_instructions: true,
                 collect_lines,
+                duration_mode,
             },
             call.span(),
         );

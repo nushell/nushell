@@ -191,6 +191,16 @@ fn env_var_case_insensitive() {
 }
 
 #[test]
+fn env_conversion_on_assignment() {
+    let actual = nu!(r#"
+        $env.FOO = "bar:baz:quox"
+        $env.ENV_CONVERSIONS = { FOO: { from_string: {|| split row ":"} } }
+        $env.FOO | to nuon
+    "#);
+    assert_eq!(actual.out, "[bar, baz, quox]");
+}
+
+#[test]
 fn std_log_env_vars_are_not_overridden() {
     let actual = nu_with_std!(
         envs: vec![
@@ -218,4 +228,69 @@ fn std_log_env_vars_have_defaults() {
     );
     assert!(actual.err.contains("%MSG%"));
     assert!(actual.err.contains("%Y-"));
+}
+
+#[test]
+fn env_shlvl_commandstring_does_not_increment() {
+    let actual = nu!("
+        $env.SHLVL = 5
+        nu -c 'print $env.SHLVL; exit'
+    ");
+
+    assert_eq!(actual.out, "5");
+}
+
+// Note: Do not use -i / --interactive in tests.
+// -i attempts to acquire a terminal, and if more than one
+// test tries to obtain a terminal at the same time, the
+// test run will likely hang, at least for some users.
+// Instead, use -e / --execute with an `exit` to test REPL
+// functionality as demonstrated below.
+#[test]
+fn env_shlvl_in_repl() {
+    let actual = nu!("
+        $env.SHLVL = 5
+        nu --no-std-lib -n -e 'print $env.SHLVL; exit'
+    ");
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn env_shlvl_in_exec_repl() {
+    let actual = nu!(r#"
+        $env.SHLVL = 29
+        nu -c "exec nu --no-std-lib -n -e 'print $env.SHLVL; exit'"
+    "#);
+
+    assert_eq!(actual.out, "30");
+}
+
+#[test]
+fn path_is_a_list_in_repl() {
+    let actual = nu!(r#"
+        nu -c "exec nu --no-std-lib -n -e 'print ($env.pATh | describe); exit'"
+    "#);
+
+    assert_eq!(actual.out, "list<string>");
+}
+
+#[test]
+fn path_is_a_list() {
+    let actual = nu!("
+        print ($env.path | describe)
+    ");
+
+    assert_eq!(actual.out, "list<string>");
+}
+
+#[test]
+fn path_is_a_list_in_script() {
+    Playground::setup("has_file_pwd", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("checkpath.nu", "$env.path | describe")]);
+
+        let actual = nu!(cwd: dirs.test(), "nu checkpath.nu");
+
+        assert!(actual.out.ends_with("list<string>"));
+    })
 }

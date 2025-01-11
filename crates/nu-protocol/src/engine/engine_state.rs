@@ -14,6 +14,7 @@ use crate::{
 use fancy_regex::Regex;
 use lru::LruCache;
 use nu_path::AbsolutePathBuf;
+use nu_utils::IgnoreCaseExt;
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -465,20 +466,16 @@ impl EngineState {
         None
     }
 
-    // Get the path environment variable in a platform agnostic way
-    pub fn get_path_env_var(&self) -> Option<&Value> {
-        let env_path_name_windows: &str = "Path";
-        let env_path_name_nix: &str = "PATH";
-
+    // Returns Some((name, value)) if found, None otherwise.
+    // When updating environment variables, make sure to use
+    // the same case (the returned "name") as the original
+    // environment variable name.
+    pub fn get_env_var_insensitive(&self, name: &str) -> Option<(&String, &Value)> {
         for overlay_id in self.scope.active_overlays.iter().rev() {
             let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
             if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
-                if let Some(val) = env_vars.get(env_path_name_nix) {
-                    return Some(val);
-                } else if let Some(val) = env_vars.get(env_path_name_windows) {
-                    return Some(val);
-                } else {
-                    return None;
+                if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
+                    return Some((v.0, v.1));
                 }
             }
         }
@@ -606,6 +603,9 @@ impl EngineState {
         }
     }
 
+    /// Find the [`DeclId`](nu_protocol::id::DeclId) corresponding to a declaration with `name`.
+    ///
+    /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
     pub fn find_decl(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<DeclId> {
         let mut visibility: Visibility = Visibility::new();
 
@@ -622,6 +622,9 @@ impl EngineState {
         None
     }
 
+    /// Find the name of the declaration corresponding to `decl_id`.
+    ///
+    /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
     pub fn find_decl_name(&self, decl_id: DeclId, removed_overlays: &[Vec<u8>]) -> Option<&[u8]> {
         let mut visibility: Visibility = Visibility::new();
 
@@ -634,6 +637,33 @@ impl EngineState {
                         return Some(name);
                     }
                 }
+            }
+        }
+
+        None
+    }
+
+    /// Find the [`OverlayId`](nu_protocol::id::OverlayId) corresponding to `name`.
+    ///
+    /// Searches all overlays, not just active overlays. To search only in active overlays, use [`find_active_overlay`](EngineState::find_active_overlay)
+    pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
+        self.scope.find_overlay(name)
+    }
+
+    /// Find the [`OverlayId`](nu_protocol::id::OverlayId) of the active overlay corresponding to `name`.
+    ///
+    /// Searches only active overlays. To search in all overlays, use [`find_overlay`](EngineState::find_active_overlay)
+    pub fn find_active_overlay(&self, name: &[u8]) -> Option<OverlayId> {
+        self.scope.find_active_overlay(name)
+    }
+
+    /// Find the [`ModuleId`](nu_protocol::id::ModuleId) corresponding to `name`.
+    ///
+    /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
+    pub fn find_module(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<ModuleId> {
+        for overlay_frame in self.active_overlays(removed_overlays).rev() {
+            if let Some(module_id) = overlay_frame.modules.get(name) {
+                return Some(*module_id);
             }
         }
 
@@ -661,16 +691,6 @@ impl EngineState {
         plugin_decls.into_iter().map(|(_, decl)| decl)
     }
 
-    pub fn find_module(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<ModuleId> {
-        for overlay_frame in self.active_overlays(removed_overlays).rev() {
-            if let Some(module_id) = overlay_frame.modules.get(name) {
-                return Some(*module_id);
-            }
-        }
-
-        None
-    }
-
     pub fn which_module_has_decl(
         &self,
         decl_name: &[u8],
@@ -686,14 +706,6 @@ impl EngineState {
         }
 
         None
-    }
-
-    pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
-        self.scope.find_overlay(name)
-    }
-
-    pub fn find_active_overlay(&self, name: &[u8]) -> Option<OverlayId> {
-        self.scope.find_active_overlay(name)
     }
 
     pub fn find_commands_by_predicate(
@@ -1170,7 +1182,7 @@ mod test_cwd {
 
     use crate::{
         engine::{EngineState, Stack},
-        Span, Value,
+        Value,
     };
     use nu_path::{assert_path_eq, AbsolutePath, Path};
     use tempfile::{NamedTempFile, TempDir};
@@ -1233,14 +1245,7 @@ mod test_cwd {
     #[test]
     fn pwd_is_non_string_value() {
         let mut engine_state = EngineState::new();
-        engine_state.add_env_var(
-            "PWD".into(),
-            Value::Glob {
-                val: "*".into(),
-                no_expand: false,
-                internal_span: Span::unknown(),
-            },
-        );
+        engine_state.add_env_var("PWD".into(), Value::test_glob("*"));
         engine_state.cwd(None).unwrap_err();
     }
 

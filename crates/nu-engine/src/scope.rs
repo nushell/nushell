@@ -56,11 +56,12 @@ impl<'e, 's> ScopeData<'e, 's> {
             let var_type = Value::string(var.ty.to_string(), span);
             let is_const = Value::bool(var.const_val.is_some(), span);
 
-            let var_value = if let Ok(val) = self.stack.get_var(**var_id, span) {
-                val
-            } else {
-                Value::nothing(span)
-            };
+            let var_value = self
+                .stack
+                .get_var(**var_id, span)
+                .ok()
+                .or(var.const_val.clone())
+                .unwrap_or(Value::nothing(span));
 
             let var_id_val = Value::int(var_id.get() as i64, span);
 
@@ -488,6 +489,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "description" => Value::string(module_desc, span),
                 "extra_description" => Value::string(module_extra_desc, span),
                 "module_id" => Value::int(module_id.get() as i64, span),
+                "file" => Value::string(module.file.clone().map_or("unknown".to_string(), |(p, _)| p.path().to_string_lossy().to_string()), span),
             },
             span,
         )

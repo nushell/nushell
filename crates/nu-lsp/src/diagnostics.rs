@@ -1,39 +1,19 @@
-use crate::LanguageServer;
+use crate::{span_to_range, LanguageServer};
 use lsp_types::{
     notification::{Notification, PublishDiagnostics},
-    Diagnostic, DiagnosticSeverity, PublishDiagnosticsParams, Url,
+    Diagnostic, DiagnosticSeverity, PublishDiagnosticsParams, Uri,
 };
 use miette::{IntoDiagnostic, Result};
-use nu_parser::parse;
-use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
-    Value,
-};
 
 impl LanguageServer {
-    pub(crate) fn publish_diagnostics_for_file(
-        &self,
-        uri: Url,
-        engine_state: &mut EngineState,
-    ) -> Result<()> {
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+    pub(crate) fn publish_diagnostics_for_file(&mut self, uri: Uri) -> Result<()> {
+        let mut engine_state = self.new_engine_state();
         engine_state.generate_nu_constant();
 
-        let mut working_set = StateWorkingSet::new(engine_state);
-
-        let Some((rope_of_file, file_path)) = self.rope(&uri) else {
+        let Some((_, offset, working_set, file)) = self.parse_file(&mut engine_state, &uri, true)
+        else {
             return Ok(());
         };
-
-        let contents = rope_of_file.bytes().collect::<Vec<u8>>();
-        let offset = working_set.next_span_start();
-        parse(
-            &mut working_set,
-            Some(&file_path.to_string_lossy()),
-            &contents,
-            false,
-        );
 
         let mut diagnostics = PublishDiagnosticsParams {
             uri,
@@ -45,12 +25,7 @@ impl LanguageServer {
             let message = err.to_string();
 
             diagnostics.diagnostics.push(Diagnostic {
-                range: Self::span_to_range(
-                    &err.span(),
-                    rope_of_file,
-                    offset,
-                    &self.position_encoding,
-                ),
+                range: span_to_range(&err.span(), file, offset),
                 severity: Some(DiagnosticSeverity::ERROR),
                 message,
                 ..Default::default()
@@ -69,20 +44,20 @@ impl LanguageServer {
 #[cfg(test)]
 mod tests {
     use assert_json_diff::assert_json_eq;
-    use lsp_types::Url;
     use nu_test_support::fs::fixtures;
 
+    use crate::path_to_uri;
     use crate::tests::{initialize_language_server, open_unchecked, update};
 
     #[test]
     fn publish_diagnostics_variable_does_not_exists() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("diagnostics");
         script.push("var.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = path_to_uri(&script);
 
         let notification = open_unchecked(&client_connection, script.clone());
 
@@ -107,13 +82,13 @@ mod tests {
 
     #[test]
     fn publish_diagnostics_fixed_unknown_variable() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("diagnostics");
         script.push("var.nu");
-        let script = Url::from_file_path(script).unwrap();
+        let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
         let notification = update(
@@ -131,6 +106,30 @@ mod tests {
                 },
             }),
         );
+
+        assert_json_eq!(
+            notification,
+            serde_json::json!({
+                "method": "textDocument/publishDiagnostics",
+                "params": {
+                    "uri": script,
+                    "diagnostics": []
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn publish_diagnostics_none() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("diagnostics");
+        script.push("pwd.nu");
+        let script = path_to_uri(&script);
+
+        let notification = open_unchecked(&client_connection, script.clone());
 
         assert_json_eq!(
             notification,

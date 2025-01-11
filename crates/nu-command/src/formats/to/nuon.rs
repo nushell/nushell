@@ -28,6 +28,11 @@ impl Command for ToNuon {
                 "specify indentation tab quantity",
                 Some('t'),
             )
+            .switch(
+                "serialize",
+                "serialize nushell types that cannot be deserialized",
+                Some('s'),
+            )
             .category(Category::Formats)
     }
 
@@ -47,6 +52,7 @@ impl Command for ToNuon {
             .unwrap_or_default()
             .with_content_type(Some("application/x-nuon".into()));
 
+        let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
         let style = if call.has_flag(engine_state, stack, "raw")? {
             nuon::ToStyle::Raw
         } else if let Some(t) = call.get_flag(engine_state, stack, "tabs")? {
@@ -60,7 +66,7 @@ impl Command for ToNuon {
         let span = call.head;
         let value = input.into_value(span)?;
 
-        match nuon::to_nuon(&value, style, Some(span)) {
+        match nuon::to_nuon(engine_state, &value, style, Some(span), serialize_types) {
             Ok(serde_nuon_string) => Ok(Value::string(serde_nuon_string, span)
                 .into_pipeline_data_with_metadata(Some(metadata))),
             _ => Ok(Value::error(
