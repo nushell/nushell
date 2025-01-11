@@ -346,10 +346,13 @@ fn filesystem_from_non_root_change_to_another_drive_non_root_then_using_relative
                 subst X: test_folder
                 cd x:
                 touch test_file_on_x.txt
+                sleep 1
+                touch test_file_on_x.txt
                 echo $env.PWD
                 cd -
                 subst X: /D | touch out
                 echo $env.PWD
+                sleep 1
             "#
         );
         assert!(dirs.test.exists());
