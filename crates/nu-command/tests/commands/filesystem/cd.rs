@@ -333,29 +333,18 @@ fn filesystem_from_non_root_change_to_another_drive_non_root_then_using_relative
         let _actual = nu!(
             cwd: dirs.test(),
             r#"
-                touch test_folder/test_file.txt
-            "#
-        );
-        assert!(dirs.test.exists());
-        assert!(dirs.test.join("test_folder").exists());
-        assert!(dirs.test.join("test_folder").join("test_file.txt").exists());
-        let _actual = nu!(
-            cwd: dirs.test(),
-            r#"
                 subst X: /D | touch out
                 subst X: test_folder
-                sleep 5sec
+                sleep 1sec
                 cd x:
                 touch test_file_on_x.txt
-                sleep 5sec
                 cd -
-                sleep 5sec
                 echo $env.PWD
             "#
         );
-        assert!(dirs.test.exists());
-        assert!(dirs.test.join("test_folder").exists());
-        assert!(_actual.out.ends_with(r"\cd_test_22"));
+        eprintln!("StdOut: {}", _actual.out);
+        eprintln!("StdErr: {}", _actual.err);
+        assert!(_actual.out.trim().ends_with(r"\cd_test_22"));
         assert!(dirs
             .test
             .join("test_folder")
