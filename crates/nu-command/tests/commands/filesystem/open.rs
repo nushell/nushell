@@ -461,9 +461,9 @@ fn test_pwd_per_drive() {
         let _actual = nu!(
             cwd: dirs.test(),
             r#"
-                subst X: /D | touch out
-                subst X: test_folder
-                open x:test_file.txt
+                subst W: /D | touch out
+                subst W: test_folder
+                open W:test_file.txt
             "#
         );
         assert!(_actual.err.is_empty());
@@ -471,7 +471,7 @@ fn test_pwd_per_drive() {
         let _actual = nu!(
             cwd: dirs.test(),
             r#"
-                subst X: /D | touch out
+                subst W: /D | touch out
             "#
         );
     });

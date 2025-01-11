@@ -123,15 +123,15 @@ fn support_pwd_per_drive() {
         let _actual = nu!(
             cwd: dirs.test(),
             r#"
-                subst X: /D | touch out
-                subst X: test_folder
-                x:
+                subst Y: /D | touch out
+                subst Y: test_folder
+                Y:
                 mkdir test_folder_on_x
                 cd -
-                x:test_folder_on_x\
+                Y:test_folder_on_x\
                 touch test_file_on_x.txt
                 cd -
-                du x: | length
+                du Y: | length
             "#
         );
         assert_eq!(_actual.out, "1");
@@ -139,7 +139,7 @@ fn support_pwd_per_drive() {
         let _actual = nu!(
             cwd: dirs.test(),
             r#"
-                subst X: /D | touch out
+                subst Y: /D | touch out
             "#
         );
     })

@@ -9,32 +9,32 @@ fn test_pwd_per_drive() {
         let _actual = nu!(
             cwd: dirs.test(),
             r#"
-                subst X: /D | touch out
-                subst X: test_folder
-                x:
-                mkdir test_folder_on_x
+                subst R: /D | touch out
+                subst R: test_folder
+                r:
+                mkdir test_folder_on_r
                 cd -
-                x:test_folder_on_x\
-                touch test_file_on_x.txt
+                r:test_folder_on_r\
+                touch test_file_on_r.txt
                 cd -
-                ls test_folder\test_folder_on_x\test_file_on_x.txt | length
+                ls test_folder\test_folder_on_r\test_file_on_r.txt | length
             "#
         );
         assert_eq!(_actual.out, "1");
         let _actual = nu!(
             cwd: dirs.test(),
             r#"
-                x:test_folder_on_x\
+                r:test_folder_on_r\
                 cd -
-                mv X:test_file_on_x.txt x:mv.txt
-                ls test_folder\test_folder_on_x\mv.txt | length
+                mv R:test_file_on_r.txt r:mv.txt
+                ls test_folder\test_folder_on_r\mv.txt | length
             "#
         );
         assert_eq!(_actual.out, "1");
         let _actual = nu!(
             cwd: dirs.test(),
             r#"
-                subst X: /D | touch out
+                subst R: /D | touch out
             "#
         );
     })

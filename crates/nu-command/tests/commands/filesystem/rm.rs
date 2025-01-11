@@ -577,26 +577,26 @@ fn test_pwd_per_drive() {
         let _actual = nu!(
             cwd: dirs.test(),
             r#"
-                subst X: /D | touch out
-                subst X: test_folder
-                x:
-                mkdir test_folder_on_x
+                subst V: /D | touch out
+                subst V: test_folder
+                V:
+                mkdir test_folder_on_v
                 cd -
-                x:test_folder_on_x\
-                touch test_file_on_x.txt
+                v:test_folder_on_v\
+                touch test_file_on_v.txt
                 cd -
             "#
         );
         assert!(_actual.err.is_empty());
         let expected_file = dirs
             .test()
-            .join("test_folder\\test_folder_on_x\\test_file_on_x.txt");
+            .join(r"test_folder\test_folder_on_v\test_file_on_v.txt");
         assert!(expected_file.exists());
         let _actual = nu!(
             cwd: dirs.test(),
             r#"
-                rm x:test_folder_on_x\test_file_on_x.txt
-                subst X: /D | touch out
+                rm v:test_folder_on_v\test_file_on_v.txt
+                subst V: /D | touch out
             "#
         );
         assert!(!expected_file.exists());

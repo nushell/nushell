@@ -871,20 +871,20 @@ fn support_pwd_per_drive() {
         let _actual = nu!(
             cwd: dirs.test(),
             r#"
-                subst X: /D | touch out
-                subst X: test_folder
-                x:
-                mkdir test_folder_on_x
+                subst Z: /D | touch out
+                subst Z: test_folder
+                Z:
+                mkdir test_folder_on_z
                 cd -
-                x:test_folder_on_x\
-                touch test_file_on_x.txt
+                z:test_folder_on_z\
+                touch test_file_on_z.txt
                 cd -
-                ls x: | get name | save test_folder\result.out.txt
-                subst X: /D | touch out
+                ls z: | get name | save test_folder\result.out.txt
+                subst Z: /D | touch out
                 open test_folder\result.out.txt
             "#
         );
-        assert_eq!(_actual.out, r"X:\test_folder_on_x\test_file_on_x.txt");
+        assert_eq!(_actual.out, r"Z:\test_folder_on_z\test_file_on_z.txt");
         assert!(_actual.err.is_empty());
     })
 }

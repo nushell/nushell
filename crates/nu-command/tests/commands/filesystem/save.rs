@@ -543,20 +543,20 @@ fn support_pwd_per_drive() {
         let _actual = nu!(
             cwd: dirs.test(),
             r#"
-                subst X: /D | touch out
-                subst X: test_folder
-                x:
-                mkdir test_folder_on_x
+                subst U: /D | touch out
+                subst U: test_folder
+                u:
+                mkdir test_folder_on_u
                 cd -
-                x:test_folder_on_x\
-                touch test_file_on_x.txt
+                u:test_folder_on_u\
+                touch test_file_on_u.txt
                 cd -
-                ls test_folder | get name | save x:result.out.txt
-                subst X: /D | touch out
-                open test_folder\test_folder_on_x\result.out.txt
+                ls test_folder | get name | save u:result.out.txt
+                subst U: /D | touch out
+                open test_folder\test_folder_on_u\result.out.txt
             "#
         );
-        assert_eq!(_actual.out, r"test_folder\test_folder_on_x");
+        assert_eq!(_actual.out, r"test_folder\test_folder_on_u");
         assert!(_actual.err.is_empty());
     })
 }

@@ -8,13 +8,13 @@ fn watch_test_pwd_per_drive() {
         let _actual = nu!(
             cwd: dirs.test(),
             "
-                subst X: /D | touch out
-                subst X: test_folder
+                subst P: /D | touch out
+                subst P: test_folder
                 cd test_folder
-                mkdir X:\\test_folder_on_x
+                mkdir P:\\test_folder_on_p
 
                 let pwd = $env.PWD
-                let script = \"watch X:test_folder_on_x { |op, path| $\\\"(date now): $($op) - $($path)\\\\n\\\" | save --append \" + $pwd + \"\\\\change.txt } out+err> \" + $pwd + \"\\\\watch.log\"
+                let script = \"watch P:test_folder_on_p { |op, path| $\\\"(date now): $($op) - $($path)\\\\n\\\" | save --append \" + $pwd + \"\\\\change.txt } out+err> \" + $pwd + \"\\\\watch.log\"
                 echo $script | save -f nu-watch.sh
 
                 mut line =      \"$nuExecutable = 'nu.exe'\\n\"
@@ -30,17 +30,17 @@ fn watch_test_pwd_per_drive() {
                 $line = $line + \"                  -NoNewWindow `\\n\"
                 $line = $line + \"} -ArgumentList $nuExecutable, $nuScript, $logFile, $errorFile\\n\"
                 $line = $line + \"Write-Output 'Started job with ID: '$($job.Id)\\n\"
-                $line = $line + \"dir > '\" + $pwd + \"\\\\test_folder_on_x\\\\test_file_on_x.txt'\\n\"
+                $line = $line + \"dir > '\" + $pwd + \"\\\\test_folder_on_p\\\\test_file_on_p.txt'\\n\"
                 $line = $line + \"sleep 1\\n\"
-                $line = $line + \"rm '\" + $pwd + \"\\\\test_folder_on_x\\\\test_file_on_x.txt'\\n\"
+                $line = $line + \"rm '\" + $pwd + \"\\\\test_folder_on_p\\\\test_file_on_o.txt'\\n\"
                 $line = $line + \"sleep 1\\n\"
-                $line = $line + \"dir > '\" + $pwd + \"\\\\test_folder_on_x\\\\test_file_on_x.txt'\\n\"
+                $line = $line + \"dir > '\" + $pwd + \"\\\\test_folder_on_p\\\\test_file_on_p.txt'\\n\"
                 $line = $line + \"sleep 1\\n\"
-                $line = $line + \"rm '\" + $pwd + \"\\\\test_folder_on_x\\\\test_file_on_x.txt'\\n\"
+                $line = $line + \"rm '\" + $pwd + \"\\\\test_folder_on_p\\\\test_file_on_p.txt'\\n\"
                 $line = $line + \"sleep 1\\n\"
-                $line = $line + \"dir > '\" + $pwd + \"\\\\test_folder_on_x\\\\test_file_on_x.txt'\\n\"
+                $line = $line + \"dir > '\" + $pwd + \"\\\\test_folder_on_p\\\\test_file_on_p.txt'\\n\"
                 $line = $line + \"sleep 1\\n\"
-                $line = $line + \"rm '\" + $pwd + \"\\\\test_folder_on_x\\\\test_file_on_x.txt'\\n\"
+                $line = $line + \"rm '\" + $pwd + \"\\\\test_folder_on_p\\\\test_file_on_p.txt'\\n\"
                 $line = $line + \"sleep 10\\n\"
                 $line = $line + \"Get-Process -Name nu | Stop-Process -Force\\n\"
                 $line = $line + \"get-job | Stop-Job\\n\"
@@ -57,7 +57,7 @@ fn watch_test_pwd_per_drive() {
         let _actual = nu!(
             cwd: dirs.test(),
             "
-                subst X: /D | touch out
+                subst P: /D | touch out
             "
         );
     })
