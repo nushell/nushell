@@ -344,13 +344,11 @@ fn filesystem_from_non_root_change_to_another_drive_non_root_then_using_relative
             r#"
                 subst X: /D | touch out
                 subst X: test_folder
+                sleep 1sec
                 cd x:
                 touch test_file_on_x.txt
                 echo $env.PWD
-                sleep 1sec
-                touch test_file_on_x.txt
                 cd -
-                subst X: /D | touch out
                 sleep 1sec
                 echo $env.PWD
             "#
@@ -363,5 +361,11 @@ fn filesystem_from_non_root_change_to_another_drive_non_root_then_using_relative
             .join("test_folder")
             .join("test_file_on_x.txt")
             .exists());
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst X: /D | touch out
+            "#
+        );
     })
 }
