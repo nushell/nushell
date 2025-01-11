@@ -22,17 +22,19 @@ fn test_pwd_per_drive() {
         assert!(_actual.err.is_empty());
         let expected_file = dirs
             .test()
-            .join("test_folder\\test_folder_on_x\\test_file_on_x.txt");
+            .join(r"test_folder\test_folder_on_x\test_file_on_x.txt");
         assert!(expected_file.exists());
         let _actual = nu!(
             cwd: dirs.test(),
             r#"
+                x:test_folder_on_x\
+                cd -
                 mv X:test_file_on_x.txt x:mv.txt
             "#
         );
         assert!(!expected_file.exists());
         eprintln!("StdOut: {}", _actual.out);
-        let expected_file = dirs.test().join("test_folder\\test_folder_on_x\\mv.txt");
+        let expected_file = dirs.test().join(r"test_folder\test_folder_on_x\mv.txt");
         assert!(expected_file.exists());
         let _actual = nu!(
             cwd: dirs.test(),
