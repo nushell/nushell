@@ -58,7 +58,7 @@ fn helper(
         Value::Bool { val, .. } => toml::Value::Boolean(*val),
         Value::Int { val, .. } => toml::Value::Integer(*val),
         Value::Filesize { val, .. } => toml::Value::Integer(val.get()),
-        Value::FileMode { val, .. } => toml::Value::Integer(val.get().into()),
+        Value::FileMode { val, .. } => toml::Value::String(val.to_string()),
         Value::FilePermission { val, .. } => toml::Value::String(val.to_string()),
         Value::Duration { val, .. } => toml::Value::String(val.to_string()),
         Value::Date { val, .. } => toml::Value::Datetime(to_toml_datetime(val)),

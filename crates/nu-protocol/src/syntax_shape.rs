@@ -59,10 +59,10 @@ pub enum SyntaxShape {
     /// A filesize value is allowed, eg `10kb`
     Filesize,
 
-    /// A filesize value is allowed, eg ``
+    /// A file_mode value is allowed, eg `rwxr-xr-x`
     FileMode,
 
-    /// A file permission value is allowed, eg `mode.user.read`
+    /// A file_permission value is allowed, eg `r-x`
     FilePermission,
 
     /// A floating point value, eg `1.0`

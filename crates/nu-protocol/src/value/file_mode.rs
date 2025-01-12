@@ -23,38 +23,6 @@ impl FileMode {
         }
     }
 
-    pub const fn len(&self) -> usize {
-        3
-    }
-
-    pub fn get(&self) -> u32 {
-        let mut mode = 0;
-        mode |= if self.user.read { 0o400 } else { 0 };
-        mode |= if self.user.write { 0o200 } else { 0 };
-        mode |= if self.user.execute { 0o100 } else { 0 };
-        mode |= if self.group.read { 0o040 } else { 0 };
-        mode |= if self.group.write { 0o020 } else { 0 };
-        mode |= if self.group.execute { 0o010 } else { 0 };
-        mode |= if self.other.read { 0o004 } else { 0 };
-        mode |= if self.other.write { 0o002 } else { 0 };
-        mode |= if self.other.execute { 0o001 } else { 0 };
-        mode
-    }
-
-    pub fn get_mode_string(&self) -> String {
-        let mut mode_string = String::new();
-        mode_string.push(if self.user.read { 'r' } else { '-' });
-        mode_string.push(if self.user.write { 'w' } else { '-' });
-        mode_string.push(if self.user.execute { 'x' } else { '-' });
-        mode_string.push(if self.group.read { 'r' } else { '-' });
-        mode_string.push(if self.group.write { 'w' } else { '-' });
-        mode_string.push(if self.group.execute { 'x' } else { '-' });
-        mode_string.push(if self.other.read { 'r' } else { '-' });
-        mode_string.push(if self.other.write { 'w' } else { '-' });
-        mode_string.push(if self.other.execute { 'x' } else { '-' });
-        mode_string
-    }
-
     pub const fn get_by_index(&self, index: usize) -> Option<FilePermission> {
         match index {
             0 => Some(self.user),
@@ -82,7 +50,11 @@ impl From<u32> for FileMode {
 
 impl fmt::Display for FileMode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.get_mode_string())
+        let mut mode_string = String::new();
+        mode_string.push_str(&self.user.to_string());
+        mode_string.push_str(&self.group.to_string());
+        mode_string.push_str(&self.other.to_string());
+        write!(f, "{}", mode_string)
     }
 }
 
@@ -102,14 +74,6 @@ impl FilePermission {
         }
     }
 
-    pub fn to_string(&self) -> String {
-        let mut mode_string = String::new();
-        mode_string.push(if self.read { 'r' } else { '-' });
-        mode_string.push(if self.write { 'w' } else { '-' });
-        mode_string.push(if self.execute { 'x' } else { '-' });
-        mode_string
-    }
-
     pub const fn get_by_index(&self, index: usize) -> Option<bool> {
         match index {
             0 => Some(self.read),
@@ -126,5 +90,32 @@ impl FilePermission {
             "execute" => Some(self.execute),
             _ => None,
         }
+    }
+}
+
+impl fmt::Display for FilePermission {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut mode_string = String::new();
+        mode_string.push(if self.read { 'r' } else { '-' });
+        mode_string.push(if self.write { 'w' } else { '-' });
+        mode_string.push(if self.execute { 'x' } else { '-' });
+        write!(f, "{}", mode_string)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{FileMode, FilePermission};
+
+    #[test]
+    fn test_file_mode() {
+        let mode = FileMode::new(0o755);
+        assert_eq!(mode.to_string(), "rwxr-xr-x");
+    }
+
+    #[test]
+    fn test_file_permission() {
+        let permission = FilePermission::new(true, false, true);
+        assert_eq!(permission.to_string(), "r-x");
     }
 }

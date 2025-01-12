@@ -4115,7 +4115,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.6",
  "typetag",
- "umask",
  "web-time",
  "windows-sys 0.48.0",
 ]
