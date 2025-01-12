@@ -8,8 +8,8 @@ use lsp_types::{
 };
 use nu_protocol::{
     ast::{
-        Argument, Block, Expr, Expression, ExternalArgument, ListItem, MatchPattern, Pattern,
-        PipelineRedirection, RecordItem,
+        Argument, Block, Expr, Expression, ExternalArgument, ListItem, MatchPattern, Operator,
+        Pattern, PipelineRedirection, RecordItem,
     },
     engine::StateWorkingSet,
     Type,
@@ -167,6 +167,16 @@ fn redirect_flat_map<T, E>(
     }
 }
 
+fn type_short_name(t: &Type) -> String {
+    match t {
+        Type::Custom(_) => String::from("custom"),
+        Type::Record(_) => String::from("record"),
+        Type::Table(_) => String::from("table"),
+        Type::List(_) => String::from("list"),
+        _ => t.to_string(),
+    }
+}
+
 fn extract_inlay_hints_from_expression(
     expr: &Expression,
     working_set: &StateWorkingSet,
@@ -183,6 +193,31 @@ fn extract_inlay_hints_from_expression(
         )
     };
     match &expr.expr {
+        Expr::BinaryOp(lhs, op, rhs) => {
+            let mut hints: Vec<InlayHint> =
+                [lhs, op, rhs].into_iter().flat_map(|e| recur(e)).collect();
+            if let Expr::Operator(Operator::Assignment(_)) = op.expr {
+                let position = span_to_range(&lhs.span, file, *offset).end;
+                let type_rhs = type_short_name(&rhs.ty);
+                let type_lhs = type_short_name(&lhs.ty);
+                let type_string = match (type_lhs.as_str(), type_rhs.as_str()) {
+                    ("any", _) => type_rhs,
+                    (_, "any") => type_lhs,
+                    _ => type_lhs,
+                };
+                hints.push(InlayHint {
+                    kind: Some(InlayHintKind::TYPE),
+                    label: InlayHintLabel::String(format!(": {}", type_string)),
+                    position,
+                    text_edits: None,
+                    tooltip: None,
+                    data: None,
+                    padding_left: None,
+                    padding_right: None,
+                })
+            }
+            Some(hints)
+        }
         Expr::VarDecl(var_id) => {
             let position = span_to_range(&span, file, *offset).end;
             // skip if the type is already specified in code
@@ -199,17 +234,11 @@ fn extract_inlay_hints_from_expression(
                 return Some(Vec::new());
             }
             let var = working_set.get_variable(*var_id);
-            let type_str_short = match var.ty {
-                Type::Custom(_) => String::from("custom"),
-                Type::Record(_) => String::from("record"),
-                Type::Table(_) => String::from("table"),
-                Type::List(_) => String::from("list"),
-                _ => var.ty.to_string(),
-            };
+            let type_string = type_short_name(&var.ty);
             Some(vec![
                 (InlayHint {
                     kind: Some(InlayHintKind::TYPE),
-                    label: InlayHintLabel::String(format!(": {}", type_str_short)),
+                    label: InlayHintLabel::String(format!(": {}", type_string)),
                     position,
                     text_edits: None,
                     tooltip: None,
@@ -363,41 +392,47 @@ mod tests {
         assert_json_eq!(
             result,
             serde_json::json!([
-                {
-                    "position": { "line": 0, "character": 7 },
-                    "label": ": int",
-                    "kind": 1
-                },
-                {
-                    "position": { "line": 1, "character": 7 },
-                    "label": ": string",
-                    "kind": 1
-                },
-                {
-                    "position": { "line": 2, "character": 8 },
-                    "label": ": bool",
-                    "kind": 1
-                },
-                {
-                    "position": { "line": 3, "character": 9 },
-                    "label": ": float",
-                    "kind": 1
-                },
-                {
-                    "position": { "line": 4, "character": 8 },
-                    "label": ": list",
-                    "kind": 1
-                },
-                {
-                    "position": { "line": 5, "character": 10 },
-                    "label": ": record",
-                    "kind": 1
-                },
-                {
-                    "position": { "line": 6, "character": 11 },
-                    "label": ": closure",
-                    "kind": 1
-                }
+                { "position": { "line": 0, "character": 9 }, "label": ": int", "kind": 1 },
+                { "position": { "line": 1, "character": 7 }, "label": ": string", "kind": 1 },
+                { "position": { "line": 2, "character": 8 }, "label": ": bool", "kind": 1 },
+                { "position": { "line": 3, "character": 9 }, "label": ": float", "kind": 1 },
+                { "position": { "line": 4, "character": 8 }, "label": ": list", "kind": 1 },
+                { "position": { "line": 5, "character": 10 }, "label": ": record", "kind": 1 },
+                { "position": { "line": 6, "character": 11 }, "label": ": closure", "kind": 1 }
+            ])
+        );
+    }
+
+    #[test]
+    fn inlay_hint_assignment_type() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hints");
+        script.push("assignment.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = send_inlay_hint_request(&client_connection, script.clone());
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!([
+                { "position": { "line": 0, "character": 8 }, "label": ": int", "kind": 1 },
+                { "position": { "line": 1, "character": 10 }, "label": ": float", "kind": 1 },
+                { "position": { "line": 2, "character": 10 }, "label": ": table", "kind": 1 },
+                { "position": { "line": 3, "character": 9 }, "label": ": list", "kind": 1 },
+                { "position": { "line": 4, "character": 11 }, "label": ": record", "kind": 1 },
+                { "position": { "line": 6, "character": 7 }, "label": ": filesize", "kind": 1 },
+                { "position": { "line": 7, "character": 7 }, "label": ": filesize", "kind": 1 },
+                { "position": { "line": 8, "character": 4 }, "label": ": filesize", "kind": 1 }
             ])
         );
     }

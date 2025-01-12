@@ -298,7 +298,7 @@ mod tests {
         DocumentSymbolParams, Uri, WorkDoneProgressParams, WorkspaceSymbolParams,
     };
 
-    fn document_symbol_test(client_connection: &Connection, uri: Uri) -> Message {
+    fn send_document_symbol_request(client_connection: &Connection, uri: Uri) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -319,7 +319,7 @@ mod tests {
             .unwrap()
     }
 
-    fn workspace_symbol_test(client_connection: &Connection, query: String) -> Message {
+    fn send_workspace_symbol_request(client_connection: &Connection, query: String) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -352,7 +352,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = document_symbol_test(&client_connection, script.clone());
+        let resp = send_document_symbol_request(&client_connection, script.clone());
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -374,7 +374,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = document_symbol_test(&client_connection, script.clone());
+        let resp = send_document_symbol_request(&client_connection, script.clone());
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -437,7 +437,7 @@ mod tests {
             }),
         );
 
-        let resp = document_symbol_test(&client_connection, script.clone());
+        let resp = send_document_symbol_request(&client_connection, script.clone());
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -481,7 +481,7 @@ mod tests {
         open_unchecked(&client_connection, script_foo.clone());
         open_unchecked(&client_connection, script_bar.clone());
 
-        let resp = workspace_symbol_test(&client_connection, "br".to_string());
+        let resp = send_workspace_symbol_request(&client_connection, "br".to_string());
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -547,7 +547,7 @@ mod tests {
         open_unchecked(&client_connection, script_foo.clone());
         open_unchecked(&client_connection, script_bar.clone());
 
-        let resp = workspace_symbol_test(&client_connection, "foo".to_string());
+        let resp = send_workspace_symbol_request(&client_connection, "foo".to_string());
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
