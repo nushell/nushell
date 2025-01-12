@@ -57,6 +57,7 @@ pub fn value_to_yaml_value(
         Value::Int { val, .. } => serde_yml::Value::Number(serde_yml::Number::from(*val)),
         Value::Filesize { val, .. } => serde_yml::Value::Number(serde_yml::Number::from(val.get())),
         Value::FileMode { val, .. } => serde_yml::Value::Number(serde_yml::Number::from(val.get())),
+        Value::FilePermission { val, .. } => serde_yml::Value::String(val.to_string()),
         Value::Duration { val, .. } => serde_yml::Value::String(val.to_string()),
         Value::Date { val, .. } => serde_yml::Value::String(val.to_string()),
         Value::Range { .. } => serde_yml::Value::Null,

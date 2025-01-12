@@ -345,6 +345,7 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         Type::Date => Ok("DATETIME"),
         Type::Duration => Ok("BIGINT"),
         Type::Filesize => Ok("INTEGER"),
+        Type::FilePermission => Ok("TEXT"),
         Type::FileMode => Ok("INTEGER"),
 
         // [NOTE] On null values, we just assume TEXT. This could end up

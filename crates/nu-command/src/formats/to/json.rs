@@ -121,6 +121,7 @@ pub fn value_to_json_value(
         Value::Bool { val, .. } => nu_json::Value::Bool(*val),
         Value::Filesize { val, .. } => nu_json::Value::I64(val.get()),
         Value::FileMode { val, .. } => nu_json::Value::U64(val.get().into()),
+        Value::FilePermission { val, .. } => nu_json::Value::String(val.to_string()),
         Value::Duration { val, .. } => nu_json::Value::I64(*val),
         Value::Date { val, .. } => nu_json::Value::String(val.to_string()),
         Value::Float { val, .. } => nu_json::Value::F64(*val),

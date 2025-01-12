@@ -90,6 +90,7 @@ impl<'a> StyleComputer<'a> {
             Value::Int { .. } => TextStyle::with_style(Right, s),
             Value::Filesize { .. } => TextStyle::with_style(Right, s),
             Value::FileMode { .. } => TextStyle::with_style(Right, s),
+            Value::FilePermission { .. } => TextStyle::with_style(Right, s),
             Value::Duration { .. } => TextStyle::with_style(Right, s),
             Value::Date { .. } => TextStyle::with_style(Left, s),
             Value::Range { .. } => TextStyle::with_style(Left, s),

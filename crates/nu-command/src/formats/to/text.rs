@@ -172,6 +172,7 @@ fn local_into_string(
         Value::Float { val, .. } => val.to_string(),
         Value::Filesize { val, .. } => format_filesize_from_conf(val, config),
         Value::FileMode { val, .. } => val.to_string(),
+        Value::FilePermission { val, .. } => val.to_string(),
         Value::Duration { val, .. } => format_duration(val),
         Value::Date { val, .. } => {
             format!("{} ({})", val.to_rfc2822(), HumanTime::from(val))

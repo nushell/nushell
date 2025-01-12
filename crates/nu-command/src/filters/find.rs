@@ -496,6 +496,7 @@ fn value_should_be_printed(
         | Value::Int { .. }
         | Value::Filesize { .. }
         | Value::FileMode { .. }
+        | Value::FilePermission { .. }
         | Value::Duration { .. }
         | Value::Date { .. }
         | Value::Range { .. }

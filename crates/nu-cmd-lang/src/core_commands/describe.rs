@@ -261,6 +261,7 @@ fn describe_value_inner(
         | Value::Float { .. }
         | Value::Filesize { .. }
         | Value::FileMode { .. }
+        | Value::FilePermission { .. }
         | Value::Duration { .. }
         | Value::Date { .. }
         | Value::Range { .. }

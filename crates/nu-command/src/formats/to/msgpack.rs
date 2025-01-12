@@ -173,6 +173,9 @@ pub(crate) fn write_value(
         Value::FileMode { val, .. } => {
             mp::write_sint(out, val.get().into()).err_span(span)?;
         }
+        Value::FilePermission { val, .. } => {
+            mp::write_str(out, val.to_string().as_str()).err_span(span)?;
+        }
         Value::Duration { val, .. } => {
             mp::write_sint(out, *val).err_span(span)?;
         }

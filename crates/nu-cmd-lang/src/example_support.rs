@@ -239,6 +239,9 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             Value::FileMode { val, .. } => {
                 write!(f, "FileMode({:?})", val)
             }
+            Value::FilePermission { val, .. } => {
+                write!(f, "FilePermission({:?})", val)
+            }
             Value::Duration { val, .. } => {
                 let duration = std::time::Duration::from_nanos(*val as u64);
                 write!(f, "Duration({:?})", duration)

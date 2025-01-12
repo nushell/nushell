@@ -99,6 +99,13 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    FilePermission {
+        val: FilePermission,
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
+        internal_span: Span,
+    },
     Duration {
         val: i64,
         /// note: spans are being refactored out of Value
@@ -187,6 +194,10 @@ impl Clone for Value {
                 internal_span: *internal_span,
             },
             Value::FileMode { val, internal_span } => Value::FileMode {
+                val: *val,
+                internal_span: *internal_span,
+            },
+            Value::FilePermission { val, internal_span } => Value::FilePermission {
                 val: *val,
                 internal_span: *internal_span,
             },
@@ -733,6 +744,7 @@ impl Value {
             | Value::Float { internal_span, .. }
             | Value::Filesize { internal_span, .. }
             | Value::FileMode { internal_span, .. }
+            | Value::FilePermission { internal_span, .. }
             | Value::Duration { internal_span, .. }
             | Value::Date { internal_span, .. }
             | Value::Range { internal_span, .. }
@@ -757,6 +769,7 @@ impl Value {
             | Value::Float { internal_span, .. }
             | Value::Filesize { internal_span, .. }
             | Value::FileMode { internal_span, .. }
+            | Value::FilePermission { internal_span, .. }
             | Value::Duration { internal_span, .. }
             | Value::Date { internal_span, .. }
             | Value::Range { internal_span, .. }
@@ -787,6 +800,7 @@ impl Value {
             Value::Float { .. } => Type::Float,
             Value::Filesize { .. } => Type::Filesize,
             Value::FileMode { .. } => Type::FileMode,
+            Value::FilePermission { .. } => Type::FilePermission,
             Value::Duration { .. } => Type::Duration,
             Value::Date { .. } => Type::Date,
             Value::Range { .. } => Type::Range,
@@ -864,6 +878,7 @@ impl Value {
                 | Value::Glob { .. }
                 | Value::Filesize { .. }
                 | Value::FileMode { .. }
+                | Value::FilePermission { .. }
                 | Value::Duration { .. }
                 | Value::Date { .. }
                 | Value::Range { .. }
@@ -955,6 +970,7 @@ impl Value {
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
             Value::FileMode { val, .. } => val.to_string(),
+            Value::FilePermission { val, .. } => val.to_string(),
             Value::Duration { val, .. } => format_duration(*val),
             Value::Date { val, .. } => match &config.datetime_format.normal {
                 Some(format) => self.format_datetime(val, format),
@@ -1154,6 +1170,28 @@ impl Value {
                                 });
                             }
                         }
+                        Value::FileMode { ref val, .. } => {
+                            if let Some(item) = val.get_by_index(*count) {
+                                current = Value::file_permission(item, *origin_span);
+                            } else if *optional {
+                                return Ok(Value::nothing(*origin_span)); // short-circuit
+                            } else {
+                                return Err(ShellError::AccessBeyondEndOfStream {
+                                    span: *origin_span,
+                                });
+                            }
+                        }
+                        Value::FilePermission { ref val, .. } => {
+                            if let Some(item) = val.get_by_index(*count) {
+                                current = Value::bool(item, *origin_span);
+                            } else if *optional {
+                                return Ok(Value::nothing(*origin_span)); // short-circuit
+                            } else {
+                                return Err(ShellError::AccessBeyondEndOfStream {
+                                    span: *origin_span,
+                                });
+                            }
+                        }
                         Value::Custom { ref val, .. } => {
                             current =
                                 match val.follow_path_int(current.span(), *count, *origin_span) {
@@ -1273,6 +1311,32 @@ impl Value {
                                 .collect::<Result<_, _>>()?;
 
                             current = Value::list(list, span);
+                        }
+                        Value::FileMode { ref val, .. } => {
+                            if let Some(item) = val.get_by_name(column_name) {
+                                current = Value::file_permission(item, *origin_span);
+                            } else if *optional {
+                                return Ok(Value::nothing(*origin_span)); // short-circuit
+                            } else {
+                                return Err(ShellError::CantFindColumn {
+                                    col_name: column_name.clone(),
+                                    span: Some(*origin_span),
+                                    src_span: span,
+                                });
+                            }
+                        }
+                        Value::FilePermission { ref val, .. } => {
+                            if let Some(item) = val.get_by_name(column_name) {
+                                current = Value::bool(item, *origin_span);
+                            } else if *optional {
+                                return Ok(Value::nothing(*origin_span)); // short-circuit
+                            } else {
+                                return Err(ShellError::CantFindColumn {
+                                    col_name: column_name.clone(),
+                                    span: Some(*origin_span),
+                                    src_span: span,
+                                });
+                            }
                         }
                         Value::Custom { ref val, .. } => {
                             current = match val.follow_path_string(
@@ -1865,6 +1929,7 @@ impl Value {
             | Value::Float { .. }
             | Value::Filesize { .. }
             | Value::FileMode { .. }
+            | Value::FilePermission { .. }
             | Value::Duration { .. }
             | Value::Date { .. }
             | Value::Range { .. }
@@ -1946,6 +2011,13 @@ impl Value {
 
     pub fn file_mode(val: impl Into<FileMode>, span: Span) -> Value {
         Value::FileMode {
+            val: val.into(),
+            internal_span: span,
+        }
+    }
+
+    pub fn file_permission(val: impl Into<FilePermission>, span: Span) -> Value {
+        Value::FilePermission {
             val: val.into(),
             internal_span: span,
         }
@@ -2209,6 +2281,7 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Less),
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::FileMode { .. } => Some(Ordering::Less),
+                Value::FilePermission { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2229,6 +2302,7 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Less),
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::FileMode { .. } => Some(Ordering::Less),
+                Value::FilePermission { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2249,6 +2323,7 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Less),
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::FileMode { .. } => Some(Ordering::Less),
+                Value::FilePermission { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2269,6 +2344,7 @@ impl PartialOrd for Value {
                 Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::FileMode { .. } => Some(Ordering::Less),
+                Value::FilePermission { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2289,6 +2365,7 @@ impl PartialOrd for Value {
                 Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::FileMode { .. } => Some(Ordering::Less),
+                Value::FilePermission { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2309,6 +2386,7 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::FileMode { .. } => Some(Ordering::Less),
+                Value::FilePermission { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2329,6 +2407,28 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::FileMode { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::FilePermission { .. } => Some(Ordering::Less),
+                Value::Duration { .. } => Some(Ordering::Less),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Closure { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+            },
+            (Value::FilePermission { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::FileMode { .. } => Some(Ordering::Greater),
+                Value::FilePermission { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2349,6 +2449,7 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::FileMode { .. } => Some(Ordering::Greater),
+                Value::FilePermission { .. } => Some(Ordering::Greater),
                 Value::Duration { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2369,6 +2470,7 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::FileMode { .. } => Some(Ordering::Greater),
+                Value::FilePermission { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Range { .. } => Some(Ordering::Less),
@@ -2389,6 +2491,7 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::FileMode { .. } => Some(Ordering::Greater),
+                Value::FilePermission { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
@@ -2409,6 +2512,7 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::FileMode { .. } => Some(Ordering::Greater),
+                Value::FilePermission { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
@@ -2455,6 +2559,7 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::FileMode { .. } => Some(Ordering::Greater),
+                Value::FilePermission { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
@@ -2475,6 +2580,7 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::FileMode { .. } => Some(Ordering::Greater),
+                Value::FilePermission { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
@@ -2495,6 +2601,7 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::FileMode { .. } => Some(Ordering::Greater),
+                Value::FilePermission { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
@@ -2515,6 +2622,7 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::FileMode { .. } => Some(Ordering::Greater),
+                Value::FilePermission { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
@@ -2535,6 +2643,7 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::FileMode { .. } => Some(Ordering::Greater),
+                Value::FilePermission { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
@@ -2556,6 +2665,7 @@ impl PartialOrd for Value {
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::FileMode { .. } => Some(Ordering::Greater),
+                Value::FilePermission { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),

@@ -23,6 +23,10 @@ impl FileMode {
         }
     }
 
+    pub const fn len(&self) -> usize {
+        3
+    }
+
     pub fn get(&self) -> u32 {
         let mut mode = 0;
         mode |= if self.user.read { 0o400 } else { 0 };
@@ -49,6 +53,24 @@ impl FileMode {
         mode_string.push(if self.other.write { 'w' } else { '-' });
         mode_string.push(if self.other.execute { 'x' } else { '-' });
         mode_string
+    }
+
+    pub const fn get_by_index(&self, index: usize) -> Option<FilePermission> {
+        match index {
+            0 => Some(self.user),
+            1 => Some(self.group),
+            2 => Some(self.other),
+            _ => None,
+        }
+    }
+
+    pub fn get_by_name(&self, name: &str) -> Option<FilePermission> {
+        match name {
+            "user" => Some(self.user),
+            "group" => Some(self.group),
+            "other" => Some(self.other),
+            _ => None,
+        }
     }
 }
 
@@ -77,6 +99,32 @@ impl FilePermission {
             read,
             write,
             execute,
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        let mut mode_string = String::new();
+        mode_string.push(if self.read { 'r' } else { '-' });
+        mode_string.push(if self.write { 'w' } else { '-' });
+        mode_string.push(if self.execute { 'x' } else { '-' });
+        mode_string
+    }
+
+    pub const fn get_by_index(&self, index: usize) -> Option<bool> {
+        match index {
+            0 => Some(self.read),
+            1 => Some(self.write),
+            2 => Some(self.execute),
+            _ => None,
+        }
+    }
+
+    pub fn get_by_name(&self, name: &str) -> Option<bool> {
+        match name {
+            "read" => Some(self.read),
+            "write" => Some(self.write),
+            "execute" => Some(self.execute),
+            _ => None,
         }
     }
 }
