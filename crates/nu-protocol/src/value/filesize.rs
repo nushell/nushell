@@ -581,20 +581,19 @@ impl fmt::Display for DisplayFilesize {
                     // So, the longest string for the fractional portion can be 18 characters.
                     let buf = &mut [b'0'; 18];
                     let stop = precision.unwrap_or(buf.len());
-                    let mut fract = fract;
-                    let mut power = bytes.unsigned_abs() / 10;
+                    let bytes = bytes.unsigned_abs();
+                    let mut fract = fract * 10;
                     let mut i = 0;
                     loop {
-                        let q = fract / power;
-                        let r = fract % power;
+                        let q = fract / bytes;
+                        let r = fract % bytes;
                         debug_assert!(q < 10);
                         buf[i] += q as u8;
                         i += 1;
                         if r == 0 || i >= stop {
                             break;
                         }
-                        fract = r;
-                        power /= 10;
+                        fract = r * 10;
                     }
 
                     // Safety: all the characters in `buf` are valid UTF-8.
