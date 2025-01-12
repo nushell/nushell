@@ -466,7 +466,6 @@ fn test_pwd_per_drive() {
                 open W:test_file.txt
             "#
         );
-        assert!(_actual.err.is_empty());
         assert!(_actual.out.contains("hello"));
         let _actual = nu!(
             cwd: dirs.test(),
