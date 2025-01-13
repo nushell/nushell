@@ -7,8 +7,8 @@ use nu_protocol::{
     record, Category, Config, Example, IntoPipelineData, PipelineData, PositionalArg, Signature,
     Span, SpanId, Spanned, SyntaxShape, Type, Value,
 };
+use nu_utils::terminal_size;
 use std::{collections::HashMap, fmt::Write};
-use terminal_size::{Height, Width};
 
 /// ANSI style reset
 const RESET: &str = "\x1b[0m";
@@ -194,7 +194,7 @@ fn get_documentation(
     }
 
     fn get_term_width() -> usize {
-        if let Some((Width(w), Height(_))) = terminal_size::terminal_size() {
+        if let Ok((w, _h)) = terminal_size() {
             w as usize
         } else {
             80
