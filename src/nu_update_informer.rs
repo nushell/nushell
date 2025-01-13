@@ -28,7 +28,10 @@ impl Registry for NuShellNightly {
             // The nightly repo tags look like "0.101.1-nightly.4+23dc1b6"
             // We want to return the "0.101.1-nightly.4" part because hustcer
             // is changing the cargo.toml package.version to be that syntax
-            let up_through_plus = v.tag_name.split('+').next().unwrap();
+            let up_through_plus = match v.tag_name.split('+').next() {
+                Some(v) => v,
+                None => &v.tag_name,
+            };
             return Ok(Some(up_through_plus.to_string()));
         }
 
