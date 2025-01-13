@@ -55,11 +55,12 @@ pub fn check_for_latest_nushell_version() {
             println!(
                 "\nA new release of nushell nightly is available: {current_version} -> {new_version}\n"
             );
-        } else {
-            println!(
-                "You're running the latest version of the nushell nightly v{current_version}."
-            );
         }
+        //  else {
+        //     println!(
+        //         "You're running the latest version of the nushell nightly v{current_version}."
+        //     );
+        // }
     } else {
         let normal_pkg_name = "nushell/nushell";
         // By default, this update request is cached for 24 hours so it won't check for a new version
@@ -71,10 +72,11 @@ pub fn check_for_latest_nushell_version() {
             println!(
                 "\nA new release of nushell is available: v{current_version} -> {new_version}\n"
             );
-        } else {
-            println!(
-                "You're running the latest version of the nushell release v{current_version}."
-            );
         }
+        //  else {
+        //     println!(
+        //         "You're running the latest version of the nushell release v{current_version}."
+        //     );
+        // }
     }
 }
