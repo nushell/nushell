@@ -6,7 +6,6 @@ use nu_protocol::{
         PipelineRedirection, RecordItem,
     },
     engine::StateWorkingSet,
-    ModuleId, VarId,
 };
 
 use crate::Id;
@@ -176,9 +175,7 @@ fn find_id_in_expr(expr: &Expression, _: &StateWorkingSet, location: &usize) -> 
         return Some(Vec::new());
     }
     match &expr.expr {
-        Expr::Var(var_id) | Expr::VarDecl(var_id) => {
-            Some(vec![Id::Variable(VarId::new(var_id.get()))])
-        }
+        Expr::Var(var_id) | Expr::VarDecl(var_id) => Some(vec![Id::Variable(*var_id)]),
         Expr::Call(call) => {
             if call.head.contains(*location) {
                 Some(vec![Id::Declaration(call.decl_id)])
@@ -186,7 +183,7 @@ fn find_id_in_expr(expr: &Expression, _: &StateWorkingSet, location: &usize) -> 
                 None
             }
         }
-        Expr::Overlay(Some(module_id)) => Some(vec![Id::Module(ModuleId::new(module_id.get()))]),
+        Expr::Overlay(Some(module_id)) => Some(vec![Id::Module(*module_id)]),
         // terminal value expressions
         Expr::Bool(_)
         | Expr::Binary(_)
