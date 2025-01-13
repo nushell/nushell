@@ -89,7 +89,7 @@ https://www.nushell.sh/lang-guide/chapters/pipelines.html"#
             ),
             HelpExamples::new(
                 "o>|",
-                "stdout pipe",
+                "",
                 "UNSUPPORTED, Redirecting stdout to a pipe is the same as normal piping",
                 "",
             ),
