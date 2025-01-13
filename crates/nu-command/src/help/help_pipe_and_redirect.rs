@@ -54,20 +54,44 @@ https://www.nushell.sh/lang-guide/chapters/pipelines.html"#
             HelpExamples::new(
                 "o>",
                 "redirection",
-                "redirect stdout of a command to a file",
+                "redirect stdout of a command, overwriting a file",
                 "^cmd1 o> file.txt",
             ),
             HelpExamples::new(
                 "e>",
                 "stderr redirection",
-                "redirect stderr of a command to a file",
+                "redirect stderr of a command, overwriting a file",
                 "^cmd1 e> file.txt",
             ),
             HelpExamples::new(
                 "o+e>",
                 "stdout and stderr redirection",
-                "redirect stdout and stderr of a command to a file",
+                "redirect stdout and stderr of a command, overwriting a file",
                 "^cmd1 o+e> file.txt",
+            ),
+            HelpExamples::new(
+                "o>>",
+                "redirection append",
+                "redirect stdout of a command, appending to a file",
+                "^cmd1 o> file.txt",
+            ),
+            HelpExamples::new(
+                "e>>",
+                "stderr redirection append",
+                "redirect stderr of a command, appending to a file",
+                "^cmd1 e> file.txt",
+            ),
+            HelpExamples::new(
+                "o+e>>",
+                "stdout and stderr redirection append",
+                "redirect stdout and stderr of a command, appending to a file",
+                "^cmd1 o+e> file.txt",
+            ),
+            HelpExamples::new(
+                "o>|",
+                "stdout pipe",
+                "UNSUPPORTED, Redirecting stdout to a pipe is the same as normal piping",
+                "",
             ),
         ];
         let examples: Vec<Value> = examples
