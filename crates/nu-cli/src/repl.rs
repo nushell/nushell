@@ -19,7 +19,7 @@ use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::util::get_editor;
 use nu_color_config::StyleComputer;
 #[allow(deprecated)]
-use nu_engine::{current_dir_str, env_to_strings};
+use nu_engine::{current_dir_str, env_to_string, env_to_strings};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
@@ -975,28 +975,36 @@ fn run_shell_integration_osc2(
     if let Ok(path) = current_dir_str(engine_state, stack) {
         let start_time = Instant::now();
 
-        // Try to abbreviate string for windows title
-        let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-            let home_dir_str = p.as_path().display().to_string();
-            if path.starts_with(&home_dir_str) {
-                path.replacen(&home_dir_str, "~", 1)
-            } else {
-                path
+        let title_env_var = stack
+            .get_env_var(engine_state, "NU_REPL_TITLE_OVERRIDE")
+            .and_then(|v| env_to_string("NU_REPL_TITLE_OVERRIDE", v, engine_state, stack).ok());
+        let base_title = match title_env_var {
+            Some(val) if !val.is_empty() => val,
+            _ => {
+                // Try to abbreviate the path for windows title
+                if let Some(p) = nu_path::home_dir() {
+                    let home_dir_str = p.as_path().display().to_string();
+                    if path.starts_with(&home_dir_str) {
+                        path.replacen(&home_dir_str, "~", 1)
+                    } else {
+                        path
+                    }
+                } else {
+                    path
+                }
             }
-        } else {
-            path
         };
 
         let title = match command_name {
             Some(binary_name) => {
                 let split_binary_name = binary_name.split_whitespace().next();
                 if let Some(binary_name) = split_binary_name {
-                    format!("{maybe_abbrev_path}> {binary_name}")
+                    format!("{base_title}> {binary_name}")
                 } else {
-                    maybe_abbrev_path.to_string()
+                    base_title.to_string()
                 }
             }
-            None => maybe_abbrev_path.to_string(),
+            None => base_title.to_string(),
         };
 
         // Set window title too

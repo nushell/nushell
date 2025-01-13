@@ -5,6 +5,7 @@ mod keybindings;
 mod keybindings_default;
 mod keybindings_list;
 mod keybindings_listen;
+mod title;
 
 pub use commandline::{Commandline, CommandlineEdit, CommandlineGetCursor, CommandlineSetCursor};
 pub use history::{History, HistoryImport, HistorySession};
@@ -12,5 +13,6 @@ pub use keybindings::Keybindings;
 pub use keybindings_default::KeybindingsDefault;
 pub use keybindings_list::KeybindingsList;
 pub use keybindings_listen::KeybindingsListen;
+pub use title::Title;
 
 pub use default_context::add_cli_context;

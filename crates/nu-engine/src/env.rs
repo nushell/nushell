@@ -122,7 +122,7 @@ pub fn convert_env_values(
 
 /// Translate one environment variable from Value to String
 ///
-/// Returns Ok(None) if the env var is not
+/// Returns Ok(None) if the env var is not coercible to a string
 pub fn env_to_string(
     env_name: &str,
     value: &Value,
