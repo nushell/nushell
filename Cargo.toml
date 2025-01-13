@@ -164,6 +164,7 @@ trash = "5.2"
 umask = "2.1"
 unicode-segmentation = "1.12"
 unicode-width = "0.2"
+update-informer = { version = "1.2.0", features = ["github"] }
 ureq = { version = "2.12", default-features = false }
 url = "2.2"
 uu_cp = "0.0.28"
@@ -218,6 +219,8 @@ log = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 mimalloc = { version = "0.1.42", default-features = false, optional = true }
 multipart-rs = { workspace = true }
+update-informer = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 simplelog = "0.12"
 time = "0.3"

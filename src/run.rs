@@ -1,3 +1,4 @@
+use crate::nu_update_informer::check_for_latest_nushell_version;
 use crate::{
     command,
     config_files::{self, setup_config},
@@ -195,12 +196,16 @@ pub(crate) fn run_repl(
         );
     }
 
+    let config = engine_state.get_config();
     // Reload use_color from config in case it's different from the default value
-    let use_color = engine_state
-        .get_config()
-        .use_ansi_coloring
-        .get(engine_state);
+    let use_color = config.use_ansi_coloring.get(engine_state);
     perf!("setup_config", start_time, use_color);
+
+    // Only check for new version if the config option is set
+    if config.check_for_new_version {
+        // This function checks for updates and prints a message if a new version is available
+        check_for_latest_nushell_version();
+    }
 
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_repl(

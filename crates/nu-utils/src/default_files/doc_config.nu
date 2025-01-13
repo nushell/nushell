@@ -402,6 +402,13 @@ $env.config.float_precision = 2
 # false: Filenames in the `ls` table will use the color_config for strings
 $env.config.ls.use_ls_colors = true
 
+# check_for_new_version (bool):
+# true: Nushell will check for a new version when starting up
+#    If running the nightly version of nushell, this will check for the latest in nushell/nightly
+#    If running the stable version of nushell, this will check for the latest stable in nushell/nushell
+# false: Nushell will not check for a new version when starting up 
+$env.config.check_for_new_version = false
+
 # Hooks
 # -----
 # $env.config.hooks is a record containing the five different types of Nushell hooks.

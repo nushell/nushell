@@ -1,6 +1,9 @@
 use std::process::Command;
 
 fn main() {
+    // Always rerun the build script regardless of the changes in the source code.
+    println!("cargo:rerun-if-changed=");
+
     // Look up the current Git commit ourselves instead of relying on shadow_rs,
     // because shadow_rs does it in a really slow-to-compile way (it builds libgit2)
     let hash = get_git_hash().unwrap_or_default();

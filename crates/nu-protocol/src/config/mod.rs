@@ -79,6 +79,7 @@ pub struct Config {
     pub plugins: HashMap<String, Value>,
     /// Configuration for plugin garbage collection.
     pub plugin_gc: PluginGcConfigs,
+    pub check_for_new_version: bool,
 }
 
 impl Default for Config {
@@ -130,6 +131,7 @@ impl Default for Config {
 
             plugins: HashMap::new(),
             plugin_gc: PluginGcConfigs::default(),
+            check_for_new_version: false,
         }
     }
 }
@@ -212,6 +214,7 @@ impl UpdateFromValue for Config {
                         errors.type_mismatch(path, Type::Int, val);
                     }
                 }
+                "check_for_new_version" => self.check_for_new_version.update(val, path, errors),
                 _ => errors.unknown_option(path, val),
             }
         }

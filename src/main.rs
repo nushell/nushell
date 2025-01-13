@@ -2,6 +2,7 @@ mod command;
 mod config_files;
 mod ide;
 mod logger;
+mod nu_update_informer;
 mod run;
 mod signals;
 #[cfg(unix)]
