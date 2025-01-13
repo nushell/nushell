@@ -28,7 +28,7 @@ impl Command for Title {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["terminal", "window", "title"]
+        vec!["terminal", "window"]
     }
 
     fn run(
