@@ -72,7 +72,7 @@ https://www.nushell.sh/lang-guide/chapters/pipelines.html"#
         ];
         let examples: Vec<Value> = examples
             .into_iter()
-            .map(|x| x.to_val_record(head))
+            .map(|x| x.into_val_record(head))
             .collect();
         Ok(Value::list(examples, head).into_pipeline_data())
     }
@@ -95,7 +95,7 @@ impl HelpExamples {
         }
     }
 
-    fn to_val_record(self, span: Span) -> Value {
+    fn into_val_record(self, span: Span) -> Value {
         Value::record(
             record! {
                 "symbol" => Value::string(self.symbol, span),
