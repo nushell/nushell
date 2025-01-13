@@ -310,4 +310,35 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn goto_definition_of_variable_in_each() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("goto");
+        script.push("collect.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 16);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!({
+                "uri": script,
+                "range": {
+                    "start": { "line": 0, "character": 4 },
+                    "end": { "line": 0, "character": 7 }
+                }
+            })
+        );
+    }
 }

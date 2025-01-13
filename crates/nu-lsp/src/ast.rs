@@ -176,7 +176,7 @@ fn find_id_in_expr(expr: &Expression, _: &StateWorkingSet, location: &usize) -> 
         return Some(Vec::new());
     }
     match &expr.expr {
-        Expr::Var(var_id) | Expr::VarDecl(var_id) | Expr::Collect(var_id, _) => {
+        Expr::Var(var_id) | Expr::VarDecl(var_id) => {
             Some(vec![Id::Variable(VarId::new(var_id.get()))])
         }
         Expr::Call(call) => {
