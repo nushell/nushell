@@ -44,9 +44,12 @@ pub fn check_for_latest_nushell_version() {
 
     if current_version.contains("nightly") {
         let nightly_pkg_name = "nushell/nightly";
+        // The .interval() determines how long the cached check lives. Setting it to std::time::Duration::ZERO
+        // means that there is essentially no cache and it will check for a new version each time you run nushell.
+        // Let's try out setting it to an hour for nightlies and see how that feels.
         let informer =
             update_informer::new(NuShellNightly, nightly_pkg_name, current_version.clone())
-                .interval(std::time::Duration::ZERO);
+                .interval(std::time::Duration::from_secs(3600));
 
         if let Ok(Some(new_version)) = informer.check_version() {
             println!(
@@ -59,9 +62,10 @@ pub fn check_for_latest_nushell_version() {
         }
     } else {
         let normal_pkg_name = "nushell/nushell";
+        // By default, this update request is cached for 24 hours so it won't check for a new version
+        // each time you run nushell.
         let informer =
-            update_informer::new(registry::GitHub, normal_pkg_name, current_version.clone())
-                .interval(std::time::Duration::ZERO);
+            update_informer::new(registry::GitHub, normal_pkg_name, current_version.clone());
 
         if let Ok(Some(new_version)) = informer.check_version() {
             println!(
