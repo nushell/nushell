@@ -108,9 +108,8 @@ export def scan [ # -> list<any>
     fn: closure          # the closure to perform the scan
     --noinit(-n)         # remove the initial value from the result
 ] {
-    generate {|acc|
-        let IN = $in
-        let out = $acc | do $fn $IN $acc
+    generate {|e, acc|
+        let out = $acc | do $fn $e $acc
         {next: $out, out: $out}
     } $init
     | if not $noinit { prepend $init } else { }

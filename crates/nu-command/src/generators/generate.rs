@@ -19,7 +19,7 @@ impl Command for Generate {
             ])
             .required(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
                 "Generator function.",
             )
             .optional("initial", SyntaxShape::Any, "Initial value.")
@@ -37,9 +37,10 @@ containing two optional keys: 'out' and 'next'. Each invocation, the 'out'
 value, if present, is added to the stream. If a 'next' key is present, it is
 used as the next argument to the closure, otherwise generation stops.
 
-Additionally, if an input stream is provided, on each invocation an element of
-the input stream is provided as pipeline input to the closure. In this case
-generation also stops when the input stream stops."#
+Additionally, if an input stream is provided, the generator closure accepts two
+arguments. On each invocation an element of the input stream is provided as the
+first argument. The second argument is the `next` value from the last invocation.
+In this case, generation also stops when the input stream stops."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -77,7 +78,8 @@ generation also stops when the input stream stops."#
                 result: None,
             },
             Example {
-                example: "1..5 | generate {|sum=0| let sum = $in + $sum; {out: $sum, next: $sum} }",
+                example:
+                    "1..5 | generate {|e, sum=0| let sum = $e + $sum; {out: $sum, next: $sum} }",
                 description: "Generate a running sum of the inputs",
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),
@@ -110,9 +112,11 @@ generation also stops when the input stream stops."#
                 // one final value before stopping.
                 let mut state = Some(get_initial_state(initial, &block.signature, call.head)?);
                 let iter = std::iter::from_fn(move || {
-                    let arg = state.take()?;
+                    let state_arg = state.take()?;
 
-                    let closure_result = closure.run_with_value(arg);
+                    let closure_result = closure
+                        .add_arg(state_arg)
+                        .run_with_input(PipelineData::Empty);
                     let (output, next_input) = parse_closure_result(closure_result, head);
 
                     // We use `state` to control when to stop, not `output`. By wrapping
@@ -130,11 +134,12 @@ generation also stops when the input stream stops."#
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream(..)) => {
                 let mut state = Some(get_initial_state(initial, &block.signature, call.head)?);
-                let iter = input.into_iter().map_while(move |in_val| {
-                    let arg = state.take()?;
+                let iter = input.into_iter().map_while(move |item| {
+                    let state_arg = state.take()?;
                     let closure_result = closure
-                        .add_arg(arg)
-                        .run_with_input(in_val.into_pipeline_data());
+                        .add_arg(item)
+                        .add_arg(state_arg)
+                        .run_with_input(PipelineData::Empty);
                     let (output, next_input) = parse_closure_result(closure_result, head);
                     state = next_input;
                     Some(output)
