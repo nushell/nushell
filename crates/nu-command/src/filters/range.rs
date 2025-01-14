@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::{report_parse_warning, ParseWarning};
 
 #[derive(Clone)]
 pub struct Range;
@@ -15,7 +16,7 @@ impl Command for Range {
                 Type::List(Box::new(Type::Any)),
             )])
             .required("rows", SyntaxShape::Range, "Range of rows to return.")
-            .category(Category::Filters)
+            .category(Category::Deprecated)
     }
 
     fn description(&self) -> &str {
@@ -62,6 +63,16 @@ impl Command for Range {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        report_parse_warning(
+            &StateWorkingSet::new(engine_state),
+            &ParseWarning::DeprecatedWarning {
+                old_command: "range".into(),
+                new_suggestion: "use `slice`".into(),
+                span: head,
+                url: "`help slice`".into(),
+            },
+        );
         super::Slice::run(&super::Slice, engine_state, stack, call, input)
     }
 }
