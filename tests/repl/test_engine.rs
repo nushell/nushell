@@ -441,7 +441,7 @@ fn better_operator_spans() -> TestResult {
 
 #[test]
 fn range_right_exclusive() -> TestResult {
-    run_test(r#"[1, 4, 5, 8, 9] | range 1..<3 | math sum"#, "9")
+    run_test(r#"[1, 4, 5, 8, 9] | slice 1..<3 | math sum"#, "9")
 }
 
 /// Issue #7872
