@@ -25,7 +25,14 @@ impl Command for Which {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["find", "path", "location", "command"]
+        vec![
+            "find",
+            "path",
+            "location",
+            "command",
+            "whereis",     // linux binary to find binary locations in path
+            "get-command", // powershell command to find commands and binaries in path
+        ]
     }
 
     fn run(

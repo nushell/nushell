@@ -3100,3 +3100,22 @@ fn table_footer_inheritance_list_rows() {
          ╰───┴──────┴───────────────────────╯"
     );
 }
+
+/// Test checking whether automatic table rendering correctly uses ansi coloring.
+#[test]
+fn table_colors() {
+    let actual = nu!(concat!(
+        "$env.config.use_ansi_coloring = true;",
+        "{a: 1, b: 2}",
+    ));
+    assert_eq!(
+        actual.out,
+        "\u{1b}[37m╭───┬───╮\u{1b}[0m\u{1b}[37m│\u{1b}[0m \u{1b}[1;32ma\u{1b}[0m \u{1b}[37m│\u{1b}[0m \u{1b}[37m1\u{1b}[0m \u{1b}[37m│\u{1b}[0m\u{1b}[37m│\u{1b}[0m \u{1b}[1;32mb\u{1b}[0m \u{1b}[37m│\u{1b}[0m \u{1b}[37m2\u{1b}[0m \u{1b}[37m│\u{1b}[0m\u{1b}[37m╰───┴───╯\u{1b}[0m" 
+    );
+
+    let actual = nu!(concat!(
+        "$env.config.use_ansi_coloring = false;",
+        "{a: 1, b: 2}",
+    ));
+    assert_eq!(actual.out, "╭───┬───╮│ a │ 1 ││ b │ 2 │╰───┴───╯");
+}

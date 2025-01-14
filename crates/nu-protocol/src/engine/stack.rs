@@ -481,16 +481,20 @@ impl Stack {
     }
 
     // Case-Insensitive version of get_env_var
+    // Returns Some((name, value)) if found, None otherwise.
+    // When updating environment variables, make sure to use
+    // the same case (from the returned "name") as the original
+    // environment variable name.
     pub fn get_env_var_insensitive<'a>(
         &'a self,
         engine_state: &'a EngineState,
         name: &str,
-    ) -> Option<&'a Value> {
+    ) -> Option<(&'a String, &'a Value)> {
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get(active_overlay) {
                     if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
-                        return Some(v.1);
+                        return Some((v.0, v.1));
                     }
                 }
             }
@@ -506,7 +510,7 @@ impl Stack {
             if !is_hidden {
                 if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
                     if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
-                        return Some(v.1);
+                        return Some((v.0, v.1));
                     }
                 }
             }

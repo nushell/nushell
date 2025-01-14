@@ -43,7 +43,12 @@ mod test_examples {
                     signature.operates_on_cell_paths(),
                 ),
             );
-            check_example_evaluates_to_expected_output(&example, cwd.as_path(), &mut engine_state);
+            check_example_evaluates_to_expected_output(
+                cmd.name(),
+                &example,
+                cwd.as_path(),
+                &mut engine_state,
+            );
         }
 
         check_all_signature_input_output_types_entries_have_examples(

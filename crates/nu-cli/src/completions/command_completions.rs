@@ -43,7 +43,7 @@ impl CommandCompletion {
 
         let paths = working_set.permanent_state.get_env_var_insensitive("path");
 
-        if let Some(paths) = paths {
+        if let Some((_, paths)) = paths {
             if let Ok(paths) = paths.as_list() {
                 for path in paths {
                     let path = path.coerce_str().unwrap_or_default();

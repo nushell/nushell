@@ -1,15 +1,14 @@
-use nu_cmd_base::{
-    input_handler::{operate, CmdArgument},
-    util,
-};
+use std::ops::Bound;
+
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::Range;
+use nu_protocol::{IntRange, Range};
 
 #[derive(Clone)]
 pub struct BytesAt;
 
 struct Arguments {
-    indexes: Subbytes,
+    range: IntRange,
     cell_paths: Option<Vec<CellPath>>,
 }
 
@@ -18,15 +17,6 @@ impl CmdArgument for Arguments {
         self.cell_paths.take()
     }
 }
-
-impl From<(isize, isize)> for Subbytes {
-    fn from(input: (isize, isize)) -> Self {
-        Self(input.0, input.1)
-    }
-}
-
-#[derive(Clone, Copy)]
-struct Subbytes(isize, isize);
 
 impl Command for BytesAt {
     fn name(&self) -> &str {
@@ -44,6 +34,7 @@ impl Command for BytesAt {
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
+            .allow_variants_without_examples(true)
             .required("range", SyntaxShape::Range, "The range to get bytes.")
             .rest(
                 "rest",
@@ -68,86 +59,115 @@ impl Command for BytesAt {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let range: Range = call.req(engine_state, stack, 0)?;
-        let indexes = match util::process_range(&range) {
-            Ok(idxs) => idxs.into(),
-            Err(processing_error) => {
-                return Err(processing_error("could not perform subbytes", call.head));
+        let range = match call.req(engine_state, stack, 0)? {
+            Range::IntRange(range) => range,
+            _ => {
+                return Err(ShellError::UnsupportedInput {
+                    msg: "Float ranges are not supported for byte streams".into(),
+                    input: "value originates from here".into(),
+                    msg_span: call.head,
+                    input_span: call.head,
+                })
             }
         };
 
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let args = Arguments {
-            indexes,
-            cell_paths,
-        };
 
-        operate(action, args, input, call.head, engine_state.signals())
+        if let PipelineData::ByteStream(stream, metadata) = input {
+            let stream = stream.slice(call.head, call.arguments_span(), range)?;
+            Ok(PipelineData::ByteStream(stream, metadata))
+        } else {
+            operate(
+                map_value,
+                Arguments { range, cell_paths },
+                input,
+                call.head,
+                engine_state.signals(),
+            )
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Get a subbytes `0x[10 01]` from the bytes `0x[33 44 55 10 01 13]`",
-                example: " 0x[33 44 55 10 01 13] | bytes at 3..<4",
-                result: Some(Value::test_binary(vec![0x10])),
-            },
-            Example {
-                description: "Get a subbytes `0x[10 01 13]` from the bytes `0x[33 44 55 10 01 13]`",
-                example: " 0x[33 44 55 10 01 13] | bytes at 3..6",
-                result: Some(Value::test_binary(vec![0x10, 0x01, 0x13])),
-            },
-            Example {
-                description: "Get the remaining characters from a starting index",
-                example: " { data: 0x[33 44 55 10 01 13] } | bytes at 3.. data",
+                description: "Extract bytes starting from a specific index",
+                example: "{ data: 0x[33 44 55 10 01 13 10] } | bytes at 3.. data",
                 result: Some(Value::test_record(record! {
-                    "data" => Value::test_binary(vec![0x10, 0x01, 0x13]),
+                    "data" => Value::test_binary(vec![0x10, 0x01, 0x13, 0x10]),
                 })),
             },
             Example {
-                description: "Get the characters from the beginning until ending index",
-                example: " 0x[33 44 55 10 01 13] | bytes at ..<4",
+                description: "Slice out `0x[10 01 13]` from `0x[33 44 55 10 01 13]`",
+                example: "0x[33 44 55 10 01 13] | bytes at 3..5",
+                result: Some(Value::test_binary(vec![0x10, 0x01, 0x13])),
+            },
+            Example {
+                description: "Extract bytes from the start up to a specific index",
+                example: "0x[33 44 55 10 01 13 10] | bytes at ..4",
+                result: Some(Value::test_binary(vec![0x33, 0x44, 0x55, 0x10, 0x01])),
+            },
+            Example {
+                description: "Extract byte `0x[10]` using an exclusive end index",
+                example: "0x[33 44 55 10 01 13 10] | bytes at 3..<4",
+                result: Some(Value::test_binary(vec![0x10])),
+            },
+            Example {
+                description: "Extract bytes up to a negative index (inclusive)",
+                example: "0x[33 44 55 10 01 13 10] | bytes at ..-4",
                 result: Some(Value::test_binary(vec![0x33, 0x44, 0x55, 0x10])),
             },
             Example {
-                description:
-                    "Or the characters from the beginning until ending index inside a table",
-                example: r#" [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes at 1.. ColB ColC"#,
+                description: "Slice bytes across multiple table columns",
+                example: r#"[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes at 1.. ColB ColC"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_binary(vec![0x11, 0x12, 0x13]),
                     "ColB" => Value::test_binary(vec![0x15, 0x16]),
                     "ColC" => Value::test_binary(vec![0x18, 0x19]),
                 })])),
             },
+            Example {
+                description: "Extract the last three bytes using a negative start index",
+                example: "0x[33 44 55 10 01 13 10] | bytes at (-3)..",
+                result: Some(Value::test_binary(vec![0x01, 0x13, 0x10])),
+            },
         ]
     }
 }
 
-fn action(input: &Value, args: &Arguments, head: Span) -> Value {
-    let range = &args.indexes;
+fn map_value(input: &Value, args: &Arguments, head: Span) -> Value {
+    let range = &args.range;
     match input {
         Value::Binary { val, .. } => {
-            let len = val.len() as isize;
-            let start = if range.0 < 0 { range.0 + len } else { range.0 };
-            let end = if range.1 < 0 { range.1 + len } else { range.1 };
+            let len = val.len() as u64;
+            let start: u64 = range.absolute_start(len);
+            let start: usize = match start.try_into() {
+                Ok(start) => start,
+                Err(_) => {
+                    let span = input.span();
+                    return Value::error(
+                        ShellError::UnsupportedInput {
+                            msg: format!(
+                            "Absolute start position {start} was too large for your system arch."
+                        ),
+                            input: args.range.to_string(),
+                            msg_span: span,
+                            input_span: span,
+                        },
+                        head,
+                    );
+                }
+            };
 
-            if start > end {
-                Value::binary(vec![], head)
-            } else {
-                let val_iter = val.iter().skip(start as usize);
-                Value::binary(
-                    if end == isize::MAX {
-                        val_iter.copied().collect::<Vec<u8>>()
-                    } else {
-                        val_iter.take((end - start + 1) as usize).copied().collect()
-                    },
-                    head,
-                )
-            }
+            let bytes: Vec<u8> = match range.absolute_end(len) {
+                Bound::Unbounded => val[start..].into(),
+                Bound::Included(end) => val[start..=end as usize].into(),
+                Bound::Excluded(end) => val[start..end as usize].into(),
+            };
+
+            Value::binary(bytes, head)
         }
         Value::Error { .. } => input.clone(),
-
         other => Value::error(
             ShellError::UnsupportedInput {
                 msg: "Only binary values are supported".into(),
@@ -157,5 +177,16 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             },
             head,
         ),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+        test_examples(BytesAt {})
     }
 }

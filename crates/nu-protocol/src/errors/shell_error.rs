@@ -653,6 +653,18 @@ pub enum ShellError {
         creation_site: Span,
     },
 
+    /// Attempted to us a relative range on an infinite stream
+    ///
+    /// ## Resolution
+    ///
+    /// Ensure that either the range is absolute or the stream has a known length.
+    #[error("Relative range values cannot be used with streams that don't have a known length")]
+    #[diagnostic(code(nu::shell::relative_range_on_infinite_stream))]
+    RelativeRangeOnInfiniteStream {
+        #[label = "Relative range values cannot be used with streams that don't have a known length"]
+        span: Span,
+    },
+
     /// An error happened while performing an external command.
     ///
     /// ## Resolution

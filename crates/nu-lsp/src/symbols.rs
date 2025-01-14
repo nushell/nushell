@@ -118,10 +118,6 @@ impl SymbolCache {
                 }
                 let range = span_to_range(&span, doc, doc_span.start);
                 let name = doc.get_content(Some(range));
-                // TODO: better way to filter closures with type any
-                if name.contains('\r') || name.contains('\n') || name.contains('{') {
-                    return None;
-                }
                 Some(Symbol {
                     name: name.to_string(),
                     kind: SymbolKind::VARIABLE,
@@ -302,7 +298,7 @@ mod tests {
         DocumentSymbolParams, Uri, WorkDoneProgressParams, WorkspaceSymbolParams,
     };
 
-    fn document_symbol_test(client_connection: &Connection, uri: Uri) -> Message {
+    fn send_document_symbol_request(client_connection: &Connection, uri: Uri) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -323,7 +319,7 @@ mod tests {
             .unwrap()
     }
 
-    fn workspace_symbol_test(client_connection: &Connection, query: String) -> Message {
+    fn send_workspace_symbol_request(client_connection: &Connection, query: String) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -344,6 +340,29 @@ mod tests {
     }
 
     #[test]
+    // for variable `$in/$it`, should not appear in symbols
+    fn document_symbol_special_variables() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("symbols");
+        script.push("span.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = send_document_symbol_request(&client_connection, script.clone());
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(result, serde_json::json!([]));
+    }
+
+    #[test]
     fn document_symbol_basic() {
         let (client_connection, _recv) = initialize_language_server();
 
@@ -355,7 +374,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = document_symbol_test(&client_connection, script.clone());
+        let resp = send_document_symbol_request(&client_connection, script.clone());
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -418,7 +437,7 @@ mod tests {
             }),
         );
 
-        let resp = document_symbol_test(&client_connection, script.clone());
+        let resp = send_document_symbol_request(&client_connection, script.clone());
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -462,7 +481,7 @@ mod tests {
         open_unchecked(&client_connection, script_foo.clone());
         open_unchecked(&client_connection, script_bar.clone());
 
-        let resp = workspace_symbol_test(&client_connection, "br".to_string());
+        let resp = send_workspace_symbol_request(&client_connection, "br".to_string());
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -528,7 +547,7 @@ mod tests {
         open_unchecked(&client_connection, script_foo.clone());
         open_unchecked(&client_connection, script_bar.clone());
 
-        let resp = workspace_symbol_test(&client_connection, "foo".to_string());
+        let resp = send_workspace_symbol_request(&client_connection, "foo".to_string());
         let result = if let Message::Response(response) = resp {
             response.result
         } else {

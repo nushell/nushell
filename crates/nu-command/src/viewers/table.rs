@@ -2,7 +2,7 @@
 //        overall reduce the redundant calls to StyleComputer etc.
 //        the goal is to configure it once...
 
-use std::{collections::VecDeque, io::IsTerminal, io::Read, path::PathBuf, str::FromStr};
+use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr};
 
 use lscolors::{LsColors, Style};
 use url::Url;
@@ -310,7 +310,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         get_theme_flag(call, state, stack)?.unwrap_or_else(|| stack.get_config(state).table.mode);
     let index = get_index_flag(call, state, stack)?;
 
-    let use_ansi_coloring = state.get_config().use_ansi_coloring.get(state);
+    let use_ansi_coloring = stack.get_config(state).use_ansi_coloring.get(state);
 
     Ok(CLIArgs {
         theme,
@@ -1067,8 +1067,9 @@ fn render_path_name(
 }
 
 fn maybe_strip_color(output: String, use_ansi_coloring: bool) -> String {
-    // the terminal is for when people do ls from vim, there should be no coloring there
-    if !use_ansi_coloring || !std::io::stdout().is_terminal() {
+    // only use `use_ansi_coloring` here, it already includes `std::io::stdout().is_terminal()`
+    // when set to "auto"
+    if !use_ansi_coloring {
         // Draw the table without ansi colors
         nu_utils::strip_ansi_string_likely(output)
     } else {

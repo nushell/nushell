@@ -1,6 +1,6 @@
 use crate::util::{eval_source, print_pipeline};
 use log::{info, trace};
-use nu_engine::{convert_env_values, eval_block};
+use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::canonicalize_with;
 use nu_protocol::{
@@ -22,9 +22,6 @@ pub fn evaluate_file(
     stack: &mut Stack,
     input: PipelineData,
 ) -> Result<(), ShellError> {
-    // Convert environment variables from Strings to Values and store them in the engine state.
-    convert_env_values(engine_state, stack)?;
-
     let cwd = engine_state.cwd_as_string(Some(stack))?;
 
     let file_path =

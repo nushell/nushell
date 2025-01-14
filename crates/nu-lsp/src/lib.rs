@@ -1,24 +1,22 @@
 #![doc = include_str!("../README.md")]
+use ast::find_id;
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
-    request::{
-        Completion, DocumentSymbolRequest, GotoDefinition, HoverRequest, Request,
-        WorkspaceSymbolRequest,
-    },
-    CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
-    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location,
-    MarkupContent, MarkupKind, OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit,
-    Uri,
+    request, request::Request, CompletionItem, CompletionItemKind, CompletionParams,
+    CompletionResponse, CompletionTextEdit, Hover, HoverContents, HoverParams, InlayHint, Location,
+    MarkupContent, MarkupKind, OneOf, Range, RenameOptions, ServerCapabilities,
+    TextDocumentSyncKind, TextEdit, Uri, WorkDoneProgressOptions,
 };
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{NuCompleter, SuggestionKind};
-use nu_parser::{flatten_block, parse, FlatShape};
+use nu_parser::parse;
 use nu_protocol::{
     ast::Block,
     engine::{CachedFile, EngineState, Stack, StateWorkingSet},
-    DeclId, ModuleId, Span, Value, VarId,
+    DeclId, ModuleId, Span, Type, Value, VarId,
 };
+use std::collections::BTreeMap;
 use std::{
     path::{Path, PathBuf},
     str::FromStr,
@@ -28,15 +26,18 @@ use std::{
 use symbols::SymbolCache;
 use url::Url;
 
+mod ast;
 mod diagnostics;
+mod goto;
+mod hints;
 mod notification;
 mod symbols;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Id {
     Variable(VarId),
     Declaration(DeclId),
-    Value(FlatShape),
+    Value(Type),
     Module(ModuleId),
 }
 
@@ -46,6 +47,7 @@ pub struct LanguageServer {
     docs: TextDocuments,
     engine_state: EngineState,
     symbol_cache: SymbolCache,
+    inlay_hints: BTreeMap<Uri, Vec<InlayHint>>,
 }
 
 pub fn path_to_uri(path: impl AsRef<Path>) -> Uri {
@@ -87,6 +89,7 @@ impl LanguageServer {
             docs: TextDocuments::new(),
             engine_state,
             symbol_cache: SymbolCache::new(),
+            inlay_hints: BTreeMap::new(),
         })
     }
 
@@ -100,10 +103,17 @@ impl LanguageServer {
             completion_provider: Some(lsp_types::CompletionOptions::default()),
             document_symbol_provider: Some(OneOf::Left(true)),
             workspace_symbol_provider: Some(OneOf::Left(true)),
+            inlay_hint_provider: Some(OneOf::Left(true)),
+            rename_provider: Some(OneOf::Right(RenameOptions {
+                prepare_provider: Some(true),
+                work_done_progress_options: WorkDoneProgressOptions {
+                    work_done_progress: Some(true),
+                },
+            })),
+            references_provider: Some(OneOf::Left(true)),
             ..Default::default()
         })
         .expect("Must be serializable");
-
         let _ = self
             .connection
             .initialize_while(server_capabilities, || {
@@ -135,22 +145,25 @@ impl LanguageServer {
                     }
 
                     let resp = match request.method.as_str() {
-                        GotoDefinition::METHOD => {
+                        request::GotoDefinition::METHOD => {
                             Self::handle_lsp_request(request, |params| self.goto_definition(params))
                         }
-                        HoverRequest::METHOD => {
+                        request::HoverRequest::METHOD => {
                             Self::handle_lsp_request(request, |params| self.hover(params))
                         }
-                        Completion::METHOD => {
+                        request::Completion::METHOD => {
                             Self::handle_lsp_request(request, |params| self.complete(params))
                         }
-                        DocumentSymbolRequest::METHOD => {
+                        request::DocumentSymbolRequest::METHOD => {
                             Self::handle_lsp_request(request, |params| self.document_symbol(params))
                         }
-                        WorkspaceSymbolRequest::METHOD => {
+                        request::WorkspaceSymbolRequest::METHOD => {
                             Self::handle_lsp_request(request, |params| {
                                 self.workspace_symbol(params)
                             })
+                        }
+                        request::InlayHintRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.get_inlay_hints(params))
                         }
                         _ => {
                             continue;
@@ -181,7 +194,8 @@ impl LanguageServer {
 
     pub fn new_engine_state(&self) -> EngineState {
         let mut engine_state = self.engine_state.clone();
-        engine_state.add_env_var("PWD".into(), Value::test_string("."));
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
         engine_state
     }
 
@@ -189,6 +203,7 @@ impl LanguageServer {
         &mut self,
         engine_state: &'a mut EngineState,
         uri: &Uri,
+        need_hints: bool,
     ) -> Option<(Arc<Block>, usize, StateWorkingSet<'a>, &FullTextDocument)> {
         let mut working_set = StateWorkingSet::new(engine_state);
         let file = self.docs.get_document(uri)?;
@@ -197,12 +212,14 @@ impl LanguageServer {
         let contents = file.get_content(None).as_bytes();
         let _ = working_set.files.push(file_path.clone(), Span::unknown());
         let block = parse(&mut working_set, Some(file_path_str), contents, false);
-        let offset = working_set
-            .get_span_for_filename(file_path_str)
-            .unwrap_or_else(|| panic!("Failed at get_span_for_filename {}", file_path_str))
-            .start;
+        let offset = working_set.get_span_for_filename(file_path_str)?.start;
         // TODO: merge delta back to engine_state?
         // self.engine_state.merge_delta(working_set.render());
+
+        if need_hints {
+            let file_inlay_hints = self.extract_inlay_hints(&working_set, &block, offset, file);
+            self.inlay_hints.insert(uri.clone(), file_inlay_hints);
+        }
         Some((block, offset, working_set, file))
     }
 
@@ -269,66 +286,6 @@ impl LanguageServer {
         }
     }
 
-    fn find_id(
-        flattened: Vec<(Span, FlatShape)>,
-        location: usize,
-        offset: usize,
-    ) -> Option<(Id, usize, Span)> {
-        let location = location + offset;
-
-        for (span, shape) in flattened {
-            if location >= span.start && location < span.end {
-                match &shape {
-                    FlatShape::Variable(var_id) | FlatShape::VarDecl(var_id) => {
-                        return Some((Id::Variable(*var_id), offset, span));
-                    }
-                    FlatShape::InternalCall(decl_id) | FlatShape::Custom(decl_id) => {
-                        return Some((Id::Declaration(*decl_id), offset, span));
-                    }
-                    _ => return Some((Id::Value(shape), offset, span)),
-                }
-            }
-        }
-        None
-    }
-
-    fn goto_definition(&mut self, params: &GotoDefinitionParams) -> Option<GotoDefinitionResponse> {
-        let mut engine_state = self.new_engine_state();
-
-        let path_uri = params
-            .text_document_position_params
-            .text_document
-            .uri
-            .to_owned();
-        let (block, file_offset, working_set, file) =
-            self.parse_file(&mut engine_state, &path_uri)?;
-        let flattened = flatten_block(&working_set, &block);
-        let (id, _, _) = Self::find_id(
-            flattened,
-            file.offset_at(params.text_document_position_params.position) as usize,
-            file_offset,
-        )?;
-
-        let span = match id {
-            Id::Declaration(decl_id) => {
-                let block_id = working_set.get_decl(decl_id).block_id()?;
-                working_set.get_block(block_id).span
-            }
-            Id::Variable(var_id) => {
-                let var = working_set.get_variable(var_id);
-                Some(var.declaration_span)
-            }
-            Id::Module(module_id) => {
-                let module = working_set.get_module(module_id);
-                module.span
-            }
-            _ => None,
-        }?;
-        Some(GotoDefinitionResponse::Scalar(
-            self.get_location_by_span(working_set.files(), &span)?,
-        ))
-    }
-
     fn hover(&mut self, params: &HoverParams) -> Option<Hover> {
         let mut engine_state = self.new_engine_state();
 
@@ -338,13 +295,10 @@ impl LanguageServer {
             .uri
             .to_owned();
         let (block, file_offset, working_set, file) =
-            self.parse_file(&mut engine_state, &path_uri)?;
-        let flattened = flatten_block(&working_set, &block);
-        let (id, _, _) = Self::find_id(
-            flattened,
-            file.offset_at(params.text_document_position_params.position) as usize,
-            file_offset,
-        )?;
+            self.parse_file(&mut engine_state, &path_uri, false)?;
+        let location =
+            file.offset_at(params.text_document_position_params.position) as usize + file_offset;
+        let id = find_id(&block, &working_set, &location)?;
 
         match id {
             Id::Variable(var_id) => {
@@ -371,7 +325,7 @@ impl LanguageServer {
                 }
 
                 // Usage
-                description.push_str("### Usage \n```nu\n");
+                description.push_str("-----\n### Usage \n```nu\n");
                 let signature = decl.signature();
                 description.push_str(&format!("  {}", signature.name));
                 if !signature.named.is_empty() {
@@ -506,37 +460,9 @@ impl LanguageServer {
                     range: None,
                 })
             }
-            Id::Value(shape) => {
-                let hover = String::from(match shape {
-                    FlatShape::Binary => "binary",
-                    FlatShape::Block => "block",
-                    FlatShape::Bool => "bool",
-                    FlatShape::Closure => "closure",
-                    FlatShape::DateTime => "datetime",
-                    FlatShape::Directory => "directory",
-                    FlatShape::External => "external",
-                    FlatShape::ExternalArg => "external arg",
-                    FlatShape::Filepath => "file path",
-                    FlatShape::Flag => "flag",
-                    FlatShape::Float => "float",
-                    FlatShape::GlobPattern => "glob pattern",
-                    FlatShape::Int => "int",
-                    FlatShape::Keyword => "keyword",
-                    FlatShape::List => "list",
-                    FlatShape::MatchPattern => "match-pattern",
-                    FlatShape::Nothing => "nothing",
-                    FlatShape::Range => "range",
-                    FlatShape::Record => "record",
-                    FlatShape::String => "string",
-                    FlatShape::StringInterpolation => "string interpolation",
-                    FlatShape::Table => "table",
-                    _ => {
-                        return None;
-                    }
-                });
-
+            Id::Value(t) => {
                 Some(Hover {
-                    contents: HoverContents::Scalar(lsp_types::MarkedString::String(hover)),
+                    contents: HoverContents::Scalar(lsp_types::MarkedString::String(t.to_string())),
                     // TODO
                     range: None,
                 })
@@ -608,13 +534,13 @@ mod tests {
         notification::{
             DidChangeTextDocument, DidOpenTextDocument, Exit, Initialized, Notification,
         },
-        request::{Completion, GotoDefinition, HoverRequest, Initialize, Request, Shutdown},
-        CompletionParams, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-        GotoDefinitionParams, InitializeParams, InitializedParams, PartialResultParams, Position,
-        TextDocumentContentChangeEvent, TextDocumentIdentifier, TextDocumentItem,
-        TextDocumentPositionParams, WorkDoneProgressParams,
+        request::{Completion, HoverRequest, Initialize, Request, Shutdown},
+        CompletionParams, DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams,
+        InitializedParams, PartialResultParams, Position, TextDocumentContentChangeEvent,
+        TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams,
+        WorkDoneProgressParams,
     };
-    use nu_test_support::fs::{fixtures, root};
+    use nu_test_support::fs::fixtures;
     use std::sync::mpsc::Receiver;
 
     pub fn initialize_language_server() -> (Connection, Receiver<Result<()>>) {
@@ -682,48 +608,6 @@ mod tests {
             .recv_timeout(std::time::Duration::from_secs(2))
             .unwrap()
             .is_ok());
-    }
-
-    #[test]
-    fn goto_definition_for_none_existing_file() {
-        let (client_connection, _recv) = initialize_language_server();
-
-        let mut none_existent_path = root();
-        none_existent_path.push("none-existent.nu");
-
-        client_connection
-            .sender
-            .send(Message::Request(lsp_server::Request {
-                id: 2.into(),
-                method: GotoDefinition::METHOD.to_string(),
-                params: serde_json::to_value(GotoDefinitionParams {
-                    text_document_position_params: TextDocumentPositionParams {
-                        text_document: TextDocumentIdentifier {
-                            uri: path_to_uri(&none_existent_path),
-                        },
-                        position: Position {
-                            line: 0,
-                            character: 0,
-                        },
-                    },
-                    work_done_progress_params: WorkDoneProgressParams::default(),
-                    partial_result_params: PartialResultParams::default(),
-                })
-                .unwrap(),
-            }))
-            .unwrap();
-
-        let resp = client_connection
-            .receiver
-            .recv_timeout(std::time::Duration::from_secs(2))
-            .unwrap();
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
-
-        assert_json_eq!(result, serde_json::json!(null));
     }
 
     pub fn open_unchecked(client_connection: &Connection, uri: Uri) -> lsp_server::Notification {
@@ -803,160 +687,12 @@ mod tests {
         }
     }
 
-    fn goto_definition(
+    pub fn send_hover_request(
         client_connection: &Connection,
         uri: Uri,
         line: u32,
         character: u32,
     ) -> Message {
-        client_connection
-            .sender
-            .send(Message::Request(lsp_server::Request {
-                id: 2.into(),
-                method: GotoDefinition::METHOD.to_string(),
-                params: serde_json::to_value(GotoDefinitionParams {
-                    text_document_position_params: TextDocumentPositionParams {
-                        text_document: TextDocumentIdentifier { uri },
-                        position: Position { line, character },
-                    },
-                    work_done_progress_params: WorkDoneProgressParams::default(),
-                    partial_result_params: PartialResultParams::default(),
-                })
-                .unwrap(),
-            }))
-            .unwrap();
-
-        client_connection
-            .receiver
-            .recv_timeout(std::time::Duration::from_secs(2))
-            .unwrap()
-    }
-
-    #[test]
-    fn goto_definition_of_variable() {
-        let (client_connection, _recv) = initialize_language_server();
-
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("goto");
-        script.push("var.nu");
-        let script = path_to_uri(&script);
-
-        open_unchecked(&client_connection, script.clone());
-
-        let resp = goto_definition(&client_connection, script.clone(), 2, 12);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
-
-        assert_json_eq!(
-            result,
-            serde_json::json!({
-                "uri": script,
-                "range": {
-                "start": { "line": 0, "character": 4 },
-                "end": { "line": 0, "character": 12 }
-            }
-            })
-        );
-    }
-
-    #[test]
-    fn goto_definition_of_command() {
-        let (client_connection, _recv) = initialize_language_server();
-
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("goto");
-        script.push("command.nu");
-        let script = path_to_uri(&script);
-
-        open_unchecked(&client_connection, script.clone());
-
-        let resp = goto_definition(&client_connection, script.clone(), 4, 1);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
-
-        assert_json_eq!(
-            result,
-            serde_json::json!({
-                "uri": script,
-                "range": {
-                "start": { "line": 0, "character": 17 },
-                "end": { "line": 2, "character": 1 }
-            }
-            })
-        );
-    }
-
-    #[test]
-    fn goto_definition_of_command_unicode() {
-        let (client_connection, _recv) = initialize_language_server();
-
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("goto");
-        script.push("command_unicode.nu");
-        let script = path_to_uri(&script);
-
-        open_unchecked(&client_connection, script.clone());
-
-        let resp = goto_definition(&client_connection, script.clone(), 4, 2);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
-
-        assert_json_eq!(
-            result,
-            serde_json::json!({
-                "uri": script,
-                "range": {
-                "start": { "line": 0, "character": 19 },
-                "end": { "line": 2, "character": 1 }
-            }
-            })
-        );
-    }
-
-    #[test]
-    fn goto_definition_of_command_parameter() {
-        let (client_connection, _recv) = initialize_language_server();
-
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("goto");
-        script.push("command.nu");
-        let script = path_to_uri(&script);
-
-        open_unchecked(&client_connection, script.clone());
-
-        let resp = goto_definition(&client_connection, script.clone(), 1, 14);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
-
-        assert_json_eq!(
-            result,
-            serde_json::json!({
-                "uri": script,
-                "range": {
-                "start": { "line": 0, "character": 11 },
-                "end": { "line": 0, "character": 15 }
-            }
-            })
-        );
-    }
-
-    pub fn hover(client_connection: &Connection, uri: Uri, line: u32, character: u32) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -991,7 +727,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = hover(&client_connection, script.clone(), 2, 0);
+        let resp = send_hover_request(&client_connection, script.clone(), 2, 0);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1018,7 +754,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = hover(&client_connection, script.clone(), 3, 0);
+        let resp = send_hover_request(&client_connection, script.clone(), 3, 0);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1030,7 +766,7 @@ mod tests {
             serde_json::json!({
                     "contents": {
                     "kind": "markdown",
-                    "value": "Renders some greeting message\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                    "value": "Renders some greeting message\n-----\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                 }
             })
         );
@@ -1048,7 +784,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = hover(&client_connection, script.clone(), 5, 8);
+        let resp = send_hover_request(&client_connection, script.clone(), 5, 8);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1060,13 +796,18 @@ mod tests {
             serde_json::json!({
                     "contents": {
                     "kind": "markdown",
-                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
+                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n-----\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
                 }
             })
         );
     }
 
-    fn complete(client_connection: &Connection, uri: Uri, line: u32, character: u32) -> Message {
+    fn send_complete_request(
+        client_connection: &Connection,
+        uri: Uri,
+        line: u32,
+        character: u32,
+    ) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -1103,7 +844,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = complete(&client_connection, script, 2, 9);
+        let resp = send_complete_request(&client_connection, script, 2, 9);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1140,7 +881,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = complete(&client_connection, script, 0, 8);
+        let resp = send_complete_request(&client_connection, script, 0, 8);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1178,7 +919,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = complete(&client_connection, script, 0, 13);
+        let resp = send_complete_request(&client_connection, script, 0, 13);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -1216,7 +957,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = complete(&client_connection, script, 0, 2);
+        let resp = send_complete_request(&client_connection, script, 0, 2);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
