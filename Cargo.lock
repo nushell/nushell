@@ -3962,10 +3962,10 @@ dependencies = [
  "nu-parser",
  "nu-protocol",
  "nu-test-support",
- "reedline",
  "serde",
  "serde_json",
  "url",
+ "wax",
 ]
 
 [[package]]

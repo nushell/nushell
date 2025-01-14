@@ -12,17 +12,16 @@ nu-cli = { path = "../nu-cli", version = "0.101.1" }
 nu-parser = { path = "../nu-parser", version = "0.101.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.101.1" }
 
-reedline = { workspace = true }
-
 crossbeam-channel = { workspace = true }
+fuzzy-matcher = { workspace = true }
 lsp-server = { workspace = true }
-lsp-types = { workspace = true }
 lsp-textdocument = { workspace = true }
+lsp-types = { workspace = true }
 miette = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 url = { workspace = true }
-fuzzy-matcher = { workspace = true }
+wax = { workspace = true }
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.101.1" }

@@ -3,12 +3,14 @@ use ast::find_id;
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
-    request, request::Request, CompletionItem, CompletionItemKind, CompletionParams,
-    CompletionResponse, CompletionTextEdit, Hover, HoverContents, HoverParams, InlayHint, Location,
-    MarkupContent, MarkupKind, OneOf, Range, RenameOptions, ServerCapabilities,
-    TextDocumentSyncKind, TextEdit, Uri, WorkDoneProgressOptions,
+    request::{self, Request},
+    CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
+    Hover, HoverContents, HoverParams, InlayHint, Location, MarkupContent, MarkupKind, OneOf,
+    Position, Range, ReferencesOptions, RenameOptions, ServerCapabilities, TextDocumentSyncKind,
+    TextEdit, Uri, WorkDoneProgressOptions, WorkspaceFolder, WorkspaceFoldersServerCapabilities,
+    WorkspaceServerCapabilities,
 };
-use miette::{IntoDiagnostic, Result};
+use miette::{miette, IntoDiagnostic, Result};
 use nu_cli::{NuCompleter, SuggestionKind};
 use nu_parser::parse;
 use nu_protocol::{
@@ -32,9 +34,10 @@ mod goto;
 mod hints;
 mod notification;
 mod symbols;
+mod workspace;
 
-#[derive(Debug, Clone)]
-enum Id {
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum Id {
     Variable(VarId),
     Declaration(DeclId),
     Value(Type),
@@ -48,6 +51,9 @@ pub struct LanguageServer {
     engine_state: EngineState,
     symbol_cache: SymbolCache,
     inlay_hints: BTreeMap<Uri, Vec<InlayHint>>,
+    workspace_folders: BTreeMap<String, WorkspaceFolder>,
+    // for workspace wide requests
+    occurrences: BTreeMap<Uri, Vec<Range>>,
 }
 
 pub fn path_to_uri(path: impl AsRef<Path>) -> Uri {
@@ -90,10 +96,15 @@ impl LanguageServer {
             engine_state,
             symbol_cache: SymbolCache::new(),
             inlay_hints: BTreeMap::new(),
+            workspace_folders: BTreeMap::new(),
+            occurrences: BTreeMap::new(),
         })
     }
 
     pub fn serve_requests(mut self) -> Result<()> {
+        let work_done_progress_options = WorkDoneProgressOptions {
+            work_done_progress: Some(true),
+        };
         let server_capabilities = serde_json::to_value(ServerCapabilities {
             text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Kind(
                 TextDocumentSyncKind::INCREMENTAL,
@@ -106,20 +117,28 @@ impl LanguageServer {
             inlay_hint_provider: Some(OneOf::Left(true)),
             rename_provider: Some(OneOf::Right(RenameOptions {
                 prepare_provider: Some(true),
-                work_done_progress_options: WorkDoneProgressOptions {
-                    work_done_progress: Some(true),
-                },
+                work_done_progress_options,
             })),
-            references_provider: Some(OneOf::Left(true)),
+            references_provider: Some(OneOf::Right(ReferencesOptions {
+                work_done_progress_options,
+            })),
+            workspace: Some(WorkspaceServerCapabilities {
+                workspace_folders: Some(WorkspaceFoldersServerCapabilities {
+                    supported: Some(true),
+                    change_notifications: Some(OneOf::Left(true)),
+                }),
+                ..Default::default()
+            }),
             ..Default::default()
         })
         .expect("Must be serializable");
-        let _ = self
+        let init_params = self
             .connection
             .initialize_while(server_capabilities, || {
                 !self.engine_state.signals().interrupted()
             })
             .into_diagnostic()?;
+        self.initialize_workspace_folders(init_params)?;
 
         while !self.engine_state.signals().interrupted() {
             let msg = match self
@@ -157,10 +176,23 @@ impl LanguageServer {
                         request::DocumentSymbolRequest::METHOD => {
                             Self::handle_lsp_request(request, |params| self.document_symbol(params))
                         }
+                        request::References::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.references(params))
+                        }
                         request::WorkspaceSymbolRequest::METHOD => {
                             Self::handle_lsp_request(request, |params| {
                                 self.workspace_symbol(params)
                             })
+                        }
+                        request::Rename::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.rename(params))
+                        }
+                        request::PrepareRenameRequest::METHOD => {
+                            let id = request.id.clone();
+                            if let Err(e) = self.prepare_rename(request) {
+                                self.send_error_message(id, 2, e.to_string())?
+                            }
+                            continue;
                         }
                         request::InlayHintRequest::METHOD => {
                             Self::handle_lsp_request(request, |params| self.get_inlay_hints(params))
@@ -199,6 +231,24 @@ impl LanguageServer {
         engine_state
     }
 
+    pub fn parse_and_find<'a>(
+        &mut self,
+        engine_state: &'a mut EngineState,
+        uri: &Uri,
+        pos: Position,
+    ) -> Result<(StateWorkingSet<'a>, Id, Span, usize, &FullTextDocument)> {
+        let (block, file_offset, mut working_set, file) = self
+            .parse_file(engine_state, uri, false)
+            .ok_or_else(|| miette!("\nFailed to parse current file"))?;
+
+        let location = file.offset_at(pos) as usize + file_offset;
+        let (id, span) = find_id(&block, &working_set, &location)
+            .ok_or_else(|| miette!("\nFailed to find current name"))?;
+        // add block to working_set for later references
+        working_set.add_block(block);
+        Ok((working_set, id, span, file_offset, file))
+    }
+
     pub fn parse_file<'a>(
         &mut self,
         engine_state: &'a mut EngineState,
@@ -231,7 +281,7 @@ impl LanguageServer {
         for cached_file in files.into_iter() {
             if cached_file.covered_span.contains(span.start) {
                 let path = Path::new(&*cached_file.name);
-                if !(path.exists() && path.is_file()) {
+                if !path.is_file() {
                     return None;
                 }
                 let target_uri = path_to_uri(path);
@@ -294,11 +344,13 @@ impl LanguageServer {
             .text_document
             .uri
             .to_owned();
-        let (block, file_offset, working_set, file) =
-            self.parse_file(&mut engine_state, &path_uri, false)?;
-        let location =
-            file.offset_at(params.text_document_position_params.position) as usize + file_offset;
-        let id = find_id(&block, &working_set, &location)?;
+        let (working_set, id, _, _, _) = self
+            .parse_and_find(
+                &mut engine_state,
+                &path_uri,
+                params.text_document_position_params.position,
+            )
+            .ok()?;
 
         match id {
             Id::Variable(var_id) => {
@@ -543,7 +595,9 @@ mod tests {
     use nu_test_support::fs::fixtures;
     use std::sync::mpsc::Receiver;
 
-    pub fn initialize_language_server() -> (Connection, Receiver<Result<()>>) {
+    pub fn initialize_language_server(
+        params: Option<InitializeParams>,
+    ) -> (Connection, Receiver<Result<()>>) {
         use std::sync::mpsc;
         let (client_connection, server_connection) = Connection::memory();
         let engine_state = nu_cmd_lang::create_default_context();
@@ -559,13 +613,7 @@ mod tests {
             .send(Message::Request(lsp_server::Request {
                 id: 1.into(),
                 method: Initialize::METHOD.to_string(),
-                params: serde_json::to_value(InitializeParams {
-                    capabilities: lsp_types::ClientCapabilities {
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .unwrap(),
+                params: serde_json::to_value(params.unwrap_or_default()).unwrap(),
             }))
             .unwrap();
         client_connection
@@ -586,7 +634,7 @@ mod tests {
 
     #[test]
     fn shutdown_on_request() {
-        let (client_connection, recv) = initialize_language_server();
+        let (client_connection, recv) = initialize_language_server(None);
 
         client_connection
             .sender
@@ -717,7 +765,7 @@ mod tests {
 
     #[test]
     fn hover_on_variable() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -744,7 +792,7 @@ mod tests {
 
     #[test]
     fn hover_on_custom_command() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -774,7 +822,7 @@ mod tests {
 
     #[test]
     fn hover_on_str_join() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -834,7 +882,7 @@ mod tests {
 
     #[test]
     fn complete_on_variable() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -871,7 +919,7 @@ mod tests {
 
     #[test]
     fn complete_command_with_space() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -909,7 +957,7 @@ mod tests {
 
     #[test]
     fn complete_command_with_line() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -947,7 +995,7 @@ mod tests {
 
     #[test]
     fn complete_keyword() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");

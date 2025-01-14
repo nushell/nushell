@@ -217,7 +217,7 @@ mod tests {
 
     #[test]
     fn inlay_hint_variable_type() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn inlay_hint_assignment_type() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn inlay_hint_parameter_names() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
