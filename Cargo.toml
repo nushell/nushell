@@ -164,7 +164,7 @@ trash = "5.2"
 umask = "2.1"
 unicode-segmentation = "1.12"
 unicode-width = "0.2"
-update-informer = { version = "1.2.0", features = ["github"] }
+update-informer = { version = "1.2.0", default-features = false, features = ["github", "native-tls", "ureq"] }
 ureq = { version = "2.12", default-features = false }
 url = "2.2"
 uu_cp = "0.0.28"
