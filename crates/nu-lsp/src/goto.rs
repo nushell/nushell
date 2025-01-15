@@ -1,8 +1,27 @@
-use crate::ast::find_id;
 use crate::{Id, LanguageServer};
 use lsp_types::{GotoDefinitionParams, GotoDefinitionResponse};
+use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::Span;
 
 impl LanguageServer {
+    pub fn find_definition_span_by_id(working_set: &StateWorkingSet, id: &Id) -> Option<Span> {
+        match id {
+            Id::Declaration(decl_id) => {
+                let block_id = working_set.get_decl(*decl_id).block_id()?;
+                working_set.get_block(block_id).span
+            }
+            Id::Variable(var_id) => {
+                let var = working_set.get_variable(*var_id);
+                Some(var.declaration_span)
+            }
+            Id::Module(module_id) => {
+                let module = working_set.get_module(*module_id);
+                module.span
+            }
+            _ => None,
+        }
+    }
+
     pub fn goto_definition(
         &mut self,
         params: &GotoDefinitionParams,
@@ -14,30 +33,18 @@ impl LanguageServer {
             .text_document
             .uri
             .to_owned();
-        let (block, file_offset, working_set, file) =
-            self.parse_file(&mut engine_state, &path_uri, false)?;
-        let location =
-            file.offset_at(params.text_document_position_params.position) as usize + file_offset;
-        let id = find_id(&block, &working_set, &location)?;
+        let (working_set, id, _, _, _) = self
+            .parse_and_find(
+                &mut engine_state,
+                &path_uri,
+                params.text_document_position_params.position,
+            )
+            .ok()?;
 
-        let span = match id {
-            Id::Declaration(decl_id) => {
-                let block_id = working_set.get_decl(decl_id).block_id()?;
-                working_set.get_block(block_id).span
-            }
-            Id::Variable(var_id) => {
-                let var = working_set.get_variable(var_id);
-                Some(var.declaration_span)
-            }
-            Id::Module(module_id) => {
-                let module = working_set.get_module(module_id);
-                module.span
-            }
-            _ => None,
-        }?;
-        Some(GotoDefinitionResponse::Scalar(
-            self.get_location_by_span(working_set.files(), &span)?,
-        ))
+        Some(GotoDefinitionResponse::Scalar(self.get_location_by_span(
+            working_set.files(),
+            &Self::find_definition_span_by_id(&working_set, &id)?,
+        )?))
     }
 }
 
@@ -85,7 +92,7 @@ mod tests {
 
     #[test]
     fn goto_definition_for_none_existing_file() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut none_existent_path = root();
         none_existent_path.push("none-existent.nu");
@@ -127,7 +134,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -158,7 +165,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_command() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -189,7 +196,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_command_unicode() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -220,7 +227,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_command_parameter() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -251,7 +258,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable_in_else_block() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -282,7 +289,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable_in_match_guard() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -313,7 +320,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable_in_each() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
