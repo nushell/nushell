@@ -48,7 +48,7 @@ hashbrown = { version = "0.14", features = ["rayon", "ahash", "serde", "raw"] }
 aws-config = { version = "1.5", features = ["sso"] }
 aws-credential-types = "1.2"
 tokio = { version = "1.43", features = ["full"] }
-object_store = { version = "0.10", default-features = false }
+object_store = { version = "0.11", default-features = false }
 url.workspace = true
 
 [dependencies.polars]
