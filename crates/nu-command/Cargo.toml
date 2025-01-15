@@ -196,6 +196,7 @@ mockito = { workspace = true, default-features = false }
 quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }
 rstest = { workspace = true, default-features = false }
+rstest_reuse = { workspace = true }
 pretty_assertions = { workspace = true }
 tempfile = { workspace = true }
 rand_chacha = { workspace = true }
