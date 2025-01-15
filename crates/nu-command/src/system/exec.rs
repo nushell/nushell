@@ -15,7 +15,7 @@ impl Command for Exec {
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .rest(
                 "command",
-                SyntaxShape::OneOf(vec![SyntaxShape::Any, SyntaxShape::GlobPattern]),
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Any]),
                 "External command to run, with arguments.",
             )
             .allows_unknown_args()
