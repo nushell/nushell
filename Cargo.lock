@@ -3960,6 +3960,7 @@ dependencies = [
  "nu-cmd-lang",
  "nu-command",
  "nu-parser",
+ "nu-path",
  "nu-protocol",
  "nu-test-support",
  "serde",

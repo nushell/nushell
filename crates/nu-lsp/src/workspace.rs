@@ -16,6 +16,7 @@ use lsp_types::{
     TextDocumentPositionParams, TextEdit, Uri, WorkspaceEdit, WorkspaceFolder,
 };
 use miette::{miette, IntoDiagnostic, Result};
+use nu_path::canonicalize_with;
 use nu_protocol::{engine::StateWorkingSet, Span};
 use serde_json::Value;
 
@@ -237,7 +238,8 @@ impl LanguageServer {
             return None;
         }
         let pattern = format!("{}/**/*.nu", path.to_string_lossy());
-        let (_, glob) = Glob::new(&pattern).ok()?.partition();
+        let (prefix, glob) = Glob::new(&pattern).ok()?.partition();
+        let path = canonicalize_with(&prefix, &path).ok()?;
         Some(
             glob.walk_with_behavior(
                 path,
