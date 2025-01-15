@@ -3959,14 +3959,13 @@ dependencies = [
  "nu-cli",
  "nu-cmd-lang",
  "nu-command",
+ "nu-glob",
  "nu-parser",
- "nu-path",
  "nu-protocol",
  "nu-test-support",
  "serde",
  "serde_json",
  "url",
- "wax",
 ]
 
 [[package]]

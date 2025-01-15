@@ -5,7 +5,6 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-use wax::{Glob, WalkBehavior};
 
 use crate::{
     ast::find_reference_by_id, path_to_uri, span_to_range, uri_to_path, Id, LanguageServer,
@@ -16,7 +15,7 @@ use lsp_types::{
     TextDocumentPositionParams, TextEdit, Uri, WorkspaceEdit, WorkspaceFolder,
 };
 use miette::{miette, IntoDiagnostic, Result};
-use nu_path::canonicalize_with;
+use nu_glob::{glob, Paths};
 use nu_protocol::{engine::StateWorkingSet, Span};
 use serde_json::Value;
 
@@ -154,8 +153,9 @@ impl LanguageServer {
         let current_workspace_folder = self
             .get_workspace_folder_by_uri(current_uri)
             .ok_or_else(|| miette!("\nCurrent file is not in any workspace"))?;
-        let scripts = Self::find_nu_scripts_in_folder(&current_workspace_folder.uri)
-            .ok_or_else(|| miette!("\nFailed to find nu scripts in workspace"))?;
+        let scripts: Vec<PathBuf> = Self::find_nu_scripts_in_folder(&current_workspace_folder.uri)?
+            .filter_map(|p| p.ok())
+            .collect();
         let len = scripts.len();
 
         self.send_progress_begin(token.clone(), message)?;
@@ -232,27 +232,13 @@ impl LanguageServer {
             .cloned()
     }
 
-    fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Option<Vec<PathBuf>> {
+    fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Result<Paths> {
         let path = uri_to_path(folder_uri);
         if !path.is_dir() {
-            return None;
+            return Err(miette!("\nworkspace folder does not exist."));
         }
         let pattern = format!("{}/**/*.nu", path.to_string_lossy());
-        let (prefix, glob) = Glob::new(&pattern).ok()?.partition();
-        let path = canonicalize_with(&prefix, &path).ok()?;
-        Some(
-            glob.walk_with_behavior(
-                path,
-                WalkBehavior {
-                    // NOTE: as the progress is not cancellable ATM,
-                    // hard coded the max depth allowed in case it's triggered by accident
-                    depth: 5,
-                    ..Default::default()
-                },
-            )
-            .filter_map(|e| Some(e.ok()?.path().to_path_buf()))
-            .collect(),
-        )
+        glob(&pattern).into_diagnostic()
     }
 }
 
