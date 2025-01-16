@@ -649,6 +649,26 @@ mod tests {
     }
 
     #[test]
+    fn takes_datetime() {
+        let timezone_option = Some(Spanned {
+            item: Zone::Local,
+            span: Span::test_data(),
+        });
+        let args = Arguments {
+            zone_options: timezone_option,
+            format_options: None,
+            cell_paths: None,
+        };
+        let expected = Value::date(
+            Local.timestamp_opt(1614434140, 0).unwrap().into(),
+            Span::test_data(),
+        );
+        let actual = action(&expected, &args, Span::test_data());
+
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
     fn takes_timestamp_without_timezone() {
         let date_str = Value::test_string("1614434140000000000");
         let args = Arguments {
