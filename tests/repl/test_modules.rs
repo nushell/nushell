@@ -187,3 +187,19 @@ fn test_lexical_binding() -> TestResult {
         "3",
     )
 }
+
+#[test]
+fn propagate_errors_in_export_env_on_use() -> TestResult {
+    fail_test(
+        r#"module foo { export-env { error make -u { msg: "error in export-env"} } }; use foo"#,
+        "error in export-env",
+    )
+}
+
+#[test]
+fn propagate_errors_in_export_env_when_run() -> TestResult {
+    fail_test(
+        r#"export-env { error make -u { msg: "error in export-env" } }"#,
+        "error in export-env",
+    )
+}
