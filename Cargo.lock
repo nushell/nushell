@@ -3952,7 +3952,6 @@ version = "0.101.1"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
- "fuzzy-matcher",
  "lsp-server",
  "lsp-textdocument",
  "lsp-types",
@@ -3964,6 +3963,7 @@ dependencies = [
  "nu-parser",
  "nu-protocol",
  "nu-test-support",
+ "nucleo-matcher",
  "serde",
  "serde_json",
  "url",
