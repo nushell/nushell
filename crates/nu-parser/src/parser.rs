@@ -4950,9 +4950,9 @@ pub fn parse_value(
             } else {
                 let shapes = [
                     SyntaxShape::Binary,
+                    SyntaxShape::Range,
                     SyntaxShape::Filesize,
                     SyntaxShape::Duration,
-                    SyntaxShape::Range,
                     SyntaxShape::DateTime,
                     SyntaxShape::Int,
                     SyntaxShape::Number,
