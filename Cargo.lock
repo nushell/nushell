@@ -3666,7 +3666,6 @@ dependencies = [
  "chrono",
  "crossterm 0.28.1",
  "fancy-regex",
- "fuzzy-matcher",
  "is_executable",
  "log",
  "lscolors",
@@ -3684,6 +3683,7 @@ dependencies = [
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
+ "nucleo-matcher",
  "percent-encoding",
  "reedline",
  "rstest",
@@ -3952,7 +3952,6 @@ version = "0.101.1"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
- "fuzzy-matcher",
  "lsp-server",
  "lsp-textdocument",
  "lsp-types",
@@ -3964,6 +3963,7 @@ dependencies = [
  "nu-parser",
  "nu-protocol",
  "nu-test-support",
+ "nucleo-matcher",
  "serde",
  "serde_json",
  "url",
@@ -4316,6 +4316,16 @@ dependencies = [
  "interprocess",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "nucleo-matcher"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf33f538733d1a5a3494b836ba913207f14d9d4a1d3cd67030c5061bdd2cac85"
+dependencies = [
+ "memchr",
+ "unicode-segmentation",
 ]
 
 [[package]]
