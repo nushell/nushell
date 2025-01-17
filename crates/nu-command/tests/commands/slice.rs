@@ -4,7 +4,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn selects_a_row() {
-    Playground::setup("range_test_1", |dirs, sandbox| {
+    Playground::setup("slice_test_1", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("notes.txt"), EmptyFile("tests.txt")]);
 
         let actual = nu!(
@@ -12,7 +12,7 @@ fn selects_a_row() {
             "
                 ls
                 | sort-by name
-                | range 0..0
+                | slice 0..0
                 | get name.0
             "
         ));
@@ -23,7 +23,7 @@ fn selects_a_row() {
 
 #[test]
 fn selects_some_rows() {
-    Playground::setup("range_test_2", |dirs, sandbox| {
+    Playground::setup("slice_test_2", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("notes.txt"),
             EmptyFile("tests.txt"),
@@ -35,7 +35,7 @@ fn selects_some_rows() {
             "
                 ls
                 | get name
-                | range 1..2
+                | slice 1..2
                 | length
             "
         ));
@@ -46,7 +46,7 @@ fn selects_some_rows() {
 
 #[test]
 fn negative_indices() {
-    Playground::setup("range_test_negative_indices", |dirs, sandbox| {
+    Playground::setup("slice_test_negative_indices", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("notes.txt"),
             EmptyFile("tests.txt"),
@@ -58,7 +58,7 @@ fn negative_indices() {
             "
                 ls
                 | get name
-                | range (-1..)
+                | slice (-1..)
                 | length
             "
         ));
