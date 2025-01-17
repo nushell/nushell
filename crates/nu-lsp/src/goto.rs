@@ -33,7 +33,7 @@ impl LanguageServer {
             .text_document
             .uri
             .to_owned();
-        let (working_set, id, _, _, _) = self
+        let (working_set, id, _, _) = self
             .parse_and_find(
                 &mut engine_state,
                 &path_uri,
