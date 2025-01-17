@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 use ast::find_id;
+use crossbeam_channel::{Receiver, Sender};
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
@@ -18,7 +19,7 @@ use nu_protocol::{
     engine::{CachedFile, EngineState, Stack, StateWorkingSet},
     DeclId, ModuleId, Span, Type, Value, VarId,
 };
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Mutex};
 use std::{
     path::{Path, PathBuf},
     str::FromStr,
@@ -27,6 +28,7 @@ use std::{
 };
 use symbols::SymbolCache;
 use url::Url;
+use workspace::{InternalMessage, RangePerDoc};
 
 mod ast;
 mod diagnostics;
@@ -47,13 +49,14 @@ pub enum Id {
 pub struct LanguageServer {
     connection: Connection,
     io_threads: Option<IoThreads>,
-    docs: TextDocuments,
+    docs: Arc<Mutex<TextDocuments>>,
     engine_state: EngineState,
     symbol_cache: SymbolCache,
     inlay_hints: BTreeMap<Uri, Vec<InlayHint>>,
     workspace_folders: BTreeMap<String, WorkspaceFolder>,
     // for workspace wide requests
     occurrences: BTreeMap<Uri, Vec<Range>>,
+    channels: Option<(Sender<bool>, Arc<Receiver<InternalMessage>>)>,
 }
 
 pub fn path_to_uri(path: impl AsRef<Path>) -> Uri {
@@ -92,12 +95,13 @@ impl LanguageServer {
         Ok(Self {
             connection,
             io_threads,
-            docs: TextDocuments::new(),
+            docs: Arc::new(Mutex::new(TextDocuments::new())),
             engine_state,
             symbol_cache: SymbolCache::new(),
             inlay_hints: BTreeMap::new(),
             workspace_folders: BTreeMap::new(),
             occurrences: BTreeMap::new(),
+            channels: None,
         })
     }
 
@@ -141,12 +145,19 @@ impl LanguageServer {
         self.initialize_workspace_folders(init_params)?;
 
         while !self.engine_state.signals().interrupted() {
+            // first check new messages from child thread
+            self.handle_internal_messages()?;
+
             let msg = match self
                 .connection
                 .receiver
                 .recv_timeout(Duration::from_secs(1))
             {
-                Ok(msg) => msg,
+                Ok(msg) => {
+                    // cancel execution if other messages received before job done
+                    self.cancel_background_thread();
+                    msg
+                }
                 Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
                     continue;
                 }
@@ -177,7 +188,9 @@ impl LanguageServer {
                             Self::handle_lsp_request(request, |params| self.document_symbol(params))
                         }
                         request::References::METHOD => {
-                            Self::handle_lsp_request(request, |params| self.references(params))
+                            Self::handle_lsp_request(request, |params| {
+                                self.references(params, 5000)
+                            })
                         }
                         request::WorkspaceSymbolRequest::METHOD => {
                             Self::handle_lsp_request(request, |params| {
@@ -224,6 +237,42 @@ impl LanguageServer {
         Ok(())
     }
 
+    /// Send a cancel message to a running bg thread
+    pub fn cancel_background_thread(&mut self) {
+        if let Some((sender, _)) = &self.channels {
+            sender.send(true).ok();
+        }
+    }
+
+    /// Check results from background thread
+    pub fn handle_internal_messages(&mut self) -> Result<bool> {
+        let mut reset = false;
+        if let Some((_, receiver)) = &self.channels {
+            for im in receiver.try_iter() {
+                match im {
+                    InternalMessage::RangeMessage(RangePerDoc { uri, ranges }) => {
+                        self.occurrences.insert(uri, ranges);
+                    }
+                    InternalMessage::OnGoing(token, progress) => {
+                        self.send_progress_report(token, progress, None)?;
+                    }
+                    InternalMessage::Finished(token) => {
+                        reset = true;
+                        self.send_progress_end(token, Some("Finished.".to_string()))?;
+                    }
+                    InternalMessage::Cancelled(token) => {
+                        reset = true;
+                        self.send_progress_end(token, Some("interrupted.".to_string()))?;
+                    }
+                }
+            }
+        }
+        if reset {
+            self.channels = None;
+        }
+        Ok(reset)
+    }
+
     pub fn new_engine_state(&self) -> EngineState {
         let mut engine_state = self.engine_state.clone();
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
@@ -236,17 +285,24 @@ impl LanguageServer {
         engine_state: &'a mut EngineState,
         uri: &Uri,
         pos: Position,
-    ) -> Result<(StateWorkingSet<'a>, Id, Span, usize, &FullTextDocument)> {
-        let (block, file_offset, mut working_set, file) = self
+    ) -> Result<(StateWorkingSet<'a>, Id, Span, usize)> {
+        let (block, file_offset, mut working_set) = self
             .parse_file(engine_state, uri, false)
             .ok_or_else(|| miette!("\nFailed to parse current file"))?;
 
+        let docs = match self.docs.lock() {
+            Ok(it) => it,
+            Err(err) => return Err(miette!(err.to_string())),
+        };
+        let file = docs
+            .get_document(uri)
+            .ok_or_else(|| miette!("\nFailed to get document"))?;
         let location = file.offset_at(pos) as usize + file_offset;
         let (id, span) = find_id(&block, &working_set, &location)
             .ok_or_else(|| miette!("\nFailed to find current name"))?;
         // add block to working_set for later references
         working_set.add_block(block);
-        Ok((working_set, id, span, file_offset, file))
+        Ok((working_set, id, span, file_offset))
     }
 
     pub fn parse_file<'a>(
@@ -254,9 +310,10 @@ impl LanguageServer {
         engine_state: &'a mut EngineState,
         uri: &Uri,
         need_hints: bool,
-    ) -> Option<(Arc<Block>, usize, StateWorkingSet<'a>, &FullTextDocument)> {
+    ) -> Option<(Arc<Block>, usize, StateWorkingSet<'a>)> {
         let mut working_set = StateWorkingSet::new(engine_state);
-        let file = self.docs.get_document(uri)?;
+        let docs = self.docs.lock().ok()?;
+        let file = docs.get_document(uri)?;
         let file_path = uri_to_path(uri);
         let file_path_str = file_path.to_str()?;
         let contents = file.get_content(None).as_bytes();
@@ -270,7 +327,7 @@ impl LanguageServer {
             let file_inlay_hints = self.extract_inlay_hints(&working_set, &block, offset, file);
             self.inlay_hints.insert(uri.clone(), file_inlay_hints);
         }
-        Some((block, offset, working_set, file))
+        Some((block, offset, working_set))
     }
 
     fn get_location_by_span<'a>(
@@ -285,10 +342,10 @@ impl LanguageServer {
                     return None;
                 }
                 let target_uri = path_to_uri(path);
-                if let Some(doc) = self.docs.get_document(&target_uri) {
+                if let Some(file) = self.docs.lock().ok()?.get_document(&target_uri) {
                     return Some(Location {
                         uri: target_uri,
-                        range: span_to_range(span, doc, cached_file.covered_span.start),
+                        range: span_to_range(span, file, cached_file.covered_span.start),
                     });
                 } else {
                     // in case where the document is not opened yet, typically included by `nu -I`
@@ -344,7 +401,7 @@ impl LanguageServer {
             .text_document
             .uri
             .to_owned();
-        let (working_set, id, _, _, _) = self
+        let (working_set, id, _, _) = self
             .parse_and_find(
                 &mut engine_state,
                 &path_uri,
@@ -525,7 +582,8 @@ impl LanguageServer {
 
     fn complete(&mut self, params: &CompletionParams) -> Option<CompletionResponse> {
         let path_uri = params.text_document_position.text_document.uri.to_owned();
-        let file = self.docs.get_document(&path_uri)?;
+        let docs = self.docs.lock().ok()?;
+        let file = docs.get_document(&path_uri)?;
 
         let mut completer =
             NuCompleter::new(Arc::new(self.engine_state.clone()), Arc::new(Stack::new()));

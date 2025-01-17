@@ -4,11 +4,13 @@ use std::{
     collections::{BTreeMap, HashMap},
     fs,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use crate::{
     ast::find_reference_by_id, path_to_uri, span_to_range, uri_to_path, Id, LanguageServer,
 };
+use crossbeam_channel::{Receiver, Sender};
 use lsp_server::{Message, Request, Response};
 use lsp_types::{
     Location, PrepareRenameResponse, ProgressToken, Range, ReferenceParams, RenameParams,
@@ -16,8 +18,74 @@ use lsp_types::{
 };
 use miette::{miette, IntoDiagnostic, Result};
 use nu_glob::{glob, Paths};
-use nu_protocol::{engine::StateWorkingSet, Span};
+use nu_protocol::{
+    engine::{EngineState, StateWorkingSet},
+    Span,
+};
 use serde_json::Value;
+
+/// Message type indicating ranges of interest in each doc
+#[derive(Debug)]
+pub struct RangePerDoc {
+    pub uri: Uri,
+    pub ranges: Vec<Range>,
+}
+
+/// Message sent from background thread to main
+#[derive(Debug)]
+pub enum InternalMessage {
+    RangeMessage(RangePerDoc),
+    Cancelled(ProgressToken),
+    Finished(ProgressToken),
+    OnGoing(ProgressToken, u32),
+}
+
+fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Result<Paths> {
+    let path = uri_to_path(folder_uri);
+    if !path.is_dir() {
+        return Err(miette!("\nworkspace folder does not exist."));
+    }
+    let pattern = format!("{}/**/*.nu", path.to_string_lossy());
+    glob(&pattern).into_diagnostic()
+}
+
+fn find_reference_in_file(
+    working_set: &mut StateWorkingSet,
+    file: &FullTextDocument,
+    fp: &Path,
+    id: &Id,
+) -> Option<Vec<Range>> {
+    let fp_str = fp.to_str()?;
+    let block = parse(
+        working_set,
+        Some(fp_str),
+        file.get_content(None).as_bytes(),
+        false,
+    );
+    let file_span = working_set.get_span_for_filename(fp_str)?;
+    let offset = file_span.start;
+    let mut references: Vec<Span> = find_reference_by_id(&block, working_set, id);
+
+    // NOTE: for arguments whose declaration is in a signature
+    // which is not covered in the AST
+    if let Id::Variable(vid) = id {
+        let decl_span = working_set.get_variable(*vid).declaration_span;
+        if file_span.contains_span(decl_span)
+            && decl_span.end > decl_span.start
+            && !references.contains(&decl_span)
+        {
+            references.push(decl_span);
+        }
+    }
+    let occurs: Vec<Range> = references
+        .iter()
+        .map(|span| span_to_range(span, file, offset))
+        .collect();
+
+    // add_block to avoid repeated parsing
+    working_set.add_block(block);
+    (!occurs.is_empty()).then_some(occurs)
+}
 
 impl LanguageServer {
     /// get initial workspace folders from initialization response
@@ -32,6 +100,8 @@ impl LanguageServer {
         Ok(())
     }
 
+    /// The rename request only happens after the client received a `PrepareRenameResponse`,
+    /// and a new name typed in, could happen before ranges ready for all files in the workspace folder
     pub fn rename(&mut self, params: &RenameParams) -> Option<WorkspaceEdit> {
         let new_name = params.new_name.to_owned();
         // changes in WorkspaceEdit have mutable key
@@ -59,31 +129,55 @@ impl LanguageServer {
     }
 
     /// Goto references response
-    /// TODO: WorkDoneProgress -> PartialResults
-    pub fn references(&mut self, params: &ReferenceParams) -> Option<Vec<Location>> {
+    /// # Arguments
+    /// - `timeout`: timeout in milliseconds, when timeout
+    ///    1. Respond with all ranges found so far
+    ///    2. Cancel the background thread
+    pub fn references(&mut self, params: &ReferenceParams, timeout: u128) -> Option<Vec<Location>> {
         self.occurrences = BTreeMap::new();
         let mut engine_state = self.new_engine_state();
         let path_uri = params.text_document_position.text_document.uri.to_owned();
-        let (mut working_set, id, span, _, _) = self
+        let (working_set, id, span, _) = self
             .parse_and_find(
                 &mut engine_state,
                 &path_uri,
                 params.text_document_position.position,
             )
             .ok()?;
-        self.find_reference_in_workspace(
-            &mut working_set,
-            &path_uri,
-            id,
-            span,
-            params
-                .work_done_progress_params
-                .work_done_token
-                .to_owned()
-                .unwrap_or(ProgressToken::Number(1)),
-            "Finding references ...",
-        )
-        .ok()?;
+        // have to clone it again in order to move to another thread
+        let mut engine_state = self.new_engine_state();
+        engine_state.merge_delta(working_set.render()).ok()?;
+        let current_workspace_folder = self.get_workspace_folder_by_uri(&path_uri)?;
+        let token = params
+            .work_done_progress_params
+            .work_done_token
+            .to_owned()
+            .unwrap_or(ProgressToken::Number(1));
+        self.channels = self
+            .find_reference_in_workspace(
+                engine_state,
+                current_workspace_folder,
+                id,
+                span,
+                token.clone(),
+                "Finding references ...".to_string(),
+            )
+            .ok();
+        // TODO: WorkDoneProgress -> PartialResults for quicker response
+        // currently not enabled by `lsp_types` but hackable in `server_capabilities` json
+        let time_start = std::time::Instant::now();
+        loop {
+            if self.handle_internal_messages().ok()? {
+                break;
+            }
+            if time_start.elapsed().as_millis() > timeout {
+                self.send_progress_end(token, Some("Timeout".to_string()))
+                    .ok()?;
+                self.cancel_background_thread();
+                self.channels = None;
+                break;
+            }
+        }
         Some(
             self.occurrences
                 .iter()
@@ -108,7 +202,7 @@ impl LanguageServer {
         let mut engine_state = self.new_engine_state();
         let path_uri = params.text_document.uri.to_owned();
 
-        let (mut working_set, id, span, file_offset, file) =
+        let (working_set, id, span, file_offset) =
             self.parse_and_find(&mut engine_state, &path_uri, params.position)?;
 
         if let Id::Value(_) = id {
@@ -119,6 +213,14 @@ impl LanguageServer {
                 "\nDefinition not found.\nNot allowed to rename built-ins."
             ));
         }
+
+        let docs = match self.docs.lock() {
+            Ok(it) => it,
+            Err(err) => return Err(miette!(err.to_string())),
+        };
+        let file = docs
+            .get_document(&path_uri)
+            .ok_or_else(|| miette!("\nFailed to get document"))?;
         let range = span_to_range(&span, file, file_offset);
         let response = PrepareRenameResponse::Range(range);
         self.connection
@@ -130,94 +232,112 @@ impl LanguageServer {
             }))
             .into_diagnostic()?;
 
+        // have to clone it again in order to move to another thread
+        let mut engine_state = self.new_engine_state();
+        engine_state
+            .merge_delta(working_set.render())
+            .into_diagnostic()?;
+        let current_workspace_folder = self
+            .get_workspace_folder_by_uri(&path_uri)
+            .ok_or_else(|| miette!("\nCurrent file is not in any workspace"))?;
         // now continue parsing on other files in the workspace
-        self.find_reference_in_workspace(
-            &mut working_set,
-            &path_uri,
-            id,
-            span,
-            ProgressToken::Number(0),
-            "Preparing rename ...",
-        )
+        self.channels = self
+            .find_reference_in_workspace(
+                engine_state,
+                current_workspace_folder,
+                id,
+                span,
+                ProgressToken::Number(0),
+                "Preparing rename ...".to_string(),
+            )
+            .ok();
+        Ok(())
     }
 
     fn find_reference_in_workspace(
-        &mut self,
-        working_set: &mut StateWorkingSet,
-        current_uri: &Uri,
+        &self,
+        engine_state: EngineState,
+        current_workspace_folder: WorkspaceFolder,
         id: Id,
         span: Span,
         token: ProgressToken,
-        message: &str,
-    ) -> Result<()> {
-        let current_workspace_folder = self
-            .get_workspace_folder_by_uri(current_uri)
-            .ok_or_else(|| miette!("\nCurrent file is not in any workspace"))?;
-        let scripts: Vec<PathBuf> = Self::find_nu_scripts_in_folder(&current_workspace_folder.uri)?
-            .filter_map(|p| p.ok())
-            .collect();
-        let len = scripts.len();
-
+        message: String,
+    ) -> Result<(Sender<bool>, Arc<Receiver<InternalMessage>>)> {
+        let (data_sender, data_receiver) = crossbeam_channel::unbounded::<InternalMessage>();
+        let (cancel_sender, cancel_receiver) = crossbeam_channel::bounded::<bool>(1);
+        let engine_state = Arc::new(engine_state);
+        let docs = self.docs.clone();
         self.send_progress_begin(token.clone(), message)?;
-        for (i, fp) in scripts.iter().enumerate() {
-            let uri = path_to_uri(fp);
-            if let Some(file) = self.docs.get_document(&uri) {
-                Self::find_reference_in_file(working_set, file, fp, &id)
-            } else {
-                let bytes = fs::read(fp).into_diagnostic()?;
-                // skip if the file does not contain what we're looking for
-                let content_string = String::from_utf8(bytes).into_diagnostic()?;
-                let text_to_search =
-                    String::from_utf8(working_set.get_span_contents(span).to_vec())
-                        .into_diagnostic()?;
-                if !content_string.contains(&text_to_search) {
-                    continue;
+
+        std::thread::spawn(move || -> Result<()> {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            let scripts: Vec<PathBuf> =
+                match find_nu_scripts_in_folder(&current_workspace_folder.uri) {
+                    Ok(it) => it,
+                    Err(_) => {
+                        data_sender
+                            .send(InternalMessage::Cancelled(token.clone()))
+                            .ok();
+                        return Ok(());
+                    }
                 }
-                let temp_file = FullTextDocument::new("nu".to_string(), 0, content_string);
-                Self::find_reference_in_file(working_set, &temp_file, fp, &id)
+                .filter_map(|p| p.ok())
+                .collect();
+            let len = scripts.len();
+
+            for (i, fp) in scripts.iter().enumerate() {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                // cancel the loop on cancellation message from main thread
+                if cancel_receiver.try_recv().is_ok() {
+                    data_sender
+                        .send(InternalMessage::Cancelled(token.clone()))
+                        .into_diagnostic()?;
+                    return Ok(());
+                }
+                let percentage = (i * 100 / len) as u32;
+                let uri = path_to_uri(fp);
+                let docs = match docs.lock() {
+                    Ok(it) => it,
+                    Err(err) => return Err(miette!(err.to_string())),
+                };
+                let file = if let Some(file) = docs.get_document(&uri) {
+                    file
+                } else {
+                    let bytes = match fs::read(fp) {
+                        Ok(it) => it,
+                        Err(_) => {
+                            // continue on fs error
+                            continue;
+                        }
+                    };
+                    // skip if the file does not contain what we're looking for
+                    let content_string = String::from_utf8_lossy(&bytes);
+                    let text_to_search =
+                        String::from_utf8_lossy(working_set.get_span_contents(span));
+                    if !content_string.contains(text_to_search.as_ref()) {
+                        // progress without any data
+                        data_sender
+                            .send(InternalMessage::OnGoing(token.clone(), percentage))
+                            .into_diagnostic()?;
+                        continue;
+                    }
+                    &FullTextDocument::new("nu".to_string(), 0, content_string.into())
+                };
+                let _ = find_reference_in_file(&mut working_set, file, fp, &id).map(|ranges| {
+                    data_sender
+                        .send(InternalMessage::RangeMessage(RangePerDoc { uri, ranges }))
+                        .ok();
+                    data_sender
+                        .send(InternalMessage::OnGoing(token.clone(), percentage))
+                        .ok();
+                });
             }
-            .and_then(|range| self.occurrences.insert(uri, range));
-            self.send_progress_report(token.clone(), (i * 100 / len) as u32, None)?
-        }
-        self.send_progress_end(token.clone(), Some("Done".to_string()))
-    }
-
-    fn find_reference_in_file(
-        working_set: &mut StateWorkingSet,
-        file: &FullTextDocument,
-        fp: &Path,
-        id: &Id,
-    ) -> Option<Vec<Range>> {
-        let fp_str = fp.to_str()?;
-        let block = parse(
-            working_set,
-            Some(fp_str),
-            file.get_content(None).as_bytes(),
-            false,
-        );
-        let file_span = working_set.get_span_for_filename(fp_str)?;
-        let offset = file_span.start;
-        let mut references: Vec<Span> = find_reference_by_id(&block, working_set, id);
-
-        // NOTE: for arguments whose declaration is in a signature
-        // which is not covered in the AST
-        if let Id::Variable(vid) = id {
-            let decl_span = working_set.get_variable(*vid).declaration_span;
-            if file_span.contains_span(decl_span)
-                && decl_span.end > decl_span.start
-                && !references.contains(&decl_span)
-            {
-                references.push(decl_span);
-            }
-        }
-        let occurs: Vec<Range> = references
-            .iter()
-            .map(|span| span_to_range(span, file, offset))
-            .collect();
-
-        // add_block to avoid repeated parsing
-        working_set.add_block(block);
-        (!occurs.is_empty()).then_some(occurs)
+            data_sender
+                .send(InternalMessage::Finished(token.clone()))
+                .into_diagnostic()?;
+            Ok(())
+        });
+        Ok((cancel_sender, Arc::new(data_receiver)))
     }
 
     fn get_workspace_folder_by_uri(&self, uri: &Uri) -> Option<WorkspaceFolder> {
@@ -230,15 +350,6 @@ impl LanguageServer {
                     .then_some(folder)
             })
             .cloned()
-    }
-
-    fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Result<Paths> {
-        let path = uri_to_path(folder_uri);
-        if !path.is_dir() {
-            return Err(miette!("\nworkspace folder does not exist."));
-        }
-        let pattern = format!("{}/**/*.nu", path.to_string_lossy());
-        glob(&pattern).into_diagnostic()
     }
 }
 
@@ -525,7 +636,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let message_num = 4;
+        let message_num = 5;
         let messages =
             send_rename_prepare_request(&client_connection, script.clone(), 3, 5, message_num);
         assert_eq!(messages.len(), message_num);

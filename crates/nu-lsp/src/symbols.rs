@@ -263,7 +263,8 @@ impl LanguageServer {
     ) -> Option<DocumentSymbolResponse> {
         let engine_state = self.new_engine_state();
         let uri = params.text_document.uri.to_owned();
-        self.symbol_cache.update(&uri, &engine_state, &self.docs);
+        let docs = self.docs.lock().ok()?;
+        self.symbol_cache.update(&uri, &engine_state, &docs);
         Some(DocumentSymbolResponse::Flat(
             self.symbol_cache.get_symbols_by_uri(&uri)?,
         ))
@@ -275,7 +276,8 @@ impl LanguageServer {
     ) -> Option<WorkspaceSymbolResponse> {
         if self.symbol_cache.any_dirty() {
             let engine_state = self.new_engine_state();
-            self.symbol_cache.update_all(&engine_state, &self.docs);
+            let docs = self.docs.lock().ok()?;
+            self.symbol_cache.update_all(&engine_state, &docs);
         }
         Some(WorkspaceSymbolResponse::Flat(
             self.symbol_cache

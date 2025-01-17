@@ -17,8 +17,8 @@ impl LanguageServer {
         &mut self,
         notification: lsp_server::Notification,
     ) -> Option<Uri> {
-        self.docs
-            .listen(notification.method.as_str(), &notification.params);
+        let mut docs = self.docs.lock().ok()?;
+        docs.listen(notification.method.as_str(), &notification.params);
         match notification.method.as_str() {
             DidOpenTextDocument::METHOD => {
                 let params: DidOpenTextDocumentParams =
@@ -57,7 +57,7 @@ impl LanguageServer {
         }
     }
 
-    fn send_progress_notification(
+    pub fn send_progress_notification(
         &self,
         token: ProgressToken,
         value: WorkDoneProgress,
@@ -74,12 +74,13 @@ impl LanguageServer {
             .into_diagnostic()
     }
 
-    pub fn send_progress_begin(&self, token: ProgressToken, title: &str) -> Result<()> {
+    pub fn send_progress_begin(&self, token: ProgressToken, title: String) -> Result<()> {
         self.send_progress_notification(
             token,
             WorkDoneProgress::Begin(WorkDoneProgressBegin {
-                title: title.to_string(),
+                title,
                 percentage: Some(0),
+                cancellable: Some(true),
                 ..Default::default()
             }),
         )
@@ -95,8 +96,8 @@ impl LanguageServer {
             token,
             WorkDoneProgress::Report(WorkDoneProgressReport {
                 message,
+                cancellable: Some(true),
                 percentage: Some(percentage),
-                ..Default::default()
             }),
         )
     }
