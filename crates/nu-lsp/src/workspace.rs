@@ -286,7 +286,7 @@ impl LanguageServer {
             let len = scripts.len();
 
             for (i, fp) in scripts.iter().enumerate() {
-                std::thread::sleep(std::time::Duration::from_millis(500));
+                // std::thread::sleep(std::time::Duration::from_millis(500));
                 // cancel the loop on cancellation message from main thread
                 if cancel_receiver.try_recv().is_ok() {
                     data_sender
