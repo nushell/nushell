@@ -113,7 +113,7 @@ impl Completer for OperatorCompletion {
                         "Concatenates two lists, two strings, or two binary values",
                     ),
                     ("has", "Contains a value of (doesn't use regex)"),
-                    ("not-has", "Contains a value of (doesn't use regex)"),
+                    ("not-has", "Does not contain a value of (doesn't use regex)"),
                 ],
                 Expr::Var(id) => get_variable_completions(id, working_set),
                 _ => vec![],
