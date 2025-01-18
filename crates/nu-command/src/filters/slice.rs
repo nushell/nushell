@@ -72,8 +72,8 @@ impl Command for Slice {
             Range::IntRange(range) => {
                 let start = range.start();
                 let end = match range.end() {
-                    Bound::Included(end) => end,
-                    Bound::Excluded(end) => end - 1,
+                    Bound::Included(end) => end + 1,
+                    Bound::Excluded(end) => end,
                     Bound::Unbounded => {
                         if range.step() < 0 {
                             i64::MIN
@@ -105,7 +105,7 @@ impl Command for Slice {
                     if from > to {
                         Ok(PipelineData::Value(Value::nothing(head), None))
                     } else {
-                        let iter = v.into_iter().skip(from).take(to - from + 1);
+                        let iter = v.into_iter().skip(from).take(to - from);
                         Ok(iter.into_pipeline_data(head, engine_state.signals().clone()))
                     }
                 } else {
@@ -115,7 +115,7 @@ impl Command for Slice {
                     if from > to {
                         Ok(PipelineData::Value(Value::nothing(head), None))
                     } else {
-                        let iter = input.into_iter().skip(from).take(to - from + 1);
+                        let iter = input.into_iter().skip(from).take(to - from);
                         Ok(iter.into_pipeline_data(head, engine_state.signals().clone()))
                     }
                 }
