@@ -5,9 +5,11 @@ use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display};
 
 mod int_range {
-    use crate::{ast::RangeInclusion, ShellError, Signals, Span, Value};
+    use crate::{ast::RangeInclusion, FromValue, ShellError, Signals, Span, Value};
     use serde::{Deserialize, Serialize};
     use std::{cmp::Ordering, fmt::Display, ops::Bound};
+
+    use super::Range;
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct IntRange {
@@ -242,6 +244,20 @@ mod int_range {
                 Bound::Included(end) => write!(f, "{end}"),
                 Bound::Excluded(end) => write!(f, "<{end}"),
                 Bound::Unbounded => Ok(()),
+            }
+        }
+    }
+
+    impl FromValue for IntRange {
+        fn from_value(v: Value) -> Result<Self, ShellError> {
+            let span = v.span();
+            let range = Range::from_value(v)?;
+            match range {
+                Range::IntRange(v) => Ok(v),
+                Range::FloatRange(_) => Err(ShellError::TypeMismatch {
+                    err_message: "expected an int range".into(),
+                    span,
+                }),
             }
         }
     }
