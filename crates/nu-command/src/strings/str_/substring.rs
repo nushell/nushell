@@ -1,17 +1,14 @@
 use crate::{grapheme_flags, grapheme_flags_const};
-use nu_cmd_base::{
-    input_handler::{operate, CmdArgument},
-    util,
-};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, Range};
+use nu_protocol::{engine::StateWorkingSet, IntRange};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
 pub struct SubCommand;
 
 struct Arguments {
-    indexes: Substring,
+    range: IntRange,
     cell_paths: Option<Vec<CellPath>>,
     graphemes: bool,
 }
@@ -19,15 +16,6 @@ struct Arguments {
 impl CmdArgument for Arguments {
     fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
         self.cell_paths.take()
-    }
-}
-
-#[derive(Clone)]
-struct Substring(isize, isize);
-
-impl From<(isize, isize)> for Substring {
-    fn from(input: (isize, isize)) -> Substring {
-        Substring(input.0, input.1)
     }
 }
 
@@ -87,19 +75,12 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let range: Range = call.req(engine_state, stack, 0)?;
-
-        let indexes = match util::process_range(&range) {
-            Ok(idxs) => idxs.into(),
-            Err(processing_error) => {
-                return Err(processing_error("could not perform substring", call.head))
-            }
-        };
+        let range: IntRange = call.req(engine_state, stack, 0)?;
 
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
-            indexes,
+            range,
             cell_paths,
             graphemes: grapheme_flags(engine_state, stack, call)?,
         };
@@ -112,19 +93,12 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let range: Range = call.req_const(working_set, 0)?;
-
-        let indexes = match util::process_range(&range) {
-            Ok(idxs) => idxs.into(),
-            Err(processing_error) => {
-                return Err(processing_error("could not perform substring", call.head))
-            }
-        };
+        let range: IntRange = call.req_const(working_set, 0)?;
 
         let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
-            indexes,
+            range,
             cell_paths,
             graphemes: grapheme_flags_const(working_set, call)?,
         };
@@ -160,58 +134,34 @@ impl Command for SubCommand {
 }
 
 fn action(input: &Value, args: &Arguments, head: Span) -> Value {
-    let options = &args.indexes;
     match input {
         Value::String { val: s, .. } => {
-            let len: isize = s.len() as isize;
-
-            let start: isize = if options.0 < 0 {
-                options.0 + len
+            let s = if args.graphemes {
+                let indices = s
+                    .grapheme_indices(true)
+                    .map(|(idx, s)| (idx, s.len()))
+                    .collect::<Vec<_>>();
+                let (start, end) = args.range.absoulute_bounds(indices.len());
+                if start >= end {
+                    String::new()
+                } else {
+                    let start = indices.get(start).map(|(idx, _)| *idx);
+                    let end = indices.get(end - 1).map(|(idx, len)| idx + len);
+                    if let Some((start, end)) = start.zip(end) {
+                        s[start..end].to_owned()
+                    } else {
+                        String::new()
+                    }
+                }
             } else {
-                options.0
+                let (start, end) = args.range.absoulute_bounds(s.len());
+                if end >= start {
+                    String::from_utf8_lossy(&s.as_bytes()[start..end]).into_owned()
+                } else {
+                    String::new()
+                }
             };
-            let end: isize = if options.1 < 0 {
-                options.1 + len
-            } else {
-                options.1
-            };
-
-            if start > end {
-                Value::string("", head)
-            } else {
-                Value::string(
-                    {
-                        if end == isize::MAX {
-                            if args.graphemes {
-                                s.graphemes(true)
-                                    .skip(start as usize)
-                                    .collect::<Vec<&str>>()
-                                    .join("")
-                            } else {
-                                String::from_utf8_lossy(
-                                    &s.bytes().skip(start as usize).collect::<Vec<_>>(),
-                                )
-                                .to_string()
-                            }
-                        } else if args.graphemes {
-                            s.graphemes(true)
-                                .skip(start as usize)
-                                .take((end - start + 1) as usize)
-                                .collect::<Vec<&str>>()
-                                .join("")
-                        } else {
-                            String::from_utf8_lossy(
-                                &s.bytes()
-                                    .skip(start as usize)
-                                    .take((end - start + 1) as usize)
-                                    .collect::<Vec<_>>(),
-                            )
-                            .to_string()
-                        }
-                    },
-                    head,
-                )
-            }
+            Value::string(s, head)
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
