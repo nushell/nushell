@@ -171,7 +171,7 @@ fn action(
             let (start_index, end_index) = if let Some(spanned_range) = range {
                 range_span = spanned_range.span;
                 let range = &spanned_range.item;
-                range.absoulute_bounds(s.len())
+                range.absolute_bounds(s.len())
             } else {
                 (0usize, s.len())
             };

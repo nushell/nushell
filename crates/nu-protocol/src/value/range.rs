@@ -145,7 +145,7 @@ mod int_range {
             }
         }
 
-        pub fn absoulute_bounds(&self, len: usize) -> (usize, usize) {
+        pub fn absolute_bounds(&self, len: usize) -> (usize, usize) {
             (self.absolute_start_new(len), self.absolute_end_new(len))
         }
 

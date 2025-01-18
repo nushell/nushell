@@ -141,7 +141,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     .grapheme_indices(true)
                     .map(|(idx, s)| (idx, s.len()))
                     .collect::<Vec<_>>();
-                let (start, end) = args.range.absoulute_bounds(indices.len());
+                let (start, end) = args.range.absolute_bounds(indices.len());
                 if start >= end {
                     String::new()
                 } else {
@@ -154,7 +154,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     }
                 }
             } else {
-                let (start, end) = args.range.absoulute_bounds(s.len());
+                let (start, end) = args.range.absolute_bounds(s.len());
                 if end >= start {
                     String::from_utf8_lossy(&s.as_bytes()[start..end]).into_owned()
                 } else {
