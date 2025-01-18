@@ -1810,3 +1810,31 @@ fn alias_offset_bug_7754() {
     // This crashes before PR #7756
     let _suggestions = completer.complete("ll -a | c", 9);
 }
+
+#[rstest]
+fn nested_block(mut completer: NuCompleter) {
+    let expected: Vec<String> = vec!["--help".into(), "--mod".into(), "-h".into(), "-s".into()];
+
+    let suggestions = completer.complete("somecmd | lines | each { tst - }", 30);
+    match_suggestions(&expected, &suggestions);
+
+    let suggestions = completer.complete("somecmd | lines | each { tst -}", 30);
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn incomplete_nested_block(mut completer: NuCompleter) {
+    let suggestions = completer.complete("somecmd | lines | each { tst -", 30);
+    let expected: Vec<String> = vec!["--help".into(), "--mod".into(), "-h".into(), "-s".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn deeply_nested_block(mut completer: NuCompleter) {
+    let suggestions = completer.complete(
+        "somecmd | lines | each { print ([each (print) (tst -)]) }",
+        52,
+    );
+    let expected: Vec<String> = vec!["--help".into(), "--mod".into(), "-h".into(), "-s".into()];
+    match_suggestions(&expected, &suggestions);
+}
