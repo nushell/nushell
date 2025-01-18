@@ -228,8 +228,11 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 }
 
 #[cfg(test)]
+#[allow(clippy::reversed_empty_ranges)]
 mod tests {
-    use super::{action, Arguments, Span, SubCommand, Substring, Value};
+    use nu_protocol::IntRange;
+
+    use super::{action, Arguments, Span, SubCommand, Value};
 
     #[test]
     fn test_examples() {
@@ -237,21 +240,68 @@ mod tests {
 
         test_examples(SubCommand {})
     }
+
+    #[derive(Clone, Copy, Debug)]
+    struct RangeHelper {
+        start: i64,
+        end: i64,
+        inclusion: nu_protocol::ast::RangeInclusion,
+    }
+
     #[derive(Debug)]
     struct Expectation<'a> {
-        options: (isize, isize),
+        range: RangeHelper,
         expected: &'a str,
     }
 
-    impl Expectation<'_> {
-        fn options(&self) -> Substring {
-            Substring(self.options.0, self.options.1)
+    impl From<std::ops::RangeInclusive<i64>> for RangeHelper {
+        fn from(value: std::ops::RangeInclusive<i64>) -> Self {
+            RangeHelper {
+                start: *value.start(),
+                end: *value.end(),
+                inclusion: nu_protocol::ast::RangeInclusion::Inclusive,
+            }
         }
     }
 
-    fn expectation(word: &str, indexes: (isize, isize)) -> Expectation {
+    impl From<std::ops::Range<i64>> for RangeHelper {
+        fn from(value: std::ops::Range<i64>) -> Self {
+            RangeHelper {
+                start: value.start,
+                end: value.end,
+                inclusion: nu_protocol::ast::RangeInclusion::RightExclusive,
+            }
+        }
+    }
+
+    impl From<RangeHelper> for IntRange {
+        fn from(value: RangeHelper) -> Self {
+            match IntRange::new(
+                Value::test_int(value.start as i64),
+                Value::test_int(
+                    value.start as i64 + (if value.start <= value.end { 1 } else { -1 }),
+                ),
+                Value::test_int(value.end as i64),
+                value.inclusion,
+                Span::test_data(),
+            ) {
+                Ok(val) => val,
+                Err(e) => {
+                    panic!("{value:?}: {e:?}")
+                }
+            }
+        }
+    }
+
+    impl Expectation<'_> {
+        fn range(&self) -> IntRange {
+            self.range.into()
+        }
+    }
+
+    fn expectation(word: &str, range: impl Into<RangeHelper>) -> Expectation {
         Expectation {
-            options: indexes,
+            range: range.into(),
             expected: word,
         }
     }
@@ -261,30 +311,31 @@ mod tests {
         let word = Value::test_string("andres");
 
         let cases = vec![
-            expectation("a", (0, 0)),
-            expectation("an", (0, 1)),
-            expectation("and", (0, 2)),
-            expectation("andr", (0, 3)),
-            expectation("andre", (0, 4)),
-            expectation("andres", (0, 5)),
-            expectation("andres", (0, 6)),
-            expectation("a", (0, -6)),
-            expectation("an", (0, -5)),
-            expectation("and", (0, -4)),
-            expectation("andr", (0, -3)),
-            expectation("andre", (0, -2)),
-            expectation("andres", (0, -1)),
+            expectation("", 0..0),
+            expectation("a", 0..=0),
+            expectation("an", 0..=1),
+            expectation("and", 0..=2),
+            expectation("andr", 0..=3),
+            expectation("andre", 0..=4),
+            expectation("andres", 0..=5),
+            expectation("andres", 0..=6),
+            expectation("a", 0..=-6),
+            expectation("an", 0..=-5),
+            expectation("and", 0..=-4),
+            expectation("andr", 0..=-3),
+            expectation("andre", 0..=-2),
+            expectation("andres", 0..=-1),
             // str substring [ -4 , _ ]
             // str substring   -4 ,
-            expectation("dres", (-4, isize::MAX)),
-            expectation("", (0, -110)),
-            expectation("", (6, 0)),
-            expectation("", (6, -1)),
-            expectation("", (6, -2)),
-            expectation("", (6, -3)),
-            expectation("", (6, -4)),
-            expectation("", (6, -5)),
-            expectation("", (6, -6)),
+            expectation("dres", -4..=i64::MAX),
+            expectation("", 0..=-110),
+            expectation("", 6..=0),
+            expectation("", 6..=-1),
+            expectation("", 6..=-2),
+            expectation("", 6..=-3),
+            expectation("", 6..=-4),
+            expectation("", 6..=-5),
+            expectation("", 6..=-6),
         ];
 
         for expectation in &cases {
@@ -293,7 +344,7 @@ mod tests {
             let actual = action(
                 &word,
                 &Arguments {
-                    indexes: expectation.options(),
+                    range: expectation.range(),
                     cell_paths: None,
                     graphemes: false,
                 },
@@ -308,9 +359,10 @@ mod tests {
     fn use_utf8_bytes() {
         let word = Value::string(String::from("🇯🇵ほげ ふが ぴよ"), Span::test_data());
 
+        let range: RangeHelper = (4..=5).into();
         let options = Arguments {
             cell_paths: None,
-            indexes: Substring(4, 5),
+            range: range.into(),
             graphemes: false,
         };
 
