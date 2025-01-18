@@ -171,13 +171,7 @@ fn action(
             let (start_index, end_index) = if let Some(spanned_range) = range {
                 range_span = spanned_range.span;
                 let range = &spanned_range.item;
-                let start = range.absolute_start(s.len() as u64) as usize;
-                let end = match range.absolute_end(s.len() as u64) {
-                    std::ops::Bound::Included(v) => (v + 1) as usize,
-                    std::ops::Bound::Excluded(v) => v as usize,
-                    std::ops::Bound::Unbounded => s.len(),
-                };
-                (start, end)
+                range.absoulute_bounds(s.len())
             } else {
                 (0usize, s.len())
             };

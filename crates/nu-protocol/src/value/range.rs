@@ -92,6 +92,14 @@ mod int_range {
             }
         }
 
+        // Resolves the absolute start position given the length of the input value
+        fn absolute_start_new(&self, len: usize) -> usize {
+            match self.start {
+                start if start < 0 => len.saturating_sub(start.unsigned_abs() as usize),
+                start => len.min(start as usize),
+            }
+        }
+
         /// Returns the distance between the start and end of the range
         /// The result will always be 0 or positive
         pub fn distance(&self) -> Bound<u64> {
@@ -121,6 +129,24 @@ mod int_range {
                     i => len.min(i as u64),
                 }),
             }
+        }
+
+        fn absolute_end_new(&self, len: usize) -> usize {
+            match self.end {
+                Bound::Unbounded => len,
+                Bound::Included(i) => match i {
+                    i if i < 0 => len.saturating_sub(i.unsigned_abs() as usize - 1),
+                    i => len.min(i as usize + 1),
+                },
+                Bound::Excluded(i) => match i {
+                    i if i < 0 => len.saturating_sub(i.unsigned_abs() as usize),
+                    i => len.min(i as usize),
+                },
+            }
+        }
+
+        pub fn absoulute_bounds(&self, len: usize) -> (usize, usize) {
+            (self.absolute_start_new(len), self.absolute_end_new(len))
         }
 
         pub fn step(&self) -> i64 {
