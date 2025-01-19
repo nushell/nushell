@@ -198,10 +198,7 @@ fn try_find_id_in_def(
     };
     let mut span = None;
     for arg in call.arguments.iter() {
-        if location
-            .map(|pos| arg.span().contains(*pos))
-            .unwrap_or(true)
-        {
+        if location.map_or(true, |pos| arg.span().contains(*pos)) {
             // String means this argument is the name
             if let Argument::Positional(expr) = arg {
                 if let Expr::String(_) = &expr.expr {
@@ -220,8 +217,7 @@ fn try_find_id_in_def(
     let name = working_set.get_span_contents(span);
     let decl_id = Id::Declaration(working_set.find_decl(name)?);
     id_ref
-        .map(|id_r| decl_id == *id_r)
-        .unwrap_or(true)
+        .map_or(true, |id_r| decl_id == *id_r)
         .then_some((decl_id, span))
 }
 
@@ -245,7 +241,7 @@ fn try_find_id_in_mod(
     if call_name != "module".as_bytes() && call_name != "export module".as_bytes() {
         return None;
     };
-    let check_location = |span: &Span| location.map(|pos| span.contains(*pos)).unwrap_or(true);
+    let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
 
     call.arguments.first().and_then(|arg| {
         if !check_location(&arg.span()) {
@@ -258,8 +254,7 @@ fn try_find_id_in_mod(
                     let found_id = Id::Module(module_id);
                     let found_span = strip_quotes(arg.span(), working_set);
                     id_ref
-                        .map(|id_r| found_id == *id_r)
-                        .unwrap_or(true)
+                        .map_or(true, |id_r| found_id == *id_r)
                         .then_some((found_id, found_span))
                 } else {
                     None
@@ -327,7 +322,7 @@ fn try_find_id_in_use(
         }
         None
     };
-    let check_location = |span: &Span| location.map(|pos| span.contains(*pos)).unwrap_or(true);
+    let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
     let get_module_id = |span: Span| {
         let span = strip_quotes(span, working_set);
         let name = String::from_utf8_lossy(working_set.get_span_contents(span));
@@ -335,8 +330,7 @@ fn try_find_id_in_use(
         let stem = path.file_stem().and_then(|fs| fs.to_str()).unwrap_or(&name);
         let module_id = working_set.find_module(stem.as_bytes())?;
         let found_id = Id::Module(module_id);
-        id.map(|id_r| found_id == *id_r)
-            .unwrap_or(true)
+        id.map_or(true, |id_r| found_id == *id_r)
             .then_some((found_id, span))
     };
 
