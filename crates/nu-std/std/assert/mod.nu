@@ -321,7 +321,7 @@ export def --examples=$length_examples length [left: list, right: int, message?:
     }
 }
 
-const str_constains_examples = [
+const str_contains_examples = [
     {
         description: "Pass"
         example: r#'assert str contains "arst" "rs"'#
@@ -336,7 +336,7 @@ alias "core str contains" = str contains
 # Assert that ($left | str contains $right)
 #
 # For more documentation see the assert command
-export def --examples=$str_constains_examples "str contains" [left: string, right: string, message?: string] {
+export def --examples=$str_contains_examples "str contains" [left: string, right: string, message?: string] {
     main ($left | core str contains $right) $message --error-label {
         span: {
             start: (metadata $left).span.start
