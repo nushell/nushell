@@ -1,3 +1,5 @@
+use std::ops::Bound;
+
 use crate::{grapheme_flags, grapheme_flags_const};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
@@ -141,25 +143,29 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     .grapheme_indices(true)
                     .map(|(idx, s)| (idx, s.len()))
                     .collect::<Vec<_>>();
-                let (start, end) = args.range.absolute_bounds(indices.len());
-                if start >= end {
-                    String::new()
+
+                let (idx_start, idx_end) = args.range.absolute_bounds(indices.len());
+                let idx_range = match idx_end {
+                    Bound::Excluded(end) => &indices[idx_start..end],
+                    Bound::Included(end) => &indices[idx_start..=end],
+                    Bound::Unbounded => &indices[idx_start..],
+                };
+
+                if let Some((start, end)) = idx_range.first().zip(idx_range.last()) {
+                    let start = start.0;
+                    let end = end.0 + end.1;
+                    s[start..end].to_owned()
                 } else {
-                    let start = indices.get(start).map(|(idx, _)| *idx);
-                    let end = indices.get(end - 1).map(|(idx, len)| idx + len);
-                    if let Some((start, end)) = start.zip(end) {
-                        s[start..end].to_owned()
-                    } else {
-                        String::new()
-                    }
+                    String::new()
                 }
             } else {
                 let (start, end) = args.range.absolute_bounds(s.len());
-                if end >= start {
-                    String::from_utf8_lossy(&s.as_bytes()[start..end]).into_owned()
-                } else {
-                    String::new()
-                }
+                let s = match end {
+                    Bound::Excluded(end) => &s.as_bytes()[start..end],
+                    Bound::Included(end) => &s.as_bytes()[start..=end],
+                    Bound::Unbounded => &s.as_bytes()[start..],
+                };
+                String::from_utf8_lossy(s).into_owned()
             };
             Value::string(s, head)
         }
@@ -227,11 +233,9 @@ mod tests {
     impl From<RangeHelper> for IntRange {
         fn from(value: RangeHelper) -> Self {
             match IntRange::new(
-                Value::test_int(value.start as i64),
-                Value::test_int(
-                    value.start as i64 + (if value.start <= value.end { 1 } else { -1 }),
-                ),
-                Value::test_int(value.end as i64),
+                Value::test_int(value.start),
+                Value::test_int(value.start + (if value.start <= value.end { 1 } else { -1 })),
+                Value::test_int(value.end),
                 value.inclusion,
                 Span::test_data(),
             ) {

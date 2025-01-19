@@ -1,3 +1,5 @@
+use std::ops::Bound;
+
 use crate::{grapheme_flags, grapheme_flags_const};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
@@ -167,31 +169,44 @@ fn action(
 ) -> Value {
     match input {
         Value::String { val: s, .. } => {
-            let mut range_span = head;
-            let (start_index, end_index) = if let Some(spanned_range) = range {
-                range_span = spanned_range.span;
+            let (search_str, start_index) = if let Some(spanned_range) = range {
+                let range_span = spanned_range.span;
                 let range = &spanned_range.item;
-                range.absolute_bounds(s.len())
-            } else {
-                (0usize, s.len())
-            };
 
-            if s.get(start_index..end_index).is_none() {
-                return Value::error(
-                    ShellError::OutOfBounds {
-                        left_flank: start_index.to_string(),
-                        right_flank: end_index.to_string(),
-                        span: range_span,
-                    },
-                    head,
-                );
-            }
+                let (start, end) = range.absolute_bounds(s.len());
+                let s = match end {
+                    Bound::Excluded(end) => s.get(start..end),
+                    Bound::Included(end) => s.get(start..=end),
+                    Bound::Unbounded => s.get(start..),
+                };
+
+                let s = match s {
+                    Some(s) => s,
+                    None => {
+                        return Value::error(
+                            ShellError::OutOfBounds {
+                                left_flank: start.to_string(),
+                                right_flank: match range.end() {
+                                    Bound::Unbounded => "".to_string(),
+                                    Bound::Included(end) => format!("={end}"),
+                                    Bound::Excluded(end) => format!("<{end}"),
+                                },
+                                span: range_span,
+                            },
+                            head,
+                        )
+                    }
+                };
+                (s, start)
+            } else {
+                (s.as_str(), 0)
+            };
 
             // When the -e flag is present, search using rfind instead of find.s
             if let Some(result) = if *end {
-                s[start_index..end_index].rfind(&**substring)
+                search_str.rfind(&**substring)
             } else {
-                s[start_index..end_index].find(&**substring)
+                search_str.find(&**substring)
             } {
                 let result = result + start_index;
                 Value::int(

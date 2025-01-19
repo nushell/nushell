@@ -85,18 +85,9 @@ mod int_range {
 
         // Resolves the absolute start position given the length of the input value
         pub fn absolute_start(&self, len: u64) -> u64 {
-            let max_index = len - 1;
             match self.start {
                 start if start < 0 => len.saturating_sub(start.unsigned_abs()),
-                start => max_index.min(start as u64),
-            }
-        }
-
-        // Resolves the absolute start position given the length of the input value
-        fn absolute_start_new(&self, len: usize) -> usize {
-            match self.start {
-                start if start < 0 => len.saturating_sub(start.unsigned_abs() as usize),
-                start => len.min(start as usize),
+                start => len.min(start.unsigned_abs()),
             }
         }
 
@@ -117,36 +108,30 @@ mod int_range {
         }
 
         pub fn absolute_end(&self, len: u64) -> Bound<u64> {
-            let max_index = len - 1;
             match self.end {
                 Bound::Unbounded => Bound::Unbounded,
-                Bound::Included(i) => Bound::Included(match i {
-                    i if i < 0 => len.saturating_sub(i.unsigned_abs()),
-                    i => max_index.min(i as u64),
-                }),
+                Bound::Included(i) => match i {
+                    i if i < 0 => Bound::Excluded(len.saturating_sub((i + 1).unsigned_abs())),
+                    i => Bound::Included((len - 1).min(i.unsigned_abs())),
+                },
                 Bound::Excluded(i) => Bound::Excluded(match i {
                     i if i < 0 => len.saturating_sub(i.unsigned_abs()),
-                    i => len.min(i as u64),
+                    i => len.min(i.unsigned_abs()),
                 }),
             }
         }
 
-        fn absolute_end_new(&self, len: usize) -> usize {
-            match self.end {
-                Bound::Unbounded => len,
-                Bound::Included(i) => match i {
-                    i if i < 0 => len.saturating_sub(i.unsigned_abs() as usize - 1),
-                    i => len.min(i as usize + 1),
-                },
-                Bound::Excluded(i) => match i {
-                    i if i < 0 => len.saturating_sub(i.unsigned_abs() as usize),
-                    i => len.min(i as usize),
-                },
+        pub fn absolute_bounds(&self, len: usize) -> (usize, Bound<usize>) {
+            let start = self.absolute_start(len as u64) as usize;
+            let end = self.absolute_end(len as u64).map(|e| e as usize);
+            match end {
+                Bound::Excluded(end) | Bound::Included(end) if end < start => {
+                    (start, Bound::Excluded(start))
+                }
+                Bound::Excluded(end) => (start, Bound::Excluded(end)),
+                Bound::Included(end) => (start, Bound::Included(end)),
+                Bound::Unbounded => (start, Bound::Unbounded),
             }
-        }
-
-        pub fn absolute_bounds(&self, len: usize) -> (usize, usize) {
-            (self.absolute_start_new(len), self.absolute_end_new(len))
         }
 
         pub fn step(&self) -> i64 {
