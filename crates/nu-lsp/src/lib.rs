@@ -933,7 +933,7 @@ mod tests {
                 .pointer("/contents/value")
                 .unwrap()
                 .to_string()
-                .replace('\r', ""),
+                .replace("\\r", ""),
             "\"# module doc\\n\""
         );
     }
