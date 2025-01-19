@@ -1,30 +1,22 @@
+const path_add_examples = [
+    {
+        description: "adding some dummy paths to an empty PATH"
+        example: r#'with-env { PATH: [] } {
+        path add "foo"
+        path add "bar" "baz"
+        path add "fooo" --append
+        path add "returned" --ret
+    }'#
+        result: [returned bar baz foo fooo]
+    }
+    {
+        description: "adding paths based on the operating system"
+        example: r#'path add {linux: "foo", windows: "bar", darwin: "baz"}'#
+    }
+]
+
 # Add the given paths to the PATH.
-#
-# # Example
-# - adding some dummy paths to an empty PATH
-# ```nushell
-# >_ with-env { PATH: [] } {
-#     std path add "foo"
-#     std path add "bar" "baz"
-#     std path add "fooo" --append
-#
-#     assert equal $env.PATH ["bar" "baz" "foo" "fooo"]
-#
-#     print (std path add "returned" --ret)
-# }
-# ╭───┬──────────╮
-# │ 0 │ returned │
-# │ 1 │ bar      │
-# │ 2 │ baz      │
-# │ 3 │ foo      │
-# │ 4 │ fooo     │
-# ╰───┴──────────╯
-# ```
-# - adding paths based on the operating system
-# ```nushell
-# >_ std path add {linux: "foo", windows: "bar", darwin: "baz"}
-# ```
-export def --env "path add" [
+export def --env --examples=$path_add_examples "path add" [
     --ret (-r)  # return $env.PATH, useful in pipelines to avoid scoping.
     --append (-a)  # append to $env.PATH instead of prepending to.
     ...paths  # the paths to add to $env.PATH.
@@ -81,13 +73,15 @@ export def ellie [] {
     $ellie | str join "\n" | $"(ansi green)($in)(ansi reset)"
 }
 
+const repeat_example = [
+    {
+        description: "repeat a string"
+        example: r#'"foo" | std repeat 3 | str join'#
+        result: "foofoofoo"
+    }
+]
 # repeat anything a bunch of times, yielding a list of *n* times the input
-#
-# # Examples
-#     repeat a string
-#     > "foo" | std repeat 3 | str join
-#     "foofoofoo"
-export def repeat [
+export def --examples=$repeat_example repeat [
     n: int  # the number of repetitions, must be positive
 ]: any -> list<any> {
     let item = $in
@@ -117,11 +111,14 @@ export const null_device = if $nu.os-info.name == "windows" {
 	'/dev/null'
 }
 
+const null_example = [
+    {
+        description: "run a command and ignore it's stderr output"
+        example: r#'cat xxx.txt e> (null-device)'#
+    }
+]
+
 # return a null device file.
-#
-# # Examples
-#     run a command and ignore it's stderr output
-#     > cat xxx.txt e> (null-device)
-export def null-device []: nothing -> path {
+export def --examples=$null_example null-device []: nothing -> path {
     $null_device
 }
