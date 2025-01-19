@@ -574,7 +574,7 @@ impl LanguageServer {
                     description.push_str(
                         String::from_utf8_lossy(working_set.get_span_contents(*cmt_span)).as_ref(),
                     );
-                    description.push_str("\n");
+                    description.push('\n');
                 }
                 markdown_hover(description)
             }
