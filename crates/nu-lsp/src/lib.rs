@@ -574,7 +574,7 @@ impl LanguageServer {
                     description.push_str(
                         String::from_utf8_lossy(working_set.get_span_contents(*cmt_span)).as_ref(),
                     );
-                    description.push_str("\n-----\n");
+                    description.push_str("\n");
                 }
                 markdown_hover(description)
             }
@@ -929,7 +929,7 @@ mod tests {
 
         assert_json_eq!(
             result,
-            serde_json::json!({ "contents": { "kind": "markdown", "value": "# module doc\n-----\n" } })
+            serde_json::json!({ "contents": { "kind": "markdown", "value": "# module doc\n" } })
         );
     }
 
