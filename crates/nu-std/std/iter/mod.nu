@@ -27,10 +27,8 @@ const find_examples = [
 # > The closure also has to be valid for the types it receives
 # > These will be flagged as errors later as closure annotations
 # > are implemented
-export def --examples=$find_examples find [
+export def --examples=$find_examples find [ # -> any | null  
     fn: closure # the closure used to perform the search 
-]: [
-    list<any> -> any
 ] {
     filter {|e| try {do $fn $e} } | try { first }
 }
@@ -53,10 +51,8 @@ const find_index_examples = [
 #
 # # Invariant
 # > The closure has to return a bool
-export def --examples=$find_index_examples find-index [
+export def --examples=$find_index_examples find-index [ # -> int
     fn: closure # the closure used to perform the search
-]: [
-    list<any> -> int
 ] {
     enumerate
     | find {|e| $e.item | do $fn $e.item }
@@ -73,10 +69,8 @@ const intersperse_examples = [
 
 # Returns a new list with the separator between adjacent
 # items of the original list
-export def --examples=$intersperse_examples intersperse [
+export def --examples=$intersperse_examples intersperse [ # -> list<any>
     separator: any # the separator to be used
-]: [
-    list<any> -> list<any>
 ] {
     reduce --fold [] {|e, acc|
          $acc ++ [$e, $separator]
@@ -110,8 +104,6 @@ export def --examples=$scan_examples scan [ # -> list<any>
     init: any            # initial value to seed the initial state
     fn: closure          # the closure to perform the scan
     --noinit(-n)         # remove the initial value from the result
-]: [
-    list<any> -> list<any>
 ] {
     generate {|e, acc|
         let out = $acc | do $fn $e $acc
@@ -131,10 +123,8 @@ const filter_map_examples = [
 # Returns a list of values for which the supplied closure does not
 # return `null` or an error. It is equivalent to 
 #     `$in | each $fn | filter $fn`
-export def --examples=$filter_map_examples filter-map [
+export def --examples=$filter_map_examples filter-map [ # -> list<any>
     fn: closure                # the closure to apply to the input
-]: [
-    list<any> -> list<any>
 ] {
     each {|$e|
         try {
@@ -159,8 +149,6 @@ const flat_map_examples = [
 # Maps a closure to each nested structure and flattens the result
 export def --examples=$flat_map_examples flat-map [ # -> list<any>
     fn: closure              # the closure to map to the nested structures
-]: [
-    list<any> -> list<any>
 ] {
     each {|e| do $fn $e } | flatten
 }
