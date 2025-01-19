@@ -15,8 +15,8 @@ use nu_protocol::{
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
     parser_path::ParserPath,
-    Alias, BlockId, DeclId, Module, ModuleId, ParseError, PositionalArg, ResolvedImportPattern,
-    Span, Spanned, SyntaxShape, Type, Value, VarId,
+    Alias, BlockId, CustomExample, DeclId, Module, ModuleId, ParseError, PositionalArg,
+    ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, Value, VarId,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -168,7 +168,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     }
 
     // Now, pos should point at the next span after the def-like call.
-    // Skip all potential flags, like --env, --wrapped or --help:
+    // Skip all potential flags, like --env, --wrapped, --examples or --help:
     while pos < spans.len() && working_set.get_span_contents(spans[pos]).starts_with(b"-") {
         pos += 1;
     }
@@ -500,6 +500,12 @@ pub fn parse_def(
         return (garbage_pipeline(working_set, spans), None);
     };
 
+    let Ok(examples): Result<Option<Vec<CustomExample>>, _> =
+        call.get_flag_const(working_set, "examples")
+    else {
+        return (garbage_pipeline(working_set, spans), None);
+    };
+
     // All positional arguments must be in the call positional vector by this point
     let name_expr = call.positional_nth(0).expect("def call already checked");
     let sig = call.positional_nth(1).expect("def call already checked");
@@ -603,7 +609,9 @@ pub fn parse_def(
             signature.extra_description = extra_desc;
             signature.allows_unknown_args = has_wrapped;
 
-            *declaration = signature.clone().into_block_command(block_id);
+            *declaration = signature
+                .clone()
+                .into_block_command(block_id, examples.unwrap_or_default());
 
             let block = working_set.get_block_mut(block_id);
             block.signature = signature;
@@ -770,7 +778,7 @@ pub fn parse_extern(
                             name_expr.span,
                         ));
                     } else {
-                        *declaration = signature.clone().into_block_command(block_id);
+                        *declaration = signature.clone().into_block_command(block_id, Vec::new());
 
                         working_set.get_block_mut(block_id).signature = signature;
                     }

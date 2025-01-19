@@ -21,6 +21,16 @@ impl Command for ExportDef {
             .required("block", SyntaxShape::Block, "Body of the definition.")
             .switch("env", "keep the environment defined inside the command", None)
             .switch("wrapped", "treat unknown flags and arguments as strings (requires ...rest-like parameter in signature)", None)
+            .named(
+                "examples",
+                SyntaxShape::Table(vec![
+                    ("example".into(), SyntaxShape::String),
+                    ("description".into(), SyntaxShape::String),
+                    ("result".into(), SyntaxShape::Any),
+                ]),
+                "add examples for the command",
+                None,
+            )
             .category(Category::Core)
     }
 
