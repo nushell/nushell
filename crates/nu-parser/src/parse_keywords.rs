@@ -170,6 +170,9 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     // Now, pos should point at the next span after the def-like call.
     // Skip all potential flags, like --env, --wrapped, --examples or --help:
     while pos < spans.len() && working_set.get_span_contents(spans[pos]).starts_with(b"-") {
+        if working_set.get_span_contents(spans[pos]) == b"--examples" {
+            pos += 1;
+        }
         pos += 1;
     }
 
@@ -415,8 +418,17 @@ pub fn parse_def(
             // Find the first span that is not a flag
             let mut decl_name_span = None;
 
+            let mut flag = false;
             for span in rest_spans {
-                if !working_set.get_span_contents(*span).starts_with(b"-") {
+                if flag {
+                    flag = false;
+                    continue;
+                }
+                if working_set.get_span_contents(*span).starts_with(b"-") {
+                    if working_set.get_span_contents(*span) == b"--examples" {
+                        flag = true;
+                    }
+                } else {
                     decl_name_span = Some(*span);
                     break;
                 }
