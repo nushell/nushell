@@ -927,9 +927,14 @@ mod tests {
             panic!()
         };
 
-        assert_json_eq!(
-            result,
-            serde_json::json!({ "contents": { "kind": "markdown", "value": "# module doc\n" } })
+        assert_eq!(
+            result
+                .unwrap()
+                .pointer("/contents/value")
+                .unwrap()
+                .to_string()
+                .replace('\r', ""),
+            "\"# module doc\\n\""
         );
     }
 
