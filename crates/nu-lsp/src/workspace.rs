@@ -286,7 +286,8 @@ impl LanguageServer {
             let len = scripts.len();
 
             for (i, fp) in scripts.iter().enumerate() {
-                // std::thread::sleep(std::time::Duration::from_millis(500));
+                #[cfg(test)]
+                std::thread::sleep(std::time::Duration::from_millis(200));
                 // cancel the loop on cancellation message from main thread
                 if cancel_receiver.try_recv().is_ok() {
                     data_sender
@@ -605,15 +606,23 @@ mod tests {
                     }
                 ])
             );
-            assert_json_eq!(
-                changes[script.to_string().replace("foo", "bar")],
-                serde_json::json!([
-                       {
-                           "range": { "start": { "line": 5, "character": 4 }, "end": { "line": 5, "character": 11 } },
-                           "newText": "new"
-                       }
-                ])
-            );
+            let changs_bar = changes[script.to_string().replace("foo", "bar")]
+                .as_array()
+                .unwrap();
+            assert!(
+                changs_bar.contains(
+                &serde_json::json!({
+                    "range": { "start": { "line": 5, "character": 4 }, "end": { "line": 5, "character": 11 } },
+                    "newText": "new"
+                })
+            ));
+            assert!(
+                changs_bar.contains(
+                &serde_json::json!({
+                    "range": { "start": { "line": 0, "character": 20 }, "end": { "line": 0, "character": 27 } },
+                    "newText": "new"
+                })
+            ));
         } else {
             panic!()
         }

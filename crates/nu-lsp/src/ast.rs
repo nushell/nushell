@@ -163,6 +163,20 @@ fn redirect_flat_map<T, E>(
     }
 }
 
+/// Adjust span if quoted
+/// if name is None, extract the text from working_set
+fn strip_quotes(span: Span, working_set: &StateWorkingSet) -> Span {
+    let text = String::from_utf8_lossy(working_set.get_span_contents(span));
+    if text.len() > 1
+        && ((text.starts_with('"') && text.ends_with('"'))
+            || (text.starts_with('\'') && text.ends_with('\'')))
+    {
+        Span::new(span.start.saturating_add(1), span.end.saturating_sub(1))
+    } else {
+        span
+    }
+}
+
 /// For situations like
 /// ```nushell
 /// def foo [] {}
@@ -171,14 +185,16 @@ fn redirect_flat_map<T, E>(
 /// `def` is an internal call with name/signature/closure as its arguments
 ///
 /// # Arguments
-/// - `location`: None if no `contains` check required, typically when we want to compare the `decl_id` directly
+/// - `location`: None if no `contains` check required
+/// - `id`: None if no id equal check required
 fn try_find_id_in_def(
     call: &Call,
     working_set: &StateWorkingSet,
     location: Option<&usize>,
+    id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
     let call_name = String::from_utf8(working_set.get_span_contents(call.head).to_vec()).ok()?;
-    if !(call_name == "def" || call_name == "export def") {
+    if call_name != "def" && call_name != "export def" {
         return None;
     };
     let mut span = None;
@@ -201,15 +217,6 @@ fn try_find_id_in_def(
             }
         }
     }
-    let mut span = span?;
-    // adjust span if quoted
-    let text = String::from_utf8(working_set.get_span_contents(span).to_vec()).ok()?;
-    if text.len() > 1
-        && ((text.starts_with('"') && text.ends_with('"'))
-            || (text.starts_with('\'') && text.ends_with('\'')))
-    {
-        span = Span::new(span.start.saturating_add(1), span.end.saturating_sub(1));
-    }
     let call_span = call.span();
     // find decl_ids whose span is covered by the `def` call
     let mut matched_ids: Vec<(Id, Span)> = (0..working_set.num_decls())
@@ -224,7 +231,106 @@ fn try_find_id_in_def(
         })
         .collect();
     matched_ids.sort_by_key(|(_, s)| s.start);
-    matched_ids.first().cloned().map(|(id, _)| (id, span))
+    matched_ids.first().cloned().and_then(|(id, _)| {
+        id_ref
+            .map(|id_r| id == *id_r)
+            .unwrap_or(true)
+            .then_some((id, strip_quotes(span?, working_set)))
+    })
+}
+
+/// Find id in use command
+/// `use foo.nu bar` or `use foo.nu [bar baz]`
+/// NOTE: `call.parser_info` contains a 'import_pattern' field for `use` commands,
+/// but sometimes it is missing, so fall back to `call_name == "use"` here.
+/// One drawback is that the `module_id` is harder to get
+///
+/// # Arguments
+/// - `location`: None if no `contains` check required
+/// - `id`: None if no id equal check required
+fn try_find_id_in_use(
+    call: &Call,
+    working_set: &StateWorkingSet,
+    location: Option<&usize>,
+    id: Option<&Id>,
+) -> Option<(Id, Span)> {
+    let call_name = String::from_utf8_lossy(working_set.get_span_contents(call.head));
+    if call_name != "use" {
+        return None;
+    }
+    let find_by_name = |name: &str| {
+        match id {
+            Some(Id::Variable(var_id_ref)) => {
+                if let Some(var_id) = working_set.find_variable(name.as_bytes()) {
+                    if var_id == *var_id_ref {
+                        return Some(Id::Variable(var_id));
+                    }
+                }
+            }
+            Some(Id::Declaration(decl_id_ref)) => {
+                if let Some(decl_id) = working_set.find_decl(name.as_bytes()) {
+                    if decl_id == *decl_id_ref {
+                        return Some(Id::Declaration(decl_id));
+                    }
+                }
+            }
+            None => {
+                if let Some(var_id) = working_set.find_variable(name.as_bytes()) {
+                    return Some(Id::Variable(var_id));
+                }
+                if let Some(decl_id) = working_set.find_decl(name.as_bytes()) {
+                    return Some(Id::Declaration(decl_id));
+                }
+            }
+            _ => (),
+        }
+        None
+    };
+    let check_location = |span: &Span| location.map(|pos| span.contains(*pos)).unwrap_or(true);
+    let search_in_list_items = |items: &Vec<ListItem>| {
+        items.iter().find_map(|item| {
+            let item_expr = item.expr();
+            check_location(&item_expr.span)
+                .then_some(&item_expr.expr)
+                .and_then(|e| {
+                    if let Expr::String(name) = e {
+                        Some((
+                            find_by_name(name)?,
+                            strip_quotes(item_expr.span, working_set),
+                        ))
+                    } else {
+                        None
+                    }
+                })
+        })
+    };
+
+    // the imported name is always at the second argument
+    if let Argument::Positional(expr) = call.arguments.get(1)? {
+        if check_location(&expr.span) {
+            match &expr.expr {
+                Expr::String(name) => {
+                    if let Some(id) = find_by_name(name) {
+                        return Some((id, strip_quotes(expr.span, working_set)));
+                    }
+                }
+                Expr::List(items) => {
+                    if let Some(res) = search_in_list_items(items) {
+                        return Some(res);
+                    }
+                }
+                Expr::FullCellPath(fcp) => {
+                    if let Expr::List(items) = &fcp.head.expr {
+                        if let Some(res) = search_in_list_items(items) {
+                            return Some(res);
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+    None
 }
 
 fn find_id_in_expr(
@@ -255,7 +361,9 @@ fn find_id_in_expr(
             if call.head.contains(*location) {
                 Some(vec![(Id::Declaration(call.decl_id), call.head)])
             } else {
-                try_find_id_in_def(call, working_set, Some(location)).map(|p| vec![p])
+                try_find_id_in_def(call, working_set, Some(location), None)
+                    .or(try_find_id_in_use(call, working_set, Some(location), None))
+                    .map(|p| vec![p])
             }
         }
         // TODO: module id of `use`
@@ -303,20 +411,23 @@ fn find_reference_by_id_in_expr(
             expr.span.end,
         )]),
         (Expr::VarDecl(vid1), Id::Variable(vid2)) if *vid1 == *vid2 => Some(vec![expr.span]),
-        (Expr::Call(call), Id::Declaration(decl_id)) => {
+        // also interested in `var_id` in call.arguments of `use` command
+        (Expr::Call(call), _) => {
             let mut occurs: Vec<Span> = call
                 .arguments
                 .iter()
                 .filter_map(|arg| arg.expr())
                 .flat_map(recur)
                 .collect();
-            if *decl_id == call.decl_id {
-                occurs.push(call.head);
-            }
-            if let Some((id_found, span_found)) = try_find_id_in_def(call, working_set, None) {
-                if id_found == *id {
-                    occurs.push(span_found);
+            if let Id::Declaration(decl_id) = id {
+                if *decl_id == call.decl_id {
+                    occurs.push(call.head);
                 }
+            }
+            if let Some((_, span_found)) = try_find_id_in_def(call, working_set, None, Some(id))
+                .or(try_find_id_in_use(call, working_set, None, Some(id)))
+            {
+                occurs.push(span_found);
             }
             Some(occurs)
         }
