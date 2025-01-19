@@ -367,7 +367,7 @@ mod tests {
     use nu_test_support::fs::fixtures;
 
     use crate::path_to_uri;
-    use crate::tests::{initialize_language_server, open_unchecked};
+    use crate::tests::{initialize_language_server, open_unchecked, send_hover_request};
 
     fn send_reference_request(
         client_connection: &Connection,
@@ -412,6 +412,7 @@ mod tests {
         line: u32,
         character: u32,
         num: usize,
+        immediate_cancellation: bool,
     ) -> Vec<Message> {
         client_connection
             .sender
@@ -425,6 +426,11 @@ mod tests {
                 .unwrap(),
             }))
             .unwrap();
+
+        // use a hover request to interrupt
+        if immediate_cancellation {
+            send_hover_request(client_connection, uri.clone(), line, character);
+        }
 
         (0..num)
             .map(|_| {
@@ -577,8 +583,14 @@ mod tests {
         open_unchecked(&client_connection, script.clone());
 
         let message_num = 5;
-        let messages =
-            send_rename_prepare_request(&client_connection, script.clone(), 6, 11, message_num);
+        let messages = send_rename_prepare_request(
+            &client_connection,
+            script.clone(),
+            6,
+            11,
+            message_num,
+            false,
+        );
         assert_eq!(messages.len(), message_num);
         for message in messages {
             match message {
@@ -646,8 +658,14 @@ mod tests {
         open_unchecked(&client_connection, script.clone());
 
         let message_num = 5;
-        let messages =
-            send_rename_prepare_request(&client_connection, script.clone(), 3, 5, message_num);
+        let messages = send_rename_prepare_request(
+            &client_connection,
+            script.clone(),
+            3,
+            5,
+            message_num,
+            false,
+        );
         assert_eq!(messages.len(), message_num);
         for message in messages {
             match message {
@@ -682,6 +700,67 @@ mod tests {
                     }
                 }),
             )
+        } else {
+            panic!()
+        }
+    }
+
+    #[test]
+    fn rename_cancelled() {
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("workspace");
+        let (client_connection, _recv) = initialize_language_server(Some(InitializeParams {
+            workspace_folders: Some(vec![WorkspaceFolder {
+                uri: path_to_uri(&script),
+                name: "random name".to_string(),
+            }]),
+            ..Default::default()
+        }));
+        script.push("foo.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let message_num = 3;
+        let messages = send_rename_prepare_request(
+            &client_connection,
+            script.clone(),
+            6,
+            11,
+            message_num,
+            true,
+        );
+        assert_eq!(messages.len(), message_num);
+        if let Some(Message::Notification(cancel_notification)) = &messages.last() {
+            assert_json_eq!(
+                cancel_notification.params["value"],
+                serde_json::json!({ "kind": "end", "message": "interrupted." })
+            );
+        } else {
+            panic!("Progress not cancelled");
+        };
+        for message in messages {
+            match message {
+                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
+                // the response of the preempting hover request
+                Message::Response(r) => assert_json_eq!(
+                    r.result,
+                    serde_json::json!({
+                            "contents": {
+                            "kind": "markdown",
+                            "value": "\n-----\n### Usage \n```nu\n  foo str {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                        }
+                    }),
+                ),
+                _ => panic!("unexpected message type"),
+            }
+        }
+
+        if let Message::Response(r) = send_rename_request(&client_connection, script.clone(), 6, 11)
+        {
+            // should not return any changes
+            assert_json_eq!(r.result.unwrap()["changes"], serde_json::json!({}));
         } else {
             panic!()
         }
