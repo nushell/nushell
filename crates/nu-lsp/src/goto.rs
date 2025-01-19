@@ -348,4 +348,66 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn goto_definition_of_module() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("goto");
+        script.push("module.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 3, 15);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!({
+                "uri": script,
+                "range": {
+                    "start": { "line": 1, "character": 29 },
+                    "end": { "line": 1, "character": 30 }
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn goto_definition_of_module_in_another_file() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("goto");
+        script.push("use_module.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 0, 23);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!({
+                "uri": script.to_string().replace("use_module", "module"),
+                "range": {
+                    "start": { "line": 1, "character": 29 },
+                    "end": { "line": 1, "character": 30 }
+                }
+            })
+        );
+    }
 }
