@@ -11,25 +11,25 @@ use std::{path::PathBuf, sync::Arc};
 use crate::Id;
 
 /// similar to flatten_block, but allows extra map function
-pub fn ast_flat_map<T, E>(
-    ast: &Arc<Block>,
-    working_set: &StateWorkingSet,
-    extra_args: &E,
-    f_special: fn(&Expression, &StateWorkingSet, &E) -> Option<Vec<T>>,
-) -> Vec<T> {
+pub fn ast_flat_map<'a, T, F>(
+    ast: &'a Arc<Block>,
+    working_set: &'a StateWorkingSet,
+    f_special: &F,
+) -> Vec<T>
+where
+    F: Fn(&'a Expression) -> Option<Vec<T>>,
+{
     ast.pipelines
         .iter()
         .flat_map(|pipeline| {
             pipeline.elements.iter().flat_map(|element| {
-                expr_flat_map(&element.expr, working_set, extra_args, f_special)
+                expr_flat_map(&element.expr, working_set, f_special)
                     .into_iter()
                     .chain(
                         element
                             .redirection
                             .as_ref()
-                            .map(|redir| {
-                                redirect_flat_map(redir, working_set, extra_args, f_special)
-                            })
+                            .map(|redir| redirect_flat_map(redir, working_set, f_special))
                             .unwrap_or_default(),
                     )
             })
@@ -42,24 +42,26 @@ pub fn ast_flat_map<T, E>(
 ///
 /// # Arguments
 /// * `f_special` - function that overrides the default behavior
-pub fn expr_flat_map<T, E>(
-    expr: &Expression,
-    working_set: &StateWorkingSet,
-    extra_args: &E,
-    f_special: fn(&Expression, &StateWorkingSet, &E) -> Option<Vec<T>>,
-) -> Vec<T> {
+pub fn expr_flat_map<'a, T, F>(
+    expr: &'a Expression,
+    working_set: &'a StateWorkingSet,
+    f_special: &F,
+) -> Vec<T>
+where
+    F: Fn(&'a Expression) -> Option<Vec<T>>,
+{
     // behavior overridden by f_special
-    if let Some(vec) = f_special(expr, working_set, extra_args) {
+    if let Some(vec) = f_special(expr) {
         return vec;
     }
-    let recur = |expr| expr_flat_map(expr, working_set, extra_args, f_special);
+    let recur = |expr| expr_flat_map(expr, working_set, f_special);
     match &expr.expr {
         Expr::RowCondition(block_id)
         | Expr::Subexpression(block_id)
         | Expr::Block(block_id)
         | Expr::Closure(block_id) => {
             let block = working_set.get_block(block_id.to_owned());
-            ast_flat_map(block, working_set, extra_args, f_special)
+            ast_flat_map(block, working_set, f_special)
         }
         Expr::Range(range) => [&range.from, &range.next, &range.to]
             .iter()
@@ -87,7 +89,7 @@ pub fn expr_flat_map<T, E>(
         Expr::MatchBlock(matches) => matches
             .iter()
             .flat_map(|(pattern, expr)| {
-                match_pattern_flat_map(pattern, working_set, extra_args, f_special)
+                match_pattern_flat_map(pattern, working_set, f_special)
                     .into_iter()
                     .chain(recur(expr))
             })
@@ -123,14 +125,16 @@ pub fn expr_flat_map<T, E>(
 }
 
 /// flat_map on match patterns
-fn match_pattern_flat_map<T, E>(
-    pattern: &MatchPattern,
-    working_set: &StateWorkingSet,
-    extra_args: &E,
-    f_special: fn(&Expression, &StateWorkingSet, &E) -> Option<Vec<T>>,
-) -> Vec<T> {
-    let recur = |expr| expr_flat_map(expr, working_set, extra_args, f_special);
-    let recur_match = |p| match_pattern_flat_map(p, working_set, extra_args, f_special);
+fn match_pattern_flat_map<'a, T, F>(
+    pattern: &'a MatchPattern,
+    working_set: &'a StateWorkingSet,
+    f_special: &F,
+) -> Vec<T>
+where
+    F: Fn(&'a Expression) -> Option<Vec<T>>,
+{
+    let recur = |expr| expr_flat_map(expr, working_set, f_special);
+    let recur_match = |p| match_pattern_flat_map(p, working_set, f_special);
     match &pattern.pattern {
         Pattern::Expression(expr) => recur(expr),
         Pattern::List(patterns) | Pattern::Or(patterns) => {
@@ -145,13 +149,15 @@ fn match_pattern_flat_map<T, E>(
 }
 
 /// flat_map on redirections
-fn redirect_flat_map<T, E>(
-    redir: &PipelineRedirection,
-    working_set: &StateWorkingSet,
-    extra_args: &E,
-    f_special: fn(&Expression, &StateWorkingSet, &E) -> Option<Vec<T>>,
-) -> Vec<T> {
-    let recur = |expr| expr_flat_map(expr, working_set, extra_args, f_special);
+fn redirect_flat_map<'a, T, F>(
+    redir: &'a PipelineRedirection,
+    working_set: &'a StateWorkingSet,
+    f_special: &F,
+) -> Vec<T>
+where
+    F: Fn(&'a Expression) -> Option<Vec<T>>,
+{
+    let recur = |expr| expr_flat_map(expr, working_set, f_special);
     match redir {
         PipelineRedirection::Single { target, .. } => target.expr().map(recur).unwrap_or_default(),
         PipelineRedirection::Separate { out, err } => [out, err]
@@ -163,7 +169,6 @@ fn redirect_flat_map<T, E>(
 }
 
 /// Adjust span if quoted
-/// if name is None, extract the text from working_set
 fn strip_quotes(span: Span, working_set: &StateWorkingSet) -> Span {
     let text = String::from_utf8_lossy(working_set.get_span_contents(span));
     if text.len() > 1
@@ -454,9 +459,8 @@ pub fn find_id(
     working_set: &StateWorkingSet,
     location: &usize,
 ) -> Option<(Id, Span)> {
-    ast_flat_map(ast, working_set, location, find_id_in_expr)
-        .first()
-        .cloned()
+    let closure = |e| find_id_in_expr(e, working_set, location);
+    ast_flat_map(ast, working_set, &closure).first().cloned()
 }
 
 fn find_reference_by_id_in_expr(
@@ -464,7 +468,8 @@ fn find_reference_by_id_in_expr(
     working_set: &StateWorkingSet,
     id: &Id,
 ) -> Option<Vec<Span>> {
-    let recur = |expr| expr_flat_map(expr, working_set, id, find_reference_by_id_in_expr);
+    let closure = |e| find_reference_by_id_in_expr(e, working_set, id);
+    let recur = |expr| expr_flat_map(expr, working_set, &closure);
     match (&expr.expr, id) {
         (Expr::Var(vid1), Id::Variable(vid2)) if *vid1 == *vid2 => Some(vec![Span::new(
             // we want to exclude the `$` sign for renaming
@@ -499,5 +504,7 @@ fn find_reference_by_id_in_expr(
 }
 
 pub fn find_reference_by_id(ast: &Arc<Block>, working_set: &StateWorkingSet, id: &Id) -> Vec<Span> {
-    ast_flat_map(ast, working_set, id, find_reference_by_id_in_expr)
+    ast_flat_map(ast, working_set, &|e| {
+        find_reference_by_id_in_expr(e, working_set, id)
+    })
 }
