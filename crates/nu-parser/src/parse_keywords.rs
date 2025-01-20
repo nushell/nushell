@@ -715,10 +715,30 @@ pub fn parse_extern(
 
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
-            if let Some(name_span) = rest_spans.first() {
+            // Find the first span that is not a flag
+            let mut decl_name_span = None;
+
+            let mut flag = false;
+            for span in rest_spans {
+                if flag {
+                    flag = false;
+                    continue;
+                }
+                if working_set.get_span_contents(*span).starts_with(b"-") {
+                    if working_set.get_span_contents(*span) == b"--examples" {
+                        flag = true;
+                    }
+                } else {
+                    decl_name_span = Some(*span);
+                    break;
+                }
+            }
+
+            if let Some(name_span) = decl_name_span {
+                // Check whether name contains [] or () -- possible missing space error
                 if let Some(err) = detect_params_in_name(
                     working_set,
-                    *name_span,
+                    name_span,
                     String::from_utf8_lossy(&extern_call).as_ref(),
                 ) {
                     working_set.error(err);
@@ -741,6 +761,13 @@ pub fn parse_extern(
             (call, call_span)
         }
     };
+
+    let Ok(examples): Result<Option<Vec<CustomExample>>, _> =
+        call.get_flag_const(working_set, "examples")
+    else {
+        return garbage_pipeline(working_set, spans);
+    };
+
     let name_expr = call.positional_nth(0);
     let sig = call.positional_nth(1);
     let body = call.positional_nth(2);

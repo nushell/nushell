@@ -18,6 +18,16 @@ impl Command for ExportExtern {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("def_name", SyntaxShape::String, "Definition name.")
             .required("params", SyntaxShape::Signature, "Parameters.")
+            .named(
+                "examples",
+                SyntaxShape::Table(vec![
+                    ("example".into(), SyntaxShape::String),
+                    ("description".into(), SyntaxShape::String),
+                    ("result".into(), SyntaxShape::Any),
+                ]),
+                "add examples for the command",
+                None,
+            )
             .category(Category::Core)
     }
 
