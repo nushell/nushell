@@ -409,16 +409,23 @@ impl LanguageServer {
             )
             .ok()?;
 
+        let markdown_hover = |content: String| {
+            Some(Hover {
+                contents: HoverContents::Markup(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: content,
+                }),
+                // TODO
+                range: None,
+            })
+        };
+
         match id {
             Id::Variable(var_id) => {
                 let var = working_set.get_variable(var_id);
-                let contents = format!("{}{}", if var.mutable { "mutable " } else { "" }, var.ty);
-
-                Some(Hover {
-                    contents: HoverContents::Scalar(lsp_types::MarkedString::String(contents)),
-                    // TODO
-                    range: None,
-                })
+                let contents =
+                    format!("{} `{}`", if var.mutable { "mutable " } else { "" }, var.ty);
+                markdown_hover(contents)
             }
             Id::Declaration(decl_id) => {
                 let decl = working_set.get_decl(decl_id);
@@ -559,24 +566,19 @@ impl LanguageServer {
                         ));
                     }
                 }
-
-                Some(Hover {
-                    contents: HoverContents::Markup(MarkupContent {
-                        kind: MarkupKind::Markdown,
-                        value: description,
-                    }),
-                    // TODO
-                    range: None,
-                })
+                markdown_hover(description)
             }
-            Id::Value(t) => {
-                Some(Hover {
-                    contents: HoverContents::Scalar(lsp_types::MarkedString::String(t.to_string())),
-                    // TODO
-                    range: None,
-                })
+            Id::Module(module_id) => {
+                let mut description = String::new();
+                for cmt_span in working_set.get_module_comments(module_id)? {
+                    description.push_str(
+                        String::from_utf8_lossy(working_set.get_span_contents(*cmt_span)).as_ref(),
+                    );
+                    description.push('\n');
+                }
+                markdown_hover(description)
             }
-            _ => None,
+            Id::Value(t) => markdown_hover(format!("`{}`", t)),
         }
     }
 
@@ -842,9 +844,7 @@ mod tests {
 
         assert_json_eq!(
             result,
-            serde_json::json!({
-                "contents": "table"
-            })
+            serde_json::json!({ "contents": { "kind": "markdown", "value": " `table`" } })
         );
     }
 
@@ -905,6 +905,36 @@ mod tests {
                     "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n-----\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
                 }
             })
+        );
+    }
+
+    #[test]
+    fn hover_on_module() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("goto");
+        script.push("module.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = send_hover_request(&client_connection, script.clone(), 3, 12);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_eq!(
+            result
+                .unwrap()
+                .pointer("/contents/value")
+                .unwrap()
+                .to_string()
+                .replace("\\r", ""),
+            "\"# module doc\\n\""
         );
     }
 

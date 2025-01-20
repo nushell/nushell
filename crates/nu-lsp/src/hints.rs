@@ -26,17 +26,11 @@ fn type_short_name(t: &Type) -> String {
 fn extract_inlay_hints_from_expression(
     expr: &Expression,
     working_set: &StateWorkingSet,
-    extra_args: &(usize, &FullTextDocument),
+    offset: &usize,
+    file: &FullTextDocument,
 ) -> Option<Vec<InlayHint>> {
-    let (offset, file) = extra_args;
-    let recur = |expr| {
-        expr_flat_map(
-            expr,
-            working_set,
-            extra_args,
-            extract_inlay_hints_from_expression,
-        )
-    };
+    let closure = |e| extract_inlay_hints_from_expression(e, working_set, offset, file);
+    let recur = |expr| expr_flat_map(expr, working_set, &closure);
     match &expr.expr {
         Expr::BinaryOp(lhs, op, rhs) => {
             let mut hints: Vec<InlayHint> =
@@ -162,12 +156,9 @@ impl LanguageServer {
         offset: usize,
         file: &FullTextDocument,
     ) -> Vec<InlayHint> {
-        ast_flat_map(
-            block,
-            working_set,
-            &(offset, file),
-            extract_inlay_hints_from_expression,
-        )
+        ast_flat_map(block, working_set, &|e| {
+            extract_inlay_hints_from_expression(e, working_set, &offset, file)
+        })
     }
 }
 
