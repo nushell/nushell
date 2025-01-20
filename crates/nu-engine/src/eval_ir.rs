@@ -1283,12 +1283,12 @@ fn check_input_types(
         _ => (),
     }
 
-    // Errors and custom values bypass input type checking
-    if matches!(
-        input,
-        PipelineData::Value(Value::Error { .. } | Value::Custom { .. }, ..)
-    ) {
-        return Ok(());
+    match input {
+        // early return error directly if detected
+        PipelineData::Value(Value::Error { error, .. }, ..) => return Err(*error.clone()),
+        // bypass run-time typechecking for custom types
+        PipelineData::Value(Value::Custom { .. }, ..) => return Ok(()),
+        _ => (),
     }
 
     // Check if the input type is compatible with *any* of the command's possible input types
