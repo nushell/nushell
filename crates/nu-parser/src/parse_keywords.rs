@@ -837,6 +837,7 @@ pub fn parse_extern(
                         description,
                         extra_description,
                         signature,
+                        examples: examples.unwrap_or_default(),
                     };
 
                     *declaration = Box::new(decl);
