@@ -254,16 +254,13 @@ fn try_find_id_in_mod(
         }
         match arg {
             Argument::Positional(expr) => {
-                if let Expr::String(name) = &expr.expr {
-                    let module_id = working_set.find_module(name.as_bytes())?;
-                    let found_id = Id::Module(module_id);
-                    let found_span = strip_quotes(arg.span(), working_set);
-                    id_ref
-                        .map_or(true, |id_r| found_id == *id_r)
-                        .then_some((found_id, found_span))
-                } else {
-                    None
-                }
+                let name = expr.as_string()?;
+                let module_id = working_set.find_module(name.as_bytes())?;
+                let found_id = Id::Module(module_id);
+                let found_span = strip_quotes(arg.span(), working_set);
+                id_ref
+                    .map_or(true, |id_r| found_id == *id_r)
+                    .then_some((found_id, found_span))
             }
             _ => None,
         }
@@ -358,16 +355,13 @@ fn try_find_id_in_use(
         items.iter().find_map(|item| {
             let item_expr = item.expr();
             check_location(&item_expr.span)
-                .then_some(&item_expr.expr)
+                .then_some(item_expr)
                 .and_then(|e| {
-                    if let Expr::String(name) = e {
-                        Some((
-                            find_by_name(name)?,
-                            strip_quotes(item_expr.span, working_set),
-                        ))
-                    } else {
-                        None
-                    }
+                    let name = e.as_string()?;
+                    Some((
+                        find_by_name(&name)?,
+                        strip_quotes(item_expr.span, working_set),
+                    ))
                 })
         })
     };
