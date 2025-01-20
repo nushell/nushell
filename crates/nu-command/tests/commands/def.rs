@@ -353,3 +353,38 @@ export def recursive [c: int] {
 }"#);
     assert!(actual.err.is_empty());
 }
+
+#[test]
+fn def_with_example_with_equal_sign() {
+    let actual = nu!(r#"def --examples=[] foo [] {}"#);
+    assert!(actual.status.success());
+}
+
+#[test]
+fn def_with_example_without_equal_sign() {
+    let actual = nu!(r#"def --examples [] foo [] {}"#);
+    assert!(actual.status.success());
+}
+
+#[test]
+fn def_with_full_example() {
+    Playground::setup("def_with_full_example", |dirs, _| {
+        let data = r#"
+# Command that doubles a number
+export def --examples [{
+    description: "Double a number"
+    example: "5 | double"
+    result: 10
+}] double []: [
+    number -> number
+] {
+    $in * 2
+}
+"#;
+        fs::write(dirs.root().join("example_test"), data).expect("Unable to write file");
+        let actual = nu!(cwd: dirs.root(), r#"use example_test double; help double"#);
+
+        assert!(actual.status.success());
+        assert!(actual.out.contains("Double a number"))
+    });
+}
