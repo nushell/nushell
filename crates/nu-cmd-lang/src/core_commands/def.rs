@@ -85,6 +85,11 @@ impl Command for Def {
                 example: r#"def only_int []: int -> int { $in }; 42 | only_int"#,
                 result: Some(Value::test_int(42)),
             },
+            Example {
+                description: "Define a command with an example",
+                example: r#"def --examples=[{description: "Double a number", example: "double 5", result: 10}] double [n: number] { $in * 2 }"#,
+                result: None,
+            },
         ]
     }
 }
