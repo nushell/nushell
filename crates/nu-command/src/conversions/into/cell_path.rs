@@ -104,7 +104,7 @@ fn into_cell_path(call: &Call, input: PipelineData) -> Result<PipelineData, Shel
     let head = call.head;
 
     match input {
-        PipelineData::Value(value, _) => Ok(value_to_cell_path(&value, head)?.into_pipeline_data()),
+        PipelineData::Value(value, _) => Ok(value_to_cell_path(value, head)?.into_pipeline_data()),
         PipelineData::ListStream(stream, ..) => {
             let list: Vec<_> = stream.into_iter().collect();
             Ok(list_to_cell_path(&list, head)?.into_pipeline_data())
@@ -178,11 +178,11 @@ fn record_to_path_member(
     Ok(member)
 }
 
-fn value_to_cell_path(value: &Value, span: Span) -> Result<Value, ShellError> {
+fn value_to_cell_path(value: Value, span: Span) -> Result<Value, ShellError> {
     match value {
-        Value::CellPath { .. } => Ok(value.clone()),
-        Value::Int { val, .. } => Ok(int_to_cell_path(*val, span)),
-        Value::List { vals, .. } => list_to_cell_path(vals, span),
+        Value::CellPath { .. } => Ok(value),
+        Value::Int { val, .. } => Ok(int_to_cell_path(val, span)),
+        Value::List { vals, .. } => list_to_cell_path(&vals, span),
         other => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "int, list".into(),
             wrong_type: other.get_type().to_string(),
