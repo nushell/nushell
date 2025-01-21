@@ -1,14 +1,20 @@
-use std::thread;
+use std::{
+    sync::{atomic::AtomicBool, Arc},
+    thread,
+};
 
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
-use nu_protocol::{engine::Closure, report_shell_error};
+use nu_protocol::{
+    engine::{Closure, Job},
+    report_shell_error,
+};
 
 #[derive(Clone)]
 pub struct Spawn;
 
 impl Command for Spawn {
     fn name(&self) -> &str {
-        "spawn"
+        "job spawn"
     }
 
     fn description(&self) -> &str {
@@ -16,7 +22,7 @@ impl Command for Spawn {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("spawn")
+        Signature::build("job spawn")
             .category(Category::Core)
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
@@ -28,7 +34,7 @@ impl Command for Spawn {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["spawn", "job", "background", "ampersand"]
+        vec!["background", "bg", "&"]
     }
 
     fn run(
@@ -42,20 +48,37 @@ impl Command for Spawn {
 
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
-        let mut cloned_state = engine_state.clone();
-        let cloned_stack = stack.clone();
+        let mut job_state = engine_state.clone();
+        job_state.is_interactive = false;
+
+        let job_stack = stack.clone();
+        
+        let job_signals = engine_state.signals().clone();
 
         thread::spawn(move || {
-            cloned_state.is_interactive = false;
+            let id = {
+                // TODO: proper mutex error handling
+                let mut jobs = job_state.jobs.lock().unwrap();
 
-            ClosureEvalOnce::new(&cloned_state, &cloned_stack, closure.clone())
+                jobs.add_job(Job {
+                    signals: job_signals,
+                })
+            };
+
+            ClosureEvalOnce::new(&job_state, &job_stack, closure.clone())
                 .run_with_input(Value::nothing(head).into_pipeline_data())
                 .and_then(|data| data.into_value(head))
                 .unwrap_or_else(|err| {
-                    report_shell_error(&cloned_state, &err);
+                    report_shell_error(&job_state, &err);
 
-                    Value::error(err, head)
+                    Value::nothing(head)
                 });
+
+            {
+                let mut jobs = job_state.jobs.lock().unwrap();
+
+                jobs.unregister_job(id)
+            }
         });
 
         Ok(Value::nothing(head).into_pipeline_data())
