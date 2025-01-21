@@ -136,7 +136,7 @@ quickcheck = "1.0"
 quickcheck_macros = "1.0"
 quote = "1.0"
 rand = "0.8"
-getrandom = "0.2" # pick same version that rand requires
+getrandom = "0.2"                                                                                              # pick same version that rand requires
 rand_chacha = "0.3.1"
 ratatui = "0.26"
 rayon = "1.10"
@@ -162,6 +162,7 @@ tempfile = "3.15"
 titlecase = "3.0"
 toml = "0.8"
 trash = "5.2"
+update-informer = { version = "1.2.0", default-features = false, features = ["github", "native-tls", "ureq"] }
 umask = "2.1"
 unicode-segmentation = "1.12"
 unicode-width = "0.2"

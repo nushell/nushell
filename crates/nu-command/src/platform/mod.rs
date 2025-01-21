@@ -8,6 +8,7 @@ mod sleep;
 mod term;
 #[cfg(unix)]
 mod ulimit;
+mod version_check;
 mod whoami;
 
 pub use ansi::{Ansi, AnsiLink, AnsiStrip};
@@ -22,4 +23,5 @@ pub use sleep::Sleep;
 pub use term::{Term, TermQuery, TermSize};
 #[cfg(unix)]
 pub use ulimit::ULimit;
+pub use version_check::VersionCheck;
 pub use whoami::Whoami;
