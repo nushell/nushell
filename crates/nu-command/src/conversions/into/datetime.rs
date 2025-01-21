@@ -211,8 +211,9 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Using a datetime as input simply returns the value",
-                example: "date now | into datetime",
-                result: None,
+                example: "2021-02-27T13:55:40 | into datetime",
+                #[allow(clippy::inconsistent_digit_grouping)]
+                result: example_result_1(1614434140_000000000),
             },
             Example {
                 description: "Convert list of timestamps to datetimes",
