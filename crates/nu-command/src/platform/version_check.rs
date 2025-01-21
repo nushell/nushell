@@ -100,7 +100,7 @@ pub fn check_for_latest_nushell_version() -> Value {
             ))
         } else {
             Value::test_string(format!(
-                "You're running the latest version of the nushell nightly v{current_version}."
+                "You're running the latest version of the nushell nightly {current_version}."
             ))
         }
     } else {
@@ -114,11 +114,11 @@ pub fn check_for_latest_nushell_version() -> Value {
 
         if let Ok(Some(new_version)) = informer.check_version() {
             Value::test_string(format!(
-                "A new release of nushell is available: v{current_version} -> {new_version}"
+                "A new release of nushell is available: {current_version} -> {new_version}"
             ))
         } else {
             Value::test_string(format!(
-                "You're running the latest version of the nushell release v{current_version}."
+                "You're running the latest version of the nushell release {current_version}."
             ))
         }
     }
