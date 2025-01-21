@@ -321,23 +321,8 @@ pub fn get_vendor_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
         append_fn(PathBuf::from(path));
     }
 
-    #[cfg(target_os = "macos")]
-    std::env::var("XDG_DATA_HOME")
-        .ok()
-        .map(PathBuf::from)
-        .or_else(|| {
-            dirs::home_dir().map(|mut home| {
-                home.push(".local");
-                home.push("share");
-                home
-            })
-        })
-        .map(into_autoload_path_fn)
-        .into_iter()
-        .for_each(&mut append_fn);
-
-    if let Some(data_dir) = dirs::data_dir() {
-        append_fn(into_autoload_path_fn(data_dir));
+    if let Some(data_dir) = nu_path::data_dir() {
+        append_fn(PathBuf::from(data_dir).join("vendor").join("autoload"));
     }
 
     if let Some(path) = std::env::var_os("NU_VENDOR_AUTOLOAD_DIR") {
