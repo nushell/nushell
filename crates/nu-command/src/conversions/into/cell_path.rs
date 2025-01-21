@@ -12,6 +12,7 @@ impl Command for IntoCellPath {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("into cell-path")
             .input_output_types(vec![
+                (Type::CellPath, Type::CellPath),
                 (Type::Int, Type::CellPath),
                 (Type::List(Box::new(Type::Any)), Type::CellPath),
                 (
@@ -52,6 +53,13 @@ impl Command for IntoCellPath {
             Example {
                 description: "Convert integer into cell path",
                 example: "5 | into cell-path",
+                result: Some(Value::test_cell_path(CellPath {
+                    members: vec![PathMember::test_int(5, false)],
+                })),
+            },
+            Example {
+                description: "Convert cell path into cell path",
+                example: "5 | into cell-path | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![PathMember::test_int(5, false)],
                 })),
@@ -172,6 +180,7 @@ fn record_to_path_member(
 
 fn value_to_cell_path(value: &Value, span: Span) -> Result<Value, ShellError> {
     match value {
+        Value::CellPath { .. } => Ok(value.clone()),
         Value::Int { val, .. } => Ok(int_to_cell_path(*val, span)),
         Value::List { vals, .. } => list_to_cell_path(vals, span),
         other => Err(ShellError::OnlySupportsThisInputType {
