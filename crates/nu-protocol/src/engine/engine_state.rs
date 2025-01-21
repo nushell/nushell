@@ -110,6 +110,33 @@ pub struct EngineState {
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
+    pub jobs: Arc<Mutex<Jobs>>,
+}
+
+type JobId = u64;
+
+#[derive(Clone, Default)]
+pub struct Jobs {
+    next_job_id: JobId,
+    pub jobs: HashMap<JobId, Job>,
+}
+
+impl Jobs {
+    pub fn add_job(&mut self, job: Job) -> JobId {
+        let next_id = self.next_job_id;
+        self.jobs.insert(next_id, job);
+        self.next_job_id += 1;
+        next_id
+    }
+
+    pub fn unregister_job(&mut self, id: JobId) {
+        self.jobs.remove(&id);
+    }
+}
+
+#[derive(Clone)]
+pub struct Job {
+    pub signals: Signals,
 }
 
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
@@ -179,6 +206,7 @@ impl EngineState {
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
+            jobs: Arc::new(Mutex::new(Jobs::default())),
         }
     }
 
