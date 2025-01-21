@@ -1,7 +1,7 @@
 use std::thread;
 
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
-use nu_protocol::engine::Closure;
+use nu_protocol::{engine::Closure, report_shell_error};
 
 #[derive(Clone)]
 pub struct Spawn;
@@ -52,7 +52,7 @@ impl Command for Spawn {
                 .run_with_input(Value::nothing(head).into_pipeline_data())
                 .and_then(|data| data.into_value(head))
                 .unwrap_or_else(|err| {
-                    // TODO: display this error value
+                    report_shell_error(&cloned_state, &err);
 
                     Value::error(err, head)
                 });
