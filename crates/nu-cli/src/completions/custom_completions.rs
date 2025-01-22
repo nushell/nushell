@@ -39,7 +39,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
         span: Span,
         offset: usize,
         pos: usize,
-        completion_options: &CompletionOptions,
+        orig_options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         // Line position
         let line_pos = pos - offset;
@@ -66,15 +66,14 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                 parser_info: HashMap::new(),
             },
             PipelineData::empty(),
-        )
-        .and_then(|data| data.into_value(span));
+        );
 
-        let mut custom_completion_options = None;
+        let mut completion_options = orig_options.clone();
         let mut should_sort = true;
 
         // Parse result
-        let suggestions = match result {
-            Ok(value) => match value {
+        let suggestions = match result.and_then(|data| data.into_value(span)) {
+            Ok(value) => match &value {
                 Value::Record { val, .. } => {
                     let completions = val
                         .get("completions")
@@ -91,25 +90,24 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                             should_sort = sort;
                         }
 
-                        custom_completion_options = Some(CompletionOptions {
-                            case_sensitive: options
-                                .get("case_sensitive")
-                                .and_then(|val| val.as_bool().ok())
-                                .unwrap_or(true),
-                            positional: options
-                                .get("positional")
-                                .and_then(|val| val.as_bool().ok())
-                                .unwrap_or(completion_options.positional),
-                            match_algorithm: match options.get("completion_algorithm") {
-                                Some(option) => option
-                                    .coerce_string()
-                                    .ok()
-                                    .and_then(|option| option.try_into().ok())
-                                    .unwrap_or(completion_options.match_algorithm),
-                                None => completion_options.match_algorithm,
-                            },
-                            sort: completion_options.sort,
-                        });
+                        if let Some(case_sensitive) = options
+                            .get("case_sensitive")
+                            .and_then(|val| val.as_bool().ok())
+                        {
+                            completion_options.case_sensitive = case_sensitive;
+                        }
+                        if let Some(positional) =
+                            options.get("positional").and_then(|val| val.as_bool().ok())
+                        {
+                            completion_options.positional = positional;
+                        }
+                        if let Some(algorithm) = options
+                            .get("completion_algorithm")
+                            .and_then(|option| option.coerce_string().ok())
+                            .and_then(|option| option.try_into().ok())
+                        {
+                            completion_options.match_algorithm = algorithm;
+                        }
                     }
 
                     completions
@@ -123,7 +121,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                         span,
                         offset,
                         pos,
-                        completion_options,
+                        orig_options,
                     );
                 }
                 _ => {
@@ -140,8 +138,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
             }
         };
 
-        let options = custom_completion_options.unwrap_or(completion_options.clone());
-        let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), options);
+        let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), completion_options);
 
         if should_sort {
             for sugg in suggestions {
