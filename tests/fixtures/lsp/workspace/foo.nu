@@ -1,5 +1,5 @@
 export def foooo [
-  param: int
+  --param: int
 ] {
   $param
 }

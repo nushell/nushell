@@ -102,7 +102,7 @@ libproc = "0.14"
 log = "0.4"
 lru = "0.12"
 lscolors = { version = "0.17", default-features = false }
-lsp-server = "0.7.5"
+lsp-server = "0.7.8"
 lsp-types = { version = "0.97.0", features = ["proposed"] }
 lsp-textdocument = "0.4.0"
 mach2 = "0.4"

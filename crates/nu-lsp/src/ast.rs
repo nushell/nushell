@@ -198,7 +198,7 @@ fn try_find_id_in_def(
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
     let call_name = working_set.get_span_contents(call.head);
-    if call_name != "def".as_bytes() && call_name != "export def".as_bytes() {
+    if call_name != b"def" && call_name != b"export def" {
         return None;
     };
     let mut span = None;

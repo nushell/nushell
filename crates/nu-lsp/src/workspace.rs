@@ -54,37 +54,18 @@ fn find_reference_in_file(
     file: &FullTextDocument,
     fp: &Path,
     id: &Id,
-) -> Option<Vec<Range>> {
-    let fp_str = fp.to_str()?;
+) -> Option<Vec<Span>> {
     let block = parse(
         working_set,
-        Some(fp_str),
+        fp.to_str(),
         file.get_content(None).as_bytes(),
         false,
     );
-    let file_span = working_set.get_span_for_filename(fp_str)?;
-    let offset = file_span.start;
-    let mut references: Vec<Span> = find_reference_by_id(&block, working_set, id);
-
-    // NOTE: for arguments whose declaration is in a signature
-    // which is not covered in the AST
-    if let Id::Variable(vid) = id {
-        let decl_span = working_set.get_variable(*vid).declaration_span;
-        if file_span.contains_span(decl_span)
-            && decl_span.end > decl_span.start
-            && !references.contains(&decl_span)
-        {
-            references.push(decl_span);
-        }
-    }
-    let occurs: Vec<Range> = references
-        .iter()
-        .map(|span| span_to_range(span, file, offset))
-        .collect();
+    let references: Vec<Span> = find_reference_by_id(&block, working_set, id);
 
     // add_block to avoid repeated parsing
     working_set.add_block(block);
-    (!occurs.is_empty()).then_some(occurs)
+    (!references.is_empty()).then_some(references)
 }
 
 impl LanguageServer {
@@ -284,6 +265,7 @@ impl LanguageServer {
                 .filter_map(|p| p.ok())
                 .collect();
             let len = scripts.len();
+            let definition_span = Self::find_definition_span_by_id(&working_set, &id);
 
             for (i, fp) in scripts.iter().enumerate() {
                 #[cfg(test)]
@@ -324,7 +306,33 @@ impl LanguageServer {
                     }
                     &FullTextDocument::new("nu".to_string(), 0, content_string.into())
                 };
-                let _ = find_reference_in_file(&mut working_set, file, fp, &id).map(|ranges| {
+                let _ = find_reference_in_file(&mut working_set, file, fp, &id).map(|mut refs| {
+                    let file_span = working_set
+                        .get_span_for_filename(fp.to_string_lossy().as_ref())
+                        .unwrap_or(Span::unknown());
+                    // NOTE: for arguments whose declaration is in a signature
+                    // which is not covered in the AST
+                    if let (Id::Variable(_), Some(decl_span)) = (&id, definition_span) {
+                        if file_span.contains_span(decl_span)
+                            && decl_span.end > decl_span.start
+                            && !refs.contains(&decl_span)
+                        {
+                            let leading_dashes = working_set
+                                .get_span_contents(decl_span)
+                                .iter()
+                                // remove leading dashes for flags
+                                .take_while(|c| *c == &b'-')
+                                .count();
+                            refs.push(Span {
+                                start: decl_span.start.saturating_add(leading_dashes),
+                                end: decl_span.end,
+                            });
+                        }
+                    }
+                    let ranges = refs
+                        .iter()
+                        .map(|span| span_to_range(span, file, file_span.start))
+                        .collect();
                     data_sender
                         .send(InternalMessage::RangeMessage(RangePerDoc { uri, ranges }))
                         .ok();
@@ -693,7 +701,7 @@ mod tests {
                                 "newText": "new"
                             },
                             {
-                                "range": { "start": { "line": 1, "character": 2 }, "end": { "line": 1, "character": 7 } },
+                                "range": { "start": { "line": 1, "character": 4 }, "end": { "line": 1, "character": 9 } },
                                 "newText": "new"
                             }
                         ]
