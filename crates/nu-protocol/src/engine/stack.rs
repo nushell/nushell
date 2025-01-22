@@ -5,6 +5,7 @@ use crate::{
     },
     Config, IntoValue, OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
+use nu_utils::IgnoreCaseExt;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
@@ -479,6 +480,44 @@ impl Stack {
         None
     }
 
+    // Case-Insensitive version of get_env_var
+    // Returns Some((name, value)) if found, None otherwise.
+    // When updating environment variables, make sure to use
+    // the same case (from the returned "name") as the original
+    // environment variable name.
+    pub fn get_env_var_insensitive<'a>(
+        &'a self,
+        engine_state: &'a EngineState,
+        name: &str,
+    ) -> Option<(&'a String, &'a Value)> {
+        for scope in self.env_vars.iter().rev() {
+            for active_overlay in self.active_overlays.iter().rev() {
+                if let Some(env_vars) = scope.get(active_overlay) {
+                    if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
+                        return Some((v.0, v.1));
+                    }
+                }
+            }
+        }
+
+        for active_overlay in self.active_overlays.iter().rev() {
+            let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
+                env_hidden.iter().any(|k| k.eq_ignore_case(name))
+            } else {
+                false
+            };
+
+            if !is_hidden {
+                if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
+                    if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
+                        return Some((v.0, v.1));
+                    }
+                }
+            }
+        }
+        None
+    }
+
     pub fn has_env_var(&self, engine_state: &EngineState, name: &str) -> bool {
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
@@ -739,78 +778,76 @@ mod test {
 
     use super::Stack;
 
-    const ZERO_SPAN: Span = Span { start: 0, end: 0 };
-    fn string_value(s: &str) -> Value {
-        Value::String {
-            val: s.to_string(),
-            internal_span: ZERO_SPAN,
-        }
-    }
-
     #[test]
     fn test_children_see_inner_values() {
         let mut original = Stack::new();
-        original.add_var(VarId::new(0), string_value("hello"));
+        original.add_var(VarId::new(0), Value::test_string("hello"));
 
         let cloned = Stack::with_parent(Arc::new(original));
         assert_eq!(
-            cloned.get_var(VarId::new(0), ZERO_SPAN),
-            Ok(string_value("hello"))
+            cloned.get_var(VarId::new(0), Span::test_data()),
+            Ok(Value::test_string("hello"))
         );
     }
 
     #[test]
     fn test_children_dont_see_deleted_values() {
         let mut original = Stack::new();
-        original.add_var(VarId::new(0), string_value("hello"));
+        original.add_var(VarId::new(0), Value::test_string("hello"));
 
         let mut cloned = Stack::with_parent(Arc::new(original));
         cloned.remove_var(VarId::new(0));
 
         assert_eq!(
-            cloned.get_var(VarId::new(0), ZERO_SPAN),
-            Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
+            cloned.get_var(VarId::new(0), Span::test_data()),
+            Err(crate::ShellError::VariableNotFoundAtRuntime {
+                span: Span::test_data()
+            })
         );
     }
 
     #[test]
     fn test_children_changes_override_parent() {
         let mut original = Stack::new();
-        original.add_var(VarId::new(0), string_value("hello"));
+        original.add_var(VarId::new(0), Value::test_string("hello"));
 
         let mut cloned = Stack::with_parent(Arc::new(original));
-        cloned.add_var(VarId::new(0), string_value("there"));
+        cloned.add_var(VarId::new(0), Value::test_string("there"));
         assert_eq!(
-            cloned.get_var(VarId::new(0), ZERO_SPAN),
-            Ok(string_value("there"))
+            cloned.get_var(VarId::new(0), Span::test_data()),
+            Ok(Value::test_string("there"))
         );
 
         cloned.remove_var(VarId::new(0));
         // the underlying value shouldn't magically re-appear
         assert_eq!(
-            cloned.get_var(VarId::new(0), ZERO_SPAN),
-            Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
+            cloned.get_var(VarId::new(0), Span::test_data()),
+            Err(crate::ShellError::VariableNotFoundAtRuntime {
+                span: Span::test_data()
+            })
         );
     }
     #[test]
     fn test_children_changes_persist_in_offspring() {
         let mut original = Stack::new();
-        original.add_var(VarId::new(0), string_value("hello"));
+        original.add_var(VarId::new(0), Value::test_string("hello"));
 
         let mut cloned = Stack::with_parent(Arc::new(original));
-        cloned.add_var(VarId::new(1), string_value("there"));
+        cloned.add_var(VarId::new(1), Value::test_string("there"));
 
         cloned.remove_var(VarId::new(0));
         let cloned = Stack::with_parent(Arc::new(cloned));
 
         assert_eq!(
-            cloned.get_var(VarId::new(0), ZERO_SPAN),
-            Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
+            cloned.get_var(VarId::new(0), Span::test_data()),
+            Err(crate::ShellError::VariableNotFoundAtRuntime {
+                span: Span::test_data()
+            })
         );
 
         assert_eq!(
-            cloned.get_var(VarId::new(1), ZERO_SPAN),
-            Ok(string_value("there"))
+            cloned.get_var(VarId::new(1), Span::test_data()),
+            Ok(Value::test_string("there"))
         );
     }
 
@@ -818,33 +855,38 @@ mod test {
     fn test_merging_children_back_to_parent() {
         let mut original = Stack::new();
         let engine_state = EngineState::new();
-        original.add_var(VarId::new(0), string_value("hello"));
+        original.add_var(VarId::new(0), Value::test_string("hello"));
 
         let original_arc = Arc::new(original);
         let mut cloned = Stack::with_parent(original_arc.clone());
-        cloned.add_var(VarId::new(1), string_value("there"));
+        cloned.add_var(VarId::new(1), Value::test_string("there"));
 
         cloned.remove_var(VarId::new(0));
 
-        cloned.add_env_var("ADDED_IN_CHILD".to_string(), string_value("New Env Var"));
+        cloned.add_env_var(
+            "ADDED_IN_CHILD".to_string(),
+            Value::test_string("New Env Var"),
+        );
 
         let original = Stack::with_changes_from_child(original_arc, cloned);
 
         assert_eq!(
-            original.get_var(VarId::new(0), ZERO_SPAN),
-            Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
+            original.get_var(VarId::new(0), Span::test_data()),
+            Err(crate::ShellError::VariableNotFoundAtRuntime {
+                span: Span::test_data()
+            })
         );
 
         assert_eq!(
-            original.get_var(VarId::new(1), ZERO_SPAN),
-            Ok(string_value("there"))
+            original.get_var(VarId::new(1), Span::test_data()),
+            Ok(Value::test_string("there"))
         );
 
         assert_eq!(
             original
                 .get_env_var(&engine_state, "ADDED_IN_CHILD")
                 .cloned(),
-            Some(string_value("New Env Var")),
+            Some(Value::test_string("New Env Var")),
         );
     }
 }

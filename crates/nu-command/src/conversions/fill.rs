@@ -167,7 +167,7 @@ fn fill(
 fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     match input {
         Value::Int { val, .. } => fill_int(*val, args, span),
-        Value::Filesize { val, .. } => fill_int(*val, args, span),
+        Value::Filesize { val, .. } => fill_int(val.get(), args, span),
         Value::Float { val, .. } => fill_float(*val, args, span),
         Value::String { val, .. } => fill_string(val, args, span),
         // Propagate errors by explicitly matching them before the final case.

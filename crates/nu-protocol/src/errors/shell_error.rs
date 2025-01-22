@@ -652,6 +652,18 @@ pub enum ShellError {
         creation_site: Span,
     },
 
+    /// Attempted to us a relative range on an infinite stream
+    ///
+    /// ## Resolution
+    ///
+    /// Ensure that either the range is absolute or the stream has a known length.
+    #[error("Relative range values cannot be used with streams that don't have a known length")]
+    #[diagnostic(code(nu::shell::relative_range_on_infinite_stream))]
+    RelativeRangeOnInfiniteStream {
+        #[label = "Relative range values cannot be used with streams that don't have a known length"]
+        span: Span,
+    },
+
     /// An error happened while performing an external command.
     ///
     /// ## Resolution
@@ -1219,10 +1231,10 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Return event, which may become an error if used outside of a function
-    #[error("Return used outside of function")]
+    /// Return event, which may become an error if used outside of a custom command or closure
+    #[error("Return used outside of custom command or closure")]
     Return {
-        #[label("used outside of function")]
+        #[label("used outside of custom command or closure")]
         span: Span,
         value: Box<Value>,
     },
@@ -1457,6 +1469,17 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         #[label = "while running this code"]
         span: Option<Span>,
     },
+
+    #[error("OS feature is disabled: {msg}")]
+    #[diagnostic(
+        code(nu::shell::os_disabled),
+        help("You're probably running outside an OS like a browser, we cannot support this")
+    )]
+    DisabledOsSupport {
+        msg: String,
+        #[label = "while running this code"]
+        span: Option<Span>,
+    },
 }
 
 impl ShellError {
@@ -1478,15 +1501,14 @@ impl ShellError {
         }
     }
 
-    pub fn into_value(self, span: Span, fancy_errors: bool) -> Value {
+    pub fn into_value(self, working_set: &StateWorkingSet, span: Span) -> Value {
         let exit_code = self.external_exit_code();
 
         let mut record = record! {
             "msg" => Value::string(self.to_string(), span),
             "debug" => Value::string(format!("{self:?}"), span),
             "raw" => Value::error(self.clone(), span),
-            // "labeled_error" => Value::string(LabeledError::from_diagnostic_and_render(self.clone()), span),
-            "rendered" => Value::string(ShellError::render_error_to_string(self.clone(), fancy_errors), span),
+            "rendered" => Value::string(format_shell_error(working_set, &self), span),
             "json" => Value::string(serde_json::to_string(&self).expect("Could not serialize error"), span),
         };
 
@@ -1505,21 +1527,6 @@ impl ShellError {
             "Encountered error during parse-time evaluation".into(),
             span,
         )
-    }
-    pub fn render_error_to_string(diag: impl miette::Diagnostic, fancy_errors: bool) -> String {
-        let theme = if fancy_errors {
-            miette::GraphicalTheme::unicode()
-        } else {
-            miette::GraphicalTheme::none()
-        };
-        let mut out = String::new();
-        miette::GraphicalReportHandler::new()
-            .with_width(80)
-            .with_theme(theme)
-            .render_report(&mut out, &diag)
-            .unwrap_or_default();
-
-        out
     }
 }
 
@@ -1548,8 +1555,8 @@ impl From<io::Error> for ShellError {
 impl From<Spanned<io::Error>> for ShellError {
     fn from(error: Spanned<io::Error>) -> Self {
         let Spanned { item: error, span } = error;
-        if error.kind() == io::ErrorKind::Other {
-            match error.into_inner() {
+        match error.kind() {
+            io::ErrorKind::Other => match error.into_inner() {
                 Some(err) => match err.downcast() {
                     Ok(err) => *err,
                     Err(err) => Self::IOErrorSpanned {
@@ -1561,12 +1568,15 @@ impl From<Spanned<io::Error>> for ShellError {
                     msg: "unknown error".into(),
                     span,
                 },
-            }
-        } else {
-            Self::IOErrorSpanned {
+            },
+            io::ErrorKind::TimedOut => Self::NetworkFailure {
                 msg: error.to_string(),
                 span,
-            }
+            },
+            _ => Self::IOErrorSpanned {
+                msg: error.to_string(),
+                span,
+            },
         }
     }
 }

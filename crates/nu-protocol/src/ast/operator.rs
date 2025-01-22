@@ -15,6 +15,8 @@ pub enum Comparison {
     NotRegexMatch,
     In,
     NotIn,
+    Has,
+    NotHas,
     StartsWith,
     EndsWith,
 }
@@ -32,6 +34,8 @@ impl Comparison {
             Self::NotRegexMatch => "!~",
             Self::In => "in",
             Self::NotIn => "not-in",
+            Self::Has => "has",
+            Self::NotHas => "not-has",
             Self::StartsWith => "starts-with",
             Self::EndsWith => "ends-with",
         }
@@ -197,6 +201,8 @@ impl Operator {
             | Self::Comparison(Comparison::NotEqual)
             | Self::Comparison(Comparison::In)
             | Self::Comparison(Comparison::NotIn)
+            | Self::Comparison(Comparison::Has)
+            | Self::Comparison(Comparison::NotHas)
             | Self::Math(Math::Concatenate) => 80,
             Self::Bits(Bits::BitAnd) => 75,
             Self::Bits(Bits::BitXor) => 70,

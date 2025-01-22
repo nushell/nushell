@@ -16,10 +16,10 @@ use crate::{
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
-use nu_cmd_base::{hook::eval_hook, util::get_editor};
+use nu_cmd_base::util::get_editor;
 use nu_color_config::StyleComputer;
 #[allow(deprecated)]
-use nu_engine::{convert_env_values, current_dir_str, env_to_strings};
+use nu_engine::env_to_strings;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
@@ -61,9 +61,7 @@ pub fn evaluate_repl(
     // from the Arc. This lets us avoid copying stack variables needlessly
     let mut unique_stack = stack.clone();
     let config = engine_state.get_config();
-    let use_color = config.use_ansi_coloring;
-
-    confirm_stdin_is_terminal()?;
+    let use_color = config.use_ansi_coloring.get(engine_state);
 
     let mut entry_num = 0;
 
@@ -80,13 +78,6 @@ pub fn evaluate_repl(
         engine_state.clone(),
         stack.clone(),
     );
-
-    let start_time = std::time::Instant::now();
-    // Translate environment variables from Strings to Values
-    if let Err(e) = convert_env_values(engine_state, &unique_stack) {
-        report_shell_error(engine_state, &e);
-    }
-    perf!("translate env vars", start_time, use_color);
 
     // seed env vars
     unique_stack.add_env_var(
@@ -110,6 +101,8 @@ pub fn evaluate_repl(
         );
         engine_state.merge_env(&mut unique_stack)?;
     }
+
+    confirm_stdin_is_terminal()?;
 
     let hostname = System::host_name();
     if shell_integration_osc2 {
@@ -146,15 +139,30 @@ pub fn evaluate_repl(
     // Regenerate the $nu constant to contain the startup time and any other potential updates
     engine_state.generate_nu_constant();
 
-    if load_std_lib.is_none() && engine_state.get_config().show_banner {
-        eval_source(
-            engine_state,
-            &mut unique_stack,
-            r#"banner"#.as_bytes(),
-            "show_banner",
-            PipelineData::empty(),
-            false,
-        );
+    if load_std_lib.is_none() {
+        match engine_state.get_config().show_banner {
+            Value::Bool { val: false, .. } => {}
+            Value::String { ref val, .. } if val == "short" => {
+                eval_source(
+                    engine_state,
+                    &mut unique_stack,
+                    r#"banner --short"#.as_bytes(),
+                    "show short banner",
+                    PipelineData::empty(),
+                    false,
+                );
+            }
+            _ => {
+                eval_source(
+                    engine_state,
+                    &mut unique_stack,
+                    r#"banner"#.as_bytes(),
+                    "show_banner",
+                    PipelineData::empty(),
+                    false,
+                );
+            }
+        }
     }
 
     kitty_protocol_healthcheck(engine_state);
@@ -313,20 +321,26 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("reset signals", start_time, use_color);
 
     start_time = std::time::Instant::now();
-    // Right before we start our prompt and take input from the user,
-    // fire the "pre_prompt" hook
-    if let Some(hook) = engine_state.get_config().hooks.pre_prompt.clone() {
-        if let Err(err) = eval_hook(engine_state, &mut stack, None, vec![], &hook, "pre_prompt") {
-            report_shell_error(engine_state, &err);
-        }
+    // Right before we start our prompt and take input from the user, fire the "pre_prompt" hook
+    if let Err(err) = hook::eval_hooks(
+        engine_state,
+        &mut stack,
+        vec![],
+        &engine_state.get_config().hooks.pre_prompt.clone(),
+        "pre_prompt",
+    ) {
+        report_shell_error(engine_state, &err);
     }
     perf!("pre-prompt hook", start_time, use_color);
 
     start_time = std::time::Instant::now();
     // Next, check all the environment variables they ask for
     // fire the "env_change" hook
-    let env_change = engine_state.get_config().hooks.env_change.clone();
-    if let Err(error) = hook::eval_env_change_hook(env_change, engine_state, &mut stack) {
+    if let Err(error) = hook::eval_env_change_hook(
+        &engine_state.get_config().hooks.env_change.clone(),
+        engine_state,
+        &mut stack,
+    ) {
         report_shell_error(engine_state, &error)
     }
     perf!("env-change hook", start_time, use_color);
@@ -369,7 +383,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         )))
         .with_quick_completions(config.completions.quick)
         .with_partial_completions(config.completions.partial)
-        .with_ansi_colors(config.use_ansi_coloring)
+        .with_ansi_colors(config.use_ansi_coloring.get(engine_state))
         .with_cwd(Some(
             engine_state
                 .cwd(None)
@@ -389,7 +403,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let style_computer = StyleComputer::from_config(engine_state, &stack_arc);
 
     start_time = std::time::Instant::now();
-    line_editor = if config.use_ansi_coloring {
+    line_editor = if config.use_ansi_coloring.get(engine_state) {
         line_editor.with_hinter(Box::new({
             // As of Nov 2022, "hints" color_config closures only get `null` passed in.
             let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
@@ -511,18 +525,17 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
             // Right before we start running the code the user gave us, fire the `pre_execution`
             // hook
-            if let Some(hook) = config.hooks.pre_execution.clone() {
+            {
                 // Set the REPL buffer to the current command for the "pre_execution" hook
                 let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
                 repl.buffer = repl_cmd_line_text.to_string();
                 drop(repl);
 
-                if let Err(err) = eval_hook(
+                if let Err(err) = hook::eval_hooks(
                     engine_state,
                     &mut stack,
-                    None,
                     vec![],
-                    &hook,
+                    &engine_state.get_config().hooks.pre_execution.clone(),
                     "pre_execution",
                 ) {
                     report_shell_error(engine_state, &err);
@@ -796,8 +809,10 @@ fn parse_operation(
 ) -> Result<ReplOperation, ErrReport> {
     let tokens = lex(s.as_bytes(), 0, &[], &[], false);
     // Check if this is a single call to a directory, if so auto-cd
-    #[allow(deprecated)]
-    let cwd = nu_engine::env::current_dir_str(engine_state, stack).unwrap_or_default();
+    let cwd = engine_state
+        .cwd(Some(stack))
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
     let mut orig = s.clone();
     if orig.starts_with('`') {
         orig = trim_quotes_str(&orig).to_string()
@@ -956,8 +971,7 @@ fn run_shell_integration_osc2(
     stack: &mut Stack,
     use_color: bool,
 ) {
-    #[allow(deprecated)]
-    if let Ok(path) = current_dir_str(engine_state, stack) {
+    if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
         let start_time = Instant::now();
 
         // Try to abbreviate string for windows title
@@ -1001,8 +1015,7 @@ fn run_shell_integration_osc7(
     stack: &mut Stack,
     use_color: bool,
 ) {
-    #[allow(deprecated)]
-    if let Ok(path) = current_dir_str(engine_state, stack) {
+    if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
         let start_time = Instant::now();
 
         // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
@@ -1025,8 +1038,7 @@ fn run_shell_integration_osc7(
 }
 
 fn run_shell_integration_osc9_9(engine_state: &EngineState, stack: &mut Stack, use_color: bool) {
-    #[allow(deprecated)]
-    if let Ok(path) = current_dir_str(engine_state, stack) {
+    if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
         let start_time = Instant::now();
 
         // Otherwise, communicate the path as OSC 9;9 from ConEmu (often used for spawning new tabs in the same dir)
@@ -1050,8 +1062,7 @@ fn run_shell_integration_osc633(
     use_color: bool,
     repl_cmd_line_text: String,
 ) {
-    #[allow(deprecated)]
-    if let Ok(path) = current_dir_str(engine_state, stack) {
+    if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
         // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
         // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences
         if stack
@@ -1557,6 +1568,13 @@ mod test_auto_cd {
         symlink(&dir, &link).unwrap();
         let input = if cfg!(windows) { r".\link" } else { "./link" };
         check(tempdir, input, link);
+
+        let dir = tempdir.join("foo").join("bar");
+        std::fs::create_dir_all(&dir).unwrap();
+        let link = tempdir.join("link2");
+        symlink(&dir, &link).unwrap();
+        let input = "..";
+        check(link, input, tempdir);
     }
 
     #[test]

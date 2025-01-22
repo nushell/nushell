@@ -109,7 +109,7 @@ impl PipelineData {
     /// than would be returned by [`Value::get_type()`] on the result of
     /// [`.into_value()`](Self::into_value).
     ///
-    /// Specifically, a `ListStream` results in [`list stream`](Type::ListStream) rather than
+    /// Specifically, a `ListStream` results in `list<any>` rather than
     /// the fully complete [`list`](Type::List) type (which would require knowing the contents),
     /// and a `ByteStream` with [unknown](crate::ByteStreamType::Unknown) type results in
     /// [`any`](Type::Any) rather than [`string`](Type::String) or [`binary`](Type::Binary).
@@ -117,15 +117,61 @@ impl PipelineData {
         match self {
             PipelineData::Empty => Type::Nothing,
             PipelineData::Value(value, _) => value.get_type(),
-            PipelineData::ListStream(_, _) => Type::ListStream,
+            PipelineData::ListStream(_, _) => Type::list(Type::Any),
             PipelineData::ByteStream(stream, _) => stream.type_().into(),
+        }
+    }
+
+    /// Determine if the `PipelineData` is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`.
+    ///
+    /// This check makes no effort to collect a stream, so it may be a different result
+    /// than would be returned by calling [`Value::is_subtype()`] on the result of
+    /// [`.into_value()`](Self::into_value).
+    ///
+    /// A `ListStream` acts the same as an empty list type: it is a subtype of any [`list`](Type::List)
+    /// or [`table`](Type::Table) type. After converting to a value, it may become a more specific type.
+    /// For example, a `ListStream` is a subtype of `list<int>` and `list<string>`.
+    /// If calling [`.into_value()`](Self::into_value) results in a `list<int>`,
+    /// then the value would not be a subtype of `list<string>`, in contrast to the original `ListStream`.
+    ///
+    /// A `ByteStream` is a subtype of [`string`](Type::String) if it is coercible into a string.
+    /// Likewise, a `ByteStream` is a subtype of [`binary`](Type::Binary) if it is coercible into a binary value.
+    pub fn is_subtype_of(&self, other: &Type) -> bool {
+        match (self, other) {
+            (_, Type::Any) => true,
+            (PipelineData::Empty, Type::Nothing) => true,
+            (PipelineData::Value(val, ..), ty) => val.is_subtype_of(ty),
+
+            // a list stream could be a list with any type, including a table
+            (PipelineData::ListStream(..), Type::List(..) | Type::Table(..)) => true,
+
+            (PipelineData::ByteStream(stream, ..), Type::String)
+                if stream.type_().is_string_coercible() =>
+            {
+                true
+            }
+            (PipelineData::ByteStream(stream, ..), Type::Binary)
+                if stream.type_().is_binary_coercible() =>
+            {
+                true
+            }
+
+            (PipelineData::Empty, _) => false,
+            (PipelineData::ListStream(..), _) => false,
+            (PipelineData::ByteStream(..), _) => false,
         }
     }
 
     pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
         match self {
             PipelineData::Empty => Ok(Value::nothing(span)),
-            PipelineData::Value(value, ..) => Ok(value.with_span(span)),
+            PipelineData::Value(value, ..) => {
+                if value.span() == Span::unknown() {
+                    Ok(value.with_span(span))
+                } else {
+                    Ok(value)
+                }
+            }
             PipelineData::ListStream(stream, ..) => Ok(stream.into_value()),
             PipelineData::ByteStream(stream, ..) => stream.into_value(),
         }

@@ -21,11 +21,13 @@ use command::gather_commandline_args;
 use log::{trace, Level};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
+use nu_engine::convert_env_values;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, report_shell_error, ByteStream, PipelineData, ShellError, Span, Spanned,
-    Value,
+    engine::{EngineState, Stack},
+    record, report_shell_error, ByteStream, Config, IntoValue, PipelineData, ShellError, Span,
+    Spanned, Type, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -147,22 +149,43 @@ fn main() -> Result<()> {
 
     let mut default_nu_lib_dirs_path = nushell_config_path.clone();
     default_nu_lib_dirs_path.push("scripts");
-    engine_state.add_env_var(
-        "NU_LIB_DIRS".to_string(),
+    // env.NU_LIB_DIRS to be replaced by constant (below) - Eventual deprecation
+    // but an empty list for now to allow older code to work
+    engine_state.add_env_var("NU_LIB_DIRS".to_string(), Value::test_list(vec![]));
+
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    let var_id = working_set.add_variable(
+        b"$NU_LIB_DIRS".into(),
+        Span::unknown(),
+        Type::List(Box::new(Type::String)),
+        false,
+    );
+    working_set.set_variable_const_val(
+        var_id,
         Value::test_list(vec![
             Value::test_string(default_nu_lib_dirs_path.to_string_lossy()),
             Value::test_string(default_nushell_completions_path.to_string_lossy()),
         ]),
     );
+    engine_state.merge_delta(working_set.render())?;
 
     let mut default_nu_plugin_dirs_path = nushell_config_path;
     default_nu_plugin_dirs_path.push("plugins");
-    engine_state.add_env_var(
-        "NU_PLUGIN_DIRS".to_string(),
+    engine_state.add_env_var("NU_PLUGIN_DIRS".to_string(), Value::test_list(vec![]));
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    let var_id = working_set.add_variable(
+        b"$NU_PLUGIN_DIRS".into(),
+        Span::unknown(),
+        Type::List(Box::new(Type::String)),
+        false,
+    );
+    working_set.set_variable_const_val(
+        var_id,
         Value::test_list(vec![Value::test_string(
             default_nu_plugin_dirs_path.to_string_lossy(),
         )]),
     );
+    engine_state.merge_delta(working_set.render())?;
     // End: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
 
     // This is the real secret sauce to having an in-memory sqlite db. You must
@@ -192,7 +215,10 @@ fn main() -> Result<()> {
 
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
 
-    let use_color = engine_state.get_config().use_ansi_coloring;
+    let use_color = engine_state
+        .get_config()
+        .use_ansi_coloring
+        .get(&engine_state);
 
     // Set up logger
     if let Some(level) = parsed_nu_cli_args
@@ -258,6 +284,18 @@ fn main() -> Result<()> {
     }
 
     start_time = std::time::Instant::now();
+    engine_state.add_env_var(
+        "config".into(),
+        Config::default().into_value(Span::unknown()),
+    );
+    perf!("$env.config setup", start_time, use_color);
+
+    engine_state.add_env_var(
+        "ENV_CONVERSIONS".to_string(),
+        Value::test_record(record! {}),
+    );
+
+    start_time = std::time::Instant::now();
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
         let span = include_path.span;
         let vals: Vec<_> = include_path
@@ -266,7 +304,15 @@ fn main() -> Result<()> {
             .map(|x| Value::string(x.trim().to_string(), span))
             .collect();
 
-        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::list(vals, span));
+        let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+        let var_id = working_set.add_variable(
+            b"$NU_LIB_DIRS".into(),
+            span,
+            Type::List(Box::new(Type::String)),
+            false,
+        );
+        working_set.set_variable_const_val(var_id, Value::list(vals, span));
+        engine_state.merge_delta(working_set.render())?;
     }
     perf!("NU_LIB_DIRS setup", start_time, use_color);
 
@@ -275,20 +321,20 @@ fn main() -> Result<()> {
     gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
     perf!("gather env vars", start_time, use_color);
 
+    let mut stack = Stack::new();
+    start_time = std::time::Instant::now();
+    let config = engine_state.get_config();
+    let use_color = config.use_ansi_coloring.get(&engine_state);
+    // Translate environment variables from Strings to Values
+    if let Err(e) = convert_env_values(&mut engine_state, &mut stack) {
+        report_shell_error(&engine_state, &e);
+    }
+    perf!("Convert path to list", start_time, use_color);
+
     engine_state.add_env_var(
         "NU_VERSION".to_string(),
         Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
     );
-
-    // Add SHLVL if interactive
-    if engine_state.is_interactive {
-        let mut shlvl = engine_state
-            .get_env_var("SHLVL")
-            .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
-            .unwrap_or(0);
-        shlvl += 1;
-        engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
-    }
 
     if parsed_nu_cli_args.no_std_lib.is_none() {
         load_standard_library(&mut engine_state)?;
@@ -338,6 +384,9 @@ fn main() -> Result<()> {
             "chop" => test_bins::chop(),
             "repeater" => test_bins::repeater(),
             "repeat_bytes" => test_bins::repeat_bytes(),
+            // Important: nu_repl must be called with `--testbin=nu_repl`
+            // `--testbin nu_repl` will not work due to argument count logic
+            // in test_bins.rs
             "nu_repl" => test_bins::nu_repl(),
             "input_bytes_length" => test_bins::input_bytes_length(),
             _ => std::process::exit(1),
@@ -423,10 +472,11 @@ fn main() -> Result<()> {
             );
         }
 
-        LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state)?
+        LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests()?
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,
+            stack,
             parsed_nu_cli_args,
             use_color,
             &commands,
@@ -436,6 +486,7 @@ fn main() -> Result<()> {
     } else if !script_name.is_empty() {
         run_file(
             &mut engine_state,
+            stack,
             parsed_nu_cli_args,
             use_color,
             script_name,
@@ -443,7 +494,41 @@ fn main() -> Result<()> {
             input,
         );
     } else {
-        run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)?
+        // Environment variables that apply only when in REPL
+        engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
+        engine_state.add_env_var(
+            "PROMPT_INDICATOR_VI_NORMAL".to_string(),
+            Value::test_string("> "),
+        );
+        engine_state.add_env_var(
+            "PROMPT_INDICATOR_VI_INSERT".to_string(),
+            Value::test_string(": "),
+        );
+        engine_state.add_env_var(
+            "PROMPT_MULTILINE_INDICATOR".to_string(),
+            Value::test_string("::: "),
+        );
+        engine_state.add_env_var(
+            "TRANSIENT_PROMPT_MULTILINE_INDICATOR".to_string(),
+            Value::test_string(""),
+        );
+        engine_state.add_env_var(
+            "TRANSIENT_PROMPT_COMMAND_RIGHT".to_string(),
+            Value::test_string(""),
+        );
+        let mut shlvl = engine_state
+            .get_env_var("SHLVL")
+            .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
+            .unwrap_or(0);
+        shlvl += 1;
+        engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
+
+        run_repl(
+            &mut engine_state,
+            stack,
+            parsed_nu_cli_args,
+            entire_start_time,
+        )?
     }
 
     Ok(())

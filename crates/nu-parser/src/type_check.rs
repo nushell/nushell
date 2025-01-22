@@ -62,8 +62,6 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
 
     match (lhs, rhs) {
         (Type::List(c), Type::List(d)) => type_compatible(c, d),
-        (Type::ListStream, Type::List(_)) => true,
-        (Type::List(_), Type::ListStream) => true,
         (Type::List(c), Type::Table(table_fields)) => {
             if matches!(**c, Type::Any) {
                 return true;
@@ -626,81 +624,50 @@ pub fn math_result_type(
                 )
             }
         },
-        Operator::Comparison(Comparison::Equal) => match (&lhs.ty, &rhs.ty) {
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            _ => (Type::Bool, None),
-        },
-        Operator::Comparison(Comparison::NotEqual) => match (&lhs.ty, &rhs.ty) {
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            _ => (Type::Bool, None),
-        },
-        Operator::Comparison(Comparison::RegexMatch) => match (&lhs.ty, &rhs.ty) {
-            (Type::String | Type::Any, Type::String | Type::Any) => (Type::Bool, None),
-            // TODO: should this include glob?
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            _ => {
-                *op = Expression::garbage(working_set, op.span);
-                type_error(
-                    Operator::Comparison(Comparison::RegexMatch),
-                    op.span,
-                    lhs,
-                    rhs,
-                    |ty| matches!(ty, Type::String),
-                )
+        Operator::Comparison(Comparison::Equal | Comparison::NotEqual) => {
+            match (&lhs.ty, &rhs.ty) {
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
+                _ => (Type::Bool, None),
             }
-        },
-        Operator::Comparison(Comparison::NotRegexMatch) => match (&lhs.ty, &rhs.ty) {
-            (Type::String | Type::Any, Type::String | Type::Any) => (Type::Bool, None),
-            // TODO: should this include glob?
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            _ => {
-                *op = Expression::garbage(working_set, op.span);
-                type_error(
-                    Operator::Comparison(Comparison::NotRegexMatch),
-                    op.span,
-                    lhs,
-                    rhs,
-                    |ty| matches!(ty, Type::String),
-                )
+        }
+        Operator::Comparison(Comparison::RegexMatch | Comparison::NotRegexMatch) => {
+            match (&lhs.ty, &rhs.ty) {
+                (Type::String | Type::Any, Type::String | Type::Any) => (Type::Bool, None),
+                // TODO: should this include glob?
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
+                _ => {
+                    *op = Expression::garbage(working_set, op.span);
+                    type_error(
+                        Operator::Comparison(Comparison::RegexMatch),
+                        op.span,
+                        lhs,
+                        rhs,
+                        |ty| matches!(ty, Type::String),
+                    )
+                }
             }
-        },
-        Operator::Comparison(Comparison::StartsWith) => match (&lhs.ty, &rhs.ty) {
-            (Type::String | Type::Any, Type::String | Type::Any) => (Type::Bool, None),
-            // TODO: should this include glob?
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            _ => {
-                *op = Expression::garbage(working_set, op.span);
-                type_error(
-                    Operator::Comparison(Comparison::StartsWith),
-                    op.span,
-                    lhs,
-                    rhs,
-                    |ty| matches!(ty, Type::String),
-                )
+        }
+        Operator::Comparison(Comparison::StartsWith | Comparison::EndsWith) => {
+            match (&lhs.ty, &rhs.ty) {
+                (Type::String | Type::Any, Type::String | Type::Any) => (Type::Bool, None),
+                // TODO: should this include glob?
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
+                _ => {
+                    *op = Expression::garbage(working_set, op.span);
+                    type_error(
+                        Operator::Comparison(Comparison::StartsWith),
+                        op.span,
+                        lhs,
+                        rhs,
+                        |ty| matches!(ty, Type::String),
+                    )
+                }
             }
-        },
-        Operator::Comparison(Comparison::EndsWith) => match (&lhs.ty, &rhs.ty) {
-            (Type::String | Type::Any, Type::String | Type::Any) => (Type::Bool, None),
-            // TODO: should this include glob?
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            _ => {
-                *op = Expression::garbage(working_set, op.span);
-                type_error(
-                    Operator::Comparison(Comparison::LessThan),
-                    op.span,
-                    lhs,
-                    rhs,
-                    |ty| matches!(ty, Type::String),
-                )
-            }
-        },
-        Operator::Comparison(Comparison::In) => match (&lhs.ty, &rhs.ty) {
+        }
+        Operator::Comparison(Comparison::In | Comparison::NotIn) => match (&lhs.ty, &rhs.ty) {
             (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
             (Type::Int | Type::Float | Type::Number, Type::Range) => (Type::Bool, None),
             (Type::String, Type::String) => (Type::Bool, None),
@@ -741,11 +708,11 @@ pub fn math_result_type(
                 (Type::Any, Some(err))
             }
         },
-        Operator::Comparison(Comparison::NotIn) => match (&lhs.ty, &rhs.ty) {
-            (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
-            (Type::Int | Type::Float | Type::Number, Type::Range) => (Type::Bool, None),
+        Operator::Comparison(Comparison::Has | Comparison::NotHas) => match (&lhs.ty, &rhs.ty) {
+            (Type::List(u), t) if type_compatible(u, t) => (Type::Bool, None),
+            (Type::Range, Type::Int | Type::Float | Type::Number) => (Type::Bool, None),
             (Type::String, Type::String) => (Type::Bool, None),
-            (Type::String, Type::Record(_)) => (Type::Bool, None),
+            (Type::Record(_), Type::String) => (Type::Bool, None),
             (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
             (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
             (Type::Any, _) => (Type::Bool, None),
@@ -753,7 +720,7 @@ pub fn math_result_type(
             _ => {
                 *op = Expression::garbage(working_set, op.span);
                 let err = if matches!(
-                    &rhs.ty,
+                    &lhs.ty,
                     Type::List(_)
                         | Type::Range
                         | Type::String
@@ -762,7 +729,7 @@ pub fn math_result_type(
                         | Type::Any
                 ) {
                     ParseError::OperatorIncompatibleTypes {
-                        op: Operator::Comparison(Comparison::NotIn).as_str(),
+                        op: Operator::Comparison(Comparison::In).as_str(),
                         lhs: lhs.ty.clone(),
                         rhs: rhs.ty.clone(),
                         op_span: op.span,
@@ -772,7 +739,7 @@ pub fn math_result_type(
                     }
                 } else {
                     ParseError::OperatorUnsupportedType {
-                        op: Operator::Comparison(Comparison::NotIn).as_str(),
+                        op: Operator::Comparison(Comparison::In).as_str(),
                         unsupported: rhs.ty.clone(),
                         op_span: op.span,
                         unsupported_span: rhs.span,

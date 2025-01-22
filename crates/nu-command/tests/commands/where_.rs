@@ -187,3 +187,25 @@ fn where_gt_null() {
     let actual = nu!("[{foo: 123} {}] | where foo? > 10 | to nuon");
     assert_eq!(actual.out, "[[foo]; [123]]");
 }
+
+#[test]
+fn has_operator() {
+    let actual = nu!(
+        r#"[[name, children]; [foo, [a, b]], [bar [b, c]], [baz, [c, d]]] | where children has "a" | to nuon"#
+    );
+    assert_eq!(actual.out, r#"[[name, children]; [foo, [a, b]]]"#);
+
+    let actual = nu!(
+        r#"[[name, children]; [foo, [a, b]], [bar [b, c]], [baz, [c, d]]] | where children not-has "a" | to nuon"#
+    );
+    assert_eq!(
+        actual.out,
+        r#"[[name, children]; [bar, [b, c]], [baz, [c, d]]]"#
+    );
+
+    let actual = nu!(r#"{foo: 1} has foo"#);
+    assert_eq!(actual.out, "true");
+
+    let actual = nu!(r#"{foo: 1} has bar "#);
+    assert_eq!(actual.out, "false");
+}

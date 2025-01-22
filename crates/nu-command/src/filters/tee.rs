@@ -1,7 +1,9 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+#[cfg(feature = "os")]
+use nu_protocol::process::ChildPipe;
 use nu_protocol::{
-    byte_stream::copy_with_signals, engine::Closure, process::ChildPipe, report_shell_error,
-    ByteStream, ByteStreamSource, OutDest, PipelineMetadata, Signals,
+    byte_stream::copy_with_signals, engine::Closure, report_shell_error, ByteStream,
+    ByteStreamSource, OutDest, PipelineMetadata, Signals,
 };
 use std::{
     io::{self, Read, Write},
@@ -152,6 +154,7 @@ use it in your pipeline."#
                         metadata,
                     ))
                 }
+                #[cfg(feature = "os")]
                 ByteStreamSource::Child(mut child) => {
                     let stderr_thread = if use_stderr {
                         let stderr_thread = if let Some(stderr) = child.stderr.take() {
@@ -454,6 +457,7 @@ fn copy(src: impl Read, dest: impl Write, info: &StreamInfo) -> Result<(), Shell
     Ok(())
 }
 
+#[cfg(feature = "os")]
 fn copy_pipe(pipe: ChildPipe, dest: impl Write, info: &StreamInfo) -> Result<(), ShellError> {
     match pipe {
         ChildPipe::Pipe(pipe) => copy(pipe, dest, info),
@@ -477,6 +481,7 @@ fn copy_on_thread(
         .map_err(|e| e.into_spanned(span).into())
 }
 
+#[cfg(feature = "os")]
 fn copy_pipe_on_thread(
     pipe: ChildPipe,
     dest: impl Write + Send + 'static,

@@ -128,12 +128,12 @@ impl Command for SeqDate {
         let days: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "days")?;
         let reverse = call.has_flag(engine_state, stack, "reverse")?;
 
-        let outformat = match output_format {
+        let out_format = match output_format {
             Some(s) => Some(Value::string(s.item, s.span)),
             _ => None,
         };
 
-        let informat = match input_format {
+        let in_format = match input_format {
             Some(s) => Some(Value::string(s.item, s.span)),
             _ => None,
         };
@@ -161,7 +161,7 @@ impl Command for SeqDate {
         }
 
         Ok(run_seq_dates(
-            outformat, informat, begin, end, inc, day_count, rev, call.head,
+            out_format, in_format, begin, end, inc, day_count, rev, call.head,
         )?
         .into_pipeline_data())
     }

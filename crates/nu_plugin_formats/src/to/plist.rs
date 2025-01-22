@@ -1,10 +1,8 @@
-use std::time::SystemTime;
-
+use crate::FormatCmdsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand, SimplePluginCommand};
 use nu_protocol::{Category, Example, LabeledError, Record, Signature, Span, Value as NuValue};
-use plist::{Integer, Value as PlistValue};
-
-use crate::FormatCmdsPlugin;
+use plist::Value as PlistValue;
+use std::time::SystemTime;
 
 pub(crate) struct IntoPlist;
 
@@ -68,7 +66,7 @@ fn convert_nu_value(nu_val: &NuValue) -> Result<PlistValue, LabeledError> {
         NuValue::String { val, .. } => Ok(PlistValue::String(val.to_owned())),
         NuValue::Bool { val, .. } => Ok(PlistValue::Boolean(*val)),
         NuValue::Float { val, .. } => Ok(PlistValue::Real(*val)),
-        NuValue::Int { val, .. } => Ok(PlistValue::Integer(Into::<Integer>::into(*val))),
+        NuValue::Int { val, .. } => Ok(PlistValue::Integer((*val).into())),
         NuValue::Binary { val, .. } => Ok(PlistValue::Data(val.to_owned())),
         NuValue::Record { val, .. } => convert_nu_dict(val),
         NuValue::List { vals, .. } => Ok(PlistValue::Array(
@@ -77,7 +75,7 @@ fn convert_nu_value(nu_val: &NuValue) -> Result<PlistValue, LabeledError> {
                 .collect::<Result<_, _>>()?,
         )),
         NuValue::Date { val, .. } => Ok(PlistValue::Date(SystemTime::from(val.to_owned()).into())),
-        NuValue::Filesize { val, .. } => Ok(PlistValue::Integer(Into::<Integer>::into(*val))),
+        NuValue::Filesize { val, .. } => Ok(PlistValue::Integer(val.get().into())),
         _ => Err(build_label_error(
             format!("{:?} is not convertible", nu_val),
             span,

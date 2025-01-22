@@ -654,7 +654,10 @@ Operating system commands:
         let list: bool = call.has_flag(engine_state, stack, "list")?;
         let escape: bool = call.has_flag(engine_state, stack, "escape")?;
         let osc: bool = call.has_flag(engine_state, stack, "osc")?;
-        let use_ansi_coloring = stack.get_config(engine_state).use_ansi_coloring;
+        let use_ansi_coloring = stack
+            .get_config(engine_state)
+            .use_ansi_coloring
+            .get(engine_state);
 
         if list {
             return Ok(generate_ansi_code_list(
@@ -691,7 +694,10 @@ Operating system commands:
         let list: bool = call.has_flag_const(working_set, "list")?;
         let escape: bool = call.has_flag_const(working_set, "escape")?;
         let osc: bool = call.has_flag_const(working_set, "osc")?;
-        let use_ansi_coloring = working_set.get_config().use_ansi_coloring;
+        let use_ansi_coloring = working_set
+            .get_config()
+            .use_ansi_coloring
+            .get(working_set.permanent());
 
         if list {
             return Ok(generate_ansi_code_list(

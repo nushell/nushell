@@ -196,13 +196,13 @@ fn action(
         PipelineData::ListStream(stream, _) => {
             insert_in_transaction(stream.into_iter(), span, table, signals)
         }
-        PipelineData::Value(
-            Value::List {
-                vals,
-                internal_span,
-            },
-            _,
-        ) => insert_in_transaction(vals.into_iter(), internal_span, table, signals),
+        PipelineData::Value(value @ Value::List { .. }, _) => {
+            let span = value.span();
+            let vals = value
+                .into_list()
+                .expect("Value matched as list above, but is not a list");
+            insert_in_transaction(vals.into_iter(), span, table, signals)
+        }
         PipelineData::Value(val, _) => {
             insert_in_transaction(std::iter::once(val), span, table, signals)
         }
@@ -359,7 +359,6 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         | Type::Custom(_)
         | Type::Error
         | Type::List(_)
-        | Type::ListStream
         | Type::Range
         | Type::Record(_)
         | Type::Signature

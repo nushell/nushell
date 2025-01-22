@@ -1,4 +1,5 @@
 use crate::repl::tests::{fail_test, run_test, TestResult};
+use rstest::rstest;
 
 #[test]
 fn module_def_imports_1() -> TestResult {
@@ -145,6 +146,28 @@ fn export_module_which_defined_const() -> TestResult {
     )
 }
 
+#[rstest]
+#[case("spam-mod")]
+#[case("spam/mod")]
+#[case("spam=mod")]
+fn export_module_with_normalized_var_name(#[case] name: &str) -> TestResult {
+    let def = format!(
+        "module {name} {{ export const b = 3; export module {name}2 {{ export const c = 4 }}  }}"
+    );
+    run_test(&format!("{def}; use {name}; $spam_mod.b"), "3")?;
+    run_test(&format!("{def}; use {name} *; $spam_mod2.c"), "4")
+}
+
+#[rstest]
+#[case("spam-mod")]
+#[case("spam/mod")]
+fn use_module_with_invalid_var_name(#[case] name: &str) -> TestResult {
+    fail_test(
+        &format!("module {name} {{ export const b = 3 }}; use {name}; ${name}"),
+        "expected valid variable name. Did you mean '$spam_mod'",
+    )
+}
+
 #[test]
 fn cannot_export_private_const() -> TestResult {
     fail_test(
@@ -162,5 +185,21 @@ fn test_lexical_binding() -> TestResult {
     run_test(
         r#"const b = 4; module spam { const b = 3; export def c [] { $b } }; use spam; spam c"#,
         "3",
+    )
+}
+
+#[test]
+fn propagate_errors_in_export_env_on_use() -> TestResult {
+    fail_test(
+        r#"module foo { export-env { error make -u { msg: "error in export-env"} } }; use foo"#,
+        "error in export-env",
+    )
+}
+
+#[test]
+fn propagate_errors_in_export_env_when_run() -> TestResult {
+    fail_test(
+        r#"export-env { error make -u { msg: "error in export-env" } }"#,
+        "error in export-env",
     )
 }

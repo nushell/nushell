@@ -141,6 +141,15 @@ fn match_constant_7() {
 }
 
 #[test]
+fn match_constant_8() {
+    let actual =
+        nu!(r#"match "foo" { r#'foo'# => { print "success" }, _ => { print "failure" } }"#);
+    // Make sure we don't see any of these values in the output
+    // As we do not auto-print loops anymore
+    assert_eq!(actual.out, "success");
+}
+
+#[test]
 fn match_null() {
     let actual = nu!(r#"match null { null => { print "success"}, _ => { print "failure" }}"#);
     assert_eq!(actual.out, "success");

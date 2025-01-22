@@ -94,7 +94,7 @@ impl Matcher for Pattern {
                 }
                 _ => false,
             },
-            Pattern::Value(pattern_value) => {
+            Pattern::Expression(pattern_value) => {
                 // TODO: Fill this out with the rest of them
                 match &pattern_value.expr {
                     Expr::Nothing => {
@@ -128,7 +128,7 @@ impl Matcher for Pattern {
                             false
                         }
                     }
-                    Expr::String(x) => {
+                    Expr::String(x) | Expr::RawString(x) => {
                         if let Value::String { val, .. } = &value {
                             x == val
                         } else {
@@ -205,6 +205,7 @@ impl Matcher for Pattern {
                     _ => false,
                 }
             }
+            Pattern::Value(pattern_value) => value == pattern_value,
             Pattern::Or(patterns) => {
                 let mut result = false;
 

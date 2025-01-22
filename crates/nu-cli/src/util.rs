@@ -1,3 +1,5 @@
+#![allow(clippy::byte_char_slices)]
+
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{lex, parse, unescape_unquote_string, Token, TokenContents};
@@ -263,7 +265,10 @@ pub fn eval_source(
     perf!(
         &format!("eval_source {}", &fname),
         start_time,
-        engine_state.get_config().use_ansi_coloring
+        engine_state
+            .get_config()
+            .use_ansi_coloring
+            .get(engine_state)
     );
 
     exit_code

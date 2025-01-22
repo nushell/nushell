@@ -1,7 +1,9 @@
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
-use nu_path::{dots::expand_ndots, expand_tilde};
-use nu_protocol::{did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals};
+use nu_engine::{command_prelude::*, env_to_strings};
+use nu_path::{dots::expand_ndots_safe, expand_tilde, AbsolutePath};
+use nu_protocol::{
+    did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
+};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
@@ -32,15 +34,10 @@ impl Command for External {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required(
-                "command",
-                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
-                "External command to run.",
-            )
             .rest(
-                "args",
+                "command",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Any]),
-                "Arguments for external command.",
+                "External command to run, with arguments.",
             )
             .category(Category::System)
     }
@@ -53,7 +50,15 @@ impl Command for External {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cwd = engine_state.cwd(Some(stack))?;
-        let name: Value = call.req(engine_state, stack, 0)?;
+        let rest = call.rest::<Value>(engine_state, stack, 0)?;
+        let name_args = rest.split_first();
+
+        let Some((name, call_args)) = name_args else {
+            return Err(ShellError::MissingParameter {
+                param_name: "no command given".into(),
+                span: call.head,
+            });
+        };
 
         let name_str: Cow<str> = match &name {
             Value::Glob { val, .. } => Cow::Borrowed(val),
@@ -126,7 +131,13 @@ impl Command for External {
             // effect if it's an absolute path already
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
             let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) else {
-                return Err(command_not_found(&name_str, call.head, engine_state, stack));
+                return Err(command_not_found(
+                    &name_str,
+                    call.head,
+                    engine_state,
+                    stack,
+                    &cwd,
+                ));
             };
             executable
         };
@@ -143,7 +154,7 @@ impl Command for External {
         command.envs(envs);
 
         // Configure args.
-        let args = eval_arguments_from_call(engine_state, stack, call)?;
+        let args = eval_external_arguments(engine_state, stack, call_args.to_vec())?;
         #[cfg(windows)]
         if is_cmd_internal_command(&name_str) || potential_nuscript_in_windows {
             // The /D flag disables execution of AutoRun commands from registry.
@@ -282,15 +293,13 @@ impl Command for External {
     }
 }
 
-/// Evaluate all arguments from a call, performing expansions when necessary.
-pub fn eval_arguments_from_call(
+/// Evaluate all arguments, performing expansions when necessary.
+pub fn eval_external_arguments(
     engine_state: &EngineState,
     stack: &mut Stack,
-    call: &Call,
+    call_args: Vec<Value>,
 ) -> Result<Vec<Spanned<OsString>>, ShellError> {
     let cwd = engine_state.cwd(Some(stack))?;
-    let eval_expression = get_eval_expression(engine_state);
-    let call_args = call.rest_iter_flattened(engine_state, stack, eval_expression, 1)?;
     let mut args: Vec<Spanned<OsString>> = Vec::with_capacity(call_args.len());
 
     for arg in call_args {
@@ -333,11 +342,9 @@ fn expand_glob(
     span: Span,
     signals: &Signals,
 ) -> Result<Vec<OsString>, ShellError> {
-    const GLOB_CHARS: &[char] = &['*', '?', '['];
-
-    // For an argument that doesn't include the GLOB_CHARS, just do the `expand_tilde`
+    // For an argument that isn't a glob, just do the `expand_tilde`
     // and `expand_ndots` expansion
-    if !arg.contains(GLOB_CHARS) {
+    if !nu_glob::is_glob(arg) {
         let path = expand_ndots_safe(expand_tilde(arg));
         return Ok(vec![path.into()]);
     }
@@ -412,7 +419,7 @@ fn write_pipeline_data(
         stack.start_collect_value();
 
         // Turn off color as we pass data through
-        Arc::make_mut(&mut engine_state.config).use_ansi_coloring = false;
+        Arc::make_mut(&mut engine_state.config).use_ansi_coloring = UseAnsiColoring::False;
 
         // Invoke the `table` command.
         let output =
@@ -433,6 +440,7 @@ pub fn command_not_found(
     span: Span,
     engine_state: &EngineState,
     stack: &mut Stack,
+    cwd: &AbsolutePath,
 ) -> ShellError {
     // Run the `command_not_found` hook if there is one.
     if let Some(hook) = &stack.get_config(engine_state).hooks.command_not_found {
@@ -543,12 +551,12 @@ pub fn command_not_found(
     }
 
     // If we find a file, it's likely that the user forgot to set permissions
-    if Path::new(name).is_file() {
+    if cwd.join(name).is_file() {
         return ShellError::ExternalCommand {
-                        label: format!("Command `{name}` not found"),
-                        help: format!("`{name}` refers to a file that is not executable. Did you forget to set execute permissions?"),
-                        span,
-                    };
+            label: format!("Command `{name}` not found"),
+            help: format!("`{name}` refers to a file that is not executable. Did you forget to set execute permissions?"),
+            span,
+        };
     }
 
     // We found nothing useful. Give up and return a generic error message.
@@ -630,21 +638,6 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
     } else {
         // FIXME?: what if `arg.is_empty()`?
         Ok(Cow::Borrowed(arg))
-    }
-}
-
-/// Expand ndots, but only if it looks like it probably contains them, because there is some lossy
-/// path normalization that happens.
-fn expand_ndots_safe(path: impl AsRef<Path>) -> PathBuf {
-    let string = path.as_ref().to_string_lossy();
-
-    // Use ndots if it contains at least `...`, since that's the minimum trigger point, and don't
-    // use it if it contains ://, because that looks like a URL scheme and the path normalization
-    // will mess with that.
-    if string.contains("...") && !string.contains("://") {
-        expand_ndots(path)
-    } else {
-        path.as_ref().to_owned()
     }
 }
 

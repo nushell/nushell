@@ -2,7 +2,7 @@
 
 mod binary_widget;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::KeyEvent;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -21,7 +21,7 @@ use crate::{
 
 use self::binary_widget::{BinarySettings, BinaryStyle, BinaryWidget};
 
-use super::{cursor::WindowCursor2D, Layout, View, ViewConfig};
+use super::{cursor::CursorMoveHandler, cursor::WindowCursor2D, Layout, View, ViewConfig};
 
 /// An interactive view that displays binary data in a hex dump format.
 /// Not finished; many aspects are still WIP.
@@ -66,15 +66,14 @@ impl View for BinaryView {
         _: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
-    ) -> Option<Transition> {
-        let result = handle_event_view_mode(self, &key);
-
-        if matches!(&result, Some(Transition::Ok)) {
+    ) -> Transition {
+        // currently only handle_enter() in crates/nu-explore/src/views/record/mod.rs raises an Err()
+        if let Ok((Transition::Ok, ..)) = self.handle_input_key(&key) {
             let report = create_report(self.cursor);
             info.status = Some(report);
         }
 
-        None
+        Transition::None
     }
 
     fn collect_data(&self) -> Vec<NuText> {
@@ -93,6 +92,12 @@ impl View for BinaryView {
     }
 }
 
+impl CursorMoveHandler for BinaryView {
+    fn get_cursor(&mut self) -> &mut WindowCursor2D {
+        &mut self.cursor
+    }
+}
+
 fn create_binary_widget(v: &BinaryView) -> BinaryWidget<'_> {
     let start_line = v.cursor.window_origin().row;
     let count_elements =
@@ -104,73 +109,6 @@ fn create_binary_widget(v: &BinaryView) -> BinaryWidget<'_> {
     w.set_row_offset(index);
 
     w
-}
-
-fn handle_event_view_mode(view: &mut BinaryView, key: &KeyEvent) -> Option<Transition> {
-    match key {
-        KeyEvent {
-            code: KeyCode::Char('u'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
-        }
-        | KeyEvent {
-            code: KeyCode::PageUp,
-            ..
-        } => {
-            view.cursor.prev_row_page();
-
-            return Some(Transition::Ok);
-        }
-        KeyEvent {
-            code: KeyCode::Char('d'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
-        }
-        | KeyEvent {
-            code: KeyCode::PageDown,
-            ..
-        } => {
-            view.cursor.next_row_page();
-
-            return Some(Transition::Ok);
-        }
-        _ => {}
-    }
-
-    match key.code {
-        KeyCode::Esc => Some(Transition::Exit),
-        KeyCode::Up | KeyCode::Char('k') => {
-            view.cursor.prev_row_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Down | KeyCode::Char('j') => {
-            view.cursor.next_row_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Left | KeyCode::Char('h') => {
-            view.cursor.prev_column_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Right | KeyCode::Char('l') => {
-            view.cursor.next_column_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Home | KeyCode::Char('g') => {
-            view.cursor.row_move_to_start();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::End | KeyCode::Char('G') => {
-            view.cursor.row_move_to_end();
-
-            Some(Transition::Ok)
-        }
-        _ => None,
-    }
 }
 
 fn settings_from_config(config: &ExploreConfig) -> Settings {

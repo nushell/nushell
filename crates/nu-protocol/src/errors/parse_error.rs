@@ -54,6 +54,10 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::parse_mismatch_with_full_string_msg))]
     ExpectedWithStringMsg(String, #[label("expected {0}")] Span),
 
+    #[error("Parse mismatch during operation.")]
+    #[diagnostic(code(nu::parser::parse_mismatch_with_did_you_mean))]
+    ExpectedWithDidYouMean(&'static str, DidYouMean, #[label("expected {0}. {1}")] Span),
+
     #[error("Command does not support {0} input.")]
     #[diagnostic(code(nu::parser::input_type_mismatch))]
     InputMismatch(Type, #[label("command doesn't support {0} input")] Span),
@@ -512,6 +516,30 @@ pub enum ParseError {
         help("To spread arguments, the command needs to define a multi-positional parameter in its signature, such as ...rest")
     )]
     UnexpectedSpreadArg(String, #[label = "unexpected spread argument"] Span),
+
+    /// Invalid assignment left-hand side
+    ///
+    /// ## Resolution
+    ///
+    /// Assignment requires that you assign to a mutable variable or cell path.
+    #[error("Assignment to an immutable variable.")]
+    #[diagnostic(
+        code(nu::parser::assignment_requires_mutable_variable),
+        help("declare the variable with `mut`, or shadow it again with `let`")
+    )]
+    AssignmentRequiresMutableVar(#[label("needs to be a mutable variable")] Span),
+
+    /// Invalid assignment left-hand side
+    ///
+    /// ## Resolution
+    ///
+    /// Assignment requires that you assign to a variable or variable cell path.
+    #[error("Assignment operations require a variable.")]
+    #[diagnostic(
+        code(nu::parser::assignment_requires_variable),
+        help("try assigning to a variable or a cell path of a variable")
+    )]
+    AssignmentRequiresVar(#[label("needs to be a variable")] Span),
 }
 
 impl ParseError {
@@ -524,6 +552,7 @@ impl ParseError {
             ParseError::Unbalanced(_, _, s) => *s,
             ParseError::Expected(_, s) => *s,
             ParseError::ExpectedWithStringMsg(_, s) => *s,
+            ParseError::ExpectedWithDidYouMean(_, _, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
             ParseError::OperatorUnsupportedType { op_span, .. } => *op_span,
             ParseError::OperatorIncompatibleTypes { op_span, .. } => *op_span,
@@ -599,6 +628,8 @@ impl ParseError {
             ParseError::RedirectingBuiltinCommand(_, s, _) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,
             ParseError::ExtraTokensAfterClosingDelimiter(s) => *s,
+            ParseError::AssignmentRequiresVar(s) => *s,
+            ParseError::AssignmentRequiresMutableVar(s) => *s,
         }
     }
 }

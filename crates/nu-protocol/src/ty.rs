@@ -23,7 +23,6 @@ pub enum Type {
     Float,
     Int,
     List(Box<Type>),
-    ListStream,
     #[default]
     Nothing,
     Number,
@@ -52,7 +51,11 @@ impl Type {
         Self::Custom(name.into())
     }
 
-    pub fn is_subtype(&self, other: &Type) -> bool {
+    /// Determine of the [`Type`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`.
+    ///
+    /// This should only be used at parse-time. If you have a concrete [`Value`](crate::Value) or [`PipelineData`](crate::PipelineData),
+    /// you should use their respective [`is_subtype_of`] methods instead.
+    pub fn is_subtype_of(&self, other: &Type) -> bool {
         // Structural subtyping
         let is_subtype_collection = |this: &[(String, Type)], that: &[(String, Type)]| {
             if this.is_empty() || that.is_empty() {
@@ -62,7 +65,7 @@ impl Type {
             } else {
                 that.iter().all(|(col_y, ty_y)| {
                     if let Some((_, ty_x)) = this.iter().find(|(col_x, _)| col_x == col_y) {
-                        ty_x.is_subtype(ty_y)
+                        ty_x.is_subtype_of(ty_y)
                     } else {
                         false
                     }
@@ -75,7 +78,7 @@ impl Type {
             (Type::Float, Type::Number) => true,
             (Type::Int, Type::Number) => true,
             (_, Type::Any) => true,
-            (Type::List(t), Type::List(u)) if t.is_subtype(u) => true, // List is covariant
+            (Type::List(t), Type::List(u)) if t.is_subtype_of(u) => true, // List is covariant
             (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
                 is_subtype_collection(this, that)
             }
@@ -121,7 +124,6 @@ impl Type {
             Type::Nothing => SyntaxShape::Nothing,
             Type::Record(entries) => SyntaxShape::Record(mk_shape(entries)),
             Type::Table(columns) => SyntaxShape::Table(mk_shape(columns)),
-            Type::ListStream => SyntaxShape::List(Box::new(SyntaxShape::Any)),
             Type::Any => SyntaxShape::Any,
             Type::Error => SyntaxShape::Any,
             Type::Binary => SyntaxShape::Binary,
@@ -151,7 +153,6 @@ impl Type {
             Type::Nothing => String::from("nothing"),
             Type::Number => String::from("number"),
             Type::String => String::from("string"),
-            Type::ListStream => String::from("list-stream"),
             Type::Any => String::from("any"),
             Type::Error => String::from("error"),
             Type::Binary => String::from("binary"),
@@ -209,7 +210,6 @@ impl Display for Type {
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
             Type::String => write!(f, "string"),
-            Type::ListStream => write!(f, "list-stream"),
             Type::Any => write!(f, "any"),
             Type::Error => write!(f, "error"),
             Type::Binary => write!(f, "binary"),
@@ -231,21 +231,21 @@ mod tests {
         #[test]
         fn test_reflexivity() {
             for ty in Type::iter() {
-                assert!(ty.is_subtype(&ty));
+                assert!(ty.is_subtype_of(&ty));
             }
         }
 
         #[test]
         fn test_any_is_top_type() {
             for ty in Type::iter() {
-                assert!(ty.is_subtype(&Type::Any));
+                assert!(ty.is_subtype_of(&Type::Any));
             }
         }
 
         #[test]
         fn test_number_supertype() {
-            assert!(Type::Int.is_subtype(&Type::Number));
-            assert!(Type::Float.is_subtype(&Type::Number));
+            assert!(Type::Int.is_subtype_of(&Type::Number));
+            assert!(Type::Float.is_subtype_of(&Type::Number));
         }
 
         #[test]
@@ -254,7 +254,7 @@ mod tests {
                 for ty2 in Type::iter() {
                     let list_ty1 = Type::List(Box::new(ty1.clone()));
                     let list_ty2 = Type::List(Box::new(ty2.clone()));
-                    assert_eq!(list_ty1.is_subtype(&list_ty2), ty1.is_subtype(&ty2));
+                    assert_eq!(list_ty1.is_subtype_of(&list_ty2), ty1.is_subtype_of(&ty2));
                 }
             }
         }

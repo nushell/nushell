@@ -1,9 +1,9 @@
 //! Module managing the streaming of raw bytes between pipeline elements
-use crate::{
-    process::{ChildPipe, ChildProcess},
-    ErrSpan, IntoSpanned, PipelineData, ShellError, Signals, Span, Type, Value,
-};
+#[cfg(feature = "os")]
+use crate::process::{ChildPipe, ChildProcess};
+use crate::{ErrSpan, IntRange, IntoSpanned, PipelineData, ShellError, Signals, Span, Type, Value};
 use serde::{Deserialize, Serialize};
+use std::ops::Bound;
 #[cfg(unix)]
 use std::os::fd::OwnedFd;
 #[cfg(windows)]
@@ -24,6 +24,7 @@ use std::{
 pub enum ByteStreamSource {
     Read(Box<dyn Read + Send + 'static>),
     File(File),
+    #[cfg(feature = "os")]
     Child(Box<ChildProcess>),
 }
 
@@ -32,6 +33,7 @@ impl ByteStreamSource {
         match self {
             ByteStreamSource::Read(read) => Some(SourceReader::Read(read)),
             ByteStreamSource::File(file) => Some(SourceReader::File(file)),
+            #[cfg(feature = "os")]
             ByteStreamSource::Child(mut child) => child.stdout.take().map(|stdout| match stdout {
                 ChildPipe::Pipe(pipe) => SourceReader::File(convert_file(pipe)),
                 ChildPipe::Tee(tee) => SourceReader::Read(tee),
@@ -40,8 +42,15 @@ impl ByteStreamSource {
     }
 
     /// Source is a `Child` or `File`, rather than `Read`. Currently affects trimming
-    fn is_external(&self) -> bool {
+    #[cfg(feature = "os")]
+    pub fn is_external(&self) -> bool {
         matches!(self, ByteStreamSource::Child(..))
+    }
+
+    #[cfg(not(feature = "os"))]
+    pub fn is_external(&self) -> bool {
+        // without os support we never have externals
+        false
     }
 }
 
@@ -50,6 +59,7 @@ impl Debug for ByteStreamSource {
         match self {
             ByteStreamSource::Read(_) => f.debug_tuple("Read").field(&"..").finish(),
             ByteStreamSource::File(file) => f.debug_tuple("File").field(file).finish(),
+            #[cfg(feature = "os")]
             ByteStreamSource::Child(child) => f.debug_tuple("Child").field(child).finish(),
         }
     }
@@ -211,6 +221,79 @@ impl ByteStream {
         )
     }
 
+    pub fn skip(self, span: Span, n: u64) -> Result<Self, ShellError> {
+        let known_size = self.known_size.map(|len| len.saturating_sub(n));
+        if let Some(mut reader) = self.reader() {
+            // Copy the number of skipped bytes into the sink before proceeding
+            io::copy(&mut (&mut reader).take(n), &mut io::sink()).err_span(span)?;
+            Ok(
+                ByteStream::read(reader, span, Signals::empty(), ByteStreamType::Binary)
+                    .with_known_size(known_size),
+            )
+        } else {
+            Err(ShellError::TypeMismatch {
+                err_message: "expected readable stream".into(),
+                span,
+            })
+        }
+    }
+
+    pub fn take(self, span: Span, n: u64) -> Result<Self, ShellError> {
+        let known_size = self.known_size.map(|s| s.min(n));
+        if let Some(reader) = self.reader() {
+            Ok(ByteStream::read(
+                reader.take(n),
+                span,
+                Signals::empty(),
+                ByteStreamType::Binary,
+            )
+            .with_known_size(known_size))
+        } else {
+            Err(ShellError::TypeMismatch {
+                err_message: "expected readable stream".into(),
+                span,
+            })
+        }
+    }
+
+    pub fn slice(
+        self,
+        val_span: Span,
+        call_span: Span,
+        range: IntRange,
+    ) -> Result<Self, ShellError> {
+        if let Some(len) = self.known_size {
+            let start = range.absolute_start(len);
+            let stream = self.skip(val_span, start);
+
+            match range.absolute_end(len) {
+                Bound::Unbounded => stream,
+                Bound::Included(end) | Bound::Excluded(end) if end < start => {
+                    stream.and_then(|s| s.take(val_span, 0))
+                }
+                Bound::Included(end) => {
+                    let distance = end - start + 1;
+                    stream.and_then(|s| s.take(val_span, distance.min(len)))
+                }
+                Bound::Excluded(end) => {
+                    let distance = end - start;
+                    stream.and_then(|s| s.take(val_span, distance.min(len)))
+                }
+            }
+        } else if range.is_relative() {
+            Err(ShellError::RelativeRangeOnInfiniteStream { span: call_span })
+        } else {
+            let start = range.start() as u64;
+            let stream = self.skip(val_span, start);
+
+            match range.distance() {
+                Bound::Unbounded => stream,
+                Bound::Included(distance) => stream.and_then(|s| s.take(val_span, distance)),
+                Bound::Excluded(distance) => stream.and_then(|s| s.take(val_span, distance - 1)),
+            }
+        }
+    }
+
     /// Create a [`ByteStream`] from a string. The type of the stream is always `String`.
     pub fn read_string(string: String, span: Span, signals: Signals) -> Self {
         let len = string.len();
@@ -247,6 +330,7 @@ impl ByteStream {
     ///
     /// The type is implicitly `Unknown`, as it's not typically known whether child processes will
     /// return text or binary.
+    #[cfg(feature = "os")]
     pub fn child(child: ChildProcess, span: Span) -> Self {
         Self::new(
             ByteStreamSource::Child(Box::new(child)),
@@ -260,6 +344,7 @@ impl ByteStream {
     ///
     /// The type is implicitly `Unknown`, as it's not typically known whether stdin is text or
     /// binary.
+    #[cfg(feature = "os")]
     pub fn stdin(span: Span) -> Result<Self, ShellError> {
         let stdin = os_pipe::dup_stdin().err_span(span)?;
         let source = ByteStreamSource::File(convert_file(stdin));
@@ -269,6 +354,14 @@ impl ByteStream {
             Signals::empty(),
             ByteStreamType::Unknown,
         ))
+    }
+
+    #[cfg(not(feature = "os"))]
+    pub fn stdin(span: Span) -> Result<Self, ShellError> {
+        Err(ShellError::DisabledOsSupport {
+            msg: "Stdin is not supported".to_string(),
+            span: Some(span),
+        })
     }
 
     /// Create a [`ByteStream`] from a generator function that writes data to the given buffer
@@ -396,6 +489,18 @@ impl ByteStream {
         })
     }
 
+    /// Convert the [`ByteStream`] into a [`SplitRead`] iterator where each element is a `Result<String, ShellError>`.
+    ///
+    /// Each call to [`next`](Iterator::next) reads the currently available data from the byte
+    /// stream source, until `delimiter` or the end of the stream is encountered.
+    ///
+    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`] and the child has no stdout,
+    /// then the stream is considered empty and `None` will be returned.
+    pub fn split(self, delimiter: Vec<u8>) -> Option<SplitRead> {
+        let reader = self.stream.reader()?;
+        Some(SplitRead::new(reader, delimiter, self.span, self.signals))
+    }
+
     /// Convert the [`ByteStream`] into a [`Chunks`] iterator where each element is a `Result<Value, ShellError>`.
     ///
     /// Each call to [`next`](Iterator::next) reads the currently available data from the byte stream source,
@@ -432,6 +537,7 @@ impl ByteStream {
         match self.stream {
             ByteStreamSource::Read(..) => Err(self),
             ByteStreamSource::File(file) => Ok(file.into()),
+            #[cfg(feature = "os")]
             ByteStreamSource::Child(child) => {
                 if let ChildProcess {
                     stdout: Some(ChildPipe::Pipe(stdout)),
@@ -453,6 +559,7 @@ impl ByteStream {
     ///
     /// This will only succeed if the [`ByteStreamSource`] of the [`ByteStream`] is [`Child`](ByteStreamSource::Child).
     /// All other cases return an `Err` with the original [`ByteStream`] in it.
+    #[cfg(feature = "os")]
     pub fn into_child(self) -> Result<ChildProcess, Self> {
         if let ByteStreamSource::Child(child) = self.stream {
             Ok(*child)
@@ -477,6 +584,7 @@ impl ByteStream {
                 file.read_to_end(&mut buf).err_span(self.span)?;
                 Ok(buf)
             }
+            #[cfg(feature = "os")]
             ByteStreamSource::Child(child) => child.into_bytes(),
         }
     }
@@ -551,6 +659,7 @@ impl ByteStream {
                 Ok(())
             }
             ByteStreamSource::File(_) => Ok(()),
+            #[cfg(feature = "os")]
             ByteStreamSource::Child(child) => child.wait(),
         }
     }
@@ -575,6 +684,7 @@ impl ByteStream {
             ByteStreamSource::File(file) => {
                 copy_with_signals(file, dest, span, signals)?;
             }
+            #[cfg(feature = "os")]
             ByteStreamSource::Child(mut child) => {
                 // All `OutDest`s except `OutDest::PipeSeparate` will cause `stderr` to be `None`.
                 // Only `save`, `tee`, and `complete` set the stderr `OutDest` to `OutDest::PipeSeparate`,
@@ -719,6 +829,200 @@ impl Iterator for Lines {
                 Err(e) => Some(Err(e.into_spanned(self.span).into())),
             }
         }
+    }
+}
+
+mod split_read {
+    use std::io::{BufRead, ErrorKind};
+
+    use memchr::memmem::Finder;
+
+    pub struct SplitRead<R> {
+        reader: Option<R>,
+        buf: Option<Vec<u8>>,
+        finder: Finder<'static>,
+    }
+
+    impl<R: BufRead> SplitRead<R> {
+        pub fn new(reader: R, delim: impl AsRef<[u8]>) -> Self {
+            // empty delimiter results in an infinite stream of empty items
+            debug_assert!(!delim.as_ref().is_empty(), "delimiter can't be empty");
+            Self {
+                reader: Some(reader),
+                buf: Some(Vec::new()),
+                finder: Finder::new(delim.as_ref()).into_owned(),
+            }
+        }
+    }
+
+    impl<R: BufRead> Iterator for SplitRead<R> {
+        type Item = Result<Vec<u8>, std::io::Error>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let buf = self.buf.as_mut()?;
+            let mut search_start = 0usize;
+
+            loop {
+                if let Some(i) = self.finder.find(&buf[search_start..]) {
+                    let needle_idx = search_start + i;
+                    let right = buf.split_off(needle_idx + self.finder.needle().len());
+                    buf.truncate(needle_idx);
+                    let left = std::mem::replace(buf, right);
+                    return Some(Ok(left));
+                }
+
+                if let Some(mut r) = self.reader.take() {
+                    search_start = buf.len().saturating_sub(self.finder.needle().len() + 1);
+                    let available = match r.fill_buf() {
+                        Ok(n) => n,
+                        Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
+                        Err(e) => return Some(Err(e)),
+                    };
+
+                    buf.extend_from_slice(available);
+                    let used = available.len();
+                    r.consume(used);
+                    if used != 0 {
+                        self.reader = Some(r);
+                    }
+                    continue;
+                } else {
+                    return self.buf.take().map(Ok);
+                }
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use std::io::{self, Cursor, Read};
+
+        #[test]
+        fn simple() {
+            let s = "foo-bar-baz";
+            let cursor = Cursor::new(String::from(s));
+            let mut split =
+                SplitRead::new(cursor, "-").map(|r| String::from_utf8(r.unwrap()).unwrap());
+
+            assert_eq!(split.next().as_deref(), Some("foo"));
+            assert_eq!(split.next().as_deref(), Some("bar"));
+            assert_eq!(split.next().as_deref(), Some("baz"));
+            assert_eq!(split.next(), None);
+        }
+
+        #[test]
+        fn with_empty_fields() -> Result<(), io::Error> {
+            let s = "\0\0foo\0\0bar\0\0\0\0baz\0\0";
+            let cursor = Cursor::new(String::from(s));
+            let mut split =
+                SplitRead::new(cursor, "\0\0").map(|r| String::from_utf8(r.unwrap()).unwrap());
+
+            assert_eq!(split.next().as_deref(), Some(""));
+            assert_eq!(split.next().as_deref(), Some("foo"));
+            assert_eq!(split.next().as_deref(), Some("bar"));
+            assert_eq!(split.next().as_deref(), Some(""));
+            assert_eq!(split.next().as_deref(), Some("baz"));
+            assert_eq!(split.next().as_deref(), Some(""));
+            assert_eq!(split.next().as_deref(), None);
+
+            Ok(())
+        }
+
+        #[test]
+        fn complex_delimiter() -> Result<(), io::Error> {
+            let s = "<|>foo<|>bar<|><|>baz<|>";
+            let cursor = Cursor::new(String::from(s));
+            let mut split =
+                SplitRead::new(cursor, "<|>").map(|r| String::from_utf8(r.unwrap()).unwrap());
+
+            assert_eq!(split.next().as_deref(), Some(""));
+            assert_eq!(split.next().as_deref(), Some("foo"));
+            assert_eq!(split.next().as_deref(), Some("bar"));
+            assert_eq!(split.next().as_deref(), Some(""));
+            assert_eq!(split.next().as_deref(), Some("baz"));
+            assert_eq!(split.next().as_deref(), Some(""));
+            assert_eq!(split.next().as_deref(), None);
+
+            Ok(())
+        }
+
+        #[test]
+        fn all_empty() -> Result<(), io::Error> {
+            let s = "<><>";
+            let cursor = Cursor::new(String::from(s));
+            let mut split =
+                SplitRead::new(cursor, "<>").map(|r| String::from_utf8(r.unwrap()).unwrap());
+
+            assert_eq!(split.next().as_deref(), Some(""));
+            assert_eq!(split.next().as_deref(), Some(""));
+            assert_eq!(split.next().as_deref(), Some(""));
+            assert_eq!(split.next(), None);
+
+            Ok(())
+        }
+
+        #[should_panic = "delimiter can't be empty"]
+        #[test]
+        fn empty_delimiter() {
+            let s = "abc";
+            let cursor = Cursor::new(String::from(s));
+            let _split = SplitRead::new(cursor, "").map(|e| e.unwrap());
+        }
+
+        #[test]
+        fn delimiter_spread_across_reads() {
+            let reader = Cursor::new("<|>foo<|")
+                .chain(Cursor::new(">bar<|><"))
+                .chain(Cursor::new("|>baz<|>"));
+
+            let mut split =
+                SplitRead::new(reader, "<|>").map(|r| String::from_utf8(r.unwrap()).unwrap());
+
+            assert_eq!(split.next().unwrap(), "");
+            assert_eq!(split.next().unwrap(), "foo");
+            assert_eq!(split.next().unwrap(), "bar");
+            assert_eq!(split.next().unwrap(), "");
+            assert_eq!(split.next().unwrap(), "baz");
+            assert_eq!(split.next().unwrap(), "");
+            assert_eq!(split.next(), None);
+        }
+    }
+}
+
+pub struct SplitRead {
+    internal: split_read::SplitRead<BufReader<SourceReader>>,
+    span: Span,
+    signals: Signals,
+}
+
+impl SplitRead {
+    fn new(
+        reader: SourceReader,
+        delimiter: impl AsRef<[u8]>,
+        span: Span,
+        signals: Signals,
+    ) -> Self {
+        Self {
+            internal: split_read::SplitRead::new(BufReader::new(reader), delimiter),
+            span,
+            signals,
+        }
+    }
+
+    pub fn span(&self) -> Span {
+        self.span
+    }
+}
+
+impl Iterator for SplitRead {
+    type Item = Result<Vec<u8>, ShellError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.signals.interrupted() {
+            return None;
+        }
+        self.internal.next().map(|r| r.map_err(|e| e.into()))
     }
 }
 

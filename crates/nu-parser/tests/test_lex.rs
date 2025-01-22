@@ -1,3 +1,5 @@
+#![allow(clippy::byte_char_slices)]
+
 use nu_parser::{lex, lex_n_tokens, lex_signature, LexState, Token, TokenContents};
 use nu_protocol::{ParseError, Span};
 
@@ -155,6 +157,43 @@ fn lex_comment() {
             span: Span::new(12, 24)
         }
     );
+}
+
+#[test]
+fn lex_not_comment_needs_space_in_front_of_hashtag() {
+    let file = b"1..10 | each {echo test#testing }";
+
+    let output = lex(file, 0, &[], &[], false);
+
+    assert!(output.1.is_none());
+}
+
+#[test]
+fn lex_comment_with_space_in_front_of_hashtag() {
+    let file = b"1..10 | each {echo test #testing }";
+
+    let output = lex(file, 0, &[], &[], false);
+
+    assert!(output.1.is_some());
+    assert!(matches!(
+        output.1.unwrap(),
+        ParseError::UnexpectedEof(missing_token, span) if missing_token == "}"
+            && span == Span::new(33, 34)
+    ));
+}
+
+#[test]
+fn lex_comment_with_tab_in_front_of_hashtag() {
+    let file = b"1..10 | each {echo test\t#testing }";
+
+    let output = lex(file, 0, &[], &[], false);
+
+    assert!(output.1.is_some());
+    assert!(matches!(
+        output.1.unwrap(),
+        ParseError::UnexpectedEof(missing_token, span) if missing_token == "}"
+            && span == Span::new(33, 34)
+    ));
 }
 
 #[test]

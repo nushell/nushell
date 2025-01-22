@@ -3,7 +3,7 @@ mod window_cursor_2d;
 
 use anyhow::{bail, Result};
 pub use window_cursor::WindowCursor;
-pub use window_cursor_2d::{Position, WindowCursor2D};
+pub use window_cursor_2d::{CursorMoveHandler, Position, WindowCursor2D};
 
 /// A 1-dimensional cursor to track a position from 0 to N
 ///
@@ -36,7 +36,7 @@ impl Cursor {
 
     /// The max position the cursor can be at
     pub fn end(&self) -> usize {
-        self.size - 1
+        self.size.saturating_sub(1)
     }
 
     /// Set the position to a specific value within the bounds [0, end]
@@ -119,6 +119,28 @@ mod tests {
         cursor.move_backward(3);
         assert_eq!(cursor.position, 2);
         cursor.move_backward(3);
+        assert_eq!(cursor.position, 0);
+    }
+
+    #[test]
+    fn test_cursor_size_zero_handling() {
+        let cursor = Cursor::new(0);
+        assert_eq!(cursor.end(), 0);
+
+        let mut cursor = Cursor::new(0);
+        cursor.move_forward(1);
+        assert_eq!(cursor.position, 0);
+
+        cursor.move_backward(1);
+        assert_eq!(cursor.position, 0);
+    }
+
+    #[test]
+    fn test_cursor_size_one() {
+        let mut cursor = Cursor::new(1);
+        assert_eq!(cursor.end(), 0);
+
+        cursor.move_forward(1);
         assert_eq!(cursor.position, 0);
     }
 }
