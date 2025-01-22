@@ -106,14 +106,14 @@ pub fn math_result_type(
     op: &mut Expression,
     rhs: &mut Expression,
 ) -> (Type, Option<ParseError>) {
-    let Expr::Operator(operator) = &op.expr else {
+    let &Expr::Operator(operator) = &op.expr else {
         *op = Expression::garbage(working_set, op.span);
         return (
             Type::Any,
             Some(ParseError::IncompleteMathExpression(op.span)),
         );
     };
-    match *operator {
+    match operator {
         Operator::Math(Math::Add) => match (&lhs.ty, &rhs.ty) {
             (Type::Int, Type::Int) => (Type::Int, None),
             (Type::Float, Type::Int) => (Type::Float, None),
@@ -136,7 +136,7 @@ pub fn math_result_type(
             (_, Type::Any) => (Type::Any, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error(Operator::Math(Math::Add), op.span, lhs, rhs, |ty| {
+                type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(
                         ty,
                         Type::Int
@@ -170,7 +170,7 @@ pub fn math_result_type(
             (_, Type::Any) => (Type::Any, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error(Operator::Math(Math::Subtract), op.span, lhs, rhs, |ty| {
+                type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(
                         ty,
                         Type::Int
@@ -207,7 +207,7 @@ pub fn math_result_type(
             (_, Type::Any) => (Type::Any, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error(Operator::Math(Math::Multiply), op.span, lhs, rhs, |ty| {
+                type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(
                         ty,
                         Type::Int | Type::Float | Type::Number | Type::Duration | Type::Filesize,
@@ -237,7 +237,7 @@ pub fn math_result_type(
             (_, Type::Any) => (Type::Any, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error(Operator::Math(Math::Divide), op.span, lhs, rhs, |ty| {
+                type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(
                         ty,
                         Type::Int | Type::Float | Type::Number | Type::Filesize | Type::Duration
@@ -267,7 +267,7 @@ pub fn math_result_type(
             (_, Type::Any) => (Type::Any, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error(Operator::Math(Math::FloorDivide), op.span, lhs, rhs, |ty| {
+                type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(
                         ty,
                         Type::Int | Type::Float | Type::Number | Type::Filesize | Type::Duration
@@ -297,7 +297,7 @@ pub fn math_result_type(
             (_, Type::Any) => (Type::Any, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error(Operator::Math(Math::Modulo), op.span, lhs, rhs, |ty| {
+                type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(
                         ty,
                         Type::Int | Type::Float | Type::Number | Type::Filesize | Type::Duration
@@ -321,7 +321,7 @@ pub fn math_result_type(
             (_, Type::Any) => (Type::Any, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error(Operator::Math(Math::Pow), op.span, lhs, rhs, |ty| {
+                type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(ty, Type::Int | Type::Float | Type::Number)
                 })
             }
@@ -377,7 +377,7 @@ pub fn math_result_type(
                 };
                 let err = match (is_supported(&lhs.ty), is_supported(&rhs.ty)) {
                     (true, true) => ParseError::OperatorIncompatibleTypes {
-                        op: Operator::Math(Math::Concatenate).as_str(),
+                        op: operator.as_str(),
                         lhs: lhs.ty.clone(),
                         rhs: rhs.ty.clone(),
                         op_span: op.span,
@@ -386,14 +386,14 @@ pub fn math_result_type(
                         help,
                     },
                     (true, false) => ParseError::OperatorUnsupportedType {
-                        op: Operator::Math(Math::Concatenate).as_str(),
+                        op: operator.as_str(),
                         unsupported: rhs.ty.clone(),
                         op_span: op.span,
                         unsupported_span: rhs.span,
                         help,
                     },
                     (false, _) => ParseError::OperatorUnsupportedType {
-                        op: Operator::Math(Math::Concatenate).as_str(),
+                        op: operator.as_str(),
                         unsupported: lhs.ty.clone(),
                         op_span: op.span,
                         unsupported_span: lhs.span,
@@ -403,7 +403,7 @@ pub fn math_result_type(
                 (Type::Any, Some(err))
             }
         },
-        Operator::Boolean(operator) => match (&lhs.ty, &rhs.ty) {
+        Operator::Boolean(_) => match (&lhs.ty, &rhs.ty) {
             (Type::Bool, Type::Bool) => (Type::Bool, None),
             (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
             (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
@@ -411,9 +411,7 @@ pub fn math_result_type(
             (_, Type::Any) => (Type::Any, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error(Operator::Boolean(operator), op.span, lhs, rhs, |ty| {
-                    matches!(ty, Type::Bool)
-                })
+                type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::Bool))
             }
         },
         Operator::Comparison(Comparison::LessThan) => match (&lhs.ty, &rhs.ty) {
@@ -446,26 +444,20 @@ pub fn math_result_type(
             (_, Type::Any) => (Type::Bool, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error(
-                    Operator::Comparison(Comparison::LessThan),
-                    op.span,
-                    lhs,
-                    rhs,
-                    |ty| {
-                        matches!(
-                            ty,
-                            Type::Int
-                                | Type::Float
-                                | Type::Number
-                                | Type::String
-                                | Type::Filesize
-                                | Type::Duration
-                                | Type::Date
-                                | Type::Bool
-                                | Type::Nothing
-                        )
-                    },
-                )
+                type_error(operator, op.span, lhs, rhs, |ty| {
+                    matches!(
+                        ty,
+                        Type::Int
+                            | Type::Float
+                            | Type::Number
+                            | Type::String
+                            | Type::Filesize
+                            | Type::Duration
+                            | Type::Date
+                            | Type::Bool
+                            | Type::Nothing
+                    )
+                })
             }
         },
         Operator::Comparison(Comparison::LessThanOrEqual) => match (&lhs.ty, &rhs.ty) {
@@ -498,26 +490,20 @@ pub fn math_result_type(
             (_, Type::Any) => (Type::Bool, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error(
-                    Operator::Comparison(Comparison::LessThanOrEqual),
-                    op.span,
-                    lhs,
-                    rhs,
-                    |ty| {
-                        matches!(
-                            ty,
-                            Type::Int
-                                | Type::Float
-                                | Type::Number
-                                | Type::String
-                                | Type::Filesize
-                                | Type::Duration
-                                | Type::Date
-                                | Type::Bool
-                                | Type::Nothing
-                        )
-                    },
-                )
+                type_error(operator, op.span, lhs, rhs, |ty| {
+                    matches!(
+                        ty,
+                        Type::Int
+                            | Type::Float
+                            | Type::Number
+                            | Type::String
+                            | Type::Filesize
+                            | Type::Duration
+                            | Type::Date
+                            | Type::Bool
+                            | Type::Nothing
+                    )
+                })
             }
         },
         Operator::Comparison(Comparison::GreaterThan) => match (&lhs.ty, &rhs.ty) {
@@ -550,26 +536,20 @@ pub fn math_result_type(
             (_, Type::Any) => (Type::Bool, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error(
-                    Operator::Comparison(Comparison::GreaterThan),
-                    op.span,
-                    lhs,
-                    rhs,
-                    |ty| {
-                        matches!(
-                            ty,
-                            Type::Int
-                                | Type::Float
-                                | Type::Number
-                                | Type::String
-                                | Type::Filesize
-                                | Type::Duration
-                                | Type::Date
-                                | Type::Bool
-                                | Type::Nothing
-                        )
-                    },
-                )
+                type_error(operator, op.span, lhs, rhs, |ty| {
+                    matches!(
+                        ty,
+                        Type::Int
+                            | Type::Float
+                            | Type::Number
+                            | Type::String
+                            | Type::Filesize
+                            | Type::Duration
+                            | Type::Date
+                            | Type::Bool
+                            | Type::Nothing
+                    )
+                })
             }
         },
         Operator::Comparison(Comparison::GreaterThanOrEqual) => match (&lhs.ty, &rhs.ty) {
@@ -602,26 +582,20 @@ pub fn math_result_type(
             (_, Type::Any) => (Type::Bool, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error(
-                    Operator::Comparison(Comparison::GreaterThanOrEqual),
-                    op.span,
-                    lhs,
-                    rhs,
-                    |ty| {
-                        matches!(
-                            ty,
-                            Type::Int
-                                | Type::Float
-                                | Type::Number
-                                | Type::String
-                                | Type::Filesize
-                                | Type::Duration
-                                | Type::Date
-                                | Type::Bool
-                                | Type::Nothing
-                        )
-                    },
-                )
+                type_error(operator, op.span, lhs, rhs, |ty| {
+                    matches!(
+                        ty,
+                        Type::Int
+                            | Type::Float
+                            | Type::Number
+                            | Type::String
+                            | Type::Filesize
+                            | Type::Duration
+                            | Type::Date
+                            | Type::Bool
+                            | Type::Nothing
+                    )
+                })
             }
         },
         Operator::Comparison(Comparison::Equal | Comparison::NotEqual) => {
@@ -639,13 +613,7 @@ pub fn math_result_type(
                 (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
                 _ => {
                     *op = Expression::garbage(working_set, op.span);
-                    type_error(
-                        Operator::Comparison(Comparison::RegexMatch),
-                        op.span,
-                        lhs,
-                        rhs,
-                        |ty| matches!(ty, Type::String),
-                    )
+                    type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::String))
                 }
             }
         }
@@ -657,13 +625,7 @@ pub fn math_result_type(
                 (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
                 _ => {
                     *op = Expression::garbage(working_set, op.span);
-                    type_error(
-                        Operator::Comparison(Comparison::StartsWith),
-                        op.span,
-                        lhs,
-                        rhs,
-                        |ty| matches!(ty, Type::String),
-                    )
+                    type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::String))
                 }
             }
         }
@@ -677,7 +639,6 @@ pub fn math_result_type(
             (Type::Any, _) => (Type::Bool, None),
             (_, Type::Any) => (Type::Bool, None),
             _ => {
-                *op = Expression::garbage(working_set, op.span);
                 let err = if matches!(
                     &rhs.ty,
                     Type::List(_)
@@ -688,7 +649,7 @@ pub fn math_result_type(
                         | Type::Any
                 ) {
                     ParseError::OperatorIncompatibleTypes {
-                        op: Operator::Comparison(Comparison::In).as_str(),
+                        op: operator.as_str(),
                         lhs: lhs.ty.clone(),
                         rhs: rhs.ty.clone(),
                         op_span: op.span,
@@ -698,13 +659,14 @@ pub fn math_result_type(
                     }
                 } else {
                     ParseError::OperatorUnsupportedType {
-                        op: Operator::Comparison(Comparison::In).as_str(),
+                        op: operator.as_str(),
                         unsupported: rhs.ty.clone(),
                         op_span: op.span,
                         unsupported_span: rhs.span,
                         help: None,
                     }
                 };
+                *op = Expression::garbage(working_set, op.span);
                 (Type::Any, Some(err))
             }
         },
@@ -729,7 +691,7 @@ pub fn math_result_type(
                         | Type::Any
                 ) {
                     ParseError::OperatorIncompatibleTypes {
-                        op: Operator::Comparison(Comparison::In).as_str(),
+                        op: operator.as_str(),
                         lhs: lhs.ty.clone(),
                         rhs: rhs.ty.clone(),
                         op_span: op.span,
@@ -739,29 +701,27 @@ pub fn math_result_type(
                     }
                 } else {
                     ParseError::OperatorUnsupportedType {
-                        op: Operator::Comparison(Comparison::In).as_str(),
-                        unsupported: rhs.ty.clone(),
+                        op: operator.as_str(),
+                        unsupported: lhs.ty.clone(),
                         op_span: op.span,
-                        unsupported_span: rhs.span,
+                        unsupported_span: lhs.span,
                         help: None,
                     }
                 };
                 (Type::Any, Some(err))
             }
         },
-        Operator::Bits(operator) => match (&lhs.ty, &rhs.ty) {
+        Operator::Bits(_) => match (&lhs.ty, &rhs.ty) {
             (Type::Int, Type::Int) => (Type::Int, None),
             (Type::Any, _) => (Type::Any, None),
             (_, Type::Any) => (Type::Any, None),
             _ => {
                 *op = Expression::garbage(working_set, op.span);
-                type_error(Operator::Bits(operator), op.span, lhs, rhs, |ty| {
-                    matches!(ty, Type::Int)
-                })
+                type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::Int))
             }
         },
         // TODO: fix this
-        Operator::Assignment(operator) => match (&lhs.ty, &rhs.ty) {
+        Operator::Assignment(_) => match (&lhs.ty, &rhs.ty) {
             (x, y) if x == y => (Type::Nothing, None),
             (Type::Any, _) => (Type::Nothing, None),
             (_, Type::Any) => (Type::Nothing, None),
@@ -770,7 +730,7 @@ pub fn math_result_type(
             }
             _ => {
                 let err = ParseError::OperatorIncompatibleTypes {
-                    op: Operator::Assignment(operator).as_str(),
+                    op: operator.as_str(),
                     lhs: lhs.ty.clone(),
                     rhs: rhs.ty.clone(),
                     op_span: op.span,
