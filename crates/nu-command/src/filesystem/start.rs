@@ -48,7 +48,7 @@ impl Command for Start {
             .to_string();
         // Load allowed schemes from environment variable
         // Attempt to parse the input as a URL
-        if let Ok(url) = url::Url::parse(&path_no_whitespace) {    
+        if let Ok(url) = url::Url::parse(&path_no_whitespace) {
             open_path(url.as_str(), engine_state, stack, path.span)?;
             return Ok(PipelineData::Empty);
         }
@@ -169,5 +169,3 @@ fn format_command(command: &std::process::Command) -> String {
         .to_string_lossy()
         .into_owned()
 }
-
-
