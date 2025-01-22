@@ -92,7 +92,7 @@ titlecase = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"] }
 unicode-segmentation = { workspace = true }
 update-informer = { workspace = true, optional = true }
-ureq = { workspace = true, default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
+ureq = { workspace = true, default-features = false, features = ["charset", "gzip", "json", "native-tls"], optional = true }
 url = { workspace = true }
 uu_cp = { workspace = true, optional = true }
 uu_mkdir = { workspace = true, optional = true }
@@ -178,7 +178,7 @@ network = [
 	"multipart-rs",
 	"native-tls",
 	"update-informer/native-tls",
-	"ureq/native-tls",
+	"ureq",
 	"uuid",
 ]
 
