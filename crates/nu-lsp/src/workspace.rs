@@ -323,9 +323,10 @@ impl LanguageServer {
                                 // remove leading dashes for flags
                                 .take_while(|c| *c == &b'-')
                                 .count();
+                            let start = decl_span.start + leading_dashes;
                             refs.push(Span {
-                                start: decl_span.start.saturating_add(leading_dashes),
-                                end: decl_span.end,
+                                start,
+                                end: start + span.end - span.start,
                             });
                         }
                     }
