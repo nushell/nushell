@@ -47,36 +47,10 @@ impl Command for Start {
             .trim_end_matches(|x| matches!(x, '\x09'..='\x0d'))
             .to_string();
         // Load allowed schemes from environment variable
-        let allowed_schemes = load_allowed_schemes_from_env(engine_state, stack);
         // Attempt to parse the input as a URL
-        if let Ok(url) = url::Url::parse(&path_no_whitespace) {
-            let scheme = url.scheme().to_lowercase();
-            if allowed_schemes.contains(&scheme) {
-                // Warn if the scheme is unusual (not http or https)
-                if scheme != "http" && scheme != "https" {
-                    println!(
-                        "Warning: You are about to open a link with an unusual scheme '{}'. Proceed with caution.",
-                        scheme
-                    );
-                }
-                open_path(url.as_str(), engine_state, stack, path.span)?;
-                return Ok(PipelineData::Empty);
-            } else {
-                let allowed_schemes_str = allowed_schemes.join(", ");
-                return Err(ShellError::GenericError {
-                    error: format!(
-                        "URL scheme '{}' is not allowed. Allowed schemes: {}",
-                        scheme, allowed_schemes_str
-                    ),
-                    msg: "".into(),
-                    span: Some(path.span),
-                    help: Some(
-                        "Add the scheme to the ALLOWED_SCHEMES environment variable if you trust it."
-                            .into(),
-                    ),
-                    inner: vec![],
-                });
-            }
+        if let Ok(url) = url::Url::parse(&path_no_whitespace) {    
+            open_path(url.as_str(), engine_state, stack, path.span)?;
+            return Ok(PipelineData::Empty);
         }
         // If it's not a URL, treat it as a file path
         let cwd = engine_state.cwd(Some(stack))?;
@@ -196,23 +170,4 @@ fn format_command(command: &std::process::Command) -> String {
         .into_owned()
 }
 
-fn load_allowed_schemes_from_env(engine_state: &EngineState, stack: &Stack) -> Vec<String> {
-    // Attempt to get the "ALLOWED_SCHEMES" environment variable from Nushell's environment
-    if let Some(env_var) = stack.get_env_var(engine_state, "ALLOWED_SCHEMES") {
-        // Use `as_str()` which returns `Result<&str, ShellError>`
-        if let Ok(schemes_str) = env_var.as_str() {
-            // Split the schemes by commas and collect them into a vector
-            schemes_str
-                .split(',')
-                .map(|s| s.trim().to_lowercase())
-                .filter(|s| !s.is_empty())
-                .collect()
-        } else {
-            // If the variable exists but isn't a string, default to ["http", "https"]
-            vec!["http".to_string(), "https".to_string()]
-        }
-    } else {
-        // If the variable doesn't exist, default to ["http", "https"]
-        vec!["http".to_string(), "https".to_string()]
-    }
-}
+
