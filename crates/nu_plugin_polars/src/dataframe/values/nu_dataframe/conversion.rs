@@ -599,7 +599,7 @@ fn input_type_list_to_series(
                     .map(|v| value_to_primitive!(v, $vec_type))
                     .collect::<Result<Vec<$vec_type>, _>>()
                     .map_err(inconsistent_error)?;
-                builder.append_iter_values(value_list.iter().copied());
+                builder.append_values_iter(value_list.iter().copied());
             }
             let res = builder.finish();
             Ok(res.into_series())
