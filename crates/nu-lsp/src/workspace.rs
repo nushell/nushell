@@ -364,6 +364,8 @@ mod tests {
         ReferenceContext, ReferenceParams, TextDocumentIdentifier, TextDocumentPositionParams, Uri,
         WorkDoneProgressParams, WorkspaceFolder,
     };
+    use nu_parser::parse;
+    use nu_protocol::engine::StateWorkingSet;
     use nu_test_support::fs::fixtures;
 
     use crate::path_to_uri;
@@ -764,5 +766,32 @@ mod tests {
         } else {
             panic!()
         }
+    }
+
+    #[test]
+    fn existence_of_module_block() {
+        let mut script_path = fixtures();
+        script_path.push("lsp");
+        script_path.push("workspace");
+        let mut engine_state = nu_cmd_lang::create_default_context();
+        engine_state.add_env_var(
+            "PWD".into(),
+            nu_protocol::Value::test_string(script_path.to_str().unwrap()),
+        );
+        script_path.push("bar.nu");
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        parse(
+            &mut working_set,
+            script_path.to_str(),
+            std::fs::read(script_path.clone()).unwrap().as_slice(),
+            false,
+        );
+
+        script_path.pop();
+        script_path.push("foo.nu");
+        let span_foo = working_set
+            .get_span_for_filename(script_path.to_str().unwrap())
+            .unwrap();
+        assert!(working_set.find_block_by_span(span_foo).is_some())
     }
 }

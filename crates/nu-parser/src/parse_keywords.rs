@@ -1742,6 +1742,7 @@ pub fn parse_module_block(
     let mut module = Module::from_span(module_name.to_vec(), span);
 
     let mut block = Block::new_with_capacity(output.block.len());
+    block.span = Some(span);
 
     for pipeline in output.block.iter() {
         if pipeline.commands.len() == 1 {
