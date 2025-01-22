@@ -54,6 +54,7 @@ pub fn eval_ir_block<D: DebugContext>(
         // Initialize file storage.
         let mut files = vec![None; ir_block.file_count as usize];
 
+        let mut errors = vec![];
         let result = eval_ir_block_impl::<D>(
             &mut EvalContext {
                 engine_state,
@@ -70,14 +71,23 @@ pub fn eval_ir_block<D: DebugContext>(
             },
             ir_block,
             input,
+            &mut errors,
         );
 
         stack.error_handlers.leave_frame(error_handler_base);
         stack.arguments.leave_frame(args_base);
 
+        let block_span = block.span.unwrap_or(Span::unknown());
         D::leave_block(engine_state, block);
 
-        result
+        if !errors.is_empty() {
+            Err(ShellError::EvalBlockWithInput {
+                span: block_span,
+                sources: errors,
+            })
+        } else {
+            result
+        }
     } else {
         // FIXME blocks having IR should not be optional
         Err(ShellError::GenericError {
@@ -180,6 +190,7 @@ fn eval_ir_block_impl<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
     ir_block: &IrBlock,
     input: PipelineData,
+    errors: &mut Vec<ShellError>,
 ) -> Result<PipelineData, ShellError> {
     if !ctx.registers.is_empty() {
         ctx.registers[0] = input;
@@ -230,6 +241,7 @@ fn eval_ir_block_impl<D: DebugContext>(
                     pc = error_handler.handler_index;
                 } else {
                     // If not, exit the block with the error
+                    errors.push(err.clone());
                     return Err(err);
                 }
             }
@@ -269,6 +281,19 @@ fn prepare_error_handler(
             ctx.put_reg(reg_id, PipelineData::Empty);
         }
     }
+}
+pub fn chain_error_with_input(
+    error_source: ShellError,
+    input_is_error: bool,
+    span: Span,
+) -> ShellError {
+    if !input_is_error {
+        return ShellError::EvalBlockWithInput {
+            span,
+            sources: vec![error_source],
+        };
+    }
+    error_source
 }
 
 /// The result of performing an instruction. Describes what should happen next
