@@ -22,6 +22,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into glob")
             .input_output_types(vec![
+                (Type::Glob, Type::Glob),
                 (Type::String, Type::Glob),
                 (
                     Type::List(Box::new(Type::String)),
@@ -65,6 +66,11 @@ impl Command for SubCommand {
                 result: Some(Value::test_glob("1234")),
             },
             Example {
+                description: "convert glob to glob",
+                example: "'1234' | into glob | into glob",
+                result: Some(Value::test_glob("1234")),
+            },
+            Example {
                 description: "convert filepath to glob",
                 example: "ls Cargo.toml | get name | into glob",
                 result: None,
@@ -94,6 +100,7 @@ fn glob_helper(
 fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
     match input {
         Value::String { val, .. } => Value::glob(val.to_string(), false, span),
+        Value::Glob { .. } => input.clone(),
         x => Value::error(
             ShellError::CantConvert {
                 to_type: String::from("glob"),

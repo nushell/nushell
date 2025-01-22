@@ -26,17 +26,11 @@ fn type_short_name(t: &Type) -> String {
 fn extract_inlay_hints_from_expression(
     expr: &Expression,
     working_set: &StateWorkingSet,
-    extra_args: &(usize, &FullTextDocument),
+    offset: &usize,
+    file: &FullTextDocument,
 ) -> Option<Vec<InlayHint>> {
-    let (offset, file) = extra_args;
-    let recur = |expr| {
-        expr_flat_map(
-            expr,
-            working_set,
-            extra_args,
-            extract_inlay_hints_from_expression,
-        )
-    };
+    let closure = |e| extract_inlay_hints_from_expression(e, working_set, offset, file);
+    let recur = |expr| expr_flat_map(expr, working_set, &closure);
     match &expr.expr {
         Expr::BinaryOp(lhs, op, rhs) => {
             let mut hints: Vec<InlayHint> =
@@ -162,12 +156,9 @@ impl LanguageServer {
         offset: usize,
         file: &FullTextDocument,
     ) -> Vec<InlayHint> {
-        ast_flat_map(
-            block,
-            working_set,
-            &(offset, file),
-            extract_inlay_hints_from_expression,
-        )
+        ast_flat_map(block, working_set, &|e| {
+            extract_inlay_hints_from_expression(e, working_set, &offset, file)
+        })
     }
 }
 
@@ -217,7 +208,7 @@ mod tests {
 
     #[test]
     fn inlay_hint_variable_type() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -250,7 +241,7 @@ mod tests {
 
     #[test]
     fn inlay_hint_assignment_type() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -284,7 +275,7 @@ mod tests {
 
     #[test]
     fn inlay_hint_parameter_names() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");

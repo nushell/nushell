@@ -45,6 +45,7 @@ chrono-humanize = { workspace = true }
 chrono-tz = { workspace = true }
 crossterm = { workspace = true, optional = true }
 csv = { workspace = true }
+devicons = { workspace = true }
 dialoguer = { workspace = true, default-features = false, features = ["fuzzy-select"] }
 digest = { workspace = true, default-features = false }
 dtparse = { workspace = true }
@@ -104,7 +105,7 @@ v_htmlescape = { workspace = true }
 wax = { workspace = true }
 which = { workspace = true, optional = true }
 unicode-width = { workspace = true }
-data-encoding = { version = "2.6.0", features = ["alloc"] }
+data-encoding = { version = "2.7.0", features = ["alloc"] }
 web-time = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
@@ -195,6 +196,7 @@ mockito = { workspace = true, default-features = false }
 quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }
 rstest = { workspace = true, default-features = false }
+rstest_reuse = { workspace = true }
 pretty_assertions = { workspace = true }
 tempfile = { workspace = true }
 rand_chacha = { workspace = true }

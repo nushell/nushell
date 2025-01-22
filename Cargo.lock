@@ -1514,9 +1514,9 @@ dependencies = [
 
 [[package]]
 name = "data-encoding"
-version = "2.6.0"
+version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
+checksum = "0e60eed09d8c01d3cee5b7d30acb059b76614c918fa0f992e0dd6eeb10daad6f"
 
 [[package]]
 name = "deranged"
@@ -1558,6 +1558,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.90",
+]
+
+[[package]]
+name = "devicons"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "830e47e2f330cf4fdd5a958dcef921b9523ffc21ab6713aa5e77ba2cce03904b"
+dependencies = [
+ "lazy_static",
 ]
 
 [[package]]
@@ -3588,7 +3597,6 @@ dependencies = [
  "chrono",
  "crossterm 0.28.1",
  "fancy-regex",
- "fuzzy-matcher",
  "is_executable",
  "log",
  "lscolors",
@@ -3606,6 +3614,7 @@ dependencies = [
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
+ "nucleo-matcher",
  "percent-encoding",
  "reedline",
  "rstest",
@@ -3706,6 +3715,7 @@ dependencies = [
  "crossterm 0.28.1",
  "csv",
  "data-encoding",
+ "devicons",
  "dialoguer",
  "digest",
  "dirs",
@@ -3765,6 +3775,7 @@ dependencies = [
  "rmp",
  "roxmltree",
  "rstest",
+ "rstest_reuse",
  "rusqlite",
  "scopeguard",
  "serde",
@@ -3872,7 +3883,6 @@ version = "0.101.1"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
- "fuzzy-matcher",
  "lsp-server",
  "lsp-textdocument",
  "lsp-types",
@@ -3880,10 +3890,11 @@ dependencies = [
  "nu-cli",
  "nu-cmd-lang",
  "nu-command",
+ "nu-glob",
  "nu-parser",
  "nu-protocol",
  "nu-test-support",
- "reedline",
+ "nucleo-matcher",
  "serde",
  "serde_json",
  "url",
@@ -4236,6 +4247,16 @@ dependencies = [
  "interprocess",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "nucleo-matcher"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf33f538733d1a5a3494b836ba913207f14d9d4a1d3cd67030c5061bdd2cac85"
+dependencies = [
+ "memchr",
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -6173,6 +6194,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rstest_reuse"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3a8fb4672e840a587a66fc577a5491375df51ddb88f2a2c2a792598c326fe14"
+dependencies = [
+ "quote",
+ "rand",
+ "syn 2.0.90",
+]
+
+[[package]]
 name = "rusqlite"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7325,9 +7357,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.42.0"
+version = "1.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cec9b21b0450273377fc97bd4c33a8acffc8c996c987a7c5b319a0083707551"
+checksum = "3d61fa4ffa3de412bfea335c6ecff681de2b609ba3c77ef3e00e521813a9ed9e"
 dependencies = [
  "backtrace",
  "bytes",
@@ -7343,9 +7375,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-macros"
-version = "2.4.0"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "693d596312e88961bc67d7f1f97af8a70227d9f90c31bba5806eec004978d752"
+checksum = "6e06d43f1345a3bcd39f6a56dbb7dcab2ba47e68e8ac134855e7e2bdbaf8cab8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7691,9 +7723,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uu_cp"
-version = "0.0.28"
+version = "0.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0eff79f5eacf6bb88c9afc19f3cec2ab14ad31317be1369100658b46d41e410"
+checksum = "235439f8efcff799cbdb90992cb5b1845dce903c1569efc8d9b46417c83f5aa8"
 dependencies = [
  "clap",
  "filetime",
@@ -7707,9 +7739,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mkdir"
-version = "0.0.28"
+version = "0.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "feba7cf875eecbb746b1c5a5a8a031ab3a00e5f44f5441643a06b78577780d3a"
+checksum = "ea0a30620d88a7ea16b522e1fe63ebb61f87f05fd63ade00938a024807356952"
 dependencies = [
  "clap",
  "uucore",
@@ -7717,9 +7749,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mktemp"
-version = "0.0.28"
+version = "0.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a9cfd389f60e667c5ee6659beaad50bada7e710d76082c7d77ab91e04307c8f"
+checksum = "e1db7648ff064cdfe8a0e6ef9546de3b03e34cefa270b783de7736a8470473cc"
 dependencies = [
  "clap",
  "rand",
@@ -7729,9 +7761,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mv"
-version = "0.0.28"
+version = "0.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf932231fccdf108f75443bab0ce17acfe49b5825d731b8a358251833be7da20"
+checksum = "92ab8c17ac7153adaa0176924319827cfb240cf48e4260283facfdb37e776071"
 dependencies = [
  "clap",
  "fs_extra",
@@ -7741,9 +7773,9 @@ dependencies = [
 
 [[package]]
 name = "uu_touch"
-version = "0.0.28"
+version = "0.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55476bec11d5b70c578233a2e94f685058e0d65fc5d66c7ed465877c15124c7c"
+checksum = "3adc774c7961272cd2feeb95f2bf2e0b8f7b8ccd5fbcf49727d0de1eab804b67"
 dependencies = [
  "chrono",
  "clap",
@@ -7755,9 +7787,9 @@ dependencies = [
 
 [[package]]
 name = "uu_uname"
-version = "0.0.28"
+version = "0.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "182b4071a2e6f7288cbbc1b1ff05c74e9dc7527b4735583d9e3cd92802b06910"
+checksum = "95a942626aec03d4f4d972b10e00f9ddcdced1933658076eccafea5a20fdafb8"
 dependencies = [
  "clap",
  "platform-info",
@@ -7766,9 +7798,9 @@ dependencies = [
 
 [[package]]
 name = "uu_whoami"
-version = "0.0.28"
+version = "0.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d15200414428c65f95d0b1d1226fc84f74ae80376bfe59959d93ddf57f944f5"
+checksum = "a812f7a838c9375c15ed13b66048df2c632c1ac3ec613dabb28c648019c6d018"
 dependencies = [
  "clap",
  "libc",
@@ -7778,13 +7810,14 @@ dependencies = [
 
 [[package]]
 name = "uucore"
-version = "0.0.28"
+version = "0.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04ea43050c46912575654c5181f4135529e8d4003fca80803af10cdef3ca6412"
+checksum = "50e0dc1598d959a08f24cea4d9e992f7ca874bd4ac80746683272afd37603b5e"
 dependencies = [
  "clap",
  "dunce",
  "glob",
+ "lazy_static",
  "libc",
  "nix 0.29.0",
  "number_prefix",
@@ -7800,9 +7833,9 @@ dependencies = [
 
 [[package]]
 name = "uucore_procs"
-version = "0.0.28"
+version = "0.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d91d598cf92275d9373e1eb0b9dcf85b730bde48186ed7db3bde713803090511"
+checksum = "27d3de33ab2b56c0437cca084a2aeb1d46c56d138ab6341c009a90018a9a1c5f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7811,15 +7844,15 @@ dependencies = [
 
 [[package]]
 name = "uuhelp_parser"
-version = "0.0.28"
+version = "0.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86b4d8c991cc252d4b4ea2958d0d842e36af0d1ca7f1fdc4fdce8fd0a2ff6e9c"
+checksum = "0cf4c8b31abfb5dc79940d6ca8000a1a6aa42f38711cdeaacb95850c69924cbc"
 
 [[package]]
 name = "uuid"
-version = "1.11.0"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8c5f0a0af699448548ad1a2fbf920fb4bee257eae39953ba95cb84891a0446a"
+checksum = "744018581f9a3454a9e15beb8a33b017183f1e7c0cd170232a2d1453b23a51c4"
 dependencies = [
  "getrandom",
  "serde",

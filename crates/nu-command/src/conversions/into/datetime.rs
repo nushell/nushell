@@ -59,6 +59,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into datetime")
         .input_output_types(vec![
+            (Type::Date, Type::Date),
             (Type::Int, Type::Date),
             (Type::String, Type::Date),
             (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Date))),
@@ -204,7 +205,13 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Convert standard (seconds) unix timestamp to a UTC datetime",
-                example: "1614434140 * 1_000_000_000 | into datetime",
+                example: "1614434140 | into datetime -f '%s'",
+                #[allow(clippy::inconsistent_digit_grouping)]
+                result: example_result_1(1614434140_000000000),
+            },
+            Example {
+                description: "Using a datetime as input simply returns the value",
+                example: "2021-02-27T13:55:40 | into datetime",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
             },
@@ -266,6 +273,11 @@ struct DatetimeFormat(String);
 fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let timezone = &args.zone_options;
     let dateformat = &args.format_options;
+
+    // noop if the input is already a datetime
+    if matches!(input, Value::Date { .. }) {
+        return input.clone();
+    }
 
     // Let's try dtparse first
     if matches!(input, Value::String { .. }) && dateformat.is_none() {
@@ -632,6 +644,26 @@ mod tests {
             Local.timestamp_opt(1614434140, 0).unwrap().into(),
             Span::test_data(),
         );
+
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn takes_datetime() {
+        let timezone_option = Some(Spanned {
+            item: Zone::Local,
+            span: Span::test_data(),
+        });
+        let args = Arguments {
+            zone_options: timezone_option,
+            format_options: None,
+            cell_paths: None,
+        };
+        let expected = Value::date(
+            Local.timestamp_opt(1614434140, 0).unwrap().into(),
+            Span::test_data(),
+        );
+        let actual = action(&expected, &args, Span::test_data());
 
         assert_eq!(actual, expected)
     }

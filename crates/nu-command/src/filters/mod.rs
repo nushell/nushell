@@ -40,6 +40,7 @@ mod select;
 #[cfg(feature = "rand")]
 mod shuffle;
 mod skip;
+mod slice;
 mod sort;
 mod sort_by;
 mod take;
@@ -99,6 +100,7 @@ pub use select::Select;
 #[cfg(feature = "rand")]
 pub use shuffle::Shuffle;
 pub use skip::*;
+pub use slice::Slice;
 pub use sort::Sort;
 pub use sort_by::SortBy;
 pub use take::*;

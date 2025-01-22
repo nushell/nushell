@@ -12,6 +12,7 @@ impl Command for IntoCellPath {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("into cell-path")
             .input_output_types(vec![
+                (Type::CellPath, Type::CellPath),
                 (Type::Int, Type::CellPath),
                 (Type::List(Box::new(Type::Any)), Type::CellPath),
                 (
@@ -57,6 +58,13 @@ impl Command for IntoCellPath {
                 })),
             },
             Example {
+                description: "Convert cell path into cell path",
+                example: "5 | into cell-path | into cell-path",
+                result: Some(Value::test_cell_path(CellPath {
+                    members: vec![PathMember::test_int(5, false)],
+                })),
+            },
+            Example {
                 description: "Convert string into cell path",
                 example: "'some.path' | split row '.' | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
@@ -96,7 +104,7 @@ fn into_cell_path(call: &Call, input: PipelineData) -> Result<PipelineData, Shel
     let head = call.head;
 
     match input {
-        PipelineData::Value(value, _) => Ok(value_to_cell_path(&value, head)?.into_pipeline_data()),
+        PipelineData::Value(value, _) => Ok(value_to_cell_path(value, head)?.into_pipeline_data()),
         PipelineData::ListStream(stream, ..) => {
             let list: Vec<_> = stream.into_iter().collect();
             Ok(list_to_cell_path(&list, head)?.into_pipeline_data())
@@ -170,10 +178,11 @@ fn record_to_path_member(
     Ok(member)
 }
 
-fn value_to_cell_path(value: &Value, span: Span) -> Result<Value, ShellError> {
+fn value_to_cell_path(value: Value, span: Span) -> Result<Value, ShellError> {
     match value {
-        Value::Int { val, .. } => Ok(int_to_cell_path(*val, span)),
-        Value::List { vals, .. } => list_to_cell_path(vals, span),
+        Value::CellPath { .. } => Ok(value),
+        Value::Int { val, .. } => Ok(int_to_cell_path(val, span)),
+        Value::List { vals, .. } => list_to_cell_path(&vals, span),
         other => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "int, list".into(),
             wrong_type: other.get_type().to_string(),

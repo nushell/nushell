@@ -82,7 +82,6 @@ mod print;
 #[cfg(feature = "sqlite")]
 mod query;
 mod random;
-mod range;
 mod redirection;
 mod reduce;
 mod reject;
@@ -100,6 +99,7 @@ mod seq;
 mod seq_char;
 mod seq_date;
 mod skip;
+mod slice;
 mod sort;
 mod sort_by;
 mod source_env;

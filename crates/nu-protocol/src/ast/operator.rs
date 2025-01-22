@@ -17,6 +17,8 @@ pub enum Comparison {
     NotRegexMatch,
     In,
     NotIn,
+    Has,
+    NotHas,
     StartsWith,
     EndsWith,
 }
@@ -90,6 +92,8 @@ impl Operator {
             | Self::Comparison(Comparison::NotEqual)
             | Self::Comparison(Comparison::In)
             | Self::Comparison(Comparison::NotIn)
+            | Self::Comparison(Comparison::Has)
+            | Self::Comparison(Comparison::NotHas)
             | Self::Math(Math::Concat) => 80,
             Self::Bits(Bits::BitAnd) => 75,
             Self::Bits(Bits::BitXor) => 70,
@@ -123,6 +127,8 @@ impl Display for Operator {
             Operator::Comparison(Comparison::EndsWith) => write!(f, "ends-with"),
             Operator::Comparison(Comparison::In) => write!(f, "in"),
             Operator::Comparison(Comparison::NotIn) => write!(f, "not-in"),
+            Operator::Comparison(Comparison::Has) => write!(f, "has"),
+            Operator::Comparison(Comparison::NotHas) => write!(f, "not-has"),
             Operator::Math(Math::Plus) => write!(f, "+"),
             Operator::Math(Math::Concat) => write!(f, "++"),
             Operator::Math(Math::Minus) => write!(f, "-"),

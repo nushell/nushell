@@ -1,23 +1,34 @@
 use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use rstest::rstest;
+use rstest_reuse::*;
 
-#[test]
-fn better_empty_redirection() {
+// Template for run-external test to ensure tests work when calling
+// the binary directly, using the caret operator, and when using
+// the run-external command
+#[template]
+#[rstest]
+#[case("")]
+#[case("^")]
+#[case("run-external ")]
+fn run_external_prefixes(#[case] prefix: &str) {}
+
+#[apply(run_external_prefixes)]
+fn better_empty_redirection(prefix: &str) {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            ls | each { |it| nu --testbin cococo $it.name } | ignore
-        "
-    ));
+        cwd: "tests/fixtures/formats",
+        "ls | each {{ |it| {}nu `--testbin` cococo $it.name }} | ignore",
+        prefix
+    );
 
     eprintln!("out: {}", actual.out);
 
     assert!(!actual.out.contains('2'));
 }
 
-#[test]
-fn explicit_glob() {
+#[apply(run_external_prefixes)]
+fn explicit_glob(prefix: &str) {
     Playground::setup("external with explicit glob", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("D&D_volume_1.txt"),
@@ -26,19 +37,20 @@ fn explicit_glob() {
         ]);
 
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
+            cwd: dirs.test(),
             r#"
-                ^nu --testbin cococo ('*.txt' | into glob)
-            "#
-        ));
+                {}nu `--testbin` cococo ('*.txt' | into glob)
+            "#,
+            prefix
+        );
 
         assert!(actual.out.contains("D&D_volume_1.txt"));
         assert!(actual.out.contains("D&D_volume_2.txt"));
     })
 }
 
-#[test]
-fn bare_word_expand_path_glob() {
+#[apply(run_external_prefixes)]
+fn bare_word_expand_path_glob(prefix: &str) {
     Playground::setup("bare word should do the expansion", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("D&D_volume_1.txt"),
@@ -47,19 +59,20 @@ fn bare_word_expand_path_glob() {
         ]);
 
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
+            cwd: dirs.test(),
             "
-                ^nu --testbin cococo *.txt
-            "
-        ));
+                {}nu `--testbin` cococo *.txt
+            ",
+            prefix
+        );
 
         assert!(actual.out.contains("D&D_volume_1.txt"));
         assert!(actual.out.contains("D&D_volume_2.txt"));
     })
 }
 
-#[test]
-fn backtick_expand_path_glob() {
+#[apply(run_external_prefixes)]
+fn backtick_expand_path_glob(prefix: &str) {
     Playground::setup("backtick should do the expansion", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("D&D_volume_1.txt"),
@@ -68,19 +81,20 @@ fn backtick_expand_path_glob() {
         ]);
 
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
+            cwd: dirs.test(),
             r#"
-                ^nu --testbin cococo `*.txt`
-            "#
-        ));
+                {}nu `--testbin` cococo `*.txt`
+            "#,
+            prefix
+        );
 
         assert!(actual.out.contains("D&D_volume_1.txt"));
         assert!(actual.out.contains("D&D_volume_2.txt"));
     })
 }
 
-#[test]
-fn single_quote_does_not_expand_path_glob() {
+#[apply(run_external_prefixes)]
+fn single_quote_does_not_expand_path_glob(prefix: &str) {
     Playground::setup("single quote do not run the expansion", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("D&D_volume_1.txt"),
@@ -89,18 +103,19 @@ fn single_quote_does_not_expand_path_glob() {
         ]);
 
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
+            cwd: dirs.test(),
             r#"
-                ^nu --testbin cococo '*.txt'
-            "#
-        ));
+                {}nu `--testbin` cococo '*.txt'
+            "#,
+            prefix
+        );
 
         assert_eq!(actual.out, "*.txt");
     })
 }
 
-#[test]
-fn double_quote_does_not_expand_path_glob() {
+#[apply(run_external_prefixes)]
+fn double_quote_does_not_expand_path_glob(prefix: &str) {
     Playground::setup("double quote do not run the expansion", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("D&D_volume_1.txt"),
@@ -109,44 +124,50 @@ fn double_quote_does_not_expand_path_glob() {
         ]);
 
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
+            cwd: dirs.test(),
             r#"
-                ^nu --testbin cococo "*.txt"
-            "#
-        ));
+                {}nu `--testbin` cococo "*.txt"
+            "#,
+            prefix
+        );
 
         assert_eq!(actual.out, "*.txt");
     })
 }
 
-#[test]
-fn failed_command_with_semicolon_will_not_execute_following_cmds() {
+#[apply(run_external_prefixes)]
+fn failed_command_with_semicolon_will_not_execute_following_cmds(prefix: &str) {
     Playground::setup("external failed command with semicolon", |dirs, _| {
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
+            cwd: dirs.test(),
             "
-                nu --testbin fail; echo done
-            "
-        ));
+                {}nu `--testbin` fail; echo done
+            ",
+            prefix
+        );
 
         assert!(!actual.out.contains("done"));
     })
 }
 
-#[test]
-fn external_args_with_quoted() {
+#[apply(run_external_prefixes)]
+fn external_args_with_quoted(prefix: &str) {
     Playground::setup("external failed command with semicolon", |dirs, _| {
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
+            cwd: dirs.test(),
             r#"
-                nu --testbin cococo "foo=bar 'hi'"
-            "#
-        ));
+                {}nu `--testbin` cococo "foo=bar 'hi'"
+            "#,
+            prefix
+        );
 
         assert_eq!(actual.out, "foo=bar 'hi'");
     })
 }
 
+// don't use template for this once since echo with no prefix is an internal command
+// and arguments flags are treated as arguments to run-external
+// (but wrapping them in quotes defeats the point of test)
 #[cfg(not(windows))]
 #[test]
 fn external_arg_with_option_like_embedded_quotes() {
@@ -155,58 +176,67 @@ fn external_arg_with_option_like_embedded_quotes() {
         "external arg with option like embedded quotes",
         |dirs, _| {
             let actual = nu!(
-                cwd: dirs.test(), pipeline(
+                cwd: dirs.test(),
                 r#"
-                ^echo --foo='bar' -foo='bar'
-            "#
-            ));
+                    ^echo --foo='bar' -foo='bar'
+                "#,
+            );
 
             assert_eq!(actual.out, "--foo=bar -foo=bar");
         },
     )
 }
 
-#[test]
-fn external_arg_with_non_option_like_embedded_quotes() {
+// FIXME: parser complains about invalid characters after single quote
+#[rstest]
+#[case("")]
+#[case("^")]
+fn external_arg_with_non_option_like_embedded_quotes(#[case] prefix: &str) {
     Playground::setup(
         "external arg with non option like embedded quotes",
         |dirs, _| {
             let actual = nu!(
-                cwd: dirs.test(), pipeline(
+                cwd: dirs.test(),
                 r#"
-                ^nu --testbin cococo foo='bar' 'foo'=bar
-            "#
-            ));
+                    {}nu `--testbin` cococo foo='bar' 'foo'=bar
+                "#,
+                prefix
+            );
 
             assert_eq!(actual.out, "foo=bar foo=bar");
         },
     )
 }
 
-#[test]
-fn external_arg_with_string_interpolation() {
+// FIXME: parser bug prevents expressions from appearing within GlobPattern substrings
+#[rstest]
+#[case("")]
+#[case("^")]
+fn external_arg_with_string_interpolation(#[case] prefix: &str) {
     Playground::setup("external arg with string interpolation", |dirs, _| {
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
+            cwd: dirs.test(),
             r#"
-                ^nu --testbin cococo foo=(2 + 2) $"foo=(2 + 2)" foo=$"(2 + 2)"
-            "#
-        ));
+                {}nu `--testbin` cococo foo=(2 + 2) $"foo=(2 + 2)" foo=$"(2 + 2)"
+            "#,
+            prefix
+        );
 
         assert_eq!(actual.out, "foo=4 foo=4 foo=4");
     })
 }
 
-#[test]
-fn external_arg_with_variable_name() {
+#[apply(run_external_prefixes)]
+fn external_arg_with_variable_name(prefix: &str) {
     Playground::setup("external failed command with semicolon", |dirs, _| {
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
+            cwd: dirs.test(),
             r#"
                 let dump_command = "PGPASSWORD='db_secret' pg_dump -Fc -h 'db.host' -p '$db.port' -U postgres -d 'db_name' > '/tmp/dump_name'";
-                nu --testbin nonu $dump_command
-            "#
-        ));
+                {}nu `--testbin` nonu $dump_command
+            "#,
+            prefix
+        );
 
         assert_eq!(
             actual.out,
@@ -215,25 +245,29 @@ fn external_arg_with_variable_name() {
     })
 }
 
-#[test]
-fn external_command_escape_args() {
+#[apply(run_external_prefixes)]
+fn external_command_escape_args(prefix: &str) {
     Playground::setup("external failed command with semicolon", |dirs, _| {
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
+            cwd: dirs.test(),
             r#"
-                nu --testbin cococo "\"abcd"
-            "#
-        ));
+                {}nu `--testbin` cococo "\"abcd"
+            "#,
+            prefix
+        );
 
         assert_eq!(actual.out, r#""abcd"#);
     })
 }
 
-#[test]
-fn external_command_ndots_args() {
-    let actual = nu!(r#"
-        nu --testbin cococo foo/. foo/.. foo/... foo/./bar foo/../bar foo/.../bar ./bar ../bar .../bar
-    "#);
+#[apply(run_external_prefixes)]
+fn external_command_ndots_args(prefix: &str) {
+    let actual = nu!(
+        r#"
+            {}nu `--testbin` cococo foo/. foo/.. foo/... foo/./bar foo/../bar foo/.../bar ./bar ../bar .../bar
+        "#,
+        prefix
+    );
 
     assert_eq!(
         actual.out,
@@ -247,23 +281,29 @@ fn external_command_ndots_args() {
     );
 }
 
-#[test]
-fn external_command_ndots_leading_dot_slash() {
+#[apply(run_external_prefixes)]
+fn external_command_ndots_leading_dot_slash(prefix: &str) {
     // Don't expand ndots with a leading `./`
-    let actual = nu!(r#"
-        nu --testbin cococo ./... ./....
-    "#);
+    let actual = nu!(
+        r#"
+            {}nu `--testbin` cococo ./... ./....
+        "#,
+        prefix
+    );
 
     assert_eq!(actual.out, "./... ./....");
 }
 
-#[test]
-fn external_command_url_args() {
+#[apply(run_external_prefixes)]
+fn external_command_url_args(prefix: &str) {
     // If ndots is not handled correctly, we can lose the double forward slashes that are needed
     // here
-    let actual = nu!(r#"
-        nu --testbin cococo http://example.com http://example.com/.../foo //foo
-    "#);
+    let actual = nu!(
+        r#"
+            {}nu `--testbin` cococo http://example.com http://example.com/.../foo //foo
+        "#,
+        prefix
+    );
 
     assert_eq!(
         actual.out,
@@ -271,12 +311,12 @@ fn external_command_url_args() {
     );
 }
 
-#[test]
+#[apply(run_external_prefixes)]
 #[cfg_attr(
     not(target_os = "linux"),
     ignore = "only runs on Linux, where controlling the HOME var is reliable"
 )]
-fn external_command_expand_tilde() {
+fn external_command_expand_tilde(prefix: &str) {
     Playground::setup("external command expand tilde", |dirs, _| {
         // Make a copy of the nu executable that we can use
         let mut src = std::fs::File::open(nu_test_support::fs::binaries().join("nu"))
@@ -302,22 +342,27 @@ fn external_command_expand_tilde() {
                 ("HOME".to_string(), dirs.test().to_string_lossy().into_owned()),
             ],
             r#"
-                ^~/test_nu --testbin cococo hello
-            "#
+                {}~/test_nu `--testbin` cococo hello
+            "#,
+            prefix
         );
         assert_eq!(actual.out, "hello");
     })
 }
 
-#[test]
-fn external_arg_expand_tilde() {
+// FIXME: parser bug prevents expressions from appearing within GlobPattern substrings
+#[rstest]
+#[case("")]
+#[case("^")]
+fn external_arg_expand_tilde(#[case] prefix: &str) {
     Playground::setup("external arg expand tilde", |dirs, _| {
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
+            cwd: dirs.test(),
             r#"
-                ^nu --testbin cococo ~/foo ~/(2 + 2)
-            "#
-        ));
+                {}nu `--testbin` cococo ~/foo ~/(2 + 2)
+            "#,
+            prefix
+        );
 
         let home = dirs::home_dir().expect("failed to find home dir");
 
@@ -332,40 +377,43 @@ fn external_arg_expand_tilde() {
     })
 }
 
-#[test]
-fn external_command_not_expand_tilde_with_quotes() {
+#[apply(run_external_prefixes)]
+fn external_command_not_expand_tilde_with_quotes(prefix: &str) {
     Playground::setup(
         "external command not expand tilde with quotes",
         |dirs, _| {
-            let actual = nu!(cwd: dirs.test(), pipeline(r#"nu --testbin nonu "~""#));
+            let actual = nu!(cwd: dirs.test(), r#"{}nu `--testbin` nonu "~""#, prefix);
             assert_eq!(actual.out, r#"~"#);
         },
     )
 }
 
-#[test]
-fn external_command_expand_tilde_with_back_quotes() {
+#[apply(run_external_prefixes)]
+fn external_command_expand_tilde_with_back_quotes(prefix: &str) {
     Playground::setup(
         "external command not expand tilde with quotes",
         |dirs, _| {
-            let actual = nu!(cwd: dirs.test(), pipeline(r#"nu --testbin nonu `~`"#));
+            let actual = nu!(cwd: dirs.test(), r#"{}nu `--testbin` nonu `~`"#, prefix);
             assert!(!actual.out.contains('~'));
         },
     )
 }
 
-#[test]
-fn external_command_receives_raw_binary_data() {
+#[apply(run_external_prefixes)]
+fn external_command_receives_raw_binary_data(prefix: &str) {
     Playground::setup("external command receives raw binary data", |dirs, _| {
-        let actual =
-            nu!(cwd: dirs.test(), pipeline("0x[deadbeef] | nu --testbin input_bytes_length"));
+        let actual = nu!(
+            cwd: dirs.test(),
+            "0x[deadbeef] | {}nu `--testbin` input_bytes_length",
+            prefix
+        );
         assert_eq!(actual.out, r#"4"#);
     })
 }
 
 #[cfg(windows)]
-#[test]
-fn can_run_cmd_files() {
+#[apply(run_external_prefixes)]
+fn can_run_cmd_files(prefix: &str) {
     use nu_test_support::fs::Stub::FileWithContent;
     Playground::setup("run a Windows cmd file", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
@@ -376,14 +424,14 @@ fn can_run_cmd_files() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), pipeline("foo.cmd"));
+        let actual = nu!(cwd: dirs.test(), "{}foo.cmd", prefix);
         assert!(actual.out.contains("Hello World"));
     });
 }
 
 #[cfg(windows)]
-#[test]
-fn can_run_batch_files() {
+#[apply(run_external_prefixes)]
+fn can_run_batch_files(prefix: &str) {
     use nu_test_support::fs::Stub::FileWithContent;
     Playground::setup("run a Windows batch file", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
@@ -394,14 +442,14 @@ fn can_run_batch_files() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), pipeline("foo.bat"));
+        let actual = nu!(cwd: dirs.test(), "{}foo.bat", prefix);
         assert!(actual.out.contains("Hello World"));
     });
 }
 
 #[cfg(windows)]
-#[test]
-fn can_run_batch_files_without_cmd_extension() {
+#[apply(run_external_prefixes)]
+fn can_run_batch_files_without_cmd_extension(prefix: &str) {
     use nu_test_support::fs::Stub::FileWithContent;
     Playground::setup(
         "run a Windows cmd file without specifying the extension",
@@ -414,15 +462,15 @@ fn can_run_batch_files_without_cmd_extension() {
             "#,
             )]);
 
-            let actual = nu!(cwd: dirs.test(), pipeline("foo"));
+            let actual = nu!(cwd: dirs.test(), "{}foo", prefix);
             assert!(actual.out.contains("Hello World"));
         },
     );
 }
 
 #[cfg(windows)]
-#[test]
-fn can_run_batch_files_without_bat_extension() {
+#[apply(run_external_prefixes)]
+fn can_run_batch_files_without_bat_extension(prefix: &str) {
     use nu_test_support::fs::Stub::FileWithContent;
     Playground::setup(
         "run a Windows batch file without specifying the extension",
@@ -435,34 +483,36 @@ fn can_run_batch_files_without_bat_extension() {
             "#,
             )]);
 
-            let actual = nu!(cwd: dirs.test(), pipeline("foo"));
+            let actual = nu!(cwd: dirs.test(), "{}foo", prefix);
             assert!(actual.out.contains("Hello World"));
         },
     );
 }
 
-#[test]
-fn quotes_trimmed_when_shelling_out() {
+#[apply(run_external_prefixes)]
+fn quotes_trimmed_when_shelling_out(prefix: &str) {
     // regression test for a bug where we weren't trimming quotes around string args before shelling out to cmd.exe
-    let actual = nu!(pipeline(
+    let actual = nu!(
         r#"
-            nu --testbin cococo "foo"
-        "#
-    ));
+            {}nu `--testbin` cococo "foo"
+        "#,
+        prefix
+    );
 
     assert_eq!(actual.out, "foo");
 }
 
 #[cfg(not(windows))]
-#[test]
-fn redirect_combine() {
+#[apply(run_external_prefixes)]
+fn redirect_combine(prefix: &str) {
     Playground::setup("redirect_combine", |dirs, _| {
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
+            cwd: dirs.test(),
             r#"
-                run-external sh ...[-c 'echo Foo; echo >&2 Bar'] o+e>| print
-            "#
-        ));
+                {}sh ...[-c 'echo Foo; echo >&2 Bar'] o+e>| print
+            "#,
+            prefix
+        );
 
         // Lines are collapsed in the nu! macro
         assert_eq!(actual.out, "FooBar");
@@ -470,8 +520,8 @@ fn redirect_combine() {
 }
 
 #[cfg(windows)]
-#[test]
-fn can_run_ps1_files() {
+#[apply(run_external_prefixes)]
+fn can_run_ps1_files(prefix: &str) {
     use nu_test_support::fs::Stub::FileWithContent;
     Playground::setup("run_a_windows_ps_file", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
@@ -481,7 +531,7 @@ fn can_run_ps1_files() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), pipeline("foo.ps1"));
+        let actual = nu!(cwd: dirs.test(), "{}foo.ps1", prefix);
         assert!(actual.out.contains("Hello World"));
     });
 }

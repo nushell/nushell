@@ -1,19 +1,24 @@
+use lsp_server::{Message, RequestId, Response, ResponseError};
 use lsp_types::{
     notification::{
-        DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, Notification,
+        DidChangeTextDocument, DidChangeWorkspaceFolders, DidCloseTextDocument,
+        DidOpenTextDocument, Notification, Progress,
     },
-    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, Uri,
+    DidChangeTextDocumentParams, DidChangeWorkspaceFoldersParams, DidCloseTextDocumentParams,
+    DidOpenTextDocumentParams, ProgressParams, ProgressParamsValue, ProgressToken, Uri,
+    WorkDoneProgress, WorkDoneProgressBegin, WorkDoneProgressEnd, WorkDoneProgressReport,
 };
 
 use crate::LanguageServer;
+use miette::{IntoDiagnostic, Result};
 
 impl LanguageServer {
     pub(crate) fn handle_lsp_notification(
         &mut self,
         notification: lsp_server::Notification,
     ) -> Option<Uri> {
-        self.docs
-            .listen(notification.method.as_str(), &notification.params);
+        let mut docs = self.docs.lock().ok()?;
+        docs.listen(notification.method.as_str(), &notification.params);
         match notification.method.as_str() {
             DidOpenTextDocument::METHOD => {
                 let params: DidOpenTextDocumentParams =
@@ -36,8 +41,88 @@ impl LanguageServer {
                 self.inlay_hints.remove(&uri);
                 None
             }
+            DidChangeWorkspaceFolders::METHOD => {
+                let params: DidChangeWorkspaceFoldersParams =
+                    serde_json::from_value(notification.params.clone())
+                        .expect("Expect receive DidChangeWorkspaceFoldersParams");
+                for added in params.event.added {
+                    self.workspace_folders.insert(added.name.clone(), added);
+                }
+                for removed in params.event.removed {
+                    self.workspace_folders.remove(&removed.name);
+                }
+                None
+            }
             _ => None,
         }
+    }
+
+    pub fn send_progress_notification(
+        &self,
+        token: ProgressToken,
+        value: WorkDoneProgress,
+    ) -> Result<()> {
+        let progress_params = ProgressParams {
+            token,
+            value: ProgressParamsValue::WorkDone(value),
+        };
+        let notification =
+            lsp_server::Notification::new(Progress::METHOD.to_string(), progress_params);
+        self.connection
+            .sender
+            .send(lsp_server::Message::Notification(notification))
+            .into_diagnostic()
+    }
+
+    pub fn send_progress_begin(&self, token: ProgressToken, title: String) -> Result<()> {
+        self.send_progress_notification(
+            token,
+            WorkDoneProgress::Begin(WorkDoneProgressBegin {
+                title,
+                percentage: Some(0),
+                cancellable: Some(true),
+                ..Default::default()
+            }),
+        )
+    }
+
+    pub fn send_progress_report(
+        &self,
+        token: ProgressToken,
+        percentage: u32,
+        message: Option<String>,
+    ) -> Result<()> {
+        self.send_progress_notification(
+            token,
+            WorkDoneProgress::Report(WorkDoneProgressReport {
+                message,
+                cancellable: Some(true),
+                percentage: Some(percentage),
+            }),
+        )
+    }
+
+    pub fn send_progress_end(&self, token: ProgressToken, message: Option<String>) -> Result<()> {
+        self.send_progress_notification(
+            token,
+            WorkDoneProgress::End(WorkDoneProgressEnd { message }),
+        )
+    }
+
+    pub fn send_error_message(&self, id: RequestId, code: i32, message: String) -> Result<()> {
+        self.connection
+            .sender
+            .send(Message::Response(Response {
+                id,
+                result: None,
+                error: Some(ResponseError {
+                    code,
+                    message,
+                    data: None,
+                }),
+            }))
+            .into_diagnostic()?;
+        Ok(())
     }
 }
 
@@ -55,7 +140,7 @@ mod tests {
 
     #[test]
     fn hover_correct_documentation_on_let() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -85,7 +170,7 @@ mod tests {
 
     #[test]
     fn hover_on_command_after_full_content_change() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -126,7 +211,7 @@ hello"#,
 
     #[test]
     fn hover_on_command_after_partial_content_change() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -171,7 +256,7 @@ hello"#,
 
     #[test]
     fn open_document_with_utf_char() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");

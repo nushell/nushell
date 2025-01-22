@@ -1,5 +1,5 @@
-use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::command_prelude::*;
+use nu_protocol::{report_parse_warning, ParseWarning};
 
 #[derive(Clone)]
 pub struct Fmt;
@@ -16,11 +16,11 @@ impl Command for Fmt {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("fmt")
             .input_output_types(vec![(Type::Number, Type::record())])
-            .category(Category::Conversions)
+            .category(Category::Deprecated)
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["display", "render", "format"]
+        vec![]
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -47,70 +47,18 @@ impl Command for Fmt {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        fmt(engine_state, stack, call, input)
-    }
-}
-
-fn fmt(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-    let args = CellPathOnlyArgs::from(cell_paths);
-    operate(action, args, input, call.head, engine_state.signals())
-}
-
-fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
-    match input {
-        Value::Float { val, .. } => fmt_it_64(*val, span),
-        Value::Int { val, .. } => fmt_it(*val, span),
-        Value::Filesize { val, .. } => fmt_it(val.get(), span),
-        // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => input.clone(),
-        other => Value::error(
-            ShellError::OnlySupportsThisInputType {
-                exp_input_type: "float, int, or filesize".into(),
-                wrong_type: other.get_type().to_string(),
-                dst_span: span,
-                src_span: other.span(),
+        let head = call.head;
+        report_parse_warning(
+            &StateWorkingSet::new(engine_state),
+            &ParseWarning::DeprecatedWarning {
+                old_command: "fmt".into(),
+                new_suggestion: "use `format number`".into(),
+                span: head,
+                url: "`help format number`".into(),
             },
-            span,
-        ),
+        );
+        crate::extra::strings::format::format_number(engine_state, stack, call, input)
     }
-}
-
-fn fmt_it(num: i64, span: Span) -> Value {
-    Value::record(
-        record! {
-            "binary" => Value::string(format!("{num:#b}"), span),
-            "debug" => Value::string(format!("{num:#?}"), span),
-            "display" => Value::string(format!("{num}"), span),
-            "lowerexp" => Value::string(format!("{num:#e}"), span),
-            "lowerhex" => Value::string(format!("{num:#x}"), span),
-            "octal" => Value::string(format!("{num:#o}"), span),
-            "upperexp" => Value::string(format!("{num:#E}"), span),
-            "upperhex" => Value::string(format!("{num:#X}"), span),
-        },
-        span,
-    )
-}
-
-fn fmt_it_64(num: f64, span: Span) -> Value {
-    Value::record(
-        record! {
-            "binary" => Value::string(format!("{:b}", num.to_bits()), span),
-            "debug" => Value::string(format!("{num:#?}"), span),
-            "display" => Value::string(format!("{num}"), span),
-            "lowerexp" => Value::string(format!("{num:#e}"), span),
-            "lowerhex" => Value::string(format!("{:0x}", num.to_bits()), span),
-            "octal" => Value::string(format!("{:0o}", num.to_bits()), span),
-            "upperexp" => Value::string(format!("{num:#E}"), span),
-            "upperhex" => Value::string(format!("{:0X}", num.to_bits()), span),
-        },
-        span,
-    )
 }
 
 #[cfg(test)]

@@ -95,6 +95,16 @@ fn range_iteration2() -> TestResult {
 }
 
 #[test]
+fn range_ends_with_duration_suffix_variable_name() -> TestResult {
+    run_test("let runs = 10; 1..$runs | math sum", "55")
+}
+
+#[test]
+fn range_ends_with_filesize_suffix_variable_name() -> TestResult {
+    run_test("let sizekb = 10; 1..$sizekb | math sum", "55")
+}
+
+#[test]
 fn simple_value_iteration() -> TestResult {
     run_test("4 | each { |it| $it + 10 }", "14")
 }

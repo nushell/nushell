@@ -2,7 +2,6 @@ use std::collections::{BTreeMap, HashSet};
 use std::hash::{Hash, Hasher};
 
 use crate::{path_to_uri, span_to_range, uri_to_path, Id, LanguageServer};
-use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
     DocumentSymbolParams, DocumentSymbolResponse, Location, Range, SymbolInformation, SymbolKind,
@@ -14,6 +13,8 @@ use nu_protocol::{
     engine::{CachedFile, EngineState, StateWorkingSet},
     DeclId, Span, VarId,
 };
+use nucleo_matcher::pattern::{AtomKind, CaseMatching, Normalization, Pattern};
+use nucleo_matcher::{Config, Matcher, Utf32Str};
 use std::{cmp::Ordering, path::Path};
 
 /// Struct stored in cache, uri not included
@@ -70,7 +71,7 @@ impl Symbol {
 /// Cache symbols for each opened file to avoid repeated parsing
 pub struct SymbolCache {
     /// Fuzzy matcher for symbol names
-    matcher: SkimMatcherV2,
+    matcher: Matcher,
     /// File Uri --> Symbols
     cache: BTreeMap<Uri, Vec<Symbol>>,
     /// If marked as dirty, parse on next request
@@ -80,7 +81,7 @@ pub struct SymbolCache {
 impl SymbolCache {
     pub fn new() -> Self {
         SymbolCache {
-            matcher: SkimMatcherV2::default(),
+            matcher: Matcher::new(Config::DEFAULT),
             cache: BTreeMap::new(),
             dirty_flags: BTreeMap::new(),
         }
@@ -198,7 +199,7 @@ impl SymbolCache {
             );
             for cached_file in working_set.files() {
                 let path = Path::new(&*cached_file.name);
-                if !(path.exists() && path.is_file()) {
+                if !path.is_file() {
                     continue;
                 }
                 let target_uri = path_to_uri(path);
@@ -240,12 +241,20 @@ impl SymbolCache {
         )
     }
 
-    pub fn get_fuzzy_matched_symbols(&self, query: &str) -> Vec<SymbolInformation> {
+    pub fn get_fuzzy_matched_symbols(&mut self, query: &str) -> Vec<SymbolInformation> {
+        let pat = Pattern::new(
+            query,
+            CaseMatching::Smart,
+            Normalization::Smart,
+            AtomKind::Fuzzy,
+        );
         self.cache
             .iter()
             .flat_map(|(uri, symbols)| symbols.iter().map(|s| s.clone().to_symbol_information(uri)))
             .filter_map(|s| {
-                self.matcher.fuzzy_match(&s.name, query)?;
+                let mut buf = Vec::new();
+                let name = Utf32Str::new(&s.name, &mut buf);
+                pat.score(name, &mut self.matcher)?;
                 Some(s)
             })
             .collect()
@@ -263,7 +272,8 @@ impl LanguageServer {
     ) -> Option<DocumentSymbolResponse> {
         let engine_state = self.new_engine_state();
         let uri = params.text_document.uri.to_owned();
-        self.symbol_cache.update(&uri, &engine_state, &self.docs);
+        let docs = self.docs.lock().ok()?;
+        self.symbol_cache.update(&uri, &engine_state, &docs);
         Some(DocumentSymbolResponse::Flat(
             self.symbol_cache.get_symbols_by_uri(&uri)?,
         ))
@@ -275,7 +285,8 @@ impl LanguageServer {
     ) -> Option<WorkspaceSymbolResponse> {
         if self.symbol_cache.any_dirty() {
             let engine_state = self.new_engine_state();
-            self.symbol_cache.update_all(&engine_state, &self.docs);
+            let docs = self.docs.lock().ok()?;
+            self.symbol_cache.update_all(&engine_state, &docs);
         }
         Some(WorkspaceSymbolResponse::Flat(
             self.symbol_cache
@@ -342,7 +353,7 @@ mod tests {
     #[test]
     // for variable `$in/$it`, should not appear in symbols
     fn document_symbol_special_variables() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -364,7 +375,7 @@ mod tests {
 
     #[test]
     fn document_symbol_basic() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -412,7 +423,7 @@ mod tests {
 
     #[test]
     fn document_symbol_update() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -464,7 +475,7 @@ mod tests {
 
     #[test]
     fn workspace_symbol_current() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -530,7 +541,7 @@ mod tests {
 
     #[test]
     fn workspace_symbol_other() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
