@@ -321,7 +321,7 @@ pub fn get_vendor_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
     }
 
     if let Some(data_dir) = nu_path::data_dir() {
-        append_fn(PathBuf::from(data_dir).join("vendor").join("autoload"));
+        append_fn(into_autoload_path_fn(PathBuf::from(data_dir)));
     }
 
     if let Some(path) = std::env::var_os("NU_VENDOR_AUTOLOAD_DIR") {
