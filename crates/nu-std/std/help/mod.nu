@@ -51,6 +51,8 @@ def get-all-operators [] {
         [Comparison, '!~ or not-like', NotRegexMatch, 'Checks if a value does not match a regular expression.', 80]
         [Comparison, in, In, 'Checks if a value is in a list, is part of a string, or is a key in a record.', 80]
         [Comparison, not-in, NotIn, 'Checks if a value is not in a list, is not part of a string, or is not a key in a record.', 80]
+        [Comparison, has, Has, 'Checks if a list contains a value, a string contains another, or if a record has a key.', 80]
+        [Comparison, not-has, NotHas, 'Checks if a list does not contains a value, a string does not contains another, or if a record does not have a key.', 80]
         [Comparison, starts-with, StartsWith, 'Checks if a string starts with another.', 80]
         [Comparison, ends-with, EndsWith, 'Checks if a string ends with another.', 80]
         [Math, +, Add, 'Adds two values.', 90]

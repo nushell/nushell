@@ -45,6 +45,8 @@ impl Command for HelpOperators {
             Operator::Comparison(Comparison::NotRegexMatch),
             Operator::Comparison(Comparison::In),
             Operator::Comparison(Comparison::NotIn),
+            Operator::Comparison(Comparison::Has),
+            Operator::Comparison(Comparison::NotHas),
             Operator::Comparison(Comparison::StartsWith),
             Operator::Comparison(Comparison::EndsWith),
             Operator::Math(Math::Add),
