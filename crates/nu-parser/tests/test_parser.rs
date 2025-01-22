@@ -2460,6 +2460,7 @@ mod input_types {
 
     #[rstest]
     #[case::input_output(b"def q []: int -> int {1}", false)]
+    #[case::input_output(b"def q [x: bool]: int -> int {2}", false)]
     #[case::input_output(b"def q []: string -> string {'qwe'}", false)]
     #[case::input_output(b"def q []: nothing -> nothing {null}", false)]
     #[case::input_output(b"def q []: list<string> -> list<string> {[]}", false)]
@@ -2479,6 +2480,42 @@ mod input_types {
     #[case::input_output(b"def q []: nothing -> record<c: int e: int {{c: 1 e: 1}}", true)]
     #[case::input_output(b"def q []: record<c: int e: int -> record<a: int> {{a: 1}}", true)]
     #[case::input_output(b"def q []: nothing -> record<a: record<a: int> {{a: {a: 1}}}", true)]
+    #[case::input_output(b"def q []: int []}", true)]
+    #[case::input_output(b"def q []: bool {[]", true)]
+    // Type signature variants with whitespace between inputs and `:`
+    #[case::input_output(b"def q [] : int -> int {1}", false)]
+    #[case::input_output(b"def q [x: bool] : int -> int {2}", false)]
+    #[case::input_output(b"def q []\t   : string -> string {'qwe'}", false)]
+    #[case::input_output(b"def q []  \t : nothing -> nothing {null}", false)]
+    #[case::input_output(b"def q [] \t: list<string> -> list<string> {[]}", false)]
+    #[case::input_output(
+        b"def q []\t: record<a: int b: int> -> record<c: int e: int> {{c: 1 e: 1}}",
+        false
+    )]
+    #[case::input_output(
+        b"def q [] : table<a: int b: int> -> table<c: int e: int> {[{c: 1 e: 1}]}",
+        false
+    )]
+    #[case::input_output(
+        b"def q [] : nothing -> record<c: record<a: int b: int> e: int> {{c: {a: 1 b: 2} e: 1}}",
+        false
+    )]
+    #[case::input_output(b"def q [] : nothing -> list<string {[]}", true)]
+    #[case::input_output(b"def q [] : nothing -> record<c: int e: int {{c: 1 e: 1}}", true)]
+    #[case::input_output(b"def q [] : record<c: int e: int -> record<a: int> {{a: 1}}", true)]
+    #[case::input_output(b"def q [] : nothing -> record<a: record<a: int> {{a: {a: 1}}}", true)]
+    #[case::input_output(b"def q [] : int []}", true)]
+    #[case::input_output(b"def q [] : bool {[]", true)]
+    // No input-output type signature
+    #[case::input_output(b"def qq [] {[]}", false)]
+    #[case::input_output(b"def q [] []}", true)]
+    #[case::input_output(b"def q [] {", true)]
+    #[case::input_output(b"def q []: []}", true)]
+    #[case::input_output(b"def q [] int {}", true)]
+    #[case::input_output(b"def q [x: string, y: int] {{c: 1 e: 1}}", false)]
+    #[case::input_output(b"def q [x: string, y: int]: {}", true)]
+    #[case::input_output(b"def q [x: string, y: int] {a: {a: 1}}", true)]
+    #[case::input_output(b"def foo {3}", true)]
     #[case::vardecl(b"let a: int = 1", false)]
     #[case::vardecl(b"let a: string = 'qwe'", false)]
     #[case::vardecl(b"let a: nothing = null", false)]

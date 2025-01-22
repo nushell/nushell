@@ -116,7 +116,7 @@ impl Command for SubCommand {
     }
 }
 
-pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     let value_span = input.span();
     match input {
         Value::Filesize { .. } => input.clone(),

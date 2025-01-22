@@ -35,6 +35,7 @@ impl Command for Ignore {
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         if let PipelineData::ByteStream(stream, _) = &mut input {
+            #[cfg(feature = "os")]
             if let ByteStreamSource::Child(child) = stream.source_mut() {
                 child.ignore_error(true);
             }

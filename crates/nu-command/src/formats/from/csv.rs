@@ -13,7 +13,6 @@ impl Command for FromCsv {
         Signature::build("from csv")
             .input_output_types(vec![
                 (Type::String, Type::table()),
-                (Type::String, Type::list(Type::Any)),
             ])
             .named(
                 "separator",
@@ -204,12 +203,45 @@ fn from_csv(
 
 #[cfg(test)]
 mod test {
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
     use super::*;
+
+    use crate::{Metadata, MetadataSet};
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
         test_examples(FromCsv {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(FromCsv {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(MetadataSet {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = r#""a,b\n1,2" | metadata set --content-type 'text/csv' --datasource-ls | from csv | metadata | $in"#;
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("source" => Value::test_string("ls"))),
+            result.expect("There should be a result")
+        )
     }
 }

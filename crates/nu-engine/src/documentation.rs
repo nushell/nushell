@@ -7,8 +7,8 @@ use nu_protocol::{
     record, Category, Config, Example, IntoPipelineData, PipelineData, PositionalArg, Signature,
     Span, SpanId, Spanned, SyntaxShape, Type, Value,
 };
+use nu_utils::terminal_size;
 use std::{collections::HashMap, fmt::Write};
-use terminal_size::{Height, Width};
 
 /// ANSI style reset
 const RESET: &str = "\x1b[0m";
@@ -194,7 +194,7 @@ fn get_documentation(
     }
 
     fn get_term_width() -> usize {
-        if let Some((Width(w), Height(_))) = terminal_size::terminal_size() {
+        if let Ok((w, _h)) = terminal_size() {
             w as usize
         } else {
             80
@@ -258,7 +258,7 @@ fn get_documentation(
         long_desc.push_str("  ");
         long_desc.push_str(example.description);
 
-        if !nu_config.use_ansi_coloring {
+        if !nu_config.use_ansi_coloring.get(engine_state) {
             let _ = write!(long_desc, "\n  > {}\n", example.example);
         } else {
             let code_string = nu_highlight_string(example.example, engine_state, stack);
@@ -329,7 +329,7 @@ fn get_documentation(
 
     long_desc.push('\n');
 
-    if !nu_config.use_ansi_coloring {
+    if !nu_config.use_ansi_coloring.get(engine_state) {
         nu_utils::strip_ansi_string_likely(long_desc)
     } else {
         long_desc

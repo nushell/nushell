@@ -6,8 +6,8 @@ use crate::{
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -26,7 +26,7 @@ impl PluginCommand for WithColumn {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .named("name", SyntaxShape::String, "new column name", Some('n'))
+            .named("name", SyntaxShape::String, "New column name. For lazy dataframes and expressions syntax, use a `polars as` expression to name a column.", Some('n'))
             .rest(
                 "series or expressions",
                 SyntaxShape::Any,
@@ -138,6 +138,15 @@ fn command_eager(
     let column_span = new_column.span();
 
     if NuExpression::can_downcast(&new_column) {
+        if let Some(name) = call.get_flag::<Spanned<String>>("name")? {
+            return Err(ShellError::GenericError {
+            error: "Flag 'name' is unsuppored when used with expressions. Please use the `polars as` expression to name a column".into(),
+            msg: "".into(),
+            span: Some(name.span),
+            help: Some("Use a `polars as` expression to name a column".into()),
+            inner: vec![],
+        });
+        }
         let vals: Vec<Value> = call.rest(0)?;
         let value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(plugin, value)?;
@@ -177,6 +186,16 @@ fn command_lazy(
     call: &EvaluatedCall,
     lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
+    if let Some(name) = call.get_flag::<Spanned<String>>("name")? {
+        return Err(ShellError::GenericError {
+            error: "Flag 'name' is unsuppored for lazy dataframes. Please use the `polars as` expression to name a column".into(),
+            msg: "".into(),
+            span: Some(name.span),
+            help: Some("Use a `polars as` expression to name a column".into()),
+            inner: vec![],
+        });
+    }
+
     let vals: Vec<Value> = call.rest(0)?;
     let value = Value::list(vals, call.head);
     let expressions = NuExpression::extract_exprs(plugin, value)?;

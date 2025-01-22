@@ -142,9 +142,10 @@ pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellErr
             Value::Float { val, .. } => {
                 Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Float))
             }
-            Value::Filesize { val, .. } => {
-                Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Filesize))
-            }
+            Value::Filesize { val, .. } => Ok(HashableType::new(
+                val.get().to_ne_bytes(),
+                NumberTypes::Filesize,
+            )),
             Value::Error { error, .. } => Err(*error.clone()),
             other => Err(ShellError::UnsupportedInput {
                 msg: "Unable to give a result with this input".to_string(),

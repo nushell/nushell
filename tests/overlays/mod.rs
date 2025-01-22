@@ -807,10 +807,10 @@ fn overlay_can_add_renamed_overlay() {
 #[test]
 fn overlay_hide_renamed_overlay() {
     let inp = &[
-        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"module spam { export def foo-command-which-does-not-conflict [] { "foo" } }"#,
         "overlay use spam as eggs",
         "overlay hide eggs",
-        "foo",
+        "foo-command-which-does-not-conflict",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -1243,9 +1243,9 @@ fn overlay_use_main_def_known_external() {
 #[test]
 fn overlay_use_main_not_exported() {
     let inp = &[
-        r#"module foo { def main [] { "foo" } }"#,
-        "overlay use foo",
-        "foo",
+        r#"module my-super-cool-and-unique-module-name { def main [] { "hi" } }"#,
+        "overlay use my-super-cool-and-unique-module-name",
+        "my-super-cool-and-unique-module-name",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -1257,11 +1257,11 @@ fn overlay_use_main_not_exported() {
 fn alias_overlay_hide() {
     let inp = &[
         "overlay new spam",
-        "def foo [] { 'foo' }",
+        "def my-epic-command-name [] { 'foo' }",
         "overlay new eggs",
         "alias oh = overlay hide",
         "oh spam",
-        "foo",
+        "my-epic-command-name",
     ];
 
     let actual = nu!(&inp.join("; "));

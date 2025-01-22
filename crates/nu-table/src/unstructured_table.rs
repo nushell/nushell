@@ -1,19 +1,21 @@
-use crate::{string_width, string_wrap, TableTheme};
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Record, Span, Value};
+use nu_protocol::{Config, Record, Span, TableIndent, Value};
+
 use tabled::{
     grid::{
-        ansi::{ANSIBuf, ANSIStr},
-        config::{AlignmentHorizontal, Borders, CompactMultilineConfig},
+        ansi::ANSIStr,
+        config::{Borders, CompactMultilineConfig},
         dimension::{DimensionPriority, PoolTableDimension},
     },
-    settings::{Color, Padding, TableOption, Theme},
+    settings::{Alignment, Color, Padding, TableOption},
     tables::{PoolTable, TableValue},
 };
 
+use crate::{is_color_empty, string_width, string_wrap, TableTheme};
+
 /// UnstructuredTable has a recursive table representation of nu_protocol::Value.
 ///
-/// It doesn't support alignment and a proper width control.
+/// It doesn't support alignment and a proper width control (although it's possible to achieve).
 pub struct UnstructuredTable {
     value: TableValue,
 }
@@ -26,7 +28,7 @@ impl UnstructuredTable {
 
     pub fn truncate(&mut self, theme: &TableTheme, width: usize) -> bool {
         let mut available = width;
-        let has_vertical = theme.has_left();
+        let has_vertical = theme.as_full().borders_has_left();
         if has_vertical {
             available = available.saturating_sub(2);
         }
@@ -34,55 +36,34 @@ impl UnstructuredTable {
         truncate_table_value(&mut self.value, has_vertical, available).is_none()
     }
 
-    pub fn draw(
-        self,
-        style_computer: &StyleComputer,
-        theme: &TableTheme,
-        indent: (usize, usize),
-    ) -> String {
-        build_table(self.value, style_computer, theme, indent)
+    pub fn draw(self, theme: &TableTheme, indent: TableIndent, style: &StyleComputer) -> String {
+        build_table(self.value, style, theme, indent)
     }
 }
 
 fn build_table(
     val: TableValue,
-    style_computer: &StyleComputer,
+    style: &StyleComputer,
     theme: &TableTheme,
-    indent: (usize, usize),
+    indent: TableIndent,
 ) -> String {
     let mut table = PoolTable::from(val);
 
-    let mut theme = theme.get_theme_full();
+    let mut theme = theme.as_full().clone();
     theme.set_horizontal_lines(Default::default());
 
-    table.with(Padding::new(indent.0, indent.1, 0, 0));
-    table.with(SetRawStyle(theme));
-    table.with(SetAlignment(AlignmentHorizontal::Left));
+    table.with(Padding::new(indent.left, indent.right, 0, 0));
+    table.with(*theme.get_borders());
+    table.with(Alignment::left());
     table.with(PoolTableDimension::new(
         DimensionPriority::Last,
         DimensionPriority::Last,
     ));
 
-    // color_config closures for "separator" are just given a null.
-    let color = style_computer.compute("separator", &Value::nothing(Span::unknown()));
-    let color = color.paint(" ").to_string();
-    if let Ok(color) = Color::try_from(color) {
-        // # SAFETY
-        //
-        // It's perfectly save to do cause table does not store the reference internally.
-        // We just need this unsafe section to cope with some limitations of [`PoolTable`].
-        // Mitigation of this is definitely on a todo list.
-
-        let color: ANSIBuf = color.into();
-        let prefix = color.get_prefix();
-        let suffix = color.get_suffix();
-        let prefix: &'static str = unsafe { std::mem::transmute(prefix) };
-        let suffix: &'static str = unsafe { std::mem::transmute(suffix) };
-
-        table.with(SetBorderColor(ANSIStr::new(prefix, suffix)));
-        let table = table.to_string();
-
-        return table;
+    if let Some(color) = get_border_color(style) {
+        if !is_color_empty(&color) {
+            return build_table_with_border_color(table, color);
+        }
     }
 
     table.to_string()
@@ -99,76 +80,74 @@ fn convert_nu_value_to_table_value(value: Value, config: &Config) -> TableValue 
                 build_vertical_array(vals, config)
             }
         }
-        value => {
-            let mut text = value.to_abbreviated_string(config);
-            if string_width(&text) > 50 {
-                text = string_wrap(&text, 30, false);
-            }
-
-            TableValue::Cell(text)
-        }
+        value => build_string_value(value, config),
     }
 }
 
-fn build_vertical_map(record: Record, config: &Config) -> TableValue {
-    let mut rows = Vec::with_capacity(record.len());
-    for (key, value) in record {
-        let val = convert_nu_value_to_table_value(value, config);
-        let row = TableValue::Row(vec![TableValue::Cell(key), val]);
-        rows.push(row);
+fn build_string_value(value: Value, config: &Config) -> TableValue {
+    const MAX_STRING_WIDTH: usize = 50;
+    const WRAP_STRING_WIDTH: usize = 30;
+
+    let mut text = value.to_abbreviated_string(config);
+    if string_width(&text) > MAX_STRING_WIDTH {
+        text = string_wrap(&text, WRAP_STRING_WIDTH, false);
     }
 
-    let max_key_width = rows
+    TableValue::Cell(text)
+}
+
+fn build_vertical_map(record: Record, config: &Config) -> TableValue {
+    let max_key_width = record
         .iter()
-        .map(|row| match row {
-            TableValue::Row(list) => match &list[0] {
-                TableValue::Cell(key) => string_width(key),
-                _ => unreachable!(),
-            },
-            _ => unreachable!(),
-        })
+        .map(|(k, _)| string_width(k))
         .max()
         .unwrap_or(0);
 
-    rows.iter_mut().for_each(|row| {
-        match row {
-            TableValue::Row(list) => match &mut list[0] {
-                TableValue::Cell(key) => {
-                    let width = string_width(key);
-                    let rest = max_key_width - width;
-                    key.extend(std::iter::repeat(' ').take(rest));
-                }
-                _ => unreachable!(),
-            },
-            _ => unreachable!(),
-        };
-    });
+    let mut rows = Vec::with_capacity(record.len());
+    for (mut key, value) in record {
+        string_append_to_width(&mut key, max_key_width);
+
+        let value = convert_nu_value_to_table_value(value, config);
+
+        let row = TableValue::Row(vec![TableValue::Cell(key), value]);
+        rows.push(row);
+    }
 
     TableValue::Column(rows)
+}
+
+fn string_append_to_width(key: &mut String, max: usize) {
+    let width = string_width(key);
+    let rest = max - width;
+    key.extend(std::iter::repeat(' ').take(rest));
 }
 
 fn build_vertical_array(vals: Vec<Value>, config: &Config) -> TableValue {
     let map = vals
         .into_iter()
         .map(|val| convert_nu_value_to_table_value(val, config))
-        .collect::<Vec<_>>();
+        .collect();
 
     TableValue::Column(map)
 }
 
 fn is_valid_record(vals: &[Value]) -> bool {
-    let mut first_record: Option<&Record> = None;
-    for val in vals {
+    if vals.is_empty() {
+        return true;
+    }
+
+    let first_value = match &vals[0] {
+        Value::Record { val, .. } => val,
+        _ => return false,
+    };
+
+    for val in &vals[1..] {
         match val {
             Value::Record { val, .. } => {
-                if let Some(known) = first_record {
-                    let equal = known.columns().eq(val.columns());
-                    if !equal {
-                        return false;
-                    }
-                } else {
-                    first_record = Some(val)
-                };
+                let equal = val.columns().eq(first_value.columns());
+                if !equal {
+                    return false;
+                }
             }
             _ => return false,
         }
@@ -185,62 +164,47 @@ fn count_columns_in_record(vals: &[Value]) -> usize {
 }
 
 fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
-    let mut list = vec![];
+    // assumes that we have a valid record structure (checked by is_valid_record)
 
     let head = get_columns_in_record(&vals);
-    let count_columns = head.len();
+    let mut list = Vec::with_capacity(head.len());
     for col in head {
-        list.push(vec![TableValue::Cell(col)]);
+        list.push(TableValue::Column(vec![TableValue::Cell(col)]));
     }
 
     for val in vals {
-        match val {
-            Value::Record { val, .. } => {
-                for (i, (_key, val)) in val.into_owned().into_iter().take(count_columns).enumerate()
-                {
-                    let cell = convert_nu_value_to_table_value(val, config);
-                    list[i].push(cell);
-                }
-            }
-            _ => unreachable!(),
+        let val = get_as_record(val);
+        for (i, (_, val)) in val.into_owned().into_iter().enumerate() {
+            let value = convert_nu_value_to_table_value(val, config);
+            let list = get_table_value_column_mut(&mut list[i]);
+
+            list.push(value);
         }
     }
 
-    let columns = list.into_iter().map(TableValue::Column).collect::<Vec<_>>();
+    TableValue::Row(list)
+}
 
-    TableValue::Row(columns)
+fn get_table_value_column_mut(val: &mut TableValue) -> &mut Vec<TableValue> {
+    match val {
+        TableValue::Column(row) => row,
+        _ => {
+            unreachable!();
+        }
+    }
+}
+
+fn get_as_record(val: Value) -> nu_utils::SharedCow<Record> {
+    match val {
+        Value::Record { val, .. } => val,
+        _ => unreachable!(),
+    }
 }
 
 fn get_columns_in_record(vals: &[Value]) -> Vec<String> {
     match vals.iter().next() {
         Some(Value::Record { val, .. }) => val.columns().cloned().collect(),
         _ => vec![],
-    }
-}
-
-struct SetRawStyle(Theme);
-
-impl<R, D> TableOption<R, CompactMultilineConfig, D> for SetRawStyle {
-    fn change(self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
-        let borders = *self.0.get_borders();
-        cfg.set_borders(borders);
-    }
-}
-
-struct SetBorderColor(ANSIStr<'static>);
-
-impl<R, D> TableOption<R, CompactMultilineConfig, D> for SetBorderColor {
-    fn change(self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
-        let borders = Borders::filled(self.0);
-        cfg.set_borders_color(borders);
-    }
-}
-
-struct SetAlignment(AlignmentHorizontal);
-
-impl<R, D> TableOption<R, CompactMultilineConfig, D> for SetAlignment {
-    fn change(self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
-        cfg.set_alignment_horizontal(self.0);
     }
 }
 
@@ -347,4 +311,45 @@ fn truncate_table_value(
             }
         }
     }
+}
+
+fn build_table_with_border_color(mut table: PoolTable, color: Color) -> String {
+    // NOTE: We have this function presizely because of color_into_ansistr internals
+    // color must be alive  why we build table
+
+    let color = color_into_ansistr(&color);
+    table.with(SetBorderColor(color));
+    table.to_string()
+}
+
+fn color_into_ansistr(color: &Color) -> ANSIStr<'static> {
+    // # SAFETY
+    //
+    // It's perfectly save to do cause table does not store the reference internally.
+    // We just need this unsafe section to cope with some limitations of [`PoolTable`].
+    // Mitigation of this is definitely on a todo list.
+
+    let prefix = color.get_prefix();
+    let suffix = color.get_suffix();
+    let prefix: &'static str = unsafe { std::mem::transmute(prefix) };
+    let suffix: &'static str = unsafe { std::mem::transmute(suffix) };
+
+    ANSIStr::new(prefix, suffix)
+}
+
+struct SetBorderColor(ANSIStr<'static>);
+
+impl<R, D> TableOption<R, CompactMultilineConfig, D> for SetBorderColor {
+    fn change(self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
+        let borders = Borders::filled(self.0);
+        cfg.set_borders_color(borders);
+    }
+}
+
+fn get_border_color(style: &StyleComputer<'_>) -> Option<Color> {
+    // color_config closures for "separator" are just given a null.
+    let color = style.compute("separator", &Value::nothing(Span::unknown()));
+    let color = color.paint(" ").to_string();
+    let color = Color::try_from(color);
+    color.ok()
 }

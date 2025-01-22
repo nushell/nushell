@@ -1,9 +1,8 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
-use nu_protocol::{
-    engine::Closure,
-    process::{ChildPipe, ChildProcess},
-    ByteStream, ByteStreamSource, OutDest,
-};
+#[cfg(feature = "os")]
+use nu_protocol::process::{ChildPipe, ChildProcess};
+use nu_protocol::{engine::Closure, ByteStream, ByteStreamSource, OutDest};
+
 use std::{
     io::{Cursor, Read},
     thread,
@@ -119,6 +118,13 @@ impl Command for Do {
         match result {
             Ok(PipelineData::ByteStream(stream, metadata)) if capture_errors => {
                 let span = stream.span();
+                #[cfg(not(feature = "os"))]
+                return Err(ShellError::DisabledOsSupport {
+                    msg: "Cannot create a thread to receive stdout message.".to_string(),
+                    span: Some(span),
+                });
+
+                #[cfg(feature = "os")]
                 match stream.into_child() {
                     Ok(mut child) => {
                         // Use a thread to receive stdout message.
@@ -196,6 +202,7 @@ impl Command for Do {
                         OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
                     ) =>
             {
+                #[cfg(feature = "os")]
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
                     child.ignore_error(true);
                 }
@@ -287,22 +294,13 @@ fn bind_args_to(
             .expect("internal error: all custom parameters must have var_ids");
         if let Some(result) = val_iter.next() {
             let param_type = param.shape.to_type();
-            if required && !result.get_type().is_subtype(&param_type) {
-                // need to check if result is an empty list, and param_type is table or list
-                // nushell needs to pass type checking for the case.
-                let empty_list_matches = result
-                    .as_list()
-                    .map(|l| l.is_empty() && matches!(param_type, Type::List(_) | Type::Table(_)))
-                    .unwrap_or(false);
-
-                if !empty_list_matches {
-                    return Err(ShellError::CantConvert {
-                        to_type: param.shape.to_type().to_string(),
-                        from_type: result.get_type().to_string(),
-                        span: result.span(),
-                        help: None,
-                    });
-                }
+            if required && !result.is_subtype_of(&param_type) {
+                return Err(ShellError::CantConvert {
+                    to_type: param.shape.to_type().to_string(),
+                    from_type: result.get_type().to_string(),
+                    span: result.span(),
+                    help: None,
+                });
             }
             stack.add_var(var_id, result);
         } else if let Some(value) = &param.default_value {

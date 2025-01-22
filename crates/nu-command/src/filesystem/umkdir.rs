@@ -1,11 +1,9 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
-
+use nu_protocol::NuGlob;
 use uu_mkdir::mkdir;
 #[cfg(not(windows))]
 use uucore::mode;
-
-use super::util::get_rest_for_glob_pattern;
 
 #[derive(Clone)]
 pub struct UMkdir;
@@ -61,7 +59,8 @@ impl Command for UMkdir {
     ) -> Result<PipelineData, ShellError> {
         #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
-        let mut directories = get_rest_for_glob_pattern(engine_state, stack, call, 0)?
+        let mut directories = call
+            .rest::<Spanned<NuGlob>>(engine_state, stack, 0)?
             .into_iter()
             .map(|dir| nu_path::expand_path_with(dir.item.as_ref(), &cwd, dir.item.is_expand()))
             .peekable();

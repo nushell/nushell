@@ -313,6 +313,27 @@ pub fn glob_with_parent(
     }
 }
 
+const GLOB_CHARS: &[char] = &['*', '?', '['];
+
+/// Returns true if the given pattern is a glob, false if it's merely text to be
+/// matched exactly.
+///
+/// ```rust
+/// assert!(nu_glob::is_glob("foo/*"));
+/// assert!(nu_glob::is_glob("foo/**/bar"));
+/// assert!(nu_glob::is_glob("foo?"));
+/// assert!(nu_glob::is_glob("foo[A]"));
+///
+/// assert!(!nu_glob::is_glob("foo"));
+/// // nu_glob will ignore an unmatched ']'
+/// assert!(!nu_glob::is_glob("foo]"));
+/// // nu_glob doesn't expand {}
+/// assert!(!nu_glob::is_glob("foo.{txt,png}"));
+/// ```
+pub fn is_glob(pattern: &str) -> bool {
+    pattern.contains(GLOB_CHARS)
+}
+
 /// A glob iteration error.
 ///
 /// This is typically returned when a particular path cannot be read

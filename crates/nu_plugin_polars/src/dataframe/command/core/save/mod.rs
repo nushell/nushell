@@ -248,7 +248,7 @@ pub(crate) mod test {
         let tmp_file_str = tmp_file.to_str().expect("should be able to get file path");
 
         let cmd = format!("{cmd} {tmp_file_str}");
-        let mut plugin_test = PluginTest::new("polars", PolarsPlugin::default().into())?;
+        let mut plugin_test = PluginTest::new("polars", PolarsPlugin::new()?.into())?;
         plugin_test.engine_state_mut().add_env_var(
             "PWD".to_string(),
             Value::string(

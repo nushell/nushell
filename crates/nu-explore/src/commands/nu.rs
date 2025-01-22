@@ -69,12 +69,12 @@ impl ViewCommand for NuCmd {
             view.set_top_layer_orientation(Orientation::Left);
         }
 
-        Ok(NuView::Records(view))
+        Ok(NuView::Records(Box::new(view)))
     }
 }
 
 pub enum NuView {
-    Records(RecordView),
+    Records(Box<RecordView>),
     Preview(Preview),
 }
 
@@ -93,7 +93,7 @@ impl View for NuView {
         layout: &Layout,
         info: &mut crate::pager::ViewInfo,
         key: crossterm::event::KeyEvent,
-    ) -> Option<crate::pager::Transition> {
+    ) -> crate::pager::Transition {
         match self {
             NuView::Records(v) => v.handle_input(engine_state, stack, layout, info, key),
             NuView::Preview(v) => v.handle_input(engine_state, stack, layout, info, key),

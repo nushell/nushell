@@ -6,6 +6,8 @@
 # (**2**) catch classical flaws in the new changes with *clippy* and (**3**)
 # make sure all the tests pass.
 
+const toolkit_dir = path self .
+
 # check standard code formatting and apply the changes
 export def fmt [
     --check # do not apply the format changes, only check the syntax
@@ -44,7 +46,7 @@ export def clippy [
         ^cargo clippy
             --workspace
             --exclude nu_plugin_*
-            --features ($features | str join ",")
+            --features ($features | default [] | str join ",")
             --
             -D warnings
             -D clippy::unwrap_used
@@ -60,7 +62,7 @@ export def clippy [
             --tests
             --workspace
             --exclude nu_plugin_*
-            --features ($features | str join ",")
+            --features ($features | default [] | str join ",")
             --
             -D warnings
     )
@@ -94,13 +96,13 @@ export def test [
         if $workspace {
             ^cargo nextest run --all
         } else {
-            ^cargo nextest run --features ($features | str join ",")
+            ^cargo nextest run --features ($features | default [] | str join ",")
         }
     } else {
         if $workspace {
             ^cargo test --workspace
         } else {
-            ^cargo test --features ($features | str join ",")
+            ^cargo test --features ($features | default [] | str join ",")
         }
     }
 }
@@ -343,7 +345,7 @@ export def build [
     ...features: string@"nu-complete list features"  # a space-separated list of feature to install with Nushell
     --all # build all plugins with Nushell
 ] {
-    build-nushell ($features | str join ",")
+    build-nushell ($features | default [] | str join ",")
 
     if not $all {
         return
@@ -382,7 +384,7 @@ export def install [
     --all # install all plugins with Nushell
 ] {
     touch crates/nu-cmd-lang/build.rs # needed to make sure `version` has the correct `commit_hash`
-    ^cargo install --path . --features ($features | str join ",") --locked --force
+    ^cargo install --path . --features ($features | default [] | str join ",") --locked --force
     if not $all {
         return
     }
@@ -588,6 +590,71 @@ export def 'release-pkg windows' [
         rm -rf output
         _EXTRA_=msi nu .github/workflows/release-pkg.nu
         cp $"target/wix/nu-($version)-($target)-pc-windows-msvc.msi" $artifacts_dir
+    }
+}
+
+# these crates should compile for wasm
+const wasm_compatible_crates = [
+    "nu-cmd-base",
+    "nu-cmd-extra",
+    "nu-cmd-lang",
+    "nu-color-config",
+    "nu-command",
+    "nu-derive-value",
+    "nu-engine",
+    "nu-glob",
+    "nu-json",
+    "nu-parser",
+    "nu-path",
+    "nu-pretty-hex",
+    "nu-protocol",
+    "nu-std",
+    "nu-system",
+    "nu-table",
+    "nu-term-grid",
+    "nu-utils",
+    "nuon"
+]
+
+def "prep wasm" [] {
+    ^rustup target add wasm32-unknown-unknown
+}
+
+# build crates for wasm
+export def "build wasm" [] {
+    prep wasm
+
+    for crate in $wasm_compatible_crates {
+        print $'(char nl)Building ($crate) for wasm'
+        print '----------------------------'
+        (
+            ^cargo build 
+                -p $crate 
+                --target wasm32-unknown-unknown 
+                --no-default-features
+        )
+    }
+}
+
+# make sure no api is used that doesn't work with wasm
+export def "clippy wasm" [] {
+    prep wasm
+
+    $env.CLIPPY_CONF_DIR = $toolkit_dir | path join clippy wasm
+
+    for crate in $wasm_compatible_crates {
+        print $'(char nl)Checking ($crate) for wasm'
+        print '----------------------------'
+        (
+            ^cargo clippy 
+                -p $crate 
+                --target wasm32-unknown-unknown 
+                --no-default-features
+                --
+                -D warnings
+                -D clippy::unwrap_used
+                -D clippy::unchecked_duration_subtraction
+        )
     }
 }
 

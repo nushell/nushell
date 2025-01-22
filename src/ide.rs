@@ -24,6 +24,7 @@ fn find_id(
 ) -> Option<(Id, usize, Span)> {
     let file_id = working_set.add_file(file_path.to_string(), file);
     let offset = working_set.get_span_for_file(file_id).start;
+    let _ = working_set.files.push(file_path.into(), Span::unknown());
     let block = parse(working_set, Some(file_path), file, false);
     let flattened = flatten_block(working_set, &block);
 
@@ -88,6 +89,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value
 
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
+        let _ = working_set.files.push(file_path.into(), Span::unknown());
         let block = parse(&mut working_set, Some(file_path), &contents, false);
 
         for (idx, err) in working_set.parse_errors.iter().enumerate() {
@@ -631,6 +633,7 @@ pub fn ast(engine_state: &mut EngineState, file_path: &str) {
 
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
+        let _ = working_set.files.push(file_path.into(), Span::unknown());
         let parsed_block = parse(&mut working_set, Some(file_path), &contents, false);
 
         let flat = flatten_block(&working_set, &parsed_block);

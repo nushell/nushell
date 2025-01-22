@@ -96,7 +96,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1.10.1
 
       - name: Install Nushell
-        run: cargo install --path . --locked --no-default-features
+        run: cargo install --path . --locked --no-default-features --force
 
       - name: Standard library tests
         run: nu -c 'use crates/nu-std/testing.nu; testing run-tests --path crates/nu-std'
@@ -162,3 +162,50 @@ jobs:
           else
             echo "no changes in working directory";
           fi
+
+  wasm:
+    env:
+      WASM_OPTIONS: --no-default-features --target wasm32-unknown-unknown
+      CLIPPY_CONF_DIR: ${{ github.workspace }}/clippy/wasm/
+
+    strategy:
+      matrix:
+        job:
+          - name: Build WASM
+            command: cargo build
+            args:
+          - name: Clippy WASM
+            command: cargo clippy
+            args: -- $CLIPPY_OPTIONS
+
+    name: ${{ matrix.job.name }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.7
+
+      - name: Setup Rust toolchain and cache
+        uses: actions-rust-lang/setup-rust-toolchain@v1.10.1
+
+      - name: Add wasm32-unknown-unknown target
+        run: rustup target add wasm32-unknown-unknown
+
+      - run: ${{ matrix.job.command }} -p nu-cmd-base $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-cmd-extra $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-cmd-lang $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-color-config $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-command $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-derive-value $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-engine $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-glob $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-json $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-parser $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-path $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-pretty-hex $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-protocol $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-std $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-system $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-table $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-term-grid $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nu-utils $WASM_OPTIONS ${{ matrix.job.args }}
+      - run: ${{ matrix.job.command }} -p nuon $WASM_OPTIONS ${{ matrix.job.args }}

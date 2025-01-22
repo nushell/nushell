@@ -14,6 +14,7 @@ impl Command for NuCheck {
     fn signature(&self) -> Signature {
         Signature::build("nu-check")
             .input_output_types(vec![
+                (Type::Nothing, Type::Bool),
                 (Type::String, Type::Bool),
                 (Type::List(Box::new(Type::Any)), Type::Bool),
             ])

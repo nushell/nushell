@@ -5,7 +5,6 @@ use nu_protocol::{Config, Value};
 // The default colors for shapes, used when there is no config for them.
 pub fn default_shape_color(shape: &str) -> Style {
     match shape {
-        "shape_and" => Style::new().fg(Color::Purple).bold(),
         "shape_binary" => Style::new().fg(Color::Purple).bold(),
         "shape_block" => Style::new().fg(Color::Blue).bold(),
         "shape_bool" => Style::new().fg(Color::LightCyan),
@@ -30,7 +29,6 @@ pub fn default_shape_color(shape: &str) -> Style {
         "shape_match_pattern" => Style::new().fg(Color::Green),
         "shape_nothing" => Style::new().fg(Color::LightCyan),
         "shape_operator" => Style::new().fg(Color::Yellow),
-        "shape_or" => Style::new().fg(Color::Purple).bold(),
         "shape_pipe" => Style::new().fg(Color::Purple).bold(),
         "shape_range" => Style::new().fg(Color::Yellow).bold(),
         "shape_raw_string" => Style::new().fg(Color::LightMagenta).bold(),

@@ -1,6 +1,4 @@
 use dialoguer::Input;
-use nu_engine::{command_prelude::*, get_eval_expression};
-use nu_protocol::{FromValue, NuGlob};
 use std::{
     error::Error,
     path::{Path, PathBuf},
@@ -88,23 +86,4 @@ pub fn is_older(src: &Path, dst: &Path) -> Option<bool> {
             .unwrap_or(u64::MAX);
         Some(src_ctime <= dst_ctime)
     }
-}
-
-/// Get rest arguments from given `call`, starts with `starting_pos`.
-///
-/// It's similar to `call.rest`, except that it always returns NuGlob.
-pub fn get_rest_for_glob_pattern(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    starting_pos: usize,
-) -> Result<Vec<Spanned<NuGlob>>, ShellError> {
-    let eval_expression = get_eval_expression(engine_state);
-
-    call.rest_iter_flattened(engine_state, stack, eval_expression, starting_pos)?
-        .into_iter()
-        // This used to be much more complex, but I think `FromValue` should be able to handle the
-        // nuance here.
-        .map(FromValue::from_value)
-        .collect()
 }

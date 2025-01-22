@@ -185,7 +185,7 @@ fn command_lazy(
     }
 
     let lazy = lazy.to_polars();
-    let lazy: NuLazyFrame = lazy.rename(&columns, &new_names).into();
+    let lazy: NuLazyFrame = lazy.rename(&columns, &new_names, true).into();
 
     lazy.to_pipeline_data(plugin, engine, call.head)
 }

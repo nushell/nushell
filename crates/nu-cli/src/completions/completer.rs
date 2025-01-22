@@ -297,7 +297,7 @@ impl NuCompleter {
                                     let mut completer =
                                         OperatorCompletion::new(pipeline_element.expr.clone());
 
-                                    return self.process_completion(
+                                    let operator_suggestion = self.process_completion(
                                         &mut completer,
                                         &working_set,
                                         prefix,
@@ -305,6 +305,9 @@ impl NuCompleter {
                                         fake_offset,
                                         pos,
                                     );
+                                    if !operator_suggestion.is_empty() {
+                                        return operator_suggestion;
+                                    }
                                 }
                             }
                         }

@@ -99,6 +99,11 @@ impl Command for SubCommand {
                     "timezone" => Value::test_string("+02:00"),
                 })),
             },
+            Example {
+                description: "convert date components to table columns",
+                example: "2020-04-12T22:10:57+02:00 | into record | transpose | transpose -r",
+                result: None,
+            },
         ]
     }
 }

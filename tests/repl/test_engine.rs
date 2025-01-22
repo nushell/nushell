@@ -90,12 +90,19 @@ fn help_works_with_missing_requirements() -> TestResult {
     run_test(r#"each --help | lines | length"#, "72")
 }
 
-#[test]
-fn scope_variable() -> TestResult {
-    run_test(
-        r#"let x = 3; scope variables | where name == "$x" | get type.0"#,
-        "int",
-    )
+#[rstest]
+#[case("let x = 3", "$x", "int", "3")]
+#[case("const x = 3", "$x", "int", "3")]
+fn scope_variable(
+    #[case] var_decl: &str,
+    #[case] exp_name: &str,
+    #[case] exp_type: &str,
+    #[case] exp_value: &str,
+) -> TestResult {
+    let get_var_info =
+        format!(r#"{var_decl}; scope variables | where name == "{exp_name}" | first"#);
+    run_test(&format!(r#"{get_var_info} | get type"#), exp_type)?;
+    run_test(&format!(r#"{get_var_info} | get value"#), exp_value)
 }
 
 #[rstest]
@@ -434,7 +441,7 @@ fn better_operator_spans() -> TestResult {
 
 #[test]
 fn range_right_exclusive() -> TestResult {
-    run_test(r#"[1, 4, 5, 8, 9] | range 1..<3 | math sum"#, "9")
+    run_test(r#"[1, 4, 5, 8, 9] | slice 1..<3 | math sum"#, "9")
 }
 
 /// Issue #7872

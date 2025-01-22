@@ -2,4 +2,4 @@ mod from;
 mod to;
 
 pub(crate) use from::url::FromUrl;
-pub(crate) use to::html::ToHtml;
+pub use to::html::ToHtml;

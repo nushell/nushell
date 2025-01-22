@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-
+use nu_protocol::format_filesize_from_conf;
 use rand::{thread_rng, RngCore};
 
 #[derive(Clone)]
@@ -37,7 +37,27 @@ impl Command for SubCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let length = call.req(engine_state, stack, 0)?;
+        let length_val = call.req(engine_state, stack, 0)?;
+        let length = match length_val {
+            Value::Int { val, .. } => usize::try_from(val).map_err(|_| ShellError::InvalidValue {
+                valid: "a non-negative int or filesize".into(),
+                actual: val.to_string(),
+                span: length_val.span(),
+            }),
+            Value::Filesize { val, .. } => {
+                usize::try_from(val).map_err(|_| ShellError::InvalidValue {
+                    valid: "a non-negative int or filesize".into(),
+                    actual: format_filesize_from_conf(val, engine_state.get_config()),
+                    span: length_val.span(),
+                })
+            }
+            val => Err(ShellError::RuntimeTypeMismatch {
+                expected: Type::custom("int or filesize"),
+                actual: val.get_type(),
+                span: val.span(),
+            }),
+        }?;
+
         let mut rng = thread_rng();
 
         let mut out = vec![0u8; length];

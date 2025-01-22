@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu-command"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-command"
-version = "0.100.1"
+version = "0.101.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -16,21 +16,21 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-cmd-base = { path = "../nu-cmd-base", version = "0.100.1" }
-nu-color-config = { path = "../nu-color-config", version = "0.100.1" }
-nu-engine = { path = "../nu-engine", version = "0.100.1" }
-nu-glob = { path = "../nu-glob", version = "0.100.1" }
-nu-json = { path = "../nu-json", version = "0.100.1" }
-nu-parser = { path = "../nu-parser", version = "0.100.1" }
-nu-path = { path = "../nu-path", version = "0.100.1" }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.100.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.100.1" }
-nu-system = { path = "../nu-system", version = "0.100.1" }
-nu-table = { path = "../nu-table", version = "0.100.1" }
-nu-term-grid = { path = "../nu-term-grid", version = "0.100.1" }
-nu-utils = { path = "../nu-utils", version = "0.100.1" }
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.101.1" }
+nu-color-config = { path = "../nu-color-config", version = "0.101.1" }
+nu-engine = { path = "../nu-engine", version = "0.101.1", default-features = false }
+nu-glob = { path = "../nu-glob", version = "0.101.1" }
+nu-json = { path = "../nu-json", version = "0.101.1" }
+nu-parser = { path = "../nu-parser", version = "0.101.1" }
+nu-path = { path = "../nu-path", version = "0.101.1" }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.101.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.101.1", default-features = false }
+nu-system = { path = "../nu-system", version = "0.101.1" }
+nu-table = { path = "../nu-table", version = "0.101.1" }
+nu-term-grid = { path = "../nu-term-grid", version = "0.101.1" }
+nu-utils = { path = "../nu-utils", version = "0.101.1", default-features = false }
 nu-ansi-term = { workspace = true }
-nuon = { path = "../nuon", version = "0.100.1" }
+nuon = { path = "../nuon", version = "0.101.1" }
 
 alphanumeric-sort = { workspace = true }
 base64 = { workspace = true }
@@ -43,8 +43,9 @@ chardetng = { workspace = true }
 chrono = { workspace = true, features = ["std", "unstable-locales", "clock"], default-features = false }
 chrono-humanize = { workspace = true }
 chrono-tz = { workspace = true }
-crossterm = { workspace = true }
+crossterm = { workspace = true, optional = true }
 csv = { workspace = true }
+devicons = { workspace = true }
 dialoguer = { workspace = true, default-features = false, features = ["fuzzy-select"] }
 digest = { workspace = true, default-features = false }
 dtparse = { workspace = true }
@@ -61,54 +62,56 @@ lscolors = { workspace = true, default-features = false, features = ["nu-ansi-te
 md5 = { workspace = true }
 mime = { workspace = true }
 mime_guess = { workspace = true }
-multipart-rs = { workspace = true }
-native-tls = { workspace = true }
-notify-debouncer-full = { workspace = true, default-features = false }
+multipart-rs = { workspace = true, optional = true }
+native-tls = { workspace = true, optional = true }
+notify-debouncer-full = { workspace = true, default-features = false, optional = true }
 num-format = { workspace = true }
 num-traits = { workspace = true }
 oem_cp = { workspace = true }
-open = { workspace = true }
-os_pipe = { workspace = true }
+open = { workspace = true, optional = true }
+os_pipe = { workspace = true, optional = true }
 pathdiff = { workspace = true }
 percent-encoding = { workspace = true }
 print-positions = { workspace = true }
 quick-xml = { workspace = true }
-rand = { workspace = true }
+rand = { workspace = true, optional = true }
+getrandom = { workspace = true, optional = true }
 rayon = { workspace = true }
-regex = { workspace = true }
 roxmltree = { workspace = true }
 rusqlite = { workspace = true, features = ["bundled", "backup", "chrono"], optional = true }
 rmp = { workspace = true }
+scopeguard = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["preserve_order"] }
 serde_urlencoded = { workspace = true }
-serde_yaml = { workspace = true }
+serde_yml = { workspace = true }
 sha2 = { workspace = true }
 sysinfo = { workspace = true }
 tabled = { workspace = true, features = ["ansi"], default-features = false }
 titlecase = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"] }
 unicode-segmentation = { workspace = true }
-ureq = { workspace = true, default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
+ureq = { workspace = true, default-features = false, features = ["charset", "gzip", "json"] }
 url = { workspace = true }
-uu_cp = { workspace = true }
-uu_mkdir = { workspace = true }
-uu_mktemp = { workspace = true }
-uu_mv = { workspace = true }
-uu_touch = { workspace = true }
-uu_uname = { workspace = true }
-uu_whoami = { workspace = true }
-uuid = { workspace = true, features = ["v4"] }
+uu_cp = { workspace = true, optional = true }
+uu_mkdir = { workspace = true, optional = true }
+uu_mktemp = { workspace = true, optional = true }
+uu_mv = { workspace = true, optional = true }
+uu_touch = { workspace = true, optional = true }
+uu_uname = { workspace = true, optional = true }
+uu_whoami = { workspace = true, optional = true }
+uuid = { workspace = true, features = ["v4"], optional = true }
 v_htmlescape = { workspace = true }
 wax = { workspace = true }
-which = { workspace = true }
+which = { workspace = true, optional = true }
 unicode-width = { workspace = true }
-data-encoding = { version = "2.6.0", features = ["alloc"] }
+data-encoding = { version = "2.7.0", features = ["alloc"] }
+web-time = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }
 
-[target.'cfg(not(windows))'.dependencies]
+[target.'cfg(all(not(windows), not(target_arch = "wasm32")))'.dependencies]
 uucore = { workspace = true, features = ["mode"] }
 
 [target.'cfg(unix)'.dependencies]
@@ -134,19 +137,66 @@ features = [
 workspace = true
 
 [features]
-plugin = ["nu-parser/plugin"]
+default = ["os"]
+os = [
+	# include other features
+	"js",
+	"network",
+	"nu-protocol/os", 
+	"nu-utils/os",
+
+	# os-dependant dependencies
+	"crossterm",
+	"notify-debouncer-full",
+	"open",
+	"os_pipe",
+	"uu_cp",
+	"uu_mkdir",
+	"uu_mktemp",
+	"uu_mv",
+	"uu_touch",
+	"uu_uname",
+	"uu_whoami",
+	"which",
+]
+
+# The dependencies listed below need 'getrandom'. 
+# They work with JS (usually with wasm-bindgen) or regular OS support. 
+# Hence they are also put under the 'os' feature to avoid repetition.
+js = [
+	"getrandom", 
+	"getrandom/js", 
+	"rand", 
+	"uuid",
+]
+
+# These dependencies require networking capabilities, especially the http
+# interface requires openssl which is not easy to embed into wasm,
+# using rustls could solve this issue.
+network = [
+	"multipart-rs", 
+	"native-tls",
+	"ureq/native-tls",
+	"uuid",
+]
+
+plugin = [
+	"nu-parser/plugin",
+	"os", 
+]
 sqlite = ["rusqlite"]
 trash-support = ["trash"]
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.100.1" }
-nu-test-support = { path = "../nu-test-support", version = "0.100.1" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.101.1" }
+nu-test-support = { path = "../nu-test-support", version = "0.101.1" }
 
 dirs = { workspace = true }
 mockito = { workspace = true, default-features = false }
 quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }
 rstest = { workspace = true, default-features = false }
+rstest_reuse = { workspace = true }
 pretty_assertions = { workspace = true }
 tempfile = { workspace = true }
 rand_chacha = { workspace = true }

@@ -7,46 +7,52 @@ use nu_protocol::{
     engine::{Closure, EngineState, Stack, StateWorkingSet},
     PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
 };
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 pub fn eval_env_change_hook(
-    env_change_hook: Option<Value>,
+    env_change_hook: &HashMap<String, Vec<Value>>,
     engine_state: &mut EngineState,
     stack: &mut Stack,
 ) -> Result<(), ShellError> {
-    if let Some(hook) = env_change_hook {
-        match hook {
-            Value::Record { val, .. } => {
-                for (env_name, hook_value) in &*val {
-                    let before = engine_state.previous_env_vars.get(env_name);
-                    let after = stack.get_env_var(engine_state, env_name);
-                    if before != after {
-                        let before = before.cloned().unwrap_or_default();
-                        let after = after.cloned().unwrap_or_default();
+    for (env, hooks) in env_change_hook {
+        let before = engine_state.previous_env_vars.get(env);
+        let after = stack.get_env_var(engine_state, env);
+        if before != after {
+            let before = before.cloned().unwrap_or_default();
+            let after = after.cloned().unwrap_or_default();
 
-                        eval_hook(
-                            engine_state,
-                            stack,
-                            None,
-                            vec![("$before".into(), before), ("$after".into(), after.clone())],
-                            hook_value,
-                            "env_change",
-                        )?;
+            eval_hooks(
+                engine_state,
+                stack,
+                vec![("$before".into(), before), ("$after".into(), after.clone())],
+                hooks,
+                "env_change",
+            )?;
 
-                        Arc::make_mut(&mut engine_state.previous_env_vars)
-                            .insert(env_name.clone(), after);
-                    }
-                }
-            }
-            x => {
-                return Err(ShellError::TypeMismatch {
-                    err_message: "record for the 'env_change' hook".to_string(),
-                    span: x.span(),
-                });
-            }
+            Arc::make_mut(&mut engine_state.previous_env_vars).insert(env.clone(), after);
         }
     }
 
+    Ok(())
+}
+
+pub fn eval_hooks(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    arguments: Vec<(String, Value)>,
+    hooks: &[Value],
+    hook_name: &str,
+) -> Result<(), ShellError> {
+    for hook in hooks {
+        eval_hook(
+            engine_state,
+            stack,
+            None,
+            arguments.clone(),
+            hook,
+            &format!("{hook_name} list, recursive"),
+        )?;
+    }
     Ok(())
 }
 
@@ -127,16 +133,7 @@ pub fn eval_hook(
             }
         }
         Value::List { vals, .. } => {
-            for val in vals {
-                eval_hook(
-                    engine_state,
-                    stack,
-                    None,
-                    arguments.clone(),
-                    val,
-                    &format!("{hook_name} list, recursive"),
-                )?;
-            }
+            eval_hooks(engine_state, stack, arguments, vals, hook_name)?;
         }
         Value::Record { val, .. } => {
             // Hooks can optionally be a record in this form:

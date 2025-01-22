@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.100.1"
+# version = "0.101.1"
 $env.config.color_config = {
     separator: white
     leading_trailing_space_bg: { attr: n }
@@ -20,10 +20,11 @@ $env.config.color_config = {
     row_index: green_bold
     record: white
     list: white
+    closure: green_bold
+    glob:cyan_bold
     block: white
     hints: dark_gray
     search_result: { bg: red fg: white }
-    shape_and: purple_bold
     shape_binary: purple_bold
     shape_block: blue_bold
     shape_bool: light_cyan
@@ -48,7 +49,6 @@ $env.config.color_config = {
     shape_matching_brackets: { attr: u }
     shape_nothing: light_cyan
     shape_operator: yellow
-    shape_or: purple_bold
     shape_pipe: purple_bold
     shape_range: yellow_bold
     shape_record: cyan_bold
@@ -60,4 +60,9 @@ $env.config.color_config = {
     shape_variable: purple
     shape_vardecl: purple
     shape_raw_string: light_purple
+    shape_garbage: {
+        fg: white
+        bg: red
+        attr: b
+    }
 }

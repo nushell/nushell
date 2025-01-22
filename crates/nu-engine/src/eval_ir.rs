@@ -4,15 +4,19 @@ use nu_path::{expand_path_with, AbsolutePathBuf};
 use nu_protocol::{
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
-    engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
+    engine::{
+        Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack, StateWorkingSet,
+    },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    ByteStreamSource, DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream,
-    OutDest, PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError,
-    Signals, Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
+    PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
+    Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
-use crate::{eval::is_automatic_env_var, eval_block_with_early_return};
+use crate::{
+    convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return, ENV_CONVERSIONS,
+};
 
 /// Evaluate the compiled representation of a [`Block`].
 pub fn eval_ir_block<D: DebugContext>(
@@ -220,17 +224,8 @@ fn eval_ir_block_impl<D: DebugContext>(
             }
             Err(err) => {
                 if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
-                    let fancy_errors = match ctx.engine_state.get_config().error_style {
-                        nu_protocol::ErrorStyle::Fancy => true,
-                        nu_protocol::ErrorStyle::Plain => false,
-                    };
                     // If an error handler is set, branch there
-                    prepare_error_handler(
-                        ctx,
-                        error_handler,
-                        Some(err.into_spanned(*span)),
-                        fancy_errors,
-                    );
+                    prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
                     pc = error_handler.handler_index;
                 } else {
                     // If not, exit the block with the error
@@ -255,7 +250,6 @@ fn prepare_error_handler(
     ctx: &mut EvalContext<'_>,
     error_handler: ErrorHandler,
     error: Option<Spanned<ShellError>>,
-    fancy_errors: bool,
 ) {
     if let Some(reg_id) = error_handler.error_register {
         if let Some(error) = error {
@@ -266,7 +260,7 @@ fn prepare_error_handler(
                 reg_id,
                 error
                     .item
-                    .into_value(error.span, fancy_errors)
+                    .into_value(&StateWorkingSet::new(ctx.engine_state), error.span)
                     .into_pipeline_data(),
             );
         } else {
@@ -392,9 +386,15 @@ fn eval_instruction<D: DebugContext>(
 
             if !is_automatic_env_var(&key) {
                 let is_config = key == "config";
-                ctx.stack.add_env_var(key.into_owned(), value);
+                let update_conversions = key == ENV_CONVERSIONS;
+
+                ctx.stack.add_env_var(key.into_owned(), value.clone());
+
                 if is_config {
                     ctx.stack.update_config(ctx.engine_state)?;
+                }
+                if update_conversions {
+                    convert_env_vars(ctx.stack, ctx.engine_state, &value)?;
                 }
                 Ok(Continue)
             } else {
@@ -486,8 +486,9 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::CheckErrRedirected { src } => match ctx.borrow_reg(*src) {
+            #[cfg(feature = "os")]
             PipelineData::ByteStream(stream, _)
-                if matches!(stream.source(), ByteStreamSource::Child(_)) =>
+                if matches!(stream.source(), nu_protocol::ByteStreamSource::Child(_)) =>
             {
                 Ok(Continue)
             }
@@ -521,7 +522,7 @@ fn eval_instruction<D: DebugContext>(
                     span: Some(*span),
                 })?;
             let is_external = if let PipelineData::ByteStream(stream, ..) = &src {
-                matches!(stream.source(), ByteStreamSource::Child(..))
+                stream.source().is_external()
             } else {
                 false
             };
@@ -951,6 +952,8 @@ fn binary_op(
             }
             Comparison::In => lhs_val.r#in(op_span, &rhs_val, span)?,
             Comparison::NotIn => lhs_val.not_in(op_span, &rhs_val, span)?,
+            Comparison::Has => lhs_val.has(op_span, &rhs_val, span)?,
+            Comparison::NotHas => lhs_val.not_has(op_span, &rhs_val, span)?,
             Comparison::StartsWith => lhs_val.starts_with(op_span, &rhs_val, span)?,
             Comparison::EndsWith => lhs_val.ends_with(op_span, &rhs_val, span)?,
         },
@@ -1007,6 +1010,8 @@ fn eval_call<D: DebugContext>(
 
     let args_len = caller_stack.arguments.get_len(*args_base);
     let decl = engine_state.get_decl(decl_id);
+
+    check_input_types(&input, decl.signature(), head)?;
 
     // Set up redirect modes
     let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
@@ -1245,15 +1250,7 @@ fn gather_arguments(
 
 /// Type check helper. Produces `CantConvert` error if `val` is not compatible with `ty`.
 fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
-    if match val {
-        // An empty list is compatible with any list or table type
-        Value::List { vals, .. } if vals.is_empty() => {
-            matches!(ty, Type::Any | Type::List(_) | Type::Table(_))
-        }
-        // FIXME: the allocation that might be required here is not great, it would be nice to be
-        // able to just directly check whether a value is compatible with a type
-        _ => val.get_type().is_subtype(ty),
-    } {
+    if val.is_subtype_of(ty) {
         Ok(())
     } else {
         Err(ShellError::CantConvert {
@@ -1262,6 +1259,77 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
             span: val.span(),
             help: None,
         })
+    }
+}
+
+/// Type check pipeline input against command's input types
+fn check_input_types(
+    input: &PipelineData,
+    signature: Signature,
+    head: Span,
+) -> Result<(), ShellError> {
+    let io_types = signature.input_output_types;
+
+    // If a command doesn't have any input/output types, then treat command input type as any
+    if io_types.is_empty() {
+        return Ok(());
+    }
+
+    // If a command only has a nothing input type, then allow any input data
+    match io_types.first() {
+        Some((Type::Nothing, _)) if io_types.len() == 1 => {
+            return Ok(());
+        }
+        _ => (),
+    }
+
+    // Errors and custom values bypass input type checking
+    if matches!(
+        input,
+        PipelineData::Value(Value::Error { .. } | Value::Custom { .. }, ..)
+    ) {
+        return Ok(());
+    }
+
+    // Check if the input type is compatible with *any* of the command's possible input types
+    if io_types
+        .iter()
+        .any(|(command_type, _)| input.is_subtype_of(command_type))
+    {
+        return Ok(());
+    }
+
+    let mut input_types = io_types
+        .iter()
+        .map(|(input, _)| input.to_string())
+        .collect::<Vec<String>>();
+
+    let expected_string = match input_types.len() {
+        0 => {
+            return Err(ShellError::NushellFailed {
+                msg: "Command input type strings is empty, despite being non-zero earlier"
+                    .to_string(),
+            })
+        }
+        1 => input_types.swap_remove(0),
+        2 => input_types.join(" and "),
+        _ => {
+            input_types
+                .last_mut()
+                .expect("Vector with length >2 has no elements")
+                .insert_str(0, "and ");
+            input_types.join(", ")
+        }
+    };
+
+    match input {
+        PipelineData::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),
+        _ => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: expected_string,
+            wrong_type: input.get_type().to_string(),
+            dst_span: head,
+            src_span: input.span().unwrap_or(Span::unknown()),
+        }),
     }
 }
 

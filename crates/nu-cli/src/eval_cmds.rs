@@ -1,5 +1,5 @@
 use log::info;
-use nu_engine::{convert_env_values, eval_block};
+use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
     cli_error::report_compile_error,
@@ -49,9 +49,6 @@ pub fn evaluate_commands(
             }
         }
     }
-
-    // Translate environment variables from Strings to Values
-    convert_env_values(engine_state, stack)?;
 
     // Parse the source code
     let (block, delta) = {

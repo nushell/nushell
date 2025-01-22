@@ -1,13 +1,12 @@
 use crate::completions::{
-    completer::map_value_completions, Completer, CompletionOptions, MatchAlgorithm,
-    SemanticSuggestion,
+    completer::map_value_completions, Completer, CompletionOptions, SemanticSuggestion,
 };
 use nu_engine::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{Stack, StateWorkingSet},
-    CompletionSort, DeclId, PipelineData, Span, Type, Value,
+    DeclId, PipelineData, Span, Type, Value,
 };
 use std::collections::HashMap;
 
@@ -67,7 +66,8 @@ impl Completer for CustomCompletion {
             PipelineData::empty(),
         );
 
-        let mut custom_completion_options = None;
+        let mut completion_options = completion_options.clone();
+        let mut should_sort = true;
 
         // Parse result
         let suggestions = result
@@ -85,34 +85,28 @@ impl Completer for CustomCompletion {
                     let options = val.get("options");
 
                     if let Some(Value::Record { val: options, .. }) = &options {
-                        let should_sort = options
-                            .get("sort")
-                            .and_then(|val| val.as_bool().ok())
-                            .unwrap_or(false);
+                        if let Some(sort) = options.get("sort").and_then(|val| val.as_bool().ok()) {
+                            should_sort = sort;
+                        }
 
-                        custom_completion_options = Some(CompletionOptions {
-                            case_sensitive: options
-                                .get("case_sensitive")
-                                .and_then(|val| val.as_bool().ok())
-                                .unwrap_or(true),
-                            positional: options
-                                .get("positional")
-                                .and_then(|val| val.as_bool().ok())
-                                .unwrap_or(true),
-                            match_algorithm: match options.get("completion_algorithm") {
-                                Some(option) => option
-                                    .coerce_string()
-                                    .ok()
-                                    .and_then(|option| option.try_into().ok())
-                                    .unwrap_or(MatchAlgorithm::Prefix),
-                                None => completion_options.match_algorithm,
-                            },
-                            sort: if should_sort {
-                                CompletionSort::Alphabetical
-                            } else {
-                                CompletionSort::Smart
-                            },
-                        });
+                        if let Some(case_sensitive) = options
+                            .get("case_sensitive")
+                            .and_then(|val| val.as_bool().ok())
+                        {
+                            completion_options.case_sensitive = case_sensitive;
+                        }
+                        if let Some(positional) =
+                            options.get("positional").and_then(|val| val.as_bool().ok())
+                        {
+                            completion_options.positional = positional;
+                        }
+                        if let Some(algorithm) = options
+                            .get("completion_algorithm")
+                            .and_then(|option| option.coerce_string().ok())
+                            .and_then(|option| option.try_into().ok())
+                        {
+                            completion_options.match_algorithm = algorithm;
+                        }
                     }
 
                     completions
@@ -122,11 +116,18 @@ impl Completer for CustomCompletion {
             })
             .unwrap_or_default();
 
-        let options = custom_completion_options.unwrap_or(completion_options.clone());
-        let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), options);
-        for sugg in suggestions {
-            matcher.add_semantic_suggestion(sugg);
+        let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), completion_options);
+
+        if should_sort {
+            for sugg in suggestions {
+                matcher.add_semantic_suggestion(sugg);
+            }
+            matcher.results()
+        } else {
+            suggestions
+                .into_iter()
+                .filter(|sugg| matcher.matches(&sugg.suggestion.value))
+                .collect()
         }
-        matcher.results()
     }
 }

@@ -128,3 +128,17 @@ def to_ndnuon_single_object [] {
   let expect = "{a: 1}"
   assert equal $result $expect "could not convert to NDNUON"
 }
+
+#[test]
+def to_ndnuon_multiline_strings [] {
+  let result = "foo\n\\n\nbar" | formats to ndnuon
+  let expect = '"foo\n\\n\nbar"'
+  assert equal $result $expect "could not convert multiline string to NDNUON"
+}
+
+#[test]
+def from_ndnuon_multiline_strings [] {
+  let result = '"foo\n\\n\nbar"' | formats from ndnuon
+  let expect = ["foo\n\\n\nbar"]
+  assert equal $result $expect "could not convert multiline string from NDNUON"
+}

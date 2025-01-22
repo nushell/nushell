@@ -95,6 +95,16 @@ fn range_iteration2() -> TestResult {
 }
 
 #[test]
+fn range_ends_with_duration_suffix_variable_name() -> TestResult {
+    run_test("let runs = 10; 1..$runs | math sum", "55")
+}
+
+#[test]
+fn range_ends_with_filesize_suffix_variable_name() -> TestResult {
+    run_test("let sizekb = 10; 1..$sizekb | math sum", "55")
+}
+
+#[test]
 fn simple_value_iteration() -> TestResult {
     run_test("4 | each { |it| $it + 10 }", "14")
 }
@@ -167,6 +177,41 @@ fn comment_skipping_in_pipeline_3() -> TestResult {
         math sum #foobar"#,
         "12",
     )
+}
+
+#[test]
+fn still_string_if_hashtag_is_middle_of_string() -> TestResult {
+    run_test(r#"echo test#testing"#, "test#testing")
+}
+
+#[test]
+fn non_comment_hashtag_in_comment_does_not_stop_comment() -> TestResult {
+    run_test(r#"# command_bar_text: { fg: '#C4C9C6' },"#, "")
+}
+
+#[test]
+fn non_comment_hashtag_in_comment_does_not_stop_comment_in_block() -> TestResult {
+    run_test(
+        r#"{
+        explore: {
+            # command_bar_text: { fg: '#C4C9C6' },
+        }
+    } | get explore | is-empty"#,
+        "true",
+    )
+}
+
+#[test]
+fn still_string_if_hashtag_is_middle_of_string_inside_each() -> TestResult {
+    run_test(
+        r#"1..1 | each {echo test#testing } | get 0"#,
+        "test#testing",
+    )
+}
+
+#[test]
+fn still_string_if_hashtag_is_middle_of_string_inside_each_also_with_dot() -> TestResult {
+    run_test(r#"1..1 | each {echo '.#testing' } | get 0"#, ".#testing")
 }
 
 #[test]
@@ -280,6 +325,11 @@ fn raw_string_with_equals() -> TestResult {
         r#"let query_prefix = r#'https://api.github.com/search/issues?q=repo:nushell/'#; $query_prefix"#,
         "https://api.github.com/search/issues?q=repo:nushell/",
     )
+}
+
+#[test]
+fn raw_string_with_hashtag() -> TestResult {
+    run_test(r#"r##' one # two '##"#, "one # two")
 }
 
 #[test]
@@ -623,7 +673,7 @@ fn comment_in_multiple_pipelines() -> TestResult {
 
 #[test]
 fn date_literal() -> TestResult {
-    run_test(r#"2022-09-10 | date to-record | get day"#, "10")
+    run_test(r#"2022-09-10 | into record | get day"#, "10")
 }
 
 #[test]

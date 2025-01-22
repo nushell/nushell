@@ -116,24 +116,30 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
         Value::string(features_enabled().join(", "), span),
     );
 
-    // Get a list of plugin names and versions if present
-    let installed_plugins = engine_state
-        .plugins()
-        .iter()
-        .map(|x| {
-            let name = x.identity().name();
-            if let Some(version) = x.metadata().and_then(|m| m.version) {
-                format!("{name} {version}")
-            } else {
-                name.into()
-            }
-        })
-        .collect::<Vec<_>>();
+    #[cfg(not(feature = "plugin"))]
+    let _ = engine_state;
 
-    record.push(
-        "installed_plugins",
-        Value::string(installed_plugins.join(", "), span),
-    );
+    #[cfg(feature = "plugin")]
+    {
+        // Get a list of plugin names and versions if present
+        let installed_plugins = engine_state
+            .plugins()
+            .iter()
+            .map(|x| {
+                let name = x.identity().name();
+                if let Some(version) = x.metadata().and_then(|m| m.version) {
+                    format!("{name} {version}")
+                } else {
+                    name.into()
+                }
+            })
+            .collect::<Vec<_>>();
+
+        record.push(
+            "installed_plugins",
+            Value::string(installed_plugins.join(", "), span),
+        );
+    }
 
     Ok(Value::record(record, span).into_pipeline_data())
 }
