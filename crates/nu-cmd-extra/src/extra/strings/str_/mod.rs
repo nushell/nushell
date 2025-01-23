@@ -1,1 +1,1 @@
-pub(crate) mod case;
+pub mod case;

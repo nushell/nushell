@@ -3,7 +3,7 @@ mod roll;
 mod rotate;
 mod update_cells;
 
-pub(crate) use each_while::EachWhile;
-pub(crate) use roll::*;
-pub(crate) use rotate::Rotate;
-pub(crate) use update_cells::UpdateCells;
+pub use each_while::EachWhile;
+pub use roll::*;
+pub use rotate::Rotate;
+pub use update_cells::UpdateCells;

@@ -1,10 +1,10 @@
-mod bits;
-mod conversions;
-mod filters;
-mod formats;
-mod math;
-mod platform;
-mod strings;
+pub mod bits;
+pub mod conversions;
+pub mod filters;
+pub mod formats;
+pub mod math;
+pub mod platform;
+pub mod strings;
 
 pub use bits::{
     Bits, BitsAnd, BitsInto, BitsNot, BitsOr, BitsRol, BitsRor, BitsShl, BitsShr, BitsXor,

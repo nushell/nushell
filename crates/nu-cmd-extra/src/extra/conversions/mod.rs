@@ -1,3 +1,3 @@
 mod fmt;
 
-pub(crate) use fmt::Fmt;
+pub use fmt::Fmt;

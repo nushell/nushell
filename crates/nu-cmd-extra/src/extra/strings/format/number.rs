@@ -51,7 +51,7 @@ impl Command for FormatNumber {
     }
 }
 
-pub(crate) fn format_number(
+pub fn format_number(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,

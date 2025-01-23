@@ -112,7 +112,7 @@ impl Command for FormatBits {
 }
 
 // TODO: crate public only during deprecation
-pub(crate) fn format_bits(
+pub fn format_bits(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
