@@ -23,7 +23,7 @@ fn filesize_mib() {
 #[test]
 fn filesize_format_decimal() {
     let code = &[
-        r#"$env.config = { filesize: { unit: decimal } }"#,
+        r#"$env.config = { filesize: { unit: metric } }"#,
         r#"[2MB 2GB 2TB] | into string | to nuon"#,
     ];
     let actual = nu!(nu_repl_code(code));

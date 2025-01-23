@@ -70,22 +70,22 @@ impl Filesize {
         Self(self.0.signum())
     }
 
-    /// Returns the largest [`FilesizeUnit`] with a decimal prefix that is smaller than or equal to `self`.
+    /// Returns the largest [`FilesizeUnit`] with a metric prefix that is smaller than or equal to `self`.
     ///
     /// # Examples
     /// ```
     /// # use nu_protocol::{Filesize, FilesizeUnit};
     ///
     /// let filesize = Filesize::from(FilesizeUnit::KB);
-    /// assert_eq!(filesize.largest_decimal_unit(), FilesizeUnit::KB);
+    /// assert_eq!(filesize.largest_metric_unit(), FilesizeUnit::KB);
     ///
     /// let filesize = Filesize::new(FilesizeUnit::KB.as_bytes() as i64 - 1);
-    /// assert_eq!(filesize.largest_decimal_unit(), FilesizeUnit::B);
+    /// assert_eq!(filesize.largest_metric_unit(), FilesizeUnit::B);
     ///
     /// let filesize = Filesize::from(FilesizeUnit::KiB);
-    /// assert_eq!(filesize.largest_decimal_unit(), FilesizeUnit::KB);
+    /// assert_eq!(filesize.largest_metric_unit(), FilesizeUnit::KB);
     /// ```
-    pub const fn largest_decimal_unit(&self) -> FilesizeUnit {
+    pub const fn largest_metric_unit(&self) -> FilesizeUnit {
         const KB: u64 = FilesizeUnit::KB.as_bytes();
         const MB: u64 = FilesizeUnit::MB.as_bytes();
         const GB: u64 = FilesizeUnit::GB.as_bytes();
@@ -142,11 +142,11 @@ impl Filesize {
     /// [`FilesizeUnit`].
     ///
     /// You can use [`largest_binary_unit`](Filesize::largest_binary_unit) or
-    /// [`largest_decimal_unit`](Filesize::largest_decimal_unit) to automatically determine a
+    /// [`largest_metric_unit`](Filesize::largest_metric_unit) to automatically determine a
     /// [`FilesizeUnit`] of appropriate scale for a specific [`Filesize`].
     ///
     /// The default [`Display`](fmt::Display) implementation for [`Filesize`] is
-    /// `self.display(self.largest_decimal_unit())`.
+    /// `self.display(self.largest_metric_unit())`.
     ///
     /// # Examples
     /// ```
@@ -156,7 +156,7 @@ impl Filesize {
     /// assert_eq!(filesize.display(FilesizeUnit::B).to_string(), "4096 B");
     /// assert_eq!(filesize.display(FilesizeUnit::KiB).to_string(), "4 KiB");
     /// assert_eq!(filesize.display(filesize.largest_binary_unit()).to_string(), "4 KiB");
-    /// assert_eq!(filesize.display(filesize.largest_decimal_unit()).to_string(), "4.096 kB");
+    /// assert_eq!(filesize.display(filesize.largest_metric_unit()).to_string(), "4.096 kB");
     /// ```
     pub fn display(&self, unit: FilesizeUnit) -> DisplayFilesize {
         DisplayFilesize {
@@ -359,13 +359,13 @@ impl Sum<Filesize> for Option<Filesize> {
 
 impl fmt::Display for Filesize {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.display(self.largest_decimal_unit()))
+        write!(f, "{}", self.display(self.largest_metric_unit()))
     }
 }
 
 /// All the possible filesize units for a [`Filesize`].
 ///
-/// This type contains both units with metric (SI) decimal prefixes which are powers of 10 (e.g., kB = 1000 bytes)
+/// This type contains both units with metric (SI) prefixes which are powers of 10 (e.g., kB = 1000 bytes)
 /// and units with binary prefixes which are powers of 2 (e.g., KiB = 1024 bytes).
 ///
 /// The number of bytes in a [`FilesizeUnit`] can be obtained using
@@ -457,10 +457,10 @@ impl FilesizeUnit {
         }
     }
 
-    /// Returns `true` if a [`FilesizeUnit`] has a metric (SI) decimal prefix (a power of 10).
+    /// Returns `true` if a [`FilesizeUnit`] has a metric (SI) prefix (a power of 10).
     ///
     /// Note that this returns `true` for [`FilesizeUnit::B`] as well.
-    pub const fn is_decimal(&self) -> bool {
+    pub const fn is_metric(&self) -> bool {
         match self {
             Self::B | Self::KB | Self::MB | Self::GB | Self::TB | Self::PB | Self::EB => true,
             Self::KiB | Self::MiB | Self::GiB | Self::TiB | Self::PiB | Self::EiB => false,
@@ -641,13 +641,11 @@ mod tests {
     #[case(999, "999 B")]
     #[case(1000, "1 kB")]
     #[case(1024, "1.024 kB")]
-    fn display_auto_decimal(#[case] val: i64, #[case] exp: &str) {
+    fn display_auto_metric(#[case] val: i64, #[case] exp: &str) {
         let filesize = Filesize::new(val);
         assert_eq!(
             exp,
-            filesize
-                .display(filesize.largest_decimal_unit())
-                .to_string(),
+            filesize.display(filesize.largest_metric_unit()).to_string(),
         );
     }
 }

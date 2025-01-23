@@ -26,7 +26,7 @@ fn config_preserved_after_do() {
 fn config_affected_when_mutated() {
     let actual = nu!(nu_repl_code(&[
         r#"$env.config = { filesize: { unit: binary } }"#,
-        r#"$env.config = { filesize: { unit: decimal } }"#,
+        r#"$env.config = { filesize: { unit: metric } }"#,
         "20MB | into string"
     ]));
 

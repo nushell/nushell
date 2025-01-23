@@ -3,7 +3,7 @@ use crate::{DisplayFilesize, Filesize, FilesizeUnit};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FilesizeFormatUnit {
-    Decimal,
+    Metric,
     Binary,
     Unit(FilesizeUnit),
 }
@@ -19,13 +19,13 @@ impl FromStr for FilesizeFormatUnit {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "decimal" => Ok(Self::Decimal),
+            "metric" => Ok(Self::Metric),
             "binary" => Ok(Self::Binary),
             _ => {
                 if let Ok(unit) = s.parse() {
                     Ok(Self::Unit(unit))
                 } else {
-                    Err("'decimal', 'binary', 'B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', or 'EiB'")
+                    Err("'metric', 'binary', 'B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', or 'EiB'")
                 }
             }
         }
@@ -35,7 +35,7 @@ impl FromStr for FilesizeFormatUnit {
 impl IntoValue for FilesizeFormatUnit {
     fn into_value(self, span: Span) -> Value {
         match self {
-            FilesizeFormatUnit::Decimal => "decimal",
+            FilesizeFormatUnit::Metric => "metric",
             FilesizeFormatUnit::Binary => "binary",
             FilesizeFormatUnit::Unit(unit) => unit.as_str(),
         }
@@ -52,7 +52,7 @@ pub struct FilesizeConfig {
 impl FilesizeConfig {
     pub fn display(&self, filesize: Filesize) -> DisplayFilesize {
         let unit = match self.unit {
-            FilesizeFormatUnit::Decimal => filesize.largest_decimal_unit(),
+            FilesizeFormatUnit::Metric => filesize.largest_metric_unit(),
             FilesizeFormatUnit::Binary => filesize.largest_binary_unit(),
             FilesizeFormatUnit::Unit(unit) => unit,
         };
@@ -63,7 +63,7 @@ impl FilesizeConfig {
 impl Default for FilesizeConfig {
     fn default() -> Self {
         Self {
-            unit: FilesizeFormatUnit::Decimal,
+            unit: FilesizeFormatUnit::Metric,
             precision: Some(1),
         }
     }

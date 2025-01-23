@@ -373,11 +373,11 @@ $env.config.datetime_format.normal = "%m/%d/%y %I:%M:%S%p"
 # ----------------
 # filesize.unit (string): One of either:
 # - A filesize unit: "B", "kB", "KiB", "MB", "MiB", "GB", "GiB", "TB", "TiB", "PB", "PiB", "EB", or "EiB".
-# - An automatically scaled unit: "decimal" or "binary".
-# "decimal" will use units with metric (SI) decimal prefixes like kB, MB, or GB.
+# - An automatically scaled unit: "metric" or "binary".
+# "metric" will use units with metric (SI) prefixes like kB, MB, or GB.
 # "binary" will use units with binary prefixes like KiB, MiB, or GiB.
 # Otherwise, setting this to one of the filesize units will use that particular unit when displaying all file sizes.
-$env.config.filesize.unit = 'decimal'
+$env.config.filesize.unit = 'metric'
 
 # filesize.precision (int or nothing):
 # The number of digits to display after the decimal point for file sizes.
