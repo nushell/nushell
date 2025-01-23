@@ -3994,6 +3994,7 @@ dependencies = [
  "dirs",
  "omnipath",
  "pwd",
+ "ref-cast",
 ]
 
 [[package]]
