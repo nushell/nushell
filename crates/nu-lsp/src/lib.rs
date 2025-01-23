@@ -309,7 +309,7 @@ impl LanguageServer {
         uri: &Uri,
         pos: Position,
     ) -> Result<(StateWorkingSet<'a>, Id, Span, usize)> {
-        let (block, file_span, mut working_set) = self
+        let (block, file_span, working_set) = self
             .parse_file(engine_state, uri, false)
             .ok_or_else(|| miette!("\nFailed to parse current file"))?;
 
@@ -323,8 +323,6 @@ impl LanguageServer {
         let location = file.offset_at(pos) as usize + file_span.start;
         let (id, span) = find_id(&block, &working_set, &location)
             .ok_or_else(|| miette!("\nFailed to find current name"))?;
-        // add block to working_set for later references
-        working_set.add_block(block);
         Ok((working_set, id, span, file_span.start))
     }
 
@@ -349,6 +347,8 @@ impl LanguageServer {
         }
         if self.need_parse {
             // TODO: incremental parsing
+            // add block to working_set for later references
+            working_set.add_block(block.clone());
             self.cached_state_delta = Some(working_set.delta.clone());
             self.need_parse = false;
         }

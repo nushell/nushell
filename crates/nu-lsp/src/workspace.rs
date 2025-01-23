@@ -157,7 +157,7 @@ impl LanguageServer {
         self.occurrences = BTreeMap::new();
         let mut engine_state = self.new_engine_state();
         let path_uri = params.text_document_position.text_document.uri.to_owned();
-        let (working_set, id, span, _) = self
+        let (_, id, span, _) = self
             .parse_and_find(
                 &mut engine_state,
                 &path_uri,
@@ -165,8 +165,7 @@ impl LanguageServer {
             )
             .ok()?;
         // have to clone it again in order to move to another thread
-        let mut engine_state = self.new_engine_state();
-        engine_state.merge_delta(working_set.render()).ok()?;
+        let engine_state = self.new_engine_state();
         let current_workspace_folder = self.get_workspace_folder_by_uri(&path_uri)?;
         let token = params
             .work_done_progress_params
