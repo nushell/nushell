@@ -162,6 +162,7 @@ tempfile = "3.15"
 titlecase = "3.0"
 toml = "0.8"
 trash = "5.2"
+update-informer = { version = "1.2.0", default-features = false, features = ["github", "native-tls", "ureq"] }
 umask = "2.1"
 unicode-segmentation = "1.12"
 unicode-width = "0.2"
