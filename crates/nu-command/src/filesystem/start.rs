@@ -43,13 +43,13 @@ impl Command for Start {
         };
         let path_no_whitespace = path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
         // Attempt to parse the input as a URL
-        if let Ok(url) = url::Url::parse(&path_no_whitespace) {
+        if let Ok(url) = url::Url::parse(path_no_whitespace) {
             open_path(url.as_str(), engine_state, stack, path.span)?;
             return Ok(PipelineData::Empty);
         }
         // If it's not a URL, treat it as a file path
         let cwd = engine_state.cwd(Some(stack))?;
-        let full_path = cwd.join(&path_no_whitespace);
+        let full_path = cwd.join(path_no_whitespace);
         // Check if the path exists or if it's a valid file/directory
         if full_path.exists() {
             open_path(full_path, engine_state, stack, path.span)?;
