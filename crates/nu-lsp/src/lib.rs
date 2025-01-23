@@ -16,7 +16,7 @@ use nu_cli::{NuCompleter, SuggestionKind};
 use nu_parser::parse;
 use nu_protocol::{
     ast::Block,
-    engine::{CachedFile, EngineState, Stack, StateWorkingSet},
+    engine::{CachedFile, EngineState, Stack, StateDelta, StateWorkingSet},
     DeclId, ModuleId, Span, Type, Value, VarId,
 };
 use std::{collections::BTreeMap, sync::Mutex};
@@ -50,13 +50,17 @@ pub struct LanguageServer {
     connection: Connection,
     io_threads: Option<IoThreads>,
     docs: Arc<Mutex<TextDocuments>>,
-    engine_state: EngineState,
+    initial_engine_state: EngineState,
     symbol_cache: SymbolCache,
     inlay_hints: BTreeMap<Uri, Vec<InlayHint>>,
     workspace_folders: BTreeMap<String, WorkspaceFolder>,
-    // for workspace wide requests
+    /// for workspace wide requests
     occurrences: BTreeMap<Uri, Vec<Range>>,
     channels: Option<(Sender<bool>, Arc<Receiver<InternalMessage>>)>,
+    /// set to true when text changes
+    need_parse: bool,
+    /// cache `StateDelta` to avoid repeated parsing
+    cached_state_delta: Option<StateDelta>,
 }
 
 pub fn path_to_uri(path: impl AsRef<Path>) -> Uri {
@@ -96,12 +100,14 @@ impl LanguageServer {
             connection,
             io_threads,
             docs: Arc::new(Mutex::new(TextDocuments::new())),
-            engine_state,
+            initial_engine_state: engine_state,
             symbol_cache: SymbolCache::new(),
             inlay_hints: BTreeMap::new(),
             workspace_folders: BTreeMap::new(),
             occurrences: BTreeMap::new(),
             channels: None,
+            need_parse: true,
+            cached_state_delta: None,
         })
     }
 
@@ -140,12 +146,12 @@ impl LanguageServer {
         let init_params = self
             .connection
             .initialize_while(server_capabilities, || {
-                !self.engine_state.signals().interrupted()
+                !self.initial_engine_state.signals().interrupted()
             })
             .into_diagnostic()?;
         self.initialize_workspace_folders(init_params)?;
 
-        while !self.engine_state.signals().interrupted() {
+        while !self.initial_engine_state.signals().interrupted() {
             // first check new messages from child thread
             self.handle_internal_messages()?;
 
@@ -229,6 +235,7 @@ impl LanguageServer {
                 Message::Response(_) => {}
                 Message::Notification(notification) => {
                     if let Some(updated_file) = self.handle_lsp_notification(notification) {
+                        self.need_parse = true;
                         self.symbol_cache.mark_dirty(updated_file.clone(), true);
                         self.publish_diagnostics_for_file(updated_file)?;
                     }
@@ -280,9 +287,19 @@ impl LanguageServer {
     }
 
     pub fn new_engine_state(&self) -> EngineState {
-        let mut engine_state = self.engine_state.clone();
+        let mut engine_state = self.initial_engine_state.clone();
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
         engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+        // merge the cached `StateDelta` if text not changed
+        if !self.need_parse {
+            engine_state
+                .merge_delta(
+                    self.cached_state_delta
+                        .to_owned()
+                        .expect("Tried to merge a non-existing state delta"),
+                )
+                .expect("Failed to merge state delta");
+        }
         engine_state
     }
 
@@ -326,12 +343,14 @@ impl LanguageServer {
         let _ = working_set.files.push(file_path.clone(), Span::unknown());
         let block = parse(&mut working_set, Some(file_path_str), contents, false);
         let span = working_set.get_span_for_filename(file_path_str)?;
-        // TODO: merge delta back to engine_state?
-        // self.engine_state.merge_delta(working_set.render());
-
         if need_hints {
             let file_inlay_hints = self.extract_inlay_hints(&working_set, &block, span.start, file);
             self.inlay_hints.insert(uri.clone(), file_inlay_hints);
+        }
+        if self.need_parse {
+            // TODO: incremental parsing
+            self.cached_state_delta = Some(working_set.delta.clone());
+            self.need_parse = false;
         }
         Some((block, span, working_set))
     }
@@ -358,7 +377,7 @@ impl LanguageServer {
                     let temp_doc = FullTextDocument::new(
                         "nu".to_string(),
                         0,
-                        String::from_utf8((*cached_file.content).to_vec()).expect("Invalid UTF-8"),
+                        String::from_utf8_lossy(cached_file.content.as_ref()).to_string(),
                     );
                     return Some(Location {
                         uri: target_uri,
@@ -593,8 +612,10 @@ impl LanguageServer {
         let docs = self.docs.lock().ok()?;
         let file = docs.get_document(&path_uri)?;
 
-        let mut completer =
-            NuCompleter::new(Arc::new(self.engine_state.clone()), Arc::new(Stack::new()));
+        let mut completer = NuCompleter::new(
+            Arc::new(self.initial_engine_state.clone()),
+            Arc::new(Stack::new()),
+        );
 
         let location = file.offset_at(params.text_document_position.position) as usize;
         let results = completer.fetch_completions_at(&file.get_content(None)[..location], location);
