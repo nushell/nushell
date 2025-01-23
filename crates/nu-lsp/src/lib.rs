@@ -16,7 +16,7 @@ use nu_cli::{NuCompleter, SuggestionKind};
 use nu_parser::parse;
 use nu_protocol::{
     ast::Block,
-    engine::{CachedFile, EngineState, Stack, StateWorkingSet},
+    engine::{CachedFile, EngineState, Stack, StateDelta, StateWorkingSet},
     DeclId, ModuleId, Span, Type, Value, VarId,
 };
 use std::{collections::BTreeMap, sync::Mutex};
@@ -50,13 +50,17 @@ pub struct LanguageServer {
     connection: Connection,
     io_threads: Option<IoThreads>,
     docs: Arc<Mutex<TextDocuments>>,
-    engine_state: EngineState,
+    initial_engine_state: EngineState,
     symbol_cache: SymbolCache,
     inlay_hints: BTreeMap<Uri, Vec<InlayHint>>,
     workspace_folders: BTreeMap<String, WorkspaceFolder>,
-    // for workspace wide requests
+    /// for workspace wide requests
     occurrences: BTreeMap<Uri, Vec<Range>>,
     channels: Option<(Sender<bool>, Arc<Receiver<InternalMessage>>)>,
+    /// set to true when text changes
+    need_parse: bool,
+    /// cache `StateDelta` to avoid repeated parsing
+    cached_state_delta: Option<StateDelta>,
 }
 
 pub fn path_to_uri(path: impl AsRef<Path>) -> Uri {
@@ -96,12 +100,14 @@ impl LanguageServer {
             connection,
             io_threads,
             docs: Arc::new(Mutex::new(TextDocuments::new())),
-            engine_state,
+            initial_engine_state: engine_state,
             symbol_cache: SymbolCache::new(),
             inlay_hints: BTreeMap::new(),
             workspace_folders: BTreeMap::new(),
             occurrences: BTreeMap::new(),
             channels: None,
+            need_parse: true,
+            cached_state_delta: None,
         })
     }
 
@@ -110,22 +116,22 @@ impl LanguageServer {
             work_done_progress: Some(true),
         };
         let server_capabilities = serde_json::to_value(ServerCapabilities {
-            text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Kind(
-                TextDocumentSyncKind::INCREMENTAL,
-            )),
-            definition_provider: Some(OneOf::Left(true)),
-            hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
             completion_provider: Some(lsp_types::CompletionOptions::default()),
+            definition_provider: Some(OneOf::Left(true)),
+            document_highlight_provider: Some(OneOf::Left(true)),
             document_symbol_provider: Some(OneOf::Left(true)),
-            workspace_symbol_provider: Some(OneOf::Left(true)),
+            hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
             inlay_hint_provider: Some(OneOf::Left(true)),
+            references_provider: Some(OneOf::Right(ReferencesOptions {
+                work_done_progress_options,
+            })),
             rename_provider: Some(OneOf::Right(RenameOptions {
                 prepare_provider: Some(true),
                 work_done_progress_options,
             })),
-            references_provider: Some(OneOf::Right(ReferencesOptions {
-                work_done_progress_options,
-            })),
+            text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Kind(
+                TextDocumentSyncKind::INCREMENTAL,
+            )),
             workspace: Some(WorkspaceServerCapabilities {
                 workspace_folders: Some(WorkspaceFoldersServerCapabilities {
                     supported: Some(true),
@@ -133,18 +139,19 @@ impl LanguageServer {
                 }),
                 ..Default::default()
             }),
+            workspace_symbol_provider: Some(OneOf::Left(true)),
             ..Default::default()
         })
         .expect("Must be serializable");
         let init_params = self
             .connection
             .initialize_while(server_capabilities, || {
-                !self.engine_state.signals().interrupted()
+                !self.initial_engine_state.signals().interrupted()
             })
             .into_diagnostic()?;
         self.initialize_workspace_folders(init_params)?;
 
-        while !self.engine_state.signals().interrupted() {
+        while !self.initial_engine_state.signals().interrupted() {
             // first check new messages from child thread
             self.handle_internal_messages()?;
 
@@ -175,30 +182,22 @@ impl LanguageServer {
                     }
 
                     let resp = match request.method.as_str() {
+                        request::Completion::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.complete(params))
+                        }
+                        request::DocumentHighlightRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| {
+                                self.document_highlight(params)
+                            })
+                        }
                         request::GotoDefinition::METHOD => {
                             Self::handle_lsp_request(request, |params| self.goto_definition(params))
                         }
                         request::HoverRequest::METHOD => {
                             Self::handle_lsp_request(request, |params| self.hover(params))
                         }
-                        request::Completion::METHOD => {
-                            Self::handle_lsp_request(request, |params| self.complete(params))
-                        }
-                        request::DocumentSymbolRequest::METHOD => {
-                            Self::handle_lsp_request(request, |params| self.document_symbol(params))
-                        }
-                        request::References::METHOD => {
-                            Self::handle_lsp_request(request, |params| {
-                                self.references(params, 5000)
-                            })
-                        }
-                        request::WorkspaceSymbolRequest::METHOD => {
-                            Self::handle_lsp_request(request, |params| {
-                                self.workspace_symbol(params)
-                            })
-                        }
-                        request::Rename::METHOD => {
-                            Self::handle_lsp_request(request, |params| self.rename(params))
+                        request::InlayHintRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.get_inlay_hints(params))
                         }
                         request::PrepareRenameRequest::METHOD => {
                             let id = request.id.clone();
@@ -207,8 +206,21 @@ impl LanguageServer {
                             }
                             continue;
                         }
-                        request::InlayHintRequest::METHOD => {
-                            Self::handle_lsp_request(request, |params| self.get_inlay_hints(params))
+                        request::References::METHOD => {
+                            Self::handle_lsp_request(request, |params| {
+                                self.references(params, 5000)
+                            })
+                        }
+                        request::Rename::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.rename(params))
+                        }
+                        request::DocumentSymbolRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.document_symbol(params))
+                        }
+                        request::WorkspaceSymbolRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| {
+                                self.workspace_symbol(params)
+                            })
                         }
                         _ => {
                             continue;
@@ -223,6 +235,7 @@ impl LanguageServer {
                 Message::Response(_) => {}
                 Message::Notification(notification) => {
                     if let Some(updated_file) = self.handle_lsp_notification(notification) {
+                        self.need_parse = true;
                         self.symbol_cache.mark_dirty(updated_file.clone(), true);
                         self.publish_diagnostics_for_file(updated_file)?;
                     }
@@ -274,9 +287,19 @@ impl LanguageServer {
     }
 
     pub fn new_engine_state(&self) -> EngineState {
-        let mut engine_state = self.engine_state.clone();
+        let mut engine_state = self.initial_engine_state.clone();
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
         engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+        // merge the cached `StateDelta` if text not changed
+        if !self.need_parse {
+            engine_state
+                .merge_delta(
+                    self.cached_state_delta
+                        .to_owned()
+                        .expect("Tried to merge a non-existing state delta"),
+                )
+                .expect("Failed to merge state delta");
+        }
         engine_state
     }
 
@@ -286,7 +309,7 @@ impl LanguageServer {
         uri: &Uri,
         pos: Position,
     ) -> Result<(StateWorkingSet<'a>, Id, Span, usize)> {
-        let (block, file_offset, mut working_set) = self
+        let (block, file_span, working_set) = self
             .parse_file(engine_state, uri, false)
             .ok_or_else(|| miette!("\nFailed to parse current file"))?;
 
@@ -297,12 +320,10 @@ impl LanguageServer {
         let file = docs
             .get_document(uri)
             .ok_or_else(|| miette!("\nFailed to get document"))?;
-        let location = file.offset_at(pos) as usize + file_offset;
+        let location = file.offset_at(pos) as usize + file_span.start;
         let (id, span) = find_id(&block, &working_set, &location)
             .ok_or_else(|| miette!("\nFailed to find current name"))?;
-        // add block to working_set for later references
-        working_set.add_block(block);
-        Ok((working_set, id, span, file_offset))
+        Ok((working_set, id, span, file_span.start))
     }
 
     pub fn parse_file<'a>(
@@ -310,7 +331,7 @@ impl LanguageServer {
         engine_state: &'a mut EngineState,
         uri: &Uri,
         need_hints: bool,
-    ) -> Option<(Arc<Block>, usize, StateWorkingSet<'a>)> {
+    ) -> Option<(Arc<Block>, Span, StateWorkingSet<'a>)> {
         let mut working_set = StateWorkingSet::new(engine_state);
         let docs = self.docs.lock().ok()?;
         let file = docs.get_document(uri)?;
@@ -319,15 +340,19 @@ impl LanguageServer {
         let contents = file.get_content(None).as_bytes();
         let _ = working_set.files.push(file_path.clone(), Span::unknown());
         let block = parse(&mut working_set, Some(file_path_str), contents, false);
-        let offset = working_set.get_span_for_filename(file_path_str)?.start;
-        // TODO: merge delta back to engine_state?
-        // self.engine_state.merge_delta(working_set.render());
-
+        let span = working_set.get_span_for_filename(file_path_str)?;
         if need_hints {
-            let file_inlay_hints = self.extract_inlay_hints(&working_set, &block, offset, file);
+            let file_inlay_hints = self.extract_inlay_hints(&working_set, &block, span.start, file);
             self.inlay_hints.insert(uri.clone(), file_inlay_hints);
         }
-        Some((block, offset, working_set))
+        if self.need_parse {
+            // TODO: incremental parsing
+            // add block to working_set for later references
+            working_set.add_block(block.clone());
+            self.cached_state_delta = Some(working_set.delta.clone());
+            self.need_parse = false;
+        }
+        Some((block, span, working_set))
     }
 
     fn get_location_by_span<'a>(
@@ -352,7 +377,7 @@ impl LanguageServer {
                     let temp_doc = FullTextDocument::new(
                         "nu".to_string(),
                         0,
-                        String::from_utf8((*cached_file.content).to_vec()).expect("Invalid UTF-8"),
+                        String::from_utf8_lossy(cached_file.content.as_ref()).to_string(),
                     );
                     return Some(Location {
                         uri: target_uri,
@@ -587,8 +612,10 @@ impl LanguageServer {
         let docs = self.docs.lock().ok()?;
         let file = docs.get_document(&path_uri)?;
 
-        let mut completer =
-            NuCompleter::new(Arc::new(self.engine_state.clone()), Arc::new(Stack::new()));
+        let mut completer = NuCompleter::new(
+            Arc::new(self.initial_engine_state.clone()),
+            Arc::new(Stack::new()),
+        );
 
         let location = file.offset_at(params.text_document_position.position) as usize;
         let results = completer.fetch_completions_at(&file.get_content(None)[..location], location);

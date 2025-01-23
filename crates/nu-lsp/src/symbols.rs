@@ -203,16 +203,17 @@ impl SymbolCache {
                     continue;
                 }
                 let target_uri = path_to_uri(path);
-                let new_symbols = if let Some(doc) = docs.get_document(&target_uri) {
-                    Self::extract_all_symbols(&working_set, doc, cached_file)
-                } else {
-                    let temp_doc = FullTextDocument::new(
-                        "nu".to_string(),
-                        0,
-                        String::from_utf8((*cached_file.content).to_vec()).expect("Invalid UTF-8"),
-                    );
-                    Self::extract_all_symbols(&working_set, &temp_doc, cached_file)
-                };
+                let new_symbols = Self::extract_all_symbols(
+                    &working_set,
+                    docs.get_document(&target_uri)
+                        .unwrap_or(&FullTextDocument::new(
+                            "nu".to_string(),
+                            0,
+                            String::from_utf8((*cached_file.content).to_vec())
+                                .expect("Invalid UTF-8"),
+                        )),
+                    cached_file,
+                );
                 self.cache.insert(target_uri.clone(), new_symbols);
                 self.mark_dirty(target_uri, false);
             }
