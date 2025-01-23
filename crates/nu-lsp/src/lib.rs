@@ -110,22 +110,22 @@ impl LanguageServer {
             work_done_progress: Some(true),
         };
         let server_capabilities = serde_json::to_value(ServerCapabilities {
-            text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Kind(
-                TextDocumentSyncKind::INCREMENTAL,
-            )),
-            definition_provider: Some(OneOf::Left(true)),
-            hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
             completion_provider: Some(lsp_types::CompletionOptions::default()),
+            definition_provider: Some(OneOf::Left(true)),
+            document_highlight_provider: Some(OneOf::Left(true)),
             document_symbol_provider: Some(OneOf::Left(true)),
-            workspace_symbol_provider: Some(OneOf::Left(true)),
+            hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
             inlay_hint_provider: Some(OneOf::Left(true)),
+            references_provider: Some(OneOf::Right(ReferencesOptions {
+                work_done_progress_options,
+            })),
             rename_provider: Some(OneOf::Right(RenameOptions {
                 prepare_provider: Some(true),
                 work_done_progress_options,
             })),
-            references_provider: Some(OneOf::Right(ReferencesOptions {
-                work_done_progress_options,
-            })),
+            text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Kind(
+                TextDocumentSyncKind::INCREMENTAL,
+            )),
             workspace: Some(WorkspaceServerCapabilities {
                 workspace_folders: Some(WorkspaceFoldersServerCapabilities {
                     supported: Some(true),
@@ -133,6 +133,7 @@ impl LanguageServer {
                 }),
                 ..Default::default()
             }),
+            workspace_symbol_provider: Some(OneOf::Left(true)),
             ..Default::default()
         })
         .expect("Must be serializable");
@@ -175,30 +176,22 @@ impl LanguageServer {
                     }
 
                     let resp = match request.method.as_str() {
+                        request::Completion::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.complete(params))
+                        }
+                        request::DocumentHighlightRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| {
+                                self.document_highlight(params)
+                            })
+                        }
                         request::GotoDefinition::METHOD => {
                             Self::handle_lsp_request(request, |params| self.goto_definition(params))
                         }
                         request::HoverRequest::METHOD => {
                             Self::handle_lsp_request(request, |params| self.hover(params))
                         }
-                        request::Completion::METHOD => {
-                            Self::handle_lsp_request(request, |params| self.complete(params))
-                        }
-                        request::DocumentSymbolRequest::METHOD => {
-                            Self::handle_lsp_request(request, |params| self.document_symbol(params))
-                        }
-                        request::References::METHOD => {
-                            Self::handle_lsp_request(request, |params| {
-                                self.references(params, 5000)
-                            })
-                        }
-                        request::WorkspaceSymbolRequest::METHOD => {
-                            Self::handle_lsp_request(request, |params| {
-                                self.workspace_symbol(params)
-                            })
-                        }
-                        request::Rename::METHOD => {
-                            Self::handle_lsp_request(request, |params| self.rename(params))
+                        request::InlayHintRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.get_inlay_hints(params))
                         }
                         request::PrepareRenameRequest::METHOD => {
                             let id = request.id.clone();
@@ -207,8 +200,21 @@ impl LanguageServer {
                             }
                             continue;
                         }
-                        request::InlayHintRequest::METHOD => {
-                            Self::handle_lsp_request(request, |params| self.get_inlay_hints(params))
+                        request::References::METHOD => {
+                            Self::handle_lsp_request(request, |params| {
+                                self.references(params, 5000)
+                            })
+                        }
+                        request::Rename::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.rename(params))
+                        }
+                        request::DocumentSymbolRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.document_symbol(params))
+                        }
+                        request::WorkspaceSymbolRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| {
+                                self.workspace_symbol(params)
+                            })
                         }
                         _ => {
                             continue;
@@ -286,7 +292,7 @@ impl LanguageServer {
         uri: &Uri,
         pos: Position,
     ) -> Result<(StateWorkingSet<'a>, Id, Span, usize)> {
-        let (block, file_offset, mut working_set) = self
+        let (block, file_span, mut working_set) = self
             .parse_file(engine_state, uri, false)
             .ok_or_else(|| miette!("\nFailed to parse current file"))?;
 
@@ -297,12 +303,12 @@ impl LanguageServer {
         let file = docs
             .get_document(uri)
             .ok_or_else(|| miette!("\nFailed to get document"))?;
-        let location = file.offset_at(pos) as usize + file_offset;
+        let location = file.offset_at(pos) as usize + file_span.start;
         let (id, span) = find_id(&block, &working_set, &location)
             .ok_or_else(|| miette!("\nFailed to find current name"))?;
         // add block to working_set for later references
         working_set.add_block(block);
-        Ok((working_set, id, span, file_offset))
+        Ok((working_set, id, span, file_span.start))
     }
 
     pub fn parse_file<'a>(
@@ -310,7 +316,7 @@ impl LanguageServer {
         engine_state: &'a mut EngineState,
         uri: &Uri,
         need_hints: bool,
-    ) -> Option<(Arc<Block>, usize, StateWorkingSet<'a>)> {
+    ) -> Option<(Arc<Block>, Span, StateWorkingSet<'a>)> {
         let mut working_set = StateWorkingSet::new(engine_state);
         let docs = self.docs.lock().ok()?;
         let file = docs.get_document(uri)?;
@@ -319,15 +325,15 @@ impl LanguageServer {
         let contents = file.get_content(None).as_bytes();
         let _ = working_set.files.push(file_path.clone(), Span::unknown());
         let block = parse(&mut working_set, Some(file_path_str), contents, false);
-        let offset = working_set.get_span_for_filename(file_path_str)?.start;
+        let span = working_set.get_span_for_filename(file_path_str)?;
         // TODO: merge delta back to engine_state?
         // self.engine_state.merge_delta(working_set.render());
 
         if need_hints {
-            let file_inlay_hints = self.extract_inlay_hints(&working_set, &block, offset, file);
+            let file_inlay_hints = self.extract_inlay_hints(&working_set, &block, span.start, file);
             self.inlay_hints.insert(uri.clone(), file_inlay_hints);
         }
-        Some((block, offset, working_set))
+        Some((block, span, working_set))
     }
 
     fn get_location_by_span<'a>(

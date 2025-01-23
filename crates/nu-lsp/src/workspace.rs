@@ -8,12 +8,14 @@ use std::{
 };
 
 use crate::{
-    ast::find_reference_by_id, path_to_uri, span_to_range, uri_to_path, Id, LanguageServer,
+    ast::{find_id, find_reference_by_id},
+    path_to_uri, span_to_range, uri_to_path, Id, LanguageServer,
 };
 use crossbeam_channel::{Receiver, Sender};
 use lsp_server::{Message, Request, Response};
 use lsp_types::{
-    Location, PrepareRenameResponse, ProgressToken, Range, ReferenceParams, RenameParams,
+    DocumentHighlight, DocumentHighlightKind, DocumentHighlightParams, Location,
+    PrepareRenameResponse, ProgressToken, Range, ReferenceParams, RenameParams,
     TextDocumentPositionParams, TextEdit, Uri, WorkspaceEdit, WorkspaceFolder,
 };
 use miette::{miette, IntoDiagnostic, Result};
@@ -69,7 +71,7 @@ fn find_reference_in_file(
 }
 
 impl LanguageServer {
-    /// get initial workspace folders from initialization response
+    /// Get initial workspace folders from initialization response
     pub fn initialize_workspace_folders(&mut self, init_params: Value) -> Result<()> {
         if let Some(array) = init_params.get("workspaceFolders") {
             let folders: Vec<WorkspaceFolder> =
@@ -79,6 +81,43 @@ impl LanguageServer {
             }
         }
         Ok(())
+    }
+
+    /// Highlight all occurrences of the text at cursor, in current file
+    pub fn document_highlight(
+        &mut self,
+        params: &DocumentHighlightParams,
+    ) -> Option<Vec<DocumentHighlight>> {
+        let mut engine_state = self.new_engine_state();
+        let path_uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .to_owned();
+        let (block, file_span, working_set) =
+            self.parse_file(&mut engine_state, &path_uri, false)?;
+        let docs = &self.docs.lock().ok()?;
+        let file = docs.get_document(&path_uri)?;
+        let location = file.offset_at(params.text_document_position_params.position) as usize
+            + file_span.start;
+        let (id, cursor_span) = find_id(&block, &working_set, &location)?;
+        let mut refs = find_reference_by_id(&block, &working_set, &id);
+        let definition_span = Self::find_definition_span_by_id(&working_set, &id);
+        if let Some(extra_span) =
+            Self::reference_not_in_ast(&id, &working_set, definition_span, file_span, cursor_span)
+        {
+            if !refs.contains(&extra_span) {
+                refs.push(extra_span);
+            }
+        }
+        Some(
+            refs.iter()
+                .map(|span| DocumentHighlight {
+                    range: span_to_range(span, file, file_span.start),
+                    kind: Some(DocumentHighlightKind::TEXT),
+                })
+                .collect(),
+        )
     }
 
     /// The rename request only happens after the client received a `PrepareRenameResponse`,
@@ -235,6 +274,33 @@ impl LanguageServer {
         Ok(())
     }
 
+    /// NOTE: for arguments whose declaration is in a signature
+    /// which is not covered in the AST
+    fn reference_not_in_ast(
+        id: &Id,
+        working_set: &StateWorkingSet,
+        definition_span: Option<Span>,
+        file_span: Span,
+        sample_span: Span,
+    ) -> Option<Span> {
+        if let (Id::Variable(_), Some(decl_span)) = (&id, definition_span) {
+            if file_span.contains_span(decl_span) && decl_span.end > decl_span.start {
+                let leading_dashes = working_set
+                    .get_span_contents(decl_span)
+                    .iter()
+                    // remove leading dashes for flags
+                    .take_while(|c| *c == &b'-')
+                    .count();
+                let start = decl_span.start + leading_dashes;
+                return Some(Span {
+                    start,
+                    end: start + sample_span.end - sample_span.start,
+                });
+            }
+        }
+        None
+    }
+
     fn find_reference_in_workspace(
         &self,
         engine_state: EngineState,
@@ -310,24 +376,15 @@ impl LanguageServer {
                     let file_span = working_set
                         .get_span_for_filename(fp.to_string_lossy().as_ref())
                         .unwrap_or(Span::unknown());
-                    // NOTE: for arguments whose declaration is in a signature
-                    // which is not covered in the AST
-                    if let (Id::Variable(_), Some(decl_span)) = (&id, definition_span) {
-                        if file_span.contains_span(decl_span)
-                            && decl_span.end > decl_span.start
-                            && !refs.contains(&decl_span)
-                        {
-                            let leading_dashes = working_set
-                                .get_span_contents(decl_span)
-                                .iter()
-                                // remove leading dashes for flags
-                                .take_while(|c| *c == &b'-')
-                                .count();
-                            let start = decl_span.start + leading_dashes;
-                            refs.push(Span {
-                                start,
-                                end: start + span.end - span.start,
-                            });
+                    if let Some(extra_span) = Self::reference_not_in_ast(
+                        &id,
+                        &working_set,
+                        definition_span,
+                        file_span,
+                        span,
+                    ) {
+                        if !refs.contains(&extra_span) {
+                            refs.push(extra_span)
                         }
                     }
                     let ranges = refs
@@ -367,12 +424,12 @@ impl LanguageServer {
 mod tests {
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
-    use lsp_types::RenameParams;
     use lsp_types::{
         request, request::Request, InitializeParams, PartialResultParams, Position,
         ReferenceContext, ReferenceParams, TextDocumentIdentifier, TextDocumentPositionParams, Uri,
         WorkDoneProgressParams, WorkspaceFolder,
     };
+    use lsp_types::{DocumentHighlightParams, RenameParams};
     use nu_parser::parse;
     use nu_protocol::engine::StateWorkingSet;
     use nu_test_support::fs::fixtures;
@@ -470,6 +527,35 @@ mod tests {
                         position: Position { line, character },
                     },
                     new_name: "new".to_string(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
+                })
+                .unwrap(),
+            }))
+            .unwrap();
+
+        client_connection
+            .receiver
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap()
+    }
+
+    fn send_document_highlight_request(
+        client_connection: &Connection,
+        uri: Uri,
+        line: u32,
+        character: u32,
+    ) -> Message {
+        client_connection
+            .sender
+            .send(Message::Request(lsp_server::Request {
+                id: 1.into(),
+                method: request::DocumentHighlightRequest::METHOD.to_string(),
+                params: serde_json::to_value(DocumentHighlightParams {
+                    text_document_position_params: TextDocumentPositionParams {
+                        text_document: TextDocumentIdentifier { uri },
+                        position: Position { line, character },
+                    },
+                    partial_result_params: PartialResultParams::default(),
                     work_done_progress_params: WorkDoneProgressParams::default(),
                 })
                 .unwrap(),
@@ -802,5 +888,29 @@ mod tests {
             .get_span_for_filename(script_path.to_str().unwrap())
             .unwrap();
         assert!(working_set.find_block_by_span(span_foo).is_some())
+    }
+
+    #[test]
+    fn document_highlight_variable() {
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("workspace");
+        script.push("foo.nu");
+        let script = path_to_uri(&script);
+
+        let (client_connection, _recv) = initialize_language_server(None);
+        open_unchecked(&client_connection, script.clone());
+
+        let message = send_document_highlight_request(&client_connection, script.clone(), 3, 5);
+        let Message::Response(r) = message else {
+            panic!("unexpected message type");
+        };
+        assert_json_eq!(
+            r.result,
+            serde_json::json!([
+                { "range": { "start": { "line": 3, "character": 3 }, "end": { "line": 3, "character": 8 } }, "kind": 1 },
+                { "range": { "start": { "line": 1, "character": 4 }, "end": { "line": 1, "character": 9 } }, "kind": 1 }
+            ]),
+        );
     }
 }
