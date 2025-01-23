@@ -3,7 +3,6 @@ use nu_engine::{command_prelude::*, env_to_strings};
 use nu_protocol::ShellError;
 use std::{
     ffi::{OsStr, OsString},
-    path::Path,
     process::Stdio,
 };
 
@@ -42,9 +41,7 @@ impl Command for Start {
             item: nu_utils::strip_ansi_string_unlikely(path.item),
             span: path.span,
         };
-        let path_no_whitespace = path
-            .item
-            .trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
+        let path_no_whitespace = path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
         // Attempt to parse the input as a URL
         if let Ok(url) = url::Url::parse(&path_no_whitespace) {
             open_path(url.as_str(), engine_state, stack, path.span)?;
@@ -54,7 +51,7 @@ impl Command for Start {
         let cwd = engine_state.cwd(Some(stack))?;
         let full_path = cwd.join(&path_no_whitespace);
         // Check if the path exists or if it's a valid file/directory
-        if full_path.exists(){
+        if full_path.exists() {
             open_path(full_path, engine_state, stack, path.span)?;
             return Ok(PipelineData::Empty);
         }
