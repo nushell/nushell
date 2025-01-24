@@ -1283,51 +1283,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
         return garbage(working_set, head);
     }
 
-    let mut pos = 0;
-    let cmd_start = pos;
-    let mut name_spans = vec![];
-    let mut name = vec![];
-
-    for word_span in spans[cmd_start..].iter() {
-        // Find the longest group of words that could form a command
-
-        name_spans.push(*word_span);
-
-        let name_part = working_set.get_span_contents(*word_span);
-        if name.is_empty() {
-            name.extend(name_part);
-        } else {
-            name.push(b' ');
-            name.extend(name_part);
-        }
-
-        pos += 1;
-    }
-
-    let mut maybe_decl_id = working_set.find_decl(&name);
-
-    while maybe_decl_id.is_none() {
-        // Find the longest command match
-        if name_spans.len() <= 1 {
-            // Keep the first word even if it does not match -- could be external command
-            break;
-        }
-
-        name_spans.pop();
-        pos -= 1;
-
-        let mut name = vec![];
-        for name_span in &name_spans {
-            let name_part = working_set.get_span_contents(*name_span);
-            if name.is_empty() {
-                name.extend(name_part);
-            } else {
-                name.push(b' ');
-                name.extend(name_part);
-            }
-        }
-        maybe_decl_id = working_set.find_decl(&name);
-    }
+    let (cmd_start, pos, maybe_decl_id) = find_longest_decl(working_set, spans);
 
     if let Some(decl_id) = maybe_decl_id {
         // Before the internal parsing we check if there is no let or alias declarations
@@ -1422,6 +1378,76 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
         // Otherwise, try external command
         parse_external_call(working_set, spans)
     }
+}
+
+fn find_longest_decl(
+    working_set: &mut StateWorkingSet<'_>,
+    spans: &[Span],
+) -> (
+    usize,
+    usize,
+    Option<nu_protocol::Id<nu_protocol::marker::Decl>>,
+) {
+    find_longest_decl_with_prefix(working_set, spans, b"")
+}
+
+fn find_longest_decl_with_prefix(
+    working_set: &mut StateWorkingSet<'_>,
+    spans: &[Span],
+    prefix: &[u8],
+) -> (
+    usize,
+    usize,
+    Option<nu_protocol::Id<nu_protocol::marker::Decl>>,
+) {
+    let mut pos = 0;
+    let cmd_start = pos;
+    let mut name_spans = vec![];
+    let mut name = vec![];
+    name.extend(prefix);
+
+    for word_span in spans[cmd_start..].iter() {
+        // Find the longest group of words that could form a command
+
+        name_spans.push(*word_span);
+
+        let name_part = working_set.get_span_contents(*word_span);
+        if name.is_empty() {
+            name.extend(name_part);
+        } else {
+            name.push(b' ');
+            name.extend(name_part);
+        }
+
+        pos += 1;
+    }
+
+    let mut maybe_decl_id = working_set.find_decl(&name);
+
+    while maybe_decl_id.is_none() {
+        // Find the longest command match
+        if name_spans.len() <= 1 {
+            // Keep the first word even if it does not match -- could be external command
+            break;
+        }
+
+        name_spans.pop();
+        pos -= 1;
+
+        name.clear();
+        name.extend(prefix);
+        for name_span in &name_spans {
+            let name_part = working_set.get_span_contents(*name_span);
+            if name.is_empty() {
+                name.extend(name_part);
+            } else {
+                name.push(b' ');
+                name.extend(name_part);
+            }
+        }
+        maybe_decl_id = working_set.find_decl(&name);
+    }
+    (cmd_start, pos, maybe_decl_id)
 }
 
 pub fn parse_binary(working_set: &mut StateWorkingSet, span: Span) -> Expression {
