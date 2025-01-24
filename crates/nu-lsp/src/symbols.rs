@@ -1,21 +1,20 @@
-use std::collections::{BTreeMap, HashSet};
-use std::hash::{Hash, Hasher};
-
 use crate::{path_to_uri, span_to_range, uri_to_path, Id, LanguageServer};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
     DocumentSymbolParams, DocumentSymbolResponse, Location, Range, SymbolInformation, SymbolKind,
     Uri, WorkspaceSymbolParams, WorkspaceSymbolResponse,
 };
-use nu_parser::parse;
-use nu_protocol::ModuleId;
 use nu_protocol::{
     engine::{CachedFile, EngineState, StateWorkingSet},
-    DeclId, Span, VarId,
+    DeclId, ModuleId, Span, VarId,
 };
 use nucleo_matcher::pattern::{AtomKind, CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher, Utf32Str};
-use std::{cmp::Ordering, path::Path};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, HashSet},
+    hash::{Hash, Hasher},
+};
 
 /// Struct stored in cache, uri not included
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -69,7 +68,7 @@ impl Symbol {
 }
 
 /// Cache symbols for each opened file to avoid repeated parsing
-pub struct SymbolCache {
+pub(crate) struct SymbolCache {
     /// Fuzzy matcher for symbol names
     matcher: Matcher,
     /// File Uri --> Symbols
@@ -187,7 +186,7 @@ impl SymbolCache {
                 .get_document_content(uri, None)
                 .expect("Failed to get_document_content!")
                 .as_bytes();
-            parse(
+            nu_parser::parse(
                 &mut working_set,
                 Some(
                     uri_to_path(uri)
@@ -198,7 +197,7 @@ impl SymbolCache {
                 false,
             );
             for cached_file in working_set.files() {
-                let path = Path::new(&*cached_file.name);
+                let path = std::path::Path::new(&*cached_file.name);
                 if !path.is_file() {
                     continue;
                 }
@@ -267,7 +266,7 @@ impl SymbolCache {
 }
 
 impl LanguageServer {
-    pub fn document_symbol(
+    pub(crate) fn document_symbol(
         &mut self,
         params: &DocumentSymbolParams,
     ) -> Option<DocumentSymbolResponse> {
@@ -280,7 +279,7 @@ impl LanguageServer {
         ))
     }
 
-    pub fn workspace_symbol(
+    pub(crate) fn workspace_symbol(
         &mut self,
         params: &WorkspaceSymbolParams,
     ) -> Option<WorkspaceSymbolResponse> {
@@ -298,17 +297,16 @@ impl LanguageServer {
 
 #[cfg(test)]
 mod tests {
-    use assert_json_diff::assert_json_eq;
-    use lsp_types::{PartialResultParams, TextDocumentIdentifier};
-    use nu_test_support::fs::fixtures;
-
     use crate::path_to_uri;
     use crate::tests::{initialize_language_server, open_unchecked, update};
+    use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
         request::{DocumentSymbolRequest, Request, WorkspaceSymbolRequest},
-        DocumentSymbolParams, Uri, WorkDoneProgressParams, WorkspaceSymbolParams,
+        DocumentSymbolParams, PartialResultParams, TextDocumentIdentifier, Uri,
+        WorkDoneProgressParams, WorkspaceSymbolParams,
     };
+    use nu_test_support::fs::fixtures;
 
     fn send_document_symbol_request(client_connection: &Connection, uri: Uri) -> Message {
         client_connection

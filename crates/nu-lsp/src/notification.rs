@@ -1,4 +1,4 @@
-use lsp_server::{Message, RequestId, Response, ResponseError};
+use crate::LanguageServer;
 use lsp_types::{
     notification::{
         DidChangeTextDocument, DidChangeWorkspaceFolders, DidCloseTextDocument,
@@ -8,8 +8,6 @@ use lsp_types::{
     DidOpenTextDocumentParams, ProgressParams, ProgressParamsValue, ProgressToken, Uri,
     WorkDoneProgress, WorkDoneProgressBegin, WorkDoneProgressEnd, WorkDoneProgressReport,
 };
-
-use crate::LanguageServer;
 use miette::{IntoDiagnostic, Result};
 
 impl LanguageServer {
@@ -57,7 +55,7 @@ impl LanguageServer {
         }
     }
 
-    pub fn send_progress_notification(
+    pub(crate) fn send_progress_notification(
         &self,
         token: ProgressToken,
         value: WorkDoneProgress,
@@ -74,7 +72,7 @@ impl LanguageServer {
             .into_diagnostic()
     }
 
-    pub fn send_progress_begin(&self, token: ProgressToken, title: String) -> Result<()> {
+    pub(crate) fn send_progress_begin(&self, token: ProgressToken, title: String) -> Result<()> {
         self.send_progress_notification(
             token,
             WorkDoneProgress::Begin(WorkDoneProgressBegin {
@@ -86,7 +84,7 @@ impl LanguageServer {
         )
     }
 
-    pub fn send_progress_report(
+    pub(crate) fn send_progress_report(
         &self,
         token: ProgressToken,
         percentage: u32,
@@ -102,20 +100,29 @@ impl LanguageServer {
         )
     }
 
-    pub fn send_progress_end(&self, token: ProgressToken, message: Option<String>) -> Result<()> {
+    pub(crate) fn send_progress_end(
+        &self,
+        token: ProgressToken,
+        message: Option<String>,
+    ) -> Result<()> {
         self.send_progress_notification(
             token,
             WorkDoneProgress::End(WorkDoneProgressEnd { message }),
         )
     }
 
-    pub fn send_error_message(&self, id: RequestId, code: i32, message: String) -> Result<()> {
+    pub(crate) fn send_error_message(
+        &self,
+        id: lsp_server::RequestId,
+        code: i32,
+        message: String,
+    ) -> Result<()> {
         self.connection
             .sender
-            .send(Message::Response(Response {
+            .send(lsp_server::Message::Response(lsp_server::Response {
                 id,
                 result: None,
-                error: Some(ResponseError {
+                error: Some(lsp_server::ResponseError {
                     code,
                     message,
                     data: None,
@@ -128,15 +135,14 @@ impl LanguageServer {
 
 #[cfg(test)]
 mod tests {
-    use assert_json_diff::assert_json_eq;
-    use lsp_server::Message;
-    use lsp_types::Range;
-    use nu_test_support::fs::fixtures;
-
     use crate::path_to_uri;
     use crate::tests::{
         initialize_language_server, open, open_unchecked, send_hover_request, update,
     };
+    use assert_json_diff::assert_json_eq;
+    use lsp_server::Message;
+    use lsp_types::Range;
+    use nu_test_support::fs::fixtures;
 
     #[test]
     fn hover_correct_documentation_on_let() {

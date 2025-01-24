@@ -1,33 +1,31 @@
 #![doc = include_str!("../README.md")]
-use ast::find_id;
-use crossbeam_channel::{Receiver, Sender};
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
     request::{self, Request},
-    CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
-    Hover, HoverContents, HoverParams, InlayHint, Location, MarkupContent, MarkupKind, OneOf,
-    Position, Range, ReferencesOptions, RenameOptions, ServerCapabilities, TextDocumentSyncKind,
-    TextEdit, Uri, WorkDoneProgressOptions, WorkspaceFolder, WorkspaceFoldersServerCapabilities,
+    CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionParams,
+    CompletionResponse, CompletionTextEdit, Documentation, Hover, HoverContents, HoverParams,
+    InlayHint, Location, MarkupContent, MarkupKind, OneOf, Position, Range, ReferencesOptions,
+    RenameOptions, ServerCapabilities, TextDocumentSyncKind, TextEdit, Uri,
+    WorkDoneProgressOptions, WorkspaceFolder, WorkspaceFoldersServerCapabilities,
     WorkspaceServerCapabilities,
 };
 use miette::{miette, IntoDiagnostic, Result};
 use nu_cli::{NuCompleter, SuggestionKind};
-use nu_parser::parse;
 use nu_protocol::{
     ast::Block,
-    engine::{CachedFile, EngineState, Stack, StateDelta, StateWorkingSet},
-    DeclId, ModuleId, Span, Type, Value, VarId,
+    engine::{CachedFile, Command, EngineState, Stack, StateDelta, StateWorkingSet},
+    DeclId, ModuleId, Span, Type, VarId,
 };
-use std::{collections::BTreeMap, sync::Mutex};
 use std::{
+    collections::BTreeMap,
     path::{Path, PathBuf},
     str::FromStr,
     sync::Arc,
+    sync::Mutex,
     time::Duration,
 };
 use symbols::SymbolCache;
-use url::Url;
 use workspace::{InternalMessage, RangePerDoc};
 
 mod ast;
@@ -39,7 +37,7 @@ mod symbols;
 mod workspace;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Id {
+pub(crate) enum Id {
     Variable(VarId),
     Declaration(DeclId),
     Value(Type),
@@ -56,30 +54,33 @@ pub struct LanguageServer {
     workspace_folders: BTreeMap<String, WorkspaceFolder>,
     /// for workspace wide requests
     occurrences: BTreeMap<Uri, Vec<Range>>,
-    channels: Option<(Sender<bool>, Arc<Receiver<InternalMessage>>)>,
+    channels: Option<(
+        crossbeam_channel::Sender<bool>,
+        Arc<crossbeam_channel::Receiver<InternalMessage>>,
+    )>,
     /// set to true when text changes
     need_parse: bool,
     /// cache `StateDelta` to avoid repeated parsing
     cached_state_delta: Option<StateDelta>,
 }
 
-pub fn path_to_uri(path: impl AsRef<Path>) -> Uri {
+pub(crate) fn path_to_uri(path: impl AsRef<Path>) -> Uri {
     Uri::from_str(
-        Url::from_file_path(path)
+        url::Url::from_file_path(path)
             .expect("Failed to convert path to Url")
             .as_str(),
     )
     .expect("Failed to convert Url to lsp_types::Uri.")
 }
 
-pub fn uri_to_path(uri: &Uri) -> PathBuf {
-    Url::from_str(uri.as_str())
+pub(crate) fn uri_to_path(uri: &Uri) -> PathBuf {
+    url::Url::from_str(uri.as_str())
         .expect("Failed to convert Uri to Url")
         .to_file_path()
         .expect("Failed to convert Url to path")
 }
 
-pub fn span_to_range(span: &Span, file: &FullTextDocument, offset: usize) -> Range {
+pub(crate) fn span_to_range(span: &Span, file: &FullTextDocument, offset: usize) -> Range {
     let start = file.position_at(span.start.saturating_sub(offset) as u32);
     let end = file.position_at(span.end.saturating_sub(offset) as u32);
     Range { start, end }
@@ -251,14 +252,14 @@ impl LanguageServer {
     }
 
     /// Send a cancel message to a running bg thread
-    pub fn cancel_background_thread(&mut self) {
+    pub(crate) fn cancel_background_thread(&mut self) {
         if let Some((sender, _)) = &self.channels {
             sender.send(true).ok();
         }
     }
 
     /// Check results from background thread
-    pub fn handle_internal_messages(&mut self) -> Result<bool> {
+    pub(crate) fn handle_internal_messages(&mut self) -> Result<bool> {
         let mut reset = false;
         if let Some((_, receiver)) = &self.channels {
             for im in receiver.try_iter() {
@@ -286,10 +287,13 @@ impl LanguageServer {
         Ok(reset)
     }
 
-    pub fn new_engine_state(&self) -> EngineState {
+    pub(crate) fn new_engine_state(&self) -> EngineState {
         let mut engine_state = self.initial_engine_state.clone();
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+        engine_state.add_env_var(
+            "PWD".into(),
+            nu_protocol::Value::test_string(cwd.to_string_lossy()),
+        );
         // merge the cached `StateDelta` if text not changed
         if !self.need_parse {
             engine_state
@@ -303,7 +307,7 @@ impl LanguageServer {
         engine_state
     }
 
-    pub fn parse_and_find<'a>(
+    pub(crate) fn parse_and_find<'a>(
         &mut self,
         engine_state: &'a mut EngineState,
         uri: &Uri,
@@ -321,12 +325,12 @@ impl LanguageServer {
             .get_document(uri)
             .ok_or_else(|| miette!("\nFailed to get document"))?;
         let location = file.offset_at(pos) as usize + file_span.start;
-        let (id, span) = find_id(&block, &working_set, &location)
+        let (id, span) = ast::find_id(&block, &working_set, &location)
             .ok_or_else(|| miette!("\nFailed to find current name"))?;
         Ok((working_set, id, span, file_span.start))
     }
 
-    pub fn parse_file<'a>(
+    pub(crate) fn parse_file<'a>(
         &mut self,
         engine_state: &'a mut EngineState,
         uri: &Uri,
@@ -339,10 +343,11 @@ impl LanguageServer {
         let file_path_str = file_path.to_str()?;
         let contents = file.get_content(None).as_bytes();
         let _ = working_set.files.push(file_path.clone(), Span::unknown());
-        let block = parse(&mut working_set, Some(file_path_str), contents, false);
+        let block = nu_parser::parse(&mut working_set, Some(file_path_str), contents, false);
         let span = working_set.get_span_for_filename(file_path_str)?;
         if need_hints {
-            let file_inlay_hints = self.extract_inlay_hints(&working_set, &block, span.start, file);
+            let file_inlay_hints =
+                Self::extract_inlay_hints(&working_set, &block, span.start, file);
             self.inlay_hints.insert(uri.clone(), file_inlay_hints);
         }
         if self.need_parse {
@@ -418,6 +423,141 @@ impl LanguageServer {
         }
     }
 
+    fn get_decl_description(decl: &dyn Command) -> String {
+        let mut description = String::new();
+
+        // First description
+        description.push_str(&format!("{}\n", decl.description().replace('\r', "")));
+
+        // Additional description
+        if !decl.extra_description().is_empty() {
+            description.push_str(&format!("\n{}\n", decl.extra_description()));
+        }
+
+        // Usage
+        description.push_str("-----\n### Usage \n```nu\n");
+        let signature = decl.signature();
+        description.push_str(&format!("  {}", signature.name));
+        if !signature.named.is_empty() {
+            description.push_str(" {flags}");
+        }
+        for required_arg in &signature.required_positional {
+            description.push_str(&format!(" <{}>", required_arg.name));
+        }
+        for optional_arg in &signature.optional_positional {
+            description.push_str(&format!(" <{}?>", optional_arg.name));
+        }
+        if let Some(arg) = &signature.rest_positional {
+            description.push_str(&format!(" <...{}>", arg.name));
+        }
+        description.push_str("\n```\n");
+
+        // Flags
+        if !signature.named.is_empty() {
+            description.push_str("\n### Flags\n\n");
+            let mut first = true;
+            for named in &signature.named {
+                if first {
+                    first = false;
+                } else {
+                    description.push('\n');
+                }
+                description.push_str("  ");
+                if let Some(short_flag) = &named.short {
+                    description.push_str(&format!("`-{short_flag}`"));
+                }
+                if !named.long.is_empty() {
+                    if named.short.is_some() {
+                        description.push_str(", ");
+                    }
+                    description.push_str(&format!("`--{}`", named.long));
+                }
+                if let Some(arg) = &named.arg {
+                    description.push_str(&format!(" `<{}>`", arg.to_type()));
+                }
+                if !named.desc.is_empty() {
+                    description.push_str(&format!(" - {}", named.desc));
+                }
+                description.push('\n');
+            }
+            description.push('\n');
+        }
+
+        // Parameters
+        if !signature.required_positional.is_empty()
+            || !signature.optional_positional.is_empty()
+            || signature.rest_positional.is_some()
+        {
+            description.push_str("\n### Parameters\n\n");
+            let mut first = true;
+            for required_arg in &signature.required_positional {
+                if first {
+                    first = false;
+                } else {
+                    description.push('\n');
+                }
+                description.push_str(&format!(
+                    "  `{}: {}`",
+                    required_arg.name,
+                    required_arg.shape.to_type()
+                ));
+                if !required_arg.desc.is_empty() {
+                    description.push_str(&format!(" - {}", required_arg.desc));
+                }
+                description.push('\n');
+            }
+            for optional_arg in &signature.optional_positional {
+                if first {
+                    first = false;
+                } else {
+                    description.push('\n');
+                }
+                description.push_str(&format!(
+                    "  `{}: {}`",
+                    optional_arg.name,
+                    optional_arg.shape.to_type()
+                ));
+                if !optional_arg.desc.is_empty() {
+                    description.push_str(&format!(" - {}", optional_arg.desc));
+                }
+                description.push('\n');
+            }
+            if let Some(arg) = &signature.rest_positional {
+                if !first {
+                    description.push('\n');
+                }
+                description.push_str(&format!(" `...{}: {}`", arg.name, arg.shape.to_type()));
+                if !arg.desc.is_empty() {
+                    description.push_str(&format!(" - {}", arg.desc));
+                }
+                description.push('\n');
+            }
+            description.push('\n');
+        }
+
+        // Input/output types
+        if !signature.input_output_types.is_empty() {
+            description.push_str("\n### Input/output types\n");
+            description.push_str("\n```nu\n");
+            for input_output in &signature.input_output_types {
+                description.push_str(&format!(" {} | {}\n", input_output.0, input_output.1));
+            }
+            description.push_str("\n```\n");
+        }
+
+        // Examples
+        if !decl.examples().is_empty() {
+            description.push_str("### Example(s)\n");
+            for example in decl.examples() {
+                description.push_str(&format!(
+                    "  {}\n```nu\n  {}\n```\n",
+                    example.description, example.example
+                ));
+            }
+        }
+        description
+    }
+
     fn hover(&mut self, params: &HoverParams) -> Option<Hover> {
         let mut engine_state = self.new_engine_state();
 
@@ -448,150 +588,20 @@ impl LanguageServer {
         match id {
             Id::Variable(var_id) => {
                 let var = working_set.get_variable(var_id);
-                let contents =
-                    format!("{} `{}`", if var.mutable { "mutable " } else { "" }, var.ty);
+                let contents = format!(
+                    "{}{} `{}`",
+                    if var.const_val.is_some() {
+                        "const "
+                    } else {
+                        ""
+                    },
+                    if var.mutable { "mutable " } else { "" },
+                    var.ty,
+                );
                 markdown_hover(contents)
             }
             Id::Declaration(decl_id) => {
-                let decl = working_set.get_decl(decl_id);
-
-                let mut description = String::new();
-
-                // First description
-                description.push_str(&format!("{}\n", decl.description().replace('\r', "")));
-
-                // Additional description
-                if !decl.extra_description().is_empty() {
-                    description.push_str(&format!("\n{}\n", decl.extra_description()));
-                }
-
-                // Usage
-                description.push_str("-----\n### Usage \n```nu\n");
-                let signature = decl.signature();
-                description.push_str(&format!("  {}", signature.name));
-                if !signature.named.is_empty() {
-                    description.push_str(" {flags}");
-                }
-                for required_arg in &signature.required_positional {
-                    description.push_str(&format!(" <{}>", required_arg.name));
-                }
-                for optional_arg in &signature.optional_positional {
-                    description.push_str(&format!(" <{}?>", optional_arg.name));
-                }
-                if let Some(arg) = &signature.rest_positional {
-                    description.push_str(&format!(" <...{}>", arg.name));
-                }
-                description.push_str("\n```\n");
-
-                // Flags
-                if !signature.named.is_empty() {
-                    description.push_str("\n### Flags\n\n");
-                    let mut first = true;
-                    for named in &signature.named {
-                        if first {
-                            first = false;
-                        } else {
-                            description.push('\n');
-                        }
-                        description.push_str("  ");
-                        if let Some(short_flag) = &named.short {
-                            description.push_str(&format!("`-{short_flag}`"));
-                        }
-                        if !named.long.is_empty() {
-                            if named.short.is_some() {
-                                description.push_str(", ");
-                            }
-                            description.push_str(&format!("`--{}`", named.long));
-                        }
-                        if let Some(arg) = &named.arg {
-                            description.push_str(&format!(" `<{}>`", arg.to_type()));
-                        }
-                        if !named.desc.is_empty() {
-                            description.push_str(&format!(" - {}", named.desc));
-                        }
-                        description.push('\n');
-                    }
-                    description.push('\n');
-                }
-
-                // Parameters
-                if !signature.required_positional.is_empty()
-                    || !signature.optional_positional.is_empty()
-                    || signature.rest_positional.is_some()
-                {
-                    description.push_str("\n### Parameters\n\n");
-                    let mut first = true;
-                    for required_arg in &signature.required_positional {
-                        if first {
-                            first = false;
-                        } else {
-                            description.push('\n');
-                        }
-                        description.push_str(&format!(
-                            "  `{}: {}`",
-                            required_arg.name,
-                            required_arg.shape.to_type()
-                        ));
-                        if !required_arg.desc.is_empty() {
-                            description.push_str(&format!(" - {}", required_arg.desc));
-                        }
-                        description.push('\n');
-                    }
-                    for optional_arg in &signature.optional_positional {
-                        if first {
-                            first = false;
-                        } else {
-                            description.push('\n');
-                        }
-                        description.push_str(&format!(
-                            "  `{}: {}`",
-                            optional_arg.name,
-                            optional_arg.shape.to_type()
-                        ));
-                        if !optional_arg.desc.is_empty() {
-                            description.push_str(&format!(" - {}", optional_arg.desc));
-                        }
-                        description.push('\n');
-                    }
-                    if let Some(arg) = &signature.rest_positional {
-                        if !first {
-                            description.push('\n');
-                        }
-                        description.push_str(&format!(
-                            " `...{}: {}`",
-                            arg.name,
-                            arg.shape.to_type()
-                        ));
-                        if !arg.desc.is_empty() {
-                            description.push_str(&format!(" - {}", arg.desc));
-                        }
-                        description.push('\n');
-                    }
-                    description.push('\n');
-                }
-
-                // Input/output types
-                if !signature.input_output_types.is_empty() {
-                    description.push_str("\n### Input/output types\n");
-                    description.push_str("\n```nu\n");
-                    for input_output in &signature.input_output_types {
-                        description
-                            .push_str(&format!(" {} | {}\n", input_output.0, input_output.1));
-                    }
-                    description.push_str("\n```\n");
-                }
-
-                // Examples
-                if !decl.examples().is_empty() {
-                    description.push_str("### Example(s)\n");
-                    for example in decl.examples() {
-                        description.push_str(&format!(
-                            "  {}\n```nu\n  {}\n```\n",
-                            example.description, example.example
-                        ));
-                    }
-                }
-                markdown_hover(description)
+                markdown_hover(Self::get_decl_description(working_set.get_decl(decl_id)))
             }
             Id::Module(module_id) => {
                 let mut description = String::new();
@@ -612,40 +622,62 @@ impl LanguageServer {
         let docs = self.docs.lock().ok()?;
         let file = docs.get_document(&path_uri)?;
 
-        let mut completer = NuCompleter::new(
-            Arc::new(self.initial_engine_state.clone()),
-            Arc::new(Stack::new()),
-        );
+        let engine_state = Arc::new(self.initial_engine_state.clone());
+        let mut completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
 
         let location = file.offset_at(params.text_document_position.position) as usize;
         let results = completer.fetch_completions_at(&file.get_content(None)[..location], location);
-        if results.is_empty() {
-            None
-        } else {
-            Some(CompletionResponse::Array(
-                results
-                    .into_iter()
-                    .map(|r| {
-                        let mut start = params.text_document_position.position;
-                        start.character -= (r.suggestion.span.end - r.suggestion.span.start) as u32;
+        (!results.is_empty()).then_some(CompletionResponse::Array(
+            results
+                .into_iter()
+                .map(|r| {
+                    let mut start = params.text_document_position.position;
+                    start.character -= (r.suggestion.span.end - r.suggestion.span.start) as u32;
+                    let decl_id = r.kind.clone().and_then(|kind| {
+                        matches!(kind, SuggestionKind::Command(_))
+                            .then_some(engine_state.find_decl(r.suggestion.value.as_bytes(), &[])?)
+                    });
 
-                        CompletionItem {
-                            label: r.suggestion.value.clone(),
-                            detail: r.suggestion.description,
-                            kind: Self::lsp_completion_item_kind(r.kind),
-                            text_edit: Some(CompletionTextEdit::Edit(TextEdit {
-                                range: Range {
-                                    start,
-                                    end: params.text_document_position.position,
-                                },
-                                new_text: r.suggestion.value,
-                            })),
-                            ..Default::default()
-                        }
-                    })
-                    .collect(),
-            ))
-        }
+                    CompletionItem {
+                        label: r.suggestion.value.clone(),
+                        label_details: r
+                            .kind
+                            .clone()
+                            .map(|kind| match kind {
+                                SuggestionKind::Type(t) => t.to_string(),
+                                SuggestionKind::Command(cmd) => cmd.to_string(),
+                            })
+                            .map(|s| CompletionItemLabelDetails {
+                                detail: None,
+                                description: Some(s),
+                            }),
+                        detail: r.suggestion.description,
+                        documentation: r
+                            .suggestion
+                            .extra
+                            .map(|ex| ex.join("\n"))
+                            .or(decl_id.map(|decl_id| {
+                                Self::get_decl_description(engine_state.get_decl(decl_id))
+                            }))
+                            .map(|value| {
+                                Documentation::MarkupContent(MarkupContent {
+                                    kind: MarkupKind::Markdown,
+                                    value,
+                                })
+                            }),
+                        kind: Self::lsp_completion_item_kind(r.kind),
+                        text_edit: Some(CompletionTextEdit::Edit(TextEdit {
+                            range: Range {
+                                start,
+                                end: params.text_document_position.position,
+                            },
+                            new_text: r.suggestion.value,
+                        })),
+                        ..Default::default()
+                    }
+                })
+                .collect(),
+        ))
     }
 
     fn lsp_completion_item_kind(
@@ -681,8 +713,9 @@ mod tests {
     };
     use nu_test_support::fs::fixtures;
     use std::sync::mpsc::Receiver;
+    use std::time::Duration;
 
-    pub fn initialize_language_server(
+    pub(crate) fn initialize_language_server(
         params: Option<InitializeParams>,
     ) -> (Connection, Receiver<Result<()>>) {
         use std::sync::mpsc;
@@ -713,7 +746,7 @@ mod tests {
 
         let _initialize_response = client_connection
             .receiver
-            .recv_timeout(std::time::Duration::from_secs(2))
+            .recv_timeout(Duration::from_secs(2))
             .unwrap();
 
         (client_connection, recv)
@@ -739,17 +772,17 @@ mod tests {
             }))
             .unwrap();
 
-        assert!(recv
-            .recv_timeout(std::time::Duration::from_secs(2))
-            .unwrap()
-            .is_ok());
+        assert!(recv.recv_timeout(Duration::from_secs(2)).unwrap().is_ok());
     }
 
-    pub fn open_unchecked(client_connection: &Connection, uri: Uri) -> lsp_server::Notification {
+    pub(crate) fn open_unchecked(
+        client_connection: &Connection,
+        uri: Uri,
+    ) -> lsp_server::Notification {
         open(client_connection, uri).unwrap()
     }
 
-    pub fn open(
+    pub(crate) fn open(
         client_connection: &Connection,
         uri: Uri,
     ) -> Result<lsp_server::Notification, String> {
@@ -783,7 +816,7 @@ mod tests {
         }
     }
 
-    pub fn update(
+    pub(crate) fn update(
         client_connection: &Connection,
         uri: Uri,
         text: String,
@@ -822,7 +855,7 @@ mod tests {
         }
     }
 
-    pub fn send_hover_request(
+    pub(crate) fn send_hover_request(
         client_connection: &Connection,
         uri: Uri,
         line: u32,
@@ -846,7 +879,7 @@ mod tests {
 
         client_connection
             .receiver
-            .recv_timeout(std::time::Duration::from_secs(2))
+            .recv_timeout(Duration::from_secs(2))
             .unwrap()
     }
 
@@ -991,7 +1024,7 @@ mod tests {
 
         client_connection
             .receiver
-            .recv_timeout(std::time::Duration::from_secs(2))
+            .recv_timeout(Duration::from_secs(2))
             .unwrap()
     }
 
@@ -1014,20 +1047,18 @@ mod tests {
             panic!()
         };
 
-        assert_json_eq!(
-            result,
-            serde_json::json!([
+        assert_json_include!(
+            actual: result,
+            expected: serde_json::json!([
                 {
                     "label": "$greeting",
+                    "labelDetails": { "description": "string" },
                     "textEdit": {
-                    "newText": "$greeting",
-                    "range": {
-                    "start": { "character": 5, "line": 2 },
-                "end": { "character": 9, "line": 2 }
-            }
-            },
-                "kind": 6
-            }
+                        "newText": "$greeting",
+                        "range": { "start": { "character": 5, "line": 2 }, "end": { "character": 9, "line": 2 } }
+                    },
+                    "kind": 6
+                }
             ])
         );
     }
@@ -1051,21 +1082,17 @@ mod tests {
             panic!()
         };
 
-        assert_json_eq!(
-            result,
-            serde_json::json!([
+        assert_json_include!(
+            actual: result,
+            expected: serde_json::json!([
                 {
                     "label": "config nu",
                     "detail": "Edit nu configurations.",
-                    "textEdit": {
-                    "range": {
-                    "start": { "line": 0, "character": 0 },
-                "end": { "line": 0, "character": 8 },
-            },
-                "newText": "config nu"
-            },
-                "kind": 3
-            }
+                    "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 8 }, },
+                        "newText": "config nu"
+                    },
+                    "kind": 3
+                }
             ])
         );
     }
@@ -1089,21 +1116,19 @@ mod tests {
             panic!()
         };
 
-        assert_json_eq!(
-            result,
-            serde_json::json!([
+        assert_json_include!(
+            actual: result,
+            expected: serde_json::json!([
                 {
                     "label": "str trim",
+                    "labelDetails": { "description": "built-in" },
                     "detail": "Trim whitespace or specific character.",
                     "textEdit": {
-                    "range": {
-                    "start": { "line": 0, "character": 8 },
-                "end": { "line": 0, "character": 13 },
-            },
-                "newText": "str trim"
-            },
-                "kind": 3
-            }
+                        "range": { "start": { "line": 0, "character": 8 }, "end": { "line": 0, "character": 13 }, },
+                        "newText": "str trim"
+                    },
+                    "kind": 3
+                }
             ])
         );
     }
@@ -1132,15 +1157,13 @@ mod tests {
             expected: serde_json::json!([
                 {
                     "label": "overlay",
+                    "labelDetails": { "description": "keyword" },
                     "textEdit": {
-                    "newText": "overlay",
-                    "range": {
-                    "start": { "character": 0, "line": 0 },
-                "end": { "character": 2, "line": 0 }
-            }
-            },
-                "kind": 14
-            },
+                        "newText": "overlay",
+                        "range": { "start": { "character": 0, "line": 0 }, "end": { "character": 2, "line": 0 } }
+                    },
+                    "kind": 14
+                },
             ])
         );
     }

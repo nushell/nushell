@@ -1,3 +1,4 @@
+use crate::Id;
 use nu_protocol::{
     ast::{
         Argument, Block, Call, Expr, Expression, ExternalArgument, ListItem, MatchPattern, Pattern,
@@ -6,9 +7,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
     Span,
 };
-use std::{path::PathBuf, sync::Arc};
-
-use crate::Id;
+use std::sync::Arc;
 
 /// similar to flatten_block, but allows extra map function
 pub fn ast_flat_map<'a, T, F>(
@@ -243,7 +242,7 @@ fn try_find_id_in_mod(
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
     let call_name = working_set.get_span_contents(call.head);
-    if call_name != "module".as_bytes() && call_name != "export module".as_bytes() {
+    if call_name != b"module" && call_name != b"export module" {
         return None;
     };
     let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
@@ -283,7 +282,7 @@ fn try_find_id_in_use(
     id: Option<&Id>,
 ) -> Option<(Id, Span)> {
     let call_name = working_set.get_span_contents(call.head);
-    if call_name != "use".as_bytes() {
+    if call_name != b"use" {
         return None;
     }
     let find_by_name = |name: &[u8]| match id {
@@ -307,7 +306,7 @@ fn try_find_id_in_use(
     let get_module_id = |span: Span| {
         let span = strip_quotes(span, working_set);
         let name = String::from_utf8_lossy(working_set.get_span_contents(span));
-        let path = PathBuf::from(name.as_ref());
+        let path = std::path::PathBuf::from(name.as_ref());
         let stem = path.file_stem().and_then(|fs| fs.to_str()).unwrap_or(&name);
         let found_id = Id::Module(working_set.find_module(stem.as_bytes())?);
         id.map_or(true, |id_r| found_id == *id_r)
@@ -420,7 +419,7 @@ fn find_id_in_expr(
 }
 
 /// find the leaf node at the given location from ast
-pub fn find_id(
+pub(crate) fn find_id(
     ast: &Arc<Block>,
     working_set: &StateWorkingSet,
     location: &usize,
@@ -452,11 +451,9 @@ fn find_reference_by_id_in_expr(
                 .filter_map(|arg| arg.expr())
                 .flat_map(recur)
                 .collect();
-            if let Id::Declaration(decl_id) = id {
-                if *decl_id == call.decl_id {
-                    occurs.push(call.head);
-                    return Some(occurs);
-                }
+            if matches!(id, Id::Declaration(decl_id) if call.decl_id == *decl_id) {
+                occurs.push(call.head);
+                return Some(occurs);
             }
             if let Some((_, span_found)) = try_find_id_in_def(call, working_set, None, Some(id))
                 .or(try_find_id_in_mod(call, working_set, None, Some(id)))
@@ -470,7 +467,11 @@ fn find_reference_by_id_in_expr(
     }
 }
 
-pub fn find_reference_by_id(ast: &Arc<Block>, working_set: &StateWorkingSet, id: &Id) -> Vec<Span> {
+pub(crate) fn find_reference_by_id(
+    ast: &Arc<Block>,
+    working_set: &StateWorkingSet,
+    id: &Id,
+) -> Vec<Span> {
     ast_flat_map(ast, working_set, &|e| {
         find_reference_by_id_in_expr(e, working_set, id)
     })
