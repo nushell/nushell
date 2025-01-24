@@ -1022,6 +1022,7 @@ pub enum ShellError {
     /// This is a fairly generic error. Refer to the specific error message for further details.
     #[error("Create not possible")]
     #[diagnostic(code(nu::shell::create_not_possible))]
+    #[deprecated]
     CreateNotPossible {
         msg: String,
         #[label("{msg}")]
@@ -1035,6 +1036,7 @@ pub enum ShellError {
     /// This can be for various reasons, such as your platform or permission flags. Refer to the specific error message for more details.
     #[error("Not possible to change the access time")]
     #[diagnostic(code(nu::shell::change_access_time_not_possible))]
+    #[deprecated]
     ChangeAccessTimeNotPossible {
         msg: String,
         #[label("{msg}")]
@@ -1048,6 +1050,7 @@ pub enum ShellError {
     /// This can be for various reasons, such as your platform or permission flags. Refer to the specific error message for more details.
     #[error("Not possible to change the modified time")]
     #[diagnostic(code(nu::shell::change_modified_time_not_possible))]
+    #[deprecated]
     ChangeModifiedTimeNotPossible {
         msg: String,
         #[label("{msg}")]
