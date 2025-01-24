@@ -2,7 +2,10 @@ use super::definitions::{
     db_column::DbColumn, db_constraint::DbConstraint, db_foreignkey::DbForeignKey,
     db_index::DbIndex, db_table::DbTable,
 };
-use nu_protocol::{CustomValue, PipelineData, Record, ShellError, Signals, Span, Spanned, Value};
+use nu_protocol::{
+    shell_error::io::IoError, CustomValue, PipelineData, Record, ShellError, Signals, Span,
+    Spanned, Value,
+};
 use rusqlite::{
     types::ValueRef, Connection, DatabaseName, Error as SqliteError, OpenFlags, Row, Statement,
     ToSql,
@@ -38,24 +41,22 @@ impl SQLiteDatabase {
     }
 
     pub fn try_from_path(path: &Path, span: Span, signals: Signals) -> Result<Self, ShellError> {
-        let mut file = File::open(path).map_err(|e| ShellError::ReadingFile {
-            msg: e.to_string(),
-            span,
-        })?;
+        let mut file =
+            File::open(path).map_err(|e| IoError::new(e.kind(), span, PathBuf::from(path)))?;
 
         let mut buf: [u8; 16] = [0; 16];
         file.read_exact(&mut buf)
-            .map_err(|e| ShellError::ReadingFile {
-                msg: e.to_string(),
-                span,
-            })
+            .map_err(|e| ShellError::Io(IoError::new(e.kind(), span, PathBuf::from(path))))
             .and_then(|_| {
                 if buf == SQLITE_MAGIC_BYTES {
                     Ok(SQLiteDatabase::new(path, signals))
                 } else {
-                    Err(ShellError::ReadingFile {
-                        msg: "Not a SQLite file".into(),
-                        span,
+                    Err(ShellError::GenericError {
+                        error: "Not a SQLite file".into(),
+                        msg: format!("Could not read '{}' as SQLite file", path.display()),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
                     })
                 }
             })

@@ -907,14 +907,12 @@ mod windows_helper {
                 &mut find_data,
             ) {
                 Ok(_) => Ok(find_data),
-                Err(e) => Err(ShellError::ReadingFile {
-                    msg: format!(
-                        "Could not read metadata for '{}':\n  '{}'",
-                        filename.to_string_lossy(),
-                        e
-                    ),
+                Err(e) => Err(ShellError::Io(IoError::new_with_additional_context(
+                    std::io::ErrorKind::Other,
                     span,
-                }),
+                    PathBuf::from(filename),
+                    format!("Could not read metadata: {e}"),
+                ))),
             }
         }
     }
