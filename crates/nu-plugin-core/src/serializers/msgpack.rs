@@ -1,7 +1,7 @@
 use std::io::ErrorKind;
 
 use nu_plugin_protocol::{PluginInput, PluginOutput};
-use nu_protocol::ShellError;
+use nu_protocol::{shell_error::io::IoError, ShellError, Span};
 use serde::Deserialize;
 
 use crate::{Encoder, PluginEncoder};
@@ -64,9 +64,12 @@ fn rmp_encode_err(err: rmp_serde::encode::Error) -> ShellError {
     match err {
         rmp_serde::encode::Error::InvalidValueWrite(_) => {
             // I/O error
-            ShellError::IOError {
-                msg: err.to_string(),
-            }
+            ShellError::Io(IoError::new_with_additional_context(
+                std::io::ErrorKind::Other,
+                Span::unknown(),
+                None,
+                err,
+            ))
         }
         _ => {
             // Something else
@@ -87,9 +90,11 @@ fn rmp_decode_err<T>(err: rmp_serde::decode::Error) -> Result<Option<T>, ShellEr
                 Ok(None)
             } else {
                 // I/O error
-                Err(ShellError::IOError {
-                    msg: err.to_string(),
-                })
+                Err(ShellError::Io(IoError::new(
+                    err.kind(),
+                    Span::unknown(),
+                    None,
+                )))
             }
         }
         _ => {

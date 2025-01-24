@@ -2,8 +2,8 @@
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
 use nu_protocol::{
-    engine::Sequence, ByteStream, IntoSpanned, ListStream, PipelineData, Reader, ShellError,
-    Signals,
+    engine::Sequence, shell_error::io::IoError, ByteStream, IntoSpanned, ListStream, PipelineData,
+    Reader, ShellError, Signals, Span,
 };
 use std::{
     io::{Read, Write},
@@ -80,9 +80,10 @@ where
     }
 
     fn flush(&self) -> Result<(), ShellError> {
-        self.0.lock().flush().map_err(|err| ShellError::IOError {
-            msg: err.to_string(),
-        })
+        self.0
+            .lock()
+            .flush()
+            .map_err(|err| ShellError::Io(IoError::new(err.kind(), Span::unknown(), None)))
     }
 
     fn is_stdout(&self) -> bool {
@@ -106,9 +107,8 @@ where
         let mut lock = self.0.lock().map_err(|_| ShellError::NushellFailed {
             msg: "writer mutex poisoned".into(),
         })?;
-        lock.flush().map_err(|err| ShellError::IOError {
-            msg: err.to_string(),
-        })
+        lock.flush()
+            .map_err(|err| ShellError::Io(IoError::new(err.kind(), Span::unknown(), None)))
     }
 }
 

@@ -6,7 +6,7 @@ use base64::{
 };
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
-use nu_protocol::{ByteStream, LabeledError, Signals};
+use nu_protocol::{shell_error::io::IoError, ByteStream, LabeledError, Signals};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
@@ -372,10 +372,10 @@ fn send_multipart_request(
         Value::Record { val, .. } => {
             let mut builder = MultipartWriter::new();
 
-            let err = |e| {
-                ShellErrorOrRequestError::ShellError(ShellError::IOError {
-                    msg: format!("failed to build multipart data: {}", e),
-                })
+            let err = |e: std::io::Error| {
+                ShellErrorOrRequestError::ShellError(
+                    IoError::new_with_additional_context(e.kind(), span, None, e).into(),
+                )
             };
 
             for (col, val) in val.into_owned() {

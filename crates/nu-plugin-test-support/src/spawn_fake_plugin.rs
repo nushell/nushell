@@ -21,8 +21,12 @@ impl<T: Clone + Send> PluginWrite<T> for FakePluginWrite<T> {
     fn write(&self, data: &T) -> Result<(), ShellError> {
         self.0
             .send(data.clone())
-            .map_err(|err| ShellError::IOError {
-                msg: err.to_string(),
+            .map_err(|e| ShellError::GenericError {
+                error: "Error sending data".to_string(),
+                msg: e.to_string(),
+                span: None,
+                help: None,
+                inner: vec![],
             })
     }
 

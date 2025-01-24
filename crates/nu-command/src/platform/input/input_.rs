@@ -7,6 +7,7 @@ use crossterm::{
 };
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 
 use std::{io::Write, time::Duration};
 
@@ -111,9 +112,12 @@ impl Command for Input {
                                 {
                                     if k.modifiers == KeyModifiers::CONTROL && c == 'c' {
                                         crossterm::terminal::disable_raw_mode()?;
-                                        return Err(ShellError::IOError {
-                                            msg: "SIGINT".to_string(),
-                                        });
+                                        return Err(IoError::new(
+                                            std::io::ErrorKind::Interrupted,
+                                            call.head,
+                                            None,
+                                        )
+                                        .into());
                                     }
                                     continue;
                                 }

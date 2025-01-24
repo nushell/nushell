@@ -15,7 +15,8 @@ pub struct IoError {
     /// and is part of [`std::io::Error`].
     /// If a kind cannot be represented by it, consider adding a new variant to [`ErrorKind`].
     ///
-    /// Only in very rare cases should [`std::io::ErrorKind::Other`] be used.
+    /// Only in very rare cases should [`std::io::ErrorKind::Other`] be used, make sure you provide
+    /// `additional_context` to get useful errors in these cases.
     pub kind: ErrorKind,
 
     /// The source location of the error.
@@ -35,11 +36,12 @@ pub struct IoError {
     pub additional_context: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ErrorKind {
     Std(std::io::ErrorKind),
     // TODO: in Rust 1.83 this can be std::io::ErrorKind::NotADirectory
     NotADirectory,
+    NotAFile,
 }
 
 impl IoError {
@@ -79,8 +81,23 @@ impl From<IoError> for ShellError {
     }
 }
 
+impl From<IoError> for std::io::Error {
+    fn from(value: IoError) -> Self {
+        Self::new(value.kind.into(), value)
+    }
+}
+
 impl From<std::io::ErrorKind> for ErrorKind {
     fn from(value: std::io::ErrorKind) -> Self {
         ErrorKind::Std(value)
+    }
+}
+
+impl From<ErrorKind> for std::io::ErrorKind {
+    fn from(value: ErrorKind) -> Self {
+        match value {
+            ErrorKind::Std(error_kind) => error_kind,
+            _ => std::io::ErrorKind::Other,
+        }
     }
 }

@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener};
 
@@ -118,18 +119,23 @@ fn get_free_port(
             });
         }
 
-        // try given port one by one.
-        match (start_port..=end_port)
-            .map(|port| SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port)))
-            .find_map(|addr| TcpListener::bind(addr).ok())
-        {
-            Some(listener) => listener,
-            None => {
-                return Err(ShellError::IOError {
-                    msg: "Every port has been tried, but no valid one was found".to_string(),
-                })
+        'search: {
+            let mut last_err = None;
+            for port in start_port..=end_port {
+                let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port));
+                match TcpListener::bind(addr) {
+                    Ok(listener) => break 'search Ok(listener),
+                    Err(err) => last_err = Some(err),
+                }
             }
-        }
+
+            Err(IoError::new_with_additional_context(
+                last_err.expect("range not empty, validated before").kind(),
+                range_span,
+                None,
+                "Every port has been tried, but no valid one was found",
+            ))
+        }?
     };
 
     let free_port = listener.local_addr()?.port();

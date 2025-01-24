@@ -1,5 +1,6 @@
 use dialoguer::{console::Term, FuzzySelect, MultiSelect, Select};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 
 use std::fmt::{Display, Formatter};
 
@@ -141,8 +142,13 @@ impl Command for InputList {
                 .items(&options)
                 .report(false)
                 .interact_on_opt(&Term::stderr())
-                .map_err(|err| ShellError::IOError {
-                    msg: format!("{}: {}", INTERACT_ERROR, err),
+                .map_err(|dialoguer::Error::IO(err)| {
+                    IoError::new_with_additional_context(
+                        err.kind(),
+                        call.head,
+                        None,
+                        INTERACT_ERROR,
+                    )
                 })?,
             )
         } else if fuzzy {
@@ -158,8 +164,13 @@ impl Command for InputList {
                 .default(0)
                 .report(false)
                 .interact_on_opt(&Term::stderr())
-                .map_err(|err| ShellError::IOError {
-                    msg: format!("{}: {}", INTERACT_ERROR, err),
+                .map_err(|dialoguer::Error::IO(err)| {
+                    IoError::new_with_additional_context(
+                        err.kind(),
+                        call.head,
+                        None,
+                        INTERACT_ERROR,
+                    )
                 })?,
             )
         } else {
@@ -174,8 +185,13 @@ impl Command for InputList {
                 .default(0)
                 .report(false)
                 .interact_on_opt(&Term::stderr())
-                .map_err(|err| ShellError::IOError {
-                    msg: format!("{}: {}", INTERACT_ERROR, err),
+                .map_err(|dialoguer::Error::IO(err)| {
+                    IoError::new_with_additional_context(
+                        err.kind(),
+                        call.head,
+                        None,
+                        INTERACT_ERROR,
+                    )
                 })?,
             )
         };

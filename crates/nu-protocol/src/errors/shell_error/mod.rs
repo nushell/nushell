@@ -2,6 +2,7 @@ use crate::{
     ast::Operator, engine::StateWorkingSet, format_shell_error, record, ConfigError, LabeledError,
     ParseError, Span, Spanned, Type, Value,
 };
+use io::IoError;
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroI32;
@@ -1542,59 +1543,25 @@ impl ShellError {
 }
 
 impl From<std::io::Error> for ShellError {
+    // TODO: deprecate this
     fn from(error: std::io::Error) -> ShellError {
-        if error.kind() == std::io::ErrorKind::Other {
-            match error.into_inner() {
-                Some(err) => match err.downcast() {
-                    Ok(err) => *err,
-                    Err(err) => Self::IOError {
-                        msg: err.to_string(),
-                    },
-                },
-                None => Self::IOError {
-                    msg: "unknown error".into(),
-                },
-            }
-        } else {
-            Self::IOError {
-                msg: error.to_string(),
-            }
-        }
+        Self::Io(IoError::new(error.kind(), Span::unknown(), None))
     }
 }
 
 impl From<Spanned<std::io::Error>> for ShellError {
     fn from(error: Spanned<std::io::Error>) -> Self {
         let Spanned { item: error, span } = error;
-        match error.kind() {
-            std::io::ErrorKind::Other => match error.into_inner() {
-                Some(err) => match err.downcast() {
-                    Ok(err) => *err,
-                    Err(err) => Self::IOErrorSpanned {
-                        msg: err.to_string(),
-                        span,
-                    },
-                },
-                None => Self::IOErrorSpanned {
-                    msg: "unknown error".into(),
-                    span,
-                },
-            },
-            std::io::ErrorKind::TimedOut => Self::NetworkFailure {
-                msg: error.to_string(),
-                span,
-            },
-            _ => Self::IOErrorSpanned {
-                msg: error.to_string(),
-                span,
-            },
-        }
+        IoError::new(error.kind(), span, None).into()
     }
 }
 
 impl From<ShellError> for std::io::Error {
     fn from(error: ShellError) -> Self {
-        std::io::Error::new(std::io::ErrorKind::Other, error)
+        match error {
+            ShellError::Io(error) => error.into(),
+            _ => Self::new(std::io::ErrorKind::Other, error),
+        }
     }
 }
 

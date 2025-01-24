@@ -2,7 +2,8 @@ use std::ffi::OsStr;
 use std::io::{Stdin, Stdout};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
-use nu_protocol::ShellError;
+use nu_protocol::shell_error::io::IoError;
+use nu_protocol::{ShellError, Span};
 
 #[cfg(feature = "local-socket")]
 mod local_socket;
@@ -84,9 +85,7 @@ impl CommunicationMode {
 
                 let listener = interpret_local_socket_name(name)
                     .and_then(|name| ListenerOptions::new().name(name).create_sync())
-                    .map_err(|err| ShellError::IOError {
-                        msg: format!("failed to open socket for plugin: {err}"),
-                    })?;
+                    .map_err(|err| IoError::new(err.kind(), Span::unknown(), None))?;
                 Ok(PreparedServerCommunication::LocalSocket { listener })
             }
         }
@@ -107,8 +106,8 @@ impl CommunicationMode {
 
                     interpret_local_socket_name(name)
                         .and_then(|name| ls::Stream::connect(name))
-                        .map_err(|err| ShellError::IOError {
-                            msg: format!("failed to connect to socket: {err}"),
+                        .map_err(|err| {
+                            ShellError::Io(IoError::new(err.kind(), Span::unknown(), None))
                         })
                 };
                 // Reverse order from the server: read in, write out

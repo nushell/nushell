@@ -151,14 +151,22 @@ impl Command for Watch {
         let mut debouncer = match new_debouncer(debounce_duration, None, tx) {
             Ok(d) => d,
             Err(e) => {
-                return Err(ShellError::IOError {
-                    msg: format!("Failed to create watcher: {e}"),
-                })
+                return Err(ShellError::GenericError {
+                    error: "Failed to create watcher".to_string(),
+                    msg: e.to_string(),
+                    span: Some(call.head),
+                    help: None,
+                    inner: vec![],
+                });
             }
         };
         if let Err(e) = debouncer.watcher().watch(&path, recursive_mode) {
-            return Err(ShellError::IOError {
-                msg: format!("Failed to create watcher: {e}"),
+            return Err(ShellError::GenericError {
+                error: "Failed to create watcher".to_string(),
+                msg: e.to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
             });
         }
         // need to cache to make sure that rename event works.
@@ -249,13 +257,21 @@ impl Command for Watch {
                     }
                 }
                 Ok(Err(_)) => {
-                    return Err(ShellError::IOError {
+                    return Err(ShellError::GenericError {
+                        error: "Receiving events failed".to_string(),
                         msg: "Unexpected errors when receiving events".into(),
-                    })
+                        span: None,
+                        help: None,
+                        inner: vec![],
+                    });
                 }
                 Err(RecvTimeoutError::Disconnected) => {
-                    return Err(ShellError::IOError {
+                    return Err(ShellError::GenericError {
+                        error: "Disconnected".to_string(),
                         msg: "Unexpected disconnect from file watcher".into(),
+                        span: None,
+                        help: None,
+                        inner: vec![],
                     });
                 }
                 Err(RecvTimeoutError::Timeout) => {}

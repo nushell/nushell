@@ -4,8 +4,8 @@ use nu_engine::get_eval_block;
 use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
 use nu_protocol::{
-    ast, byte_stream::copy_with_signals, process::ChildPipe, ByteStreamSource, DataSource, OutDest,
-    PipelineMetadata, Signals,
+    ast, byte_stream::copy_with_signals, process::ChildPipe, shell_error::io::IoError,
+    ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals,
 };
 use std::{
     fs::File,
@@ -203,13 +203,12 @@ impl Command for Save {
                 let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
                 for val in ls {
                     file.write_all(&value_to_bytes(val)?)
-                        .map_err(|err| ShellError::IOError {
-                            msg: err.to_string(),
+                        .map_err(|err: io::Error| {
+                            IoError::new(err.kind(), call.head, path.item.clone())
                         })?;
-                    file.write_all("\n".as_bytes())
-                        .map_err(|err| ShellError::IOError {
-                            msg: err.to_string(),
-                        })?;
+                    file.write_all("\n".as_bytes()).map_err(|err: io::Error| {
+                        IoError::new(err.kind(), call.head, path.item.clone())
+                    })?;
                 }
                 file.flush()?;
 
@@ -232,9 +231,8 @@ impl Command for Save {
                 // Only open file after successful conversion
                 let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
 
-                file.write_all(&bytes).map_err(|err| ShellError::IOError {
-                    msg: err.to_string(),
-                })?;
+                file.write_all(&bytes)
+                    .map_err(|err| IoError::new(err.kind(), call.head, path.item))?;
 
                 file.flush()?;
 
