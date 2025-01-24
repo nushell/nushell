@@ -198,7 +198,7 @@ fn try_find_id_in_def(
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
     let call_name = working_set.get_span_contents(call.head);
-    if call_name != "def".as_bytes() && call_name != "export def".as_bytes() {
+    if call_name != b"def" && call_name != b"export def" {
         return None;
     };
     let mut span = None;
@@ -286,43 +286,22 @@ fn try_find_id_in_use(
     if call_name != "use".as_bytes() {
         return None;
     }
-    let find_by_name = |name: &str| {
-        match id {
-            Some(Id::Variable(var_id_ref)) => {
-                if let Some(var_id) = working_set.find_variable(name.as_bytes()) {
-                    if var_id == *var_id_ref {
-                        return Some(Id::Variable(var_id));
-                    }
-                }
-            }
-            Some(Id::Declaration(decl_id_ref)) => {
-                if let Some(decl_id) = working_set.find_decl(name.as_bytes()) {
-                    if decl_id == *decl_id_ref {
-                        return Some(Id::Declaration(decl_id));
-                    }
-                }
-            }
-            Some(Id::Module(module_id_ref)) => {
-                if let Some(module_id) = working_set.find_module(name.as_bytes()) {
-                    if module_id == *module_id_ref {
-                        return Some(Id::Module(module_id));
-                    }
-                }
-            }
-            None => {
-                if let Some(var_id) = working_set.find_variable(name.as_bytes()) {
-                    return Some(Id::Variable(var_id));
-                }
-                if let Some(decl_id) = working_set.find_decl(name.as_bytes()) {
-                    return Some(Id::Declaration(decl_id));
-                }
-                if let Some(module_id) = working_set.find_module(name.as_bytes()) {
-                    return Some(Id::Module(module_id));
-                }
-            }
-            _ => (),
-        }
-        None
+    let find_by_name = |name: &[u8]| match id {
+        Some(Id::Variable(var_id_ref)) => working_set
+            .find_variable(name)
+            .and_then(|var_id| (var_id == *var_id_ref).then_some(Id::Variable(var_id))),
+        Some(Id::Declaration(decl_id_ref)) => working_set
+            .find_decl(name)
+            .and_then(|decl_id| (decl_id == *decl_id_ref).then_some(Id::Declaration(decl_id))),
+        Some(Id::Module(module_id_ref)) => working_set
+            .find_module(name)
+            .and_then(|module_id| (module_id == *module_id_ref).then_some(Id::Module(module_id))),
+        None => working_set
+            .find_variable(name)
+            .map(Id::Variable)
+            .or(working_set.find_decl(name).map(Id::Declaration))
+            .or(working_set.find_module(name).map(Id::Module)),
+        _ => None,
     };
     let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
     let get_module_id = |span: Span| {
@@ -330,8 +309,7 @@ fn try_find_id_in_use(
         let name = String::from_utf8_lossy(working_set.get_span_contents(span));
         let path = PathBuf::from(name.as_ref());
         let stem = path.file_stem().and_then(|fs| fs.to_str()).unwrap_or(&name);
-        let module_id = working_set.find_module(stem.as_bytes())?;
-        let found_id = Id::Module(module_id);
+        let found_id = Id::Module(working_set.find_module(stem.as_bytes())?);
         id.map_or(true, |id_r| found_id == *id_r)
             .then_some((found_id, span))
     };
@@ -359,7 +337,7 @@ fn try_find_id_in_use(
                 .and_then(|e| {
                     let name = e.as_string()?;
                     Some((
-                        find_by_name(&name)?,
+                        find_by_name(name.as_bytes())?,
                         strip_quotes(item_expr.span, working_set),
                     ))
                 })
@@ -367,31 +345,25 @@ fn try_find_id_in_use(
     };
 
     // the imported name is always at the second argument
-    if let Argument::Positional(expr) = call.arguments.get(1)? {
-        if check_location(&expr.span) {
-            match &expr.expr {
-                Expr::String(name) => {
-                    if let Some(id) = find_by_name(name) {
-                        return Some((id, strip_quotes(expr.span, working_set)));
-                    }
-                }
-                Expr::List(items) => {
-                    if let Some(res) = search_in_list_items(items) {
-                        return Some(res);
-                    }
-                }
-                Expr::FullCellPath(fcp) => {
-                    if let Expr::List(items) = &fcp.head.expr {
-                        if let Some(res) = search_in_list_items(items) {
-                            return Some(res);
-                        }
-                    }
-                }
-                _ => (),
-            }
-        }
+    let Argument::Positional(expr) = call.arguments.get(1)? else {
+        return None;
+    };
+    if !check_location(&expr.span) {
+        return None;
     }
-    None
+    match &expr.expr {
+        Expr::String(name) => {
+            find_by_name(name.as_bytes()).map(|id| (id, strip_quotes(expr.span, working_set)))
+        }
+        Expr::List(items) => search_in_list_items(items),
+        Expr::FullCellPath(fcp) => {
+            let Expr::List(items) = &fcp.head.expr else {
+                return None;
+            };
+            search_in_list_items(items)
+        }
+        _ => None,
+    }
 }
 
 fn find_id_in_expr(
@@ -483,6 +455,7 @@ fn find_reference_by_id_in_expr(
             if let Id::Declaration(decl_id) = id {
                 if *decl_id == call.decl_id {
                     occurs.push(call.head);
+                    return Some(occurs);
                 }
             }
             if let Some((_, span_found)) = try_find_id_in_def(call, working_set, None, Some(id))

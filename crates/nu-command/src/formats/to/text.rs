@@ -1,8 +1,6 @@
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
-use nu_protocol::{
-    format_duration, format_filesize_from_conf, ByteStream, Config, PipelineMetadata,
-};
+use nu_protocol::{format_duration, ByteStream, Config, PipelineMetadata};
 use std::io::Write;
 
 const LINE_ENDING: &str = if cfg!(target_os = "windows") {
@@ -170,7 +168,7 @@ fn local_into_string(
         Value::Bool { val, .. } => val.to_string(),
         Value::Int { val, .. } => val.to_string(),
         Value::Float { val, .. } => val.to_string(),
-        Value::Filesize { val, .. } => format_filesize_from_conf(val, config),
+        Value::Filesize { val, .. } => config.filesize.display(val).to_string(),
         Value::Duration { val, .. } => format_duration(val),
         Value::Date { val, .. } => {
             format!("{} ({})", val.to_rfc2822(), HumanTime::from(val))

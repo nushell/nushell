@@ -404,6 +404,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             HttpPut,
             HttpOptions,
             Port,
+            VersionCheck,
         }
         bind_command! {
             Url,
