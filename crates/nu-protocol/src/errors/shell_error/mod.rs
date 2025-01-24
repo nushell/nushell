@@ -962,6 +962,7 @@ pub enum ShellError {
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("I/O error")]
     #[diagnostic(code(nu::shell::io_error))]
+    #[deprecated]
     IOErrorSpanned {
         msg: String,
         #[label("{msg}")]

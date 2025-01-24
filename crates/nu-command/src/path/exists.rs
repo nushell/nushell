@@ -2,7 +2,7 @@ use super::PathSubcommandArguments;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, current_dir_const};
 use nu_path::expand_path_with;
-use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::{engine::StateWorkingSet, shell_error::io::IoError};
 use std::path::{Path, PathBuf};
 
 struct Arguments {
@@ -140,7 +140,7 @@ fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
         // symlink_metadata returns true if the file/folder exists
         // whether it is a symbolic link or not. Sorry, but returns Err
         // in every other scenario including the NotFound
-        std::fs::symlink_metadata(path).map_or_else(
+        std::fs::symlink_metadata(&path).map_or_else(
             |e| match e.kind() {
                 std::io::ErrorKind::NotFound => Ok(false),
                 _ => Err(e),
@@ -155,10 +155,7 @@ fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
             Ok(exists) => exists,
             Err(err) => {
                 return Value::error(
-                    ShellError::IOErrorSpanned {
-                        msg: err.to_string(),
-                        span,
-                    },
+                    IoError::new(err.kind(), span, path).into(),
                     span,
                 )
             }

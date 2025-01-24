@@ -109,10 +109,7 @@ impl Command for Mktemp {
             Ok(res) => {
                 res.into_os_string()
                     .into_string()
-                    .map_err(|e| ShellError::IOErrorSpanned {
-                        msg: e.to_string_lossy().to_string(),
-                        span,
-                    })?
+                    .map_err(|_| ShellError::NonUtf8 { span })?
             }
             Err(e) => {
                 return Err(ShellError::GenericError {

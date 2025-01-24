@@ -1,7 +1,7 @@
 use nu_engine::{command_prelude::*, find_in_dirs_env, get_dirs_var_from_call};
 use nu_parser::{parse, parse_module_block, parse_module_file_or_dir, unescape_unquote_string};
-use nu_protocol::engine::{FileStack, StateWorkingSet};
-use std::path::Path;
+use nu_protocol::{engine::{FileStack, StateWorkingSet}, shell_error::io::IoError};
+use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
 pub struct NuCheck;
@@ -258,13 +258,9 @@ fn parse_file_script(
 ) -> Result<PipelineData, ShellError> {
     let filename = check_path(working_set, path_span, call_head)?;
 
-    if let Ok(contents) = std::fs::read(path) {
-        parse_script(working_set, Some(&filename), &contents, is_debug, call_head)
-    } else {
-        Err(ShellError::IOErrorSpanned {
-            msg: "Could not read path".to_string(),
-            span: path_span,
-        })
+    match std::fs::read(path) {
+        Ok(contents) => parse_script(working_set, Some(&filename), &contents, is_debug, call_head),
+        Err(err) => Err(ShellError::Io(IoError::new(err.kind(), path_span, PathBuf::from(path))))
     }
 }
 
