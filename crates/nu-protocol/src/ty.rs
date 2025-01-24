@@ -25,7 +25,6 @@ pub enum Type {
     Number,
     Range,
     Record(Box<[(String, Type)]>),
-    Signature,
     String,
     Glob,
     Table(Box<[(String, Type)]>),
@@ -124,7 +123,6 @@ impl Type {
             Type::Error => SyntaxShape::Any,
             Type::Binary => SyntaxShape::Binary,
             Type::Custom(_) => SyntaxShape::Any,
-            Type::Signature => SyntaxShape::Signature,
             Type::Glob => SyntaxShape::GlobPattern,
         }
     }
@@ -152,7 +150,6 @@ impl Type {
             Type::Error => String::from("error"),
             Type::Binary => String::from("binary"),
             Type::Custom(_) => String::from("custom"),
-            Type::Signature => String::from("signature"),
             Type::Glob => String::from("glob"),
         }
     }
@@ -208,7 +205,6 @@ impl Display for Type {
             Type::Error => write!(f, "error"),
             Type::Binary => write!(f, "binary"),
             Type::Custom(custom) => write!(f, "{custom}"),
-            Type::Signature => write!(f, "signature"),
             Type::Glob => write!(f, "glob"),
         }
     }

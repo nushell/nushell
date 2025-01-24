@@ -176,7 +176,7 @@ impl SyntaxShape {
             SyntaxShape::Record(entries) => Type::Record(mk_ty(entries)),
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Boolean => Type::Bool,
-            SyntaxShape::Signature => Type::Signature,
+            SyntaxShape::Signature => Type::Any,
             SyntaxShape::String => Type::String,
             SyntaxShape::Table(columns) => Type::Table(mk_ty(columns)),
             SyntaxShape::VarWithOptType => Type::Any,
