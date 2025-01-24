@@ -1064,6 +1064,7 @@ pub enum ShellError {
     /// Removal can fail for a number of reasons, such as permissions problems. Refer to the specific error message for more details.
     #[error("Remove not possible")]
     #[diagnostic(code(nu::shell::remove_not_possible))]
+    #[deprecated]
     RemoveNotPossible {
         msg: String,
         #[label("{msg}")]

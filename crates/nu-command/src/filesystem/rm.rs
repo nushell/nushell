@@ -425,8 +425,7 @@ fn rm(
                 };
 
                 if let Err(e) = result {
-                    let msg = format!("Could not delete {:}: {e:}", f.to_string_lossy());
-                    Err(ShellError::RemoveNotPossible { msg, span })
+                    Err(ShellError::Io(IoError::new(e.kind(), span, f)))
                 } else if verbose {
                     let msg = if interactive && !confirmed {
                         "not deleted"
