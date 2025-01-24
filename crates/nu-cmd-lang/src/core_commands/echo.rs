@@ -43,6 +43,25 @@ little reason to use this over just writing the values as-is."#
         Ok(value.into_pipeline_data())
     }
 
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let mut args = call.rest_const(working_set, 0)?;
+        let value = match args.len() {
+            0 => Value::string("", call.head),
+            1 => args.pop().expect("one element"),
+            _ => Value::list(args, call.head),
+        };
+        Ok(value.into_pipeline_data())
+    }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
