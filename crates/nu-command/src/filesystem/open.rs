@@ -1,7 +1,11 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, get_eval_block};
-use nu_protocol::{ast, shell_error::io::IoError, DataSource, NuGlob, PipelineMetadata};
-use std::path::Path;
+use nu_protocol::{
+    ast,
+    shell_error::{self, io::IoError},
+    DataSource, NuGlob, PipelineMetadata,
+};
+use std::path::{Path, PathBuf};
 
 #[cfg(feature = "sqlite")]
 use crate::database::SQLiteDatabase;
@@ -99,24 +103,26 @@ impl Command for Open {
                 let path = Path::new(&path);
 
                 if permission_denied(path) {
+                    let err = IoError::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        arg_span,
+                        PathBuf::from(path),
+                    );
+
                     #[cfg(unix)]
-                    let error_msg = match path.metadata() {
-                        Ok(md) => format!(
-                            "The permissions of {:o} does not allow access for this user",
-                            md.permissions().mode() & 0o0777
-                        ),
-                        Err(e) => e.to_string(),
+                    let err = {
+                        let mut err = err;
+                        err.additional_context = Some(match path.metadata() {
+                            Ok(md) => format!(
+                                "The permissions of {:o} does not allow access for this user",
+                                md.permissions().mode() & 0o0777
+                            ),
+                            Err(e) => e.to_string(),
+                        });
+                        err
                     };
 
-                    #[cfg(not(unix))]
-                    let error_msg = String::from("Permission denied");
-                    return Err(ShellError::GenericError {
-                        error: "Permission denied".into(),
-                        msg: error_msg,
-                        span: Some(arg_span),
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(err.into());
                 } else {
                     #[cfg(feature = "sqlite")]
                     if !raw {
@@ -132,18 +138,18 @@ impl Command for Open {
                         }
                     }
 
-                    let file = match std::fs::File::open(path) {
-                        Ok(file) => file,
-                        Err(err) => {
-                            return Err(ShellError::GenericError {
-                                error: "Permission denied".into(),
-                                msg: err.to_string(),
-                                span: Some(arg_span),
-                                help: None,
-                                inner: vec![],
-                            });
-                        }
-                    };
+                    if path.is_dir() {
+                        // At least under this windows this check ensures that we don't get a
+                        // permission denied error on directories
+                        return Err(ShellError::Io(IoError::new(
+                            shell_error::io::ErrorKind::IsADirectory,
+                            arg_span,
+                            PathBuf::from(path),
+                        )));
+                    }
+
+                    let file = std::fs::File::open(path)
+                        .map_err(|err| IoError::new(err.kind(), arg_span, PathBuf::from(path)))?;
 
                     // No content_type by default - Is added later if no converter is found
                     let stream = PipelineData::ByteStream(

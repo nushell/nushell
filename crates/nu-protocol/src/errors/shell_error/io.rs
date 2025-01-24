@@ -45,6 +45,9 @@ pub enum ErrorKind {
     NotADirectory,
     #[error("not a file")]
     NotAFile,
+    // TODO: in Rust 1.83 this can be std::io::ErrorKind::IsADirectory
+    #[error("is a directory")]
+    IsADirectory,
 }
 
 impl IoError {
@@ -101,6 +104,7 @@ impl Diagnostic for IoError {
             },
             ErrorKind::NotADirectory => code.push_str("not_a_directory"),
             ErrorKind::NotAFile => code.push_str("not_a_file"),
+            ErrorKind::IsADirectory => code.push_str("is_a_directory"),
         }
 
         Some(Box::new(code))
