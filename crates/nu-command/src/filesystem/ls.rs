@@ -254,10 +254,12 @@ fn ls_for_one_pattern(
         if let Some(path) = pattern_arg {
             // it makes no sense to list an empty string.
             if path.item.as_ref().is_empty() {
-                return Err(ShellError::FileNotFoundCustom {
-                    msg: "empty string('') directory or file does not exist".to_string(),
-                    span: path.span,
-                });
+                return Err(ShellError::Io(IoError::new_with_additional_context(
+                    std::io::ErrorKind::NotFound,
+                    path.span,
+                    PathBuf::from(path.item.to_string()),
+                    "empty string('') directory or file does not exist",
+                )));
             }
             match path.item {
                 NuGlob::DoNotExpand(p) => Some(Spanned {

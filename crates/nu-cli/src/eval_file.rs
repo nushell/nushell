@@ -7,9 +7,11 @@ use nu_protocol::{
     cli_error::report_compile_error,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_parse_error, report_parse_warning, PipelineData, ShellError, Span, Value,
+    report_parse_error, report_parse_warning,
+    shell_error::io::IoError,
+    PipelineData, ShellError, Span, Value,
 };
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 /// Entry point for evaluating a file.
 ///
@@ -24,11 +26,14 @@ pub fn evaluate_file(
 ) -> Result<(), ShellError> {
     let cwd = engine_state.cwd_as_string(Some(stack))?;
 
-    let file_path =
-        canonicalize_with(&path, cwd).map_err(|err| ShellError::FileNotFoundCustom {
-            msg: format!("Could not access file '{path}': {err}"),
-            span: Span::unknown(),
-        })?;
+    let file_path = canonicalize_with(&path, cwd).map_err(|err| {
+        IoError::new_with_additional_context(
+            err.kind(),
+            Span::unknown(),
+            PathBuf::from(&path),
+            "Could not access file",
+        )
+    })?;
 
     let file_path_str = file_path
         .to_str()
@@ -40,18 +45,24 @@ pub fn evaluate_file(
             span: Span::unknown(),
         })?;
 
-    let file = std::fs::read(&file_path).map_err(|err| ShellError::FileNotFoundCustom {
-        msg: format!("Could not read file '{file_path_str}': {err}"),
-        span: Span::unknown(),
+    let file = std::fs::read(&file_path).map_err(|err| {
+        IoError::new_with_additional_context(
+            err.kind(),
+            Span::unknown(),
+            file_path.clone(),
+            "Could not read file",
+        )
     })?;
     engine_state.file = Some(file_path.clone());
 
-    let parent = file_path
-        .parent()
-        .ok_or_else(|| ShellError::FileNotFoundCustom {
-            msg: format!("The file path '{file_path_str}' does not have a parent"),
-            span: Span::unknown(),
-        })?;
+    let parent = file_path.parent().ok_or_else(|| {
+        IoError::new_with_additional_context(
+            std::io::ErrorKind::NotFound,
+            Span::unknown(),
+            file_path.clone(),
+            "The file path does not have a parent",
+        )
+    })?;
 
     stack.add_env_var(
         "FILE_PWD".to_string(),
