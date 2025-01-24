@@ -423,7 +423,7 @@ impl LanguageServer {
         }
     }
 
-    fn get_decl_describtion(decl: &dyn Command) -> String {
+    fn get_decl_description(decl: &dyn Command) -> String {
         let mut description = String::new();
 
         // First description
@@ -601,7 +601,7 @@ impl LanguageServer {
                 markdown_hover(contents)
             }
             Id::Declaration(decl_id) => {
-                markdown_hover(Self::get_decl_describtion(working_set.get_decl(decl_id)))
+                markdown_hover(Self::get_decl_description(working_set.get_decl(decl_id)))
             }
             Id::Module(module_id) => {
                 let mut description = String::new();
@@ -657,7 +657,7 @@ impl LanguageServer {
                             .extra
                             .map(|ex| ex.join("\n"))
                             .or(decl_id.map(|decl_id| {
-                                Self::get_decl_describtion(engine_state.get_decl(decl_id))
+                                Self::get_decl_description(engine_state.get_decl(decl_id))
                             }))
                             .map(|value| {
                                 Documentation::MarkupContent(MarkupContent {
