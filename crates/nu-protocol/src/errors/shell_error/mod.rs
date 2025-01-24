@@ -4,8 +4,10 @@ use crate::{
 };
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
-use std::{io, num::NonZeroI32};
+use std::num::NonZeroI32;
 use thiserror::Error;
+
+pub mod io;
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -924,6 +926,10 @@ pub enum ShellError {
         span: Span,
     },
 
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Io(io::IoError),
+
     /// I/O operation interrupted.
     ///
     /// ## Resolution
@@ -931,6 +937,7 @@ pub enum ShellError {
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("I/O interrupted")]
     #[diagnostic(code(nu::shell::io_interrupted))]
+    #[deprecated]
     IOInterrupted {
         msg: String,
         #[label("{msg}")]
@@ -944,6 +951,7 @@ pub enum ShellError {
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("I/O error")]
     #[diagnostic(code(nu::shell::io_error), help("{msg}"))]
+    #[deprecated]
     IOError { msg: String },
 
     /// An I/O operation failed.
@@ -966,6 +974,7 @@ pub enum ShellError {
     /// Make sure the path is a directory. It currently exists, but is of some other type, like a file.
     #[error("Cannot change to directory")]
     #[diagnostic(code(nu::shell::cannot_cd_to_directory))]
+    #[deprecated]
     NotADirectory {
         #[label("is not a directory")]
         span: Span,
@@ -993,6 +1002,7 @@ pub enum ShellError {
     /// Make sure the destination path does not exist before moving a directory.
     #[error("Move not possible")]
     #[diagnostic(code(nu::shell::move_not_possible))]
+    #[deprecated]
     MoveNotPossible {
         source_message: String,
         #[label("{source_message}")]
@@ -1531,9 +1541,9 @@ impl ShellError {
     }
 }
 
-impl From<io::Error> for ShellError {
-    fn from(error: io::Error) -> ShellError {
-        if error.kind() == io::ErrorKind::Other {
+impl From<std::io::Error> for ShellError {
+    fn from(error: std::io::Error) -> ShellError {
+        if error.kind() == std::io::ErrorKind::Other {
             match error.into_inner() {
                 Some(err) => match err.downcast() {
                     Ok(err) => *err,
@@ -1553,11 +1563,11 @@ impl From<io::Error> for ShellError {
     }
 }
 
-impl From<Spanned<io::Error>> for ShellError {
-    fn from(error: Spanned<io::Error>) -> Self {
+impl From<Spanned<std::io::Error>> for ShellError {
+    fn from(error: Spanned<std::io::Error>) -> Self {
         let Spanned { item: error, span } = error;
         match error.kind() {
-            io::ErrorKind::Other => match error.into_inner() {
+            std::io::ErrorKind::Other => match error.into_inner() {
                 Some(err) => match err.downcast() {
                     Ok(err) => *err,
                     Err(err) => Self::IOErrorSpanned {
@@ -1570,7 +1580,7 @@ impl From<Spanned<io::Error>> for ShellError {
                     span,
                 },
             },
-            io::ErrorKind::TimedOut => Self::NetworkFailure {
+            std::io::ErrorKind::TimedOut => Self::NetworkFailure {
                 msg: error.to_string(),
                 span,
             },
@@ -1582,24 +1592,32 @@ impl From<Spanned<io::Error>> for ShellError {
     }
 }
 
-impl From<ShellError> for io::Error {
+impl From<ShellError> for std::io::Error {
     fn from(error: ShellError) -> Self {
-        io::Error::new(io::ErrorKind::Other, error)
+        std::io::Error::new(std::io::ErrorKind::Other, error)
     }
 }
 
 impl From<Box<dyn std::error::Error>> for ShellError {
     fn from(error: Box<dyn std::error::Error>) -> ShellError {
-        ShellError::IOError {
+        ShellError::GenericError {
+            error: format!("{error:?}"),
             msg: error.to_string(),
+            span: None,
+            help: None,
+            inner: vec![],
         }
     }
 }
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
     fn from(error: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
-        ShellError::IOError {
-            msg: format!("{error:?}"),
+        ShellError::GenericError {
+            error: format!("{error:?}"),
+            msg: error.to_string(),
+            span: None,
+            help: None,
+            inner: vec![],
         }
     }
 }
