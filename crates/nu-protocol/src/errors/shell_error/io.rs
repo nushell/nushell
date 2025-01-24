@@ -33,8 +33,16 @@ pub struct IoError {
     ///
     /// Only set this field if it adds meaningful context.
     /// If [`ErrorKind`] already contains all the necessary information, leave this as [`None`].
-    pub additional_context: Option<String>,
+    pub additional_context: Option<AdditionalContext>,
 }
+
+/// Provides additional context for an [`IoError`].
+///
+/// This newtype exists solely to implement [`Error`] and [`Diagnostic`], enhancing the layout of
+/// error reports for I/O errors.
+#[derive(Debug, Clone, Error, Diagnostic, PartialEq, Eq)]
+#[error("{0}")]
+pub struct AdditionalContext(pub String);
 
 #[derive(Debug, Clone, Copy, PartialEq, Error)]
 pub enum ErrorKind {
@@ -70,7 +78,7 @@ impl IoError {
             kind: kind.into(),
             span,
             path: path.into(),
-            additional_context: Some(additional_context.to_string()),
+            additional_context: Some(AdditionalContext(additional_context.to_string())),
         }
     }
 }
@@ -118,20 +126,14 @@ impl Diagnostic for IoError {
     }
 
     fn labels(&self) -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>> {
-        let mut labels = vec![];
-        labels.push(LabeledSpan::new_with_span(
-            self.kind.to_string().into(),
-            self.span,
-        ));
+        let label = LabeledSpan::new_with_span(self.kind.to_string().into(), self.span);
+        Some(Box::new(std::iter::once(label)))
+    }
 
-        if let Some(ctx) = &self.additional_context {
-            labels.push(LabeledSpan::new_with_span(
-                ctx.to_string().into(),
-                self.span,
-            ));
-        }
-
-        Some(Box::new(labels.into_iter()))
+    fn diagnostic_source(&self) -> Option<&dyn Diagnostic> {
+        self.additional_context
+            .as_ref()
+            .map(|diagnostic| diagnostic as &dyn Diagnostic)
     }
 }
 
