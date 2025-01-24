@@ -1,4 +1,4 @@
-use miette::Diagnostic;
+use miette::{Diagnostic, LabeledSpan};
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -36,11 +36,14 @@ pub struct IoError {
     pub additional_context: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Error)]
 pub enum ErrorKind {
+    #[error("{0}")]
     Std(std::io::ErrorKind),
     // TODO: in Rust 1.83 this can be std::io::ErrorKind::NotADirectory
+    #[error("not a directory")]
     NotADirectory,
+    #[error("not a file")]
     NotAFile,
 }
 
@@ -71,7 +74,60 @@ impl IoError {
 
 impl Diagnostic for IoError {
     fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
-        todo!()
+        let mut code = String::from("nu::shell::io::");
+        match self.kind {
+            ErrorKind::Std(error_kind) => match error_kind {
+                std::io::ErrorKind::NotFound => code.push_str("not_found"),
+                std::io::ErrorKind::PermissionDenied => code.push_str("permission_denied"),
+                std::io::ErrorKind::ConnectionRefused => code.push_str("connection_refused"),
+                std::io::ErrorKind::ConnectionReset => code.push_str("connection_reset"),
+                std::io::ErrorKind::ConnectionAborted => code.push_str("connection_aborted"),
+                std::io::ErrorKind::NotConnected => code.push_str("not_connected"),
+                std::io::ErrorKind::AddrInUse => code.push_str("addr_in_use"),
+                std::io::ErrorKind::AddrNotAvailable => code.push_str("addr_not_available"),
+                std::io::ErrorKind::BrokenPipe => code.push_str("broken_pipe"),
+                std::io::ErrorKind::AlreadyExists => code.push_str("already_exists"),
+                std::io::ErrorKind::WouldBlock => code.push_str("would_block"),
+                std::io::ErrorKind::InvalidInput => code.push_str("invalid_input"),
+                std::io::ErrorKind::InvalidData => code.push_str("invalid_data"),
+                std::io::ErrorKind::TimedOut => code.push_str("timed_out"),
+                std::io::ErrorKind::WriteZero => code.push_str("write_zero"),
+                std::io::ErrorKind::Interrupted => code.push_str("interrupted"),
+                std::io::ErrorKind::Unsupported => code.push_str("unsupported"),
+                std::io::ErrorKind::UnexpectedEof => code.push_str("unexpected_eof"),
+                std::io::ErrorKind::OutOfMemory => code.push_str("out_of_memory"),
+                std::io::ErrorKind::Other => code.push_str("other"),
+                _ => code.push_str("unknown"),
+            },
+            ErrorKind::NotADirectory => code.push_str("not_a_directory"),
+            ErrorKind::NotAFile => code.push_str("not_a_file"),
+        }
+
+        Some(Box::new(code))
+    }
+
+    fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        self.path
+            .as_ref()
+            .map(|path| format!("The error occurred at '{}'", path.display()))
+            .map(|s| Box::new(s) as Box<dyn std::fmt::Display>)
+    }
+
+    fn labels(&self) -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>> {
+        let mut labels = vec![];
+        labels.push(LabeledSpan::new_with_span(
+            self.kind.to_string().into(),
+            self.span,
+        ));
+
+        if let Some(ctx) = &self.additional_context {
+            labels.push(LabeledSpan::new_with_span(
+                ctx.to_string().into(),
+                self.span,
+            ));
+        }
+
+        Some(Box::new(labels.into_iter()))
     }
 }
 
