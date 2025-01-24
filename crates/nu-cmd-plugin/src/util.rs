@@ -50,10 +50,11 @@ pub(crate) fn read_plugin_file(
             Some(file_span),
         )
     } else if let Some(path) = custom_path {
-        Err(ShellError::FileNotFound {
-            file: path.item.clone(),
-            span: path.span,
-        })
+        Err(ShellError::Io(IoError::new(
+            std::io::ErrorKind::NotFound,
+            path.span,
+            PathBuf::from(&path.item),
+        )))
     } else {
         Ok(PluginRegistryFile::default())
     }

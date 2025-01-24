@@ -92,17 +92,15 @@ impl Command for NuCheck {
                         stack,
                         get_dirs_var_from_call(stack, call),
                     ) {
-                        Ok(path) => {
-                            if let Some(path) = path {
-                                path
-                            } else {
-                                return Err(ShellError::FileNotFound {
-                                    file: path_str.item,
-                                    span: path_span,
-                                });
-                            }
+                        Ok(Some(path)) => path,
+                        Ok(None) => {
+                            return Err(ShellError::Io(IoError::new(
+                                std::io::ErrorKind::NotFound,
+                                path_span,
+                                PathBuf::from(path_str.item),
+                            )))
                         }
-                        Err(error) => return Err(error),
+                        Err(err) => return Err(err),
                     };
 
                     let result = if as_module || path.is_dir() {
