@@ -4,7 +4,10 @@ use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::Span;
 
 impl LanguageServer {
-    pub fn find_definition_span_by_id(working_set: &StateWorkingSet, id: &Id) -> Option<Span> {
+    pub(crate) fn find_definition_span_by_id(
+        working_set: &StateWorkingSet,
+        id: &Id,
+    ) -> Option<Span> {
         match id {
             Id::Declaration(decl_id) => {
                 let block_id = working_set.get_decl(*decl_id).block_id()?;
@@ -22,7 +25,7 @@ impl LanguageServer {
         }
     }
 
-    pub fn goto_definition(
+    pub(crate) fn goto_definition(
         &mut self,
         params: &GotoDefinitionParams,
     ) -> Option<GotoDefinitionResponse> {
@@ -54,8 +57,8 @@ mod tests {
     use crate::tests::{initialize_language_server, open_unchecked};
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
-    use lsp_types::request::{GotoDefinition, Request};
     use lsp_types::{
+        request::{GotoDefinition, Request},
         GotoDefinitionParams, PartialResultParams, Position, TextDocumentIdentifier,
         TextDocumentPositionParams, Uri, WorkDoneProgressParams,
     };
