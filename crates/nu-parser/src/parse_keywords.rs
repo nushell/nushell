@@ -2259,7 +2259,7 @@ pub fn parse_module(
     module_comments.extend(inner_comments);
     let module_id = working_set.add_module(&module_name, module, module_comments);
 
-    let block_expr = Expression::new(working_set, Expr::Block(block_id), block_span, Type::Block);
+    let block_expr = Expression::new(working_set, Expr::Block(block_id), block_span, Type::Any);
 
     let module_decl_id = working_set
         .find_decl(b"module")
