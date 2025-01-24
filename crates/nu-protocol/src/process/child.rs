@@ -1,4 +1,6 @@
-use crate::{byte_stream::convert_file, shell_error::io::IoError, ErrSpan, IntoSpanned, ShellError, Span};
+use crate::{
+    byte_stream::convert_file, shell_error::io::IoError, ErrSpan, IntoSpanned, ShellError, Span,
+};
 use nu_system::{ExitStatus, ForegroundChild};
 use os_pipe::PipeReader;
 use std::{
@@ -74,13 +76,18 @@ impl ExitStatusFuture {
                         Ok(status)
                     }
                     Ok(Ok(status)) => Ok(status),
-                    Ok(Err(err)) => Err(ShellError::Io(IoError::new_with_additional_context(err.kind(), span, None, "failed to get exit code"))),
-                    Err(err @ RecvError) => Err(ShellError::GenericError { 
-                        error: err.to_string(), 
-                        msg: "failed to get exit code".into(), 
-                        span: span.into(), 
-                        help: None, 
-                        inner: vec![] 
+                    Ok(Err(err)) => Err(ShellError::Io(IoError::new_with_additional_context(
+                        err.kind(),
+                        span,
+                        None,
+                        "failed to get exit code",
+                    ))),
+                    Err(err @ RecvError) => Err(ShellError::GenericError {
+                        error: err.to_string(),
+                        msg: "failed to get exit code".into(),
+                        span: span.into(),
+                        help: None,
+                        inner: vec![],
                     }),
                 };
 
@@ -98,19 +105,19 @@ impl ExitStatusFuture {
             ExitStatusFuture::Running(receiver) => {
                 let code = match receiver.try_recv() {
                     Ok(Ok(status)) => Ok(Some(status)),
-                    Ok(Err(err)) => Err(ShellError::GenericError { 
-                        error: err.to_string(), 
-                        msg: "failed to get exit code".to_string(), 
-                        span: span.into(), 
-                        help: None, 
-                        inner: vec![] 
+                    Ok(Err(err)) => Err(ShellError::GenericError {
+                        error: err.to_string(),
+                        msg: "failed to get exit code".to_string(),
+                        span: span.into(),
+                        help: None,
+                        inner: vec![],
                     }),
-                    Err(TryRecvError::Disconnected) => Err(ShellError::GenericError { 
-                        error: "receiver disconnected".to_string(), 
-                        msg: "failed to get exit code".into(), 
-                        span: span.into(), 
-                        help: None, 
-                        inner: vec![] 
+                    Err(TryRecvError::Disconnected) => Err(ShellError::GenericError {
+                        error: "receiver disconnected".to_string(),
+                        msg: "failed to get exit code".into(),
+                        span: span.into(),
+                        help: None,
+                        inner: vec![],
                     }),
                     Err(TryRecvError::Empty) => Ok(None),
                 };
@@ -220,12 +227,12 @@ impl ChildProcess {
     pub fn into_bytes(mut self) -> Result<Vec<u8>, ShellError> {
         if self.stderr.is_some() {
             debug_assert!(false, "stderr should not exist");
-            return Err(ShellError::GenericError { 
-                error: "internal error".into(), 
-                msg: "stderr should not exist".into(), 
-                span: self.span.into(), 
-                help: None, 
-                inner: vec![] 
+            return Err(ShellError::GenericError {
+                error: "internal error".into(),
+                msg: "stderr should not exist".into(),
+                span: self.span.into(),
+                help: None,
+                inner: vec![],
             });
         }
 

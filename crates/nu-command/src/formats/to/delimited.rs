@@ -1,7 +1,8 @@
 use csv::WriterBuilder;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_protocol::{
-    shell_error::io::IoError, ByteStream, ByteStreamType, Config, PipelineData, ShellError, Signals, Span, Spanned, Value
+    shell_error::io::IoError, ByteStream, ByteStreamType, Config, PipelineData, ShellError,
+    Signals, Span, Spanned, Value,
 };
 use std::{iter, sync::Arc};
 

@@ -1,6 +1,9 @@
 use nu_engine::{command_prelude::*, find_in_dirs_env, get_dirs_var_from_call};
 use nu_parser::{parse, parse_module_block, parse_module_file_or_dir, unescape_unquote_string};
-use nu_protocol::{engine::{FileStack, StateWorkingSet}, shell_error::io::IoError};
+use nu_protocol::{
+    engine::{FileStack, StateWorkingSet},
+    shell_error::io::IoError,
+};
 use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
@@ -260,7 +263,11 @@ fn parse_file_script(
 
     match std::fs::read(path) {
         Ok(contents) => parse_script(working_set, Some(&filename), &contents, is_debug, call_head),
-        Err(err) => Err(ShellError::Io(IoError::new(err.kind(), path_span, PathBuf::from(path))))
+        Err(err) => Err(ShellError::Io(IoError::new(
+            err.kind(),
+            path_span,
+            PathBuf::from(path),
+        ))),
     }
 }
 

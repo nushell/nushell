@@ -989,6 +989,7 @@ pub enum ShellError {
     /// Make sure the directory in the error message actually exists before trying again.
     #[error("Directory not found")]
     #[diagnostic(code(nu::shell::directory_not_found), help("{dir} does not exist"))]
+    #[deprecated]
     DirectoryNotFound {
         dir: String,
         #[label("directory not found")]

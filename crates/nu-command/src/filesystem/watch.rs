@@ -9,6 +9,7 @@ use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::{
     engine::{Closure, StateWorkingSet},
     format_shell_error,
+    shell_error::io::IoError,
 };
 use std::{
     path::PathBuf,
@@ -83,11 +84,12 @@ impl Command for Watch {
 
         let path = match nu_path::canonicalize_with(path_no_whitespace, cwd) {
             Ok(p) => p,
-            Err(_) => {
-                return Err(ShellError::DirectoryNotFound {
-                    dir: path_no_whitespace.to_string(),
-                    span: path_arg.span,
-                })
+            Err(err) => {
+                return Err(ShellError::Io(IoError::new(
+                    err.kind(),
+                    path_arg.span,
+                    PathBuf::from(path_no_whitespace),
+                )))
             }
         };
 

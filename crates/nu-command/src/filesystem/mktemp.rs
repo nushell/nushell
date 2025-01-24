@@ -106,11 +106,10 @@ impl Command for Mktemp {
         };
 
         let res = match uu_mktemp::mktemp(&options) {
-            Ok(res) => {
-                res.into_os_string()
-                    .into_string()
-                    .map_err(|_| ShellError::NonUtf8 { span })?
-            }
+            Ok(res) => res
+                .into_os_string()
+                .into_string()
+                .map_err(|_| ShellError::NonUtf8 { span })?,
             Err(e) => {
                 return Err(ShellError::GenericError {
                     error: format!("{}", e),

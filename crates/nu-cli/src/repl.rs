@@ -847,10 +847,12 @@ fn do_auto_cd(
         if !path.exists() {
             report_shell_error(
                 engine_state,
-                &ShellError::DirectoryNotFound {
-                    dir: path.to_string_lossy().to_string(),
+                &ShellError::Io(IoError::new_with_additional_context(
+                    std::io::ErrorKind::NotFound,
                     span,
-                },
+                    PathBuf::from(&path),
+                    "Cannot change directory",
+                )),
             );
         }
         path.to_string_lossy().to_string()

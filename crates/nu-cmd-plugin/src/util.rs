@@ -45,8 +45,8 @@ pub(crate) fn read_plugin_file(
     // Try to read the plugin file if it exists
     if fs::metadata(&plugin_registry_file_path).is_ok_and(|m| m.len() > 0) {
         PluginRegistryFile::read_from(
-
-            File::open(&plugin_registry_file_path).map_err(|err| IoError::new(err.kind(), file_span, plugin_registry_file_path))?,
+            File::open(&plugin_registry_file_path)
+                .map_err(|err| IoError::new(err.kind(), file_span, plugin_registry_file_path))?,
             Some(file_span),
         )
     } else if let Some(path) = custom_path {
@@ -74,7 +74,9 @@ pub(crate) fn modify_plugin_file(
     // Try to read the plugin file if it exists
     let mut contents = if fs::metadata(&plugin_registry_file_path).is_ok_and(|m| m.len() > 0) {
         PluginRegistryFile::read_from(
-            File::open(&plugin_registry_file_path).map_err(|err| IoError::new(err.kind(), file_span, plugin_registry_file_path.clone()))?,
+            File::open(&plugin_registry_file_path).map_err(|err| {
+                IoError::new(err.kind(), file_span, plugin_registry_file_path.clone())
+            })?,
             Some(file_span),
         )?
     } else {
@@ -86,7 +88,8 @@ pub(crate) fn modify_plugin_file(
 
     // Save the modified file on success
     contents.write_to(
-        File::create(&plugin_registry_file_path).map_err(|err| IoError::new(err.kind(), file_span, plugin_registry_file_path))?,
+        File::create(&plugin_registry_file_path)
+            .map_err(|err| IoError::new(err.kind(), file_span, plugin_registry_file_path))?,
         Some(span),
     )?;
 

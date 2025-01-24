@@ -1,6 +1,6 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, get_eval_block};
-use nu_protocol::{ast, DataSource, NuGlob, PipelineMetadata};
+use nu_protocol::{ast, shell_error::io::IoError, DataSource, NuGlob, PipelineMetadata};
 use std::path::Path;
 
 #[cfg(feature = "sqlite")]
@@ -87,25 +87,10 @@ impl Command for Open {
 
             for path in nu_engine::glob_from(&path, &cwd, call_span, None)
                 .map_err(|err| match err {
-                    ShellError::DirectoryNotFound { span, .. } => ShellError::FileNotFound {
-                        file: path.item.to_string(),
-                        span,
-                    },
-                    // that particular error in `nu_engine::glob_from` doesn't have a span attached
-                    // to it, so let's add it
-                    ShellError::GenericError {
-                        error,
-                        msg,
-                        span: _,
-                        help,
-                        inner,
-                    } if error.as_str() == "Permission denied" => ShellError::GenericError {
-                        error,
-                        msg,
-                        span: Some(arg_span),
-                        help,
-                        inner,
-                    },
+                    ShellError::Io(err) => ShellError::Io(IoError {
+                        span: arg_span,
+                        ..err
+                    }),
                     _ => err,
                 })?
                 .1
