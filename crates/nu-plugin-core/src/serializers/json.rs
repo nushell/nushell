@@ -53,9 +53,13 @@ impl Encoder<PluginOutput> for JsonSerializer {
         writer: &mut impl std::io::Write,
     ) -> Result<(), ShellError> {
         serde_json::to_writer(&mut *writer, plugin_output).map_err(json_encode_err)?;
-        writer
-            .write_all(b"\n")
-            .map_err(|err| ShellError::Io(IoError::new(err.kind(), Span::unknown(), None)))
+        writer.write_all(b"\n").map_err(|err| {
+            ShellError::Io(IoError::new_internal(
+                err.kind(),
+                "JsonSerializer could not encode linebreak",
+                nu_protocol::location!(),
+            ))
+        })
     }
 
     fn decode(

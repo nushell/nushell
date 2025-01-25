@@ -80,10 +80,13 @@ where
     }
 
     fn flush(&self) -> Result<(), ShellError> {
-        self.0
-            .lock()
-            .flush()
-            .map_err(|err| ShellError::Io(IoError::new(err.kind(), Span::unknown(), None)))
+        self.0.lock().flush().map_err(|err| {
+            ShellError::Io(IoError::new_internal(
+                err.kind(),
+                "PluginWrite could not flush",
+                nu_protocol::location!(),
+            ))
+        })
     }
 
     fn is_stdout(&self) -> bool {
@@ -107,8 +110,13 @@ where
         let mut lock = self.0.lock().map_err(|_| ShellError::NushellFailed {
             msg: "writer mutex poisoned".into(),
         })?;
-        lock.flush()
-            .map_err(|err| ShellError::Io(IoError::new(err.kind(), Span::unknown(), None)))
+        lock.flush().map_err(|err| {
+            ShellError::Io(IoError::new_internal(
+                err.kind(),
+                "PluginWrite could not flush",
+                nu_protocol::location!(),
+            ))
+        })
     }
 }
 

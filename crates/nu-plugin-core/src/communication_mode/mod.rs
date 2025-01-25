@@ -85,7 +85,16 @@ impl CommunicationMode {
 
                 let listener = interpret_local_socket_name(name)
                     .and_then(|name| ListenerOptions::new().name(name).create_sync())
-                    .map_err(|err| IoError::new(err.kind(), Span::unknown(), None))?;
+                    .map_err(|err| {
+                        IoError::new_internal(
+                            err.kind(),
+                            format!(
+                                "Could not interpret local socket name {:?}",
+                                name.to_string_lossy()
+                            ),
+                            nu_protocol::location!(),
+                        )
+                    })?;
                 Ok(PreparedServerCommunication::LocalSocket { listener })
             }
         }
@@ -107,7 +116,14 @@ impl CommunicationMode {
                     interpret_local_socket_name(name)
                         .and_then(|name| ls::Stream::connect(name))
                         .map_err(|err| {
-                            ShellError::Io(IoError::new(err.kind(), Span::unknown(), None))
+                            ShellError::Io(IoError::new_internal(
+                                err.kind(),
+                                format!(
+                                    "Could not interpret local socket name {:?}",
+                                    name.to_string_lossy()
+                                ),
+                                nu_protocol::location!(),
+                            ))
                         })
                 };
                 // Reverse order from the server: read in, write out

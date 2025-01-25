@@ -220,22 +220,47 @@ impl PipelineData {
             PipelineData::Empty => Ok(()),
             PipelineData::Value(value, ..) => {
                 let bytes = value_to_bytes(value)?;
-                dest.write_all(&bytes)
-                    .map_err(|err| IoError::new(err.kind(), Span::unknown(), None))?;
-                dest.flush()
-                    .map_err(|err| IoError::new(err.kind(), Span::unknown(), None))?;
+                dest.write_all(&bytes).map_err(|err| {
+                    IoError::new_internal(
+                        err.kind(),
+                        "Could not write PipelineData to dest",
+                        crate::location!(),
+                    )
+                })?;
+                dest.flush().map_err(|err| {
+                    IoError::new_internal(
+                        err.kind(),
+                        "Could not flush PipelineData to dest",
+                        crate::location!(),
+                    )
+                })?;
                 Ok(())
             }
             PipelineData::ListStream(stream, ..) => {
                 for value in stream {
                     let bytes = value_to_bytes(value)?;
-                    dest.write_all(&bytes)
-                        .map_err(|err| IoError::new(err.kind(), Span::unknown(), None))?;
-                    dest.write_all(b"\n")
-                        .map_err(|err| IoError::new(err.kind(), Span::unknown(), None))?;
+                    dest.write_all(&bytes).map_err(|err| {
+                        IoError::new_internal(
+                            err.kind(),
+                            "Could not write PipelineData to dest",
+                            crate::location!(),
+                        )
+                    })?;
+                    dest.write_all(b"\n").map_err(|err| {
+                        IoError::new_internal(
+                            err.kind(),
+                            "Could not write linebreak after PipelineData to dest",
+                            crate::location!(),
+                        )
+                    })?;
                 }
-                dest.flush()
-                    .map_err(|err| IoError::new(err.kind(), Span::unknown(), None))?;
+                dest.flush().map_err(|err| {
+                    IoError::new_internal(
+                        err.kind(),
+                        "Could not flush PipelineData to dest",
+                        crate::location!(),
+                    )
+                })?;
                 Ok(())
             }
             PipelineData::ByteStream(stream, ..) => stream.write_to(dest),

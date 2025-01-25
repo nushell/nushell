@@ -1030,9 +1030,15 @@ impl Iterator for SplitRead {
         if self.signals.interrupted() {
             return None;
         }
-        self.internal
-            .next()
-            .map(|r| r.map_err(|e| ShellError::Io(IoError::new(e.kind(), Span::unknown(), None))))
+        self.internal.next().map(|r| {
+            r.map_err(|err| {
+                ShellError::Io(IoError::new_internal(
+                    err.kind(),
+                    "Could not get next value for SplitRead",
+                    crate::location!(),
+                ))
+            })
+        })
     }
 }
 
