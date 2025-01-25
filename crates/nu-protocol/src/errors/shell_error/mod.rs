@@ -1679,3 +1679,26 @@ fn shell_error_serialize_roundtrip() {
         deserialized.help().map(|c| c.to_string())
     );
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    impl From<std::io::Error> for ShellError {
+        fn from(_: std::io::Error) -> ShellError {
+            unimplemented!("This implementation is defined in the test module to ensure no other implementation exists.")
+        }
+    }
+
+    impl From<Spanned<std::io::Error>> for ShellError {
+        fn from(_: Spanned<std::io::Error>) -> Self {
+            unimplemented!("This implementation is defined in the test module to ensure no other implementation exists.")
+        }
+    }
+
+    impl From<ShellError> for std::io::Error {
+        fn from(_: ShellError) -> Self {
+            unimplemented!("This implementation is defined in the test module to ensure no other implementation exists.")
+        }
+    }
+}
