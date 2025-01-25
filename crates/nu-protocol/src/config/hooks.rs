@@ -19,6 +19,18 @@ impl IntoValue for HookCode {
     }
 }
 
+impl From<String> for HookCode {
+    fn from(value: String) -> Self {
+        Self::Code(value)
+    }
+}
+
+impl From<Closure> for HookCode {
+    fn from(value: Closure) -> Self {
+        Self::Closure(value)
+    }
+}
+
 #[derive(Debug, Clone, IntoValue, Serialize, Deserialize)]
 pub struct ConditionalHook {
     pub condition: Option<Spanned<Closure>>,
@@ -78,6 +90,27 @@ pub enum Hook {
     Conditional(ConditionalHook),
 }
 
+impl Hook {
+    fn new(code: impl Into<HookCode>, span: Span) -> Self {
+        Self::Unconditional(Spanned {
+            item: code.into(),
+            span,
+        })
+    }
+}
+
+impl<T: Into<HookCode>> From<Spanned<T>> for Hook {
+    fn from(value: Spanned<T>) -> Self {
+        Self::new(value.item, value.span)
+    }
+}
+
+impl From<ConditionalHook> for Hook {
+    fn from(hook: ConditionalHook) -> Self {
+        Self::Conditional(hook)
+    }
+}
+
 impl IntoValue for Hook {
     fn into_value(self, span: Span) -> Value {
         match self {
@@ -94,15 +127,10 @@ impl Hook {
         errors: &mut ConfigErrors,
     ) -> Option<Self> {
         match value {
-            Value::String { val, .. } => Some(Hook::Unconditional(
-                HookCode::Code(val.clone()).into_spanned(value.span()),
-            )),
-            Value::Closure { val, .. } => Some(Hook::Unconditional(
-                HookCode::Closure(val.as_ref().clone()).into_spanned(value.span()),
-            )),
+            Value::String { val, .. } => Some(Hook::new(val.clone(), value.span())),
+            Value::Closure { val, .. } => Some(Hook::new(val.as_ref().clone(), value.span())),
             Value::Record { val: record, .. } => {
-                ConditionalHook::from_record(record, value.span(), path, errors)
-                    .map(Hook::Conditional)
+                ConditionalHook::from_record(record, value.span(), path, errors).map(Into::into)
             }
             val => {
                 errors.type_mismatch(path, Type::custom("string, record, or closure"), val);
@@ -128,9 +156,9 @@ impl Hooks {
             pre_prompt: Vec::new(),
             pre_execution: Vec::new(),
             env_change: HashMap::new(),
-            display_output: Some(Hook::Unconditional(
-                HookCode::Code("if (term size).columns >= 100 { table -e } else { table }".into())
-                    .into_spanned(Span::unknown()),
+            display_output: Some(Hook::new(
+                "if (term size).columns >= 100 { table -e } else { table }".to_owned(),
+                Span::unknown(),
             )),
             command_not_found: None,
         }
