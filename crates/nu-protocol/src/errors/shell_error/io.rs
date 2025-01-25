@@ -50,8 +50,8 @@ pub struct IoError {
     ///
     /// This field ensures that the struct can only be created through the accompanying constructors,
     /// motivating construction of this type with proper fields.
-    /// 
-    /// Public fields can still be modified if required but this requires more work and is therefore 
+    ///
+    /// Public fields can still be modified if required but this requires more work and is therefore
     /// probably not done.
     ///
     /// This field is marked with `#[doc(hidden)]` to hide it from the public API.
@@ -86,10 +86,16 @@ impl IoError {
     pub fn new(kind: impl Into<ErrorKind>, span: Span, path: impl Into<Option<PathBuf>>) -> Self {
         let path = path.into();
         if span == Span::unknown() {
-            debug_assert!(path.is_some(), "for unknown spans with paths, use `new_internal_with_path`");
-            debug_assert!(path.is_none(), "for unknown spans without paths, use `new_internal`");
+            debug_assert!(
+                path.is_some(),
+                "for unknown spans with paths, use `new_internal_with_path`"
+            );
+            debug_assert!(
+                path.is_none(),
+                "for unknown spans without paths, use `new_internal`"
+            );
         }
-        
+
         Self {
             kind: kind.into(),
             span,
@@ -106,7 +112,7 @@ impl IoError {
     /// explain the error, and additional context can provide meaningful details.
     /// Avoid redundant context (e.g., "Permission denied" for an error kind of
     /// [`ErrorKind::PermissionDenied`](std::io::ErrorKind::PermissionDenied)).
-    /// 
+    ///
     /// # Constraints
     /// If `span` is unknown, use:
     /// - `new_internal` if no path is available.
@@ -119,8 +125,14 @@ impl IoError {
     ) -> Self {
         let path = path.into();
         if span == Span::unknown() {
-            debug_assert!(path.is_some(), "for unknown spans with paths, use `new_internal_with_path`");
-            debug_assert!(path.is_none(), "for unknown spans without paths, use `new_internal`");
+            debug_assert!(
+                path.is_some(),
+                "for unknown spans with paths, use `new_internal_with_path`"
+            );
+            debug_assert!(
+                path.is_none(),
+                "for unknown spans without paths, use `new_internal`"
+            );
         }
 
         Self {
@@ -129,7 +141,7 @@ impl IoError {
             path: path,
             additional_context: Some(additional_context.to_string()),
             location: None,
-            _force_constructor: ()
+            _force_constructor: (),
         }
     }
 
@@ -170,20 +182,20 @@ impl IoError {
             path: None,
             additional_context: Some(additional_context.to_string()),
             location: Some(location.to_string()),
-            _force_constructor: ()
+            _force_constructor: (),
         }
     }
 
     /// Creates a new `IoError` for internal I/O errors with a specific path.
     ///
-    /// This constructor is similar to [`new_internal`] but also includes a file or directory 
-    /// path relevant to the error. Use this function in rare cases where an internal error 
+    /// This constructor is similar to [`new_internal`] but also includes a file or directory
+    /// path relevant to the error. Use this function in rare cases where an internal error
     /// involves a specific path, and the combination of path and additional context is helpful.
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// use nu_protocol::location;
-    /// 
+    ///
     /// let error = IoError::new_internal_with_path(
     ///     ErrorKind::PermissionDenied,
     ///     Some("/root/private-file".into()),
@@ -215,7 +227,7 @@ impl Display for ErrorKind {
                 let msg = error_kind.to_string();
                 let (first, rest) = msg.split_at(1);
                 write!(f, "{}{}", first.to_uppercase(), rest)
-            },
+            }
             ErrorKind::NotADirectory => write!(f, "Not a directory"),
             ErrorKind::NotAFile => write!(f, "Not a file"),
             ErrorKind::IsADirectory => write!(f, "Is a directory"),
