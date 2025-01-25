@@ -785,6 +785,7 @@ fn parse_oneof(
     let mut best_guess = None;
     let mut best_guess_errors = Vec::new();
     let mut max_first_error_offset = 0;
+    let mut propagate_error = false;
     for shape in possible_shapes {
         let starting_error_count = working_set.parse_errors.len();
         *spans_idx = starting_spans_idx;
@@ -800,6 +801,18 @@ fn parse_oneof(
         };
 
         if first_error_offset > max_first_error_offset {
+            // while trying the possible shapes, ignore Expected type errors
+            // unless they're inside a block, closure, or expression
+            propagate_error = match working_set.parse_errors.last() {
+                Some(ParseError::Expected(_, error_span))
+                | Some(ParseError::ExpectedWithStringMsg(_, error_span)) => {
+                    matches!(
+                        shape,
+                        SyntaxShape::Block | SyntaxShape::Closure(_) | SyntaxShape::Expression
+                    ) && *error_span != spans[*spans_idx]
+                }
+                _ => true,
+            };
             max_first_error_offset = first_error_offset;
             best_guess = Some(value);
             best_guess_errors = new_errors;
@@ -808,7 +821,8 @@ fn parse_oneof(
     }
 
     // if best_guess results in new errors further than current span, then accept it
-    if max_first_error_offset > spans[starting_spans_idx].start {
+    // or propagate_error is marked as true for `best_guess`
+    if max_first_error_offset > spans[starting_spans_idx].start || propagate_error {
         working_set.parse_errors.extend(best_guess_errors);
         best_guess.expect("best_guess should not be None here!")
     } else {
