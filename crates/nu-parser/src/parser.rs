@@ -821,7 +821,7 @@ fn parse_oneof(
     }
 
     // if best_guess results in new errors further than current span, then accept it
-    // or propagate_error is marked as true for `best_guess`
+    // or propagate_error is marked as true for it
     if max_first_error_offset > spans[starting_spans_idx].start || propagate_error {
         working_set.parse_errors.extend(best_guess_errors);
         best_guess.expect("best_guess should not be None here!")
