@@ -1,7 +1,4 @@
-use crate::{
-    byte_stream::convert_file,
-    shell_error::io::IoError, ShellError, Span,
-};
+use crate::{byte_stream::convert_file, shell_error::io::IoError, ShellError, Span};
 use nu_system::{ExitStatus, ForegroundChild};
 use os_pipe::PipeReader;
 use std::{
