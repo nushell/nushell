@@ -42,7 +42,12 @@ pub fn empty(
                 let span = stream.span();
                 match stream.reader() {
                     Some(reader) => {
-                        let is_empty = reader.bytes().next().transpose().map_err(|err| IoError::new(err.kind(), span, None))?.is_none();
+                        let is_empty = reader
+                            .bytes()
+                            .next()
+                            .transpose()
+                            .map_err(|err| IoError::new(err.kind(), span, None))?
+                            .is_none();
                         if negate {
                             Ok(Value::bool(!is_empty, head).into_pipeline_data())
                         } else {

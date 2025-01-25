@@ -164,7 +164,9 @@ impl Command for Do {
                             None => String::new(),
                             Some(mut stderr) => {
                                 let mut buf = String::new();
-                                stderr.read_to_string(&mut buf).map_err(|err| IoError::new(err.kind(), span, None))?;
+                                stderr
+                                    .read_to_string(&mut buf)
+                                    .map_err(|err| IoError::new(err.kind(), span, None))?;
                                 buf
                             }
                         };

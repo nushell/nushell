@@ -81,7 +81,8 @@ impl Command for ToMsgpackz {
         );
 
         write_value(&mut out, &value, 0)?;
-        out.flush().map_err(|err| IoError::new(err.kind(), call.head, None))?;
+        out.flush()
+            .map_err(|err| IoError::new(err.kind(), call.head, None))?;
         drop(out);
 
         Ok(Value::binary(out_buf, call.head).into_pipeline_data())

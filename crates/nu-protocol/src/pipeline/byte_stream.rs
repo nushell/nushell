@@ -228,7 +228,8 @@ impl ByteStream {
         let known_size = self.known_size.map(|len| len.saturating_sub(n));
         if let Some(mut reader) = self.reader() {
             // Copy the number of skipped bytes into the sink before proceeding
-            io::copy(&mut (&mut reader).take(n), &mut io::sink()).map_err(|err| IoError::new(err.kind(), span, None))?;
+            io::copy(&mut (&mut reader).take(n), &mut io::sink())
+                .map_err(|err| IoError::new(err.kind(), span, None))?;
             Ok(
                 ByteStream::read(reader, span, Signals::empty(), ByteStreamType::Binary)
                     .with_known_size(known_size),
@@ -1074,7 +1075,6 @@ impl Chunks {
     }
 
     fn next_string(&mut self) -> Result<Option<String>, (Vec<u8>, ShellError)> {
-
         let from_io_error = IoError::factory(self.span, None);
 
         // Get some data from the reader
@@ -1157,7 +1157,11 @@ impl Iterator for Chunks {
                         Ok(buf) => buf,
                         Err(err) => {
                             self.error = true;
-                            return Some(Err(ShellError::Io(IoError::new(err.kind(), self.span, None))));
+                            return Some(Err(ShellError::Io(IoError::new(
+                                err.kind(),
+                                self.span,
+                                None,
+                            ))));
                         }
                     };
                     if !buf.is_empty() {

@@ -2,7 +2,8 @@ use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 #[cfg(feature = "os")]
 use nu_protocol::process::ChildPipe;
 use nu_protocol::{
-    byte_stream::copy_with_signals, engine::Closure, report_shell_error, shell_error::io::IoError, ByteStream, ByteStreamSource, OutDest, PipelineMetadata, Signals
+    byte_stream::copy_with_signals, engine::Closure, report_shell_error, shell_error::io::IoError,
+    ByteStream, ByteStreamSource, OutDest, PipelineMetadata, Signals,
 };
 use std::{
     io::{self, Read, Write},
@@ -439,7 +440,9 @@ fn spawn_tee(
             );
             eval_block(PipelineData::ByteStream(stream, info.metadata))
         })
-        .map_err(|err| IoError::new_with_additional_context(err.kind(), info.span, None, "Could not spawn tee"))?;
+        .map_err(|err| {
+            IoError::new_with_additional_context(err.kind(), info.span, None, "Could not spawn tee")
+        })?;
 
     Ok(TeeThread { sender, thread })
 }
@@ -478,7 +481,15 @@ fn copy_on_thread(
             copy_with_signals(src, dest, span, &signals)?;
             Ok(())
         })
-        .map_err(|err| IoError::new_with_additional_context(err.kind(), span, None, "Could not spawn stderr copier").into())
+        .map_err(|err| {
+            IoError::new_with_additional_context(
+                err.kind(),
+                span,
+                None,
+                "Could not spawn stderr copier",
+            )
+            .into()
+        })
 }
 
 #[cfg(feature = "os")]

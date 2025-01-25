@@ -1,6 +1,8 @@
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
-use nu_protocol::{format_duration, shell_error::io::IoError, ByteStream, Config, PipelineMetadata};
+use nu_protocol::{
+    format_duration, shell_error::io::IoError, ByteStream, Config, PipelineMetadata,
+};
 use std::io::Write;
 
 const LINE_ENDING: &str = if cfg!(target_os = "windows") {

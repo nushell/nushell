@@ -1,5 +1,7 @@
 use crate::{
-    byte_stream::convert_file, shell_error::{bridge::ShellErrorBridge, io::IoError}, ErrSpan, IntoSpanned, ShellError, Span,
+    byte_stream::convert_file,
+    shell_error::{bridge::ShellErrorBridge, io::IoError},
+    ErrSpan, IntoSpanned, ShellError, Span,
 };
 use nu_system::{ExitStatus, ForegroundChild};
 use os_pipe::PipeReader;
@@ -193,7 +195,14 @@ impl ChildProcess {
         thread::Builder::new()
             .name("exit status waiter".into())
             .spawn(move || exit_status_sender.send(child.wait()))
-            .map_err(|err| IoError::new_with_additional_context(err.kind(), span, None, "Could now spawn exit status waiter"))?;
+            .map_err(|err| {
+                IoError::new_with_additional_context(
+                    err.kind(),
+                    span,
+                    None,
+                    "Could now spawn exit status waiter",
+                )
+            })?;
 
         Ok(Self::from_raw(stdout, stderr, Some(exit_status), span))
     }

@@ -142,7 +142,11 @@ fn byte_stream_to_bits(stream: ByteStream, head: Span) -> ByteStream {
             ByteStreamType::String,
             move |buffer| {
                 let mut byte = [0];
-                if reader.read(&mut byte[..]).map_err(|err| IoError::new(err.kind(), head, None))? > 0 {
+                if reader
+                    .read(&mut byte[..])
+                    .map_err(|err| IoError::new(err.kind(), head, None))?
+                    > 0
+                {
                     // Format the byte as bits
                     if is_first {
                         is_first = false;

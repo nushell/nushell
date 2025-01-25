@@ -1,7 +1,9 @@
 use crate::util::{get_plugin_dirs, modify_plugin_file};
 use nu_engine::command_prelude::*;
 use nu_plugin_engine::{GetPlugin, PersistentPlugin};
-use nu_protocol::{shell_error::io::IoError, PluginGcConfig, PluginIdentity, PluginRegistryItem, RegisteredPlugin};
+use nu_protocol::{
+    shell_error::io::IoError, PluginGcConfig, PluginIdentity, PluginRegistryItem, RegisteredPlugin,
+};
 use std::{path::PathBuf, sync::Arc};
 
 #[derive(Clone)]
@@ -90,7 +92,10 @@ apparent the next time `nu` is next launched with that plugin registry file.
 
         let shell_expanded = shell
             .as_ref()
-            .map(|s| nu_path::canonicalize_with(&s.item, &cwd).map_err(|err| IoError::new(err.kind(), s.span, None)))
+            .map(|s| {
+                nu_path::canonicalize_with(&s.item, &cwd)
+                    .map_err(|err| IoError::new(err.kind(), s.span, None))
+            })
             .transpose()?;
 
         // Parse the plugin filename so it can be used to spawn the plugin
