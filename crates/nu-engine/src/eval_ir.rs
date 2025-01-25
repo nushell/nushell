@@ -9,7 +9,7 @@ use nu_protocol::{
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     shell_error::io::IoError,
-    DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
+    DataSource, DeclId, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
     PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
     Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };

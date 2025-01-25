@@ -8,8 +8,7 @@ use nu_plugin_protocol::{
     StreamMessage,
 };
 use nu_protocol::{
-    engine::Sequence, ByteStream, ByteStreamSource, ByteStreamType, DataSource, ListStream,
-    PipelineData, PipelineMetadata, ShellError, Signals, Span, Value,
+    engine::Sequence, shell_error::io::IoError, ByteStream, ByteStreamSource, ByteStreamType, DataSource, ListStream, PipelineData, PipelineMetadata, ShellError, Signals, Span, Value
 };
 use std::{path::Path, sync::Arc};
 
@@ -245,7 +244,7 @@ fn read_pipeline_data_byte_stream() -> Result<(), ShellError> {
             match stream.into_source() {
                 ByteStreamSource::Read(mut read) => {
                     let mut buf = Vec::new();
-                    read.read_to_end(&mut buf)?;
+                    read.read_to_end(&mut buf).map_err(|err| IoError::new(err.kind(), test_span, None))?;
                     let iter = buf.chunks_exact(out_pattern.len());
                     assert_eq!(iter.len(), iterations);
                     for chunk in iter {

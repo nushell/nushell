@@ -2,7 +2,6 @@ use crate::{
     ast::Operator, engine::StateWorkingSet, format_shell_error, record, ConfigError, LabeledError,
     ParseError, Span, Spanned, Type, Value,
 };
-use io::IoError;
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroI32;
