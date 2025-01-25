@@ -62,12 +62,14 @@ fn get_free_port(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
+    let from_io_error = IoError::factory(call.head, None);
+
     let start_port: Option<Spanned<usize>> = call.opt(engine_state, stack, 0)?;
     let end_port: Option<Spanned<usize>> = call.opt(engine_state, stack, 1)?;
 
     let listener = if start_port.is_none() && end_port.is_none() {
         // get free port from system.
-        TcpListener::bind("127.0.0.1:0")?
+        TcpListener::bind("127.0.0.1:0").map_err(&from_io_error)?
     } else {
         let (start_port, start_span) = match start_port {
             Some(p) => (p.item, Some(p.span)),
@@ -138,6 +140,6 @@ fn get_free_port(
         }?
     };
 
-    let free_port = listener.local_addr()?.port();
+    let free_port = listener.local_addr().map_err(&from_io_error)?.port();
     Ok(Value::int(free_port as i64, call.head).into_pipeline_data())
 }

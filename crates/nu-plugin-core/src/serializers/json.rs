@@ -1,5 +1,5 @@
 use nu_plugin_protocol::{PluginInput, PluginOutput};
-use nu_protocol::{shell_error::io::IoError, ShellError, Span};
+use nu_protocol::{location, shell_error::io::IoError, ShellError, Span};
 use serde::Deserialize;
 
 use crate::{Encoder, PluginEncoder};
@@ -26,9 +26,13 @@ impl Encoder<PluginInput> for JsonSerializer {
         writer: &mut impl std::io::Write,
     ) -> Result<(), nu_protocol::ShellError> {
         serde_json::to_writer(&mut *writer, plugin_input).map_err(json_encode_err)?;
-        writer
-            .write_all(b"\n")
-            .map_err(|err| ShellError::Io(IoError::new(err.kind(), Span::unknown(), None)))
+        writer.write_all(b"\n").map_err(|err| {
+            ShellError::Io(IoError::new_internal(
+                err.kind(),
+                "Failed to write final line break",
+                location!(),
+            ))
+        })
     }
 
     fn decode(

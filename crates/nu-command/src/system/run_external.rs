@@ -2,7 +2,8 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{dots::expand_ndots_safe, expand_tilde, AbsolutePath};
 use nu_protocol::{
-    did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
+    did_you_mean, process::ChildProcess, shell_error::io::IoError, ByteStream, NuGlob, OutDest,
+    Signals, UseAnsiColoring,
 };
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
@@ -169,7 +170,9 @@ impl Command for External {
 
             // canonicalize the path to the script so that tests pass
             let canon_path = if let Ok(cwd) = engine_state.cwd_as_string(None) {
-                canonicalize_with(&expanded_name, cwd)?
+                canonicalize_with(&expanded_name, cwd).map_err(|err| {
+                    IoError::new(err.kind(), call.head, PathBuf::from(&expanded_name))
+                })?
             } else {
                 // If we can't get the current working directory, just provide the expanded name
                 expanded_name
@@ -191,13 +194,22 @@ impl Command for External {
         let stdout = stack.stdout();
         let stderr = stack.stderr();
         let merged_stream = if matches!(stdout, OutDest::Pipe) && matches!(stderr, OutDest::Pipe) {
-            let (reader, writer) = os_pipe::pipe()?;
-            command.stdout(writer.try_clone()?);
+            let (reader, writer) =
+                os_pipe::pipe().map_err(|err| IoError::new(err.kind(), call.head, None))?;
+            command.stdout(
+                writer
+                    .try_clone()
+                    .map_err(|err| IoError::new(err.kind(), call.head, None))?,
+            );
             command.stderr(writer);
             Some(reader)
         } else {
-            command.stdout(Stdio::try_from(stdout)?);
-            command.stderr(Stdio::try_from(stderr)?);
+            command.stdout(
+                Stdio::try_from(stdout).map_err(|err| IoError::new(err.kind(), call.head, None))?,
+            );
+            command.stderr(
+                Stdio::try_from(stderr).map_err(|err| IoError::new(err.kind(), call.head, None))?,
+            );
             None
         };
 
@@ -231,13 +243,22 @@ impl Command for External {
         // Spawn the child process. On Unix, also put the child process to
         // foreground if we're in an interactive session.
         #[cfg(windows)]
-        let mut child = ForegroundChild::spawn(command)?;
+        let child = ForegroundChild::spawn(command);
         #[cfg(unix)]
-        let mut child = ForegroundChild::spawn(
+        let child = ForegroundChild::spawn(
             command,
             engine_state.is_interactive,
             &engine_state.pipeline_externals_state,
-        )?;
+        );
+
+        let mut child = child.map_err(|err| {
+            IoError::new_with_additional_context(
+                err.kind(),
+                Span::unknown(),
+                None,
+                "Could not spawn foreground child",
+            )
+        })?;
 
         // If we need to copy data into the child process, do it now.
         if let Some(data) = data_to_copy_into_stdin {
@@ -414,7 +435,14 @@ fn write_pipeline_data(
     if let PipelineData::ByteStream(stream, ..) = data {
         stream.write_to(writer)?;
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
-        writer.write_all(&val)?;
+        writer.write_all(&val).map_err(|err| {
+            IoError::new_with_additional_context(
+                err.kind(),
+                Span::unknown(),
+                None,
+                "Could not write pipeline data",
+            )
+        })?;
     } else {
         stack.start_collect_value();
 
@@ -428,7 +456,14 @@ fn write_pipeline_data(
         // Write the output.
         for value in output {
             let bytes = value.coerce_into_binary()?;
-            writer.write_all(&bytes)?;
+            writer.write_all(&bytes).map_err(|err| {
+                IoError::new_with_additional_context(
+                    err.kind(),
+                    Span::unknown(),
+                    None,
+                    "Could not write pipeline data",
+                )
+            })?;
         }
     }
     Ok(())

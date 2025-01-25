@@ -349,7 +349,16 @@ fn ls_for_one_pattern(
     let signals_clone = signals.clone();
 
     let pool = if use_threads {
-        let count = std::thread::available_parallelism()?.get();
+        let count = std::thread::available_parallelism()
+            .map_err(|err| {
+                IoError::new_with_additional_context(
+                    err.kind(),
+                    call_span,
+                    None,
+                    "Could not get available parallelism",
+                )
+            })?
+            .get();
         create_pool(count)?
     } else {
         create_pool(1)?
@@ -953,23 +962,11 @@ fn read_dir(
 ) -> Result<Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send>, ShellError> {
     let items = f
         .read_dir()
-        .map_err(|error| {
-            if error.kind() == std::io::ErrorKind::PermissionDenied {
-                return ShellError::GenericError {
-                    error: "Permission denied".into(),
-                    msg: "The permissions may not allow access for this user".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                };
-            }
-
-            error.into()
-        })?
+        .map_err(|err| IoError::new(err.kind(), span, f.clone()))?
         .map(move |d| {
-            d.map(|r| r.path()).map_err(|err: std::io::Error| {
-                ShellError::Io(IoError::new(err.kind(), span, f.clone()))
-            })
+            d.map(|r| r.path())
+                .map_err(|err| IoError::new(err.kind(), span, f.clone()))
+                .map_err(ShellError::from)
         });
     if !use_threads {
         let mut collected = items.collect::<Vec<_>>();

@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::num::NonZeroI32;
 use thiserror::Error;
 
+pub mod bridge;
 pub mod io;
+pub mod location;
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -1551,12 +1553,12 @@ impl ShellError {
     }
 }
 
-impl From<std::io::Error> for ShellError {
-    // TODO: deprecate this
-    fn from(error: std::io::Error) -> ShellError {
-        Self::Io(IoError::new(error.kind(), Span::unknown(), None))
-    }
-}
+// impl From<std::io::Error> for ShellError {
+//     // TODO: deprecate this
+//     fn from(error: std::io::Error) -> ShellError {
+//         Self::Io(IoError::new(error.kind(), Span::unknown(), None))
+//     }
+// }
 
 // FIXME: this impl is originally absolutely cursed, we need to do something about it
 impl From<Spanned<std::io::Error>> for ShellError {
@@ -1566,14 +1568,14 @@ impl From<Spanned<std::io::Error>> for ShellError {
     }
 }
 
-impl From<ShellError> for std::io::Error {
-    fn from(error: ShellError) -> Self {
-        match error {
-            ShellError::Io(error) => error.into(),
-            _ => Self::new(std::io::ErrorKind::Other, error),
-        }
-    }
-}
+// impl From<ShellError> for std::io::Error {
+//     fn from(error: ShellError) -> Self {
+//         match error {
+//             ShellError::Io(error) => error.into(),
+//             _ => Self::new(std::io::ErrorKind::Other, error),
+//         }
+//     }
+// }
 
 impl From<Box<dyn std::error::Error>> for ShellError {
     fn from(error: Box<dyn std::error::Error>) -> ShellError {

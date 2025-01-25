@@ -170,7 +170,16 @@ impl PreparedServerCommunication {
                 // output) and one for write (the plugin input)
                 //
                 // Be non-blocking on Accept only, so we can timeout.
-                listener.set_nonblocking(ListenerNonblockingMode::Accept)?;
+                listener
+                    .set_nonblocking(ListenerNonblockingMode::Accept)
+                    .map_err(|err| {
+                        IoError::new_with_additional_context(
+                            err.kind(),
+                            Span::unknown(),
+                            None,
+                            "Could not set non-blocking mode accept for listener",
+                        )
+                    })?;
                 let mut get_socket = || {
                     let mut result = None;
                     while let Ok(None) = child.try_wait() {
@@ -178,7 +187,14 @@ impl PreparedServerCommunication {
                             Ok(stream) => {
                                 // Success! Ensure the stream is in nonblocking mode though, for
                                 // good measure. Had an issue without this on macOS.
-                                stream.set_nonblocking(false)?;
+                                stream.set_nonblocking(false).map_err(|err| {
+                                    IoError::new_with_additional_context(
+                                        err.kind(),
+                                        Span::unknown(),
+                                        None,
+                                        "Could not disable non-blocking mode for listener",
+                                    )
+                                })?;
                                 result = Some(stream);
                                 break;
                             }
@@ -186,7 +202,11 @@ impl PreparedServerCommunication {
                                 if !is_would_block_err(&err) {
                                     // `WouldBlock` is ok, just means it's not ready yet, but some other
                                     // kind of error should be reported
-                                    return Err(err.into());
+                                    return Err(ShellError::Io(IoError::new(
+                                        err.kind(),
+                                        Span::unknown(),
+                                        None,
+                                    )));
                                 }
                             }
                         }

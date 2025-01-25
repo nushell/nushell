@@ -1,6 +1,6 @@
 use filesize::file_real_size_fast;
 use nu_glob::Pattern;
-use nu_protocol::{record, ShellError, Signals, Span, Value};
+use nu_protocol::{record, shell_error::io::IoError, ShellError, Signals, Span, Value};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -77,7 +77,7 @@ impl FileInfo {
                     long,
                 })
             }
-            Err(e) => Err(e.into()),
+            Err(e) => Err(IoError::new(e.kind(), tag, path).into()),
         }
     }
 }
@@ -91,6 +91,7 @@ impl DirInfo {
         signals: &Signals,
     ) -> Result<Self, ShellError> {
         let path = path.into();
+        let from_io_error = IoError::factory(span, path.as_path());
 
         let mut s = Self {
             dirs: Vec::new(),
@@ -99,7 +100,7 @@ impl DirInfo {
             size: 0,
             blocks: 0,
             tag: params.tag,
-            path,
+            path: path.clone(),
             long: params.long,
         };
 
@@ -108,7 +109,7 @@ impl DirInfo {
                 s.size = d.len(); // dir entry size
                 s.blocks = file_real_size_fast(&s.path, &d).ok().unwrap_or(0);
             }
-            Err(e) => s = s.add_error(e.into()),
+            Err(e) => s = s.add_error(from_io_error(e).into()),
         };
 
         match std::fs::read_dir(&s.path) {
@@ -122,13 +123,13 @@ impl DirInfo {
                                 s = s.add_dir(i.path(), depth, params, span, signals)?
                             }
                             Ok(_t) => s = s.add_file(i.path(), params),
-                            Err(e) => s = s.add_error(e.into()),
+                            Err(e) => s = s.add_error(from_io_error(e).into()),
                         },
-                        Err(e) => s = s.add_error(e.into()),
+                        Err(e) => s = s.add_error(from_io_error(e).into()),
                     }
                 }
             }
-            Err(e) => s = s.add_error(e.into()),
+            Err(e) => s = s.add_error(from_io_error(e).into()),
         }
         Ok(s)
     }

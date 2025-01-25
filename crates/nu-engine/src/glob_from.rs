@@ -78,7 +78,15 @@ pub fn glob_from(
                     PathBuf::from(nu_glob::Pattern::escape(&p.to_string_lossy()))
                 }
                 Ok(p) => p,
-                Err(err) => return Err(IoError::new(err.kind(), Span::unknown(), path).into()),
+                Err(err) => {
+                    return Err(IoError::new_internal_with_path(
+                        err.kind(),
+                        "Could not canonicalize path",
+                        nu_protocol::location!(),
+                        path,
+                    )
+                    .into())
+                }
             };
             (path.parent().map(|parent| parent.to_path_buf()), path)
         }

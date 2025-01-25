@@ -286,10 +286,23 @@ fn backup(path: &Path, span: Span) -> Result<Option<PathBuf>, ShellError> {
             .into())
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(e) => return Err(e.into()),
+        Err(e) => {
+            return Err(IoError::new_internal(
+                e.kind(),
+                "Could not get metadata",
+                nu_protocol::location!(),
+            )
+            .into())
+        }
     }
     let bak_path = find_backup_path(path, span)?;
-    std::fs::copy(path, &bak_path)?;
+    std::fs::copy(path, &bak_path).map_err(|err| {
+        IoError::new_internal(
+            err.kind(),
+            "Could not copy backup",
+            nu_protocol::location!(),
+        )
+    })?;
     Ok(Some(bak_path))
 }
 

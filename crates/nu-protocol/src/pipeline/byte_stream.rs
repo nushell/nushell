@@ -1,7 +1,10 @@
 //! Module managing the streaming of raw bytes between pipeline elements
 #[cfg(feature = "os")]
 use crate::process::{ChildPipe, ChildProcess};
-use crate::{ErrSpan, IntRange, IntoSpanned, PipelineData, ShellError, Signals, Span, Type, Value};
+use crate::{
+    shell_error::{bridge::ShellErrorBridge, io::IoError},
+    ErrSpan, IntRange, IntoSpanned, PipelineData, ShellError, Signals, Span, Type, Value,
+};
 use serde::{Deserialize, Serialize};
 use std::ops::Bound;
 #[cfg(unix)]
@@ -759,7 +762,12 @@ where
         while let Some(cursor) = self.cursor.as_mut() {
             let read = cursor.read(buf)?;
             if read == 0 {
-                self.cursor = self.iter.next().transpose()?.map(Cursor::new);
+                self.cursor = self
+                    .iter
+                    .next()
+                    .transpose()
+                    .map_err(ShellErrorBridge)?
+                    .map(Cursor::new);
             } else {
                 return Ok(read);
             }
@@ -782,7 +790,7 @@ impl Reader {
 
 impl Read for Reader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.signals.check(self.span)?;
+        self.signals.check(self.span).map_err(ShellErrorBridge)?;
         self.reader.read(buf)
     }
 }
@@ -1022,7 +1030,9 @@ impl Iterator for SplitRead {
         if self.signals.interrupted() {
             return None;
         }
-        self.internal.next().map(|r| r.map_err(|e| e.into()))
+        self.internal
+            .next()
+            .map(|r| r.map_err(|e| ShellError::Io(IoError::new(e.kind(), Span::unknown(), None))))
     }
 }
 
@@ -1278,7 +1288,7 @@ where
             self.buffer.set_position(0);
             self.buffer.get_mut().clear();
             // Ask the generator to generate data
-            if !(self.generator)(self.buffer.get_mut())? {
+            if !(self.generator)(self.buffer.get_mut()).map_err(ShellErrorBridge)? {
                 // End of stream
                 break;
             }

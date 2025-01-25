@@ -464,6 +464,14 @@ fn send_cancellable_request(
             let ret = request_fn();
             let _ = tx.send(ret); // may fail if the user has cancelled the operation
         })
+        .map_err(|err| {
+            IoError::new_with_additional_context(
+                err.kind(),
+                span,
+                None,
+                "Could not spawn HTTP requester",
+            )
+        })
         .map_err(ShellError::from)?;
 
     // ...and poll the channel for responses
@@ -518,6 +526,14 @@ fn send_cancellable_request_bytes(
 
             // may fail if the user has cancelled the operation
             let _ = tx.send(ret);
+        })
+        .map_err(|err| {
+            IoError::new_with_additional_context(
+                err.kind(),
+                span,
+                None,
+                "Could not spawn HTTP requester",
+            )
         })
         .map_err(ShellError::from)?;
 

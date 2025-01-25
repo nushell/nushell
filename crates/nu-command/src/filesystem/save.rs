@@ -86,6 +86,7 @@ impl Command for Save {
                 span: arg.span,
             });
 
+        let from_io_error = IoError::factory(span, path.item.as_path());
         match input {
             PipelineData::ByteStream(stream, metadata) => {
                 check_saving_to_source_file(metadata.as_ref(), &path, stderr_path.as_ref())?;
@@ -203,14 +204,10 @@ impl Command for Save {
                 let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
                 for val in ls {
                     file.write_all(&value_to_bytes(val)?)
-                        .map_err(|err: io::Error| {
-                            IoError::new(err.kind(), call.head, path.item.clone())
-                        })?;
-                    file.write_all("\n".as_bytes()).map_err(|err: io::Error| {
-                        IoError::new(err.kind(), call.head, path.item.clone())
-                    })?;
+                        .map_err(&from_io_error)?;
+                    file.write_all("\n".as_bytes()).map_err(&from_io_error)?;
                 }
-                file.flush()?;
+                file.flush().map_err(&from_io_error)?;
 
                 Ok(PipelineData::empty())
             }
@@ -231,10 +228,8 @@ impl Command for Save {
                 // Only open file after successful conversion
                 let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
 
-                file.write_all(&bytes)
-                    .map_err(|err| IoError::new(err.kind(), call.head, path.item))?;
-
-                file.flush()?;
+                file.write_all(&bytes).map_err(&from_io_error)?;
+                file.flush().map_err(&from_io_error)?;
 
                 Ok(PipelineData::empty())
             }

@@ -91,10 +91,12 @@ impl Command for Open {
 
             for path in nu_engine::glob_from(&path, &cwd, call_span, None)
                 .map_err(|err| match err {
-                    ShellError::Io(err) => ShellError::Io(IoError {
-                        span: arg_span,
-                        ..err
-                    }),
+                    ShellError::Io(mut err) => {
+                        err.span = arg_span;
+                        // The additional context fromm `nu_engine::glob_from` doesn't help here
+                        err.additional_context = None;
+                        err.into()
+                    }
                     _ => err,
                 })?
                 .1

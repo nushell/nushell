@@ -1,5 +1,8 @@
 use miette::{Diagnostic, LabeledSpan, SourceSpan};
-use std::{fmt::Display, path::PathBuf};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 
 use crate::Span;
@@ -217,6 +220,20 @@ impl IoError {
             location: Some(location.to_string()),
             _force_constructor: (),
         }
+    }
+
+    /// Creates a factory closure for constructing [`IoError`] instances from [`std::io::Error`] values.
+    ///
+    /// This method is particularly useful when you need to handle multiple I/O errors which all
+    /// take the same span and path.
+    /// Instead of calling `.map_err(|err| IoError::new(err.kind(), span, path))` every time, you
+    /// can create the factory closure once and pass that into `.map_err`.
+    pub fn factory<'p, P>(span: Span, path: P) -> impl Fn(std::io::Error) -> Self + use<'p, P>
+    where
+        P: Into<Option<&'p Path>>,
+    {
+        let path = path.into();
+        move |err: std::io::Error| IoError::new(err.kind(), span, path.map(PathBuf::from))
     }
 }
 

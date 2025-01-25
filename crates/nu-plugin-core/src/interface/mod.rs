@@ -357,6 +357,14 @@ where
                             log::warn!("Error while writing pipeline in background: {err}");
                         }
                         result
+                    })
+                    .map_err(|err| {
+                        IoError::new_with_additional_context(
+                            err.kind(),
+                            Span::unknown(),
+                            None,
+                            "Could not spawn plugin stream background writer",
+                        )
                     })?,
             )),
         }
