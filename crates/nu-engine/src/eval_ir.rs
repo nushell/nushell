@@ -2,15 +2,9 @@ use std::{borrow::Cow, fs::File, sync::Arc};
 
 use nu_path::{expand_path_with, AbsolutePathBuf};
 use nu_protocol::{
-    ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
-    debugger::DebugContext,
-    engine::{
+    ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator}, debugger::DebugContext, engine::{
         Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack, StateWorkingSet,
-    },
-    ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
-    PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
-    Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    }, ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode}, shell_error::io::IoError, DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID
 };
 use nu_utils::IgnoreCaseExt;
 
@@ -1489,8 +1483,8 @@ fn open_file(ctx: &EvalContext<'_>, path: &Value, append: bool) -> Result<Arc<Fi
     }
     let file = options
         .create(true)
-        .open(path_expanded)
-        .err_span(path.span())?;
+        .open(&path_expanded)
+        .map_err(|err| IoError::new(err.kind(), path.span(), path_expanded))?;
     Ok(Arc::new(file))
 }
 

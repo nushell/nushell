@@ -1561,12 +1561,12 @@ impl ShellError {
 // }
 
 // FIXME: this impl is originally absolutely cursed, we need to do something about it
-impl From<Spanned<std::io::Error>> for ShellError {
-    fn from(error: Spanned<std::io::Error>) -> Self {
-        let Spanned { item: error, span } = error;
-        IoError::new(error.kind(), span, None).into()
-    }
-}
+// impl From<Spanned<std::io::Error>> for ShellError {
+//     fn from(error: Spanned<std::io::Error>) -> Self {
+//         let Spanned { item: error, span } = error;
+//         IoError::new(error.kind(), span, None).into()
+//     }
+// }
 
 // impl From<ShellError> for std::io::Error {
 //     fn from(error: ShellError) -> Self {

@@ -1,7 +1,7 @@
 use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
 use nu_path::AbsolutePathBuf;
-use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::{engine::StateWorkingSet, shell_error::io::IoError};
 use std::{io, path::Path};
 
 struct Arguments {
@@ -108,7 +108,7 @@ fn path_type(path: &Path, span: Span, args: &Arguments) -> Value {
     match path.symlink_metadata() {
         Ok(metadata) => Value::string(get_file_type(&metadata), span),
         Err(err) if err.kind() == io::ErrorKind::NotFound => Value::nothing(span),
-        Err(err) => Value::error(err.into_spanned(span).into(), span),
+        Err(err) => Value::error(IoError::new(err.kind(), span, None).into(), span),
     }
 }
 

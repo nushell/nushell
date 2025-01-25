@@ -270,7 +270,7 @@ impl Command for External {
                 .spawn(move || {
                     let _ = write_pipeline_data(engine_state, stack, data, stdin);
                 })
-                .err_span(call.head)?;
+                .map_err(|err| IoError::new_with_additional_context(err.kind(), call.head, None, "Could not spawn external stdin worker"))?;
         }
 
         // Wrap the output into a `PipelineData::ByteStream`.

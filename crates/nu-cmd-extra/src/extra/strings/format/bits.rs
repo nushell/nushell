@@ -3,7 +3,7 @@ use std::io::{self, Read, Write};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
-use nu_protocol::Signals;
+use nu_protocol::{shell_error::io::IoError, Signals};
 use num_traits::ToPrimitive;
 
 struct Arguments {
@@ -142,7 +142,7 @@ fn byte_stream_to_bits(stream: ByteStream, head: Span) -> ByteStream {
             ByteStreamType::String,
             move |buffer| {
                 let mut byte = [0];
-                if reader.read(&mut byte[..]).err_span(head)? > 0 {
+                if reader.read(&mut byte[..]).map_err(|err| IoError::new(err.kind(), head, None))? > 0 {
                     // Format the byte as bits
                     if is_first {
                         is_first = false;

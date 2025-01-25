@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::Signals;
+use nu_protocol::{shell_error::io::IoError, Signals};
 use std::io::Read;
 
 #[derive(Clone)]
@@ -180,7 +180,7 @@ fn first_helper(
                     if return_single_element {
                         // Take a single byte
                         let mut byte = [0u8];
-                        if reader.read(&mut byte).err_span(span)? > 0 {
+                        if reader.read(&mut byte).map_err(|err| IoError::new(err.kind(), span, None))? > 0 {
                             Ok(Value::int(byte[0] as i64, head).into_pipeline_data())
                         } else {
                             Err(ShellError::AccessEmptyContent { span: head })

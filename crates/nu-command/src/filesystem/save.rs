@@ -130,7 +130,7 @@ impl Command for Save {
                                         io::copy(&mut tee, &mut io::stderr())
                                     }
                                 }
-                                .err_span(span)?;
+                                .map_err(|err| IoError::new(err.kind(), span, None))?;
                             }
                             Ok(())
                         }
@@ -154,7 +154,7 @@ impl Command for Save {
                                         )
                                     })
                                     .transpose()
-                                    .err_span(span)?;
+                                    .map_err(&from_io_error)?;
 
                                 let res = match stdout {
                                     ChildPipe::Pipe(pipe) => {
@@ -486,6 +486,9 @@ fn stream_to_file(
     span: Span,
     progress: bool,
 ) -> Result<(), ShellError> {
+    // TODO: maybe we can get a path in here
+    let from_io_error = IoError::factory(span, None);
+
     // https://github.com/nushell/nushell/pull/9377 contains the reason for not using `BufWriter`
     if progress {
         let mut bytes_processed = 0;
@@ -505,7 +508,7 @@ fn stream_to_file(
             match reader.fill_buf() {
                 Ok(&[]) => break Ok(()),
                 Ok(buf) => {
-                    file.write_all(buf).err_span(span)?;
+                    file.write_all(buf).map_err(&from_io_error)?;
                     let len = buf.len();
                     reader.consume(len);
                     bytes_processed += len as u64;
@@ -523,9 +526,9 @@ fn stream_to_file(
         if let Err(err) = res {
             let _ = file.flush();
             bar.abandoned_msg("# Error while saving #".to_owned());
-            Err(err.into_spanned(span).into())
+            Err(from_io_error(err).into())
         } else {
-            file.flush().err_span(span)?;
+            file.flush().map_err(&from_io_error)?;
             Ok(())
         }
     } else {

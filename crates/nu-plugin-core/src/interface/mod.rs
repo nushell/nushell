@@ -340,7 +340,7 @@ where
                 writer.write_all(std::iter::from_fn(move || match reader.read(buf) {
                     Ok(0) => None,
                     Ok(len) => Some(Ok(buf[..len].to_vec())),
-                    Err(err) => Some(Err(ShellError::from(err.into_spanned(span)))),
+                    Err(err) => Some(Err(ShellError::from(IoError::new(err.kind(), span, None)))),
                 }))?;
                 Ok(())
             }
