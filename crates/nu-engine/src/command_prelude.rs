@@ -5,4 +5,5 @@ pub use nu_protocol::{
     record, ByteStream, ByteStreamType, Category, ErrSpan, Example, IntoInterruptiblePipelineData,
     IntoPipelineData, IntoSpanned, IntoValue, PipelineData, Record, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
+    shell_error::io::IoError
 };
