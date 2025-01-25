@@ -113,15 +113,23 @@ pub struct EngineState {
     pub jobs: Arc<Mutex<Jobs>>,
 }
 
-type JobId = u64;
+pub type JobId = u64;
 
 #[derive(Clone, Default)]
 pub struct Jobs {
     next_job_id: JobId,
-    pub jobs: HashMap<JobId, Job>,
+    jobs: HashMap<JobId, Job>,
 }
 
 impl Jobs {
+    pub fn iter(&self) -> impl Iterator<Item = (JobId, &Job)> {
+        self.jobs.iter().map(|(k, v)| (*k, v))
+    }
+
+    pub fn lookup(&self, id: JobId) -> Option<&Job> {
+        self.jobs.get(&id)
+    }
+
     pub fn add_job(&mut self, job: Job) -> JobId {
         let next_id = self.next_job_id;
         self.jobs.insert(next_id, job);
