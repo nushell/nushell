@@ -1239,7 +1239,10 @@ pub fn copy_with_signals(
             }
             Err(err) => {
                 let _ = writer.flush();
-                Err(from_io_error(err).into())
+                match ShellErrorBridge::try_from(err) {
+                    Ok(ShellErrorBridge(shell_error)) => Err(shell_error),
+                    Err(err) => Err(from_io_error(err).into())
+                }
             }
         }
     } else {
