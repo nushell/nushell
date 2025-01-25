@@ -1038,8 +1038,8 @@ fn subcommand_completions() {
     match_suggestions(
         &vec![
             "food bar".to_string(),
-            "foo-test-command aagap bcr".to_string(),
             "foo-test-command bar".to_string(),
+            "foo-test-command aagap bcr".to_string(),
         ],
         &suggestions,
     );
