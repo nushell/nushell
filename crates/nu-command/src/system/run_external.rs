@@ -2,7 +2,10 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{dots::expand_ndots_safe, expand_tilde, AbsolutePath};
 use nu_protocol::{
-    did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
+    did_you_mean,
+    engine::Job,
+    process::{ChildProcess, OnFreeze},
+    ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
 };
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
@@ -252,12 +255,19 @@ impl Command for External {
                 .err_span(call.head)?;
         }
 
+        let jobs = engine_state.jobs.clone();
+
         // Wrap the output into a `PipelineData::ByteStream`.
         let mut child = ChildProcess::new(
             child,
             merged_stream,
             matches!(stderr, OutDest::Pipe),
             call.head,
+            Some(OnFreeze(Box::new(move |unfreeze| {
+                let mut jobs = jobs.lock().unwrap();
+
+                jobs.add_job(Job::FrozenJob { unfreeze });
+            }))),
         )?;
 
         if matches!(stdout, OutDest::Pipe | OutDest::PipeSeparate)

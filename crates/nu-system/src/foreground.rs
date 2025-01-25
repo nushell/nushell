@@ -79,9 +79,11 @@ impl ForegroundChild {
         }
     }
 
-    pub fn wait(&mut self) -> io::Result<ExitStatus> {
+    pub fn wait(&mut self) -> io::Result<ForegroundWaitStatus> {
         #[cfg(unix)]
         {
+            use ForegroundWaitStatus::*;
+
             // the child may be stopped multiple times, we loop until it exits
             loop {
                 let child_pid = Pid::from_raw(self.inner.id() as i32);
@@ -93,30 +95,27 @@ impl ForegroundChild {
                     }
                     Ok(wait::WaitStatus::Exited(_, status)) => {
                         drop(self.inner.stdin.take());
-                        return Ok(ExitStatus::Exited(status));
+                        return Ok(Finished(ExitStatus::Exited(status)));
                     }
                     Ok(wait::WaitStatus::Signaled(_, signal, core_dumped)) => {
                         drop(self.inner.stdin.take());
-                        return Ok(ExitStatus::Signaled {
+                        return Ok(Finished(ExitStatus::Signaled {
                             signal: signal as i32,
                             core_dumped,
-                        });
+                        }));
                     }
                     Ok(wait::WaitStatus::Stopped(_, _)) => {
-                        println!("nushell currently does not support background jobs");
-                        // acquire terminal in order to be able to read from stdin
+                        // TODO: consider only bringing our
+                        // process group back to foreground, if we are in an
+                        // interactive session
                         foreground_pgroup::reset();
-                        let mut stdin = io::stdin();
-                        let mut stdout = io::stdout();
-                        write!(stdout, "press any key to continue")?;
-                        stdout.flush()?;
-                        stdin.read_exact(&mut [0u8])?;
-                        // bring child's pg back into foreground and continue it
-                        if let Some(state) = self.pipeline_state.as_ref() {
-                            let existing_pgrp = state.0.load(Ordering::SeqCst);
-                            foreground_pgroup::set(&self.inner, existing_pgrp);
-                        }
-                        signal::killpg(child_pid, signal::SIGCONT)?;
+
+                        let handle = UnfreezeHandle {
+                            child_pid,
+                            pipeline_state: self.pipeline_state.clone(),
+                        };
+
+                        return Ok(ForegroundWaitStatus::Frozen(handle));
                     }
                     Ok(_) => {
                         // keep waiting
@@ -126,6 +125,41 @@ impl ForegroundChild {
         }
         #[cfg(not(unix))]
         self.as_mut().wait().map(Into::into)
+    }
+}
+
+pub enum ForegroundWaitStatus {
+    Finished(ExitStatus),
+    Frozen(UnfreezeHandle),
+}
+
+impl Into<ExitStatus> for ForegroundWaitStatus {
+    fn into(self) -> ExitStatus {
+        match self {
+            Self::Finished(status) => status,
+            Self::Frozen(_) => ExitStatus::Exited(0),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct UnfreezeHandle {
+    child_pid: Pid,
+    pipeline_state: Option<Arc<(AtomicU32, AtomicU32)>>,
+}
+
+impl UnfreezeHandle {
+    pub fn unfreeze_in_foreground(self) -> io::Result<()> {
+        // bring child's process group back into foreground and continue it
+
+        if let Some(state) = self.pipeline_state.as_ref() {
+            let existing_pgrp = state.0.load(Ordering::SeqCst);
+            foreground_pgroup::set_foreground_pid(self.child_pid, existing_pgrp);
+        }
+
+        signal::killpg(self.child_pid, signal::SIGCONT)?;
+
+        Ok(())
     }
 }
 
@@ -345,7 +379,7 @@ mod foreground_pgroup {
         set_foreground_pid(Pid::from_raw(process.id() as i32), existing_pgrp);
     }
 
-    fn set_foreground_pid(pid: Pid, existing_pgrp: u32) {
+    pub fn set_foreground_pid(pid: Pid, existing_pgrp: u32) {
         // Safety: needs to be async-signal-safe.
         // `setpgid` and `tcsetpgrp` are async-signal-safe.
 

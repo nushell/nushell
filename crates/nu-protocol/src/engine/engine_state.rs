@@ -14,6 +14,7 @@ use crate::{
 use fancy_regex::Regex;
 use lru::LruCache;
 use nu_path::AbsolutePathBuf;
+use nu_system::UnfreezeHandle;
 use nu_utils::IgnoreCaseExt;
 use std::{
     collections::HashMap,
@@ -115,7 +116,7 @@ pub struct EngineState {
 
 pub type JobId = u64;
 
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub struct Jobs {
     next_job_id: JobId,
     jobs: HashMap<JobId, Job>,
@@ -142,9 +143,9 @@ impl Jobs {
     }
 }
 
-#[derive(Clone)]
-pub struct Job {
-    pub signals: Signals,
+pub enum Job {
+    ThreadJob { signals: Signals },
+    FrozenJob { unfreeze: UnfreezeHandle },
 }
 
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen

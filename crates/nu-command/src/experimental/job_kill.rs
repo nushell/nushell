@@ -53,5 +53,13 @@ impl Command for JobKill {
 }
 
 fn kill_job(job: &Job) -> () {
-    job.signals.trigger();
+    match job {
+        Job::ThreadJob { signals } => {
+            signals.trigger();
+        }
+
+        Job::FrozenJob { .. } => {
+            todo!("implement killing frozen jobs");
+        }
+    }
 }

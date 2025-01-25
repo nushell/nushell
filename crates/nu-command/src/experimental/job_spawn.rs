@@ -68,7 +68,7 @@ impl Command for Spawn {
                 // TODO: proper mutex error handling
                 let mut jobs = job_state.jobs.lock().unwrap();
 
-                jobs.add_job(Job {
+                jobs.add_job(Job::ThreadJob {
                     signals: job_signals,
                 })
             };

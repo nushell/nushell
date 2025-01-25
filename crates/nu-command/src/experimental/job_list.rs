@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::engine::Job;
 
 #[derive(Clone)]
 pub struct JobList;
@@ -37,9 +38,16 @@ impl Command for JobList {
 
         let values = jobs
             .iter()
-            .map(|(id, _job)| {
+            .map(|(id, job)| {
                 let mut record = Record::new();
                 record.push("id", Value::int(id as i64, head));
+                record.push(
+                    "type",
+                    match job {
+                        Job::ThreadJob { .. } => Value::string("thread", head),
+                        Job::FrozenJob { .. } => Value::string("frozen", head),
+                    },
+                );
 
                 Value::record(record, head)
             })

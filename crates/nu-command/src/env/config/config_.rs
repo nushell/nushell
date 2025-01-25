@@ -108,7 +108,7 @@ pub(super) fn start_editor(
     )?;
 
     // Wrap the output into a `PipelineData::ByteStream`.
-    let child = nu_protocol::process::ChildProcess::new(child, None, false, call.head)?;
+    let child = nu_protocol::process::ChildProcess::new(child, None, false, call.head, None)?;
     Ok(PipelineData::ByteStream(
         ByteStream::child(child, call.head),
         None,

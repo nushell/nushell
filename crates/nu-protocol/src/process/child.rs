@@ -1,5 +1,5 @@
 use crate::{byte_stream::convert_file, ErrSpan, IntoSpanned, ShellError, Span};
-use nu_system::{ExitStatus, ForegroundChild};
+use nu_system::{ExitStatus, ForegroundChild, ForegroundWaitStatus, UnfreezeHandle};
 use os_pipe::PipeReader;
 use std::{
     fmt::Debug,
@@ -154,12 +154,21 @@ pub struct ChildProcess {
     span: Span,
 }
 
+pub struct OnFreeze(pub Box<dyn FnOnce(UnfreezeHandle) + Send>);
+
+impl Debug for OnFreeze {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
 impl ChildProcess {
     pub fn new(
         mut child: ForegroundChild,
         reader: Option<PipeReader>,
         swap: bool,
         span: Span,
+        on_freeze: Option<OnFreeze>,
     ) -> Result<Self, ShellError> {
         let (stdout, stderr) = if let Some(combined) = reader {
             (Some(combined), None)
@@ -179,7 +188,21 @@ impl ChildProcess {
 
         thread::Builder::new()
             .name("exit status waiter".into())
-            .spawn(move || exit_status_sender.send(child.wait()))
+            .spawn(move || {
+                let matched = match child.wait() {
+                    Ok(ForegroundWaitStatus::Finished(status)) => Ok(status),
+                    Ok(ForegroundWaitStatus::Frozen(unfreeze)) => {
+                        if let Some(closure) = on_freeze {
+                            (closure.0)(unfreeze);
+                        };
+
+                        Ok(ExitStatus::Exited(0))
+                    }
+                    Err(err) => Err(err),
+                };
+
+                exit_status_sender.send(matched)
+            })
             .err_span(span)?;
 
         Ok(Self::from_raw(stdout, stderr, Some(exit_status), span))
