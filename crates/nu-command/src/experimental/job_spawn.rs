@@ -13,9 +13,9 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct Spawn;
+pub struct JobSpawn;
 
-impl Command for Spawn {
+impl Command for JobSpawn {
     fn name(&self) -> &str {
         "job spawn"
     }

@@ -447,7 +447,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Experimental
         bind_command! {
             IsAdmin,
-            Spawn,
+            JobSpawn,
             JobList,
             JobKill,
         };
