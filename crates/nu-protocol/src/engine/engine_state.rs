@@ -131,6 +131,10 @@ impl Jobs {
         self.jobs.get(&id)
     }
 
+    pub fn remove_job(&mut self, id: JobId) -> Option<Job> {
+        self.jobs.remove(&id)
+    }
+
     pub fn add_job(&mut self, job: Job) -> JobId {
         let next_id = self.next_job_id;
         self.jobs.insert(next_id, job);

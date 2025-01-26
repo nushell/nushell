@@ -14,6 +14,7 @@ use std::{io::IsTerminal, sync::atomic::Ordering};
 #[cfg(unix)]
 pub use foreground_pgroup::stdin_fd;
 
+use nix::sys::wait::WaitStatus;
 #[cfg(unix)]
 use nix::{sys::signal, sys::wait, unistd::Pid};
 
@@ -149,7 +150,7 @@ pub struct UnfreezeHandle {
 }
 
 impl UnfreezeHandle {
-    pub fn unfreeze_in_foreground(self) -> io::Result<()> {
+    pub fn unfreeze_in_foreground(self) -> io::Result<ForegroundWaitStatus> {
         // bring child's process group back into foreground and continue it
 
         if let Some(state) = self.pipeline_state.as_ref() {
@@ -157,9 +158,51 @@ impl UnfreezeHandle {
             foreground_pgroup::set_foreground_pid(self.child_pid, existing_pgrp);
         }
 
-        signal::killpg(self.child_pid, signal::SIGCONT)?;
+        if let Err(err) = signal::killpg(self.child_pid, signal::SIGCONT) {
+            foreground_pgroup::reset();
 
-        Ok(())
+            return Err(err.into());
+        }
+
+        // TODO: refactor this copy-pasted-modified code
+        loop {
+            use ForegroundWaitStatus::*;
+
+            let child_pid = self.child_pid;
+
+            let status = wait::waitpid(child_pid, Some(wait::WaitPidFlag::WUNTRACED));
+
+            match status {
+                Err(e) => {
+                    foreground_pgroup::reset();
+                    return Err(e.into());
+                }
+
+                Ok(wait::WaitStatus::Exited(_, status)) => {
+                    foreground_pgroup::reset();
+
+                    return Ok(Finished(ExitStatus::Exited(status)));
+                }
+
+                Ok(wait::WaitStatus::Signaled(_, signal, core_dumped)) => {
+                    foreground_pgroup::reset();
+
+                    return Ok(Finished(ExitStatus::Signaled {
+                        signal: signal as i32,
+                        core_dumped,
+                    }));
+                }
+
+                Ok(wait::WaitStatus::Stopped(_, _)) => {
+                    foreground_pgroup::reset();
+
+                    return Ok(ForegroundWaitStatus::Frozen(self));
+                }
+                Ok(_) => {
+                    // keep waiting
+                }
+            };
+        }
     }
 }
 

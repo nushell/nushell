@@ -8,7 +8,7 @@ use std::{
     thread,
 };
 
-fn check_ok(status: ExitStatus, ignore_error: bool, span: Span) -> Result<(), ShellError> {
+pub fn check_ok(status: ExitStatus, ignore_error: bool, span: Span) -> Result<(), ShellError> {
     match status {
         ExitStatus::Exited(exit_code) => {
             if ignore_error {
