@@ -1,6 +1,7 @@
-use crate::database::{SQLiteDatabase, MEMORY_DB};
+use crate::database::{values_to_sql, SQLiteDatabase, MEMORY_DB};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
+use rusqlite::params_from_iter;
 
 #[derive(Clone)]
 pub struct StorUpdate;
@@ -163,36 +164,13 @@ fn process(
         let mut update_stmt = format!("UPDATE {} ", new_table_name);
 
         update_stmt.push_str("SET ");
-        let vals = record.iter();
-        vals.for_each(|(key, val)| match val {
-            Value::Int { val, .. } => {
-                update_stmt.push_str(&format!("{} = {}, ", key, val));
-            }
-            Value::Float { val, .. } => {
-                update_stmt.push_str(&format!("{} = {}, ", key, val));
-            }
-            Value::String { val, .. } => {
-                update_stmt.push_str(&format!("{} = '{}', ", key, val));
-            }
-            Value::Date { val, .. } => {
-                update_stmt.push_str(&format!("{} = '{}', ", key, val));
-            }
-            Value::Bool { val, .. } => {
-                update_stmt.push_str(&format!("{} = {}, ", key, val));
-            }
-            _ => {
-                // return Err(ShellError::UnsupportedInput {
-                //     msg: format!("{} is not a valid datepart, expected one of year, month, day, hour, minute, second, millisecond, microsecond, nanosecond", part.item),
-                //     input: "value originates from here".to_string(),
-                //     msg_span: span,
-                //     input_span: val.span(),
-                // });
-            }
-        });
-        if update_stmt.ends_with(", ") {
-            update_stmt.pop();
-            update_stmt.pop();
+        let mut placeholders: Vec<String> = Vec::new();
+
+        for (index, (key, _)) in record.iter().enumerate() {
+            //let param_placeholder = format!("param{}", i);
+            placeholders.push(format!("{} = ?{}", key, index + 1));
         }
+        update_stmt.push_str(&placeholders.join(", "));
 
         // Yup, this is a bit janky, but I'm not sure a better way to do this without having
         // --and and --or flags as well as supporting ==, !=, <>, is null, is not null, etc.
@@ -202,7 +180,10 @@ fn process(
         }
         // dbg!(&update_stmt);
 
-        conn.execute(&update_stmt, [])
+        // Get the params from the passed values
+        let params = values_to_sql(record.values().cloned())?;
+
+        conn.execute(&update_stmt, params_from_iter(params))
             .map_err(|err| ShellError::GenericError {
                 error: "Failed to open SQLite connection in memory from update".into(),
                 msg: err.to_string(),
