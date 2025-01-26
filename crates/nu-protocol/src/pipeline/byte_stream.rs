@@ -1287,7 +1287,10 @@ fn generic_copy(
             Ok(0) => break,
             Ok(n) => n,
             Err(e) if e.kind() == ErrorKind::Interrupted => continue,
-            Err(e) => return Err(from_io_error(e).into()),
+            Err(e) => match ShellErrorBridge::try_from(e) {
+                Ok(ShellErrorBridge(e)) => return Err(e),
+                Err(e) => return Err(from_io_error(e).into())
+            }
         };
         len += n;
         writer.write_all(&buf[..n]).map_err(&from_io_error)?;
