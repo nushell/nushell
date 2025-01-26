@@ -33,7 +33,6 @@ impl Command for JobList {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        // TODO: proper mutex error handling.
         let jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
         let values = jobs

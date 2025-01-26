@@ -46,7 +46,6 @@ impl Command for JobUnfreeze {
 
         let mut jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
-        // FIXME: this is broken; when given a thread job, it is removed from the queue.
 
         let job = match jobs.lookup(id) {
             None => return Err(ShellError::JobNotFound { id, span: head }),
