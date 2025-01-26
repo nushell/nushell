@@ -2,7 +2,7 @@
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
 use nu_protocol::{
-    engine::Sequence, shell_error::io::IoError, ByteStream, IntoSpanned, ListStream, PipelineData,
+    engine::Sequence, shell_error::io::IoError, ByteStream, ListStream, PipelineData,
     Reader, ShellError, Signals, Span,
 };
 use std::{
