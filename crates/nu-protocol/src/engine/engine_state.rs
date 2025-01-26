@@ -144,7 +144,7 @@ impl Jobs {
 
     // this is useful when you want to remove a job form the list and add it back later
     pub fn add_job_with_id(&mut self, id: JobId, job: Job) -> Result<(), &'static str> {
-        if let Some(_) = self.jobs.get(&id) {
+        if self.jobs.get(&id).is_some() {
             Err("job already exists")
         } else {
             self.jobs.insert(id, job);
