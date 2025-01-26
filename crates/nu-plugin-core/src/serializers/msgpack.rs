@@ -64,11 +64,11 @@ fn rmp_encode_err(err: rmp_serde::encode::Error) -> ShellError {
     match err {
         rmp_serde::encode::Error::InvalidValueWrite(_) => {
             // I/O error
-            ShellError::Io(IoError::new_with_additional_context(
+            ShellError::Io(IoError::new_internal(
+                // TODO: get a better kind here
                 std::io::ErrorKind::Other,
-                Span::unknown(),
-                None,
-                err,
+                "Could not encode with rmp",
+                nu_protocol::location!(),
             ))
         }
         _ => {
@@ -90,10 +90,11 @@ fn rmp_decode_err<T>(err: rmp_serde::decode::Error) -> Result<Option<T>, ShellEr
                 Ok(None)
             } else {
                 // I/O error
-                Err(ShellError::Io(IoError::new(
-                    err.kind(),
-                    Span::unknown(),
-                    None,
+                Err(ShellError::Io(IoError::new_internal(
+                    // TODO: get a better kind here
+                    std::io::ErrorKind::Other, 
+                    "Could not decode with rmp", 
+                    nu_protocol::location!()
                 )))
             }
         }

@@ -36,18 +36,18 @@ macro_rules! generate_tests {
             let mut buffered = std::io::BufReader::new(ErrorProducer);
             match Encoder::<PluginInput>::decode(&encoder, &mut buffered) {
                 Ok(_) => panic!("decode: i/o error was not passed through"),
-                Err(ShellError::IOError { .. }) => (), // okay
+                Err(ShellError::Io(_)) => (), // okay
                 Err(other) => panic!(
                     "decode: got other error, should have been a \
-                    ShellError::IOError: {other:?}"
+                    ShellError::Io: {other:?}"
                 ),
             }
             match Encoder::<PluginOutput>::decode(&encoder, &mut buffered) {
                 Ok(_) => panic!("decode: i/o error was not passed through"),
-                Err(ShellError::IOError { .. }) => (), // okay
+                Err(ShellError::Io(_)) => (), // okay
                 Err(other) => panic!(
                     "decode: got other error, should have been a \
-                    ShellError::IOError: {other:?}"
+                    ShellError::Io: {other:?}"
                 ),
             }
         }

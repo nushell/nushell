@@ -76,10 +76,10 @@ impl Encoder<PluginOutput> for JsonSerializer {
 /// Handle a `serde_json` encode error.
 fn json_encode_err(err: serde_json::Error) -> ShellError {
     if err.is_io() {
-        ShellError::Io(IoError::new(
+        ShellError::Io(IoError::new_internal(
             err.io_error_kind().expect("is io"),
-            Span::unknown(),
-            None,
+            "Could not encode with json",
+            nu_protocol::location!(),
         ))
     } else {
         ShellError::PluginFailedToEncode {
@@ -93,10 +93,10 @@ fn json_decode_err<T>(err: serde_json::Error) -> Result<Option<T>, ShellError> {
     if err.is_eof() {
         Ok(None)
     } else if err.is_io() {
-        Err(ShellError::Io(IoError::new(
-            err.io_error_kind().expect("is io"),
-            Span::unknown(),
-            None,
+        Err(ShellError::Io(IoError::new_internal(
+            err.io_error_kind().expect("is io"), 
+            "Could not decode with json", 
+            nu_protocol::location!()
         )))
     } else {
         Err(ShellError::PluginFailedToDecode {
