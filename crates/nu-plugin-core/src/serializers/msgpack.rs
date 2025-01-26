@@ -1,7 +1,7 @@
 use std::io::ErrorKind;
 
 use nu_plugin_protocol::{PluginInput, PluginOutput};
-use nu_protocol::{shell_error::io::IoError, ShellError, Span};
+use nu_protocol::{shell_error::io::IoError, ShellError};
 use serde::Deserialize;
 
 use crate::{Encoder, PluginEncoder};

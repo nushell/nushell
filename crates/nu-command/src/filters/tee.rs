@@ -532,7 +532,12 @@ fn tee_forwards_errors_back_immediately() {
     use std::time::Duration;
     let slow_input = (0..100).inspect(|_| std::thread::sleep(Duration::from_millis(1)));
     let iter = tee(slow_input, |_| {
-        Err(ShellError::IOError { msg: "test".into() })
+        Err(ShellError::Io(IoError::new_with_additional_context(
+            std::io::ErrorKind::Other, 
+            Span::test_data(), 
+            None, 
+            "test"
+        )))
     })
     .expect("io error");
     for result in iter {
@@ -559,7 +564,12 @@ fn tee_waits_for_the_other_thread() {
     let iter = tee(0..100, move |_| {
         std::thread::sleep(Duration::from_millis(10));
         waited_clone.store(true, Ordering::Relaxed);
-        Err(ShellError::IOError { msg: "test".into() })
+        Err(ShellError::Io(IoError::new_with_additional_context(
+            std::io::ErrorKind::Other, 
+            Span::test_data(), 
+            None, 
+            "test"
+        )))
     })
     .expect("io error");
     let last = iter.last();
