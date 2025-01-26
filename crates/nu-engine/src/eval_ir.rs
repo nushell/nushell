@@ -561,7 +561,10 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::Call { decl_id, src_dst } => {
             let input = ctx.take_reg(*src_dst);
-            let result = eval_call::<D>(ctx, *decl_id, *span, input)?;
+            let mut result = eval_call::<D>(ctx, *decl_id, *span, input)?;
+            if let PipelineData::ByteStream(s, ..) = &mut result {
+                s.push_callback_span(span.clone());
+            }
             ctx.put_reg(*src_dst, result);
             Ok(Continue)
         }
@@ -1473,9 +1476,20 @@ fn drain(ctx: &mut EvalContext<'_>, data: PipelineData) -> Result<InstructionRes
     match data {
         PipelineData::ByteStream(stream, ..) => {
             let span = stream.span();
-            if let Err(err) = stream.drain() {
+            let callback_spans = stream.get_callback_spans().clone();
+            if let Err(mut err) = stream.drain() {
                 ctx.stack.set_last_error(&err);
-                return Err(err);
+                if callback_spans.is_empty() {
+                    return Err(err);
+                } else {
+                    for s in callback_spans {
+                        err = ShellError::EvalBlockWithInput {
+                            span: s,
+                            sources: vec![err],
+                        }
+                    }
+                    return Err(err);
+                }
             } else {
                 ctx.stack.set_last_exit_code(0, span);
             }

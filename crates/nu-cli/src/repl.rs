@@ -176,6 +176,10 @@ pub fn evaluate_repl(
         // If there is a panic within this iteration the last engine_state and stack
         // will be used
         let mut current_engine_state = previous_engine_state.clone();
+        // force reset engine state with no error.
+        current_engine_state
+            .have_error
+            .store(false, std::sync::atomic::Ordering::SeqCst);
         // for the stack, we are going to hold to create a child stack instead,
         // avoiding an expensive copy
         let current_stack = Stack::with_parent(previous_stack_arc.clone());
