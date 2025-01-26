@@ -142,8 +142,14 @@ impl Jobs {
         next_id
     }
 
-    pub fn unregister_job(&mut self, id: JobId) {
-        self.jobs.remove(&id);
+    // this is useful when you want to remove a job form the list and add it back later
+    pub fn add_job_with_id(&mut self, id: JobId, job: Job) -> Result<(), &'static str> {
+        if let Some(_) = self.jobs.get(&id) {
+            Err("job already exists")
+        } else {
+            self.jobs.insert(id, job);
+            Ok(())
+        }
     }
 }
 

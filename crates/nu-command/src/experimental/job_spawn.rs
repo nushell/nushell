@@ -86,7 +86,7 @@ impl Command for JobSpawn {
             {
                 let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");
 
-                jobs.unregister_job(id)
+                jobs.remove_job(id);
             }
         });
 
