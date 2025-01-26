@@ -77,7 +77,7 @@ fn unfreeze_job(state: &EngineState, job: Job, span: Span) -> Result<(), ShellEr
 
         Job::FrozenJob { unfreeze } => match unfreeze.unfreeze_in_foreground()? {
             ForegroundWaitStatus::Frozen(unfreeze) => {
-                let mut jobs = state.jobs.lock().unwrap();
+                let mut jobs = state.jobs.lock().expect("jobs lock is poisoned!");
                 jobs.add_job(Job::FrozenJob { unfreeze });
                 Ok(())
             }

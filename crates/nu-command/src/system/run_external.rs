@@ -264,7 +264,7 @@ impl Command for External {
             matches!(stderr, OutDest::Pipe),
             call.head,
             Some(OnFreeze(Box::new(move |unfreeze| {
-                let mut jobs = jobs.lock().unwrap();
+                let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
 
                 jobs.add_job(Job::FrozenJob { unfreeze });
             }))),
