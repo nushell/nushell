@@ -22,7 +22,7 @@ impl Command for JobUnfreeze {
             .category(Category::Experimental)
             // TODO: make this argument optional and use highest most recent job if
             // no argument is passed
-            .required("id", SyntaxShape::Int, "The process id to kill")
+            .required("id", SyntaxShape::Int, "The process id to unfreeze.")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
     }

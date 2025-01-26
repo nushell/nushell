@@ -31,7 +31,7 @@ impl Command for JobSpawn {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "The closure to run in another thread",
+                "The closure to run in another thread.",
             )
             .allow_variants_without_examples(true)
     }
