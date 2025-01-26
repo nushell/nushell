@@ -132,15 +132,6 @@ pub enum ForegroundWaitStatus {
     Frozen(UnfreezeHandle),
 }
 
-impl Into<ExitStatus> for ForegroundWaitStatus {
-    fn into(self) -> ExitStatus {
-        match self {
-            Self::Finished(status) => status,
-            Self::Frozen(_) => ExitStatus::Exited(0),
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct UnfreezeHandle {
     child_pid: Pid,

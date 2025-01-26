@@ -17,6 +17,7 @@ impl Command for JobKill {
         Signature::build("job kill")
             .category(Category::Experimental)
             .required("id", SyntaxShape::Int, "The process id to kill")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
     }
 
