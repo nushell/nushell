@@ -124,7 +124,7 @@ impl Span {
     pub const fn test_data() -> Self {
         Self {
             start: usize::MAX / 2,
-            end: 0,
+            end: usize::MAX / 2,
         }
     }
 
