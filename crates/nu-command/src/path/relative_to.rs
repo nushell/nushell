@@ -142,24 +142,37 @@ path."#
 }
 
 fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
+    // Assume right arguemnt always is a directory (i.e. /a/b is really /a/b/)
+    // The output, when typed into a termiinal at the right arugment leads to the left.
     let lhs = expand_to_real_path(path);
     let rhs = expand_to_real_path(&args.path.item);
 
     match (lhs.to_str(), rhs.to_str()) {
         (Some(child_str), Some(parent_str)) => {
+            let mut parent_str = parent_str
+                .trim_end_matches('/')
+                .trim_start_matches('/')
+                .to_string();
+            parent_str.push('/');
+
             let common: String = child_str
-                .split("/")
-                .zip(parent_str.split("/"))
+                .trim_start_matches('/')
+                .split('/')
+                .zip(parent_str.split('/'))
                 .take_while(|(x, y)| x == y)
                 .map(|(x, _)| x.to_string() + "/")
                 .collect();
 
             if let Some(x) = child_str.strip_prefix(&common) {
-                if parent_str == common.trim_end_matches("/") {
+                if parent_str == common {
                     return Value::string(x.to_string(), span);
                 }
                 if let Some(remaining_parent) = parent_str.strip_prefix(&common) {
-                    let mut path: String = remaining_parent.split("/").map(|_| "../").collect();
+                    let mut path: String = remaining_parent
+                        .split('/')
+                        .filter(|&x| x.is_empty())
+                        .map(|_| "../")
+                        .collect();
                     path.push_str(x);
                     return Value::string(path.to_string(), span);
                 }
@@ -176,7 +189,7 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
         }
         _ => Value::error(
             ShellError::IncorrectValue {
-                msg: "Either the input or the argument path is incorrect".into(),
+                msg: "Unable to convert one or more of the arugments into strings!".into(),
                 val_span: span,
                 call_span: span,
             },
