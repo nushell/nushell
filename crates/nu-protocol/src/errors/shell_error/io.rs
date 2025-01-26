@@ -89,7 +89,6 @@ impl IoError {
     pub fn new(kind: impl Into<ErrorKind>, span: Span, path: impl Into<Option<PathBuf>>) -> Self {
         let path = path.into();
 
-        #[cfg(not(test))]
         if span == Span::unknown() {
             debug_assert!(
                 path.is_some(),
@@ -130,7 +129,6 @@ impl IoError {
     ) -> Self {
         let path = path.into();
         
-        #[cfg(not(test))]
         if span == Span::unknown() {
             debug_assert!(
                 path.is_some(),
