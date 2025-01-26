@@ -38,7 +38,7 @@ impl Command for JobKill {
 
         let id: JobId = id as JobId;
 
-        let jobs = engine_state.jobs.lock().unwrap();
+        let jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
         match jobs.lookup(id) {
             None => return Err(ShellError::NotFound { span: head }),
@@ -53,7 +53,7 @@ impl Command for JobKill {
     }
 }
 
-fn kill_job(job: &Job) -> () {
+fn kill_job(job: &Job) {
     match job {
         Job::ThreadJob { signals } => {
             signals.trigger();

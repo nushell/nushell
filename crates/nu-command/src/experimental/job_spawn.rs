@@ -66,7 +66,7 @@ impl Command for JobSpawn {
         thread::spawn(move || {
             let id = {
                 // TODO: proper mutex error handling
-                let mut jobs = job_state.jobs.lock().unwrap();
+                let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");
 
                 jobs.add_job(Job::ThreadJob {
                     signals: job_signals,
