@@ -118,8 +118,11 @@ impl Span {
     /// Span for testing purposes.
     /// 
     /// The provided span does not point into any known source but is unequal to [`Span::unknown()`].
+    /// 
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors
     pub const fn test_data() -> Self {
-        Self { start: usize::MAX, end: 0 }
+        Self { start: usize::MAX / 2, end: 0 }
     }
 
     pub fn offset(&self, offset: usize) -> Self {
