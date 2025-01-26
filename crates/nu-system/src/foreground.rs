@@ -131,18 +131,9 @@ pub enum ForegroundWaitStatus {
     Frozen(UnfreezeHandle),
 }
 
-impl From<ForegroundWaitStatus> for ExitStatus {
-    fn from(value: ForegroundWaitStatus) -> Self {
-        match value {
-            ForegroundWaitStatus::Finished(status) => status,
-            ForegroundWaitStatus::Frozen(_handle) => ExitStatus::Exited(0),
-        }
-    }
-}
-
-impl From<ExitStatus> for ForegroundWaitStatus {
-    fn from(status: ExitStatus) -> Self {
-        ForegroundWaitStatus::Finished(status)
+impl From<std::process::ExitStatus> for ForegroundWaitStatus {
+    fn from(status: std::process::ExitStatus) -> Self {
+        ForegroundWaitStatus::Finished(status.into())
     }
 }
 
