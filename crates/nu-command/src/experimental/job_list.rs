@@ -10,7 +10,7 @@ impl Command for JobList {
     }
 
     fn description(&self) -> &str {
-        "List background jobs"
+        "List background jobs."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

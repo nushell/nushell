@@ -10,7 +10,7 @@ impl Command for JobKill {
     }
 
     fn description(&self) -> &str {
-        "Kill a background job"
+        "Kill a background job."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

@@ -10,7 +10,7 @@ pub struct JobUnfreeze;
 
 impl Command for JobUnfreeze {
     fn name(&self) -> &str {
-        "job unfreeze"
+        "job unfreeze."
     }
 
     fn description(&self) -> &str {

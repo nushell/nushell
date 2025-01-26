@@ -21,7 +21,7 @@ impl Command for JobSpawn {
     }
 
     fn description(&self) -> &str {
-        "Spawn a background job"
+        "Spawn a background job."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
