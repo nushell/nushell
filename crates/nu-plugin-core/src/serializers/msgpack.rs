@@ -92,9 +92,9 @@ fn rmp_decode_err<T>(err: rmp_serde::decode::Error) -> Result<Option<T>, ShellEr
                 // I/O error
                 Err(ShellError::Io(IoError::new_internal(
                     // TODO: get a better kind here
-                    std::io::ErrorKind::Other, 
-                    "Could not decode with rmp", 
-                    nu_protocol::location!()
+                    std::io::ErrorKind::Other,
+                    "Could not decode with rmp",
+                    nu_protocol::location!(),
                 )))
             }
         }

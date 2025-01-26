@@ -533,10 +533,10 @@ fn tee_forwards_errors_back_immediately() {
     let slow_input = (0..100).inspect(|_| std::thread::sleep(Duration::from_millis(1)));
     let iter = tee(slow_input, |_| {
         Err(ShellError::Io(IoError::new_with_additional_context(
-            std::io::ErrorKind::Other, 
-            Span::test_data(), 
-            None, 
-            "test"
+            std::io::ErrorKind::Other,
+            Span::test_data(),
+            None,
+            "test",
         )))
     })
     .expect("io error");
@@ -565,10 +565,10 @@ fn tee_waits_for_the_other_thread() {
         std::thread::sleep(Duration::from_millis(10));
         waited_clone.store(true, Ordering::Relaxed);
         Err(ShellError::Io(IoError::new_with_additional_context(
-            std::io::ErrorKind::Other, 
-            Span::test_data(), 
-            None, 
-            "test"
+            std::io::ErrorKind::Other,
+            Span::test_data(),
+            None,
+            "test",
         )))
     })
     .expect("io error");

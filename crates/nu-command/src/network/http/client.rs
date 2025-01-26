@@ -10,12 +10,12 @@ use nu_protocol::{shell_error::io::IoError, ByteStream, LabeledError, Signals};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
+    error::Error as StdError,
     io::Cursor,
     path::PathBuf,
     str::FromStr,
     sync::mpsc::{self, RecvTimeoutError},
     time::Duration,
-    error::Error as StdError
 };
 use ureq::{Error, ErrorKind, Request, Response};
 use url::Url;
@@ -636,25 +636,40 @@ pub fn request_add_custom_headers(
 
 fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -> ShellError {
     match response_err {
-        Error::Status(301, _) => ShellError::NetworkFailure { msg: format!("Resource moved permanently (301): {requested_url:?}"), span },
-        Error::Status(400, _) => {
-            ShellError::NetworkFailure { msg: format!("Bad request (400) to {requested_url:?}"), span }
-        }
-        Error::Status(403, _) => {
-            ShellError::NetworkFailure { msg: format!("Access forbidden (403) to {requested_url:?}"), span }
-        }
-        Error::Status(404, _) => ShellError::NetworkFailure { msg: format!("Requested file not found (404): {requested_url:?}"), span },
-        Error::Status(408, _) => {
-            ShellError::NetworkFailure { msg: format!("Request timeout (408): {requested_url:?}"), span }
-        }
-        Error::Status(_, _) => ShellError::NetworkFailure { msg: format!(
+        Error::Status(301, _) => ShellError::NetworkFailure {
+            msg: format!("Resource moved permanently (301): {requested_url:?}"),
+            span,
+        },
+        Error::Status(400, _) => ShellError::NetworkFailure {
+            msg: format!("Bad request (400) to {requested_url:?}"),
+            span,
+        },
+        Error::Status(403, _) => ShellError::NetworkFailure {
+            msg: format!("Access forbidden (403) to {requested_url:?}"),
+            span,
+        },
+        Error::Status(404, _) => ShellError::NetworkFailure {
+            msg: format!("Requested file not found (404): {requested_url:?}"),
+            span,
+        },
+        Error::Status(408, _) => ShellError::NetworkFailure {
+            msg: format!("Request timeout (408): {requested_url:?}"),
+            span,
+        },
+        Error::Status(_, _) => ShellError::NetworkFailure {
+            msg: format!(
                 "Cannot make request to {:?}. Error is {:?}",
                 requested_url,
                 response_err.to_string()
-            ), span },
+            ),
+            span,
+        },
 
         Error::Transport(t) => {
-            let generic_network_failure = || ShellError::NetworkFailure { msg: t.to_string(), span };
+            let generic_network_failure = || ShellError::NetworkFailure {
+                msg: t.to_string(),
+                span,
+            };
             match t.kind() {
                 ErrorKind::ConnectionFailed => ShellError::NetworkFailure { msg: format!("Cannot make request to {requested_url}, there was an error establishing a connection.",), span },
                 ErrorKind::Io => 'io: {
@@ -670,7 +685,7 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
                 }
                 _ => generic_network_failure()
             }
-        },
+        }
     }
 }
 

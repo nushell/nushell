@@ -116,13 +116,16 @@ impl Span {
     }
 
     /// Span for testing purposes.
-    /// 
+    ///
     /// The provided span does not point into any known source but is unequal to [`Span::unknown()`].
-    /// 
+    ///
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors
     pub const fn test_data() -> Self {
-        Self { start: usize::MAX / 2, end: 0 }
+        Self {
+            start: usize::MAX / 2,
+            end: 0,
+        }
     }
 
     pub fn offset(&self, offset: usize) -> Self {
@@ -220,7 +223,7 @@ impl From<Span> for SourceSpan {
 }
 
 /// An extension trait for [`Result`], which adds a span to the error type.
-/// 
+///
 /// This trait might be removed later, since the old [`Spanned<std::io::Error>`] to [`ShellError`]
 /// conversion was replaced by [`IoError`](io_error::IoError).
 pub trait ErrSpan {
@@ -229,7 +232,6 @@ pub trait ErrSpan {
     /// Adds the given span to the error type, turning it into a [`Spanned<E>`].
     fn err_span(self, span: Span) -> Self::Result;
 }
-
 
 impl<T, E> ErrSpan for Result<T, E> {
     type Result = Result<T, Spanned<E>>;

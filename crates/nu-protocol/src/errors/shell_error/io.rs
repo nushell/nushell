@@ -128,7 +128,7 @@ impl IoError {
         additional_context: impl ToString,
     ) -> Self {
         let path = path.into();
-        
+
         if span == Span::unknown() {
             debug_assert!(
                 path.is_some(),
@@ -201,7 +201,7 @@ impl IoError {
     /// ```rust
     /// use std::path::PathBuf;
     /// use nu_protocol::shell_error::io::IoError;
-    /// 
+    ///
     /// let error = IoError::new_internal_with_path(
     ///     std::io::ErrorKind::NotFound,
     ///     "Could not find special file",

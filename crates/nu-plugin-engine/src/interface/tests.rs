@@ -88,10 +88,10 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
 
 fn test_io_error() -> ShellError {
     ShellError::Io(IoError::new_with_additional_context(
-        std::io::ErrorKind::Other, 
-        Span::test_data(), 
-        None, 
-        "test io error"
+        std::io::ErrorKind::Other,
+        Span::test_data(),
+        None,
+        "test io error",
     ))
 }
 

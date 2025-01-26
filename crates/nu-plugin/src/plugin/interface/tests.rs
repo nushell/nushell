@@ -93,7 +93,7 @@ fn test_io_error() -> ShellError {
         std::io::ErrorKind::Other,
         Span::test_data(),
         None,
-        "test io error"
+        "test io error",
     ))
 }
 

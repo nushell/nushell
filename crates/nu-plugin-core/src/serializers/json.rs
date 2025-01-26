@@ -94,9 +94,9 @@ fn json_decode_err<T>(err: serde_json::Error) -> Result<Option<T>, ShellError> {
         Ok(None)
     } else if err.is_io() {
         Err(ShellError::Io(IoError::new_internal(
-            err.io_error_kind().expect("is io"), 
-            "Could not decode with json", 
-            nu_protocol::location!()
+            err.io_error_kind().expect("is io"),
+            "Could not decode with json",
+            nu_protocol::location!(),
         )))
     } else {
         Err(ShellError::PluginFailedToDecode {
