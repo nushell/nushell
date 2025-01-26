@@ -812,34 +812,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Failed to find a file during a nushell operation.
-    ///
-    /// ## Resolution
-    ///
-    /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
-    #[error("File not found")]
-    #[diagnostic(code(nu::shell::file_not_found), help("{file} does not exist"))]
-    #[deprecated]
-    FileNotFound {
-        file: String,
-        #[label("file not found")]
-        span: Span,
-    },
-
-    /// Failed to find a file during a nushell operation.
-    ///
-    /// ## Resolution
-    ///
-    /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
-    #[error("File not found")]
-    #[diagnostic(code(nu::shell::file_not_found))]
-    #[deprecated]
-    FileNotFoundCustom {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
     /// The registered plugin data for a plugin is invalid.
     ///
     /// ## Resolution
@@ -930,163 +902,14 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// An I/O operation failed.
+    ///
+    /// ## Resolution
+    ///
+    /// This is the main I/O error, for further details check the error kind and additional context.
     #[error(transparent)]
     #[diagnostic(transparent)]
     Io(io::IoError),
-
-    /// I/O operation interrupted.
-    ///
-    /// ## Resolution
-    ///
-    /// This is a generic error. Refer to the specific error message for further details.
-    #[error("I/O interrupted")]
-    #[diagnostic(code(nu::shell::io_interrupted))]
-    #[deprecated]
-    IOInterrupted {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
-    /// An I/O operation failed.
-    ///
-    /// ## Resolution
-    ///
-    /// This is a generic error. Refer to the specific error message for further details.
-    #[error("I/O error")]
-    #[diagnostic(code(nu::shell::io_error), help("{msg}"))]
-    #[deprecated]
-    IOError { msg: String },
-
-    /// An I/O operation failed.
-    ///
-    /// ## Resolution
-    ///
-    /// This is a generic error. Refer to the specific error message for further details.
-    #[error("I/O error")]
-    #[diagnostic(code(nu::shell::io_error))]
-    #[deprecated]
-    IOErrorSpanned {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
-    /// Tried to `cd` to a path that isn't a directory.
-    ///
-    /// ## Resolution
-    ///
-    /// Make sure the path is a directory. It currently exists, but is of some other type, like a file.
-    #[error("Cannot change to directory")]
-    #[diagnostic(code(nu::shell::cannot_cd_to_directory))]
-    #[deprecated]
-    NotADirectory {
-        #[label("is not a directory")]
-        span: Span,
-    },
-
-    /// Attempted to perform an operation on a directory that doesn't exist.
-    ///
-    /// ## Resolution
-    ///
-    /// Make sure the directory in the error message actually exists before trying again.
-    #[error("Directory not found")]
-    #[diagnostic(code(nu::shell::directory_not_found), help("{dir} does not exist"))]
-    #[deprecated]
-    DirectoryNotFound {
-        dir: String,
-        #[label("directory not found")]
-        span: Span,
-    },
-
-    /// The requested move operation cannot be completed. This is typically because both paths exist,
-    /// but are of different types. For example, you might be trying to overwrite an existing file with
-    /// a directory.
-    ///
-    /// ## Resolution
-    ///
-    /// Make sure the destination path does not exist before moving a directory.
-    #[error("Move not possible")]
-    #[diagnostic(code(nu::shell::move_not_possible))]
-    #[deprecated]
-    MoveNotPossible {
-        source_message: String,
-        #[label("{source_message}")]
-        source_span: Span,
-        destination_message: String,
-        #[label("{destination_message}")]
-        destination_span: Span,
-    },
-
-    /// Failed to create either a file or directory.
-    ///
-    /// ## Resolution
-    ///
-    /// This is a fairly generic error. Refer to the specific error message for further details.
-    #[error("Create not possible")]
-    #[diagnostic(code(nu::shell::create_not_possible))]
-    #[deprecated]
-    CreateNotPossible {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
-    /// Changing the access time ("atime") of this file is not possible.
-    ///
-    /// ## Resolution
-    ///
-    /// This can be for various reasons, such as your platform or permission flags. Refer to the specific error message for more details.
-    #[error("Not possible to change the access time")]
-    #[diagnostic(code(nu::shell::change_access_time_not_possible))]
-    #[deprecated]
-    ChangeAccessTimeNotPossible {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
-    /// Changing the modification time ("mtime") of this file is not possible.
-    ///
-    /// ## Resolution
-    ///
-    /// This can be for various reasons, such as your platform or permission flags. Refer to the specific error message for more details.
-    #[error("Not possible to change the modified time")]
-    #[diagnostic(code(nu::shell::change_modified_time_not_possible))]
-    #[deprecated]
-    ChangeModifiedTimeNotPossible {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
-    /// Unable to remove this item.
-    ///
-    /// ## Resolution
-    ///
-    /// Removal can fail for a number of reasons, such as permissions problems. Refer to the specific error message for more details.
-    #[error("Remove not possible")]
-    #[diagnostic(code(nu::shell::remove_not_possible))]
-    #[deprecated]
-    RemoveNotPossible {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
-    /// Error while trying to read a file
-    ///
-    /// ## Resolution
-    ///
-    /// The error will show the result from a file operation
-    #[error("Error trying to read file")]
-    #[diagnostic(code(nu::shell::error_reading_file))]
-    #[deprecated]
-    ReadingFile {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
 
     /// A name was not found. Did you mean a different name?
     ///
@@ -1551,30 +1374,6 @@ impl ShellError {
         )
     }
 }
-
-// impl From<std::io::Error> for ShellError {
-//     // TODO: deprecate this
-//     fn from(error: std::io::Error) -> ShellError {
-//         Self::Io(IoError::new(error.kind(), Span::unknown(), None))
-//     }
-// }
-
-// FIXME: this impl is originally absolutely cursed, we need to do something about it
-// impl From<Spanned<std::io::Error>> for ShellError {
-//     fn from(error: Spanned<std::io::Error>) -> Self {
-//         let Spanned { item: error, span } = error;
-//         IoError::new(error.kind(), span, None).into()
-//     }
-// }
-
-// impl From<ShellError> for std::io::Error {
-//     fn from(error: ShellError) -> Self {
-//         match error {
-//             ShellError::Io(error) => error.into(),
-//             _ => Self::new(std::io::ErrorKind::Other, error),
-//         }
-//     }
-// }
 
 impl From<Box<dyn std::error::Error>> for ShellError {
     fn from(error: Box<dyn std::error::Error>) -> ShellError {
