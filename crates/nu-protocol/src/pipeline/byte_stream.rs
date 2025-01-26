@@ -1075,14 +1075,19 @@ impl Chunks {
     }
 
     fn next_string(&mut self) -> Result<Option<String>, (Vec<u8>, ShellError)> {
-        let from_io_error = IoError::factory(self.span, None);
+        let from_io_error = |err: std::io::Error| {
+            match ShellErrorBridge::try_from(err) {
+                Ok(err) => err.0,
+                Err(err) => IoError::new(err.kind(), self.span, None).into(),
+            }
+        };
 
         // Get some data from the reader
         let buf = self
             .reader
             .fill_buf()
             .map_err(&from_io_error)
-            .map_err(|err| (vec![], err.into()))?;
+            .map_err(|err| (vec![], err))?;
 
         // If empty, this is EOF
         if buf.is_empty() {
@@ -1098,7 +1103,7 @@ impl Chunks {
             self.reader.consume(buf.len());
             match self.reader.fill_buf() {
                 Ok(more_bytes) => buf.extend_from_slice(more_bytes),
-                Err(err) => return Err((buf, from_io_error(err).into())),
+                Err(err) => return Err((buf, from_io_error(err))),
             }
         }
 
