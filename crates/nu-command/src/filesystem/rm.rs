@@ -299,9 +299,9 @@ fn rm(
                 }
             }
             Err(e) => {
-                // glob_from may canonicalize path and return `DirectoryNotFound`
+                // glob_from may canonicalize path and return `DirectoryOrFileNotFound`
                 // nushell should suppress the error if `--force` is used.
-                if !(force && matches!(e, ShellError::DirectoryNotFound { .. })) {
+                if !(force && matches!(e, ShellError::DirectoryOrFileNotFound { .. })) {
                     return Err(e);
                 }
             }

@@ -87,8 +87,8 @@ impl Command for Open {
 
             for path in nu_engine::glob_from(&path, &cwd, call_span, None)
                 .map_err(|err| match err {
-                    ShellError::DirectoryNotFound { span, .. } => ShellError::FileNotFound {
-                        file: path.item.to_string(),
+                    ShellError::NotFound { span, .. } => ShellError::DirectoryOrFileNotFound {
+                        target: path.item.to_string(),
                         span,
                     },
                     // that particular error in `nu_engine::glob_from` doesn't have a span attached

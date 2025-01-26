@@ -984,6 +984,22 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// Attempted to perform an operation on a directory or a file that doesn't exist.
+    ///
+    /// ## Resolution
+    ///
+    /// Make sure the directory or the file in the error message actually exists before trying again.
+    #[error("Directory or file not found")]
+    #[diagnostic(
+        code(nu::shell::directory_or_file_not_found),
+        help("{target} does not exist")
+    )]
+    DirectoryOrFileNotFound {
+        target: String,
+        #[label("directory or file not found")]
+        span: Span,
+    },
+
     /// The requested move operation cannot be completed. This is typically because both paths exist,
     /// but are of different types. For example, you might be trying to overwrite an existing file with
     /// a directory.

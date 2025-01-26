@@ -610,7 +610,7 @@ fn can_list_system_folder() {
 fn list_a_directory_not_exists() {
     Playground::setup("ls_test_directory_not_exists", |dirs, _sandbox| {
         let actual = nu!(cwd: dirs.test(), "ls a_directory_not_exists");
-        assert!(actual.err.contains("directory not found"));
+        assert!(actual.err.contains("directory or file not found"));
     })
 }
 
@@ -762,7 +762,7 @@ fn list_with_multiple_path() {
 
         // report errors if one path not exists
         let actual = nu!(cwd: dirs.test(), "ls asdf f1.txt");
-        assert!(actual.err.contains("directory not found"));
+        assert!(actual.err.contains("directory or file not found"));
         assert!(!actual.status.success());
 
         // ls with spreading empty list should returns nothing.

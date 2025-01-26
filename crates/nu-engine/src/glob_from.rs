@@ -88,12 +88,16 @@ pub fn glob_from(
                             help: None,
                             inner: vec![],
                         }),
-                        // Previously, all these errors were treated as "directory not found."
-                        // Now, permission denied errors are handled separately.
-                        // TODO: Refine handling of I/O errors for more precise responses.
-                        _ => Err(ShellError::DirectoryNotFound {
-                            dir: path.to_string_lossy().to_string(),
+                        ErrorKind::NotFound => Err(ShellError::DirectoryOrFileNotFound {
+                            target: path.to_string_lossy().to_string(),
                             span: pattern.span,
+                        }),
+                        _ => Err(ShellError::GenericError {
+                            error: "Error accessing path".into(),
+                            msg: err.to_string(),
+                            span: None,
+                            help: None,
+                            inner: vec![],
                         }),
                     };
                 }

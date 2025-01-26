@@ -202,7 +202,7 @@ fn errors_if_source_doesnt_exist() {
             cwd: dirs.test(),
             "mv non-existing-file test_folder/"
         );
-        assert!(actual.err.contains("Directory not found"));
+        assert!(actual.err.contains("directory or file not found"));
     })
 }
 
