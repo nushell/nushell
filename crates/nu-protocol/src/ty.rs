@@ -1,17 +1,14 @@
+use crate::SyntaxShape;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 #[cfg(test)]
 use strum_macros::EnumIter;
-
-use std::fmt::Display;
-
-use crate::SyntaxShape;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[cfg_attr(test, derive(EnumIter))]
 pub enum Type {
     Any,
     Binary,
-    Block,
     Bool,
     CellPath,
     Closure,
@@ -28,7 +25,6 @@ pub enum Type {
     Number,
     Range,
     Record(Box<[(String, Type)]>),
-    Signature,
     String,
     Glob,
     Table(Box<[(String, Type)]>),
@@ -113,7 +109,6 @@ impl Type {
             Type::Range => SyntaxShape::Range,
             Type::Bool => SyntaxShape::Boolean,
             Type::String => SyntaxShape::String,
-            Type::Block => SyntaxShape::Block, // FIXME needs more accuracy
             Type::Closure => SyntaxShape::Closure(None), // FIXME needs more accuracy
             Type::CellPath => SyntaxShape::CellPath,
             Type::Duration => SyntaxShape::Duration,
@@ -128,7 +123,6 @@ impl Type {
             Type::Error => SyntaxShape::Any,
             Type::Binary => SyntaxShape::Binary,
             Type::Custom(_) => SyntaxShape::Any,
-            Type::Signature => SyntaxShape::Signature,
             Type::Glob => SyntaxShape::GlobPattern,
         }
     }
@@ -137,7 +131,6 @@ impl Type {
     /// tables and records (get `list` instead of `list<any>`
     pub fn get_non_specified_string(&self) -> String {
         match self {
-            Type::Block => String::from("block"),
             Type::Closure => String::from("closure"),
             Type::Bool => String::from("bool"),
             Type::CellPath => String::from("cell-path"),
@@ -157,7 +150,6 @@ impl Type {
             Type::Error => String::from("error"),
             Type::Binary => String::from("binary"),
             Type::Custom(_) => String::from("custom"),
-            Type::Signature => String::from("signature"),
             Type::Glob => String::from("glob"),
         }
     }
@@ -166,7 +158,6 @@ impl Type {
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Type::Block => write!(f, "block"),
             Type::Closure => write!(f, "closure"),
             Type::Bool => write!(f, "bool"),
             Type::CellPath => write!(f, "cell-path"),
@@ -214,7 +205,6 @@ impl Display for Type {
             Type::Error => write!(f, "error"),
             Type::Binary => write!(f, "binary"),
             Type::Custom(custom) => write!(f, "{custom}"),
-            Type::Signature => write!(f, "signature"),
             Type::Glob => write!(f, "glob"),
         }
     }

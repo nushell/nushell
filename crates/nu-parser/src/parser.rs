@@ -3498,7 +3498,7 @@ pub fn parse_signature(working_set: &mut StateWorkingSet, span: Span) -> Express
 
     let sig = parse_signature_helper(working_set, Span::new(start, end));
 
-    Expression::new(working_set, Expr::Signature(sig), span, Type::Signature)
+    Expression::new(working_set, Expr::Signature(sig), span, Type::Any)
 }
 
 pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> Box<Signature> {
@@ -4471,7 +4471,7 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
 
     let block_id = working_set.add_block(Arc::new(output));
 
-    Expression::new(working_set, Expr::Block(block_id), span, Type::Block)
+    Expression::new(working_set, Expr::Block(block_id), span, Type::Any)
 }
 
 pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
