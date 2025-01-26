@@ -1087,7 +1087,7 @@ impl Chunks {
         let buf = self
             .reader
             .fill_buf()
-            .map_err(&from_io_error)
+            .map_err(from_io_error)
             .map_err(|err| (vec![], err))?;
 
         // If empty, this is EOF

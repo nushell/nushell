@@ -10,6 +10,7 @@ use crate::Span;
 use super::{location::Location, ShellError};
 
 #[derive(Debug, Clone, Error, PartialEq)]
+#[non_exhaustive]
 #[error("I/O error")]
 pub struct IoError {
     /// The type of the underlying I/O error.
@@ -48,19 +49,6 @@ pub struct IoError {
     /// This value is only used if `span` is [`Span::unknown()`] as most of the time we want to
     /// refer to user code than the Rust code.
     pub location: Option<String>,
-
-    /// An intentionally unused private field to prevent direct construction.
-    ///
-    /// This field ensures that the struct can only be created through the accompanying constructors,
-    /// motivating construction of this type with proper fields.
-    ///
-    /// Public fields can still be modified if required but this requires more work and is therefore
-    /// probably not done.
-    ///
-    /// This field is marked with `#[doc(hidden)]` to hide it from the public API.
-    /// It is purely a zero-sized marker field and has no runtime cost.
-    #[doc(hidden)]
-    _force_constructor: (),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Diagnostic)]
@@ -103,10 +91,9 @@ impl IoError {
         Self {
             kind: kind.into(),
             span,
-            path: path.into(),
+            path,
             additional_context: None,
             location: None,
-            _force_constructor: (),
         }
     }
 
@@ -143,10 +130,9 @@ impl IoError {
         Self {
             kind: kind.into(),
             span,
-            path: path,
+            path,
             additional_context: Some(additional_context.to_string()),
             location: None,
-            _force_constructor: (),
         }
     }
 
@@ -187,7 +173,6 @@ impl IoError {
             path: None,
             additional_context: Some(additional_context.to_string()),
             location: Some(location.to_string()),
-            _force_constructor: (),
         }
     }
 
@@ -221,7 +206,6 @@ impl IoError {
             path: path.into(),
             additional_context: Some(additional_context.to_string()),
             location: Some(location.to_string()),
-            _force_constructor: (),
         }
     }
 
