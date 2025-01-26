@@ -38,8 +38,8 @@ use super::{location::Location, ShellError};
 /// # let span = Span::test_data();
 /// let path = PathBuf::from("/some/missing/file");
 /// let error = IoError::new(
-///     std::io::ErrorKind::NotFound, 
-///     span, 
+///     std::io::ErrorKind::NotFound,
+///     span,
 ///     path
 /// );
 /// println!("Error: {:?}", error);
