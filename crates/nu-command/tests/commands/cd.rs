@@ -188,7 +188,7 @@ fn filesystem_not_a_directory() {
             actual.err
         );
         assert!(
-            actual.err.contains("is not a directory"),
+            actual.err.contains("nu::shell::io::not_a_directory"),
             "actual={:?}",
             actual.err
         );
@@ -210,7 +210,7 @@ fn filesystem_directory_not_found() {
             actual.err
         );
         assert!(
-            actual.err.contains("directory not found"),
+            actual.err.contains("nu::shell::io::not_found"),
             "actual={:?}",
             actual.err
         );

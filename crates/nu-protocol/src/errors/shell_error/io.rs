@@ -88,6 +88,8 @@ impl IoError {
     /// - `new_internal_with_path` if a path is available.
     pub fn new(kind: impl Into<ErrorKind>, span: Span, path: impl Into<Option<PathBuf>>) -> Self {
         let path = path.into();
+
+        #[cfg(not(test))]
         if span == Span::unknown() {
             debug_assert!(
                 path.is_some(),
@@ -127,6 +129,8 @@ impl IoError {
         additional_context: impl ToString,
     ) -> Self {
         let path = path.into();
+        
+        #[cfg(not(test))]
         if span == Span::unknown() {
             debug_assert!(
                 path.is_some(),

@@ -184,6 +184,7 @@ pub fn request_add_authorization_header(
     request
 }
 
+#[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum ShellErrorOrRequestError {
     ShellError(ShellError),

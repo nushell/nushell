@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
@@ -248,14 +250,13 @@ fn errors_if_file_not_found() {
     //
     // This seems to be not directly affected by localization compared to the OS
     // provided error message
-    let expected = "File not found";
 
-    assert!(
-        actual.err.contains(expected),
-        "Error:\n{}\ndoes not contain{}",
-        actual.err,
-        expected
-    );
+    assert!(actual.err.contains("nu::shell::io::not_found"));
+    assert!(actual.err.contains(
+        &PathBuf::from_iter(["tests", "fixtures", "formats", "i_dont_exist.txt"])
+            .display()
+            .to_string()
+    ));
 }
 
 #[test]
