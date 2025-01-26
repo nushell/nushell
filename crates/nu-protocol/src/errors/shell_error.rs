@@ -1,6 +1,7 @@
 use crate::{
-    ast::Operator, engine::{JobId, StateWorkingSet}, format_shell_error, record, ConfigError, LabeledError,
-    ParseError, Span, Spanned, Type, Value,
+    ast::Operator,
+    engine::{JobId, StateWorkingSet},
+    format_shell_error, record, ConfigError, LabeledError, ParseError, Span, Spanned, Type, Value,
 };
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
@@ -1485,7 +1486,9 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     #[error("Job {id} not found")]
     #[diagnostic(
         code(nu::shell::job_not_found),
-        help("The operation could not be completed, there is no job currently running with this id")
+        help(
+            "The operation could not be completed, there is no job currently running with this id"
+        )
     )]
     JobNotFound {
         id: JobId,

@@ -67,12 +67,7 @@ impl Command for JobUnfreeze {
 
 fn unfreeze_job(state: &EngineState, id: JobId, job: Job, span: Span) -> Result<(), ShellError> {
     match job {
-        Job::ThreadJob { .. } => {
-            Err(ShellError::JobNotFrozen {
-                id,
-                span,
-            })
-        }
+        Job::ThreadJob { .. } => Err(ShellError::JobNotFrozen { id, span }),
 
         Job::FrozenJob { unfreeze } => match unfreeze.unfreeze_in_foreground()? {
             ForegroundWaitStatus::Frozen(unfreeze) => {

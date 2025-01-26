@@ -1,10 +1,8 @@
-#[cfg(unix)]
-use std::sync::{Arc, atomic::AtomicU32};
+use std::sync::{atomic::AtomicU32, Arc};
 
 use std::io;
 
 use std::process::{Child, Command};
-
 
 use crate::ExitStatus;
 
@@ -133,6 +131,15 @@ pub enum ForegroundWaitStatus {
     Frozen(UnfreezeHandle),
 }
 
+impl From<ForegroundWaitStatus> for ExitStatus {
+    fn from(value: ForegroundWaitStatus) -> Self {
+        match value {
+            ForegroundWaitStatus::Finished(status) => status,
+            ForegroundWaitStatus::Frozen(_handle) => ExitStatus::Exited(0),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct UnfreezeHandle {
     #[cfg(unix)]
@@ -142,7 +149,6 @@ pub struct UnfreezeHandle {
 }
 
 impl UnfreezeHandle {
-
     #[cfg(unix)]
     pub fn unfreeze_in_foreground(self) -> io::Result<ForegroundWaitStatus> {
         // bring child's process group back into foreground and continue it
