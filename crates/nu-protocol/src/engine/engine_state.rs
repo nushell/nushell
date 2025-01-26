@@ -119,6 +119,7 @@ pub type JobId = u64;
 #[derive(Default)]
 pub struct Jobs {
     next_job_id: JobId,
+    last_frozen_job_id: Option<JobId>,
     jobs: HashMap<JobId, Job>,
 }
 
@@ -135,15 +136,37 @@ impl Jobs {
         self.jobs.remove(&id)
     }
 
+    fn assign_last_frozen_id_if_frozen(&mut self, id: JobId, job: &Job) {
+        if let Job::FrozenJob { .. } = job {
+            self.last_frozen_job_id = Some(id);
+        }
+    }
+
     pub fn add_job(&mut self, job: Job) -> JobId {
-        let next_id = self.next_job_id;
-        self.jobs.insert(next_id, job);
+        let this_id = self.next_job_id;
+
+        self.assign_last_frozen_id_if_frozen(this_id, &job);
+
+        self.jobs.insert(this_id, job);
         self.next_job_id += 1;
-        next_id
+
+        this_id
+    }
+
+    pub fn most_recent_frozen_job_id(&self) -> Option<JobId> {
+        let id = self.last_frozen_job_id?;
+
+        if self.jobs.contains_key(&id) {
+            Some(id)
+        } else {
+            None
+        }
     }
 
     // this is useful when you want to remove a job form the list and add it back later
     pub fn add_job_with_id(&mut self, id: JobId, job: Job) -> Result<(), &'static str> {
+        self.assign_last_frozen_id_if_frozen(id, &job);
+
         if let std::collections::hash_map::Entry::Vacant(e) = self.jobs.entry(id) {
             e.insert(job);
             Ok(())

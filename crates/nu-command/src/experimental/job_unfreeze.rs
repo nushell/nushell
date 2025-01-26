@@ -22,7 +22,7 @@ impl Command for JobUnfreeze {
             .category(Category::Experimental)
             // TODO: make this argument optional and use highest most recent job if
             // no argument is passed
-            .required("id", SyntaxShape::Int, "The process id to unfreeze.")
+            .optional("id", SyntaxShape::Int, "The process id to unfreeze.")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
     }
@@ -40,12 +40,14 @@ impl Command for JobUnfreeze {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let id: i64 = call.req(engine_state, stack, 0)?;
-
-        let id: JobId = id as JobId;
+        let option_id: Option<i64> = call.opt(engine_state, stack, 0)?;
 
         let mut jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
+        let id = option_id
+            .map(|it| it as JobId)
+            .or_else(|| jobs.most_recent_frozen_job_id())
+            .ok_or_else(|| ShellError::NoFrozenJob { span: head })?;
 
         let job = match jobs.lookup(id) {
             None => return Err(ShellError::JobNotFound { id, span: head }),

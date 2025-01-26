@@ -1496,6 +1496,16 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Span,
     },
 
+    #[error("Threre is currently no frozen job")]
+    #[diagnostic(
+        code(nu::shell::no_frozen_job),
+        help("There is currently no frozen job to unfreeze")
+    )]
+    NoFrozenJob {
+        #[label = "no frozen job"]
+        span: Span,
+    },
+
     #[error("Job {id} is not frozen")]
     #[diagnostic(
         code(nu::shell::os_disabled),
