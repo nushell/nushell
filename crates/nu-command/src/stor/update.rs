@@ -167,7 +167,6 @@ fn process(
         let mut placeholders: Vec<String> = Vec::new();
 
         for (index, (key, _)) in record.iter().enumerate() {
-            //let param_placeholder = format!("param{}", i);
             placeholders.push(format!("{} = ?{}", key, index + 1));
         }
         update_stmt.push_str(&placeholders.join(", "));
