@@ -140,6 +140,12 @@ impl From<ForegroundWaitStatus> for ExitStatus {
     }
 }
 
+impl From<ExitStatus> for ForegroundWaitStatus {
+    fn from(status: ExitStatus) -> Self {
+        ForegroundWaitStatus::Finished(status)
+    }
+}
+
 #[derive(Debug)]
 pub struct UnfreezeHandle {
     #[cfg(unix)]
