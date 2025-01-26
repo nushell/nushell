@@ -99,18 +99,24 @@ impl NuCompleter {
         );
 
         match result.and_then(|data| data.into_value(span)) {
-            Ok(value) => {
-                if let Value::List { vals, .. } = value {
-                    let result =
-                        map_value_completions(vals.iter(), Span::new(span.start, span.end), offset);
-
-                    return Some(result);
-                }
+            Ok(Value::List { vals, .. }) => {
+                let result =
+                    map_value_completions(vals.iter(), Span::new(span.start, span.end), offset);
+                Some(result)
             }
-            Err(err) => println!("failed to eval completer block: {err}"),
+            Ok(Value::Nothing { .. }) => None,
+            Ok(value) => {
+                log::error!(
+                    "External completer returned invalid value of type {}",
+                    value.get_type().to_string()
+                );
+                Some(vec![])
+            }
+            Err(err) => {
+                log::error!("failed to eval completer block: {err}");
+                Some(vec![])
+            }
         }
-
-        None
     }
 
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<SemanticSuggestion> {
@@ -319,6 +325,7 @@ impl NuCompleter {
                                     self.stack.clone(),
                                     *decl_id,
                                     initial_line,
+                                    FileCompletion::new(),
                                 );
 
                                 return self.process_completion(

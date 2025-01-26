@@ -12,32 +12,34 @@ use std::collections::HashMap;
 
 use super::completion_options::NuMatcher;
 
-pub struct CustomCompletion {
+pub struct CustomCompletion<T: Completer> {
     stack: Stack,
     decl_id: DeclId,
     line: String,
+    fallback: T,
 }
 
-impl CustomCompletion {
-    pub fn new(stack: Stack, decl_id: DeclId, line: String) -> Self {
+impl<T: Completer> CustomCompletion<T> {
+    pub fn new(stack: Stack, decl_id: DeclId, line: String, fallback: T) -> Self {
         Self {
             stack,
             decl_id,
             line,
+            fallback,
         }
     }
 }
 
-impl Completer for CustomCompletion {
+impl<T: Completer> Completer for CustomCompletion<T> {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
-        _stack: &Stack,
+        stack: &Stack,
         prefix: &[u8],
         span: Span,
         offset: usize,
         pos: usize,
-        completion_options: &CompletionOptions,
+        orig_options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         // Line position
         let line_pos = pos - offset;
@@ -66,13 +68,12 @@ impl Completer for CustomCompletion {
             PipelineData::empty(),
         );
 
-        let mut completion_options = completion_options.clone();
+        let mut completion_options = orig_options.clone();
         let mut should_sort = true;
 
         // Parse result
-        let suggestions = result
-            .and_then(|data| data.into_value(span))
-            .map(|value| match &value {
+        let suggestions = match result.and_then(|data| data.into_value(span)) {
+            Ok(value) => match &value {
                 Value::Record { val, .. } => {
                     let completions = val
                         .get("completions")
@@ -112,9 +113,30 @@ impl Completer for CustomCompletion {
                     completions
                 }
                 Value::List { vals, .. } => map_value_completions(vals.iter(), span, offset),
-                _ => vec![],
-            })
-            .unwrap_or_default();
+                Value::Nothing { .. } => {
+                    return self.fallback.fetch(
+                        working_set,
+                        stack,
+                        prefix,
+                        span,
+                        offset,
+                        pos,
+                        orig_options,
+                    );
+                }
+                _ => {
+                    log::error!(
+                        "Custom completer returned invalid value of type {}",
+                        value.get_type().to_string()
+                    );
+                    return vec![];
+                }
+            },
+            Err(e) => {
+                log::error!("Error getting custom completions: {e}");
+                return vec![];
+            }
+        };
 
         let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), completion_options);
 
