@@ -161,27 +161,23 @@ fn process(
     let new_table_name = table_name.unwrap_or("table".into());
 
     if let Ok(conn) = db.open_connection() {
-        let mut create_stmt = format!("INSERT INTO {} ( ", new_table_name);
+        let mut create_stmt = format!("INSERT INTO {} (", new_table_name);
+        let mut column_placeholders: Vec<String> = Vec::new();
+
         let cols = record.columns();
         cols.for_each(|col| {
-            create_stmt.push_str(&format!("{}, ", col));
+            column_placeholders.push(col.to_string());
         });
-        if create_stmt.ends_with(", ") {
-            create_stmt.pop();
-            create_stmt.pop();
-        }
+
+        create_stmt.push_str(&column_placeholders.join(", "));
 
         // Values are set as placeholders.
-        create_stmt.push_str(") VALUES ( ");
+        create_stmt.push_str(") VALUES (");
+        let mut value_placeholders: Vec<String> = Vec::new();
         for (index, _) in record.columns().enumerate() {
-            create_stmt.push_str(&format!("?{}, ", index + 1));
+            value_placeholders.push(format!("?{}", index + 1));
         }
-
-        if create_stmt.ends_with(", ") {
-            create_stmt.pop();
-            create_stmt.pop();
-        }
-
+        create_stmt.push_str(&value_placeholders.join(", "));
         create_stmt.push(')');
 
         // dbg!(&create_stmt);
