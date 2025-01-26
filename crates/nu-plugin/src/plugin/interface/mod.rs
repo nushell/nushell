@@ -12,6 +12,7 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     engine::{Closure, Sequence},
+    shell_error::io::IoError,
     Config, DeclId, Handler, HandlerGuard, Handlers, LabeledError, PipelineData, PluginMetadata,
     PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
 };
@@ -1046,8 +1047,12 @@ impl ForegroundGuard {
             {
                 use nix::unistd::{setpgid, Pid};
                 // This should always succeed, frankly, but handle the error just in case
-                setpgid(Pid::from_raw(0), Pid::from_raw(0)).map_err(|err| ShellError::IOError {
-                    msg: err.to_string(),
+                setpgid(Pid::from_raw(0), Pid::from_raw(0)).map_err(|err| {
+                    IoError::new_internal(
+                        std::io::Error::from(err).kind(),
+                        "Could not set pgid",
+                        nu_protocol::location!(),
+                    )
                 })?;
             }
             interface.leave_foreground()?;
