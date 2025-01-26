@@ -48,9 +48,12 @@ impl Command for JobUnfreeze {
 
         // FIXME: this is broken; when given a thread job, it is removed from the queue.
 
-        let job = match jobs.remove_job(id) {
+        let job = match jobs.lookup(id) {
             None => return Err(ShellError::JobNotFound { id, span: head }),
-            Some(job) => job,
+            Some(Job::ThreadJob { .. }) => return Err(ShellError::JobNotFrozen { id, span: head }),
+            Some(Job::FrozenJob { .. }) => jobs
+                .remove_job(id)
+                .expect("job was supposed to be in job list"),
         };
 
         drop(jobs);
@@ -65,14 +68,20 @@ impl Command for JobUnfreeze {
     }
 }
 
-fn unfreeze_job(state: &EngineState, id: JobId, job: Job, span: Span) -> Result<(), ShellError> {
+fn unfreeze_job(
+    state: &EngineState,
+    old_id: JobId,
+    job: Job,
+    span: Span,
+) -> Result<(), ShellError> {
     match job {
-        Job::ThreadJob { .. } => Err(ShellError::JobNotFrozen { id, span }),
+        Job::ThreadJob { .. } => Err(ShellError::JobNotFrozen { id: old_id, span }),
 
         Job::FrozenJob { unfreeze } => match unfreeze.unfreeze_in_foreground()? {
             ForegroundWaitStatus::Frozen(unfreeze) => {
                 let mut jobs = state.jobs.lock().expect("jobs lock is poisoned!");
-                jobs.add_job(Job::FrozenJob { unfreeze });
+                jobs.add_job_with_id(old_id, Job::FrozenJob { unfreeze })
+                    .expect("job was supposed to be removed");
                 Ok(())
             }
 
