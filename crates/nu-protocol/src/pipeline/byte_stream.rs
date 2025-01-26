@@ -1,4 +1,7 @@
 //! Module managing the streaming of raw bytes between pipeline elements
+//! 
+//! This module also handles conversions the [`ShellError`] <-> [`io::Error`](std::io::Error),
+//! so remember the usage of [`ShellErrorBridge`] where applicable.
 #[cfg(feature = "os")]
 use crate::process::{ChildPipe, ChildProcess};
 use crate::{
