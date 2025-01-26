@@ -296,10 +296,10 @@ fn try_find_id_in_use(
             .find_module(name)
             .and_then(|module_id| (module_id == *module_id_ref).then_some(Id::Module(module_id))),
         None => working_set
-            .find_variable(name)
-            .map(Id::Variable)
+            .find_module(name)
+            .map(Id::Module)
             .or(working_set.find_decl(name).map(Id::Declaration))
-            .or(working_set.find_module(name).map(Id::Module)),
+            .or(working_set.find_variable(name).map(Id::Variable)),
         _ => None,
     };
     let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));

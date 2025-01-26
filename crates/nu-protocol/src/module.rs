@@ -9,19 +9,24 @@ use indexmap::IndexMap;
 pub struct ResolvedImportPattern {
     pub decls: Vec<(Vec<u8>, DeclId)>,
     pub modules: Vec<(Vec<u8>, ModuleId)>,
-    pub constants: Vec<(Vec<u8>, Value)>,
+    pub constants: Vec<(Vec<u8>, VarId)>,
+    /// TODO: for referencing module name as a record, e.g. `$module_name.const_name`
+    /// values got multiple duplicates in memory.
+    pub constant_values: Vec<(Vec<u8>, Value)>,
 }
 
 impl ResolvedImportPattern {
     pub fn new(
         decls: Vec<(Vec<u8>, DeclId)>,
         modules: Vec<(Vec<u8>, ModuleId)>,
-        constants: Vec<(Vec<u8>, Value)>,
+        constants: Vec<(Vec<u8>, VarId)>,
+        constant_values: Vec<(Vec<u8>, Value)>,
     ) -> Self {
         ResolvedImportPattern {
             decls,
             modules,
             constants,
+            constant_values,
         }
     }
 }
@@ -123,6 +128,7 @@ impl Module {
         } else {
             // Import pattern was just name without any members
             let mut decls = vec![];
+            let mut const_vids = vec![];
             let mut const_rows = vec![];
             let mut errors = vec![];
 
@@ -148,14 +154,18 @@ impl Module {
                     decls.push((new_name, sub_decl_id));
                 }
 
-                const_rows.extend(sub_results.constants);
+                const_vids.extend(sub_results.constants);
+                const_rows.extend(sub_results.constant_values);
             }
 
             decls.extend(self.decls_with_head(&final_name));
 
             for (name, var_id) in self.consts() {
                 match working_set.get_constant(var_id) {
-                    Ok(const_val) => const_rows.push((name, const_val.clone())),
+                    Ok(const_val) => {
+                        const_vids.push((name.clone(), var_id));
+                        const_rows.push((name, const_val.clone()))
+                    }
                     Err(err) => errors.push(err),
                 }
             }
@@ -163,7 +173,7 @@ impl Module {
             let span = self.span.unwrap_or(backup_span);
 
             // only needs to bring `$module` with a record value if it defines any constants.
-            let constants = if const_rows.is_empty() {
+            let constant_values = if const_rows.is_empty() {
                 vec![]
             } else {
                 vec![(
@@ -179,7 +189,12 @@ impl Module {
             };
 
             return (
-                ResolvedImportPattern::new(decls, vec![(final_name.clone(), self_id)], constants),
+                ResolvedImportPattern::new(
+                    decls,
+                    vec![(final_name.clone(), self_id)],
+                    const_vids,
+                    constant_values,
+                ),
                 errors,
             );
         };
@@ -204,32 +219,39 @@ impl Module {
                                 vec![(final_name, main_decl_id)],
                                 vec![],
                                 vec![],
+                                vec![],
                             ),
                             errors,
                         )
                     } else {
                         (
-                            ResolvedImportPattern::new(vec![], vec![], vec![]),
+                            ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
                             vec![ParseError::ExportNotFound(*span)],
                         )
                     }
                 } else if let Some(decl_id) = self.decls.get(name) {
                     (
-                        ResolvedImportPattern::new(vec![(name.clone(), *decl_id)], vec![], vec![]),
+                        ResolvedImportPattern::new(
+                            vec![(name.clone(), *decl_id)],
+                            vec![],
+                            vec![],
+                            vec![],
+                        ),
                         errors,
                     )
                 } else if let Some(var_id) = self.constants.get(name) {
                     match working_set.get_constant(*var_id) {
-                        Ok(const_val) => (
+                        Ok(_) => (
                             ResolvedImportPattern::new(
                                 vec![],
                                 vec![],
-                                vec![(name.clone(), const_val.clone())],
+                                vec![(name.clone(), *var_id)],
+                                vec![],
                             ),
                             errors,
                         ),
                         Err(err) => (
-                            ResolvedImportPattern::new(vec![], vec![], vec![]),
+                            ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
                             vec![err],
                         ),
                     }
@@ -245,7 +267,7 @@ impl Module {
                     )
                 } else {
                     (
-                        ResolvedImportPattern::new(vec![], vec![], vec![]),
+                        ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
                         vec![ParseError::ExportNotFound(*span)],
                     )
                 }
@@ -254,6 +276,7 @@ impl Module {
                 let mut decls = vec![];
                 let mut submodules = vec![];
                 let mut constants = vec![];
+                let mut constant_values = vec![];
                 let mut errors = vec![];
 
                 for (_, id) in &self.submodules {
@@ -270,23 +293,25 @@ impl Module {
 
                     submodules.extend(sub_results.modules);
                     constants.extend(sub_results.constants);
+                    constant_values.extend(sub_results.constant_values);
                     errors.extend(sub_errors);
                 }
 
                 decls.extend(self.decls());
-                constants.extend(self.constants.iter().filter_map(|(name, var_id)| {
+                for (name, var_id) in self.constants.iter() {
                     match working_set.get_constant(*var_id) {
-                        Ok(const_val) => Some((name.clone(), const_val.clone())),
+                        Ok(_) => {
+                            constants.push((name.clone(), *var_id));
+                        }
                         Err(err) => {
                             errors.push(err);
-                            None
                         }
                     }
-                }));
+                }
                 submodules.extend(self.submodules());
 
                 (
-                    ResolvedImportPattern::new(decls, submodules, constants),
+                    ResolvedImportPattern::new(decls, submodules, constants, constant_values),
                     errors,
                 )
             }
@@ -294,6 +319,7 @@ impl Module {
                 let mut decls = vec![];
                 let mut modules = vec![];
                 let mut constants = vec![];
+                let mut constant_values = vec![];
                 let mut errors = vec![];
 
                 for (name, span) in names {
@@ -307,7 +333,7 @@ impl Module {
                         decls.push((name.clone(), *decl_id));
                     } else if let Some(var_id) = self.constants.get(name) {
                         match working_set.get_constant(*var_id) {
-                            Ok(const_val) => constants.push((name.clone(), const_val.clone())),
+                            Ok(_) => constants.push((name.clone(), *var_id)),
                             Err(err) => errors.push(err),
                         }
                     } else if let Some(submodule_id) = self.submodules.get(name) {
@@ -324,6 +350,7 @@ impl Module {
                         decls.extend(sub_results.decls);
                         modules.extend(sub_results.modules);
                         constants.extend(sub_results.constants);
+                        constant_values.extend(sub_results.constant_values);
                         errors.extend(sub_errors);
                     } else {
                         errors.push(ParseError::ExportNotFound(*span));
@@ -331,7 +358,7 @@ impl Module {
                 }
 
                 (
-                    ResolvedImportPattern::new(decls, modules, constants),
+                    ResolvedImportPattern::new(decls, modules, constants, constant_values),
                     errors,
                 )
             }

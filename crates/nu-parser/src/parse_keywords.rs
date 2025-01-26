@@ -2468,7 +2468,11 @@ pub fn parse_use(
 
     let mut constants = vec![];
 
-    for (name, const_val) in definitions.constants {
+    for (name, const_vid) in definitions.constants {
+        constants.push((name, const_vid));
+    }
+
+    for (name, const_val) in definitions.constant_values {
         let const_var_id =
             working_set.add_variable(name.clone(), name_span, const_val.get_type(), false);
         working_set.set_variable_const_val(const_var_id, const_val);
@@ -2967,7 +2971,10 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
             )
         }
     } else {
-        (ResolvedImportPattern::new(vec![], vec![], vec![]), vec![])
+        (
+            ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+            vec![],
+        )
     };
 
     if errors.is_empty() {
