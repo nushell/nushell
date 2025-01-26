@@ -77,7 +77,7 @@ impl Command for JobSpawn {
                 .run_with_input(Value::nothing(head).into_pipeline_data())
                 .and_then(|data| data.into_value(head))
                 .unwrap_or_else(|err| {
-                    // TODO: consider wether we should report interrupts or not
+                    // TODO: consider whether we should report interrupts or not
                     report_shell_error(&job_state, &err);
 
                     Value::nothing(head)

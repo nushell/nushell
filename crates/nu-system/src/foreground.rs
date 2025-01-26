@@ -1,5 +1,4 @@
 #[cfg(unix)]
-use std::io::prelude::*;
 use std::{
     io,
     process::{Child, Command},
@@ -14,7 +13,6 @@ use std::{io::IsTerminal, sync::atomic::Ordering};
 #[cfg(unix)]
 pub use foreground_pgroup::stdin_fd;
 
-use nix::sys::wait::WaitStatus;
 #[cfg(unix)]
 use nix::{sys::signal, sys::wait, unistd::Pid};
 

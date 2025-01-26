@@ -1,19 +1,9 @@
-use std::{
-    num::NonZero,
-    sync::{
-        atomic::{AtomicBool, AtomicU32},
-        Arc,
-    },
-    thread,
-};
-
-use nu_engine::{command_prelude::*, ClosureEvalOnce};
+use nu_engine::command_prelude::*;
 use nu_protocol::{
-    engine::{Closure, Job, JobId},
+    engine::{Job, JobId},
     process::check_ok,
-    report_shell_error, Signals,
 };
-use nu_system::{ExitStatus, ForegroundWaitStatus};
+use nu_system::ForegroundWaitStatus;
 
 #[derive(Clone)]
 pub struct JobUnfreeze;
