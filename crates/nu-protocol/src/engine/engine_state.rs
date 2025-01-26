@@ -144,11 +144,11 @@ impl Jobs {
 
     // this is useful when you want to remove a job form the list and add it back later
     pub fn add_job_with_id(&mut self, id: JobId, job: Job) -> Result<(), &'static str> {
-        if self.jobs.contains_key(&id) {
-            Err("job already exists")
-        } else {
-            self.jobs.insert(id, job);
+        if let std::collections::hash_map::Entry::Vacant(e) = self.jobs.entry(id) {
+            e.insert(job);
             Ok(())
+        } else {
+            Err("job already exists")
         }
     }
 }
