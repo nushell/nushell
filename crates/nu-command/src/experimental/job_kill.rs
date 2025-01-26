@@ -41,7 +41,7 @@ impl Command for JobKill {
         let jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
         match jobs.lookup(id) {
-            None => return Err(ShellError::NotFound { span: head }),
+            None => return Err(ShellError::JobNotFound { id, span: head }),
             Some(job) => kill_job(job),
         };
 

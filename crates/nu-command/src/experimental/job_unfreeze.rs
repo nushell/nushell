@@ -49,13 +49,13 @@ impl Command for JobUnfreeze {
         // FIXME: this is broken; when given a thread job, it is removed from the queue.
 
         let job = match jobs.remove_job(id) {
-            None => return Err(ShellError::NotFound { span: head }),
+            None => return Err(ShellError::JobNotFound { id, span: head }),
             Some(job) => job,
         };
 
         drop(jobs);
 
-        unfreeze_job(engine_state, job, head)?;
+        unfreeze_job(engine_state, id, job, head)?;
 
         Ok(Value::nothing(head).into_pipeline_data())
     }
@@ -65,12 +65,11 @@ impl Command for JobUnfreeze {
     }
 }
 
-fn unfreeze_job(state: &EngineState, job: Job, span: Span) -> Result<(), ShellError> {
+fn unfreeze_job(state: &EngineState, id: JobId, job: Job, span: Span) -> Result<(), ShellError> {
     match job {
         Job::ThreadJob { .. } => {
-            // TODO: add new ShellError for this
-            Err(ShellError::IncompatibleParametersSingle {
-                msg: "i cannot unfreeze a thread job".into(),
+            Err(ShellError::JobNotFrozen {
+                id,
                 span,
             })
         }
