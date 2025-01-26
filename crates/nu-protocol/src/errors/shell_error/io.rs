@@ -9,6 +9,75 @@ use crate::Span;
 
 use super::{location::Location, ShellError};
 
+/// Represents an I/O error in the [`ShellError::Io`] variant.
+///
+/// This is the central I/O error for the [`ShellError::Io`] variant.
+/// It represents all I/O errors by encapsulating [`ErrorKind`], an extension of
+/// [`std::io::ErrorKind`].
+/// The `span` indicates where the error occurred in user-provided code.
+/// If the error is not tied to user-provided code, the `location` refers to the precise point in
+/// the Rust code where the error originated.
+/// The optional `path` provides the file or directory involved in the error.
+/// If [`ErrorKind`] alone doesn't provide enough detail, additional context can be added to clarify
+/// the issue.
+///
+/// For handling user input errors (e.g., commands), prefer using [`new`](Self::new).
+/// Alternatively, use the [`factory`](Self::factory) method to simplify error creation in repeated
+/// contexts.
+/// For internal errors, use [`new_internal`](Self::new_internal) to include the location in Rust
+/// code where the error originated.
+///
+/// # Examples
+///
+/// ## User Input Error
+/// ```rust
+/// # use nu_protocol::shell_error::io::{IoError, ErrorKind};
+/// # use nu_protocol::Span;
+/// use std::path::PathBuf;
+///
+/// # let span = Span::new(10, 20);
+/// let path = PathBuf::from("/some/missing/file");
+/// let error = IoError::new(ErrorKind::NotFound, span, Some(path));
+/// println!("Error: {:?}", error);
+/// ```
+///
+/// ## Internal Error
+/// ```rust
+/// # use nu_protocol::shell_error::io::{IoError, ErrorKind};
+//  #
+/// let error = IoError::new_internal(
+///     ErrorKind::UnexpectedEof,
+///     "Failed to read data from buffer",
+///     nu_protocol::location!()
+/// );
+/// println!("Error: {:?}", error);
+/// ```
+///
+/// ## Using the Factory Method
+/// ```rust
+/// # use nu_protocol::shell_error::io::{IoError, ErrorKind};
+/// # use nu_protocol::Span;
+/// use std::path::PathBuf;
+///
+/// # let span = Span::new(50, 60);
+/// let path = PathBuf::from("/some/file");
+/// let from_io_error = IoError::factory(span, Some(&path));
+///
+/// let content = std::fs::read_to_string(&path).map_err(from_io_error)?;
+/// ```
+///
+/// # ShellErrorBridge
+///
+/// The [`ShellErrorBridge`](super::bridge::ShellErrorBridge) struct is used to contain a
+/// [`ShellError`] inside a [`std::io::Error`].
+/// This allows seamless transfer of `ShellError` instances where `std::io::Error` is expected.
+/// When a `ShellError` needs to be packed into an I/O context, use this bridge.
+/// Similarly, when handling an I/O error that is expected to contain a `ShellError`,
+/// use the bridge to unpack it.
+///
+/// This approach ensures clarity about where such container transfers occur.
+/// All other I/O errors should be handled using the provided constructors for `IoError`.
+/// This way, the code explicitly indicates when and where a `ShellError` transfer might happen.
 #[derive(Debug, Clone, Error, PartialEq)]
 #[non_exhaustive]
 #[error("I/O error")]
