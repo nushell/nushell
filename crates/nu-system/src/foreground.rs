@@ -140,9 +140,9 @@ pub struct UnfreezeHandle {
 
 impl UnfreezeHandle {
     pub fn unfreeze_in_foreground(self) -> io::Result<ForegroundWaitStatus> {
-
         #[cfg(unix)]
-        { // bring child's process group back into foreground and continue it
+        {
+            // bring child's process group back into foreground and continue it
 
             if let Some(state) = self.pipeline_state.as_ref() {
                 let existing_pgrp = state.0.load(Ordering::SeqCst);
@@ -193,7 +193,8 @@ impl UnfreezeHandle {
                         // keep waiting
                     }
                 };
-            } }
+            }
+        }
     }
 }
 

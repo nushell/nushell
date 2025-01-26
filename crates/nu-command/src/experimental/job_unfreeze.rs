@@ -10,11 +10,11 @@ pub struct JobUnfreeze;
 
 impl Command for JobUnfreeze {
     fn name(&self) -> &str {
-        "job unfreeze."
+        "job unfreeze"
     }
 
     fn description(&self) -> &str {
-        "Unfreeze a frozen process job in foreground"
+        "Unfreeze a frozen process job in foreground."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -50,7 +50,7 @@ impl Command for JobUnfreeze {
 
         let job = match jobs.remove_job(id) {
             None => return Err(ShellError::NotFound { span: head }),
-            Some(job) => job
+            Some(job) => job,
         };
 
         drop(jobs);
