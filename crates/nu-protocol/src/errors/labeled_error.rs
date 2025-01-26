@@ -143,14 +143,16 @@ impl LabeledError {
     /// [`ShellError`] implements `miette::Diagnostic`:
     ///
     /// ```rust
-    /// # use nu_protocol::{ShellError, LabeledError, shell_error::io::IoError};
-    /// let err = labeledError::from_diagnostic(&Shell)
-    /// let error = LabeledError::from_diagnostic(&ShellError::Io(IoError::new_with_additional_context(
-    ///     std::io::ErrorKind::Other,
-    ///     Span::test_data(),
-    ///     None,
-    ///     "some error"
-    /// ));
+    /// # use nu_protocol::{ShellError, LabeledError, shell_error::io::IoError, Span};
+    /// #
+    /// let error = LabeledError::from_diagnostic(
+    ///     &ShellError::Io(IoError::new_with_additional_context(
+    ///         std::io::ErrorKind::Other,
+    ///         Span::test_data(),
+    ///         None,
+    ///         "some error"
+    ///     ))
+    /// );
     /// assert!(error.to_string().contains("I/O error"));
     /// ```
     pub fn from_diagnostic(diag: &(impl miette::Diagnostic + ?Sized)) -> LabeledError {

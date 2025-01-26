@@ -35,9 +35,13 @@ use super::{location::Location, ShellError};
 /// # use nu_protocol::Span;
 /// use std::path::PathBuf;
 ///
-/// # let span = Span::new(10, 20);
+/// # let span = Span::test_data();
 /// let path = PathBuf::from("/some/missing/file");
-/// let error = IoError::new(ErrorKind::NotFound, span, Some(path));
+/// let error = IoError::new(
+///     std::io::ErrorKind::NotFound, 
+///     span, 
+///     path
+/// );
 /// println!("Error: {:?}", error);
 /// ```
 ///
@@ -46,7 +50,7 @@ use super::{location::Location, ShellError};
 /// # use nu_protocol::shell_error::io::{IoError, ErrorKind};
 //  #
 /// let error = IoError::new_internal(
-///     ErrorKind::UnexpectedEof,
+///     std::io::ErrorKind::UnexpectedEof,
 ///     "Failed to read data from buffer",
 ///     nu_protocol::location!()
 /// );
@@ -56,14 +60,19 @@ use super::{location::Location, ShellError};
 /// ## Using the Factory Method
 /// ```rust
 /// # use nu_protocol::shell_error::io::{IoError, ErrorKind};
-/// # use nu_protocol::Span;
+/// # use nu_protocol::{Span, ShellError};
 /// use std::path::PathBuf;
 ///
+/// # fn should_return_err() -> Result<(), ShellError> {
 /// # let span = Span::new(50, 60);
 /// let path = PathBuf::from("/some/file");
-/// let from_io_error = IoError::factory(span, Some(&path));
+/// let from_io_error = IoError::factory(span, Some(path.as_path()));
 ///
 /// let content = std::fs::read_to_string(&path).map_err(from_io_error)?;
+/// # Ok(())
+/// # }
+/// #
+/// # assert!(should_return_err().is_err());
 /// ```
 ///
 /// # ShellErrorBridge
