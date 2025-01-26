@@ -450,8 +450,12 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             JobSpawn,
             JobList,
             JobKill,
-            JobUnfreeze,
         };
+
+        #[cfg(unix)]
+        bind_command! {
+            JobUnfreeze,
+        }
 
         // Removed
         bind_command! {

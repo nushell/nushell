@@ -1,9 +1,10 @@
 #[cfg(unix)]
-use std::{
-    io,
-    process::{Child, Command},
-    sync::{atomic::AtomicU32, Arc},
-};
+use std::sync::{Arc, atomic::AtomicU32};
+
+use std::io;
+
+use std::process::{Child, Command};
+
 
 use crate::ExitStatus;
 
@@ -134,66 +135,67 @@ pub enum ForegroundWaitStatus {
 
 #[derive(Debug)]
 pub struct UnfreezeHandle {
+    #[cfg(unix)]
     child_pid: Pid,
+    #[cfg(unix)]
     pipeline_state: Option<Arc<(AtomicU32, AtomicU32)>>,
 }
 
 impl UnfreezeHandle {
+
+    #[cfg(unix)]
     pub fn unfreeze_in_foreground(self) -> io::Result<ForegroundWaitStatus> {
-        #[cfg(unix)]
-        {
-            // bring child's process group back into foreground and continue it
+        // bring child's process group back into foreground and continue it
 
-            if let Some(state) = self.pipeline_state.as_ref() {
-                let existing_pgrp = state.0.load(Ordering::SeqCst);
-                foreground_pgroup::set_foreground_pid(self.child_pid, existing_pgrp);
-            }
+        if let Some(state) = self.pipeline_state.as_ref() {
+            let existing_pgrp = state.0.load(Ordering::SeqCst);
+            foreground_pgroup::set_foreground_pid(self.child_pid, existing_pgrp);
+        }
 
-            if let Err(err) = signal::killpg(self.child_pid, signal::SIGCONT) {
-                foreground_pgroup::reset();
+        if let Err(err) = signal::killpg(self.child_pid, signal::SIGCONT) {
+            foreground_pgroup::reset();
 
-                return Err(err.into());
-            }
+            return Err(err.into());
+        }
 
-            // TODO: refactor this copy-pasted-modified code
-            loop {
-                use ForegroundWaitStatus::*;
+        // TODO: refactor this copy-pasted-modified code
+        loop {
+            use ForegroundWaitStatus::*;
 
-                let child_pid = self.child_pid;
+            let child_pid = self.child_pid;
 
-                let status = wait::waitpid(child_pid, Some(wait::WaitPidFlag::WUNTRACED));
+            let status = wait::waitpid(child_pid, Some(wait::WaitPidFlag::WUNTRACED));
 
-                match status {
-                    Err(e) => {
-                        foreground_pgroup::reset();
-                        return Err(e.into());
-                    }
+            match status {
+                Err(e) => {
+                    foreground_pgroup::reset();
+                    return Err(e.into());
+                }
 
-                    Ok(wait::WaitStatus::Exited(_, status)) => {
-                        foreground_pgroup::reset();
+                Ok(wait::WaitStatus::Exited(_, status)) => {
+                    foreground_pgroup::reset();
 
-                        return Ok(Finished(ExitStatus::Exited(status)));
-                    }
+                    return Ok(Finished(ExitStatus::Exited(status)));
+                }
 
-                    Ok(wait::WaitStatus::Signaled(_, signal, core_dumped)) => {
-                        foreground_pgroup::reset();
+                Ok(wait::WaitStatus::Signaled(_, signal, core_dumped)) => {
+                    foreground_pgroup::reset();
 
-                        return Ok(Finished(ExitStatus::Signaled {
-                            signal: signal as i32,
-                            core_dumped,
-                        }));
-                    }
+                    return Ok(Finished(ExitStatus::Signaled {
+                        signal: signal as i32,
+                        core_dumped,
+                    }));
+                }
 
-                    Ok(wait::WaitStatus::Stopped(_, _)) => {
-                        foreground_pgroup::reset();
+                Ok(wait::WaitStatus::Stopped(_, _)) => {
+                    foreground_pgroup::reset();
 
-                        return Ok(ForegroundWaitStatus::Frozen(self));
-                    }
-                    Ok(_) => {
-                        // keep waiting
-                    }
-                };
-            }
+                    return Ok(ForegroundWaitStatus::Frozen(self));
+                }
+                Ok(_) => {
+                    // keep waiting
+                }
+            };
         }
     }
 }
