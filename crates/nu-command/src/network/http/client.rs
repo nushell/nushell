@@ -15,6 +15,7 @@ use std::{
     str::FromStr,
     sync::mpsc::{self, RecvTimeoutError},
     time::Duration,
+    error::Error as StdError
 };
 use ureq::{Error, ErrorKind, Request, Response};
 use url::Url;
@@ -652,9 +653,23 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
                 response_err.to_string()
             ), span },
 
-        Error::Transport(t) => match t {
-            t if t.kind() == ErrorKind::ConnectionFailed => ShellError::NetworkFailure { msg: format!("Cannot make request to {requested_url}, there was an error establishing a connection.",), span },
-            t => ShellError::NetworkFailure { msg: t.to_string(), span },
+        Error::Transport(t) => {
+            let generic_network_failure = || ShellError::NetworkFailure { msg: t.to_string(), span };
+            match t.kind() {
+                ErrorKind::ConnectionFailed => ShellError::NetworkFailure { msg: format!("Cannot make request to {requested_url}, there was an error establishing a connection.",), span },
+                ErrorKind::Io => 'io: {
+                    let Some(source) = t.source() else {
+                        break 'io generic_network_failure();
+                    };
+
+                    let Some(io_error) = source.downcast_ref::<std::io::Error>() else {
+                        break 'io generic_network_failure();
+                    };
+
+                    ShellError::Io(IoError::new(io_error.kind(), span, None))
+                }
+                _ => generic_network_failure()
+            }
         },
     }
 }
