@@ -168,12 +168,12 @@ impl IoError {
     ///
     /// # Examples
     /// ```rust
-    /// use nu_protocol::location;
+    /// use nu_protocol::shell_error::io::IoError;
     ///
     /// let error = IoError::new_internal(
-    ///     ErrorKind::UnexpectedEof,
+    ///     std::io::ErrorKind::UnexpectedEof,
     ///     "Failed to read from buffer",
-    ///     location!(),
+    ///     nu_protocol::location!(),
     /// );
     /// ```
     pub fn new_internal(
@@ -199,13 +199,14 @@ impl IoError {
     ///
     /// # Examples
     /// ```rust
-    /// use nu_protocol::location;
-    ///
+    /// use std::path::PathBuf;
+    /// use nu_protocol::shell_error::io::IoError;
+    /// 
     /// let error = IoError::new_internal_with_path(
-    ///     ErrorKind::PermissionDenied,
-    ///     Some("/root/private-file".into()),
-    ///     "Access denied while attempting to read the file",
-    ///     location!(),
+    ///     std::io::ErrorKind::NotFound,
+    ///     "Could not find special file",
+    ///     nu_protocol::location!(),
+    ///     PathBuf::from("/some/file"),
     /// );
     /// ```
     pub fn new_internal_with_path(
