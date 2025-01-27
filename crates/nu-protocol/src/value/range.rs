@@ -96,8 +96,9 @@ mod int_range {
         pub fn distance(&self) -> Bound<u64> {
             match self.end {
                 Bound::Unbounded => Bound::Unbounded,
-                Bound::Included(end) if self.start > end => Bound::Included(0),
-                Bound::Excluded(end) if self.start > end => Bound::Excluded(0),
+                Bound::Included(end) | Bound::Excluded(end) if self.start > end => {
+                    Bound::Excluded(0)
+                }
                 Bound::Included(end) => Bound::Included((end - self.start) as u64),
                 Bound::Excluded(end) => Bound::Excluded((end - self.start) as u64),
             }
