@@ -14,6 +14,7 @@ use crate::{PluginRegistryItem, RegisteredPlugin};
 /// A delta (or change set) between the current global state and a possible future global state. Deltas
 /// can be applied to the global state to update it to contain both previous state and the state held
 /// within the delta.
+#[derive(Clone)]
 pub struct StateDelta {
     pub(super) files: Vec<CachedFile>,
     pub(super) virtual_paths: Vec<(String, VirtualPath)>,

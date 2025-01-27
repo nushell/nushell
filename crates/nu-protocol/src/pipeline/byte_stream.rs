@@ -1,8 +1,9 @@
 //! Module managing the streaming of raw bytes between pipeline elements
 #[cfg(feature = "os")]
 use crate::process::{ChildPipe, ChildProcess};
-use crate::{ErrSpan, IntoSpanned, PipelineData, ShellError, Signals, Span, Type, Value};
+use crate::{ErrSpan, IntRange, IntoSpanned, PipelineData, ShellError, Signals, Span, Type, Value};
 use serde::{Deserialize, Serialize};
+use std::ops::Bound;
 #[cfg(unix)]
 use std::os::fd::OwnedFd;
 #[cfg(windows)]
@@ -218,6 +219,79 @@ impl ByteStream {
             signals,
             type_,
         )
+    }
+
+    pub fn skip(self, span: Span, n: u64) -> Result<Self, ShellError> {
+        let known_size = self.known_size.map(|len| len.saturating_sub(n));
+        if let Some(mut reader) = self.reader() {
+            // Copy the number of skipped bytes into the sink before proceeding
+            io::copy(&mut (&mut reader).take(n), &mut io::sink()).err_span(span)?;
+            Ok(
+                ByteStream::read(reader, span, Signals::empty(), ByteStreamType::Binary)
+                    .with_known_size(known_size),
+            )
+        } else {
+            Err(ShellError::TypeMismatch {
+                err_message: "expected readable stream".into(),
+                span,
+            })
+        }
+    }
+
+    pub fn take(self, span: Span, n: u64) -> Result<Self, ShellError> {
+        let known_size = self.known_size.map(|s| s.min(n));
+        if let Some(reader) = self.reader() {
+            Ok(ByteStream::read(
+                reader.take(n),
+                span,
+                Signals::empty(),
+                ByteStreamType::Binary,
+            )
+            .with_known_size(known_size))
+        } else {
+            Err(ShellError::TypeMismatch {
+                err_message: "expected readable stream".into(),
+                span,
+            })
+        }
+    }
+
+    pub fn slice(
+        self,
+        val_span: Span,
+        call_span: Span,
+        range: IntRange,
+    ) -> Result<Self, ShellError> {
+        if let Some(len) = self.known_size {
+            let start = range.absolute_start(len);
+            let stream = self.skip(val_span, start);
+
+            match range.absolute_end(len) {
+                Bound::Unbounded => stream,
+                Bound::Included(end) | Bound::Excluded(end) if end < start => {
+                    stream.and_then(|s| s.take(val_span, 0))
+                }
+                Bound::Included(end) => {
+                    let distance = end - start + 1;
+                    stream.and_then(|s| s.take(val_span, distance.min(len)))
+                }
+                Bound::Excluded(end) => {
+                    let distance = end - start;
+                    stream.and_then(|s| s.take(val_span, distance.min(len)))
+                }
+            }
+        } else if range.is_relative() {
+            Err(ShellError::RelativeRangeOnInfiniteStream { span: call_span })
+        } else {
+            let start = range.start() as u64;
+            let stream = self.skip(val_span, start);
+
+            match range.distance() {
+                Bound::Unbounded => stream,
+                Bound::Included(distance) => stream.and_then(|s| s.take(val_span, distance)),
+                Bound::Excluded(distance) => stream.and_then(|s| s.take(val_span, distance - 1)),
+            }
+        }
     }
 
     /// Create a [`ByteStream`] from a string. The type of the stream is always `String`.

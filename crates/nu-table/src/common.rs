@@ -1,9 +1,7 @@
+use crate::{clean_charset, colorize_space_str, string_wrap, TableOutput, TableTheme};
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_protocol::{Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value};
-
-use terminal_size::{terminal_size, Height, Width};
-
-use crate::{clean_charset, colorize_space_str, string_wrap, TableOutput, TableTheme};
+use nu_utils::terminal_size;
 
 pub type NuText = (String, TextStyle);
 pub type TableResult = Result<Option<TableOutput>, ShellError>;
@@ -211,10 +209,9 @@ fn need_footer(config: &Config, count_records: u64) -> bool {
         // Calculate the screen height and row count, if screen height is larger than row count, don't show footer
         FooterMode::Auto => {
             let (_width, height) = match terminal_size() {
-                Some((w, h)) => (Width(w.0).0 as u64, Height(h.0).0 as u64),
-                None => (Width(0).0 as u64, Height(0).0 as u64),
+                Ok((w, h)) => (w as u64, h as u64),
+                _ => (0, 0),
             };
-
             height <= count_records
         }
     }

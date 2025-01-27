@@ -3,29 +3,35 @@ use lsp_types::{
     notification::{Notification, PublishDiagnostics},
     Diagnostic, DiagnosticSeverity, PublishDiagnosticsParams, Uri,
 };
-use miette::{IntoDiagnostic, Result};
+use miette::{miette, IntoDiagnostic, Result};
 
 impl LanguageServer {
     pub(crate) fn publish_diagnostics_for_file(&mut self, uri: Uri) -> Result<()> {
         let mut engine_state = self.new_engine_state();
         engine_state.generate_nu_constant();
 
-        let Some((_, offset, working_set, file)) = self.parse_file(&mut engine_state, &uri, true)
-        else {
+        let Some((_, span, working_set)) = self.parse_file(&mut engine_state, &uri, true) else {
             return Ok(());
         };
 
         let mut diagnostics = PublishDiagnosticsParams {
-            uri,
+            uri: uri.clone(),
             diagnostics: Vec::new(),
             version: None,
         };
 
+        let docs = match self.docs.lock() {
+            Ok(it) => it,
+            Err(err) => return Err(miette!(err.to_string())),
+        };
+        let file = docs
+            .get_document(&uri)
+            .ok_or_else(|| miette!("\nFailed to get document"))?;
         for err in working_set.parse_errors.iter() {
             let message = err.to_string();
 
             diagnostics.diagnostics.push(Diagnostic {
-                range: span_to_range(&err.span(), file, offset),
+                range: span_to_range(&err.span(), file, span.start),
                 severity: Some(DiagnosticSeverity::ERROR),
                 message,
                 ..Default::default()
@@ -43,15 +49,14 @@ impl LanguageServer {
 
 #[cfg(test)]
 mod tests {
+    use crate::path_to_uri;
+    use crate::tests::{initialize_language_server, open_unchecked, update};
     use assert_json_diff::assert_json_eq;
     use nu_test_support::fs::fixtures;
 
-    use crate::path_to_uri;
-    use crate::tests::{initialize_language_server, open_unchecked, update};
-
     #[test]
     fn publish_diagnostics_variable_does_not_exists() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -82,7 +87,7 @@ mod tests {
 
     #[test]
     fn publish_diagnostics_fixed_unknown_variable() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -106,6 +111,30 @@ mod tests {
                 },
             }),
         );
+
+        assert_json_eq!(
+            notification,
+            serde_json::json!({
+                "method": "textDocument/publishDiagnostics",
+                "params": {
+                    "uri": script,
+                    "diagnostics": []
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn publish_diagnostics_none() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("diagnostics");
+        script.push("pwd.nu");
+        let script = path_to_uri(&script);
+
+        let notification = open_unchecked(&client_connection, script.clone());
 
         assert_json_eq!(
             notification,

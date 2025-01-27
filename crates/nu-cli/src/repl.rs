@@ -19,7 +19,7 @@ use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::util::get_editor;
 use nu_color_config::StyleComputer;
 #[allow(deprecated)]
-use nu_engine::{current_dir_str, env_to_strings};
+use nu_engine::env_to_strings;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
@@ -989,8 +989,7 @@ fn run_shell_integration_osc2(
     stack: &mut Stack,
     use_color: bool,
 ) {
-    #[allow(deprecated)]
-    if let Ok(path) = current_dir_str(engine_state, stack) {
+    if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
         let start_time = Instant::now();
 
         // Try to abbreviate string for windows title
@@ -1034,8 +1033,7 @@ fn run_shell_integration_osc7(
     stack: &mut Stack,
     use_color: bool,
 ) {
-    #[allow(deprecated)]
-    if let Ok(path) = current_dir_str(engine_state, stack) {
+    if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
         let start_time = Instant::now();
 
         // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
@@ -1058,8 +1056,7 @@ fn run_shell_integration_osc7(
 }
 
 fn run_shell_integration_osc9_9(engine_state: &EngineState, stack: &mut Stack, use_color: bool) {
-    #[allow(deprecated)]
-    if let Ok(path) = current_dir_str(engine_state, stack) {
+    if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
         let start_time = Instant::now();
 
         // Otherwise, communicate the path as OSC 9;9 from ConEmu (often used for spawning new tabs in the same dir)
@@ -1083,8 +1080,7 @@ fn run_shell_integration_osc633(
     use_color: bool,
     repl_cmd_line_text: String,
 ) {
-    #[allow(deprecated)]
-    if let Ok(path) = current_dir_str(engine_state, stack) {
+    if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
         // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
         // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences
         if stack

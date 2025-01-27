@@ -353,7 +353,6 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
 
         // intentionally enumerated so that any future types get handled
         Type::Any
-        | Type::Block
         | Type::CellPath
         | Type::Closure
         | Type::Custom(_)
@@ -361,7 +360,6 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         | Type::List(_)
         | Type::Range
         | Type::Record(_)
-        | Type::Signature
         | Type::Glob
         | Type::Table(_) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "sql".into(),

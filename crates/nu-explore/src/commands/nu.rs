@@ -69,12 +69,12 @@ impl ViewCommand for NuCmd {
             view.set_top_layer_orientation(Orientation::Left);
         }
 
-        Ok(NuView::Records(view))
+        Ok(NuView::Records(Box::new(view)))
     }
 }
 
 pub enum NuView {
-    Records(RecordView),
+    Records(Box<RecordView>),
     Preview(Preview),
 }
 

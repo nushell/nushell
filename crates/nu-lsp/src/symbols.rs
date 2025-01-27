@@ -1,20 +1,20 @@
-use std::collections::{BTreeMap, HashSet};
-use std::hash::{Hash, Hasher};
-
 use crate::{path_to_uri, span_to_range, uri_to_path, Id, LanguageServer};
-use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
     DocumentSymbolParams, DocumentSymbolResponse, Location, Range, SymbolInformation, SymbolKind,
     Uri, WorkspaceSymbolParams, WorkspaceSymbolResponse,
 };
-use nu_parser::parse;
-use nu_protocol::ModuleId;
 use nu_protocol::{
     engine::{CachedFile, EngineState, StateWorkingSet},
-    DeclId, Span, VarId,
+    DeclId, ModuleId, Span, VarId,
 };
-use std::{cmp::Ordering, path::Path};
+use nucleo_matcher::pattern::{AtomKind, CaseMatching, Normalization, Pattern};
+use nucleo_matcher::{Config, Matcher, Utf32Str};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, HashSet},
+    hash::{Hash, Hasher},
+};
 
 /// Struct stored in cache, uri not included
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -68,9 +68,9 @@ impl Symbol {
 }
 
 /// Cache symbols for each opened file to avoid repeated parsing
-pub struct SymbolCache {
+pub(crate) struct SymbolCache {
     /// Fuzzy matcher for symbol names
-    matcher: SkimMatcherV2,
+    matcher: Matcher,
     /// File Uri --> Symbols
     cache: BTreeMap<Uri, Vec<Symbol>>,
     /// If marked as dirty, parse on next request
@@ -80,7 +80,7 @@ pub struct SymbolCache {
 impl SymbolCache {
     pub fn new() -> Self {
         SymbolCache {
-            matcher: SkimMatcherV2::default(),
+            matcher: Matcher::new(Config::DEFAULT),
             cache: BTreeMap::new(),
             dirty_flags: BTreeMap::new(),
         }
@@ -186,7 +186,7 @@ impl SymbolCache {
                 .get_document_content(uri, None)
                 .expect("Failed to get_document_content!")
                 .as_bytes();
-            parse(
+            nu_parser::parse(
                 &mut working_set,
                 Some(
                     uri_to_path(uri)
@@ -197,21 +197,22 @@ impl SymbolCache {
                 false,
             );
             for cached_file in working_set.files() {
-                let path = Path::new(&*cached_file.name);
-                if !(path.exists() && path.is_file()) {
+                let path = std::path::Path::new(&*cached_file.name);
+                if !path.is_file() {
                     continue;
                 }
                 let target_uri = path_to_uri(path);
-                let new_symbols = if let Some(doc) = docs.get_document(&target_uri) {
-                    Self::extract_all_symbols(&working_set, doc, cached_file)
-                } else {
-                    let temp_doc = FullTextDocument::new(
-                        "nu".to_string(),
-                        0,
-                        String::from_utf8((*cached_file.content).to_vec()).expect("Invalid UTF-8"),
-                    );
-                    Self::extract_all_symbols(&working_set, &temp_doc, cached_file)
-                };
+                let new_symbols = Self::extract_all_symbols(
+                    &working_set,
+                    docs.get_document(&target_uri)
+                        .unwrap_or(&FullTextDocument::new(
+                            "nu".to_string(),
+                            0,
+                            String::from_utf8((*cached_file.content).to_vec())
+                                .expect("Invalid UTF-8"),
+                        )),
+                    cached_file,
+                );
                 self.cache.insert(target_uri.clone(), new_symbols);
                 self.mark_dirty(target_uri, false);
             }
@@ -240,12 +241,20 @@ impl SymbolCache {
         )
     }
 
-    pub fn get_fuzzy_matched_symbols(&self, query: &str) -> Vec<SymbolInformation> {
+    pub fn get_fuzzy_matched_symbols(&mut self, query: &str) -> Vec<SymbolInformation> {
+        let pat = Pattern::new(
+            query,
+            CaseMatching::Smart,
+            Normalization::Smart,
+            AtomKind::Fuzzy,
+        );
         self.cache
             .iter()
             .flat_map(|(uri, symbols)| symbols.iter().map(|s| s.clone().to_symbol_information(uri)))
             .filter_map(|s| {
-                self.matcher.fuzzy_match(&s.name, query)?;
+                let mut buf = Vec::new();
+                let name = Utf32Str::new(&s.name, &mut buf);
+                pat.score(name, &mut self.matcher)?;
                 Some(s)
             })
             .collect()
@@ -257,25 +266,27 @@ impl SymbolCache {
 }
 
 impl LanguageServer {
-    pub fn document_symbol(
+    pub(crate) fn document_symbol(
         &mut self,
         params: &DocumentSymbolParams,
     ) -> Option<DocumentSymbolResponse> {
         let engine_state = self.new_engine_state();
         let uri = params.text_document.uri.to_owned();
-        self.symbol_cache.update(&uri, &engine_state, &self.docs);
+        let docs = self.docs.lock().ok()?;
+        self.symbol_cache.update(&uri, &engine_state, &docs);
         Some(DocumentSymbolResponse::Flat(
             self.symbol_cache.get_symbols_by_uri(&uri)?,
         ))
     }
 
-    pub fn workspace_symbol(
+    pub(crate) fn workspace_symbol(
         &mut self,
         params: &WorkspaceSymbolParams,
     ) -> Option<WorkspaceSymbolResponse> {
         if self.symbol_cache.any_dirty() {
             let engine_state = self.new_engine_state();
-            self.symbol_cache.update_all(&engine_state, &self.docs);
+            let docs = self.docs.lock().ok()?;
+            self.symbol_cache.update_all(&engine_state, &docs);
         }
         Some(WorkspaceSymbolResponse::Flat(
             self.symbol_cache
@@ -286,19 +297,18 @@ impl LanguageServer {
 
 #[cfg(test)]
 mod tests {
-    use assert_json_diff::assert_json_eq;
-    use lsp_types::{PartialResultParams, TextDocumentIdentifier};
-    use nu_test_support::fs::fixtures;
-
     use crate::path_to_uri;
     use crate::tests::{initialize_language_server, open_unchecked, update};
+    use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
         request::{DocumentSymbolRequest, Request, WorkspaceSymbolRequest},
-        DocumentSymbolParams, Uri, WorkDoneProgressParams, WorkspaceSymbolParams,
+        DocumentSymbolParams, PartialResultParams, TextDocumentIdentifier, Uri,
+        WorkDoneProgressParams, WorkspaceSymbolParams,
     };
+    use nu_test_support::fs::fixtures;
 
-    fn document_symbol_test(client_connection: &Connection, uri: Uri) -> Message {
+    fn send_document_symbol_request(client_connection: &Connection, uri: Uri) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -319,7 +329,7 @@ mod tests {
             .unwrap()
     }
 
-    fn workspace_symbol_test(client_connection: &Connection, query: String) -> Message {
+    fn send_workspace_symbol_request(client_connection: &Connection, query: String) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -342,7 +352,7 @@ mod tests {
     #[test]
     // for variable `$in/$it`, should not appear in symbols
     fn document_symbol_special_variables() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -352,7 +362,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = document_symbol_test(&client_connection, script.clone());
+        let resp = send_document_symbol_request(&client_connection, script.clone());
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -364,7 +374,7 @@ mod tests {
 
     #[test]
     fn document_symbol_basic() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -374,7 +384,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = document_symbol_test(&client_connection, script.clone());
+        let resp = send_document_symbol_request(&client_connection, script.clone());
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -412,7 +422,7 @@ mod tests {
 
     #[test]
     fn document_symbol_update() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -437,7 +447,7 @@ mod tests {
             }),
         );
 
-        let resp = document_symbol_test(&client_connection, script.clone());
+        let resp = send_document_symbol_request(&client_connection, script.clone());
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -464,7 +474,7 @@ mod tests {
 
     #[test]
     fn workspace_symbol_current() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -481,7 +491,7 @@ mod tests {
         open_unchecked(&client_connection, script_foo.clone());
         open_unchecked(&client_connection, script_bar.clone());
 
-        let resp = workspace_symbol_test(&client_connection, "br".to_string());
+        let resp = send_workspace_symbol_request(&client_connection, "br".to_string());
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -530,7 +540,7 @@ mod tests {
 
     #[test]
     fn workspace_symbol_other() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -547,7 +557,7 @@ mod tests {
         open_unchecked(&client_connection, script_foo.clone());
         open_unchecked(&client_connection, script_bar.clone());
 
-        let resp = workspace_symbol_test(&client_connection, "foo".to_string());
+        let resp = send_workspace_symbol_request(&client_connection, "foo".to_string());
         let result = if let Message::Response(response) = resp {
             response.result
         } else {

@@ -35,15 +35,10 @@ impl Command for External {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required(
-                "command",
-                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
-                "External command to run.",
-            )
             .rest(
-                "args",
+                "command",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Any]),
-                "Arguments for external command.",
+                "External command to run, with arguments.",
             )
             .category(Category::System)
     }
@@ -56,7 +51,15 @@ impl Command for External {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cwd = engine_state.cwd(Some(stack))?;
-        let name: Value = call.req(engine_state, stack, 0)?;
+        let rest = call.rest::<Value>(engine_state, stack, 0)?;
+        let name_args = rest.split_first();
+
+        let Some((name, call_args)) = name_args else {
+            return Err(ShellError::MissingParameter {
+                param_name: "no command given".into(),
+                span: call.head,
+            });
+        };
 
         let name_str: Cow<str> = match &name {
             Value::Glob { val, .. } => Cow::Borrowed(val),
@@ -171,7 +174,7 @@ impl Command for External {
         command.envs(envs);
 
         // Configure args.
-        let args = eval_arguments_from_call(engine_state, stack, call)?;
+        let args = eval_external_arguments(engine_state, stack, call_args.to_vec())?;
         #[cfg(windows)]
         if is_cmd_internal_command(&name_str) || potential_nuscript_in_windows {
             // The /D flag disables execution of AutoRun commands from registry.
@@ -310,14 +313,13 @@ impl Command for External {
     }
 }
 
-/// Evaluate all arguments from a call, performing expansions when necessary.
-pub fn eval_arguments_from_call(
+/// Evaluate all arguments, performing expansions when necessary.
+pub fn eval_external_arguments(
     engine_state: &EngineState,
     stack: &mut Stack,
-    call: &Call,
+    call_args: Vec<Value>,
 ) -> Result<Vec<Spanned<OsString>>, ShellError> {
     let cwd = engine_state.cwd(Some(stack))?;
-    let call_args = call.rest::<Value>(engine_state, stack, 1)?;
     let mut args: Vec<Spanned<OsString>> = Vec::with_capacity(call_args.len());
 
     for arg in call_args {

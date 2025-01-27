@@ -111,25 +111,6 @@ fn custom_completer() -> NuCompleter {
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
 }
 
-#[fixture]
-fn subcommand_completer() -> NuCompleter {
-    // Create a new engine
-    let (_, _, mut engine, mut stack) = new_engine();
-
-    let commands = r#"
-            $env.config.completions.algorithm = "fuzzy"
-            def foo [] {}
-            def "foo bar" [] {}
-            def "foo abaz" [] {}
-            def "foo aabcrr" [] {}
-            def food [] {}
-        "#;
-    assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack).is_ok());
-
-    // Instantiate a new completer
-    NuCompleter::new(Arc::new(engine), Arc::new(stack))
-}
-
 /// Use fuzzy completions but sort in alphabetical order
 #[fixture]
 fn fuzzy_alpha_sort_completer() -> NuCompleter {
@@ -253,6 +234,37 @@ fn customcompletions_no_sort() {
     match_suggestions(&expected, &suggestions);
 }
 
+/// Fallback to file completions if custom completer returns null
+#[test]
+fn customcompletions_fallback() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [] { null }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command test";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<String> = vec![folder("test_a"), file("test_a_symlink"), folder("test_b")];
+    match_suggestions(&expected, &suggestions);
+}
+
+/// Suppress completions for invalid values
+#[test]
+fn customcompletions_invalid() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [] { 123 }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let completion_str = "my-command foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    assert!(suggestions.is_empty());
+}
+
 #[test]
 fn dotnu_completions() {
     // Create a new engine
@@ -329,6 +341,27 @@ fn external_completer_pass_flags() {
     assert_eq!("gh", suggestions.first().unwrap().value);
     assert_eq!("api", suggestions.get(1).unwrap().value);
     assert_eq!("--", suggestions.get(2).unwrap().value);
+}
+
+/// Fallback to file completions when external completer returns null
+#[test]
+fn external_completer_fallback() {
+    let block = "{|spans| null}";
+    let input = "foo test".to_string();
+
+    let expected = vec![folder("test_a"), file("test_a_symlink"), folder("test_b")];
+    let suggestions = run_external_completion(block, &input);
+    match_suggestions(&expected, &suggestions);
+}
+
+/// Suppress completions when external completer returns invalid value
+#[test]
+fn external_completer_invalid() {
+    let block = "{|spans| 123}";
+    let input = "foo ".to_string();
+
+    let suggestions = run_external_completion(block, &input);
+    assert!(suggestions.is_empty());
 }
 
 #[test]
@@ -1040,24 +1073,32 @@ fn command_watch_with_filecompletion() {
 }
 
 #[rstest]
-fn subcommand_completions(mut subcommand_completer: NuCompleter) {
-    let prefix = "foo br";
-    let suggestions = subcommand_completer.complete(prefix, prefix.len());
-    match_suggestions(
-        &vec!["foo bar".to_string(), "foo aabcrr".to_string()],
-        &suggestions,
-    );
+fn subcommand_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let commands = r#"
+            $env.config.completions.algorithm = "fuzzy"
+            def foo-test-command [] {}
+            def "foo-test-command bar" [] {}
+            def "foo-test-command aagap bcr" [] {}
+            def "food bar" [] {}
+        "#;
+    assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut subcommand_completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let prefix = "foo b";
+    let prefix = "fod br";
     let suggestions = subcommand_completer.complete(prefix, prefix.len());
     match_suggestions(
         &vec![
-            "foo bar".to_string(),
-            "foo abaz".to_string(),
-            "foo aabcrr".to_string(),
+            "food bar".to_string(),
+            "foo-test-command bar".to_string(),
+            "foo-test-command aagap bcr".to_string(),
         ],
         &suggestions,
     );
+
+    let prefix = "foot bar";
+    let suggestions = subcommand_completer.complete(prefix, prefix.len());
+    match_suggestions(&vec!["foo-test-command bar".to_string()], &suggestions);
 }
 
 #[test]

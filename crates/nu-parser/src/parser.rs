@@ -3435,7 +3435,8 @@ pub fn parse_full_signature(working_set: &mut StateWorkingSet, spans: &[Span]) -
 }
 
 pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
-    let var_id = working_set.add_variable(b"$it".to_vec(), Span::unknown(), Type::Any, false);
+    let pos = spans.first().map(|s| s.start).unwrap_or(0);
+    let var_id = working_set.add_variable(b"$it".to_vec(), Span::new(pos, pos), Type::Any, false);
     let expression = parse_math_expression(working_set, spans, Some(var_id));
     let span = Span::concat(spans);
 
@@ -3497,7 +3498,7 @@ pub fn parse_signature(working_set: &mut StateWorkingSet, span: Span) -> Express
 
     let sig = parse_signature_helper(working_set, Span::new(start, end));
 
-    Expression::new(working_set, Expr::Signature(sig), span, Type::Signature)
+    Expression::new(working_set, Expr::Signature(sig), span, Type::Any)
 }
 
 pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> Box<Signature> {
@@ -4470,7 +4471,7 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
 
     let block_id = working_set.add_block(Arc::new(output));
 
-    Expression::new(working_set, Expr::Block(block_id), span, Type::Block)
+    Expression::new(working_set, Expr::Block(block_id), span, Type::Any)
 }
 
 pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -4949,9 +4950,9 @@ pub fn parse_value(
             } else {
                 let shapes = [
                     SyntaxShape::Binary,
+                    SyntaxShape::Range,
                     SyntaxShape::Filesize,
                     SyntaxShape::Duration,
-                    SyntaxShape::Range,
                     SyntaxShape::DateTime,
                     SyntaxShape::Int,
                     SyntaxShape::Number,
@@ -5146,6 +5147,8 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         b"//" => Operator::Math(Math::FloorDivision),
         b"in" => Operator::Comparison(Comparison::In),
         b"not-in" => Operator::Comparison(Comparison::NotIn),
+        b"has" => Operator::Comparison(Comparison::Has),
+        b"not-has" => Operator::Comparison(Comparison::NotHas),
         b"mod" => Operator::Math(Math::Modulo),
         b"bit-or" => Operator::Bits(Bits::BitOr),
         b"bit-xor" => Operator::Bits(Bits::BitXor),
@@ -5186,7 +5189,7 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         b"contains" => {
             working_set.error(ParseError::UnknownOperator(
                 "contains",
-                "Did you mean '$string =~ $pattern' or '$element in $container'?",
+                "Did you mean 'has'?",
                 span,
             ));
             return garbage(working_set, span);
@@ -6633,7 +6636,12 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: Expression) -
 
     // IN_VARIABLE_ID should get replaced with a unique variable, so that we don't have to
     // execute as a closure
-    let var_id = working_set.add_variable(b"$in".into(), Span::unknown(), Type::Any, false);
+    let var_id = working_set.add_variable(
+        b"$in".into(),
+        Span::new(span.start, span.start),
+        Type::Any,
+        false,
+    );
     let mut expr = expr.clone();
     expr.replace_in_variable(working_set, var_id);
 

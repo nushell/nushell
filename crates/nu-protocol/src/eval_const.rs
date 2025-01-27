@@ -265,8 +265,7 @@ pub fn get_vendor_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
     // <dir>/nushell/vendor/autoload for every dir in XDG_DATA_DIRS in reverse order on platforms other than windows. If XDG_DATA_DIRS is not set, it falls back to <PREFIX>/share if PREFIX ends in local, or <PREFIX>/local/share:<PREFIX>/share otherwise. If PREFIX is not set, fall back to /usr/local/share:/usr/share.
     // %ProgramData%\nushell\vendor\autoload on windows
     // NU_VENDOR_AUTOLOAD_DIR from compile time, if env var is set at compile time
-    // if on macOS, additionally check XDG_DATA_HOME, which `dirs` is only doing on Linux
-    // <data_dir>/nushell/vendor/autoload of the current user according to the `dirs` crate
+    // <$nu.data_dir>/vendor/autoload
     // NU_VENDOR_AUTOLOAD_DIR at runtime, if env var is set
 
     let into_autoload_path_fn = |mut path: PathBuf| {
@@ -321,23 +320,8 @@ pub fn get_vendor_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
         append_fn(PathBuf::from(path));
     }
 
-    #[cfg(target_os = "macos")]
-    std::env::var("XDG_DATA_HOME")
-        .ok()
-        .map(PathBuf::from)
-        .or_else(|| {
-            dirs::home_dir().map(|mut home| {
-                home.push(".local");
-                home.push("share");
-                home
-            })
-        })
-        .map(into_autoload_path_fn)
-        .into_iter()
-        .for_each(&mut append_fn);
-
-    if let Some(data_dir) = dirs::data_dir() {
-        append_fn(into_autoload_path_fn(data_dir));
+    if let Some(data_dir) = nu_path::data_dir() {
+        append_fn(into_autoload_path_fn(PathBuf::from(data_dir)));
     }
 
     if let Some(path) = std::env::var_os("NU_VENDOR_AUTOLOAD_DIR") {
@@ -350,12 +334,6 @@ pub fn get_vendor_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
 pub fn get_user_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
     // User autoload directories - Currently just `autoload` in the default
     // configuration directory
-    let into_autoload_path_fn = |mut path: PathBuf| {
-        path.push("nushell");
-        path.push("autoload");
-        path
-    };
-
     let mut dirs = Vec::new();
 
     let mut append_fn = |path: PathBuf| {
@@ -364,8 +342,8 @@ pub fn get_user_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
         }
     };
 
-    if let Some(config_dir) = dirs::config_dir() {
-        append_fn(into_autoload_path_fn(config_dir));
+    if let Some(config_dir) = nu_path::nu_config_dir() {
+        append_fn(config_dir.join("autoload").into());
     }
 
     dirs

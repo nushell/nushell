@@ -1,4 +1,4 @@
-let int = 1
+const int = 1
 let str = "hello"
 let bool = true
 let float = 1.0

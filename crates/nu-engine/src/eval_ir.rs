@@ -952,6 +952,8 @@ fn binary_op(
             }
             Comparison::In => lhs_val.r#in(op_span, &rhs_val, span)?,
             Comparison::NotIn => lhs_val.not_in(op_span, &rhs_val, span)?,
+            Comparison::Has => lhs_val.has(op_span, &rhs_val, span)?,
+            Comparison::NotHas => lhs_val.not_has(op_span, &rhs_val, span)?,
             Comparison::StartsWith => lhs_val.starts_with(op_span, &rhs_val, span)?,
             Comparison::EndsWith => lhs_val.ends_with(op_span, &rhs_val, span)?,
         },

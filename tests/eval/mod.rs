@@ -88,7 +88,7 @@ fn literal_float() {
 
 #[test]
 fn literal_filesize() {
-    test_eval("30MiB", Eq("30.0 MiB"))
+    test_eval("30MB", Eq("30.0 MB"))
 }
 
 #[test]

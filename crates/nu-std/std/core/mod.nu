@@ -20,7 +20,7 @@ Version: (ansi green)($ver.version) \(($ver.build_os)\)
 Please join our (ansi purple)Discord(ansi reset) community at (ansi purple)https://discord.gg/NtAbbGn(ansi reset)
 Our (ansi green_bold)GitHub(ansi reset) repository is at (ansi green_bold)https://github.com/nushell/nushell(ansi reset)
 Our (ansi green)Documentation(ansi reset) is located at (ansi green)https://nushell.sh(ansi reset)
-(ansi cyan)Tweet(ansi reset) us at (ansi cyan_bold)@nu_shell(ansi reset)
+And the (ansi green)Latest Nushell News(ansi reset) at (ansi green)https://nushell.sh/blog/(ansi reset)
 Learn how to remove this at: (ansi green)https://nushell.sh/book/configuration.html#remove-welcome-message(ansi reset)
 
 It's been this long since (ansi green)Nushell(ansi reset)'s first commit:

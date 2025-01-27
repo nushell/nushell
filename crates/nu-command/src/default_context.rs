@@ -79,6 +79,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Skip,
             SkipUntil,
             SkipWhile,
+            Slice,
             Sort,
             SortBy,
             SplitList,
@@ -144,6 +145,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             HelpCommands,
             HelpModules,
             HelpOperators,
+            HelpPipeAndRedirect,
             HelpEscapes,
         };
 
@@ -402,6 +404,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             HttpPut,
             HttpOptions,
             Port,
+            VersionCheck,
         }
         bind_command! {
             Url,

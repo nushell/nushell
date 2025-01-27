@@ -187,7 +187,7 @@ impl<'a> Playground<'a> {
                 let mut permission_set = false;
                 let mut write_able = true;
                 let (file_name, contents) = match *f {
-                    Stub::EmptyFile(name) => (name, "fake data".to_string()),
+                    Stub::EmptyFile(name) => (name, String::new()),
                     Stub::FileWithContent(name, content) => (name, content.to_string()),
                     Stub::FileWithContentToBeTrimmed(name, content) => (
                         name,

@@ -936,7 +936,7 @@ impl Value {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
+            Value::Filesize { val, .. } => config.filesize.display(*val).to_string(),
             Value::Duration { val, .. } => format_duration(*val),
             Value::Date { val, .. } => match &config.datetime_format.normal {
                 Some(format) => self.format_datetime(val, format),
@@ -3538,6 +3538,14 @@ impl Value {
                 rhs_span: rhs.span(),
             }),
         }
+    }
+
+    pub fn has(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        rhs.r#in(op, self, span)
+    }
+
+    pub fn not_has(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        rhs.r#not_in(op, self, span)
     }
 
     pub fn regex_match(
