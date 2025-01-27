@@ -450,7 +450,7 @@ impl NuDataFrame {
     }
 
     pub fn schema(&self) -> NuSchema {
-        NuSchema::new(self.df.schema())
+        NuSchema::new(Arc::clone(self.df.schema()))
     }
 
     /// This differs from try_from_value as it will attempt to coerce the type into a NuDataFrame.

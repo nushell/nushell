@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
 
 use chrono::{DateTime, Duration, FixedOffset, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
@@ -8,7 +9,6 @@ use polars::chunked_array::builder::AnonymousOwnedListBuilder;
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
 use polars::datatypes::{AnyValue, PlSmallStr};
-use polars::export::arrow::Either;
 use polars::prelude::{
     ChunkAnyValue, Column as PolarsColumn, DataFrame, DataType, DatetimeChunked, Float32Type,
     Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, IntoSeries, ListBooleanChunkedBuilder,
@@ -18,6 +18,7 @@ use polars::prelude::{
 };
 
 use nu_protocol::{Record, ShellError, Span, Value};
+use polars_arrow::Either;
 
 use crate::dataframe::values::NuSchema;
 
@@ -474,7 +475,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
             Ok(res.into_series())
         }
         DataType::Struct(fields) => {
-            let schema = Some(NuSchema::new(Schema::from_iter(fields.clone())));
+            let schema = Some(NuSchema::new(Arc::new(Schema::from_iter(fields.clone()))));
             // let mut structs: Vec<Series> = Vec::new();
             let mut structs: HashMap<PlSmallStr, Series> = HashMap::new();
 
@@ -1359,8 +1360,8 @@ mod tests {
     use indexmap::indexmap;
     use nu_protocol::record;
     use polars::datatypes::CompatLevel;
-    use polars::export::arrow::array::{BooleanArray, PrimitiveArray};
     use polars::prelude::Field;
+    use polars_arrow::array::{BooleanArray, PrimitiveArray};
     use polars_io::prelude::StructArray;
 
     use super::*;
