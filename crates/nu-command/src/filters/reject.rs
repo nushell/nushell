@@ -231,7 +231,6 @@ fn reject(
             let result = stream
                 .into_iter()
                 .map(move |mut value| {
-
                     let span = value.span();
 
                     for cell_path in new_columns.iter() {
