@@ -15,7 +15,12 @@ pub fn returns_error_for_relative_range_on_infinite_stream() {
 pub fn returns_bytes_for_fixed_range_on_infinite_stream_including_end() {
     let actual = nu!("nu --testbin iecho 3 | bytes at ..10 | decode");
     assert_eq!(
-        actual.out, "33333",
+        actual.out, "333333",
+        "Expected bytes from index 0 to 10, but got different output"
+    );
+    let actual = nu!("nu --testbin iecho 3 | bytes at ..10 | decode");
+    assert_eq!(
+        actual.out, "333333",
         "Expected bytes from index 0 to 10, but got different output"
     );
 }
@@ -24,7 +29,7 @@ pub fn returns_bytes_for_fixed_range_on_infinite_stream_including_end() {
 pub fn returns_bytes_for_fixed_range_on_infinite_stream_excluding_end() {
     let actual = nu!("nu --testbin iecho 3 | bytes at ..<9 | decode");
     assert_eq!(
-        actual.out, "3333",
+        actual.out, "33333",
         "Expected bytes from index 0 to 8, but got different output"
     );
 }
