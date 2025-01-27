@@ -22,10 +22,6 @@ impl Command for Cd {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch("physical", "use the physical directory structure; resolve symbolic links before processing instances of ..", Some('P'))
             .optional("path", SyntaxShape::Directory, "The path to change to.")
-            .input_output_types(vec![
-                (Type::Nothing, Type::Nothing),
-                (Type::String, Type::Nothing),
-            ])
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }

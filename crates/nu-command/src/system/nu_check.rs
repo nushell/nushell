@@ -17,6 +17,9 @@ impl Command for NuCheck {
                 (Type::Nothing, Type::Bool),
                 (Type::String, Type::Bool),
                 (Type::List(Box::new(Type::Any)), Type::Bool),
+                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
+                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
+                (Type::Any, Type::Bool),
             ])
             // type is string to avoid automatically canonicalizing the path
             .optional("path", SyntaxShape::String, "File path to parse.")
