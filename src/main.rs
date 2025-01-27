@@ -26,9 +26,8 @@ use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    record, report_shell_error,
-    shell_error::io::IoError,
-    ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
+    record, report_shell_error, ByteStream, Config, IntoValue, PipelineData, ShellError, Span,
+    Spanned, Type, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -430,7 +429,7 @@ fn main() -> Result<()> {
             // Make sure the plugin filenames are canonicalized
             let filename = canonicalize_with(&plugin_filename.item, &init_cwd)
                 .map_err(|err| {
-                    IoError::new(
+                    nu_protocol::shell_error::io::IoError::new(
                         err.kind(),
                         plugin_filename.span,
                         PathBuf::from(&plugin_filename.item),
