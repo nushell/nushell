@@ -12,9 +12,8 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::{
-    df,
-    prelude::{AnyValue, DataType, Field, NamedFrom, StructChunked},
-    series::{IntoSeries, Series},
+    prelude::{AnyValue, DataType, Field, NamedFrom},
+    series::Series,
 };
 
 #[derive(Clone)]

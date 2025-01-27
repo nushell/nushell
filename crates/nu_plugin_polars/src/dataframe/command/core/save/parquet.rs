@@ -16,7 +16,7 @@ pub(crate) fn command_lazy(
     file_span: Span,
 ) -> Result<(), ShellError> {
     lazy.to_polars()
-        // todo - add cloud options 
+        // todo - add cloud options
         .sink_parquet(&file_path, ParquetWriteOptions::default(), None)
         .map_err(|e| polars_file_save_error(e, file_span))
 }
