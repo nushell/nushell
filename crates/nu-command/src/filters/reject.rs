@@ -220,11 +220,19 @@ fn reject(
 
     new_columns.append(&mut new_rows);
 
+    let has_integer_path_member = new_columns.iter().any(|path| {
+        path.members
+            .iter()
+            .any(|member| matches!(member, PathMember::Int { .. }))
+    });
+
     match input {
-        PipelineData::ListStream(stream, ..) => {
+        PipelineData::ListStream(stream, ..) if !has_integer_path_member => {
             let result = stream
                 .into_iter()
                 .map(move |mut value| {
+                    eprintln!("uhh");
+
                     let span = value.span();
 
                     for cell_path in new_columns.iter() {
