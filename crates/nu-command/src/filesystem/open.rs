@@ -141,7 +141,7 @@ impl Command for Open {
                     }
 
                     if path.is_dir() {
-                        // At least under this windows this check ensures that we don't get a
+                        // At least under windows this check ensures that we don't get a
                         // permission denied error on directories
                         return Err(ShellError::Io(IoError::new(
                             shell_error::io::ErrorKind::IsADirectory,
