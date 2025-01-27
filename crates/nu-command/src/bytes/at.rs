@@ -141,7 +141,7 @@ fn map_value(input: &Value, args: &Arguments, head: Span) -> Value {
         Value::Binary { val, .. } => {
             let len = val.len() as u64;
             let start: u64 = range.absolute_start(len);
-            let start: usize = match start.try_into() {
+            let _start: usize = match start.try_into() {
                 Ok(start) => start,
                 Err(_) => {
                     let span = input.span();
@@ -159,10 +159,11 @@ fn map_value(input: &Value, args: &Arguments, head: Span) -> Value {
                 }
             };
 
-            let bytes: Vec<u8> = match range.absolute_end(len) {
+            let (start, end) = range.absolute_bounds(val.len());
+            let bytes: Vec<u8> = match end {
                 Bound::Unbounded => val[start..].into(),
-                Bound::Included(end) => val[start..=end as usize].into(),
-                Bound::Excluded(end) => val[start..end as usize].into(),
+                Bound::Included(end) => val[start..=end].into(),
+                Bound::Excluded(end) => val[start..end].into(),
             };
 
             Value::binary(bytes, head)
