@@ -43,12 +43,15 @@ impl Command for FromTsv {
             .switch("no-infer", "no field type inferencing", None)
             .named(
                 "trim",
-                SyntaxShape::OptionsWrapper(Box::new(SyntaxShape::String), vec![
-                    "all".into(),
-                    "headers".into(),
-                    "fields".into(),
-                    "none".into(),
-                ]),
+                SyntaxShape::OptionsWrapper(
+                    Box::new(SyntaxShape::String),
+                    vec![
+                        "all".into(),
+                        "headers".into(),
+                        "fields".into(),
+                        "none".into(),
+                    ],
+                ),
                 "drop leading and trailing whitespaces around headers names and/or field values",
                 Some('t'),
             )
