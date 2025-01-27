@@ -143,7 +143,7 @@ impl SyntaxShape {
 
         match self {
             SyntaxShape::Any => Type::Any,
-            SyntaxShape::Block => Type::Block,
+            SyntaxShape::Block => Type::Any,
             SyntaxShape::Closure(_) => Type::Closure,
             SyntaxShape::Binary => Type::Binary,
             SyntaxShape::CellPath => Type::Any,
@@ -176,7 +176,7 @@ impl SyntaxShape {
             SyntaxShape::Record(entries) => Type::Record(mk_ty(entries)),
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Boolean => Type::Bool,
-            SyntaxShape::Signature => Type::Signature,
+            SyntaxShape::Signature => Type::Any,
             SyntaxShape::String => Type::String,
             SyntaxShape::Table(columns) => Type::Table(mk_ty(columns)),
             SyntaxShape::VarWithOptType => Type::Any,

@@ -91,7 +91,8 @@ tabled = { workspace = true, features = ["ansi"], default-features = false }
 titlecase = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"] }
 unicode-segmentation = { workspace = true }
-ureq = { workspace = true, default-features = false, features = ["charset", "gzip", "json"] }
+update-informer = { workspace = true, optional = true }
+ureq = { workspace = true, default-features = false, features = ["charset", "gzip", "json", "native-tls"], optional = true }
 url = { workspace = true }
 uu_cp = { workspace = true, optional = true }
 uu_mkdir = { workspace = true, optional = true }
@@ -142,7 +143,7 @@ os = [
 	# include other features
 	"js",
 	"network",
-	"nu-protocol/os", 
+	"nu-protocol/os",
 	"nu-utils/os",
 
 	# os-dependant dependencies
@@ -160,13 +161,13 @@ os = [
 	"which",
 ]
 
-# The dependencies listed below need 'getrandom'. 
-# They work with JS (usually with wasm-bindgen) or regular OS support. 
+# The dependencies listed below need 'getrandom'.
+# They work with JS (usually with wasm-bindgen) or regular OS support.
 # Hence they are also put under the 'os' feature to avoid repetition.
 js = [
-	"getrandom", 
-	"getrandom/js", 
-	"rand", 
+	"getrandom",
+	"getrandom/js",
+	"rand",
 	"uuid",
 ]
 
@@ -174,15 +175,16 @@ js = [
 # interface requires openssl which is not easy to embed into wasm,
 # using rustls could solve this issue.
 network = [
-	"multipart-rs", 
+	"multipart-rs",
 	"native-tls",
-	"ureq/native-tls",
+	"update-informer/native-tls",
+	"ureq",
 	"uuid",
 ]
 
 plugin = [
 	"nu-parser/plugin",
-	"os", 
+	"os",
 ]
 sqlite = ["rusqlite"]
 trash-support = ["trash"]

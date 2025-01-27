@@ -3119,3 +3119,33 @@ fn table_colors() {
     ));
     assert_eq!(actual.out, "╭───┬───╮│ a │ 1 ││ b │ 2 │╰───┴───╯");
 }
+
+#[test]
+fn table_index() {
+    let actual = nu!("[[ index     var ]; [ abc         1 ] [ def         2 ] [ ghi         3 ]] | table --width=80");
+    assert_eq!(
+        actual.out,
+        "╭─────┬─────╮\
+         │   # │ var │\
+         ├─────┼─────┤\
+         │ abc │   1 │\
+         │ def │   2 │\
+         │ ghi │   3 │\
+         ╰─────┴─────╯"
+    );
+}
+
+#[test]
+fn table_index_expand() {
+    let actual = nu!("[[ index     var ]; [ abc         1 ] [ def         2 ] [ ghi         3 ]] | table --width=80 --expand");
+    assert_eq!(
+        actual.out,
+        "╭─────┬─────╮\
+         │   # │ var │\
+         ├─────┼─────┤\
+         │ abc │   1 │\
+         │ def │   2 │\
+         │ ghi │   3 │\
+         ╰─────┴─────╯"
+    );
+}

@@ -764,66 +764,32 @@ fn range_with_mixed_types() {
 
 #[test]
 fn filesize_math() {
-    let actual = nu!("
-        100 * 10kib
-        ");
-
-    assert_eq!(actual.out, "1000.0 KiB");
-    // why 1000.0 KB instead of 1.0 MB?
-    // looks like `byte.get_appropriate_unit(false)` behaves this way
+    let actual = nu!("100 * 10kB");
+    assert_eq!(actual.out, "1.0 MB");
 }
 
 #[test]
 fn filesize_math2() {
-    let actual = nu!("
-        100 / 10kb
-        ");
-
+    let actual = nu!("100 / 10kb");
     assert!(actual.err.contains("doesn't support"));
 }
 
 #[test]
 fn filesize_math3() {
-    let actual = nu!("
-        100kib / 10
-        ");
-
-    assert_eq!(actual.out, "10.0 KiB");
+    let actual = nu!("100kB / 10");
+    assert_eq!(actual.out, "10.0 kB");
 }
+
 #[test]
 fn filesize_math4() {
-    let actual = nu!("
-        100kib * 5
-        ");
-
-    assert_eq!(actual.out, "500.0 KiB");
+    let actual = nu!("100kB * 5");
+    assert_eq!(actual.out, "500.0 kB");
 }
 
 #[test]
 fn filesize_math5() {
-    let actual = nu!("
-        1000 * 1kib
-        ");
-
-    assert_eq!(actual.out, "1000.0 KiB");
-}
-
-#[test]
-fn filesize_math6() {
-    let actual = nu!("
-        1000 * 1mib
-        ");
-
-    assert_eq!(actual.out, "1000.0 MiB");
-}
-
-#[test]
-fn filesize_math7() {
-    let actual = nu!("
-        1000 * 1gib
-        ");
-
-    assert_eq!(actual.out, "1000.0 GiB");
+    let actual = nu!("100 * 1kB");
+    assert_eq!(actual.out, "100.0 kB");
 }
 
 #[test]

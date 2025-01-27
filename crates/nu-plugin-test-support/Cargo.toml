@@ -24,7 +24,7 @@ nu-plugin-engine = { path = "../nu-plugin-engine", version = "0.101.1" }
 nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.101.1" }
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.101.1" }
 nu-ansi-term = { workspace = true }
-similar = "2.6"
+similar = "2.7"
 
 [dev-dependencies]
 typetag = "0.2"

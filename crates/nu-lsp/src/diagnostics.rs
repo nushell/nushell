@@ -10,7 +10,7 @@ impl LanguageServer {
         let mut engine_state = self.new_engine_state();
         engine_state.generate_nu_constant();
 
-        let Some((_, offset, working_set)) = self.parse_file(&mut engine_state, &uri, true) else {
+        let Some((_, span, working_set)) = self.parse_file(&mut engine_state, &uri, true) else {
             return Ok(());
         };
 
@@ -31,7 +31,7 @@ impl LanguageServer {
             let message = err.to_string();
 
             diagnostics.diagnostics.push(Diagnostic {
-                range: span_to_range(&err.span(), file, offset),
+                range: span_to_range(&err.span(), file, span.start),
                 severity: Some(DiagnosticSeverity::ERROR),
                 message,
                 ..Default::default()
@@ -49,11 +49,10 @@ impl LanguageServer {
 
 #[cfg(test)]
 mod tests {
-    use assert_json_diff::assert_json_eq;
-    use nu_test_support::fs::fixtures;
-
     use crate::path_to_uri;
     use crate::tests::{initialize_language_server, open_unchecked, update};
+    use assert_json_diff::assert_json_eq;
+    use nu_test_support::fs::fixtures;
 
     #[test]
     fn publish_diagnostics_variable_does_not_exists() {

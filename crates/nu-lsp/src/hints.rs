@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::ast::{ast_flat_map, expr_flat_map};
 use crate::{span_to_range, LanguageServer};
 use lsp_textdocument::FullTextDocument;
@@ -12,6 +10,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
     Type,
 };
+use std::sync::Arc;
 
 fn type_short_name(t: &Type) -> String {
     match t {
@@ -145,12 +144,11 @@ fn extract_inlay_hints_from_expression(
 }
 
 impl LanguageServer {
-    pub fn get_inlay_hints(&mut self, params: &InlayHintParams) -> Option<Vec<InlayHint>> {
+    pub(crate) fn get_inlay_hints(&mut self, params: &InlayHintParams) -> Option<Vec<InlayHint>> {
         Some(self.inlay_hints.get(&params.text_document.uri)?.clone())
     }
 
-    pub fn extract_inlay_hints(
-        &self,
+    pub(crate) fn extract_inlay_hints(
         working_set: &StateWorkingSet,
         block: &Arc<Block>,
         offset: usize,
@@ -164,17 +162,15 @@ impl LanguageServer {
 
 #[cfg(test)]
 mod tests {
-    use assert_json_diff::assert_json_eq;
-    use lsp_types::request::Request;
-    use nu_test_support::fs::fixtures;
-
     use crate::path_to_uri;
     use crate::tests::{initialize_language_server, open_unchecked};
+    use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
-        request::InlayHintRequest, InlayHintParams, Position, Range, TextDocumentIdentifier, Uri,
-        WorkDoneProgressParams,
+        request::{InlayHintRequest, Request},
+        InlayHintParams, Position, Range, TextDocumentIdentifier, Uri, WorkDoneProgressParams,
     };
+    use nu_test_support::fs::fixtures;
 
     fn send_inlay_hint_request(client_connection: &Connection, uri: Uri) -> Message {
         client_connection

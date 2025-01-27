@@ -236,20 +236,25 @@ fn get_table_row_index(item: &Value, config: &Config, row: usize, offset: usize)
 fn collect_headers(headers: Vec<String>, index: bool) -> Vec<NuRecordsValue> {
     // The header with the INDEX is removed from the table headers since
     // it is added to the natural table index
-
-    if !index {
-        headers
-            .into_iter()
-            .filter(|header| header != INDEX_COLUMN_NAME)
-            .map(NuRecordsValue::new)
-            .collect()
+    let length = if index {
+        headers.len() + 1
     } else {
-        let mut v = Vec::with_capacity(headers.len() + 1);
+        headers.len()
+    };
+
+    let mut v = Vec::with_capacity(length);
+
+    if index {
         v.insert(0, NuRecordsValue::new("#".into()));
-        for text in headers {
-            v.push(NuRecordsValue::new(text));
+    }
+
+    for text in headers {
+        if text == INDEX_COLUMN_NAME {
+            continue;
         }
 
-        v
+        v.push(NuRecordsValue::new(text));
     }
+
+    v
 }
