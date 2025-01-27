@@ -1175,6 +1175,42 @@ fn flag_completions() {
 }
 
 #[test]
+fn option_completions() {
+    // Create a new engine
+    let (_, _, engine, stack) = new_engine();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    // Test completions for the 'ls' flags
+    let suggestions = completer.complete("table --theme ", 14);
+
+    assert_eq!(17, suggestions.len());
+
+    let expected: Vec<String> = vec![
+        "ascii_rounded".into(),
+        "basic".into(),
+        "basic_compact".into(),
+        "compact".into(),
+        "compact_double".into(),
+        "default".into(),
+        "dots".into(),
+        "heavy".into(),
+        "light".into(),
+        "markdown".into(),
+        "none".into(),
+        "psql".into(),
+        "reinforced".into(),
+        "restructured".into(),
+        "rounded".into(),
+        "thin".into(),
+        "with_love".into(),
+    ];
+
+    // Match results
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
 fn folder_with_directorycompletions() {
     // Create a new engine
     let (dir, dir_str, engine, stack) = new_engine();
