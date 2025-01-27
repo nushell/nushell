@@ -17,6 +17,23 @@ pub fn test_simple_positive_slice_exclusive() {
 }
 
 #[test]
+pub fn test_simple_positive_slice_exclusive_streaming() {
+    let data = b"Hello World".to_vec();
+    let stream = ByteStream::read_binary(data, Span::test_data(), Signals::empty());
+    let sliced = stream
+        .with_known_size(None)
+        .slice(
+            Span::test_data(),
+            Span::test_data(),
+            create_range(0, 5, RangeInclusion::RightExclusive),
+        )
+        .unwrap();
+    let result = sliced.into_bytes().unwrap();
+    let result = String::from_utf8(result).unwrap();
+    assert_eq!(result, "Hello");
+}
+
+#[test]
 pub fn test_negative_start_exclusive() {
     let data = b"Hello World".to_vec();
     let stream = ByteStream::read_binary(data, Span::test_data(), Signals::empty());
