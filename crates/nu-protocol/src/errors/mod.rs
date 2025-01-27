@@ -1,3 +1,4 @@
+mod chained_error;
 pub mod cli_error;
 mod compile_error;
 mod config_error;

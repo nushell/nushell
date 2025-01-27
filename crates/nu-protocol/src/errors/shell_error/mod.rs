@@ -1,3 +1,4 @@
+use super::chained_error::ChainedError;
 use crate::{
     ast::Operator, engine::StateWorkingSet, format_shell_error, record, ConfigError, LabeledError,
     ParseError, Span, Spanned, Type, Value,
@@ -1325,6 +1326,10 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         #[label = "while running this code"]
         span: Option<Span>,
     },
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ChainedError(ChainedError),
 }
 
 impl ShellError {
@@ -1372,6 +1377,15 @@ impl ShellError {
             "Encountered error during parse-time evaluation".into(),
             span,
         )
+    }
+
+    pub fn into_chainned(self, span: Span) -> Self {
+        match self {
+            ShellError::ChainedError(inner) => {
+                ShellError::ChainedError(ChainedError::new_chained(inner, span))
+            }
+            other => ShellError::ChainedError(ChainedError::new(other, span)),
+        }
     }
 }
 

@@ -229,21 +229,8 @@ fn eval_ir_block_impl<D: DebugContext>(
                     prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
                     pc = error_handler.handler_index;
                 } else {
-                    if !ctx
-                        .engine_state
-                        .have_error
-                        .load(std::sync::atomic::Ordering::SeqCst)
-                    {
-                        ctx.engine_state
-                            .have_error
-                            .store(true, std::sync::atomic::Ordering::SeqCst);
-                        return Err(err);
-                    } else {
-                        return Err(ShellError::EvalBlockWithInput {
-                            span: *span,
-                            sources: vec![err],
-                        });
-                    }
+                    let err = ShellError::into_chainned(err, *span);
+                    return Err(err);
                 }
             }
         }
