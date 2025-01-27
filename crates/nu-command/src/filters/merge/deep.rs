@@ -42,7 +42,20 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
                 "The new value to merge with.",
             )
             .category(Category::Filters)
-            .named("strategy", SyntaxShape::String, "The list merging strategy to use. One of: table (default), overwrite, append, prepend", Some('s'))
+            .named(
+                "strategy",
+                SyntaxShape::OptionsWrapper(
+                    Box::new(SyntaxShape::String),
+                    vec![
+                        "table".into(),
+                        "overwrite".into(),
+                        "append".into(),
+                        "prepend".into(),
+                    ],
+                ),
+                "The list merging strategy to use. (default: table)",
+                Some('s'),
+            )
     }
 
     fn examples(&self) -> Vec<Example> {
