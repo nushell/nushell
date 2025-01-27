@@ -12,10 +12,8 @@ pub struct NuSchema {
 }
 
 impl NuSchema {
-    pub fn new(schema: Schema) -> Self {
-        Self {
-            schema: Arc::new(schema),
-        }
+    pub fn new(schema: SchemaRef) -> Self {
+        Self { schema }
     }
 }
 
@@ -23,7 +21,7 @@ impl TryFrom<&Value> for NuSchema {
     type Error = ShellError;
     fn try_from(value: &Value) -> Result<Self, Self::Error> {
         let schema = value_to_schema(value, Span::unknown())?;
-        Ok(Self::new(schema))
+        Ok(Self::new(Arc::new(schema)))
     }
 }
 

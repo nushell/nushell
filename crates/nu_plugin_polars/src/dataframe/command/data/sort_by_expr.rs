@@ -143,6 +143,8 @@ impl PluginCommand for LazySortBy {
             nulls_last: vec![nulls_last],
             multithreaded: true,
             maintain_order,
+            // todo - expose limit
+            limit: None,
         };
 
         let pipeline_value = input.into_value(call.head)?;
