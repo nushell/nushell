@@ -54,7 +54,10 @@ impl Command for Table {
             // TODO: make this more precise: what turns into string and what into raw stream
             .named(
                 "theme",
-                SyntaxShape::String,
+                SyntaxShape::OptionsWrapper(
+                    Box::new(SyntaxShape::String),
+                    SUPPORTED_TABLE_MODES.iter().copied().map(String::from).collect(),
+                ),
                 "set a table mode/theme",
                 Some('t'),
             )
@@ -113,7 +116,14 @@ impl Command for Table {
         let list_themes: bool = call.has_flag(engine_state, stack, "list")?;
         // if list argument is present we just need to return a list of supported table themes
         if list_themes {
-            let val = Value::list(supported_table_modes(), Span::test_data());
+            let val = Value::list(
+                SUPPORTED_TABLE_MODES
+                    .iter()
+                    .copied()
+                    .map(Value::test_string)
+                    .collect(),
+                Span::test_data(),
+            );
             return Ok(val.into_pipeline_data());
         }
 
@@ -1133,27 +1143,25 @@ fn convert_table_to_output(
     }
 }
 
-fn supported_table_modes() -> Vec<Value> {
-    vec![
-        Value::test_string("basic"),
-        Value::test_string("compact"),
-        Value::test_string("compact_double"),
-        Value::test_string("default"),
-        Value::test_string("heavy"),
-        Value::test_string("light"),
-        Value::test_string("none"),
-        Value::test_string("reinforced"),
-        Value::test_string("rounded"),
-        Value::test_string("thin"),
-        Value::test_string("with_love"),
-        Value::test_string("psql"),
-        Value::test_string("markdown"),
-        Value::test_string("dots"),
-        Value::test_string("restructured"),
-        Value::test_string("ascii_rounded"),
-        Value::test_string("basic_compact"),
-    ]
-}
+static SUPPORTED_TABLE_MODES: &[&str] = &[
+    "basic",
+    "compact",
+    "compact_double",
+    "default",
+    "heavy",
+    "light",
+    "none",
+    "reinforced",
+    "rounded",
+    "thin",
+    "with_love",
+    "psql",
+    "markdown",
+    "dots",
+    "restructured",
+    "ascii_rounded",
+    "basic_compact",
+];
 
 fn create_table_opts<'a>(
     engine_state: &'a EngineState,
