@@ -231,7 +231,6 @@ fn reject(
             let result = stream
                 .into_iter()
                 .map(move |mut value| {
-                    eprintln!("uhh");
 
                     let span = value.span();
 
