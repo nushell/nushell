@@ -55,7 +55,7 @@ impl LanguageServer {
 mod tests {
     use crate::path_to_uri;
     use crate::tests::{initialize_language_server, open_unchecked};
-    use assert_json_diff::assert_json_eq;
+    use assert_json_diff::{assert_json_eq, assert_json_include};
     use lsp_server::{Connection, Message};
     use lsp_types::{
         request::{GotoDefinition, Request},
@@ -409,6 +409,86 @@ mod tests {
                 "range": {
                     "start": { "line": 1, "character": 29 },
                     "end": { "line": 1, "character": 30 }
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn goto_definition_of_module_in_hide() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("goto");
+        script.push("use_module.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 3, 6);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!({
+                "uri": script.to_string().replace("use_module", "module"),
+                "range": {
+                    "start": { "line": 1, "character": 29 },
+                    "end": { "line": 1, "character": 30 }
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn goto_definition_of_module_in_overlay() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("goto");
+        script.push("use_module.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 20);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_include!(
+            actual: result,
+            expected: serde_json::json!({
+                "uri": script.to_string().replace("use_module", "module"),
+                "range": {
+                    "start": { "line": 0, "character": 0 },
+                    "end": { "line": 3 }
+                }
+            })
+        );
+
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 30);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_include!(
+            actual: result,
+            expected: serde_json::json!({
+                "uri": script.to_string().replace("use_module", "module"),
+                "range": {
+                    "start": { "line": 0, "character": 0 },
+                    "end": { "line": 3 }
                 }
             })
         );
