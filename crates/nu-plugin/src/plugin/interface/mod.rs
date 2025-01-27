@@ -1047,7 +1047,7 @@ impl ForegroundGuard {
                 use nix::unistd::{setpgid, Pid};
                 // This should always succeed, frankly, but handle the error just in case
                 setpgid(Pid::from_raw(0), Pid::from_raw(0)).map_err(|err| {
-                    shell_error::io::IoError::new_internal(
+                    nu_protocol::shell_error::io::IoError::new_internal(
                         std::io::Error::from(err).kind(),
                         "Could not set pgid",
                         nu_protocol::location!(),
