@@ -65,6 +65,11 @@ impl Command for SubCommand {
             (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Date))),
             (Type::table(), Type::table()),
             (Type::record(), Type::record()),
+            (Type::Nothing, Type::table()),
+            // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
+            // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
+            // only applicable for --list flag
+            (Type::Any, Type::table()),
         ])
         .allow_variants_without_examples(true)
         .named(
