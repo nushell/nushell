@@ -1,6 +1,7 @@
 use crate::completions::{
     CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
-    DotNuCompletion, FileCompletion, FlagCompletion, OperatorCompletion, VariableCompletion,
+    DotNuCompletion, FileCompletion, FlagCompletion, OperatorCompletion, OptionsCompletion,
+    VariableCompletion,
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
@@ -337,6 +338,17 @@ impl NuCompleter {
                                     pos,
                                 );
                             }
+                            FlatShape::Option(options) => {
+                                let mut completer = OptionsCompletion::new(options.clone());
+                                return self.process_completion(
+                                    &mut completer,
+                                    &working_set,
+                                    prefix,
+                                    new_span,
+                                    fake_offset,
+                                    pos,
+                                );
+                            }
                             FlatShape::Directory => {
                                 let mut completer = DirectoryCompletion::new();
 
@@ -550,6 +562,26 @@ pub fn map_value_completions<'a>(
         }
 
         None
+    })
+    .collect()
+}
+
+pub fn map_string_completions<'a>(
+    list: impl Iterator<Item = &'a str>,
+    span: Span,
+    offset: usize,
+) -> Vec<SemanticSuggestion> {
+    list.map(|s| SemanticSuggestion {
+        suggestion: Suggestion {
+            value: s.to_string(),
+            span: reedline::Span {
+                start: span.start - offset,
+                end: span.end - offset,
+            },
+            ..Suggestion::default()
+        },
+        // kind: Some(SuggestionKind::Type(nu_protocol::Type::String)),
+        kind: None,
     })
     .collect()
 }

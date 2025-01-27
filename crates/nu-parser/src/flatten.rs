@@ -1,8 +1,8 @@
 use nu_protocol::{
     ast::{
-        Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, ListItem,
-        MatchPattern, PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection,
-        RecordItem,
+        Argument, Block, Completion, Expr, Expression, ExternalArgument, ImportPatternMember,
+        ListItem, MatchPattern, PathMember, Pattern, Pipeline, PipelineElement,
+        PipelineRedirection, RecordItem,
     },
     engine::StateWorkingSet,
     DeclId, Span, SyntaxShape, VarId,
@@ -46,6 +46,7 @@ pub enum FlatShape {
     Table,
     Variable(VarId),
     VarDecl(VarId),
+    Option(Vec<String>),
 }
 
 impl FlatShape {
@@ -56,6 +57,7 @@ impl FlatShape {
             FlatShape::Bool => "shape_bool",
             FlatShape::Closure => "shape_closure",
             FlatShape::Custom(_) => "shape_custom",
+            FlatShape::Option(_) => "shape_option",
             FlatShape::DateTime => "shape_datetime",
             FlatShape::Directory => "shape_directory",
             FlatShape::External => "shape_external",
@@ -183,9 +185,16 @@ fn flatten_expression_into(
     expr: &Expression,
     output: &mut Vec<(Span, FlatShape)>,
 ) {
-    if let Some(custom_completion) = &expr.custom_completion {
-        output.push((expr.span, FlatShape::Custom(*custom_completion)));
-        return;
+    match &expr.completion {
+        Completion::None => (),
+        Completion::Custom(custom_completion) => {
+            output.push((expr.span, FlatShape::Custom(*custom_completion)));
+            return;
+        }
+        Completion::Options(options) => {
+            output.push((expr.span, FlatShape::Option(options.clone())));
+            return;
+        }
     }
 
     match &expr.expr {

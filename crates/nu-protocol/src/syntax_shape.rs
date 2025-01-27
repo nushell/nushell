@@ -32,6 +32,9 @@ pub enum SyntaxShape {
     /// A [`SyntaxShape`] with custom completion logic
     CompleterWrapper(Box<SyntaxShape>, DeclId),
 
+    /// A [`SyntaxShape`] with a set of options
+    OptionsWrapper(Box<SyntaxShape>, Vec<String>),
+
     /// A datetime value, eg `2022-02-02` or `2019-10-12T07:20:50.52+00:00`
     DateTime,
 
@@ -148,6 +151,7 @@ impl SyntaxShape {
             SyntaxShape::Binary => Type::Binary,
             SyntaxShape::CellPath => Type::Any,
             SyntaxShape::CompleterWrapper(inner, _) => inner.to_type(),
+            SyntaxShape::OptionsWrapper(inner, _) => inner.to_type(),
             SyntaxShape::DateTime => Type::Date,
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Any,
@@ -249,6 +253,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),
             SyntaxShape::CompleterWrapper(x, _) => write!(f, "completable<{x}>"),
+            SyntaxShape::OptionsWrapper(x, _) => write!(f, "options<{x}>"),
             SyntaxShape::OneOf(list) => {
                 let arg_vec: Vec<_> = list.iter().map(|x| x.to_string()).collect();
                 let arg_string = arg_vec.join(", ");

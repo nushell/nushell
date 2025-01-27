@@ -623,6 +623,9 @@ $env.config.color_config.shape_datetime
 # shape_custom: A custom value, usually from a plugin
 $env.config.color_config.shape_custom
 
+# shape_option: An option for a command
+$env.config.color_config.shape_option
+
 # shape_nothing: A literal `null`
 $env.config.color_config.shape_nothing
 

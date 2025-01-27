@@ -1340,7 +1340,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 span: _,
                 span_id: _,
                 ty,
-                custom_completion,
+                completion: custom_completion,
             } = &alias.clone().wrapped_call
             {
                 trace!("parsing: alias of external call");
@@ -1361,7 +1361,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                     ty.clone(),
                 );
 
-                expression.custom_completion = *custom_completion;
+                expression.completion = custom_completion.clone();
                 return expression;
             } else {
                 trace!("parsing: alias of internal call");
@@ -4874,7 +4874,12 @@ pub fn parse_value(
     match shape {
         SyntaxShape::CompleterWrapper(shape, custom_completion) => {
             let mut expression = parse_value(working_set, span, shape);
-            expression.custom_completion = Some(*custom_completion);
+            expression.completion = Completion::Custom(*custom_completion);
+            expression
+        }
+        SyntaxShape::OptionsWrapper(shape, custom_completion) => {
+            let mut expression = parse_value(working_set, span, shape);
+            expression.completion = Completion::Options(custom_completion.clone());
             expression
         }
         SyntaxShape::Number => parse_number(working_set, span),
