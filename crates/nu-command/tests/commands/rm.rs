@@ -454,14 +454,8 @@ fn rm_prints_filenames_on_error() {
 
         assert!(files_exist_at(&file_names, test_dir));
         for file_name in file_names {
-            let path = test_dir.join(file_name);
-            let substr = format!("Could not delete {}", path.to_string_lossy());
-            assert!(
-                actual.err.contains(&substr),
-                "Matching: {}\n=== Command stderr:\n{}\n=== End stderr",
-                substr,
-                actual.err
-            );
+            assert!(actual.err.contains("nu::shell::io::permission_denied"));
+            assert!(actual.err.contains(file_name));
         }
     });
 }

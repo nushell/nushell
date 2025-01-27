@@ -282,7 +282,7 @@ fn cd_permission_denied_folder() {
                 cd banned
             "
         );
-        assert!(actual.err.contains("Cannot change directory to"));
+        assert!(actual.err.contains("nu::shell::io::permission_denied"));
         nu!(
             cwd: dirs.test(),
             "
