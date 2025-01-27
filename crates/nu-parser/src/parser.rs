@@ -919,7 +919,7 @@ pub fn parse_multispan_value(
             Expression::new(
                 working_set,
                 Expr::Keyword(Box::new(keyword.clone())),
-                arg_span,
+                keyword.span.merge(keyword.expr.span),
                 keyword.expr.ty,
             )
         }

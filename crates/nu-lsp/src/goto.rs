@@ -475,6 +475,24 @@ mod tests {
             })
         );
 
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 25);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_include!(
+            actual: result,
+            expected: serde_json::json!({
+                "uri": script.to_string().replace("use_module", "module"),
+                "range": {
+                    "start": { "line": 0, "character": 0 },
+                    "end": { "line": 3 }
+                }
+            })
+        );
+
         let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 30);
         let result = if let Message::Response(response) = resp {
             response.result

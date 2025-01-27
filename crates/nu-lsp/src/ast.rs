@@ -444,13 +444,6 @@ fn find_id_in_expr(
 ) -> Option<Vec<(Id, Span)>> {
     // skip the entire expression if the location is not in it
     if !expr.span.contains(*location) {
-        // TODO: the span of Keyword does not include its subsidiary expression
-        // resort to `expr_flat_map` if location found in its expr
-        if let Expr::Keyword(kw) = &expr.expr {
-            if kw.expr.span.contains(*location) {
-                return None;
-            }
-        }
         return Some(Vec::new());
     }
     let span = expr.span;
