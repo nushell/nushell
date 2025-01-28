@@ -1379,6 +1379,7 @@ impl ShellError {
         )
     }
 
+    /// Convert self error to a [`ShellError::ChainedError`] variant.
     pub fn into_chainned(self, span: Span) -> Self {
         match self {
             ShellError::ChainedError(inner) => {

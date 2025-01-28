@@ -3,6 +3,14 @@ use crate::Span;
 use miette::{LabeledSpan, Severity, SourceCode};
 use thiserror::Error;
 
+/// An error struct that contains source errors.
+///
+/// However, it's a bit special; if the error is constructed for the first time using
+/// [`ChainedError::new`], it will behave the same as the single source error.
+///
+/// If it's constructed nestedly using [`ChainedError::new_chained`], it will treat all underlying errors as related.
+///
+/// For a usage example, please check [`ShellError::into_chainned`].
 #[derive(Debug, Clone, PartialEq, Error)]
 pub struct ChainedError {
     first: bool,
