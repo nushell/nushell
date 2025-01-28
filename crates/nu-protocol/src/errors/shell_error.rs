@@ -1446,6 +1446,21 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Option<Span>,
     },
 
+    /// The data directory could not be found
+    #[error("The data directory could not be found")]
+    #[diagnostic(
+        code(nu::shell::data_dir_not_found),
+        help(
+            r#"On Linux, this would be $XDG_DATA_HOME or $HOME/.local/share.
+On MacOS, this would be `$HOME/Library/Application Support`
+On Windows, this would be {{FOLDERID_RoamingAppData}}"#
+        )
+    )]
+    DataDirNotFound {
+        #[label = "Could not find state directory"]
+        span: Option<Span>,
+    },
+
     /// XDG_CONFIG_HOME was set to an invalid path
     #[error("$env.XDG_CONFIG_HOME ({xdg}) is invalid, using default config directory instead: {default}")]
     #[diagnostic(
