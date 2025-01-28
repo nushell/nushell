@@ -4877,12 +4877,12 @@ pub fn parse_value(
             expression.completion = Completion::Custom(*custom_completion);
             expression
         }
-        SyntaxShape::OptionsWrapper(_, custom_completion) => {
+        SyntaxShape::Options(custom_completion) => {
             let mut expression = parse_string(working_set, span);
             if let Some(s) = expression.as_string() {
                 if !custom_completion.contains(&s) {
                     working_set.error(ParseError::IncorrectValue(
-                        s,
+                        "option".into(),
                         expression.span,
                         format!("Expected one of the following: {custom_completion:?}"),
                     ));

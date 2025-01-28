@@ -44,15 +44,12 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
             .category(Category::Filters)
             .named(
                 "strategy",
-                SyntaxShape::OptionsWrapper(
-                    Box::new(SyntaxShape::String),
-                    vec![
-                        "table".into(),
-                        "overwrite".into(),
-                        "append".into(),
-                        "prepend".into(),
-                    ],
-                ),
+                SyntaxShape::Options(vec![
+                    "table".into(),
+                    "overwrite".into(),
+                    "append".into(),
+                    "prepend".into(),
+                ]),
                 "The list merging strategy to use. (default: table)",
                 Some('s'),
             )

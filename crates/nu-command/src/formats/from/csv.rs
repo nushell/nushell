@@ -51,7 +51,7 @@ impl Command for FromCsv {
             .switch("no-infer", "no field type inferencing", None)
             .named(
                 "trim",
-                SyntaxShape::OptionsWrapper(Box::new(SyntaxShape::String), vec![
+                SyntaxShape::Options(vec![
                     "all".into(),
                     "headers".into(),
                     "fields".into(),

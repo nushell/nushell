@@ -54,8 +54,7 @@ impl Command for Table {
             // TODO: make this more precise: what turns into string and what into raw stream
             .named(
                 "theme",
-                SyntaxShape::OptionsWrapper(
-                    Box::new(SyntaxShape::String),
+                SyntaxShape::Options(
                     SUPPORTED_TABLE_MODES.iter().copied().map(String::from).collect(),
                 ),
                 "set a table mode/theme",
