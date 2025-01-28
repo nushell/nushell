@@ -13,7 +13,7 @@ use lsp_types::{
 use miette::{miette, IntoDiagnostic, Result};
 use nu_cli::{NuCompleter, SuggestionKind};
 use nu_protocol::{
-    ast::Block,
+    ast::{Block, PathMember},
     engine::{CachedFile, Command, EngineState, Stack, StateDelta, StateWorkingSet},
     DeclId, ModuleId, Span, Type, VarId,
 };
@@ -36,12 +36,13 @@ mod notification;
 mod symbols;
 mod workspace;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Id {
     Variable(VarId),
     Declaration(DeclId),
     Value(Type),
     Module(ModuleId),
+    CellPath(VarId, Vec<PathMember>),
 }
 
 pub struct LanguageServer {
@@ -423,19 +424,20 @@ impl LanguageServer {
         }
     }
 
-    fn get_decl_description(decl: &dyn Command) -> String {
+    fn get_decl_description(decl: &dyn Command, skip_description: bool) -> String {
         let mut description = String::new();
 
-        // First description
-        description.push_str(&format!("{}\n", decl.description().replace('\r', "")));
+        if !skip_description {
+            // First description
+            description.push_str(&format!("{}\n", decl.description().replace('\r', "")));
 
-        // Additional description
-        if !decl.extra_description().is_empty() {
-            description.push_str(&format!("\n{}\n", decl.extra_description()));
+            // Additional description
+            if !decl.extra_description().is_empty() {
+                description.push_str(&format!("\n{}\n", decl.extra_description()));
+            }
         }
-
         // Usage
-        description.push_str("-----\n### Usage \n```nu\n");
+        description.push_str("---\n### Usage \n```nu\n");
         let signature = decl.signature();
         description.push_str(&format!("  {}", signature.name));
         if !signature.named.is_empty() {
@@ -588,29 +590,49 @@ impl LanguageServer {
         match id {
             Id::Variable(var_id) => {
                 let var = working_set.get_variable(var_id);
+                let value = var
+                    .const_val
+                    .clone()
+                    .and_then(|v| v.coerce_into_string().ok())
+                    .map(|s| format!("\n---\n{}", s))
+                    .unwrap_or_default();
                 let contents = format!(
-                    "{}{} `{}`",
-                    if var.const_val.is_some() {
-                        "const "
-                    } else {
-                        ""
-                    },
+                    "{} ```\n{}\n``` {}",
                     if var.mutable { "mutable " } else { "" },
                     var.ty,
+                    value
                 );
                 markdown_hover(contents)
             }
-            Id::Declaration(decl_id) => {
-                markdown_hover(Self::get_decl_description(working_set.get_decl(decl_id)))
+            Id::CellPath(var_id, cell_path) => {
+                let var = working_set.get_variable(var_id);
+                markdown_hover(
+                    var.const_val
+                        .clone()
+                        .and_then(|val| val.follow_cell_path(&cell_path, false).ok())
+                        .map(|val| {
+                            let ty = val.get_type().clone();
+                            let value_string = val
+                                .coerce_into_string()
+                                .ok()
+                                .map(|s| format!("\n---\n{}", s))
+                                .unwrap_or_default();
+                            format!("```\n{}\n```{}", ty, value_string)
+                        })
+                        .unwrap_or("`unknown`".into()),
+                )
             }
+            Id::Declaration(decl_id) => markdown_hover(Self::get_decl_description(
+                working_set.get_decl(decl_id),
+                false,
+            )),
             Id::Module(module_id) => {
-                let mut description = String::new();
-                for cmt_span in working_set.get_module_comments(module_id)? {
-                    description.push_str(
-                        String::from_utf8_lossy(working_set.get_span_contents(*cmt_span)).as_ref(),
-                    );
-                    description.push('\n');
-                }
+                let description = working_set
+                    .get_module_comments(module_id)?
+                    .iter()
+                    .map(|sp| String::from_utf8_lossy(working_set.get_span_contents(*sp)).into())
+                    .collect::<Vec<String>>()
+                    .join("\n");
                 markdown_hover(description)
             }
             Id::Value(t) => markdown_hover(format!("`{}`", t)),
@@ -657,7 +679,7 @@ impl LanguageServer {
                             .extra
                             .map(|ex| ex.join("\n"))
                             .or(decl_id.map(|decl_id| {
-                                Self::get_decl_description(engine_state.get_decl(decl_id))
+                                Self::get_decl_description(engine_state.get_decl(decl_id), true)
                             }))
                             .map(|value| {
                                 Documentation::MarkupContent(MarkupContent {
@@ -855,6 +877,13 @@ mod tests {
         }
     }
 
+    pub(crate) fn result_from_message(message: lsp_server::Message) -> serde_json::Value {
+        match message {
+            Message::Response(Response { result, .. }) => result.expect("Empty result!"),
+            _ => panic!("Unexpected message type!"),
+        }
+    }
+
     pub(crate) fn send_hover_request(
         client_connection: &Connection,
         uri: Uri,
@@ -894,17 +923,45 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_hover_request(&client_connection, script.clone(), 2, 0);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
-            serde_json::json!({ "contents": { "kind": "markdown", "value": " `table`" } })
+            result_from_message(resp),
+            serde_json::json!({ "contents": { "kind": "markdown", "value": " ```\ntable\n``` " } })
+        );
+    }
+
+    #[test]
+    fn hover_on_cell_path() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hover");
+        script.push("cell_path.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = send_hover_request(&client_connection, script.clone(), 4, 3);
+        let result = result_from_message(resp);
+        assert_json_eq!(
+            result.pointer("/contents/value").unwrap(),
+            serde_json::json!("```\nlist<any>\n```")
+        );
+
+        let resp = send_hover_request(&client_connection, script.clone(), 4, 7);
+        let result = result_from_message(resp);
+        assert_json_eq!(
+            result.pointer("/contents/value").unwrap(),
+            serde_json::json!("```\nrecord<bar: int>\n```")
+        );
+
+        let resp = send_hover_request(&client_connection, script.clone(), 4, 11);
+        let result = result_from_message(resp);
+        assert_json_eq!(
+            result.pointer("/contents/value").unwrap(),
+            serde_json::json!("```\nint\n```\n---\n2")
         );
     }
 
@@ -919,20 +976,14 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_hover_request(&client_connection, script.clone(), 3, 0);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                     "contents": {
                     "kind": "markdown",
-                    "value": "Renders some greeting message\n-----\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                    "value": "Renders some greeting message\n---\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                 }
             })
         );
@@ -949,20 +1000,14 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_hover_request(&client_connection, script.clone(), 5, 8);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                     "contents": {
                     "kind": "markdown",
-                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n-----\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
+                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n---\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
                 }
             })
         );
@@ -979,22 +1024,16 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_hover_request(&client_connection, script.clone(), 3, 12);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
+        let result = result_from_message(resp);
 
         assert_eq!(
             result
-                .unwrap()
                 .pointer("/contents/value")
                 .unwrap()
                 .to_string()
                 .replace("\\r", ""),
-            "\"# module doc\\n\""
+            "\"# module doc\""
         );
     }
 
@@ -1039,16 +1078,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_complete_request(&client_connection, script, 2, 9);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_include!(
-            actual: result,
+            actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
                     "label": "$greeting",
@@ -1074,16 +1107,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_complete_request(&client_connection, script, 0, 8);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_include!(
-            actual: result,
+            actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
                     "label": "config nu",
@@ -1108,16 +1135,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_complete_request(&client_connection, script, 0, 13);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_include!(
-            actual: result,
+            actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
                     "label": "str trim",
@@ -1144,16 +1165,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_complete_request(&client_connection, script, 0, 2);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_include!(
-            actual: result,
+            actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
                     "label": "overlay",

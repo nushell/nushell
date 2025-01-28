@@ -163,7 +163,7 @@ impl LanguageServer {
 #[cfg(test)]
 mod tests {
     use crate::path_to_uri;
-    use crate::tests::{initialize_language_server, open_unchecked};
+    use crate::tests::{initialize_language_server, open_unchecked, result_from_message};
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
@@ -213,16 +213,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_inlay_hint_request(&client_connection, script.clone());
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!([
                 { "position": { "line": 0, "character": 9 }, "label": ": int", "kind": 1 },
                 { "position": { "line": 1, "character": 7 }, "label": ": string", "kind": 1 },
@@ -246,16 +240,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_inlay_hint_request(&client_connection, script.clone());
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!([
                 { "position": { "line": 0, "character": 8 }, "label": ": int", "kind": 1 },
                 { "position": { "line": 1, "character": 10 }, "label": ": float", "kind": 1 },
@@ -280,16 +268,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_inlay_hint_request(&client_connection, script.clone());
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!([
                 {
                     "position": { "line": 9, "character": 9 },
