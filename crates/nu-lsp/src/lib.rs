@@ -13,7 +13,7 @@ use lsp_types::{
 use miette::{miette, IntoDiagnostic, Result};
 use nu_cli::{NuCompleter, SuggestionKind};
 use nu_protocol::{
-    ast::Block,
+    ast::{Block, PathMember},
     engine::{CachedFile, Command, EngineState, Stack, StateDelta, StateWorkingSet},
     DeclId, ModuleId, Span, Type, VarId,
 };
@@ -36,12 +36,13 @@ mod notification;
 mod symbols;
 mod workspace;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Id {
     Variable(VarId),
     Declaration(DeclId),
     Value(Type),
     Module(ModuleId),
+    CellPath(VarId, Vec<PathMember>),
 }
 
 pub struct LanguageServer {
@@ -603,18 +604,35 @@ impl LanguageServer {
                 );
                 markdown_hover(contents)
             }
+            Id::CellPath(var_id, cell_path) => {
+                let var = working_set.get_variable(var_id);
+                markdown_hover(
+                    var.const_val
+                        .clone()
+                        .and_then(|val| val.follow_cell_path(&cell_path, false).ok())
+                        .map(|val| {
+                            let ty = val.get_type().clone();
+                            let value_string = val
+                                .coerce_into_string()
+                                .ok()
+                                .map(|s| format!("\n---\n{}", s))
+                                .unwrap_or_default();
+                            format!("```\n{}\n```{}", ty, value_string)
+                        })
+                        .unwrap_or("`unknown`".into()),
+                )
+            }
             Id::Declaration(decl_id) => markdown_hover(Self::get_decl_description(
                 working_set.get_decl(decl_id),
                 false,
             )),
             Id::Module(module_id) => {
-                let mut description = String::new();
-                for cmt_span in working_set.get_module_comments(module_id)? {
-                    description.push_str(
-                        String::from_utf8_lossy(working_set.get_span_contents(*cmt_span)).as_ref(),
-                    );
-                    description.push('\n');
-                }
+                let description = working_set
+                    .get_module_comments(module_id)?
+                    .iter()
+                    .map(|sp| String::from_utf8_lossy(working_set.get_span_contents(*sp)).into())
+                    .collect::<Vec<String>>()
+                    .join("\n");
                 markdown_hover(description)
             }
             Id::Value(t) => markdown_hover(format!("`{}`", t)),
@@ -914,6 +932,40 @@ mod tests {
     }
 
     #[test]
+    fn hover_on_cell_path() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hover");
+        script.push("cell_path.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = send_hover_request(&client_connection, script.clone(), 4, 3);
+        let result = result_from_message(resp);
+        assert_json_eq!(
+            result.pointer("/contents/value").unwrap(),
+            serde_json::json!("```\nlist<any>\n```")
+        );
+
+        let resp = send_hover_request(&client_connection, script.clone(), 4, 7);
+        let result = result_from_message(resp);
+        assert_json_eq!(
+            result.pointer("/contents/value").unwrap(),
+            serde_json::json!("```\nrecord<bar: int>\n```")
+        );
+
+        let resp = send_hover_request(&client_connection, script.clone(), 4, 11);
+        let result = result_from_message(resp);
+        assert_json_eq!(
+            result.pointer("/contents/value").unwrap(),
+            serde_json::json!("```\nint\n```\n---\n2")
+        );
+    }
+
+    #[test]
     fn hover_on_custom_command() {
         let (client_connection, _recv) = initialize_language_server(None);
 
@@ -976,12 +1028,8 @@ mod tests {
         let result = result_from_message(resp);
 
         assert_eq!(
-            result
-                .pointer("/contents/value")
-                .unwrap()
-                .to_string()
-                .replace("\\r", ""),
-            "\"# module doc\\n\""
+            result.pointer("/contents/value").unwrap().to_string(),
+            "\"# module doc\""
         );
     }
 

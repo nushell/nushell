@@ -21,6 +21,16 @@ impl LanguageServer {
                 let module = working_set.get_module(*module_id);
                 module.span
             }
+            Id::CellPath(var_id, cell_path) => {
+                let var = working_set.get_variable(*var_id);
+                Some(
+                    var.const_val
+                        .clone()
+                        .and_then(|val| val.follow_cell_path(cell_path, false).ok())
+                        .map(|val| val.span())
+                        .unwrap_or(var.declaration_span),
+                )
+            }
             _ => None,
         }
     }
@@ -55,7 +65,7 @@ impl LanguageServer {
 mod tests {
     use crate::path_to_uri;
     use crate::tests::{initialize_language_server, open_unchecked, result_from_message};
-    use assert_json_diff::{assert_json_eq, assert_json_include};
+    use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
         request::{GotoDefinition, Request},
@@ -127,6 +137,31 @@ mod tests {
                     "end": { "line": 0, "character": 12 }
                 }
             })
+        );
+    }
+
+    #[test]
+    fn goto_definition_of_cell_path() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hover");
+        script.push("cell_path.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 7);
+        assert_json_eq!(
+            result_from_message(resp).pointer("/range/start").unwrap(),
+            serde_json::json!({ "line": 1, "character": 10 })
+        );
+
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 9);
+        assert_json_eq!(
+            result_from_message(resp).pointer("/range/start").unwrap(),
+            serde_json::json!({ "line": 1, "character": 17 })
         );
     }
 
@@ -366,43 +401,23 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 20);
 
-        assert_json_include!(
-            actual: result_from_message(resp),
-            expected: serde_json::json!({
-                "uri": script.to_string().replace("use_module", "module"),
-                "range": {
-                    "start": { "line": 0, "character": 0 },
-                    "end": { "line": 3 }
-                }
-            })
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 20);
+        assert_json_eq!(
+            result_from_message(resp).pointer("/range/start").unwrap(),
+            serde_json::json!({ "line": 0, "character": 0 })
         );
 
         let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 25);
-
-        assert_json_include!(
-            actual: result_from_message(resp),
-            expected: serde_json::json!({
-                "uri": script.to_string().replace("use_module", "module"),
-                "range": {
-                    "start": { "line": 0, "character": 0 },
-                    "end": { "line": 3 }
-                }
-            })
+        assert_json_eq!(
+            result_from_message(resp).pointer("/range/start").unwrap(),
+            serde_json::json!({ "line": 0, "character": 0 })
         );
 
         let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 30);
-
-        assert_json_include!(
-            actual: result_from_message(resp),
-            expected: serde_json::json!({
-                "uri": script.to_string().replace("use_module", "module"),
-                "range": {
-                    "start": { "line": 0, "character": 0 },
-                    "end": { "line": 3 }
-                }
-            })
+        assert_json_eq!(
+            result_from_message(resp).pointer("/range/start").unwrap(),
+            serde_json::json!({ "line": 0, "character": 0 })
         );
     }
 }

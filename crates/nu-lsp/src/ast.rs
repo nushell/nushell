@@ -1,8 +1,8 @@
 use crate::Id;
 use nu_protocol::{
     ast::{
-        Argument, Block, Call, Expr, Expression, ExternalArgument, ListItem, MatchPattern, Pattern,
-        PipelineRedirection, RecordItem,
+        Argument, Block, Call, Expr, Expression, ExternalArgument, ListItem, MatchPattern,
+        PathMember, Pattern, PipelineRedirection, RecordItem,
     },
     engine::StateWorkingSet,
     Span,
@@ -463,6 +463,27 @@ fn find_id_in_expr(
                         None,
                     ))
                     .map(|p| vec![p])
+            }
+        }
+        Expr::FullCellPath(fcp) => {
+            if fcp.head.span.contains(*location) {
+                None
+            } else {
+                let Expression {
+                    expr: Expr::Var(var_id),
+                    ..
+                } = fcp.head
+                else {
+                    return None;
+                };
+                let tail: Vec<PathMember> = fcp
+                    .tail
+                    .clone()
+                    .into_iter()
+                    .take_while(|pm| pm.span().start <= *location)
+                    .collect();
+                let span = tail.last()?.span();
+                Some(vec![(Id::CellPath(var_id, tail), span)])
             }
         }
         Expr::Overlay(Some(module_id)) => Some(vec![(Id::Module(*module_id), span)]),
