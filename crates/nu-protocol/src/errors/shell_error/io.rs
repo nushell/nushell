@@ -344,7 +344,7 @@ impl Diagnostic for IoError {
                 std::io::ErrorKind::UnexpectedEof => code.push_str("unexpected_eof"),
                 std::io::ErrorKind::OutOfMemory => code.push_str("out_of_memory"),
                 std::io::ErrorKind::Other => code.push_str("other"),
-                _ => code.push_str("unknown"),
+                _ => code.push_str(&code.to_string().to_lowercase().replace(" ", "_")),
             },
             ErrorKind::NotADirectory => code.push_str("not_a_directory"),
             ErrorKind::NotAFile => code.push_str("not_a_file"),
