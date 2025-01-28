@@ -4886,6 +4886,8 @@ pub fn parse_value(
                         expression.span,
                         format!("Expected one of the following: {custom_completion:?}"),
                     ));
+                    // HACK: A little bit of protocol misuse to avoid searching through options twice, useful for syntax highlighting
+                    // see `flatten_expression_into` in `flatten.rs` 
                     expression.ty = Type::Any;
                 } else {
                     expression.ty = Type::String;
