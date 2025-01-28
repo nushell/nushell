@@ -646,7 +646,7 @@ fn display_error_with_exit_code_stops() {
     Playground::setup("errexit", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "tmp_env.nu",
-            "$env.config.display_error.exit_code = true",
+            "$env.config.display_errors.exit_code = true",
         )]);
 
         let actual = nu!(
@@ -664,7 +664,7 @@ fn display_error_exit_code_stops_execution_for_loop() {
     Playground::setup("errexit", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "tmp_env.nu",
-            "$env.config.display_error.exit_code = true",
+            "$env.config.display_errors.exit_code = true",
         )]);
 
         let actual = nu!(
