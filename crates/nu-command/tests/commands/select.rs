@@ -192,7 +192,7 @@ fn select_failed1() {
     let actual = nu!("[{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select b ");
 
     assert!(actual.out.is_empty());
-    assert!(actual.err.contains("cannot find column"));
+    assert!(actual.err.contains("Not all rows contain a value for 'b'"));
 }
 
 #[test]

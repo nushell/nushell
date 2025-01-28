@@ -595,6 +595,19 @@ pub enum ShellError {
         src_span: Span,
     },
 
+    /// Not all rows contain data in the requested column.
+    ///
+    /// ## Resolution
+    ///
+    /// Use the Optional Operator, --ignore-errors with get or select, or fill in the missing values.
+    #[error("Not all rows contain a value for '{col_name}'")]
+    #[diagnostic(code(nu::shell::row_lacks_value))]
+    RowLacksValue {
+        col_name: String,
+        #[label = "try using '{col_name}?'"]
+        span: Option<Span>,
+    },
+
     /// Attempted to insert a column into a table, but a column with that name already exists.
     ///
     /// ## Resolution

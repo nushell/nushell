@@ -105,8 +105,14 @@ fn list_single_field_failure() -> TestResult {
 // Test the scenario where the requested column is not present in all rows
 #[test]
 fn jagged_list_access_fails() -> TestResult {
-    fail_test("[{foo: 'bar'}, {}].foo", "cannot find column")?;
-    fail_test("[{}, {foo: 'bar'}].foo", "cannot find column")
+    fail_test(
+        "[{foo: 'bar'}, {}].foo",
+        "cannot find value for 'foo' in some rows",
+    )?;
+    fail_test(
+        "[{}, {foo: 'bar'}].foo",
+        "cannot find value for 'foo' in some rows",
+    )
 }
 
 #[test]

@@ -1252,9 +1252,22 @@ impl Value {
                                         }),
                                     }
                                 })
-                                .collect::<Result<_, _>>()?;
+                                .collect::<Vec<Result<_, _>>>();
 
-                            current = Value::list(list, span);
+                            let missing_col_errors = list
+                                .iter()
+                                .filter(|row| matches!(row, Err(ShellError::CantFindColumn { .. })))
+                                .count();
+
+                            if missing_col_errors != 0 && missing_col_errors < list.len() {
+                                return Err(ShellError::RowLacksValue {
+                                    col_name: column_name.clone(),
+                                    span: Some(*origin_span),
+                                });
+                            }
+
+                            current =
+                                Value::list(list.into_iter().collect::<Result<_, _>>()?, span);
                         }
                         Value::Custom { ref val, .. } => {
                             current = match val.follow_path_string(

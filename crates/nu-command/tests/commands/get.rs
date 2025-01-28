@@ -181,6 +181,12 @@ fn errors_fetching_by_accessing_empty_list() {
 }
 
 #[test]
+fn errors_column_missing_in_some_rows() {
+    let actual = nu!("[{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | get b ");
+    assert!(actual.err.contains("Not all rows contain a value for 'b'"));
+}
+
+#[test]
 fn quoted_column_access() {
     let actual = nu!(r#"'[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz.0 "#);
 

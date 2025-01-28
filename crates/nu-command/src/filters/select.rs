@@ -230,7 +230,7 @@ fn select(
                 Value::List {
                     vals: input_vals, ..
                 } => {
-                    Ok(input_vals
+                    let results = input_vals
                         .into_iter()
                         .map(move |input_val| {
                             if !columns.is_empty() {
@@ -250,11 +250,34 @@ fn select(
                                 input_val.clone()
                             }
                         })
-                        .into_pipeline_data_with_metadata(
-                            call_span,
-                            engine_state.signals().clone(),
-                            metadata,
-                        ))
+                        .collect::<Vec<Value>>();
+
+                    let missing_col_errors = results
+                        .iter()
+                        .filter_map(|row| {
+                            if let Value::Error { error, .. } = row {
+                                if let ShellError::CantFindColumn { col_name, .. } = &**error {
+                                    return Some(col_name.as_str());
+                                }
+                            }
+                            return None;
+                        })
+                        .collect::<Vec<&str>>();
+
+                    if missing_col_errors.len() < results.len() {
+                        if let Some(first) = missing_col_errors.first() {
+                            return Err(ShellError::RowLacksValue {
+                                col_name: first.to_string(),
+                                span: Some(call_span),
+                            });
+                        }
+                    }
+
+                    Ok(results.into_pipeline_data_with_metadata(
+                        call_span,
+                        engine_state.signals().clone(),
+                        metadata,
+                    ))
                 }
                 _ => {
                     if !columns.is_empty() {
