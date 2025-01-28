@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 use pretty_assertions::assert_eq;
@@ -1134,4 +1134,69 @@ fn error_on_out_greater_pipe() {
     assert!(actual
         .err
         .contains("Redirecting stdout to a pipe is the same as normal piping"))
+}
+
+#[test]
+fn error_with_traceback() {
+    Playground::setup("error with traceback", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_TRACEBACK = 1")]);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"def a [x] { if $x == 3 { error make {msg: 'a custom error'}}};a 3"#);
+        let chainerr_cnt: Vec<&str> = actual.err.matches("diagnostic code: chainerr").collect();
+        // run `a 3`, and it raises error, so there should be 1.
+        assert_eq!(chainerr_cnt.len(), 1);
+        assert!(actual.err.contains("a custom error"));
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"def a [x] { if $x == 3 { error make {msg: 'a custom error'}}};def b [] { a 1; a 3; a 2 };b"#);
+
+        let chainerr_cnt: Vec<&str> = actual.err.matches("diagnostic code: chainerr").collect();
+        // run `b`, it runs `a 3`, and it raises error, so there should be 2.
+        assert_eq!(chainerr_cnt.len(), 2);
+        assert!(actual.err.contains("a custom error"));
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"error make {msg: 'a custom err'}"#);
+        let chainerr_cnt: Vec<&str> = actual.err.matches("diagnostic code: chainerr").collect();
+        // run error make directly, show no traceback is available
+        assert_eq!(chainerr_cnt.len(), 0);
+    });
+}
+
+#[test]
+fn liststream_error_with_traceback() {
+    Playground::setup("liststream error with traceback", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_TRACEBACK = 1")]);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"def a [x] { if $x == 3 { [1] | each {error make {'msg': 'a custom error'}}}};a 3"#);
+        assert!(actual.err.contains("a custom error"));
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"def a [x] { if $x == 3 { [1] | each {error make {'msg': 'a custom error'}}}};def b [] { a 1; a 3; a 2 };b"#);
+        let chainerr_cnt: Vec<&str> = actual.err.matches("diagnostic code: chainerr").collect();
+        assert_eq!(chainerr_cnt.len(), 1);
+        assert!(actual.err.contains("a custom error"));
+        let eval_with_input_cnt: Vec<&str> = actual.err.matches("eval_block_with_input").collect();
+        assert_eq!(eval_with_input_cnt.len(), 2);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"[1] | each { error make {msg: 'a custom err'} }"#);
+        let chainerr_cnt: Vec<&str> = actual.err.matches("diagnostic code: chainerr").collect();
+        // run error make directly, show no traceback is available
+        assert_eq!(chainerr_cnt.len(), 0);
+    });
 }
