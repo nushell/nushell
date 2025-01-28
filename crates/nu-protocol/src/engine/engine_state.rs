@@ -7,6 +7,7 @@ use crate::{
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
     eval_const::create_nu_constant,
+    shell_error::io::IoError,
     BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, Module, ModuleId,
     OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
     VirtualPathId,
@@ -322,8 +323,14 @@ impl EngineState {
         }
 
         let cwd = self.cwd(Some(stack))?;
-        // TODO: better error
-        std::env::set_current_dir(cwd)?;
+        std::env::set_current_dir(cwd).map_err(|err| {
+            IoError::new_with_additional_context(
+                err.kind(),
+                Span::unknown(),
+                None,
+                "Could not set current dir",
+            )
+        })?;
 
         if let Some(config) = stack.config.take() {
             // If config was updated in the stack, replace it.
@@ -514,13 +521,12 @@ impl EngineState {
                 if err.kind() == std::io::ErrorKind::NotFound {
                     Ok(PluginRegistryFile::default())
                 } else {
-                    Err(ShellError::GenericError {
-                        error: "Failed to open plugin file".into(),
-                        msg: "".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![err.into()],
-                    })
+                    Err(ShellError::Io(IoError::new_with_additional_context(
+                        err.kind(),
+                        Span::unknown(),
+                        PathBuf::from(plugin_path),
+                        "Failed to open plugin file",
+                    )))
                 }
             }
         }?;
@@ -531,14 +537,14 @@ impl EngineState {
         }
 
         // Write it to the same path
-        let plugin_file =
-            File::create(plugin_path.as_path()).map_err(|err| ShellError::GenericError {
-                error: "Failed to write plugin file".into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![err.into()],
-            })?;
+        let plugin_file = File::create(plugin_path.as_path()).map_err(|err| {
+            IoError::new_with_additional_context(
+                err.kind(),
+                Span::unknown(),
+                PathBuf::from(plugin_path),
+                "Failed to write plugin file",
+            )
+        })?;
 
         contents.write_to(plugin_file, None)
     }

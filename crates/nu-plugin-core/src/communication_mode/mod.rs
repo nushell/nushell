@@ -2,7 +2,8 @@ use std::ffi::OsStr;
 use std::io::{Stdin, Stdout};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
-use nu_protocol::ShellError;
+use nu_protocol::shell_error::io::IoError;
+use nu_protocol::{ShellError, Span};
 
 #[cfg(feature = "local-socket")]
 mod local_socket;
@@ -84,8 +85,15 @@ impl CommunicationMode {
 
                 let listener = interpret_local_socket_name(name)
                     .and_then(|name| ListenerOptions::new().name(name).create_sync())
-                    .map_err(|err| ShellError::IOError {
-                        msg: format!("failed to open socket for plugin: {err}"),
+                    .map_err(|err| {
+                        IoError::new_internal(
+                            err.kind(),
+                            format!(
+                                "Could not interpret local socket name {:?}",
+                                name.to_string_lossy()
+                            ),
+                            nu_protocol::location!(),
+                        )
                     })?;
                 Ok(PreparedServerCommunication::LocalSocket { listener })
             }
@@ -107,8 +115,15 @@ impl CommunicationMode {
 
                     interpret_local_socket_name(name)
                         .and_then(|name| ls::Stream::connect(name))
-                        .map_err(|err| ShellError::IOError {
-                            msg: format!("failed to connect to socket: {err}"),
+                        .map_err(|err| {
+                            ShellError::Io(IoError::new_internal(
+                                err.kind(),
+                                format!(
+                                    "Could not interpret local socket name {:?}",
+                                    name.to_string_lossy()
+                                ),
+                                nu_protocol::location!(),
+                            ))
                         })
                 };
                 // Reverse order from the server: read in, write out
@@ -171,7 +186,16 @@ impl PreparedServerCommunication {
                 // output) and one for write (the plugin input)
                 //
                 // Be non-blocking on Accept only, so we can timeout.
-                listener.set_nonblocking(ListenerNonblockingMode::Accept)?;
+                listener
+                    .set_nonblocking(ListenerNonblockingMode::Accept)
+                    .map_err(|err| {
+                        IoError::new_with_additional_context(
+                            err.kind(),
+                            Span::unknown(),
+                            None,
+                            "Could not set non-blocking mode accept for listener",
+                        )
+                    })?;
                 let mut get_socket = || {
                     let mut result = None;
                     while let Ok(None) = child.try_wait() {
@@ -179,7 +203,14 @@ impl PreparedServerCommunication {
                             Ok(stream) => {
                                 // Success! Ensure the stream is in nonblocking mode though, for
                                 // good measure. Had an issue without this on macOS.
-                                stream.set_nonblocking(false)?;
+                                stream.set_nonblocking(false).map_err(|err| {
+                                    IoError::new_with_additional_context(
+                                        err.kind(),
+                                        Span::unknown(),
+                                        None,
+                                        "Could not disable non-blocking mode for listener",
+                                    )
+                                })?;
                                 result = Some(stream);
                                 break;
                             }
@@ -187,7 +218,11 @@ impl PreparedServerCommunication {
                                 if !is_would_block_err(&err) {
                                     // `WouldBlock` is ok, just means it's not ready yet, but some other
                                     // kind of error should be reported
-                                    return Err(err.into());
+                                    return Err(ShellError::Io(IoError::new(
+                                        err.kind(),
+                                        Span::unknown(),
+                                        None,
+                                    )));
                                 }
                             }
                         }

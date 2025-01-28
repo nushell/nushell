@@ -143,8 +143,12 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
             Value::string(canon_home_path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError {
+                ShellError::GenericError {
+                    error: "setting $nu.home-path failed".into(),
                     msg: "Could not get home path".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
                 },
                 span,
             )
@@ -159,8 +163,12 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
             Value::string(canon_data_path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError {
+                ShellError::GenericError {
+                    error: "setting $nu.data-dir failed".into(),
                     msg: "Could not get data path".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
                 },
                 span,
             )
@@ -175,8 +183,12 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
             Value::string(canon_cache_path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError {
+                ShellError::GenericError {
+                    error: "setting $nu.cache-dir failed".into(),
                     msg: "Could not get cache path".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
                 },
                 span,
             )
@@ -248,8 +260,12 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
             Value::string(current_exe.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError {
-                    msg: "Could not get current executable path".to_string(),
+                ShellError::GenericError {
+                    error: "setting $nu.current-exe failed".into(),
+                    msg: "Could not get current executable path".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
                 },
                 span,
             )

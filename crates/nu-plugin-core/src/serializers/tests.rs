@@ -36,18 +36,18 @@ macro_rules! generate_tests {
             let mut buffered = std::io::BufReader::new(ErrorProducer);
             match Encoder::<PluginInput>::decode(&encoder, &mut buffered) {
                 Ok(_) => panic!("decode: i/o error was not passed through"),
-                Err(ShellError::IOError { .. }) => (), // okay
+                Err(ShellError::Io(_)) => (), // okay
                 Err(other) => panic!(
                     "decode: got other error, should have been a \
-                    ShellError::IOError: {other:?}"
+                    ShellError::Io: {other:?}"
                 ),
             }
             match Encoder::<PluginOutput>::decode(&encoder, &mut buffered) {
                 Ok(_) => panic!("decode: i/o error was not passed through"),
-                Err(ShellError::IOError { .. }) => (), // okay
+                Err(ShellError::Io(_)) => (), // okay
                 Err(other) => panic!(
                     "decode: got other error, should have been a \
-                    ShellError::IOError: {other:?}"
+                    ShellError::Io: {other:?}"
                 ),
             }
         }
@@ -378,9 +378,11 @@ macro_rules! generate_tests {
                 .with_url("https://example.org/test/error")
                 .with_help("some help")
                 .with_label("msg", Span::new(2, 30))
-                .with_inner(ShellError::IOError {
-                    msg: "io error".into(),
-                });
+                .with_inner(ShellError::Io(IoError::new(
+                    std::io::ErrorKind::NotFound,
+                    Span::test_data(),
+                    None,
+                )));
 
             let response = PluginCallResponse::Error(error.clone());
             let output = PluginOutput::CallResponse(6, response);

@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_path::expand_path_with;
-use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::{engine::StateWorkingSet, shell_error::io::IoError};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -54,23 +54,25 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let path: Option<String> = call.opt_const(working_set, 0)?;
         let cwd = working_set.permanent_state.cwd(None)?;
-        let current_file =
-            working_set
-                .files
-                .top()
-                .ok_or_else(|| ShellError::FileNotFoundCustom {
-                    msg: "Couldn't find current file".into(),
-                    span: call.head,
-                })?;
+        let current_file = working_set.files.top().ok_or_else(|| {
+            IoError::new_with_additional_context(
+                std::io::ErrorKind::NotFound,
+                call.head,
+                None,
+                "Couldn't find current file",
+            )
+        })?;
 
         let out = if let Some(path) = path {
             let dir = expand_path_with(
-                current_file
-                    .parent()
-                    .ok_or_else(|| ShellError::FileNotFoundCustom {
-                        msg: "Couldn't find current file's parent.".into(),
-                        span: call.head,
-                    })?,
+                current_file.parent().ok_or_else(|| {
+                    IoError::new_with_additional_context(
+                        std::io::ErrorKind::NotFound,
+                        call.head,
+                        current_file.to_owned(),
+                        "Couldn't find current file's parent.",
+                    )
+                })?,
                 &cwd,
                 true,
             );

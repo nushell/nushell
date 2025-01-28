@@ -60,5 +60,5 @@ fn self_path_runtime() {
 fn self_path_repl() {
     let actual = nu!("const foo = path self; $foo");
     assert!(!actual.status.success());
-    assert!(actual.err.contains("nu::shell::file_not_found"));
+    assert!(actual.err.contains("nu::shell::io::not_found"));
 }

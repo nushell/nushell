@@ -6,10 +6,11 @@ use base64::{
 };
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
-use nu_protocol::{ByteStream, LabeledError, Signals};
+use nu_protocol::{shell_error::io::IoError, ByteStream, LabeledError, Signals};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
+    error::Error as StdError,
     io::Cursor,
     path::PathBuf,
     str::FromStr,
@@ -184,6 +185,7 @@ pub fn request_add_authorization_header(
     request
 }
 
+#[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum ShellErrorOrRequestError {
     ShellError(ShellError),
@@ -372,10 +374,10 @@ fn send_multipart_request(
         Value::Record { val, .. } => {
             let mut builder = MultipartWriter::new();
 
-            let err = |e| {
-                ShellErrorOrRequestError::ShellError(ShellError::IOError {
-                    msg: format!("failed to build multipart data: {}", e),
-                })
+            let err = |e: std::io::Error| {
+                ShellErrorOrRequestError::ShellError(
+                    IoError::new_with_additional_context(e.kind(), span, None, e).into(),
+                )
             };
 
             for (col, val) in val.into_owned() {
@@ -464,6 +466,14 @@ fn send_cancellable_request(
             let ret = request_fn();
             let _ = tx.send(ret); // may fail if the user has cancelled the operation
         })
+        .map_err(|err| {
+            IoError::new_with_additional_context(
+                err.kind(),
+                span,
+                None,
+                "Could not spawn HTTP requester",
+            )
+        })
         .map_err(ShellError::from)?;
 
     // ...and poll the channel for responses
@@ -518,6 +528,14 @@ fn send_cancellable_request_bytes(
 
             // may fail if the user has cancelled the operation
             let _ = tx.send(ret);
+        })
+        .map_err(|err| {
+            IoError::new_with_additional_context(
+                err.kind(),
+                span,
+                None,
+                "Could not spawn HTTP requester",
+            )
         })
         .map_err(ShellError::from)?;
 
@@ -618,27 +636,56 @@ pub fn request_add_custom_headers(
 
 fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -> ShellError {
     match response_err {
-        Error::Status(301, _) => ShellError::NetworkFailure { msg: format!("Resource moved permanently (301): {requested_url:?}"), span },
-        Error::Status(400, _) => {
-            ShellError::NetworkFailure { msg: format!("Bad request (400) to {requested_url:?}"), span }
-        }
-        Error::Status(403, _) => {
-            ShellError::NetworkFailure { msg: format!("Access forbidden (403) to {requested_url:?}"), span }
-        }
-        Error::Status(404, _) => ShellError::NetworkFailure { msg: format!("Requested file not found (404): {requested_url:?}"), span },
-        Error::Status(408, _) => {
-            ShellError::NetworkFailure { msg: format!("Request timeout (408): {requested_url:?}"), span }
-        }
-        Error::Status(_, _) => ShellError::NetworkFailure { msg: format!(
+        Error::Status(301, _) => ShellError::NetworkFailure {
+            msg: format!("Resource moved permanently (301): {requested_url:?}"),
+            span,
+        },
+        Error::Status(400, _) => ShellError::NetworkFailure {
+            msg: format!("Bad request (400) to {requested_url:?}"),
+            span,
+        },
+        Error::Status(403, _) => ShellError::NetworkFailure {
+            msg: format!("Access forbidden (403) to {requested_url:?}"),
+            span,
+        },
+        Error::Status(404, _) => ShellError::NetworkFailure {
+            msg: format!("Requested file not found (404): {requested_url:?}"),
+            span,
+        },
+        Error::Status(408, _) => ShellError::NetworkFailure {
+            msg: format!("Request timeout (408): {requested_url:?}"),
+            span,
+        },
+        Error::Status(_, _) => ShellError::NetworkFailure {
+            msg: format!(
                 "Cannot make request to {:?}. Error is {:?}",
                 requested_url,
                 response_err.to_string()
-            ), span },
-
-        Error::Transport(t) => match t {
-            t if t.kind() == ErrorKind::ConnectionFailed => ShellError::NetworkFailure { msg: format!("Cannot make request to {requested_url}, there was an error establishing a connection.",), span },
-            t => ShellError::NetworkFailure { msg: t.to_string(), span },
+            ),
+            span,
         },
+
+        Error::Transport(t) => {
+            let generic_network_failure = || ShellError::NetworkFailure {
+                msg: t.to_string(),
+                span,
+            };
+            match t.kind() {
+                ErrorKind::ConnectionFailed => ShellError::NetworkFailure { msg: format!("Cannot make request to {requested_url}, there was an error establishing a connection.",), span },
+                ErrorKind::Io => 'io: {
+                    let Some(source) = t.source() else {
+                        break 'io generic_network_failure();
+                    };
+
+                    let Some(io_error) = source.downcast_ref::<std::io::Error>() else {
+                        break 'io generic_network_failure();
+                    };
+
+                    ShellError::Io(IoError::new(io_error.kind(), span, None))
+                }
+                _ => generic_network_failure()
+            }
+        }
     }
 }
 

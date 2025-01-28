@@ -532,5 +532,5 @@ fn force_save_to_dir() {
         "aaa" | save -f ..
         "#);
 
-    assert!(actual.err.contains("Is a directory"));
+    assert!(actual.err.contains("nu::shell::io::is_a_directory"));
 }

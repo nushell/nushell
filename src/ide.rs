@@ -3,7 +3,9 @@ use nu_cli::NuCompleter;
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_shell_error, DeclId, ShellError, Span, Value, VarId,
+    report_shell_error,
+    shell_error::io::IoError,
+    DeclId, ShellError, Span, Value, VarId,
 };
 use reedline::Completer;
 use serde_json::{json, Value as JsonValue};
@@ -54,15 +56,16 @@ fn read_in_file<'a>(
     file_path: &str,
 ) -> (Vec<u8>, StateWorkingSet<'a>) {
     let file = std::fs::read(file_path)
-        .into_diagnostic()
-        .unwrap_or_else(|e| {
-            report_shell_error(
-                engine_state,
-                &ShellError::FileNotFoundCustom {
-                    msg: format!("Could not read file '{}': {:?}", file_path, e.to_string()),
-                    span: Span::unknown(),
-                },
-            );
+        .map_err(|err| {
+            ShellError::Io(IoError::new_with_additional_context(
+                err.kind(),
+                Span::unknown(),
+                PathBuf::from(file_path),
+                "Could not read file",
+            ))
+        })
+        .unwrap_or_else(|err| {
+            report_shell_error(engine_state, &err);
             std::process::exit(1);
         });
 

@@ -11,8 +11,8 @@ use url::Url;
 
 use nu_plugin::PluginCommand;
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    shell_error::io::IoError, Category, Example, LabeledError, PipelineData, ShellError, Signature,
+    Span, Spanned, SyntaxShape, Type, Value,
 };
 
 use std::{fmt::Debug, fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, sync::Arc};
@@ -221,10 +221,12 @@ fn command(
                 blamed,
             )),
         },
-        None => Err(ShellError::FileNotFoundCustom {
-            msg: "File without extension".into(),
-            span: spanned_file.span,
-        }),
+        None => Err(ShellError::Io(IoError::new_with_additional_context(
+            std::io::ErrorKind::NotFound,
+            spanned_file.span,
+            PathBuf::from(spanned_file.item),
+            "File without extension",
+        ))),
     }
     .map(|value| PipelineData::Value(value, None))
 }

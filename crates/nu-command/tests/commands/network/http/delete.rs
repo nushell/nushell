@@ -140,10 +140,6 @@ fn http_delete_timeout() {
         format!("http delete --max-time 100ms {url}", url = server.url()).as_str()
     ));
 
-    assert!(&actual.err.contains("nu::shell::network_failure"));
-
-    #[cfg(not(target_os = "windows"))]
-    assert!(&actual.err.contains("timed out reading response"));
-    #[cfg(target_os = "windows")]
-    assert!(&actual.err.contains(super::WINDOWS_ERROR_TIMEOUT_SLOW_LINK));
+    assert!(&actual.err.contains("nu::shell::io::timed_out"));
+    assert!(&actual.err.contains("Timed out"));
 }

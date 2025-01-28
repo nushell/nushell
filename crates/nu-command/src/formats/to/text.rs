@@ -1,6 +1,8 @@
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
-use nu_protocol::{format_duration, ByteStream, Config, PipelineMetadata};
+use nu_protocol::{
+    format_duration, shell_error::io::IoError, ByteStream, Config, PipelineMetadata,
+};
 use std::io::Write;
 
 const LINE_ENDING: &str = if cfg!(target_os = "windows") {
@@ -72,6 +74,7 @@ impl Command for ToText {
             }
             PipelineData::ListStream(stream, meta) => {
                 let span = stream.span();
+                let from_io_error = IoError::factory(head, None);
                 let stream = if no_newline {
                     let mut first = true;
                     let mut iter = stream.into_inner();
@@ -87,7 +90,7 @@ impl Command for ToText {
                             if first {
                                 first = false;
                             } else {
-                                write!(buf, "{LINE_ENDING}").err_span(head)?;
+                                write!(buf, "{LINE_ENDING}").map_err(&from_io_error)?;
                             }
                             // TODO: write directly into `buf` instead of creating an intermediate
                             // string.
@@ -98,7 +101,7 @@ impl Command for ToText {
                                 &config,
                                 serialize_types,
                             );
-                            write!(buf, "{str}").err_span(head)?;
+                            write!(buf, "{str}").map_err(&from_io_error)?;
                             Ok(true)
                         },
                     )

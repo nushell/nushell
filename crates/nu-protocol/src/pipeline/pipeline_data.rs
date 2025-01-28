@@ -1,6 +1,7 @@
 use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
+    shell_error::io::IoError,
     ByteStream, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError,
     Signals, Span, Type, Value,
 };
@@ -219,17 +220,47 @@ impl PipelineData {
             PipelineData::Empty => Ok(()),
             PipelineData::Value(value, ..) => {
                 let bytes = value_to_bytes(value)?;
-                dest.write_all(&bytes)?;
-                dest.flush()?;
+                dest.write_all(&bytes).map_err(|err| {
+                    IoError::new_internal(
+                        err.kind(),
+                        "Could not write PipelineData to dest",
+                        crate::location!(),
+                    )
+                })?;
+                dest.flush().map_err(|err| {
+                    IoError::new_internal(
+                        err.kind(),
+                        "Could not flush PipelineData to dest",
+                        crate::location!(),
+                    )
+                })?;
                 Ok(())
             }
             PipelineData::ListStream(stream, ..) => {
                 for value in stream {
                     let bytes = value_to_bytes(value)?;
-                    dest.write_all(&bytes)?;
-                    dest.write_all(b"\n")?;
+                    dest.write_all(&bytes).map_err(|err| {
+                        IoError::new_internal(
+                            err.kind(),
+                            "Could not write PipelineData to dest",
+                            crate::location!(),
+                        )
+                    })?;
+                    dest.write_all(b"\n").map_err(|err| {
+                        IoError::new_internal(
+                            err.kind(),
+                            "Could not write linebreak after PipelineData to dest",
+                            crate::location!(),
+                        )
+                    })?;
                 }
-                dest.flush()?;
+                dest.flush().map_err(|err| {
+                    IoError::new_internal(
+                        err.kind(),
+                        "Could not flush PipelineData to dest",
+                        crate::location!(),
+                    )
+                })?;
                 Ok(())
             }
             PipelineData::ByteStream(stream, ..) => stream.write_to(dest),
@@ -633,9 +664,23 @@ impl PipelineData {
     ) -> Result<(), ShellError> {
         if let PipelineData::Value(Value::Binary { val: bytes, .. }, _) = self {
             if to_stderr {
-                stderr_write_all_and_flush(bytes)?;
+                stderr_write_all_and_flush(bytes).map_err(|err| {
+                    IoError::new_with_additional_context(
+                        err.kind(),
+                        Span::unknown(),
+                        None,
+                        "Writing to stderr failed",
+                    )
+                })?
             } else {
-                stdout_write_all_and_flush(bytes)?;
+                stdout_write_all_and_flush(bytes).map_err(|err| {
+                    IoError::new_with_additional_context(
+                        err.kind(),
+                        Span::unknown(),
+                        None,
+                        "Writing to stdout failed",
+                    )
+                })?
             }
             Ok(())
         } else {
@@ -666,9 +711,23 @@ impl PipelineData {
                 }
 
                 if to_stderr {
-                    stderr_write_all_and_flush(out)?
+                    stderr_write_all_and_flush(out).map_err(|err| {
+                        IoError::new_with_additional_context(
+                            err.kind(),
+                            Span::unknown(),
+                            None,
+                            "Writing to stderr failed",
+                        )
+                    })?
                 } else {
-                    stdout_write_all_and_flush(out)?
+                    stdout_write_all_and_flush(out).map_err(|err| {
+                        IoError::new_with_additional_context(
+                            err.kind(),
+                            Span::unknown(),
+                            None,
+                            "Writing to stdout failed",
+                        )
+                    })?
                 }
             }
 

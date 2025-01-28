@@ -4,6 +4,7 @@ use crossterm::{
     QueueableCommand,
 };
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 
 use std::io::Write;
 
@@ -41,19 +42,27 @@ impl Command for Clear {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let from_io_error = IoError::factory(call.head, None);
         match call.has_flag(engine_state, stack, "keep-scrollback")? {
             true => {
                 std::io::stdout()
-                    .queue(MoveTo(0, 0))?
-                    .queue(ClearCommand(ClearType::All))?
-                    .flush()?;
+                    .queue(MoveTo(0, 0))
+                    .map_err(&from_io_error)?
+                    .queue(ClearCommand(ClearType::All))
+                    .map_err(&from_io_error)?
+                    .flush()
+                    .map_err(&from_io_error)?;
             }
             _ => {
                 std::io::stdout()
-                    .queue(MoveTo(0, 0))?
-                    .queue(ClearCommand(ClearType::All))?
-                    .queue(ClearCommand(ClearType::Purge))?
-                    .flush()?;
+                    .queue(MoveTo(0, 0))
+                    .map_err(&from_io_error)?
+                    .queue(ClearCommand(ClearType::All))
+                    .map_err(&from_io_error)?
+                    .queue(ClearCommand(ClearType::Purge))
+                    .map_err(&from_io_error)?
+                    .flush()
+                    .map_err(&from_io_error)?;
             }
         };
 
