@@ -1028,7 +1028,11 @@ mod tests {
         let result = result_from_message(resp);
 
         assert_eq!(
-            result.pointer("/contents/value").unwrap().to_string(),
+            result
+                .pointer("/contents/value")
+                .unwrap()
+                .to_string()
+                .replace("\\r", ""),
             "\"# module doc\""
         );
     }
