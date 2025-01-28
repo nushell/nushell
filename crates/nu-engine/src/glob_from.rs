@@ -27,6 +27,7 @@ pub fn glob_from(
     ShellError,
 > {
     let no_glob_for_pattern = matches!(pattern.item, NuGlob::DoNotExpand(_));
+    let pattern_span = pattern.span;
     let (prefix, pattern) = if nu_glob::is_glob(pattern.item.as_ref()) {
         // Pattern contains glob, split it
         let mut p = PathBuf::new();
@@ -79,13 +80,7 @@ pub fn glob_from(
                 }
                 Ok(p) => p,
                 Err(err) => {
-                    return Err(IoError::new_internal_with_path(
-                        err.kind(),
-                        "Could not canonicalize path",
-                        nu_protocol::location!(),
-                        path,
-                    )
-                    .into())
+                    return Err(IoError::new(err.kind(), pattern_span, path).into());
                 }
             };
             (path.parent().map(|parent| parent.to_path_buf()), path)

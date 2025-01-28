@@ -93,8 +93,6 @@ impl Command for Open {
                 .map_err(|err| match err {
                     ShellError::Io(mut err) => {
                         err.span = arg_span;
-                        // The additional context from `nu_engine::glob_from` doesn't help here
-                        err.additional_context = None;
                         err.into()
                     }
                     _ => err,
