@@ -214,14 +214,14 @@ impl ByteStream {
         }
     }
 
-    /// Push a caller [`Span`] to the bytestream, it's useful to constract a traceback.
+    /// Push a caller [`Span`] to the bytestream, it's useful to constract a backtrace.
     pub fn push_caller_span(&mut self, span: Span) {
         if span != self.span {
             self.caller_spans.push(span)
         }
     }
 
-    /// Get all caller [`Span`], it's useful to constract a traceback.
+    /// Get all caller [`Span`], it's useful to constract a backtrace.
     pub fn get_caller_spans(&self) -> &Vec<Span> {
         &self.caller_spans
     }

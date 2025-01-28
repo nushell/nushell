@@ -1137,9 +1137,9 @@ fn error_on_out_greater_pipe() {
 }
 
 #[test]
-fn error_with_traceback() {
-    Playground::setup("error with traceback", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_TRACEBACK = 1")]);
+fn error_with_backtrace() {
+    Playground::setup("error with backtrace", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_BACKTRACE = 1")]);
 
         let actual = nu!(
             env_config: "tmp_env.nu",
@@ -1174,15 +1174,15 @@ fn error_with_traceback() {
             .err
             .matches("diagnostic code: chained_error")
             .collect();
-        // run error make directly, show no traceback is available
+        // run error make directly, show no backtrace is available
         assert_eq!(chained_error_cnt.len(), 0);
     });
 }
 
 #[test]
-fn liststream_error_with_traceback() {
-    Playground::setup("liststream error with traceback", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_TRACEBACK = 1")]);
+fn liststream_error_with_backtrace() {
+    Playground::setup("liststream error with backtrace", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_BACKTRACE = 1")]);
 
         let actual = nu!(
             env_config: "tmp_env.nu",
@@ -1211,7 +1211,7 @@ fn liststream_error_with_traceback() {
             .err
             .matches("diagnostic code: chained_error")
             .collect();
-        // run error make directly, show no traceback is available
+        // run error make directly, show no backtrace is available
         assert_eq!(chained_error_cnt.len(), 0);
     });
 }

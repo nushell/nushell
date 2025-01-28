@@ -187,7 +187,7 @@ fn eval_ir_block_impl<D: DebugContext>(
 
     // Program counter, starts at zero.
     let mut pc = 0;
-    let need_traceback = ctx.engine_state.get_env_var("NU_TRACEBACK").is_some();
+    let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
@@ -196,7 +196,7 @@ fn eval_ir_block_impl<D: DebugContext>(
 
         D::enter_instruction(ctx.engine_state, ir_block, pc, ctx.registers);
 
-        let result = eval_instruction::<D>(ctx, instruction, span, ast, need_traceback);
+        let result = eval_instruction::<D>(ctx, instruction, span, ast, need_backtrace);
 
         D::leave_instruction(
             ctx.engine_state,
@@ -230,7 +230,7 @@ fn eval_ir_block_impl<D: DebugContext>(
                     prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
                     pc = error_handler.handler_index;
                 } else {
-                    if need_traceback {
+                    if need_backtrace {
                         let err = ShellError::into_chainned(err, *span);
                         return Err(err);
                     } else {
@@ -290,7 +290,7 @@ fn eval_instruction<D: DebugContext>(
     instruction: &Instruction,
     span: &Span,
     ast: &Option<IrAstRef>,
-    need_traceback: bool,
+    need_backtrace: bool,
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
 
@@ -555,7 +555,7 @@ fn eval_instruction<D: DebugContext>(
         Instruction::Call { decl_id, src_dst } => {
             let input = ctx.take_reg(*src_dst);
             let mut result = eval_call::<D>(ctx, *decl_id, *span, input)?;
-            if need_traceback {
+            if need_backtrace {
                 match &mut result {
                     PipelineData::ByteStream(s, ..) => s.push_caller_span(span.clone()),
                     PipelineData::ListStream(s, ..) => s.push_caller_span(span.clone()),

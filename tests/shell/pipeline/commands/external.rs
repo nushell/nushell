@@ -688,9 +688,9 @@ fn arg_dont_run_subcommand_if_surrounded_with_quote() {
 }
 
 #[test]
-fn external_error_with_traceback() {
-    Playground::setup("external error with traceback", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_TRACEBACK = 1")]);
+fn external_error_with_backtrace() {
+    Playground::setup("external error with backtrace", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_BACKTRACE = 1")]);
 
         let actual = nu!(
             env_config: "tmp_env.nu",
@@ -713,7 +713,7 @@ fn external_error_with_traceback() {
             .err
             .matches("diagnostic code: chained_error")
             .collect();
-        // run error make directly, show no traceback is available
+        // run error make directly, show no backtrace is available
         assert_eq!(chained_error_cnt.len(), 0);
     });
 }
