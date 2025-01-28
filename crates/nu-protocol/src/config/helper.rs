@@ -9,30 +9,47 @@ use std::{
     str::FromStr,
 };
 
-pub(super) struct ConfigPath<'a> {
-    components: Vec<&'a str>,
+enum ConfigPathComponent<'a> {
+    Col(&'a str),
+    Row(usize),
+}
+
+pub(crate) struct ConfigPath<'a> {
+    components: Vec<ConfigPathComponent<'a>>,
 }
 
 impl<'a> ConfigPath<'a> {
     pub fn new() -> Self {
         Self {
-            components: vec!["$env.config"],
+            components: Vec::new(),
         }
     }
 
-    pub fn push(&mut self, key: &'a str) -> ConfigPathScope<'_, 'a> {
-        self.components.push(key);
+    pub fn push(&mut self, col: &'a str) -> ConfigPathScope<'_, 'a> {
+        self.components.push(ConfigPathComponent::Col(col));
+        ConfigPathScope { inner: self }
+    }
+
+    pub fn push_row(&mut self, row: usize) -> ConfigPathScope<'_, 'a> {
+        self.components.push(ConfigPathComponent::Row(row));
         ConfigPathScope { inner: self }
     }
 }
 
 impl Display for ConfigPath<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.components.join("."))
+        write!(f, "$env.config")?;
+        for component in &self.components {
+            match component {
+                ConfigPathComponent::Col(col) => write!(f, ".{col}"),
+                ConfigPathComponent::Row(row) => write!(f, ".{row}"),
+            }?
+        }
+        Ok(())
     }
 }
 
-pub(super) struct ConfigPathScope<'whole, 'part> {
+pub(crate) struct ConfigPathScope<'whole, 'part> {
     inner: &'whole mut ConfigPath<'part>,
 }
 
@@ -56,7 +73,7 @@ impl DerefMut for ConfigPathScope<'_, '_> {
     }
 }
 
-pub(super) trait UpdateFromValue: Sized {
+pub(crate) trait UpdateFromValue: Sized {
     fn update<'a>(
         &mut self,
         value: &'a Value,

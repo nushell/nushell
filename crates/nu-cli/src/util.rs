@@ -220,7 +220,7 @@ pub fn print_pipeline(
         let pipeline = eval_hook(
             engine_state,
             stack,
-            Some(pipeline),
+            pipeline,
             vec![],
             &hook,
             "display_output",

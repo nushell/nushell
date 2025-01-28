@@ -6,6 +6,9 @@ use helper::*;
 use prelude::*;
 use std::collections::HashMap;
 
+pub(crate) use error::ConfigErrors;
+pub(crate) use helper::{ConfigPath, UpdateFromValue};
+
 pub use ansi_coloring::UseAnsiColoring;
 pub use completions::{
     CompletionAlgorithm, CompletionConfig, CompletionSort, ExternalCompleterConfig,
@@ -15,7 +18,7 @@ pub use display_errors::DisplayErrors;
 pub use filesize::FilesizeConfig;
 pub use helper::extract_value;
 pub use history::{HistoryConfig, HistoryFileFormat};
-pub use hooks::Hooks;
+pub use hooks::{ConditionalHook, Hook, HookCode, Hooks};
 pub use ls::LsConfig;
 pub use output::ErrorStyle;
 pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};

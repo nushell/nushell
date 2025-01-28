@@ -237,7 +237,7 @@ impl Stack {
     }
 
     pub fn remove_var(&mut self, var_id: VarId) {
-        for (idx, (id, _)) in self.vars.iter().enumerate() {
+        for (idx, (id, _)) in self.vars.iter().enumerate().rev() {
             if *id == var_id {
                 self.vars.remove(idx);
                 break;
