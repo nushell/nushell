@@ -433,11 +433,7 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
         }
     };
 
-    file.map_err(|err| ShellError::Io(IoError::new(
-        err.kind(), 
-        span, 
-        PathBuf::from(path)
-    )))
+    file.map_err(|err| ShellError::Io(IoError::new(err.kind(), span, PathBuf::from(path))))
 }
 
 /// Get output file and optional stderr file
