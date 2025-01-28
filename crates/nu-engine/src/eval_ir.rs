@@ -229,13 +229,11 @@ fn eval_ir_block_impl<D: DebugContext>(
                     // If an error handler is set, branch there
                     prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
                     pc = error_handler.handler_index;
+                } else if need_backtrace {
+                    let err = ShellError::into_chainned(err, *span);
+                    return Err(err);
                 } else {
-                    if need_backtrace {
-                        let err = ShellError::into_chainned(err, *span);
-                        return Err(err);
-                    } else {
-                        return Err(err);
-                    }
+                    return Err(err);
                 }
             }
         }
@@ -557,8 +555,8 @@ fn eval_instruction<D: DebugContext>(
             let mut result = eval_call::<D>(ctx, *decl_id, *span, input)?;
             if need_backtrace {
                 match &mut result {
-                    PipelineData::ByteStream(s, ..) => s.push_caller_span(span.clone()),
-                    PipelineData::ListStream(s, ..) => s.push_caller_span(span.clone()),
+                    PipelineData::ByteStream(s, ..) => s.push_caller_span(*span),
+                    PipelineData::ListStream(s, ..) => s.push_caller_span(*span),
                     _ => (),
                 };
             }
