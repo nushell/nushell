@@ -112,13 +112,16 @@ impl Command for Open {
                     #[cfg(unix)]
                     let err = {
                         let mut err = err;
-                        err.additional_context = Some(match path.metadata() {
-                            Ok(md) => format!(
-                                "The permissions of {:o} does not allow access for this user",
-                                md.permissions().mode() & 0o0777
-                            ),
-                            Err(e) => e.to_string(),
-                        });
+                        err.additional_context = Some(
+                            match path.metadata() {
+                                Ok(md) => format!(
+                                    "The permissions of {:o} does not allow access for this user",
+                                    md.permissions().mode() & 0o0777
+                                ),
+                                Err(e) => e.to_string(),
+                            }
+                            .into(),
+                        );
                         err
                     };
 

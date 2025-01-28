@@ -115,7 +115,7 @@ pub struct IoError {
     ///
     /// Only set this field if it adds meaningful context.
     /// If [`ErrorKind`] already contains all the necessary information, leave this as [`None`].
-    pub additional_context: Option<String>,
+    pub additional_context: Option<AdditionalContext>,
 
     /// The precise location in the Rust code where the error originated.
     ///
@@ -137,6 +137,15 @@ pub enum ErrorKind {
     NotAFile,
     // TODO: in Rust 1.83 this can be std::io::ErrorKind::IsADirectory
     IsADirectory,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Diagnostic)]
+pub struct AdditionalContext(String);
+
+impl Display for AdditionalContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.0.as_ref())
+    }
 }
 
 impl IoError {
@@ -209,7 +218,7 @@ impl IoError {
             kind: kind.into(),
             span,
             path,
-            additional_context: Some(additional_context.to_string()),
+            additional_context: Some(additional_context.to_string().into()),
             location: None,
         }
     }
@@ -249,7 +258,7 @@ impl IoError {
             kind: kind.into(),
             span: Span::unknown(),
             path: None,
-            additional_context: Some(additional_context.to_string()),
+            additional_context: Some(additional_context.to_string().into()),
             location: Some(location.to_string()),
         }
     }
@@ -282,7 +291,7 @@ impl IoError {
             kind: kind.into(),
             span: Span::unknown(),
             path: path.into(),
-            additional_context: Some(additional_context.to_string()),
+            additional_context: Some(additional_context.to_string().into()),
             location: Some(location.to_string()),
         }
     }
@@ -318,6 +327,13 @@ impl Display for ErrorKind {
 }
 
 impl std::error::Error for ErrorKind {}
+impl std::error::Error for AdditionalContext {}
+
+impl From<String> for AdditionalContext {
+    fn from(value: String) -> Self {
+        AdditionalContext(value)
+    }
+}
 
 impl Diagnostic for IoError {
     fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
@@ -369,16 +385,15 @@ impl Diagnostic for IoError {
             (true, Some(location)) => SourceSpan::new(0.into(), location.len()),
         };
 
-        let label = match self.additional_context.as_ref() {
-            Some(ctx) => format!("{ctx}\n{}", self.kind),
-            None => self.kind.to_string(),
-        };
-        let label = LabeledSpan::new_with_span(Some(label), span);
+        let label = LabeledSpan::new_with_span(Some(self.kind.to_string()), span);
         Some(Box::new(std::iter::once(label)))
     }
 
     fn diagnostic_source(&self) -> Option<&dyn Diagnostic> {
-        Some(&self.kind as &dyn Diagnostic)
+        match &self.additional_context {
+            Some(ctx) => Some(ctx as &dyn Diagnostic),
+            None => None,
+        }
     }
 
     fn source_code(&self) -> Option<&dyn miette::SourceCode> {
