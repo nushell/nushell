@@ -369,7 +369,11 @@ impl Diagnostic for IoError {
             (true, Some(location)) => SourceSpan::new(0.into(), location.len()),
         };
 
-        let label = LabeledSpan::new_with_span(self.additional_context.clone(), span);
+        let label = match self.additional_context.as_ref() {
+            Some(ctx) => format!("{ctx}\n{}", self.kind),
+            None => self.kind.to_string(),
+        };
+        let label = LabeledSpan::new_with_span(Some(label), span);
         Some(Box::new(std::iter::once(label)))
     }
 
