@@ -435,7 +435,7 @@ fn run_command(
 
             let new_view = cmd.spawn(engine_state, stack, value, &view_cfg)?;
             if let Some(view) = view_stack.curr_view.take() {
-                if !view.stackable {
+                if view.stackable {
                     view_stack.stack.push(view);
                 }
             }
