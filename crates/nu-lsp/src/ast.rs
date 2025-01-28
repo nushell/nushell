@@ -389,6 +389,11 @@ fn try_find_id_in_overlay(
         return None;
     }
     let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
+    let module_from_overlay_name = |name: &str, span: Span| {
+        let found_id = Id::Module(working_set.find_overlay(name.as_bytes())?.origin);
+        id.map_or(true, |id_r| found_id == *id_r)
+            .then_some((found_id, strip_quotes(span, working_set)))
+    };
     for arg in call.arguments.iter() {
         let Argument::Positional(expr) = arg else {
             continue;
@@ -397,21 +402,11 @@ fn try_find_id_in_overlay(
             continue;
         };
         let matched = match &expr.expr {
-            Expr::String(name) => {
-                let name = name.as_bytes();
-                get_matched_module_id(working_set, expr.span, id).or_else(|| {
-                    let found_id = Id::Module(working_set.find_overlay(name)?.origin);
-                    id.map_or(true, |id_r| found_id == *id_r)
-                        .then_some((found_id, strip_quotes(expr.span, working_set)))
-                })
-            }
+            Expr::String(name) => get_matched_module_id(working_set, expr.span, id)
+                .or(module_from_overlay_name(name, expr.span)),
             // keyword 'as'
             Expr::Keyword(kwd) => match &kwd.expr.expr {
-                Expr::String(name) => {
-                    let found_id = Id::Module(working_set.find_overlay(name.as_bytes())?.origin);
-                    id.map_or(true, |id_r| found_id == *id_r)
-                        .then_some((found_id, strip_quotes(kwd.expr.span, working_set)))
-                }
+                Expr::String(name) => module_from_overlay_name(name, kwd.expr.span),
                 _ => None,
             },
             _ => None,

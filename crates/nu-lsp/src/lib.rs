@@ -859,6 +859,13 @@ mod tests {
         }
     }
 
+    pub(crate) fn result_from_message(message: lsp_server::Message) -> serde_json::Value {
+        match message {
+            Message::Response(Response { result, .. }) => result.expect("Empty result!"),
+            _ => panic!("Unexpected message type!"),
+        }
+    }
+
     pub(crate) fn send_hover_request(
         client_connection: &Connection,
         uri: Uri,
@@ -898,16 +905,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_hover_request(&client_connection, script.clone(), 2, 0);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({ "contents": { "kind": "markdown", "value": " ```\ntable\n``` " } })
         );
     }
@@ -923,16 +924,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_hover_request(&client_connection, script.clone(), 3, 0);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                     "contents": {
                     "kind": "markdown",
@@ -953,16 +948,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_hover_request(&client_connection, script.clone(), 5, 8);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                     "contents": {
                     "kind": "markdown",
@@ -983,17 +972,11 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_hover_request(&client_connection, script.clone(), 3, 12);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
+        let result = result_from_message(resp);
 
         assert_eq!(
             result
-                .unwrap()
                 .pointer("/contents/value")
                 .unwrap()
                 .to_string()
@@ -1043,16 +1026,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_complete_request(&client_connection, script, 2, 9);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_include!(
-            actual: result,
+            actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
                     "label": "$greeting",
@@ -1078,16 +1055,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_complete_request(&client_connection, script, 0, 8);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_include!(
-            actual: result,
+            actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
                     "label": "config nu",
@@ -1112,16 +1083,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_complete_request(&client_connection, script, 0, 13);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_include!(
-            actual: result,
+            actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
                     "label": "str trim",
@@ -1148,16 +1113,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_complete_request(&client_connection, script, 0, 2);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_include!(
-            actual: result,
+            actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
                     "label": "overlay",

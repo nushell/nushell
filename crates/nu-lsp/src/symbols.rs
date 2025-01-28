@@ -298,7 +298,7 @@ impl LanguageServer {
 #[cfg(test)]
 mod tests {
     use crate::path_to_uri;
-    use crate::tests::{initialize_language_server, open_unchecked, update};
+    use crate::tests::{initialize_language_server, open_unchecked, result_from_message, update};
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
@@ -361,15 +361,9 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_document_symbol_request(&client_connection, script.clone());
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
-        assert_json_eq!(result, serde_json::json!([]));
+        assert_json_eq!(result_from_message(resp), serde_json::json!([]));
     }
 
     #[test]
@@ -383,16 +377,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_document_symbol_request(&client_connection, script.clone());
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!([
               {
                 "name": "def_foo",
@@ -446,16 +434,10 @@ mod tests {
                 },
             }),
         );
-
         let resp = send_document_symbol_request(&client_connection, script.clone());
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!([
               {
                 "name": "var_bar",
@@ -490,16 +472,10 @@ mod tests {
 
         open_unchecked(&client_connection, script_foo.clone());
         open_unchecked(&client_connection, script_bar.clone());
-
         let resp = send_workspace_symbol_request(&client_connection, "br".to_string());
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!([
               {
                 "name": "def_bar",
@@ -556,16 +532,10 @@ mod tests {
 
         open_unchecked(&client_connection, script_foo.clone());
         open_unchecked(&client_connection, script_bar.clone());
-
         let resp = send_workspace_symbol_request(&client_connection, "foo".to_string());
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!([
               {
                 "name": "def_foo",

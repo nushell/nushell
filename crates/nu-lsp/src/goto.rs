@@ -54,7 +54,7 @@ impl LanguageServer {
 #[cfg(test)]
 mod tests {
     use crate::path_to_uri;
-    use crate::tests::{initialize_language_server, open_unchecked};
+    use crate::tests::{initialize_language_server, open_unchecked, result_from_message};
     use assert_json_diff::{assert_json_eq, assert_json_include};
     use lsp_server::{Connection, Message};
     use lsp_types::{
@@ -99,40 +99,10 @@ mod tests {
 
         let mut none_existent_path = root();
         none_existent_path.push("none-existent.nu");
+        let script = path_to_uri(&none_existent_path);
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 0, 0);
 
-        client_connection
-            .sender
-            .send(Message::Request(lsp_server::Request {
-                id: 2.into(),
-                method: GotoDefinition::METHOD.to_string(),
-                params: serde_json::to_value(GotoDefinitionParams {
-                    text_document_position_params: TextDocumentPositionParams {
-                        text_document: TextDocumentIdentifier {
-                            uri: path_to_uri(&none_existent_path),
-                        },
-                        position: Position {
-                            line: 0,
-                            character: 0,
-                        },
-                    },
-                    work_done_progress_params: WorkDoneProgressParams::default(),
-                    partial_result_params: PartialResultParams::default(),
-                })
-                .unwrap(),
-            }))
-            .unwrap();
-
-        let resp = client_connection
-            .receiver
-            .recv_timeout(std::time::Duration::from_secs(2))
-            .unwrap();
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
-
-        assert_json_eq!(result, serde_json::json!(null));
+        assert_json_eq!(result_from_message(resp), serde_json::json!(null));
     }
 
     #[test]
@@ -146,16 +116,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 12);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -177,16 +141,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 1);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -208,16 +166,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 2);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -239,16 +191,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 14);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -270,16 +216,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 21);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -301,16 +241,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 9);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -332,16 +266,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 16);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -363,16 +291,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 3, 15);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -394,16 +316,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 0, 23);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script.to_string().replace("use_module", "module"),
                 "range": {
@@ -425,16 +341,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 3, 6);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script.to_string().replace("use_module", "module"),
                 "range": {
@@ -456,16 +366,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 20);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_include!(
-            actual: result,
+            actual: result_from_message(resp),
             expected: serde_json::json!({
                 "uri": script.to_string().replace("use_module", "module"),
                 "range": {
@@ -476,14 +380,9 @@ mod tests {
         );
 
         let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 25);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_include!(
-            actual: result,
+            actual: result_from_message(resp),
             expected: serde_json::json!({
                 "uri": script.to_string().replace("use_module", "module"),
                 "range": {
@@ -494,14 +393,9 @@ mod tests {
         );
 
         let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 30);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_include!(
-            actual: result,
+            actual: result_from_message(resp),
             expected: serde_json::json!({
                 "uri": script.to_string().replace("use_module", "module"),
                 "range": {

@@ -137,10 +137,10 @@ impl LanguageServer {
 mod tests {
     use crate::path_to_uri;
     use crate::tests::{
-        initialize_language_server, open, open_unchecked, send_hover_request, update,
+        initialize_language_server, open, open_unchecked, result_from_message, send_hover_request,
+        update,
     };
     use assert_json_diff::assert_json_eq;
-    use lsp_server::Message;
     use lsp_types::Range;
     use nu_test_support::fs::fixtures;
 
@@ -155,16 +155,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_hover_request(&client_connection, script.clone(), 0, 0);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
@@ -196,16 +190,10 @@ hello"#,
             ),
             None,
         );
-
         let resp = send_hover_request(&client_connection, script.clone(), 3, 0);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
@@ -241,16 +229,10 @@ hello"#,
                 },
             }),
         );
-
         let resp = send_hover_request(&client_connection, script.clone(), 3, 0);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
