@@ -5,7 +5,7 @@ use nu_protocol::{
         PipelineRedirection, RecordItem,
     },
     engine::StateWorkingSet,
-    DeclId, Span, SyntaxShape, VarId,
+    DeclId, Span, SyntaxShape, Type, VarId,
 };
 use std::fmt::{Display, Formatter, Result};
 
@@ -46,7 +46,10 @@ pub enum FlatShape {
     Table,
     Variable(VarId),
     VarDecl(VarId),
-    Option(Vec<String>),
+    Option {
+        options: Vec<String>,
+        matching: bool,
+    },
 }
 
 impl FlatShape {
@@ -57,7 +60,7 @@ impl FlatShape {
             FlatShape::Bool => "shape_bool",
             FlatShape::Closure => "shape_closure",
             FlatShape::Custom(_) => "shape_custom",
-            FlatShape::Option(_) => "shape_option",
+            FlatShape::Option { .. } => "shape_option",
             FlatShape::DateTime => "shape_datetime",
             FlatShape::Directory => "shape_directory",
             FlatShape::External => "shape_external",
@@ -192,7 +195,13 @@ fn flatten_expression_into(
             return;
         }
         Completion::Options(options) => {
-            output.push((expr.span, FlatShape::Option(options.clone())));
+            output.push((
+                expr.span,
+                FlatShape::Option {
+                    options: options.clone(),
+                    matching: expr.ty == Type::String,
+                },
+            ));
             return;
         }
     }

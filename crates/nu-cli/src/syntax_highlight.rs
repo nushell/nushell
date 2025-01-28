@@ -146,7 +146,13 @@ impl Highlighter for NuHighlighter {
                 FlatShape::Pipe => add_colored_token(&shape.1, next_token),
                 FlatShape::Redirection => add_colored_token(&shape.1, next_token),
                 FlatShape::Custom(..) => add_colored_token(&shape.1, next_token),
-                FlatShape::Option(..) => add_colored_token(&shape.1, next_token),
+                FlatShape::Option { matching, .. } => {
+                    if matching {
+                        add_colored_token(&shape.1, next_token);
+                    } else {
+                        add_colored_token(&FlatShape::Garbage, next_token);
+                    }
+                }
                 FlatShape::MatchPattern => add_colored_token(&shape.1, next_token),
             }
             last_seen_span = shape.0.end;

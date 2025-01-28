@@ -338,7 +338,7 @@ impl NuCompleter {
                                     pos,
                                 );
                             }
-                            FlatShape::Option(options) => {
+                            FlatShape::Option { options, .. } => {
                                 let mut completer = OptionsCompletion::new(options.clone());
                                 return self.process_completion(
                                     &mut completer,
