@@ -200,7 +200,7 @@ fn flatten_expression_into(
                 FlatShape::Option {
                     options: options.clone(),
                     // HACK: A little bit of protocol misuse to avoid searching through options twice, useful for syntax highlighting
-                    // see `parse_value` in `parser.rs` 
+                    // see `parse_value` in `parser.rs`
                     matching: expr.ty == Type::String,
                 },
             ));
