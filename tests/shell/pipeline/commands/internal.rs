@@ -1145,9 +1145,12 @@ fn error_with_traceback() {
             env_config: "tmp_env.nu",
             cwd: dirs.test(),
             r#"def a [x] { if $x == 3 { error make {msg: 'a custom error'}}};a 3"#);
-        let chainerr_cnt: Vec<&str> = actual.err.matches("diagnostic code: chainerr").collect();
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
         // run `a 3`, and it raises error, so there should be 1.
-        assert_eq!(chainerr_cnt.len(), 1);
+        assert_eq!(chained_error_cnt.len(), 1);
         assert!(actual.err.contains("a custom error"));
 
         let actual = nu!(
@@ -1155,18 +1158,24 @@ fn error_with_traceback() {
             cwd: dirs.test(),
             r#"def a [x] { if $x == 3 { error make {msg: 'a custom error'}}};def b [] { a 1; a 3; a 2 };b"#);
 
-        let chainerr_cnt: Vec<&str> = actual.err.matches("diagnostic code: chainerr").collect();
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
         // run `b`, it runs `a 3`, and it raises error, so there should be 2.
-        assert_eq!(chainerr_cnt.len(), 2);
+        assert_eq!(chained_error_cnt.len(), 2);
         assert!(actual.err.contains("a custom error"));
 
         let actual = nu!(
             env_config: "tmp_env.nu",
             cwd: dirs.test(),
             r#"error make {msg: 'a custom err'}"#);
-        let chainerr_cnt: Vec<&str> = actual.err.matches("diagnostic code: chainerr").collect();
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
         // run error make directly, show no traceback is available
-        assert_eq!(chainerr_cnt.len(), 0);
+        assert_eq!(chained_error_cnt.len(), 0);
     });
 }
 
@@ -1185,8 +1194,11 @@ fn liststream_error_with_traceback() {
             env_config: "tmp_env.nu",
             cwd: dirs.test(),
             r#"def a [x] { if $x == 3 { [1] | each {error make {'msg': 'a custom error'}}}};def b [] { a 1; a 3; a 2 };b"#);
-        let chainerr_cnt: Vec<&str> = actual.err.matches("diagnostic code: chainerr").collect();
-        assert_eq!(chainerr_cnt.len(), 1);
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        assert_eq!(chained_error_cnt.len(), 1);
         assert!(actual.err.contains("a custom error"));
         let eval_with_input_cnt: Vec<&str> = actual.err.matches("eval_block_with_input").collect();
         assert_eq!(eval_with_input_cnt.len(), 2);
@@ -1195,8 +1207,11 @@ fn liststream_error_with_traceback() {
             env_config: "tmp_env.nu",
             cwd: dirs.test(),
             r#"[1] | each { error make {msg: 'a custom err'} }"#);
-        let chainerr_cnt: Vec<&str> = actual.err.matches("diagnostic code: chainerr").collect();
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
         // run error make directly, show no traceback is available
-        assert_eq!(chainerr_cnt.len(), 0);
+        assert_eq!(chained_error_cnt.len(), 0);
     });
 }

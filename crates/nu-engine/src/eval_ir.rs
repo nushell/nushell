@@ -557,8 +557,8 @@ fn eval_instruction<D: DebugContext>(
             let mut result = eval_call::<D>(ctx, *decl_id, *span, input)?;
             if need_traceback {
                 match &mut result {
-                    PipelineData::ByteStream(s, ..) => s.push_callback_span(span.clone()),
-                    PipelineData::ListStream(s, ..) => s.push_callback_span(span.clone()),
+                    PipelineData::ByteStream(s, ..) => s.push_caller_span(span.clone()),
+                    PipelineData::ListStream(s, ..) => s.push_caller_span(span.clone()),
                     _ => (),
                 };
             }
@@ -1473,7 +1473,7 @@ fn drain(ctx: &mut EvalContext<'_>, data: PipelineData) -> Result<InstructionRes
     match data {
         PipelineData::ByteStream(stream, ..) => {
             let span = stream.span();
-            let callback_spans = stream.get_callback_spans().clone();
+            let callback_spans = stream.get_caller_spans().clone();
             if let Err(mut err) = stream.drain() {
                 ctx.stack.set_last_error(&err);
                 if callback_spans.is_empty() {
@@ -1492,7 +1492,7 @@ fn drain(ctx: &mut EvalContext<'_>, data: PipelineData) -> Result<InstructionRes
             }
         }
         PipelineData::ListStream(stream, ..) => {
-            let callback_spans = stream.get_callback_spans().clone();
+            let callback_spans = stream.get_caller_spans().clone();
             if let Err(mut err) = stream.drain() {
                 if callback_spans.is_empty() {
                     return Err(err);

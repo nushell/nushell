@@ -193,7 +193,7 @@ pub struct ByteStream {
     signals: Signals,
     type_: ByteStreamType,
     known_size: Option<u64>,
-    callback_spans: Vec<Span>,
+    caller_spans: Vec<Span>,
 }
 
 impl ByteStream {
@@ -210,18 +210,20 @@ impl ByteStream {
             signals,
             type_,
             known_size: None,
-            callback_spans: vec![],
+            caller_spans: vec![],
         }
     }
 
-    pub fn push_callback_span(&mut self, span: Span) {
+    /// Push a caller [`Span`] to the bytestream, it's useful to constract a traceback.
+    pub fn push_caller_span(&mut self, span: Span) {
         if span != self.span {
-            self.callback_spans.push(span)
+            self.caller_spans.push(span)
         }
     }
 
-    pub fn get_callback_spans(&self) -> &Vec<Span> {
-        &self.callback_spans
+    /// Get all caller [`Span`], it's useful to constract a traceback.
+    pub fn get_caller_spans(&self) -> &Vec<Span> {
+        &self.caller_spans
     }
 
     /// Create a [`ByteStream`] from an arbitrary reader. The type must be provided.

@@ -51,7 +51,7 @@ impl miette::Diagnostic for ChainedError {
         if self.first {
             self.sources[0].code()
         } else {
-            Some(Box::new("chainerr"))
+            Some(Box::new("chained_error"))
         }
     }
 
