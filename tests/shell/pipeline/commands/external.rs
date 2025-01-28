@@ -641,6 +641,7 @@ fn exit_code_stops_execution_for_loop() {
     assert!(!actual.err.contains("exited with code 42"));
 }
 
+#[test]
 fn display_error_with_exit_code_stops() {
     Playground::setup("errexit", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
@@ -658,6 +659,7 @@ fn display_error_with_exit_code_stops() {
     });
 }
 
+#[test]
 fn display_error_exit_code_stops_execution_for_loop() {
     Playground::setup("errexit", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
