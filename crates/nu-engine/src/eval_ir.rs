@@ -187,6 +187,7 @@ fn eval_ir_block_impl<D: DebugContext>(
 
     // Program counter, starts at zero.
     let mut pc = 0;
+    let need_traceback = ctx.engine_state.get_env_var("NU_TRACEBACK").is_some();
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
@@ -195,7 +196,7 @@ fn eval_ir_block_impl<D: DebugContext>(
 
         D::enter_instruction(ctx.engine_state, ir_block, pc, ctx.registers);
 
-        let result = eval_instruction::<D>(ctx, instruction, span, ast);
+        let result = eval_instruction::<D>(ctx, instruction, span, ast, need_traceback);
 
         D::leave_instruction(
             ctx.engine_state,
@@ -229,8 +230,12 @@ fn eval_ir_block_impl<D: DebugContext>(
                     prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
                     pc = error_handler.handler_index;
                 } else {
-                    let err = ShellError::into_chainned(err, *span);
-                    return Err(err);
+                    if need_traceback {
+                        let err = ShellError::into_chainned(err, *span);
+                        return Err(err);
+                    } else {
+                        return Err(err);
+                    }
                 }
             }
         }
@@ -285,6 +290,7 @@ fn eval_instruction<D: DebugContext>(
     instruction: &Instruction,
     span: &Span,
     ast: &Option<IrAstRef>,
+    need_traceback: bool,
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
 
@@ -549,8 +555,12 @@ fn eval_instruction<D: DebugContext>(
         Instruction::Call { decl_id, src_dst } => {
             let input = ctx.take_reg(*src_dst);
             let mut result = eval_call::<D>(ctx, *decl_id, *span, input)?;
-            if let PipelineData::ByteStream(s, ..) = &mut result {
-                s.push_callback_span(span.clone());
+            if need_traceback {
+                match &mut result {
+                    PipelineData::ByteStream(s, ..) => s.push_callback_span(span.clone()),
+                    PipelineData::ListStream(s, ..) => s.push_callback_span(span.clone()),
+                    _ => (),
+                };
             }
             ctx.put_reg(*src_dst, result);
             Ok(Continue)
@@ -1481,7 +1491,22 @@ fn drain(ctx: &mut EvalContext<'_>, data: PipelineData) -> Result<InstructionRes
                 ctx.stack.set_last_exit_code(0, span);
             }
         }
-        PipelineData::ListStream(stream, ..) => stream.drain()?,
+        PipelineData::ListStream(stream, ..) => {
+            let callback_spans = stream.get_callback_spans().clone();
+            if let Err(mut err) = stream.drain() {
+                if callback_spans.is_empty() {
+                    return Err(err);
+                } else {
+                    for s in callback_spans {
+                        err = ShellError::EvalBlockWithInput {
+                            span: s,
+                            sources: vec![err],
+                        }
+                    }
+                    return Err(err);
+                }
+            }
+        }
         PipelineData::Value(..) | PipelineData::Empty => {}
     }
     Ok(Continue)

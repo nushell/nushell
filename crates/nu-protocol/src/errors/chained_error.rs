@@ -1,6 +1,6 @@
 use super::shell_error::ShellError;
 use crate::Span;
-use miette::{Diagnostic, LabeledSpan, Severity, SourceCode};
+use miette::{LabeledSpan, Severity, SourceCode};
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Error)]
@@ -46,29 +46,7 @@ impl miette::Diagnostic for ChainedError {
             Some(Box::new(self.sources.iter().map(|s| s as _)))
         }
     }
-    // fn related<'a>(&'a self) -> Option<Box<dyn Iterator<Item = &'a dyn miette::Diagnostic> + 'a>> {
-    //     if self.first {
-    //         None
-    //     } else {
-    //         let nested_related: Vec<&dyn miette::Diagnostic> = self
-    //             .sources
-    //             .iter()
-    //             .flat_map(|source| {
-    //                 let mut related_diagnostics: Vec<&dyn miette::Diagnostic> = vec![source];
-    //                 if let ShellError::EvalBlockWithInput { sources, .. } = source {
-    //                     related_diagnostics
-    //                         .extend(sources.iter().map(|s| s as &dyn miette::Diagnostic));
-    //                 }
-    //                 related_diagnostics
-    //             })
-    //             .collect();
-    //         if nested_related.is_empty() {
-    //             None
-    //         } else {
-    //             Some(Box::new(nested_related.into_iter()))
-    //         }
-    //     }
-    // }
+
     fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         if self.first {
             self.sources[0].code()
