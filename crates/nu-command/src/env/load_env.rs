@@ -1,4 +1,4 @@
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, is_automatic_env_var};
 
 #[derive(Clone)]
 pub struct LoadEnv;
@@ -52,10 +52,10 @@ impl Command for LoadEnv {
             },
         };
 
-        for prohibited in ["FILE_PWD", "CURRENT_FILE", "PWD"] {
-            if record.contains(prohibited) {
+        for (k, _) in &record {
+            if is_automatic_env_var(k, false) {
                 return Err(ShellError::AutomaticEnvVarSetManually {
-                    envvar_name: prohibited.to_string(),
+                    envvar_name: k.to_string(),
                     span: call.head,
                 });
             }

@@ -23,7 +23,7 @@ use nu_engine::env_to_strings;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{expand_path_with, EngineState, Stack, StateWorkingSet},
     report_shell_error, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
     Value,
 };
@@ -795,6 +795,24 @@ enum ReplOperation {
     DoNothing,
 }
 
+fn is_dir(path: &Path) -> bool {
+    #[cfg(not(windows))]
+    {
+        path.is_dir()
+    }
+    #[cfg(windows)]
+    {
+        path.is_dir()
+            || if let Some(path) = path.to_str() {
+                path.ends_with("\\")
+                    && path.len() == 3
+                    && DRIVE_PATH_REGEX.is_match(path).unwrap_or(false)
+            } else {
+                false
+            }
+    }
+}
+
 ///
 /// Parses one "REPL line" of input, to try and derive intent.
 /// Notably, this is where we detect whether the user is attempting an
@@ -818,8 +836,8 @@ fn parse_operation(
         orig = trim_quotes_str(&orig).to_string()
     }
 
-    let path = nu_path::expand_path_with(&orig, &cwd, true);
-    if looks_like_path(&orig) && path.is_dir() && tokens.0.len() == 1 {
+    let path = expand_path_with(stack, engine_state, &orig, &cwd, true);
+    if looks_like_path(&orig) && is_dir(&path) && tokens.0.len() == 1 {
         Ok(ReplOperation::AutoCd {
             cwd,
             target: path,
@@ -835,11 +853,11 @@ fn parse_operation(
 ///
 /// Execute an "auto-cd" operation, changing the current working directory.
 ///
-fn do_auto_cd(
+pub fn do_auto_cd(
     path: PathBuf,
     cwd: String,
     stack: &mut Stack,
-    engine_state: &mut EngineState,
+    engine_state: &EngineState,
     span: Span,
 ) {
     let path = {
@@ -1464,7 +1482,7 @@ mod test_auto_cd {
     #[track_caller]
     fn check(before: impl AsRef<AbsolutePath>, input: &str, after: impl AsRef<AbsolutePath>) {
         // Setup EngineState and Stack.
-        let mut engine_state = EngineState::new();
+        let engine_state = EngineState::new();
         let mut stack = Stack::new();
         stack.set_cwd(before.as_ref()).unwrap();
 
@@ -1475,7 +1493,7 @@ mod test_auto_cd {
         };
 
         // Perform the auto-cd operation.
-        do_auto_cd(target, cwd, &mut stack, &mut engine_state, span);
+        do_auto_cd(target, cwd, &mut stack, &engine_state, span);
         let updated_cwd = engine_state.cwd(Some(&stack)).unwrap();
 
         // Check that `updated_cwd` and `after` point to the same place. They

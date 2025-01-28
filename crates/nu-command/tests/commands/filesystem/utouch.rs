@@ -791,3 +791,35 @@ fn no_follow_symlinks() {
         assert_ne!(file_missing_symlink_times, (TIME_ONE, TIME_ONE));
     })
 }
+
+#[cfg(windows)]
+#[test]
+fn test_pwd_per_drive() {
+    Playground::setup("test_touch_pwd_per_drive", |dirs, sandbox| {
+        sandbox.mkdir("test_folder");
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst Q: /D | touch out
+                subst Q: test_folder
+                q:
+                mkdir test_folder_on_q
+                cd -
+                q:test_folder_on_q\
+                cd -
+                touch q:test_file_on_q.txt
+                sleep 1sec
+            "#
+        );
+        let expected_file = dirs
+            .test()
+            .join(r"test_folder\test_folder_on_q\test_file_on_q.txt");
+        assert!(expected_file.exists());
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst Q: /D | touch out
+            "#
+        );
+    })
+}

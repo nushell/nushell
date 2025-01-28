@@ -862,3 +862,29 @@ fn consistent_list_order() {
         assert_eq!(no_arg.out, with_arg.out);
     })
 }
+
+#[cfg(windows)]
+#[test]
+fn support_pwd_per_drive() {
+    Playground::setup("ls_test_pwd_per_drive", |dirs, sandbox| {
+        sandbox.mkdir("test_folder");
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst Z: /D | touch out
+                subst Z: test_folder
+                Z:
+                mkdir test_folder_on_z
+                cd -
+                z:test_folder_on_z\
+                touch test_file_on_z.txt
+                cd -
+                ls z: | get name | save test_folder\result.out.txt
+                subst Z: /D | touch out
+                open test_folder\result.out.txt
+            "#
+        );
+        assert_eq!(_actual.out, r"Z:\test_folder_on_z\test_file_on_z.txt");
+        assert!(_actual.err.is_empty());
+    })
+}

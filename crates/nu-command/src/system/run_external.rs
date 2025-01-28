@@ -1,3 +1,4 @@
+use nu_cli::do_auto_cd;
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{dots::expand_ndots_safe, expand_tilde, AbsolutePath};
@@ -66,13 +67,32 @@ impl Command for External {
             _ => Cow::Owned(name.clone().coerce_into_string()?),
         };
 
-        let expanded_name = match &name {
+        let mut expanded_name = match &name {
             // Expand tilde and ndots on the name if it's a bare string / glob (#13000)
             Value::Glob { no_expand, .. } if !*no_expand => {
                 expand_ndots_safe(expand_tilde(&*name_str))
             }
             _ => Path::new(&*name_str).to_owned(),
         };
+
+        if call.req::<Value>(engine_state, stack, 1).is_err() && expanded_name.is_dir() {
+            expanded_name = nu_protocol::engine::expand_path_with(
+                stack,
+                engine_state,
+                expanded_name,
+                cwd.clone(),
+                false,
+            );
+            // do_auto_cd() report ShellError via report_shell_error() and does not return error.
+            do_auto_cd(
+                expanded_name,
+                cwd.to_string_lossy().to_string(),
+                stack,
+                engine_state,
+                Span::unknown(),
+            );
+            return Ok(PipelineData::Empty);
+        }
 
         // On Windows, the user could have run the cmd.exe built-in "assoc" command
         // Example: "assoc .nu=nuscript" and then run the cmd.exe built-in "ftype" command
@@ -307,9 +327,16 @@ pub fn eval_external_arguments(
         match arg {
             // Expand globs passed to run-external
             Value::Glob { val, no_expand, .. } if !no_expand => args.extend(
-                expand_glob(&val, cwd.as_std_path(), span, engine_state.signals())?
-                    .into_iter()
-                    .map(|s| s.into_spanned(span)),
+                expand_glob(
+                    stack,
+                    engine_state,
+                    &val,
+                    cwd.as_std_path(),
+                    span,
+                    engine_state.signals(),
+                )?
+                .into_iter()
+                .map(|s| s.into_spanned(span)),
             ),
             other => args
                 .push(OsString::from(coerce_into_string(engine_state, other)?).into_spanned(span)),
@@ -337,6 +364,8 @@ fn coerce_into_string(engine_state: &EngineState, val: Value) -> Result<String, 
 /// Note: This matches the default behavior of Bash, but is known to be
 /// error-prone. We might want to change this behavior in the future.
 fn expand_glob(
+    stack: &Stack,
+    engine_state: &EngineState,
     arg: &str,
     cwd: &Path,
     span: Span,
@@ -352,7 +381,8 @@ fn expand_glob(
     // We must use `nu_engine::glob_from` here, in order to ensure we get paths from the correct
     // dir
     let glob = NuGlob::Expand(arg.to_owned()).into_spanned(span);
-    if let Ok((prefix, matches)) = nu_engine::glob_from(&glob, cwd, span, None) {
+    if let Ok((prefix, matches)) = nu_engine::glob_from(stack, engine_state, &glob, cwd, span, None)
+    {
         let mut result: Vec<OsString> = vec![];
 
         for m in matches {
@@ -652,31 +682,88 @@ mod test {
             play.with_files(&[Stub::EmptyFile("a.txt"), Stub::EmptyFile("b.txt")]);
 
             let cwd = dirs.test().as_std_path();
-
-            let actual = expand_glob("*.txt", cwd, Span::unknown(), &Signals::empty()).unwrap();
+            let stack = Stack::new();
+            let engine_state = EngineState::new();
+            let actual = expand_glob(
+                &stack,
+                &engine_state,
+                "*.txt",
+                cwd,
+                Span::unknown(),
+                &Signals::empty(),
+            )
+            .unwrap();
             let expected = &["a.txt", "b.txt"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("./*.txt", cwd, Span::unknown(), &Signals::empty()).unwrap();
+            let actual = expand_glob(
+                &stack,
+                &engine_state,
+                "./*.txt",
+                cwd,
+                Span::unknown(),
+                &Signals::empty(),
+            )
+            .unwrap();
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("'*.txt'", cwd, Span::unknown(), &Signals::empty()).unwrap();
+            let actual = expand_glob(
+                &stack,
+                &engine_state,
+                "'*.txt'",
+                cwd,
+                Span::unknown(),
+                &Signals::empty(),
+            )
+            .unwrap();
             let expected = &["'*.txt'"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob(".", cwd, Span::unknown(), &Signals::empty()).unwrap();
+            let actual = expand_glob(
+                &stack,
+                &engine_state,
+                ".",
+                cwd,
+                Span::unknown(),
+                &Signals::empty(),
+            )
+            .unwrap();
             let expected = &["."];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("./a.txt", cwd, Span::unknown(), &Signals::empty()).unwrap();
+            let actual = expand_glob(
+                &stack,
+                &engine_state,
+                "./a.txt",
+                cwd,
+                Span::unknown(),
+                &Signals::empty(),
+            )
+            .unwrap();
             let expected = &["./a.txt"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("[*.txt", cwd, Span::unknown(), &Signals::empty()).unwrap();
+            let actual = expand_glob(
+                &stack,
+                &engine_state,
+                "[*.txt",
+                cwd,
+                Span::unknown(),
+                &Signals::empty(),
+            )
+            .unwrap();
             let expected = &["[*.txt"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("~/foo.txt", cwd, Span::unknown(), &Signals::empty()).unwrap();
+            let actual = expand_glob(
+                &stack,
+                &engine_state,
+                "~/foo.txt",
+                cwd,
+                Span::unknown(),
+                &Signals::empty(),
+            )
+            .unwrap();
             let home = dirs::home_dir().expect("failed to get home dir");
             let expected: Vec<OsString> = vec![home.join("foo.txt").into()];
             assert_eq!(actual, expected);

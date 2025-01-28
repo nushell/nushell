@@ -448,3 +448,30 @@ fn test_metadata_without_raw() {
         assert!(result.out.contains("appveyor.yml"));
     })
 }
+
+#[cfg(windows)]
+#[test]
+fn test_pwd_per_drive() {
+    Playground::setup("test_open_pwd_per_drive", |dirs, sandbox| {
+        let sub_dir = "test_folder";
+        sandbox.mkdir(sub_dir);
+        sandbox
+            .within(sub_dir)
+            .with_files(&[FileWithContent("test_file.txt", "hello")]);
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst W: /D | touch out
+                subst W: test_folder
+                open W:test_file.txt
+            "#
+        );
+        assert!(_actual.out.contains("hello"));
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst W: /D | touch out
+            "#
+        );
+    });
+}

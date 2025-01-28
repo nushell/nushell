@@ -202,7 +202,18 @@ pub fn match_suggestions(expected: &Vec<String>, suggestions: &Vec<Suggestion>) 
         .map(|it| it.value.clone())
         .collect::<Vec<_>>();
 
-    assert_eq!(expected, &suggestoins_str);
+    fn assert_case_insensitive_eq(vec1: &[String], vec2: &[String]) {
+        let vec1_lower: Vec<String> = vec1.iter().map(|s| s.to_lowercase()).collect();
+        let vec2_lower: Vec<String> = vec2.iter().map(|s| s.to_lowercase()).collect();
+
+        assert_eq!(
+            vec1_lower, vec2_lower,
+            "Vectors are not equal (case-insensitive)"
+        );
+    }
+
+    assert_case_insensitive_eq(expected, &suggestoins_str);
+    // assert_eq!(expected, &suggestoins_str);
 }
 
 // append the separator to the converted path

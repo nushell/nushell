@@ -1,5 +1,9 @@
 use nu_engine::command_prelude::*;
+#[cfg(windows)]
+use nu_protocol::engine::expand_pwd;
 use nu_protocol::{ListStream, Signals};
+#[cfg(windows)]
+use std::path::Path;
 use wax::{Glob as WaxGlob, WalkBehavior, WalkEntry};
 
 #[derive(Clone)]
@@ -66,13 +70,13 @@ impl Command for Glob {
             },
             Example {
                 description:
-                    "Search for files and folders that begin with uppercase C or lowercase c",
+                "Search for files and folders that begin with uppercase C or lowercase c",
                 example: r#"glob "[Cc]*""#,
                 result: None,
             },
             Example {
                 description:
-                    "Search for files and folders like abc or xyz substituting a character for ?",
+                "Search for files and folders like abc or xyz substituting a character for ?",
                 example: r#"glob "{a?c,x?z}""#,
                 result: None,
             },
@@ -169,28 +173,50 @@ impl Command for Glob {
             });
         }
 
-        // below we have to check / instead of MAIN_SEPARATOR because glob uses / as separator
-        // using a glob like **\*.rs should fail because it's not a valid glob pattern
-        let folder_depth = if let Some(depth) = depth {
-            depth
-        } else if glob_pattern.contains("**") {
-            usize::MAX
-        } else if glob_pattern.contains('/') {
-            glob_pattern.split('/').count() + 1
+        // Handle drive letter normalization
+        let (prefix, glob) = if cfg!(windows)
+            && glob_pattern.len() > 2
+            && glob_pattern.chars().nth(1) == Some(':')
+        {
+            let parts: Vec<_> = glob_pattern.splitn(2, ':').collect();
+            let drive = format!("{}:/", parts[0]);
+            #[cfg(windows)]
+            let drive = if let Some(abs_path) =
+                expand_pwd(stack, engine_state, Path::new(&format!("{}:", parts[0])))
+            {
+                if let Some(abs_path) = abs_path.to_str() {
+                    abs_path.to_string()
+                } else {
+                    drive
+                }
+            } else {
+                drive
+            };
+            let rest = parts.get(1).cloned().unwrap_or("");
+            match WaxGlob::new(rest) {
+                Ok(glob) => (drive.into(), glob),
+                Err(e) => {
+                    return Err(ShellError::GenericError {
+                        error: "error with glob pattern".into(),
+                        msg: format!("{e}"),
+                        span: Some(glob_span),
+                        help: None,
+                        inner: vec![],
+                    })
+                }
+            }
         } else {
-            1
-        };
-
-        let (prefix, glob) = match WaxGlob::new(&glob_pattern) {
-            Ok(p) => p.partition(),
-            Err(e) => {
-                return Err(ShellError::GenericError {
-                    error: "error with glob pattern".into(),
-                    msg: format!("{e}"),
-                    span: Some(glob_span),
-                    help: None,
-                    inner: vec![],
-                })
+            match WaxGlob::new(&glob_pattern) {
+                Ok(p) => p.partition(),
+                Err(e) => {
+                    return Err(ShellError::GenericError {
+                        error: "error with glob pattern".into(),
+                        msg: format!("{e}"),
+                        span: Some(glob_span),
+                        help: None,
+                        inner: vec![],
+                    })
+                }
             }
         };
 
@@ -219,7 +245,7 @@ impl Command for Glob {
                 .walk_with_behavior(
                     path,
                     WalkBehavior {
-                        depth: folder_depth,
+                        depth: depth.unwrap_or(usize::MAX),
                         ..Default::default()
                     },
                 )
@@ -246,7 +272,7 @@ impl Command for Glob {
                 .walk_with_behavior(
                     path,
                     WalkBehavior {
-                        depth: folder_depth,
+                        depth: depth.unwrap_or(usize::MAX),
                         ..Default::default()
                     },
                 )

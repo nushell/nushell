@@ -568,3 +568,37 @@ fn rm_with_tilde() {
         assert!(!files_exist_at(&["~tilde"], dirs.test()));
     })
 }
+
+#[cfg(windows)]
+#[test]
+fn test_pwd_per_drive() {
+    Playground::setup("test_rm_pwd_per_drive", |dirs, sandbox| {
+        sandbox.mkdir("test_folder");
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst V: /D | touch out
+                subst V: test_folder
+                V:
+                mkdir test_folder_on_v
+                cd -
+                v:test_folder_on_v\
+                touch test_file_on_v.txt
+                cd -
+            "#
+        );
+        assert!(_actual.err.is_empty());
+        let expected_file = dirs
+            .test()
+            .join(r"test_folder\test_folder_on_v\test_file_on_v.txt");
+        assert!(expected_file.exists());
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                rm v:test_folder_on_v\test_file_on_v.txt
+                subst V: /D | touch out
+            "#
+        );
+        assert!(!expected_file.exists());
+    })
+}

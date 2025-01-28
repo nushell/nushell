@@ -173,3 +173,28 @@ fn glob_files_in_parent(
         assert_eq!(actual.out, expected, "\n  test: {}", tag);
     });
 }
+
+#[cfg(windows)]
+#[test]
+fn test_windows_path_syntax() {
+    Playground::setup("test_glob_windows_path_syntax", |dirs, sandbox| {
+        let sub_dir = "test_folder";
+        sandbox.mkdir(sub_dir);
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst O: /D | touch out
+                subst O: test_folder
+                touch O:test_file.txt
+                glob O:*txt | length
+            "#
+        );
+        assert_eq!(_actual.out, "1");
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst O: /D | touch out
+            "#
+        );
+    });
+}

@@ -1,7 +1,6 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
-use nu_path::expand_path_with;
-use nu_protocol::NuGlob;
+use nu_protocol::{engine::expand_path_with, NuGlob};
 use std::{ffi::OsString, path::PathBuf};
 use uu_mv::{BackupMode, UpdateMode};
 
@@ -115,8 +114,14 @@ impl Command for UMv {
                 error: "Missing destination path".into(),
                 msg: format!(
                     "Missing destination path operand after {}",
-                    expand_path_with(paths[0].item.as_ref(), cwd, paths[0].item.is_expand())
-                        .to_string_lossy()
+                    expand_path_with(
+                        stack,
+                        engine_state,
+                        paths[0].item.as_ref(),
+                        cwd,
+                        paths[0].item.is_expand()
+                    )
+                    .to_string_lossy()
                 ),
                 span: Some(paths[0].span),
                 help: None,
@@ -134,7 +139,7 @@ impl Command for UMv {
         for mut p in paths {
             p.item = p.item.strip_ansi_string_unlikely();
             let exp_files: Vec<Result<PathBuf, ShellError>> =
-                nu_engine::glob_from(&p, &cwd, call.head, None)
+                nu_engine::glob_from(stack, engine_state, &p, &cwd, call.head, None)
                     .map(|f| f.1)?
                     .collect();
             if exp_files.is_empty() {
@@ -160,7 +165,7 @@ impl Command for UMv {
         for (files, need_expand_tilde) in files.iter_mut() {
             for src in files.iter_mut() {
                 if !src.is_absolute() {
-                    *src = nu_path::expand_path_with(&*src, &cwd, *need_expand_tilde);
+                    *src = expand_path_with(stack, engine_state, &*src, &cwd, *need_expand_tilde);
                 }
             }
         }
@@ -168,6 +173,8 @@ impl Command for UMv {
 
         // Add back the target after globbing
         let abs_target_path = expand_path_with(
+            stack,
+            engine_state,
             nu_utils::strip_ansi_string_unlikely(spanned_target.item.to_string()),
             &cwd,
             matches!(spanned_target.item, NuGlob::Expand(..)),

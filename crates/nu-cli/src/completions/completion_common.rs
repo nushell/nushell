@@ -4,6 +4,8 @@ use nu_ansi_term::Style;
 use nu_engine::env_to_string;
 use nu_path::dots::expand_ndots;
 use nu_path::{expand_to_real_path, home_dir};
+#[cfg(windows)]
+use nu_protocol::engine::expand_pwd;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Span,
@@ -174,6 +176,17 @@ pub fn complete_item(
 ) -> Vec<FileSuggestion> {
     let cleaned_partial = surround_remove(partial);
     let isdir = cleaned_partial.ends_with(is_separator);
+    #[cfg(windows)]
+    let cleaned_partial =
+        if let Some(absolute_path) = expand_pwd(stack, engine_state, Path::new(&cleaned_partial)) {
+            if let Some(abs_path_str) = absolute_path.as_path().to_str() {
+                abs_path_str.to_string()
+            } else {
+                absolute_path.display().to_string()
+            }
+        } else {
+            cleaned_partial
+        };
     let expanded_partial = expand_ndots(Path::new(&cleaned_partial));
     let should_collapse_dots = expanded_partial != Path::new(&cleaned_partial);
     let mut partial = expanded_partial.to_string_lossy().to_string();

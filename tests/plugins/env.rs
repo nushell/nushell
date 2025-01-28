@@ -49,7 +49,14 @@ fn get_current_dir() {
             cwd.chars().next().unwrap().to_ascii_uppercase(),
             result.out.chars().next().unwrap().to_ascii_uppercase()
         );
-        assert_eq!(cwd[1..], result.out[1..]);
+        // Once my windows gives the current directory for different case
+        // Actual "E:\\Study", got "E:\\study"
+        //left: ":\\study\\nushell\\tests"
+        //right: ":\\Study\\nushell\\tests"
+        assert_eq!(
+            cwd[1..].to_ascii_uppercase(),
+            result.out[1..].to_ascii_uppercase()
+        );
     }
 }
 

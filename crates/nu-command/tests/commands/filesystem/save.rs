@@ -534,3 +534,29 @@ fn force_save_to_dir() {
 
     assert!(actual.err.contains("Is a directory"));
 }
+
+#[cfg(windows)]
+#[test]
+fn support_pwd_per_drive() {
+    Playground::setup("save_test_pwd_per_drive", |dirs, sandbox| {
+        sandbox.mkdir("test_folder");
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst U: /D | touch out
+                subst U: test_folder
+                u:
+                mkdir test_folder_on_u
+                cd -
+                u:test_folder_on_u\
+                touch test_file_on_u.txt
+                cd -
+                ls test_folder | get name | save u:result.out.txt
+                subst U: /D | touch out
+                open test_folder\test_folder_on_u\result.out.txt
+            "#
+        );
+        assert_eq!(_actual.out, r"test_folder\test_folder_on_u");
+        assert!(_actual.err.is_empty());
+    })
+}

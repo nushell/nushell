@@ -1,3 +1,5 @@
+#[cfg(windows)]
+use crate::engine::set_pwd;
 use crate::{
     engine::{
         ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
@@ -251,6 +253,18 @@ impl Stack {
     }
 
     pub fn add_env_var(&mut self, var: String, value: Value) {
+        let _ = self.add_env_var_with_result(var, value);
+    }
+    pub fn add_env_var_with_result(&mut self, var: String, value: Value) -> Result<(), ShellError> {
+        #[cfg(not(windows))]
+        let result = Ok(());
+        #[cfg(windows)]
+        let result = if var == "PWD" {
+            set_pwd(self, value.clone())
+        } else {
+            Ok(())
+        };
+
         if let Some(last_overlay) = self.active_overlays.last() {
             if let Some(env_hidden) = Arc::make_mut(&mut self.env_hidden).get_mut(last_overlay) {
                 // if the env var was hidden, let's activate it again
@@ -275,6 +289,7 @@ impl Stack {
             // TODO: Remove panic
             panic!("internal error: no active overlay");
         }
+        result
     }
 
     pub fn set_last_exit_code(&mut self, code: i32, span: Span) {
@@ -764,8 +779,7 @@ impl Stack {
             // Strip trailing slashes, if any.
             let path = nu_path::strip_trailing_slash(path);
             let value = Value::string(path.to_string_lossy(), Span::unknown());
-            self.add_env_var("PWD".into(), value);
-            Ok(())
+            self.add_env_var_with_result("PWD".into(), value)
         }
     }
 }

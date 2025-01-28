@@ -114,3 +114,33 @@ fn test_du_output_columns() {
     );
     assert_eq!(actual.out, "path,apparent,physical,directories,files");
 }
+
+#[cfg(windows)]
+#[test]
+fn support_pwd_per_drive() {
+    Playground::setup("du_test_pwd_per_drive", |dirs, sandbox| {
+        sandbox.mkdir("test_folder");
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst Y: /D | touch out
+                subst Y: test_folder
+                Y:
+                mkdir test_folder_on_x
+                cd -
+                Y:test_folder_on_x\
+                touch test_file_on_x.txt
+                cd -
+                du Y: | length
+            "#
+        );
+        assert_eq!(_actual.out, "1");
+        assert!(_actual.err.is_empty());
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst Y: /D | touch out
+            "#
+        );
+    })
+}

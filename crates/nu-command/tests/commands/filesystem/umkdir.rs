@@ -172,3 +172,32 @@ fn mkdir_with_tilde() {
         assert!(files_exist_at(&["~tilde2"], dirs.test()));
     })
 }
+
+#[cfg(windows)]
+#[test]
+fn test_pwd_per_drive() {
+    Playground::setup("test_mkdir_pwd_per_drive", |dirs, sandbox| {
+        sandbox.mkdir("test_folder");
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst S: /D | touch out
+                subst S: test_folder
+                mkdir S:test_folder_on_s
+                s:test_folder_on_s\
+                touch test_file_on_s.txt
+                cd -
+            "#
+        );
+        let expected_file = dirs
+            .test()
+            .join(r"test_folder\test_folder_on_s\test_file_on_s.txt");
+        assert!(expected_file.exists());
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst S: /D | touch out
+            "#
+        );
+    })
+}

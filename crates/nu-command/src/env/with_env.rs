@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, eval_block};
+use nu_engine::{command_prelude::*, eval_block, is_automatic_env_var};
 use nu_protocol::{debugger::WithoutDebug, engine::Closure};
 
 #[derive(Clone)]
@@ -62,11 +62,10 @@ fn with_env(
     let block = engine_state.get_block(capture_block.block_id);
     let mut stack = stack.captures_to_stack_preserve_out_dest(capture_block.captures);
 
-    // TODO: factor list of prohibited env vars into common place
-    for prohibited in ["PWD", "FILE_PWD", "CURRENT_FILE"] {
-        if env.contains(prohibited) {
+    for (k, _) in &env {
+        if is_automatic_env_var(k, false) {
             return Err(ShellError::AutomaticEnvVarSetManually {
-                envvar_name: prohibited.into(),
+                envvar_name: k.to_string(),
                 span: call.head,
             });
         }

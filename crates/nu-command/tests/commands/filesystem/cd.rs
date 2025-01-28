@@ -323,3 +323,56 @@ fn pwd_recovery() {
 
     assert_eq!(actual.out, "/");
 }
+
+#[cfg(windows)]
+#[test]
+fn filesystem_from_non_root_change_to_another_drive_non_root_then_using_relative_path_go_back() {
+    Playground::setup("cd_test_22", |dirs, sandbox| {
+        sandbox.mkdir("test_folder");
+
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst X: /D | touch out
+                subst X: test_folder
+                echo $env.PWD
+            "#
+        );
+        eprintln!("StdOut: {}", _actual.out);
+        eprintln!("StdErr: {}", _actual.err);
+        assert!(_actual.out.trim().ends_with(r"\cd_test_22"));
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                cd x:
+                echo $env.PWD
+            "#
+        );
+        eprintln!("StdOut: {}", _actual.out);
+        eprintln!("StdErr: {}", _actual.err);
+        assert_eq!(_actual.out, r"X:\");
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                cd x:
+                touch test_file_on_x.txt
+                cd -
+                echo $env.PWD
+            "#
+        );
+        eprintln!("StdOut: {}", _actual.out);
+        eprintln!("StdErr: {}", _actual.err);
+        assert!(_actual.out.trim().ends_with(r"\cd_test_22"));
+        assert!(dirs
+            .test
+            .join("test_folder")
+            .join("test_file_on_x.txt")
+            .exists());
+        let _actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                subst X: /D | touch out
+            "#
+        );
+    })
+}

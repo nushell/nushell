@@ -2,8 +2,7 @@ use chrono::{DateTime, FixedOffset};
 use filetime::FileTime;
 use nu_engine::command_prelude::*;
 use nu_glob::{glob, is_glob};
-use nu_path::expand_path_with;
-use nu_protocol::NuGlob;
+use nu_protocol::{engine::expand_path_with, NuGlob};
 use std::{io::ErrorKind, path::PathBuf};
 use uu_touch::{error::TouchError, ChangeTimes, InputFile, Options, Source};
 
@@ -131,7 +130,7 @@ impl Command for UTouch {
                 timestamp.item.timestamp_subsec_nanos(),
             ))
         } else if let Some(reference_file) = reference_file {
-            let reference_file = expand_path_with(reference_file, &cwd, true);
+            let reference_file = expand_path_with(stack, engine_state, reference_file, &cwd, true);
             Source::Reference(reference_file)
         } else {
             Source::Now
@@ -150,8 +149,13 @@ impl Command for UTouch {
             if file_glob.item.as_ref() == "-" {
                 input_files.push(InputFile::Stdout);
             } else {
-                let file_path =
-                    expand_path_with(file_glob.item.as_ref(), &cwd, file_glob.item.is_expand());
+                let file_path = expand_path_with(
+                    stack,
+                    engine_state,
+                    file_glob.item.as_ref(),
+                    &cwd,
+                    file_glob.item.is_expand(),
+                );
 
                 if !file_glob.item.is_expand() {
                     input_files.push(InputFile::Path(file_path));

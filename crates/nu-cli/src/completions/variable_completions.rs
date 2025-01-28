@@ -1,5 +1,7 @@
 use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
 use nu_engine::{column::get_columns, eval_variable};
+#[cfg(windows)]
+use nu_protocol::engine::is_env_var_for_drive;
 use nu_protocol::{
     engine::{Stack, StateWorkingSet},
     Span, Value,
@@ -46,7 +48,15 @@ impl Completer for VariableCompletion {
         if !var_str.is_empty() {
             // Completion for $env.<tab>
             if var_str == "$env" {
+                #[cfg(not(windows))]
                 let env_vars = stack.get_env_vars(working_set.permanent_state);
+                #[cfg(windows)]
+                let env_vars = {
+                    let mut env_vars = stack.get_env_vars(working_set.permanent_state);
+                    // Hide env_vars for PWD-per-drive from being listed in completion selection
+                    env_vars.retain(|key, _| !is_env_var_for_drive(key));
+                    env_vars
+                };
 
                 // Return nested values
                 if sublevels_count > 0 {
