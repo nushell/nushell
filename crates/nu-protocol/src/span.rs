@@ -224,8 +224,9 @@ impl From<Span> for SourceSpan {
 
 /// An extension trait for [`Result`], which adds a span to the error type.
 ///
-/// This trait might be removed later, since the old [`Spanned<std::io::Error>`] to [`ShellError`]
-/// conversion was replaced by [`IoError`](io_error::IoError).
+/// This trait might be removed later, since the old [`Spanned<std::io::Error>`] to
+/// [`ShellError`](crate::ShellError) conversion was replaced by
+/// [`IoError`](crate::shell_error::io::IoError).
 pub trait ErrSpan {
     type Result;
 

@@ -126,7 +126,7 @@ impl PipelineData {
     /// Determine if the `PipelineData` is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`.
     ///
     /// This check makes no effort to collect a stream, so it may be a different result
-    /// than would be returned by calling [`Value::is_subtype()`] on the result of
+    /// than would be returned by calling [`Value::is_subtype_of()`] on the result of
     /// [`.into_value()`](Self::into_value).
     ///
     /// A `ListStream` acts the same as an empty list type: it is a subtype of any [`list`](Type::List)
