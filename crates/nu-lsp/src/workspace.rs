@@ -846,7 +846,7 @@ mod tests {
                     serde_json::json!({
                             "contents": {
                             "kind": "markdown",
-                            "value": "\n-----\n### Usage \n```nu\n  foo str {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                            "value": "\n---\n### Usage \n```nu\n  foo str {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                         }
                     }),
                 ),

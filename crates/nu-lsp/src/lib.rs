@@ -423,19 +423,20 @@ impl LanguageServer {
         }
     }
 
-    fn get_decl_description(decl: &dyn Command) -> String {
+    fn get_decl_description(decl: &dyn Command, skip_description: bool) -> String {
         let mut description = String::new();
 
-        // First description
-        description.push_str(&format!("{}\n", decl.description().replace('\r', "")));
+        if !skip_description {
+            // First description
+            description.push_str(&format!("{}\n", decl.description().replace('\r', "")));
 
-        // Additional description
-        if !decl.extra_description().is_empty() {
-            description.push_str(&format!("\n{}\n", decl.extra_description()));
+            // Additional description
+            if !decl.extra_description().is_empty() {
+                description.push_str(&format!("\n{}\n", decl.extra_description()));
+            }
         }
-
         // Usage
-        description.push_str("-----\n### Usage \n```nu\n");
+        description.push_str("---\n### Usage \n```nu\n");
         let signature = decl.signature();
         description.push_str(&format!("  {}", signature.name));
         if !signature.named.is_empty() {
@@ -588,21 +589,24 @@ impl LanguageServer {
         match id {
             Id::Variable(var_id) => {
                 let var = working_set.get_variable(var_id);
+                let value = var
+                    .const_val
+                    .clone()
+                    .and_then(|v| v.coerce_into_string().ok())
+                    .map(|s| format!("\n---\n{}", s))
+                    .unwrap_or_default();
                 let contents = format!(
-                    "{}{} `{}`",
-                    if var.const_val.is_some() {
-                        "const "
-                    } else {
-                        ""
-                    },
+                    "{} ```\n{}\n``` {}",
                     if var.mutable { "mutable " } else { "" },
                     var.ty,
+                    value
                 );
                 markdown_hover(contents)
             }
-            Id::Declaration(decl_id) => {
-                markdown_hover(Self::get_decl_description(working_set.get_decl(decl_id)))
-            }
+            Id::Declaration(decl_id) => markdown_hover(Self::get_decl_description(
+                working_set.get_decl(decl_id),
+                false,
+            )),
             Id::Module(module_id) => {
                 let mut description = String::new();
                 for cmt_span in working_set.get_module_comments(module_id)? {
@@ -657,7 +661,7 @@ impl LanguageServer {
                             .extra
                             .map(|ex| ex.join("\n"))
                             .or(decl_id.map(|decl_id| {
-                                Self::get_decl_description(engine_state.get_decl(decl_id))
+                                Self::get_decl_description(engine_state.get_decl(decl_id), true)
                             }))
                             .map(|value| {
                                 Documentation::MarkupContent(MarkupContent {
@@ -904,7 +908,7 @@ mod tests {
 
         assert_json_eq!(
             result,
-            serde_json::json!({ "contents": { "kind": "markdown", "value": " `table`" } })
+            serde_json::json!({ "contents": { "kind": "markdown", "value": " ```\ntable\n``` " } })
         );
     }
 
@@ -932,7 +936,7 @@ mod tests {
             serde_json::json!({
                     "contents": {
                     "kind": "markdown",
-                    "value": "Renders some greeting message\n-----\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                    "value": "Renders some greeting message\n---\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                 }
             })
         );
@@ -962,7 +966,7 @@ mod tests {
             serde_json::json!({
                     "contents": {
                     "kind": "markdown",
-                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n-----\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
+                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n---\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
                 }
             })
         );
