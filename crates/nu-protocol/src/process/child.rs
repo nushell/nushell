@@ -1,6 +1,4 @@
-use crate::{
-    byte_stream::convert_file, shell_error::io::IoError, ErrSpan, IntoSpanned, ShellError, Span,
-};
+use crate::{byte_stream::convert_file, shell_error::io::IoError, ShellError, Span};
 use nu_system::{ExitStatus, ForegroundChild, ForegroundWaitStatus, UnfreezeHandle};
 
 use os_pipe::PipeReader;
