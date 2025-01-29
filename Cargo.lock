@@ -2922,7 +2922,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -3537,7 +3537,7 @@ dependencies = [
  "percent-encoding",
  "reedline",
  "rstest",
- "sysinfo 0.32.1",
+ "sysinfo",
  "tempfile",
  "unicode-segmentation",
  "uuid",
@@ -3702,7 +3702,7 @@ dependencies = [
  "serde_urlencoded",
  "serde_yml",
  "sha2",
- "sysinfo 0.32.1",
+ "sysinfo",
  "tabled",
  "tempfile",
  "titlecase",
@@ -3727,7 +3727,7 @@ dependencies = [
  "wax",
  "web-time",
  "which",
- "windows 0.56.0",
+ "windows",
  "winreg",
 ]
 
@@ -3874,7 +3874,7 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_json",
- "windows 0.56.0",
+ "windows",
 ]
 
 [[package]]
@@ -3890,7 +3890,7 @@ dependencies = [
  "nu-utils",
  "serde",
  "typetag",
- "windows 0.56.0",
+ "windows",
 ]
 
 [[package]]
@@ -3995,9 +3995,9 @@ dependencies = [
  "nix 0.29.0",
  "ntapi",
  "procfs",
- "sysinfo 0.32.1",
+ "sysinfo",
  "web-time",
- "windows 0.56.0",
+ "windows",
 ]
 
 [[package]]
@@ -5385,7 +5385,7 @@ dependencies = [
  "serde",
  "serde_json",
  "stacker",
- "sysinfo 0.33.1",
+ "sysinfo",
  "version_check",
 ]
 
@@ -6958,20 +6958,6 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.32.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c33cd241af0f2e9e3b5c32163b873b29956890b5342e6745b917ce9d490f4af"
-dependencies = [
- "core-foundation-sys",
- "libc",
- "memchr",
- "ntapi",
- "rayon",
- "windows 0.57.0",
-]
-
-[[package]]
-name = "sysinfo"
 version = "0.33.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fc858248ea01b66f19d8e8a6d55f41deaf91e9d495246fd01368d99935c6c01"
@@ -6980,7 +6966,8 @@ dependencies = [
  "libc",
  "memchr",
  "ntapi",
- "windows 0.57.0",
+ "rayon",
+ "windows",
 ]
 
 [[package]]
@@ -7360,7 +7347,7 @@ dependencies = [
  "percent-encoding",
  "scopeguard",
  "urlencoding",
- "windows 0.56.0",
+ "windows",
 ]
 
 [[package]]
@@ -8103,16 +8090,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "windows"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12342cb4d8e3b046f3d80effd474a7a02447231330ef77d71daa6fbc40681143"
-dependencies = [
- "windows-core 0.57.0",
- "windows-targets 0.52.6",
-]
-
-[[package]]
 name = "windows-core"
 version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8127,20 +8104,8 @@ version = "0.56.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4698e52ed2d08f8658ab0c39512a7c00ee5fe2688c65f8c0a4f06750d729f2a6"
 dependencies = [
- "windows-implement 0.56.0",
- "windows-interface 0.56.0",
- "windows-result 0.1.2",
- "windows-targets 0.52.6",
-]
-
-[[package]]
-name = "windows-core"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2ed2439a290666cd67ecce2b0ffaad89c2a56b976b736e6ece670297897832d"
-dependencies = [
- "windows-implement 0.57.0",
- "windows-interface 0.57.0",
+ "windows-implement",
+ "windows-interface",
  "windows-result 0.1.2",
  "windows-targets 0.52.6",
 ]
@@ -8157,32 +8122,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "windows-implement"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9107ddc059d5b6fbfbffdfa7a7fe3e22a226def0b2608f72e9d552763d3e1ad7"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.90",
-]
-
-[[package]]
 name = "windows-interface"
 version = "0.56.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08990546bf4edef8f431fa6326e032865f27138718c587dc21bc0265bbcb57cc"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.90",
-]
-
-[[package]]
-name = "windows-interface"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29bee4b38ea3cde66011baa44dba677c432a78593e202392d1e9070cf2a7fca7"
 dependencies = [
  "proc-macro2",
  "quote",
