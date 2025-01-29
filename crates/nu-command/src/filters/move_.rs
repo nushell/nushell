@@ -6,8 +6,8 @@ use nu_engine::command_prelude::*;
 enum Location {
     Before(Spanned<String>),
     After(Spanned<String>),
-    End,
-    Start,
+    Last,
+    First,
 }
 
 #[derive(Clone)]
@@ -19,7 +19,7 @@ impl Command for Move {
     }
 
     fn description(&self) -> &str {
-        "Moves columns either to the start/end or relative to other columns. Flags are mutually exclusive."
+        "Moves columns relative to other columns or make them the first/last columns. Flags are mutually exclusive."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -41,8 +41,8 @@ impl Command for Move {
                 "the column that will be the next after the columns moved",
                 None,
             )
-            .switch("start", "move columns to the start", None)
-            .switch("end", "move columns to the end", None)
+            .switch("first", "makes the columns be the first ones", None)
+            .switch("last", "makes the columns be the last ones", None)
             .category(Category::Filters)
     }
 
@@ -119,10 +119,10 @@ impl Command for Move {
         let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let after: Option<Value> = call.get_flag(engine_state, stack, "after")?;
         let before: Option<Value> = call.get_flag(engine_state, stack, "before")?;
-        let start = call.has_flag(engine_state, stack, "start")?;
-        let end = call.has_flag(engine_state, stack, "end")?;
+        let first = call.has_flag(engine_state, stack, "first")?;
+        let last = call.has_flag(engine_state, stack, "last")?;
 
-        let location = match (after, before, start, end) {
+        let location = match (after, before, first, last) {
             (Some(v), None, false, false) => Location::After(Spanned {
                 span: v.span(),
                 item: v.coerce_into_string()?,
@@ -131,8 +131,8 @@ impl Command for Move {
                 span: v.span(),
                 item: v.coerce_into_string()?,
             }),
-            (None, None, true, false) => Location::Start,
-            (None, None, false, true) => Location::End,
+            (None, None, true, false) => Location::First,
+            (None, None, false, true) => Location::Last,
             (None, None, false, false) => {
                 return Err(ShellError::GenericError {
                     error: "Cannot move columns".into(),
@@ -248,12 +248,12 @@ fn move_record_columns(
                 }
             }
         }
-        Location::Start => {
+        Location::First => {
             insert_moved(record, span, &column_idx, &mut out)?;
 
             out.extend(where_unmoved(record, &column_idx));
         }
-        Location::End => {
+        Location::Last => {
             out.extend(where_unmoved(record, &column_idx));
 
             insert_moved(record, span, &column_idx, &mut out)?;
@@ -402,13 +402,13 @@ mod test {
     }
 
     #[test]
-    fn move_start_with_single_column() {
+    fn move_first_with_single_column() {
         let test_span = Span::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d"], vec![1, 2, 3, 4]);
         let columns = ["c"].map(Value::test_string);
 
-        // corresponds to: {a: 1, b: 2, c: 3, d: 4} | move c --start
-        let result = move_record_columns(&test_record, &columns, &Location::Start, test_span);
+        // corresponds to: {a: 1, b: 2, c: 3, d: 4} | move c --first
+        let result = move_record_columns(&test_record, &columns, &Location::First, test_span);
 
         assert!(result.is_ok());
 
@@ -419,13 +419,13 @@ mod test {
     }
 
     #[test]
-    fn move_start_with_multiple_columns() {
+    fn move_first_with_multiple_columns() {
         let test_span = Span::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d", "e"], vec![1, 2, 3, 4, 5]);
         let columns = ["c", "e"].map(Value::test_string);
 
-        // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move c e --start
-        let result = move_record_columns(&test_record, &columns, &Location::Start, test_span);
+        // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move c e --first
+        let result = move_record_columns(&test_record, &columns, &Location::First, test_span);
 
         assert!(result.is_ok());
 
@@ -436,13 +436,13 @@ mod test {
     }
 
     #[test]
-    fn move_end_with_single_column() {
+    fn move_last_with_single_column() {
         let test_span = Span::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d"], vec![1, 2, 3, 4]);
         let columns = ["b"].map(Value::test_string);
 
-        // corresponds to: {a: 1, b: 2, c: 3, d: 4} | move b --end
-        let result = move_record_columns(&test_record, &columns, &Location::End, test_span);
+        // corresponds to: {a: 1, b: 2, c: 3, d: 4} | move b --last
+        let result = move_record_columns(&test_record, &columns, &Location::Last, test_span);
 
         assert!(result.is_ok());
 
@@ -453,13 +453,13 @@ mod test {
     }
 
     #[test]
-    fn move_end_with_multiple_columns() {
+    fn move_last_with_multiple_columns() {
         let test_span = Span::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d", "e"], vec![1, 2, 3, 4, 5]);
         let columns = ["c", "d"].map(Value::test_string);
 
-        // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move c d --end
-        let result = move_record_columns(&test_record, &columns, &Location::End, test_span);
+        // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move c d --last
+        let result = move_record_columns(&test_record, &columns, &Location::Last, test_span);
 
         assert!(result.is_ok());
 
