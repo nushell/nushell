@@ -282,7 +282,7 @@ fn try_find_id_in_use(
     id: Option<&Id>,
 ) -> Option<(Id, Span)> {
     let call_name = working_set.get_span_contents(call.head);
-    if call_name != b"use" && call_name != b"hide" {
+    if call_name != b"use" && call_name != b"export use" && call_name != b"hide" {
         return None;
     }
     // TODO: for keyword `hide`, the decl/var is already hidden in working_set,
@@ -318,7 +318,7 @@ fn try_find_id_in_use(
     if let Some(pos) = location {
         // first argument of `use` should always be module name
         // while it is optional in `hide`
-        if span.contains(*pos) && call_name == b"use" {
+        if span.contains(*pos) && call_name != b"hide" {
             return get_matched_module_id(working_set, span, id);
         }
     }
@@ -338,7 +338,7 @@ fn try_find_id_in_use(
         })
     };
 
-    let arguments = if call_name == b"use" {
+    let arguments = if call_name != b"hide" {
         call.arguments.get(1..)?
     } else {
         call.arguments.as_slice()
