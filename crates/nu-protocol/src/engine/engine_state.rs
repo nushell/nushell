@@ -15,7 +15,6 @@ use crate::{
 use fancy_regex::Regex;
 use lru::LruCache;
 use nu_path::AbsolutePathBuf;
-use nu_system::UnfreezeHandle;
 use nu_utils::IgnoreCaseExt;
 use std::{
     collections::HashMap,
@@ -31,6 +30,8 @@ type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 
 #[cfg(feature = "plugin")]
 use crate::{PluginRegistryFile, PluginRegistryItem, RegisteredPlugin};
+
+use super::Jobs;
 
 #[derive(Clone, Debug)]
 pub enum VirtualPath {
@@ -117,70 +118,6 @@ pub struct EngineState {
 
 pub type JobId = u64;
 
-#[derive(Default)]
-pub struct Jobs {
-    next_job_id: JobId,
-    last_frozen_job_id: Option<JobId>,
-    jobs: HashMap<JobId, Job>,
-}
-
-impl Jobs {
-    pub fn iter(&self) -> impl Iterator<Item = (JobId, &Job)> {
-        self.jobs.iter().map(|(k, v)| (*k, v))
-    }
-
-    pub fn lookup(&self, id: JobId) -> Option<&Job> {
-        self.jobs.get(&id)
-    }
-
-    pub fn remove_job(&mut self, id: JobId) -> Option<Job> {
-        self.jobs.remove(&id)
-    }
-
-    fn assign_last_frozen_id_if_frozen(&mut self, id: JobId, job: &Job) {
-        if let Job::FrozenJob { .. } = job {
-            self.last_frozen_job_id = Some(id);
-        }
-    }
-
-    pub fn add_job(&mut self, job: Job) -> JobId {
-        let this_id = self.next_job_id;
-
-        self.assign_last_frozen_id_if_frozen(this_id, &job);
-
-        self.jobs.insert(this_id, job);
-        self.next_job_id += 1;
-
-        this_id
-    }
-
-    pub fn most_recent_frozen_job_id(&self) -> Option<JobId> {
-        let id = self.last_frozen_job_id?;
-
-        if self.jobs.contains_key(&id) {
-            Some(id)
-        } else {
-            None
-        }
-    }
-
-    // this is useful when you want to remove a job form the list and add it back later
-    pub fn add_job_with_id(&mut self, id: JobId, job: Job) -> Result<(), &'static str> {
-        self.assign_last_frozen_id_if_frozen(id, &job);
-
-        if let std::collections::hash_map::Entry::Vacant(e) = self.jobs.entry(id) {
-            e.insert(job);
-            Ok(())
-        } else {
-            Err("job already exists")
-        }
-    }
-}
-
-pub enum Job {
-    ThreadJob { signals: Signals },
-    FrozenJob { unfreeze: UnfreezeHandle },
-}
 
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
 const REGEX_CACHE_SIZE: usize = 100; // must be nonzero, otherwise will panic

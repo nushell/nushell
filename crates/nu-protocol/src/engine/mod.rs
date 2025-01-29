@@ -16,6 +16,7 @@ mod stack_out_dest;
 mod state_delta;
 mod state_working_set;
 mod variable;
+mod jobs;
 
 pub use cached_file::CachedFile;
 
@@ -34,3 +35,4 @@ pub use stack_out_dest::*;
 pub use state_delta::*;
 pub use state_working_set::*;
 pub use variable::*;
+pub use jobs::*;
