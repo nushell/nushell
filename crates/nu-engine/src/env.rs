@@ -140,18 +140,18 @@ pub fn env_to_string(
                     // Try to convert PATH/Path list to a string
                     match value {
                         Value::List { vals, .. } => {
-                            let paths = vals
+                            let paths: Vec<String> = vals
                                 .iter()
-                                .map(Value::coerce_str)
-                                .collect::<Result<Vec<_>, _>>()?;
+                                .filter_map(|v| v.coerce_str().ok())
+                                .map(|s| nu_path::expand_tilde(&*s).to_string_lossy().into_owned())
+                                .collect();
 
-                            match std::env::join_paths(paths.iter().map(AsRef::as_ref)) {
-                                Ok(p) => Ok(p.to_string_lossy().to_string()),
-                                Err(_) => Err(ShellError::EnvVarNotAString {
+                            std::env::join_paths(paths.iter().map(AsRef::<str>::as_ref))
+                                .map(|p| p.to_string_lossy().to_string())
+                                .map_err(|_| ShellError::EnvVarNotAString {
                                     envvar_name: env_name.to_string(),
                                     span: value.span(),
-                                }),
-                            }
+                                })
                         }
                         _ => Err(ShellError::EnvVarNotAString {
                             envvar_name: env_name.to_string(),
