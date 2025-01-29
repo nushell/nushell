@@ -1159,7 +1159,7 @@ fn setup_history(
 /// Setup Reedline keybindingds based on the provided config
 ///
 fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedline {
-    return match create_keybindings(engine_state.get_config()) {
+    match create_keybindings(engine_state.get_config()) {
         Ok(keybindings) => match keybindings {
             KeybindingsMode::Emacs(keybindings) => {
                 let edit_mode = Box::new(Emacs::new(keybindings));
@@ -1177,7 +1177,7 @@ fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedl
             report_shell_error(engine_state, &e);
             line_editor
         }
-    };
+    }
 }
 
 ///
