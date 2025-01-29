@@ -36,7 +36,11 @@ pub fn load_standard_library(
     // Submodules/subdirectories ... std/<module>/mod.nu
     let mut std_submodules = vec![
         // Loaded at startup - Not technically part of std
-        ("mod.nu", "std/core", include_str!("../std/core/mod.nu")),
+        (
+            "mod.nu",
+            "std/prelude",
+            include_str!("../std/prelude/mod.nu"),
+        ),
         // std submodules
         ("mod.nu", "std/assert", include_str!("../std/assert/mod.nu")),
         ("mod.nu", "std/bench", include_str!("../std/bench/mod.nu")),
@@ -81,12 +85,12 @@ pub fn load_standard_library(
     let (block, delta) = {
         let source = r#"
 # Prelude
-use std/core *
+use std/prelude *
 "#;
 
         // Add a placeholder file to the stack of files being evaluated.
         // The name of this file doesn't matter; it's only there to set the current working directory to NU_STDLIB_VIRTUAL_DIR.
-        let placeholder = PathBuf::from("load std/core");
+        let placeholder = PathBuf::from("load std/prelude");
         working_set.files = FileStack::with_file(placeholder);
 
         let block = parse(
