@@ -162,11 +162,12 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
         }
     };
 
-    let mut path: String = differing_parent.iter().map(|_| "../").collect();
+    let mut path = PathBuf::new();
+    differing_parent.iter().for_each(|_| path.push(".."));
 
-    path.push_str(&differing_child.to_string_lossy());
+    path.push(&differing_child);
 
-    Value::string(path, span)
+    Value::string(path.to_string_lossy(), span)
 }
 #[cfg(test)]
 mod tests {
