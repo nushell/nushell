@@ -141,10 +141,19 @@ pub fn env_to_string(
                         Value::List { vals, .. } => {
                             let paths = vals
                                 .iter()
-                                .map(Value::coerce_str)
+                                .map(|s| {
+                                    let path = Value::coerce_str(s);
+                                    let expanded_path =
+                                        nu_path::expand_tilde(path.clone()?.as_ref());
+                                    Ok::<String, ShellError>(
+                                        expanded_path.to_string_lossy().into_owned(),
+                                    )
+                                })
                                 .collect::<Result<Vec<_>, _>>()?;
 
-                            match std::env::join_paths(paths.iter().map(AsRef::as_ref)) {
+                            match std::env::join_paths(
+                                paths.iter().map(AsRef::<std::ffi::OsStr>::as_ref),
+                            ) {
                                 Ok(p) => Ok(p.to_string_lossy().to_string()),
                                 Err(_) => Err(ShellError::EnvVarNotAString {
                                     envvar_name: env_name.to_string(),
