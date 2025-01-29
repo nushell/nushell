@@ -6,7 +6,6 @@ use crate::Signals;
 
 use super::JobId;
 
-
 #[derive(Default)]
 pub struct Jobs {
     next_job_id: JobId,
@@ -28,7 +27,7 @@ impl Jobs {
     }
 
     fn assign_last_frozen_id_if_frozen(&mut self, id: JobId, job: &Job) {
-        if let Job::FrozenJob { .. } = job {
+        if let Job::Frozen(_) = job {
             self.last_frozen_job_id = Some(id);
         }
     }
@@ -68,7 +67,20 @@ impl Jobs {
 }
 
 pub enum Job {
-    ThreadJob { signals: Signals },
-    FrozenJob { unfreeze: UnfreezeHandle },
+    Thread(ThreadJob),
+    Frozen(FrozenJob),
 }
 
+pub struct ThreadJob {
+    pub signals: Signals,
+}
+
+impl ThreadJob {
+    pub fn new(signals: Signals) -> Self {
+        ThreadJob { signals }
+    }
+}
+
+pub struct FrozenJob {
+    pub unfreeze: UnfreezeHandle,
+}

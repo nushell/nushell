@@ -118,7 +118,6 @@ pub struct EngineState {
 
 pub type JobId = u64;
 
-
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
 const REGEX_CACHE_SIZE: usize = 100; // must be nonzero, otherwise will panic
 

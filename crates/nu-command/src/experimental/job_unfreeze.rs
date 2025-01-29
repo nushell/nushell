@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    engine::{Job, JobId},
+    engine::{FrozenJob, Job, JobId, ThreadJob},
     process::check_ok,
     shell_error,
 };
@@ -52,8 +52,10 @@ impl Command for JobUnfreeze {
 
         let job = match jobs.lookup(id) {
             None => return Err(ShellError::JobNotFound { id, span: head }),
-            Some(Job::ThreadJob { .. }) => return Err(ShellError::JobNotFrozen { id, span: head }),
-            Some(Job::FrozenJob { .. }) => jobs
+            Some(Job::Thread(ThreadJob { .. })) => {
+                return Err(ShellError::JobNotFrozen { id, span: head })
+            }
+            Some(Job::Frozen(FrozenJob { .. })) => jobs
                 .remove_job(id)
                 .expect("job was supposed to be in job list"),
         };
@@ -77,12 +79,12 @@ fn unfreeze_job(
     span: Span,
 ) -> Result<(), ShellError> {
     match job {
-        Job::ThreadJob { .. } => Err(ShellError::JobNotFrozen { id: old_id, span }),
+        Job::Thread(ThreadJob { .. }) => Err(ShellError::JobNotFrozen { id: old_id, span }),
 
-        Job::FrozenJob { unfreeze } => match unfreeze.unfreeze_in_foreground() {
+        Job::Frozen(FrozenJob { unfreeze }) => match unfreeze.unfreeze_in_foreground() {
             Ok(ForegroundWaitStatus::Frozen(unfreeze)) => {
                 let mut jobs = state.jobs.lock().expect("jobs lock is poisoned!");
-                jobs.add_job_with_id(old_id, Job::FrozenJob { unfreeze })
+                jobs.add_job_with_id(old_id, Job::Frozen(FrozenJob { unfreeze }))
                     .expect("job was supposed to be removed");
                 Ok(())
             }

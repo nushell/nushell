@@ -8,6 +8,7 @@ mod command;
 mod description;
 mod engine_state;
 mod error_handler;
+mod jobs;
 mod overlay;
 mod pattern_match;
 mod sequence;
@@ -16,7 +17,6 @@ mod stack_out_dest;
 mod state_delta;
 mod state_working_set;
 mod variable;
-mod jobs;
 
 pub use cached_file::CachedFile;
 
@@ -27,6 +27,7 @@ pub use capture_block::*;
 pub use command::*;
 pub use engine_state::*;
 pub use error_handler::*;
+pub use jobs::*;
 pub use overlay::*;
 pub use pattern_match::*;
 pub use sequence::*;
@@ -35,4 +36,3 @@ pub use stack_out_dest::*;
 pub use state_delta::*;
 pub use state_working_set::*;
 pub use variable::*;
-pub use jobs::*;

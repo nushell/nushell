@@ -3,7 +3,7 @@ use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{dots::expand_ndots_safe, expand_tilde, AbsolutePath};
 use nu_protocol::{
     did_you_mean,
-    engine::Job,
+    engine::{FrozenJob, Job},
     process::{ChildProcess, OnFreeze},
     shell_error::io::IoError,
     ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
@@ -294,7 +294,7 @@ impl Command for External {
             Some(OnFreeze(Box::new(move |unfreeze| {
                 let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
 
-                jobs.add_job(Job::FrozenJob { unfreeze });
+                jobs.add_job(Job::Frozen(FrozenJob { unfreeze }));
             }))),
         )?;
 

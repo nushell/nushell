@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::{Job, JobId};
+use nu_protocol::engine::{FrozenJob, Job, JobId, ThreadJob};
 
 #[derive(Clone)]
 pub struct JobKill;
@@ -55,11 +55,11 @@ impl Command for JobKill {
 
 fn kill_job(job: &Job) {
     match job {
-        Job::ThreadJob { signals } => {
+        Job::Thread(ThreadJob { signals }) => {
             signals.trigger();
         }
 
-        Job::FrozenJob { .. } => {
+        Job::Frozen(FrozenJob { .. }) => {
             todo!("implement killing frozen jobs");
         }
     }

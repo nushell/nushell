@@ -8,7 +8,7 @@ use std::{
 
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
 use nu_protocol::{
-    engine::{Closure, Job},
+    engine::{Closure, Job, ThreadJob},
     report_shell_error, Signals,
 };
 
@@ -67,9 +67,7 @@ impl Command for JobSpawn {
             let id = {
                 let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");
 
-                jobs.add_job(Job::ThreadJob {
-                    signals: job_signals,
-                })
+                jobs.add_job(Job::Thread(ThreadJob::new(job_signals)))
             };
 
             ClosureEvalOnce::new(&job_state, &job_stack, closure.clone())

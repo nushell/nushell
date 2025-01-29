@@ -43,8 +43,8 @@ impl Command for JobList {
                 record.push(
                     "type",
                     match job {
-                        Job::ThreadJob { .. } => Value::string("thread", head),
-                        Job::FrozenJob { .. } => Value::string("frozen", head),
+                        Job::Thread(_) => Value::string("thread", head),
+                        Job::Frozen(_) => Value::string("frozen", head),
                     },
                 );
 
