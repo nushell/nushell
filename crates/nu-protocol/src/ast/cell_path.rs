@@ -68,6 +68,13 @@ impl PathMember {
             } => *optional = true,
         }
     }
+
+    pub fn span(&self) -> Span {
+        match self {
+            PathMember::String { span, .. } => *span,
+            PathMember::Int { span, .. } => *span,
+        }
+    }
 }
 
 impl PartialEq for PathMember {

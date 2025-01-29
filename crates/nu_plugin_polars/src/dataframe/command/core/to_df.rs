@@ -163,23 +163,23 @@ impl PluginCommand for ToDataFrame {
                 example: "[[a b c]; [1 {d: [1 2 3]} [10 11 12] ]]| polars into-df -s {a: u8, b: {d: list<u64>}, c: list<u8>}",
                 result: Some(
                     NuDataFrame::try_from_series_vec(vec![
-                        Series::new("a".into(), &[1u8]),
-                        {
-                            let dtype = DataType::Struct(vec![Field::new("a".into(), DataType::List(Box::new(DataType::UInt64)))]);
-                            let vals = vec![AnyValue::StructOwned(
-                                Box::new((vec![AnyValue::List(Series::new("a".into(), &[1u64, 2, 3]))], vec![Field::new("a".into(), DataType::String)]))); 1];
-                            Series::from_any_values_and_dtype("b".into(), &vals, &dtype, false)
-                                .expect("Struct series should not fail")
-                        },
-                        {
-                            let dtype = DataType::List(Box::new(DataType::String));
-                            let vals = vec![AnyValue::List(Series::new("c".into(), &[10, 11, 12]))];
-                            Series::from_any_values_and_dtype("c".into(), &vals, &dtype, false)
-                                .expect("List series should not fail")
-                        }
-                    ], Span::test_data())
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
+                    Series::new("a".into(), &[1u8]),
+                    {
+                        let dtype = DataType::Struct(vec![Field::new("d".into(), DataType::List(Box::new(DataType::UInt64)))]);
+                        let vals = vec![AnyValue::StructOwned(
+                            Box::new((vec![AnyValue::List(Series::new("d".into(), &[1u64, 2, 3]))], vec![Field::new("d".into(), DataType::String)]))); 1];
+                        Series::from_any_values_and_dtype("b".into(), &vals, &dtype, false)
+                            .expect("Struct series should not fail")
+                    },
+                    {
+                        let dtype = DataType::List(Box::new(DataType::String));
+                        let vals = vec![AnyValue::List(Series::new("c".into(), &[10, 11, 12]))];
+                        Series::from_any_values_and_dtype("c".into(), &vals, &dtype, false)
+                            .expect("List series should not fail")
+                    }
+                     ], Span::test_data())
+                     .expect("simple df for test should not fail")
+                     .into_value(Span::test_data()),
                 ),
             },
             Example {

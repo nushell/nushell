@@ -2,6 +2,7 @@ use nu_engine::command_prelude::*;
 use nu_protocol::{
     engine::{Job, JobId},
     process::check_ok,
+    shell_error,
 };
 use nu_system::ForegroundWaitStatus;
 
@@ -78,15 +79,21 @@ fn unfreeze_job(
     match job {
         Job::ThreadJob { .. } => Err(ShellError::JobNotFrozen { id: old_id, span }),
 
-        Job::FrozenJob { unfreeze } => match unfreeze.unfreeze_in_foreground()? {
-            ForegroundWaitStatus::Frozen(unfreeze) => {
+        Job::FrozenJob { unfreeze } => match unfreeze.unfreeze_in_foreground() {
+            Ok(ForegroundWaitStatus::Frozen(unfreeze)) => {
                 let mut jobs = state.jobs.lock().expect("jobs lock is poisoned!");
                 jobs.add_job_with_id(old_id, Job::FrozenJob { unfreeze })
                     .expect("job was supposed to be removed");
                 Ok(())
             }
 
-            ForegroundWaitStatus::Finished(status) => check_ok(status, false, span),
+            Ok(ForegroundWaitStatus::Finished(status)) => check_ok(status, false, span),
+
+            Err(err) => Err(ShellError::Io(IoError::new_internal(
+                shell_error::io::ErrorKind::Std(err.kind()),
+                "Failed to unfreeze foreground process",
+                nu_protocol::location!(),
+            ))),
         },
     }
 }

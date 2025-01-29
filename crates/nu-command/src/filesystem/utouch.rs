@@ -3,8 +3,8 @@ use filetime::FileTime;
 use nu_engine::command_prelude::*;
 use nu_glob::{glob, is_glob};
 use nu_path::expand_path_with;
-use nu_protocol::NuGlob;
-use std::{io::ErrorKind, path::PathBuf};
+use nu_protocol::{shell_error::io::IoError, NuGlob};
+use std::path::PathBuf;
 use uu_touch::{error::TouchError, ChangeTimes, InputFile, Options, Source};
 
 #[derive(Clone)]
@@ -225,20 +225,12 @@ impl Command for UTouch {
                 },
                 TouchError::ReferenceFileInaccessible(reference_path, io_err) => {
                     let span = reference_span.expect("touch should've been given a reference file");
-                    if io_err.kind() == ErrorKind::NotFound {
-                        ShellError::FileNotFound {
-                            span,
-                            file: reference_path.display().to_string(),
-                        }
-                    } else {
-                        ShellError::GenericError {
-                            error: io_err.to_string(),
-                            msg: format!("Failed to read metadata of {}", reference_path.display()),
-                            span: Some(span),
-                            help: None,
-                            inner: Vec::new(),
-                        }
-                    }
+                    ShellError::Io(IoError::new_with_additional_context(
+                        io_err.kind(),
+                        span,
+                        reference_path,
+                        "failed to read metadata",
+                    ))
                 }
                 _ => ShellError::GenericError {
                     error: err.to_string(),

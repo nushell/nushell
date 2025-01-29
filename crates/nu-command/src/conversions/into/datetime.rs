@@ -205,13 +205,13 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Convert standard (seconds) unix timestamp to a UTC datetime",
-                example: "1614434140 * 1_000_000_000 | into datetime",
+                example: "1614434140 | into datetime -f '%s'",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
             },
             Example {
-                description: "Leave it as it is when the input is already a datetime",
-                example: "1614434140 * 1_000_000_000 | into datetime | into datetime",
+                description: "Using a datetime as input simply returns the value",
+                example: "2021-02-27T13:55:40 | into datetime",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
             },

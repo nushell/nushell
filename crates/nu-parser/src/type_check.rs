@@ -55,7 +55,6 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
         (Type::Int, Type::Number) => true,
         (Type::Number, Type::Float) => true,
         (Type::Float, Type::Number) => true,
-        (Type::Closure, Type::Block) => true,
         (Type::Any, _) => true,
         (_, Type::Any) => true,
         (Type::Record(lhs), Type::Record(rhs)) | (Type::Table(lhs), Type::Table(rhs)) => {

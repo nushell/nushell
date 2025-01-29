@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 use std::{collections::VecDeque, io::Read};
 
 #[derive(Clone)]
@@ -165,7 +166,7 @@ impl Command for Last {
                         let mut buf = VecDeque::with_capacity(rows + TAKE as usize);
                         loop {
                             let taken = std::io::copy(&mut (&mut reader).take(TAKE), &mut buf)
-                                .err_span(span)?;
+                                .map_err(|err| IoError::new(err.kind(), span, None))?;
                             if buf.len() > rows {
                                 buf.drain(..(buf.len() - rows));
                             }

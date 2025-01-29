@@ -610,7 +610,7 @@ fn can_list_system_folder() {
 fn list_a_directory_not_exists() {
     Playground::setup("ls_test_directory_not_exists", |dirs, _sandbox| {
         let actual = nu!(cwd: dirs.test(), "ls a_directory_not_exists");
-        assert!(actual.err.contains("directory not found"));
+        assert!(actual.err.contains("nu::shell::io::not_found"));
     })
 }
 
@@ -735,7 +735,7 @@ fn list_with_tilde() {
         assert!(actual.out.contains("f2.txt"));
         assert!(actual.out.contains("~tilde"));
         let actual = nu!(cwd: dirs.test(), "ls ~tilde");
-        assert!(actual.err.contains("does not exist"));
+        assert!(actual.err.contains("nu::shell::io::not_found"));
 
         // pass variable
         let actual = nu!(cwd: dirs.test(), "let f = '~tilde'; ls $f");
@@ -762,7 +762,7 @@ fn list_with_multiple_path() {
 
         // report errors if one path not exists
         let actual = nu!(cwd: dirs.test(), "ls asdf f1.txt");
-        assert!(actual.err.contains("directory not found"));
+        assert!(actual.err.contains("nu::shell::io::not_found"));
         assert!(!actual.status.success());
 
         // ls with spreading empty list should returns nothing.

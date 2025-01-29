@@ -1,4 +1,7 @@
+use std::path::PathBuf;
+
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::{self, io::IoError};
 use nu_utils::filesystem::{have_permission, PermissionResult};
 
 #[derive(Clone)]
@@ -77,25 +80,39 @@ impl Command for Cd {
                     if physical {
                         if let Ok(path) = nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                             if !path.is_dir() {
-                                return Err(ShellError::NotADirectory { span: v.span });
+                                return Err(shell_error::io::IoError::new(
+                                    shell_error::io::ErrorKind::NotADirectory,
+                                    v.span,
+                                    None,
+                                )
+                                .into());
                             };
                             path
                         } else {
-                            return Err(ShellError::DirectoryNotFound {
-                                dir: path_no_whitespace.to_string(),
-                                span: v.span,
-                            });
+                            return Err(shell_error::io::IoError::new(
+                                std::io::ErrorKind::NotFound,
+                                v.span,
+                                PathBuf::from(path_no_whitespace),
+                            )
+                            .into());
                         }
                     } else {
                         let path = nu_path::expand_path_with(path_no_whitespace, &cwd, true);
                         if !path.exists() {
-                            return Err(ShellError::DirectoryNotFound {
-                                dir: path_no_whitespace.to_string(),
-                                span: v.span,
-                            });
+                            return Err(shell_error::io::IoError::new(
+                                std::io::ErrorKind::NotFound,
+                                v.span,
+                                PathBuf::from(path_no_whitespace),
+                            )
+                            .into());
                         };
                         if !path.is_dir() {
-                            return Err(ShellError::NotADirectory { span: v.span });
+                            return Err(shell_error::io::IoError::new(
+                                shell_error::io::ErrorKind::NotADirectory,
+                                v.span,
+                                path,
+                            )
+                            .into());
                         };
                         path
                     }
@@ -117,13 +134,9 @@ impl Command for Cd {
                 stack.set_cwd(path)?;
                 Ok(PipelineData::empty())
             }
-            PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError {
-                msg: format!(
-                    "Cannot change directory to {}: {}",
-                    path.to_string_lossy(),
-                    reason
-                ),
-            }),
+            PermissionResult::PermissionDenied(_) => {
+                Err(IoError::new(std::io::ErrorKind::PermissionDenied, call.head, path).into())
+            }
         }
     }
 

@@ -10,6 +10,7 @@ mod summary;
 mod to_df;
 mod to_lazy;
 mod to_nu;
+mod to_repr;
 
 use crate::PolarsPlugin;
 use nu_plugin::PluginCommand;
@@ -22,6 +23,7 @@ pub use summary::Summary;
 pub use to_df::ToDataFrame;
 pub use to_lazy::ToLazyFrame;
 pub use to_nu::ToNu;
+pub use to_repr::ToRepr;
 
 pub(crate) fn core_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
     vec![
@@ -37,5 +39,6 @@ pub(crate) fn core_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(ToDataFrame),
         Box::new(save::SaveDF),
         Box::new(ToLazyFrame),
+        Box::new(ToRepr),
     ]
 }

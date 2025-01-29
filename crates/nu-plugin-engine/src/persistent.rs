@@ -7,8 +7,9 @@ use super::{PluginInterface, PluginSource};
 use nu_plugin_core::CommunicationMode;
 use nu_protocol::{
     engine::{EngineState, Stack},
+    shell_error::io::IoError,
     HandlerGuard, Handlers, PluginGcConfig, PluginIdentity, PluginMetadata, RegisteredPlugin,
-    ShellError,
+    ShellError, Span,
 };
 use std::{
     collections::HashMap,
@@ -184,7 +185,14 @@ impl PersistentPlugin {
         })?;
 
         // Start the plugin garbage collector
-        let gc = PluginGc::new(mutable.gc_config.clone(), &self)?;
+        let gc = PluginGc::new(mutable.gc_config.clone(), &self).map_err(|err| {
+            IoError::new_with_additional_context(
+                err.kind(),
+                Span::unknown(),
+                None,
+                "Could not start plugin gc",
+            )
+        })?;
 
         let pid = child.id();
         let interface = make_plugin_interface(

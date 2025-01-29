@@ -1,14 +1,13 @@
+use crate::Id;
 use nu_protocol::{
     ast::{
-        Argument, Block, Call, Expr, Expression, ExternalArgument, ListItem, MatchPattern, Pattern,
-        PipelineRedirection, RecordItem,
+        Argument, Block, Call, Expr, Expression, ExternalArgument, ListItem, MatchPattern,
+        PathMember, Pattern, PipelineRedirection, RecordItem,
     },
     engine::StateWorkingSet,
     Span,
 };
-use std::{path::PathBuf, sync::Arc};
-
-use crate::Id;
+use std::sync::Arc;
 
 /// similar to flatten_block, but allows extra map function
 pub fn ast_flat_map<'a, T, F>(
@@ -198,7 +197,7 @@ fn try_find_id_in_def(
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
     let call_name = working_set.get_span_contents(call.head);
-    if call_name != "def".as_bytes() && call_name != "export def".as_bytes() {
+    if call_name != b"def" && call_name != b"export def" {
         return None;
     };
     let mut span = None;
@@ -243,7 +242,7 @@ fn try_find_id_in_mod(
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
     let call_name = working_set.get_span_contents(call.head);
-    if call_name != "module".as_bytes() && call_name != "export module".as_bytes() {
+    if call_name != b"module" && call_name != b"export module" {
         return None;
     };
     let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
@@ -267,8 +266,8 @@ fn try_find_id_in_mod(
     })
 }
 
-/// Find id in use command
-/// `use foo.nu bar` or `use foo.nu [bar baz]`
+/// Find id in use/hide command
+/// `hide foo.nu bar` or `use foo.nu [bar baz]`
 /// NOTE: `call.parser_info` contains a 'import_pattern' field for `use` commands,
 /// but sometimes it is missing, so fall back to `call_name == "use"` here.
 /// One drawback is that the `module_id` is harder to get
@@ -283,71 +282,44 @@ fn try_find_id_in_use(
     id: Option<&Id>,
 ) -> Option<(Id, Span)> {
     let call_name = working_set.get_span_contents(call.head);
-    if call_name != "use".as_bytes() {
+    if call_name != b"use" && call_name != b"hide" {
         return None;
     }
-    let find_by_name = |name: &str| {
-        match id {
-            Some(Id::Variable(var_id_ref)) => {
-                if let Some(var_id) = working_set.find_variable(name.as_bytes()) {
-                    if var_id == *var_id_ref {
-                        return Some(Id::Variable(var_id));
-                    }
-                }
-            }
-            Some(Id::Declaration(decl_id_ref)) => {
-                if let Some(decl_id) = working_set.find_decl(name.as_bytes()) {
-                    if decl_id == *decl_id_ref {
-                        return Some(Id::Declaration(decl_id));
-                    }
-                }
-            }
-            Some(Id::Module(module_id_ref)) => {
-                if let Some(module_id) = working_set.find_module(name.as_bytes()) {
-                    if module_id == *module_id_ref {
-                        return Some(Id::Module(module_id));
-                    }
-                }
-            }
-            None => {
-                if let Some(var_id) = working_set.find_variable(name.as_bytes()) {
-                    return Some(Id::Variable(var_id));
-                }
-                if let Some(decl_id) = working_set.find_decl(name.as_bytes()) {
-                    return Some(Id::Declaration(decl_id));
-                }
-                if let Some(module_id) = working_set.find_module(name.as_bytes()) {
-                    return Some(Id::Module(module_id));
-                }
-            }
-            _ => (),
-        }
-        None
+    // TODO: for keyword `hide`, the decl/var is already hidden in working_set,
+    // this function will always return None.
+    let find_by_name = |name: &[u8]| match id {
+        Some(Id::Variable(var_id_ref)) => working_set
+            .find_variable(name)
+            .and_then(|var_id| (var_id == *var_id_ref).then_some(Id::Variable(var_id))),
+        Some(Id::Declaration(decl_id_ref)) => working_set
+            .find_decl(name)
+            .and_then(|decl_id| (decl_id == *decl_id_ref).then_some(Id::Declaration(decl_id))),
+        Some(Id::Module(module_id_ref)) => working_set
+            .find_module(name)
+            .and_then(|module_id| (module_id == *module_id_ref).then_some(Id::Module(module_id))),
+        None => working_set
+            .find_module(name)
+            .map(Id::Module)
+            .or(working_set.find_decl(name).map(Id::Declaration))
+            .or(working_set.find_variable(name).map(Id::Variable)),
+        _ => None,
     };
     let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
-    let get_module_id = |span: Span| {
-        let span = strip_quotes(span, working_set);
-        let name = String::from_utf8_lossy(working_set.get_span_contents(span));
-        let path = PathBuf::from(name.as_ref());
-        let stem = path.file_stem().and_then(|fs| fs.to_str()).unwrap_or(&name);
-        let module_id = working_set.find_module(stem.as_bytes())?;
-        let found_id = Id::Module(module_id);
-        id.map_or(true, |id_r| found_id == *id_r)
-            .then_some((found_id, span))
-    };
 
     // Get module id if required
     let module_name = call.arguments.first()?;
     let span = module_name.span();
     if let Some(Id::Module(_)) = id {
-        // still need to check the second argument
-        if let Some(res) = get_module_id(span) {
+        // still need to check the rest, if id not matched
+        if let Some(res) = get_matched_module_id(working_set, span, id) {
             return Some(res);
         }
     }
     if let Some(pos) = location {
-        if span.contains(*pos) {
-            return get_module_id(span);
+        // first argument of `use` should always be module name
+        // while it is optional in `hide`
+        if span.contains(*pos) && call_name == b"use" {
+            return get_matched_module_id(working_set, span, id);
         }
     }
 
@@ -359,39 +331,105 @@ fn try_find_id_in_use(
                 .and_then(|e| {
                     let name = e.as_string()?;
                     Some((
-                        find_by_name(&name)?,
+                        find_by_name(name.as_bytes())?,
                         strip_quotes(item_expr.span, working_set),
                     ))
                 })
         })
     };
 
-    // the imported name is always at the second argument
-    if let Argument::Positional(expr) = call.arguments.get(1)? {
-        if check_location(&expr.span) {
-            match &expr.expr {
-                Expr::String(name) => {
-                    if let Some(id) = find_by_name(name) {
-                        return Some((id, strip_quotes(expr.span, working_set)));
-                    }
-                }
-                Expr::List(items) => {
-                    if let Some(res) = search_in_list_items(items) {
-                        return Some(res);
-                    }
-                }
-                Expr::FullCellPath(fcp) => {
-                    if let Expr::List(items) = &fcp.head.expr {
-                        if let Some(res) = search_in_list_items(items) {
-                            return Some(res);
-                        }
-                    }
-                }
-                _ => (),
+    let arguments = if call_name == b"use" {
+        call.arguments.get(1..)?
+    } else {
+        call.arguments.as_slice()
+    };
+
+    for arg in arguments {
+        let Argument::Positional(expr) = arg else {
+            continue;
+        };
+        if !check_location(&expr.span) {
+            continue;
+        }
+        let matched = match &expr.expr {
+            Expr::String(name) => {
+                find_by_name(name.as_bytes()).map(|id| (id, strip_quotes(expr.span, working_set)))
             }
+            Expr::List(items) => search_in_list_items(items),
+            Expr::FullCellPath(fcp) => {
+                let Expr::List(items) = &fcp.head.expr else {
+                    return None;
+                };
+                search_in_list_items(items)
+            }
+            _ => None,
+        };
+        if matched.is_some() || location.is_some() {
+            return matched;
         }
     }
     None
+}
+
+/// Find id in use/hide command
+///
+/// TODO: rename of `overlay use as new_name`, `overlay use --prefix`
+///
+/// # Arguments
+/// - `location`: None if no `contains` check required
+/// - `id`: None if no id equal check required
+fn try_find_id_in_overlay(
+    call: &Call,
+    working_set: &StateWorkingSet,
+    location: Option<&usize>,
+    id: Option<&Id>,
+) -> Option<(Id, Span)> {
+    let call_name = working_set.get_span_contents(call.head);
+    if call_name != b"overlay use" && call_name != b"overlay hide" {
+        return None;
+    }
+    let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
+    let module_from_overlay_name = |name: &str, span: Span| {
+        let found_id = Id::Module(working_set.find_overlay(name.as_bytes())?.origin);
+        id.map_or(true, |id_r| found_id == *id_r)
+            .then_some((found_id, strip_quotes(span, working_set)))
+    };
+    for arg in call.arguments.iter() {
+        let Argument::Positional(expr) = arg else {
+            continue;
+        };
+        if !check_location(&expr.span) {
+            continue;
+        };
+        let matched = match &expr.expr {
+            Expr::String(name) => get_matched_module_id(working_set, expr.span, id)
+                .or(module_from_overlay_name(name, expr.span)),
+            // keyword 'as'
+            Expr::Keyword(kwd) => match &kwd.expr.expr {
+                Expr::String(name) => module_from_overlay_name(name, kwd.expr.span),
+                _ => None,
+            },
+            _ => None,
+        };
+        if matched.is_some() || location.is_some() {
+            return matched;
+        }
+    }
+    None
+}
+
+fn get_matched_module_id(
+    working_set: &StateWorkingSet,
+    span: Span,
+    id: Option<&Id>,
+) -> Option<(Id, Span)> {
+    let span = strip_quotes(span, working_set);
+    let name = String::from_utf8_lossy(working_set.get_span_contents(span));
+    let path = std::path::PathBuf::from(name.as_ref());
+    let stem = path.file_stem().and_then(|fs| fs.to_str()).unwrap_or(&name);
+    let found_id = Id::Module(working_set.find_module(stem.as_bytes())?);
+    id.map_or(true, |id_r| found_id == *id_r)
+        .then_some((found_id, span))
 }
 
 fn find_id_in_expr(
@@ -401,13 +439,6 @@ fn find_id_in_expr(
 ) -> Option<Vec<(Id, Span)>> {
     // skip the entire expression if the location is not in it
     if !expr.span.contains(*location) {
-        // TODO: the span of Keyword does not include its subsidiary expression
-        // resort to `expr_flat_map` if location found in its expr
-        if let Expr::Keyword(kw) = &expr.expr {
-            if kw.expr.span.contains(*location) {
-                return None;
-            }
-        }
         return Some(Vec::new());
     }
     let span = expr.span;
@@ -425,7 +456,34 @@ fn find_id_in_expr(
                 try_find_id_in_def(call, working_set, Some(location), None)
                     .or(try_find_id_in_mod(call, working_set, Some(location), None))
                     .or(try_find_id_in_use(call, working_set, Some(location), None))
+                    .or(try_find_id_in_overlay(
+                        call,
+                        working_set,
+                        Some(location),
+                        None,
+                    ))
                     .map(|p| vec![p])
+            }
+        }
+        Expr::FullCellPath(fcp) => {
+            if fcp.head.span.contains(*location) {
+                None
+            } else {
+                let Expression {
+                    expr: Expr::Var(var_id),
+                    ..
+                } = fcp.head
+                else {
+                    return None;
+                };
+                let tail: Vec<PathMember> = fcp
+                    .tail
+                    .clone()
+                    .into_iter()
+                    .take_while(|pm| pm.span().start <= *location)
+                    .collect();
+                let span = tail.last()?.span();
+                Some(vec![(Id::CellPath(var_id, tail), span)])
             }
         }
         Expr::Overlay(Some(module_id)) => Some(vec![(Id::Module(*module_id), span)]),
@@ -448,7 +506,7 @@ fn find_id_in_expr(
 }
 
 /// find the leaf node at the given location from ast
-pub fn find_id(
+pub(crate) fn find_id(
     ast: &Arc<Block>,
     working_set: &StateWorkingSet,
     location: &usize,
@@ -480,14 +538,14 @@ fn find_reference_by_id_in_expr(
                 .filter_map(|arg| arg.expr())
                 .flat_map(recur)
                 .collect();
-            if let Id::Declaration(decl_id) = id {
-                if *decl_id == call.decl_id {
-                    occurs.push(call.head);
-                }
+            if matches!(id, Id::Declaration(decl_id) if call.decl_id == *decl_id) {
+                occurs.push(call.head);
+                return Some(occurs);
             }
             if let Some((_, span_found)) = try_find_id_in_def(call, working_set, None, Some(id))
                 .or(try_find_id_in_mod(call, working_set, None, Some(id)))
                 .or(try_find_id_in_use(call, working_set, None, Some(id)))
+                .or(try_find_id_in_overlay(call, working_set, None, Some(id)))
             {
                 occurs.push(span_found);
             }
@@ -497,7 +555,11 @@ fn find_reference_by_id_in_expr(
     }
 }
 
-pub fn find_reference_by_id(ast: &Arc<Block>, working_set: &StateWorkingSet, id: &Id) -> Vec<Span> {
+pub(crate) fn find_reference_by_id(
+    ast: &Arc<Block>,
+    working_set: &StateWorkingSet,
+    id: &Id,
+) -> Vec<Span> {
     ast_flat_map(ast, working_set, &|e| {
         find_reference_by_id_in_expr(e, working_set, id)
     })

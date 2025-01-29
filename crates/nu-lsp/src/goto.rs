@@ -4,7 +4,10 @@ use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::Span;
 
 impl LanguageServer {
-    pub fn find_definition_span_by_id(working_set: &StateWorkingSet, id: &Id) -> Option<Span> {
+    pub(crate) fn find_definition_span_by_id(
+        working_set: &StateWorkingSet,
+        id: &Id,
+    ) -> Option<Span> {
         match id {
             Id::Declaration(decl_id) => {
                 let block_id = working_set.get_decl(*decl_id).block_id()?;
@@ -18,11 +21,21 @@ impl LanguageServer {
                 let module = working_set.get_module(*module_id);
                 module.span
             }
+            Id::CellPath(var_id, cell_path) => {
+                let var = working_set.get_variable(*var_id);
+                Some(
+                    var.const_val
+                        .clone()
+                        .and_then(|val| val.follow_cell_path(cell_path, false).ok())
+                        .map(|val| val.span())
+                        .unwrap_or(var.declaration_span),
+                )
+            }
             _ => None,
         }
     }
 
-    pub fn goto_definition(
+    pub(crate) fn goto_definition(
         &mut self,
         params: &GotoDefinitionParams,
     ) -> Option<GotoDefinitionResponse> {
@@ -51,11 +64,11 @@ impl LanguageServer {
 #[cfg(test)]
 mod tests {
     use crate::path_to_uri;
-    use crate::tests::{initialize_language_server, open_unchecked};
+    use crate::tests::{initialize_language_server, open_unchecked, result_from_message};
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
-    use lsp_types::request::{GotoDefinition, Request};
     use lsp_types::{
+        request::{GotoDefinition, Request},
         GotoDefinitionParams, PartialResultParams, Position, TextDocumentIdentifier,
         TextDocumentPositionParams, Uri, WorkDoneProgressParams,
     };
@@ -96,40 +109,10 @@ mod tests {
 
         let mut none_existent_path = root();
         none_existent_path.push("none-existent.nu");
+        let script = path_to_uri(&none_existent_path);
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 0, 0);
 
-        client_connection
-            .sender
-            .send(Message::Request(lsp_server::Request {
-                id: 2.into(),
-                method: GotoDefinition::METHOD.to_string(),
-                params: serde_json::to_value(GotoDefinitionParams {
-                    text_document_position_params: TextDocumentPositionParams {
-                        text_document: TextDocumentIdentifier {
-                            uri: path_to_uri(&none_existent_path),
-                        },
-                        position: Position {
-                            line: 0,
-                            character: 0,
-                        },
-                    },
-                    work_done_progress_params: WorkDoneProgressParams::default(),
-                    partial_result_params: PartialResultParams::default(),
-                })
-                .unwrap(),
-            }))
-            .unwrap();
-
-        let resp = client_connection
-            .receiver
-            .recv_timeout(std::time::Duration::from_secs(2))
-            .unwrap();
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
-
-        assert_json_eq!(result, serde_json::json!(null));
+        assert_json_eq!(result_from_message(resp), serde_json::json!(null));
     }
 
     #[test]
@@ -143,16 +126,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 12);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -160,6 +137,31 @@ mod tests {
                     "end": { "line": 0, "character": 12 }
                 }
             })
+        );
+    }
+
+    #[test]
+    fn goto_definition_of_cell_path() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hover");
+        script.push("cell_path.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 7);
+        assert_json_eq!(
+            result_from_message(resp).pointer("/range/start").unwrap(),
+            serde_json::json!({ "line": 1, "character": 10 })
+        );
+
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 9);
+        assert_json_eq!(
+            result_from_message(resp).pointer("/range/start").unwrap(),
+            serde_json::json!({ "line": 1, "character": 17 })
         );
     }
 
@@ -174,16 +176,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 1);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -205,16 +201,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 2);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -236,16 +226,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 14);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -267,16 +251,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 21);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -298,16 +276,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 9);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -329,16 +301,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 16);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -360,16 +326,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 3, 15);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script,
                 "range": {
@@ -391,16 +351,10 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-
         let resp = send_goto_definition_request(&client_connection, script.clone(), 0, 23);
-        let result = if let Message::Response(response) = resp {
-            response.result
-        } else {
-            panic!()
-        };
 
         assert_json_eq!(
-            result,
+            result_from_message(resp),
             serde_json::json!({
                 "uri": script.to_string().replace("use_module", "module"),
                 "range": {
@@ -408,6 +362,62 @@ mod tests {
                     "end": { "line": 1, "character": 30 }
                 }
             })
+        );
+    }
+
+    #[test]
+    fn goto_definition_of_module_in_hide() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("goto");
+        script.push("use_module.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 3, 6);
+
+        assert_json_eq!(
+            result_from_message(resp),
+            serde_json::json!({
+                "uri": script.to_string().replace("use_module", "module"),
+                "range": {
+                    "start": { "line": 1, "character": 29 },
+                    "end": { "line": 1, "character": 30 }
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn goto_definition_of_module_in_overlay() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("goto");
+        script.push("use_module.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 20);
+        assert_json_eq!(
+            result_from_message(resp).pointer("/range/start").unwrap(),
+            serde_json::json!({ "line": 0, "character": 0 })
+        );
+
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 1, 25);
+        assert_json_eq!(
+            result_from_message(resp).pointer("/range/start").unwrap(),
+            serde_json::json!({ "line": 0, "character": 0 })
+        );
+
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 30);
+        assert_json_eq!(
+            result_from_message(resp).pointer("/range/start").unwrap(),
+            serde_json::json!({ "line": 0, "character": 0 })
         );
     }
 }

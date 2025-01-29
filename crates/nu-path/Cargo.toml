@@ -13,6 +13,7 @@ bench = false
 
 [dependencies]
 dirs = { workspace = true }
+ref-cast = "1.0.23"
 
 [target.'cfg(windows)'.dependencies]
 omnipath = { workspace = true }

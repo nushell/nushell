@@ -1,5 +1,8 @@
-use crate::{byte_stream::convert_file, ErrSpan, IntoSpanned, ShellError, Span};
+use crate::{
+    byte_stream::convert_file, shell_error::io::IoError, ErrSpan, IntoSpanned, ShellError, Span,
+};
 use nu_system::{ExitStatus, ForegroundChild, ForegroundWaitStatus, UnfreezeHandle};
+
 use os_pipe::PipeReader;
 use std::{
     fmt::Debug,
@@ -74,13 +77,18 @@ impl ExitStatusFuture {
                         Ok(status)
                     }
                     Ok(Ok(status)) => Ok(status),
-                    Ok(Err(err)) => Err(ShellError::IOErrorSpanned {
-                        msg: format!("failed to get exit code: {err:?}"),
+                    Ok(Err(err)) => Err(ShellError::Io(IoError::new_with_additional_context(
+                        err.kind(),
                         span,
-                    }),
-                    Err(RecvError) => Err(ShellError::IOErrorSpanned {
+                        None,
+                        "failed to get exit code",
+                    ))),
+                    Err(err @ RecvError) => Err(ShellError::GenericError {
+                        error: err.to_string(),
                         msg: "failed to get exit code".into(),
-                        span,
+                        span: span.into(),
+                        help: None,
+                        inner: vec![],
                     }),
                 };
 
@@ -98,13 +106,19 @@ impl ExitStatusFuture {
             ExitStatusFuture::Running(receiver) => {
                 let code = match receiver.try_recv() {
                     Ok(Ok(status)) => Ok(Some(status)),
-                    Ok(Err(err)) => Err(ShellError::IOErrorSpanned {
-                        msg: format!("failed to get exit code: {err:?}"),
-                        span,
+                    Ok(Err(err)) => Err(ShellError::GenericError {
+                        error: err.to_string(),
+                        msg: "failed to get exit code".to_string(),
+                        span: span.into(),
+                        help: None,
+                        inner: vec![],
                     }),
-                    Err(TryRecvError::Disconnected) => Err(ShellError::IOErrorSpanned {
+                    Err(TryRecvError::Disconnected) => Err(ShellError::GenericError {
+                        error: "receiver disconnected".to_string(),
                         msg: "failed to get exit code".into(),
-                        span,
+                        span: span.into(),
+                        help: None,
+                        inner: vec![],
                     }),
                     Err(TryRecvError::Empty) => Ok(None),
                 };
@@ -203,7 +217,14 @@ impl ChildProcess {
 
                 exit_status_sender.send(matched)
             })
-            .err_span(span)?;
+            .map_err(|err| {
+                IoError::new_with_additional_context(
+                    err.kind(),
+                    span,
+                    None,
+                    "Could now spawn exit status waiter",
+                )
+            })?;
 
         Ok(Self::from_raw(stdout, stderr, Some(exit_status), span))
     }
@@ -237,14 +258,17 @@ impl ChildProcess {
     pub fn into_bytes(mut self) -> Result<Vec<u8>, ShellError> {
         if self.stderr.is_some() {
             debug_assert!(false, "stderr should not exist");
-            return Err(ShellError::IOErrorSpanned {
-                msg: "internal error".into(),
-                span: self.span,
+            return Err(ShellError::GenericError {
+                error: "internal error".into(),
+                msg: "stderr should not exist".into(),
+                span: self.span.into(),
+                help: None,
+                inner: vec![],
             });
         }
 
         let bytes = if let Some(stdout) = self.stdout {
-            collect_bytes(stdout).err_span(self.span)?
+            collect_bytes(stdout).map_err(|err| IoError::new(err.kind(), self.span, None))?
         } else {
             Vec::new()
         };
@@ -259,6 +283,7 @@ impl ChildProcess {
     }
 
     pub fn wait(mut self) -> Result<(), ShellError> {
+        let from_io_error = IoError::factory(self.span, None);
         if let Some(stdout) = self.stdout.take() {
             let stderr = self
                 .stderr
@@ -269,7 +294,7 @@ impl ChildProcess {
                         .spawn(move || consume_pipe(stderr))
                 })
                 .transpose()
-                .err_span(self.span)?;
+                .map_err(&from_io_error)?;
 
             let res = consume_pipe(stdout);
 
@@ -277,7 +302,7 @@ impl ChildProcess {
                 handle
                     .join()
                     .map_err(|e| match e.downcast::<io::Error>() {
-                        Ok(io) => ShellError::from((*io).into_spanned(self.span)),
+                        Ok(io) => from_io_error(*io).into(),
                         Err(err) => ShellError::GenericError {
                             error: "Unknown error".into(),
                             msg: format!("{err:?}"),
@@ -286,12 +311,12 @@ impl ChildProcess {
                             inner: Vec::new(),
                         },
                     })?
-                    .err_span(self.span)?;
+                    .map_err(&from_io_error)?;
             }
 
-            res.err_span(self.span)?;
+            res.map_err(&from_io_error)?;
         } else if let Some(stderr) = self.stderr.take() {
-            consume_pipe(stderr).err_span(self.span)?;
+            consume_pipe(stderr).map_err(&from_io_error)?;
         }
 
         check_ok(
@@ -306,19 +331,20 @@ impl ChildProcess {
     }
 
     pub fn wait_with_output(mut self) -> Result<ProcessOutput, ShellError> {
+        let from_io_error = IoError::factory(self.span, None);
         let (stdout, stderr) = if let Some(stdout) = self.stdout {
             let stderr = self
                 .stderr
                 .map(|stderr| thread::Builder::new().spawn(move || collect_bytes(stderr)))
                 .transpose()
-                .err_span(self.span)?;
+                .map_err(&from_io_error)?;
 
-            let stdout = collect_bytes(stdout).err_span(self.span)?;
+            let stdout = collect_bytes(stdout).map_err(&from_io_error)?;
 
             let stderr = stderr
                 .map(|handle| {
                     handle.join().map_err(|e| match e.downcast::<io::Error>() {
-                        Ok(io) => ShellError::from((*io).into_spanned(self.span)),
+                        Ok(io) => from_io_error(*io).into(),
                         Err(err) => ShellError::GenericError {
                             error: "Unknown error".into(),
                             msg: format!("{err:?}"),
@@ -330,7 +356,7 @@ impl ChildProcess {
                 })
                 .transpose()?
                 .transpose()
-                .err_span(self.span)?;
+                .map_err(&from_io_error)?;
 
             (Some(stdout), stderr)
         } else {
@@ -338,7 +364,7 @@ impl ChildProcess {
                 .stderr
                 .map(collect_bytes)
                 .transpose()
-                .err_span(self.span)?;
+                .map_err(&from_io_error)?;
 
             (None, stderr)
         };

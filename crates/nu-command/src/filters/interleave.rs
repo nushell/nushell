@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
-use nu_protocol::engine::Closure;
+use nu_protocol::{engine::Closure, shell_error::io::IoError};
 use std::{sync::mpsc, thread};
 
 #[derive(Clone)]
@@ -137,10 +137,7 @@ interleave
                             }
                         })
                         .map(|_| ())
-                        .map_err(|err| ShellError::IOErrorSpanned {
-                            msg: err.to_string(),
-                            span: head,
-                        })
+                        .map_err(|err| IoError::new(err.kind(), head, None).into())
                 })
             })?;
 

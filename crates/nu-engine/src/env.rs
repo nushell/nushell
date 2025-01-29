@@ -3,6 +3,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::Expr,
     engine::{Call, EngineState, Stack, StateWorkingSet},
+    shell_error::io::IoError,
     ShellError, Span, Type, Value, VarId,
 };
 use std::{
@@ -218,9 +219,12 @@ pub fn current_dir(engine_state: &EngineState, stack: &Stack) -> Result<PathBuf,
     // We're using `canonicalize_with` instead of `fs::canonicalize()` because
     // we still need to simplify Windows paths. "." is safe because `cwd` should
     // be an absolute path already.
-    canonicalize_with(&cwd, ".").map_err(|_| ShellError::DirectoryNotFound {
-        dir: cwd.to_string_lossy().to_string(),
-        span: Span::unknown(),
+    canonicalize_with(&cwd, ".").map_err(|err| {
+        ShellError::Io(IoError::new(
+            err.kind(),
+            Span::unknown(),
+            PathBuf::from(cwd),
+        ))
     })
 }
 
@@ -234,9 +238,12 @@ pub fn current_dir_const(working_set: &StateWorkingSet) -> Result<PathBuf, Shell
     // We're using `canonicalize_with` instead of `fs::canonicalize()` because
     // we still need to simplify Windows paths. "." is safe because `cwd` should
     // be an absolute path already.
-    canonicalize_with(&cwd, ".").map_err(|_| ShellError::DirectoryNotFound {
-        dir: cwd.to_string_lossy().to_string(),
-        span: Span::unknown(),
+    canonicalize_with(&cwd, ".").map_err(|err| {
+        ShellError::Io(IoError::new(
+            err.kind(),
+            Span::unknown(),
+            PathBuf::from(cwd),
+        ))
     })
 }
 

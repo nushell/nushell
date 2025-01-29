@@ -176,6 +176,7 @@ fn parse_sql_function(sql_function: &SQLFunction) -> Result<Expr> {
         .map(|arg| match arg {
             FunctionArg::Named { arg, .. } => arg,
             FunctionArg::Unnamed(arg) => arg,
+            FunctionArg::ExprNamed { arg, .. } => arg,
         })
         .collect::<Vec<_>>();
     Ok(

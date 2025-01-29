@@ -387,7 +387,7 @@ pub enum ServePluginError {
 impl From<ShellError> for ServePluginError {
     fn from(error: ShellError) -> Self {
         match error {
-            ShellError::IOError { .. } => ServePluginError::IOError(error),
+            ShellError::Io(_) => ServePluginError::IOError(error),
             ShellError::PluginFailedToLoad { .. } => ServePluginError::Incompatible(error),
             _ => ServePluginError::UnreportedError(error),
         }

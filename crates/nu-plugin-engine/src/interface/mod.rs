@@ -381,8 +381,13 @@ impl PluginInterfaceManager {
                 // don't block
                 this.state.writer.write(&PluginInput::EngineCallResponse(
                     engine_call_id,
-                    EngineCallResponse::Error(ShellError::IOError {
-                        msg: "Can't make engine call because the original caller hung up".into(),
+                    EngineCallResponse::Error(ShellError::GenericError {
+                        error: "Caller hung up".to_string(),
+                        msg: "Can't make engine call because the original caller hung up"
+                            .to_string(),
+                        span: None,
+                        help: None,
+                        inner: vec![],
                     }),
                 ))?;
                 this.state.writer.flush()

@@ -14,7 +14,7 @@ mod private {
 }
 
 /// A marker trait for the different kinds of path forms.
-/// Each form has its own invariants that are guaranteed be upheld.
+/// Each form has its own invariants that are guaranteed to be upheld.
 /// The list of path forms are:
 /// - [`Any`]: a path with no invariants. It may be a relative or an absolute path.
 /// - [`Relative`]: a strictly relative path.

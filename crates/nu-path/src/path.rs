@@ -2,6 +2,7 @@ use crate::form::{
     Absolute, Any, Canonical, IsAbsolute, MaybeRelative, PathCast, PathForm, PathJoin, PathPush,
     PathSet, Relative,
 };
+use ref_cast::{ref_cast_custom, RefCastCustom};
 use std::{
     borrow::{Borrow, Cow},
     cmp::Ordering,
@@ -45,8 +46,9 @@ use std::{
 /// But this may cause third-party code to use [`std::env::current_dir`] to resolve
 /// the path which is almost always incorrect behavior. Extra care is needed to ensure that this
 /// is not the case after using [`as_relative_std_path`](Path::as_relative_std_path).
+#[derive(RefCastCustom)]
 #[repr(transparent)]
-pub struct Path<Form: PathForm = Any> {
+pub struct Path<Form = Any> {
     _form: PhantomData<Form>,
     inner: std::path::Path,
 }
@@ -162,11 +164,11 @@ impl<Form: PathForm> Path<Form> {
     /// Create a new path of any form without validating invariants.
     #[inline]
     fn new_unchecked<P: AsRef<OsStr> + ?Sized>(path: &P) -> &Self {
+        #[ref_cast_custom]
+        fn ref_cast<Form: PathForm>(path: &std::path::Path) -> &Path<Form>;
+
         debug_assert!(Form::invariants_satisfied(path));
-        // Safety: `Path<Form>` is a repr(transparent) wrapper around `std::path::Path`.
-        let path = std::path::Path::new(path.as_ref());
-        let ptr = std::ptr::from_ref(path) as *const Self;
-        unsafe { &*ptr }
+        ref_cast(std::path::Path::new(path))
     }
 
     /// Attempt to create a new [`Path`] from a reference of another type.
@@ -1900,10 +1902,10 @@ impl<Form: PathForm> Deref for PathBuf<Form> {
 impl DerefMut for PathBuf {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        // Safety: `Path<Form>` is a repr(transparent) wrapper around `std::path::Path`.
-        let path: &mut std::path::Path = &mut self.inner;
-        let ptr = std::ptr::from_mut(path) as *mut Path;
-        unsafe { &mut *ptr }
+        #[ref_cast_custom]
+        fn ref_cast<Form: PathForm>(path: &mut std::path::Path) -> &mut Path<Form>;
+
+        ref_cast(&mut self.inner)
     }
 }
 

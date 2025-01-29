@@ -251,9 +251,9 @@ $env.config.bracketed_paste = true
 # - If `FORCE_COLOR` is set, coloring is always enabled.
 # - If `NO_COLOR` is set, coloring is disabled.
 # - If `CLICOLOR` is set, its value (0 or 1) decides whether coloring is used.
-# If none of these are set, it checks whether the standard output is a terminal 
+# If none of these are set, it checks whether the standard output is a terminal
 # and enables coloring if it is.
-# A value of `true` or `false` overrides this behavior, explicitly enabling or 
+# A value of `true` or `false` overrides this behavior, explicitly enabling or
 # disabling ANSI coloring in Nushell's internal commands.
 # When disabled, built-in commands will only use the default foreground color.
 # Note: This setting does not affect the `ansi` command.
@@ -371,17 +371,18 @@ $env.config.datetime_format.normal = "%m/%d/%y %I:%M:%S%p"
 # ----------------
 # Filesize Display
 # ----------------
-# filesize.metric (bool): When displaying filesize values ...
-# true: Use the ISO-standard KB, MB, GB
-# false: Use the Windows-standard KiB, MiB, GiB
-$env.config.filesize.metric = false
+# filesize.unit (string): One of either:
+# - A filesize unit: "B", "kB", "KiB", "MB", "MiB", "GB", "GiB", "TB", "TiB", "PB", "PiB", "EB", or "EiB".
+# - An automatically scaled unit: "metric" or "binary".
+# "metric" will use units with metric (SI) prefixes like kB, MB, or GB.
+# "binary" will use units with binary prefixes like KiB, MiB, or GiB.
+# Otherwise, setting this to one of the filesize units will use that particular unit when displaying all file sizes.
+$env.config.filesize.unit = 'metric'
 
-# filesize.format (string): One of either:
-# - The filesize units such as "KB", "KiB", etc. In this case, filesize values always display using
-# this unit.
-# - Or "auto": Filesizes are displayed using the closest unit. For example, 1_000_000_000b will display
-#   as 953.7 MiB (when `metric = false`) or 1.0GB (when `metric = true`)
-$env.config.filesize.format = "auto"
+# filesize.precision (int or nothing):
+# The number of digits to display after the decimal point for file sizes.
+# When set to `null`, all digits after the decimal point will be displayed.
+$env.config.filesize.precision = 1
 
 # ---------------------
 # Miscellaneous Display

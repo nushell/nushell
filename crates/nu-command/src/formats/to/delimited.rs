@@ -1,16 +1,14 @@
 use csv::WriterBuilder;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_protocol::{
-    ByteStream, ByteStreamType, Config, PipelineData, ShellError, Signals, Span, Spanned, Value,
+    shell_error::io::IoError, ByteStream, ByteStreamType, Config, PipelineData, ShellError,
+    Signals, Span, Spanned, Value,
 };
 use std::{iter, sync::Arc};
 
 fn make_csv_error(error: csv::Error, format_name: &str, head: Span) -> ShellError {
     if let csv::ErrorKind::Io(error) = error.kind() {
-        ShellError::IOErrorSpanned {
-            msg: error.to_string(),
-            span: head,
-        }
+        IoError::new(error.kind(), head, None).into()
     } else {
         ShellError::GenericError {
             error: format!("Failed to generate {format_name} data"),

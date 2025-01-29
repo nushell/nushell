@@ -13,7 +13,8 @@ use nu_engine::{command_prelude::*, env_to_string};
 use nu_path::form::Absolute;
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode, ValueIterator,
+    shell_error::io::IoError, ByteStream, Config, DataSource, ListStream, PipelineMetadata,
+    Signals, TableMode, ValueIterator,
 };
 use nu_table::{
     common::configure_table, CollapsedTable, ExpandedTable, JustTable, NuRecordsValue, NuTable,
@@ -518,7 +519,7 @@ fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
                 (&mut reader)
                     .take(cfg.width as u64)
                     .read_to_end(&mut read_buf)
-                    .err_span(span)?;
+                    .map_err(|err| IoError::new(err.kind(), span, None))?;
 
                 if !read_buf.is_empty() {
                     nu_pretty_hex::hex_write(&mut write_buf, &read_buf, cfg, Some(true))

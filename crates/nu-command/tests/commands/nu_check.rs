@@ -172,7 +172,7 @@ fn file_not_exist() {
             "
         ));
 
-        assert!(actual.err.contains("file not found"));
+        assert!(actual.err.contains("nu::shell::io::not_found"));
     })
 }
 

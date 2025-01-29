@@ -428,7 +428,13 @@ fn main() -> Result<()> {
         for plugin_filename in plugins {
             // Make sure the plugin filenames are canonicalized
             let filename = canonicalize_with(&plugin_filename.item, &init_cwd)
-                .err_span(plugin_filename.span)
+                .map_err(|err| {
+                    nu_protocol::shell_error::io::IoError::new(
+                        err.kind(),
+                        plugin_filename.span,
+                        PathBuf::from(&plugin_filename.item),
+                    )
+                })
                 .map_err(ShellError::from)?;
 
             let identity = PluginIdentity::new(&filename, None)

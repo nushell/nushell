@@ -1,5 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 use std::io::Read;
 
 struct Arguments {
@@ -71,7 +72,7 @@ impl Command for BytesStartsWith {
             reader
                 .take(pattern.len() as u64)
                 .read_to_end(&mut start)
-                .err_span(span)?;
+                .map_err(|err| IoError::new(err.kind(), span, None))?;
 
             Ok(Value::bool(start == pattern, head).into_pipeline_data())
         } else {

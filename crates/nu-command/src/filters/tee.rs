@@ -2,8 +2,8 @@ use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 #[cfg(feature = "os")]
 use nu_protocol::process::ChildPipe;
 use nu_protocol::{
-    byte_stream::copy_with_signals, engine::Closure, report_shell_error, ByteStream,
-    ByteStreamSource, OutDest, PipelineMetadata, Signals,
+    byte_stream::copy_with_signals, engine::Closure, report_shell_error, shell_error::io::IoError,
+    ByteStream, ByteStreamSource, OutDest, PipelineMetadata, Signals,
 };
 use std::{
     io::{self, Read, Write},
@@ -82,6 +82,7 @@ use it in your pipeline."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let from_io_error = IoError::factory(head, None);
         let use_stderr = call.has_flag(engine_state, stack, "stderr")?;
 
         let closure: Spanned<Closure> = call.req(engine_state, stack, 0)?;
@@ -263,7 +264,7 @@ use it in your pipeline."#
                     let input = rx.into_pipeline_data_with_metadata(span, signals, metadata_clone);
                     eval_block(input)
                 })
-                .err_span(call.head)?
+                .map_err(&from_io_error)?
                 .map(move |result| result.unwrap_or_else(|err| Value::error(err, closure_span)))
                 .into_pipeline_data_with_metadata(
                     span,
@@ -278,7 +279,7 @@ use it in your pipeline."#
                 tee_once(engine_state_arc, move || {
                     eval_block(value_clone.into_pipeline_data_with_metadata(metadata_clone))
                 })
-                .err_span(call.head)?;
+                .map_err(&from_io_error)?;
                 Ok(value.into_pipeline_data_with_metadata(metadata))
             }
         }
@@ -439,7 +440,9 @@ fn spawn_tee(
             );
             eval_block(PipelineData::ByteStream(stream, info.metadata))
         })
-        .err_span(info.span)?;
+        .map_err(|err| {
+            IoError::new_with_additional_context(err.kind(), info.span, None, "Could not spawn tee")
+        })?;
 
     Ok(TeeThread { sender, thread })
 }
@@ -478,7 +481,15 @@ fn copy_on_thread(
             copy_with_signals(src, dest, span, &signals)?;
             Ok(())
         })
-        .map_err(|e| e.into_spanned(span).into())
+        .map_err(|err| {
+            IoError::new_with_additional_context(
+                err.kind(),
+                span,
+                None,
+                "Could not spawn stderr copier",
+            )
+            .into()
+        })
 }
 
 #[cfg(feature = "os")]
@@ -521,7 +532,12 @@ fn tee_forwards_errors_back_immediately() {
     use std::time::Duration;
     let slow_input = (0..100).inspect(|_| std::thread::sleep(Duration::from_millis(1)));
     let iter = tee(slow_input, |_| {
-        Err(ShellError::IOError { msg: "test".into() })
+        Err(ShellError::Io(IoError::new_with_additional_context(
+            std::io::ErrorKind::Other,
+            Span::test_data(),
+            None,
+            "test",
+        )))
     })
     .expect("io error");
     for result in iter {
@@ -548,7 +564,12 @@ fn tee_waits_for_the_other_thread() {
     let iter = tee(0..100, move |_| {
         std::thread::sleep(Duration::from_millis(10));
         waited_clone.store(true, Ordering::Relaxed);
-        Err(ShellError::IOError { msg: "test".into() })
+        Err(ShellError::Io(IoError::new_with_additional_context(
+            std::io::ErrorKind::Other,
+            Span::test_data(),
+            None,
+            "test",
+        )))
     })
     .expect("io error");
     let last = iter.last();

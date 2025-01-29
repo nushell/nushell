@@ -820,7 +820,7 @@ impl Value {
     /// This method is able to leverage that information encoded in a `Value` to provide more accurate
     /// type comparison than if one were to collect the type into [`Type`](crate::Type) value with [`Value::get_type`].
     ///
-    /// Empty lists are considered subtypes of all list<T> types.
+    /// Empty lists are considered subtypes of all `list<T>` types.
     ///
     /// Lists of mixed records where some column is present in all record is a subtype of `table<column>`.
     /// For example, `[{a: 1, b: 2}, {a: 1}]` is a subtype of `table<a: int>` (but not `table<a: int, b: int>`).
@@ -936,7 +936,7 @@ impl Value {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
+            Value::Filesize { val, .. } => config.filesize.display(*val).to_string(),
             Value::Duration { val, .. } => format_duration(*val),
             Value::Date { val, .. } => match &config.datetime_format.normal {
                 Some(format) => self.format_datetime(val, format),
