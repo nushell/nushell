@@ -49,8 +49,9 @@ impl Type {
 
     /// Determine of the [`Type`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`.
     ///
-    /// This should only be used at parse-time. If you have a concrete [`Value`](crate::Value) or [`PipelineData`](crate::PipelineData),
-    /// you should use their respective [`is_subtype_of`] methods instead.
+    /// This should only be used at parse-time.
+    /// If you have a concrete [`Value`](crate::Value) or [`PipelineData`](crate::PipelineData),
+    /// you should use their respective `is_subtype_of` methods instead.
     pub fn is_subtype_of(&self, other: &Type) -> bool {
         // Structural subtyping
         let is_subtype_collection = |this: &[(String, Type)], that: &[(String, Type)]| {

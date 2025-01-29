@@ -609,7 +609,7 @@ impl EngineState {
         }
     }
 
-    /// Find the [`DeclId`](nu_protocol::id::DeclId) corresponding to a declaration with `name`.
+    /// Find the [`DeclId`](crate::DeclId) corresponding to a declaration with `name`.
     ///
     /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
     pub fn find_decl(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<DeclId> {
@@ -649,21 +649,21 @@ impl EngineState {
         None
     }
 
-    /// Find the [`OverlayId`](nu_protocol::id::OverlayId) corresponding to `name`.
+    /// Find the [`OverlayId`](crate::OverlayId) corresponding to `name`.
     ///
     /// Searches all overlays, not just active overlays. To search only in active overlays, use [`find_active_overlay`](EngineState::find_active_overlay)
     pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
         self.scope.find_overlay(name)
     }
 
-    /// Find the [`OverlayId`](nu_protocol::id::OverlayId) of the active overlay corresponding to `name`.
+    /// Find the [`OverlayId`](crate::OverlayId) of the active overlay corresponding to `name`.
     ///
     /// Searches only active overlays. To search in all overlays, use [`find_overlay`](EngineState::find_active_overlay)
     pub fn find_active_overlay(&self, name: &[u8]) -> Option<OverlayId> {
         self.scope.find_active_overlay(name)
     }
 
-    /// Find the [`ModuleId`](nu_protocol::id::ModuleId) corresponding to `name`.
+    /// Find the [`ModuleId`](crate::ModuleId) corresponding to `name`.
     ///
     /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
     pub fn find_module(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<ModuleId> {

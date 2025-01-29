@@ -256,9 +256,10 @@ impl IoError {
 
     /// Creates a new `IoError` for internal I/O errors with a specific path.
     ///
-    /// This constructor is similar to [`new_internal`] but also includes a file or directory
-    /// path relevant to the error. Use this function in rare cases where an internal error
-    /// involves a specific path, and the combination of path and additional context is helpful.
+    /// This constructor is similar to [`new_internal`](Self::new_internal) but also includes a
+    /// file or directory path relevant to the error.
+    /// Use this function in rare cases where an internal error involves a specific path, and the
+    /// combination of path and additional context is helpful.
     ///
     /// # Examples
     /// ```rust
