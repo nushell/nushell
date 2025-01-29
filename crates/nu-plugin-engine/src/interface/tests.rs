@@ -6,6 +6,7 @@ use crate::{
     plugin_custom_value_with_source::WithSource, test_util::*, PluginCustomValueWithSource,
     PluginSource,
 };
+use nu_engine::command_prelude::IoError;
 use nu_plugin_core::{interface_test_util::TestCase, Interface, InterfaceManager};
 use nu_plugin_protocol::{
     test_util::{expected_test_custom_value, test_plugin_custom_value},
@@ -86,9 +87,12 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
 }
 
 fn test_io_error() -> ShellError {
-    ShellError::IOError {
-        msg: "test io error".into(),
-    }
+    ShellError::Io(IoError::new_with_additional_context(
+        std::io::ErrorKind::Other,
+        Span::test_data(),
+        None,
+        "test io error",
+    ))
 }
 
 fn check_test_io_error(error: &ShellError) {

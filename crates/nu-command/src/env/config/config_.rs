@@ -60,6 +60,8 @@ pub(super) fn start_editor(
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
     // Find the editor executable.
+
+    use nu_protocol::shell_error::io::IoError;
     let (editor_name, editor_args) = get_editor(engine_state, stack, call.head)?;
     let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
     let cwd = engine_state.cwd(Some(stack))?;
@@ -99,13 +101,22 @@ pub(super) fn start_editor(
     // Spawn the child process. On Unix, also put the child process to
     // foreground if we're in an interactive session.
     #[cfg(windows)]
-    let child = ForegroundChild::spawn(command)?;
+    let child = ForegroundChild::spawn(command);
     #[cfg(unix)]
     let child = ForegroundChild::spawn(
         command,
         engine_state.is_interactive,
         &engine_state.pipeline_externals_state,
-    )?;
+    );
+
+    let child = child.map_err(|err| {
+        IoError::new_with_additional_context(
+            err.kind(),
+            call.head,
+            None,
+            "Could not spawn foreground child",
+        )
+    })?;
 
     // Wrap the output into a `PipelineData::ByteStream`.
     let child = nu_protocol::process::ChildProcess::new(child, None, false, call.head)?;

@@ -1,6 +1,6 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
-use nu_protocol::NuGlob;
+use nu_protocol::{shell_error::io::IoError, NuGlob};
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
 
@@ -197,10 +197,11 @@ impl Command for UCp {
                     .map(|f| f.1)?
                     .collect();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound {
-                    file: p.item.to_string(),
-                    span: p.span,
-                });
+                return Err(ShellError::Io(IoError::new(
+                    std::io::ErrorKind::NotFound,
+                    p.span,
+                    PathBuf::from(p.item.to_string()),
+                )));
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {

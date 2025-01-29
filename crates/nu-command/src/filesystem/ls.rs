@@ -5,7 +5,7 @@ use nu_engine::glob_from;
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::{expand_path_with, expand_to_real_path};
-use nu_protocol::{DataSource, NuGlob, PipelineMetadata, Signals};
+use nu_protocol::{shell_error::io::IoError, DataSource, NuGlob, PipelineMetadata, Signals};
 use pathdiff::diff_paths;
 use rayon::prelude::*;
 #[cfg(unix)]
@@ -254,10 +254,12 @@ fn ls_for_one_pattern(
         if let Some(path) = pattern_arg {
             // it makes no sense to list an empty string.
             if path.item.as_ref().is_empty() {
-                return Err(ShellError::FileNotFoundCustom {
-                    msg: "empty string('') directory or file does not exist".to_string(),
-                    span: path.span,
-                });
+                return Err(ShellError::Io(IoError::new_with_additional_context(
+                    std::io::ErrorKind::NotFound,
+                    path.span,
+                    PathBuf::from(path.item.to_string()),
+                    "empty string('') directory or file does not exist",
+                )));
             }
             match path.item {
                 NuGlob::DoNotExpand(p) => Some(Spanned {
@@ -283,10 +285,7 @@ fn ls_for_one_pattern(
                 nu_path::expand_path_with(pat.item.as_ref(), &cwd, pat.item.is_expand());
             // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
             if !directory && tmp_expanded.is_dir() {
-                if read_dir(&tmp_expanded, p_tag, use_threads)?
-                    .next()
-                    .is_none()
-                {
+                if read_dir(tmp_expanded, p_tag, use_threads)?.next().is_none() {
                     return Ok(Value::test_nothing().into_pipeline_data());
                 }
                 just_read_dir = !(pat.item.is_expand() && nu_glob::is_glob(pat.item.as_ref()));
@@ -305,7 +304,7 @@ fn ls_for_one_pattern(
             // Avoid pushing "*" to the default path when directory (do not show contents) flag is true
             if directory {
                 (NuGlob::Expand(".".to_string()), false)
-            } else if read_dir(&cwd, p_tag, use_threads)?.next().is_none() {
+            } else if read_dir(cwd.clone(), p_tag, use_threads)?.next().is_none() {
                 return Ok(Value::test_nothing().into_pipeline_data());
             } else {
                 (NuGlob::Expand("*".to_string()), false)
@@ -318,7 +317,7 @@ fn ls_for_one_pattern(
     let path = pattern_arg.into_spanned(p_tag);
     let (prefix, paths) = if just_read_dir {
         let expanded = nu_path::expand_path_with(path.item.as_ref(), &cwd, path.item.is_expand());
-        let paths = read_dir(&expanded, p_tag, use_threads)?;
+        let paths = read_dir(expanded.clone(), p_tag, use_threads)?;
         // just need to read the directory, so prefix is path itself.
         (Some(expanded), paths)
     } else {
@@ -350,7 +349,16 @@ fn ls_for_one_pattern(
     let signals_clone = signals.clone();
 
     let pool = if use_threads {
-        let count = std::thread::available_parallelism()?.get();
+        let count = std::thread::available_parallelism()
+            .map_err(|err| {
+                IoError::new_with_additional_context(
+                    err.kind(),
+                    call_span,
+                    None,
+                    "Could not get available parallelism",
+                )
+            })?
+            .get();
         create_pool(count)?
     } else {
         create_pool(1)?
@@ -910,14 +918,12 @@ mod windows_helper {
                 &mut find_data,
             ) {
                 Ok(_) => Ok(find_data),
-                Err(e) => Err(ShellError::ReadingFile {
-                    msg: format!(
-                        "Could not read metadata for '{}':\n  '{}'",
-                        filename.to_string_lossy(),
-                        e
-                    ),
+                Err(e) => Err(ShellError::Io(IoError::new_with_additional_context(
+                    std::io::ErrorKind::Other,
                     span,
-                }),
+                    PathBuf::from(filename),
+                    format!("Could not read metadata: {e}"),
+                ))),
             }
         }
     }
@@ -950,28 +956,17 @@ mod windows_helper {
 
 #[allow(clippy::type_complexity)]
 fn read_dir(
-    f: &Path,
+    f: PathBuf,
     span: Span,
     use_threads: bool,
 ) -> Result<Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send>, ShellError> {
     let items = f
         .read_dir()
-        .map_err(|error| {
-            if error.kind() == std::io::ErrorKind::PermissionDenied {
-                return ShellError::GenericError {
-                    error: "Permission denied".into(),
-                    msg: "The permissions may not allow access for this user".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                };
-            }
-
-            error.into()
-        })?
-        .map(|d| {
+        .map_err(|err| IoError::new(err.kind(), span, f.clone()))?
+        .map(move |d| {
             d.map(|r| r.path())
-                .map_err(|e| ShellError::IOError { msg: e.to_string() })
+                .map_err(|err| IoError::new(err.kind(), span, f.clone()))
+                .map_err(ShellError::from)
         });
     if !use_threads {
         let mut collected = items.collect::<Vec<_>>();

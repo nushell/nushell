@@ -1,5 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 use std::{
     collections::VecDeque,
     io::{self, BufRead},
@@ -76,7 +77,7 @@ impl Command for BytesEndsWith {
                     Ok(&[]) => break,
                     Ok(buf) => buf,
                     Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
-                    Err(e) => return Err(e.into_spanned(span).into()),
+                    Err(e) => return Err(IoError::new(e.kind(), span, None).into()),
                 };
                 let len = buf.len();
                 if len >= cap {

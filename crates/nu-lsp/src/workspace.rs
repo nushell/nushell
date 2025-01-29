@@ -1,5 +1,18 @@
+use crate::{
+    ast::{find_id, find_reference_by_id},
+    path_to_uri, span_to_range, uri_to_path, Id, LanguageServer,
+};
 use lsp_textdocument::FullTextDocument;
-use nu_parser::parse;
+use lsp_types::{
+    DocumentHighlight, DocumentHighlightKind, DocumentHighlightParams, Location,
+    PrepareRenameResponse, ProgressToken, Range, ReferenceParams, RenameParams,
+    TextDocumentPositionParams, TextEdit, Uri, WorkspaceEdit, WorkspaceFolder,
+};
+use miette::{miette, IntoDiagnostic, Result};
+use nu_protocol::{
+    engine::{EngineState, StateWorkingSet},
+    Span,
+};
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
@@ -7,72 +20,37 @@ use std::{
     sync::Arc,
 };
 
-use crate::{
-    ast::{find_id, find_reference_by_id},
-    path_to_uri, span_to_range, uri_to_path, Id, LanguageServer,
-};
-use crossbeam_channel::{Receiver, Sender};
-use lsp_server::{Message, Request, Response};
-use lsp_types::{
-    DocumentHighlight, DocumentHighlightKind, DocumentHighlightParams, Location,
-    PrepareRenameResponse, ProgressToken, Range, ReferenceParams, RenameParams,
-    TextDocumentPositionParams, TextEdit, Uri, WorkspaceEdit, WorkspaceFolder,
-};
-use miette::{miette, IntoDiagnostic, Result};
-use nu_glob::{glob, Paths};
-use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
-    Span,
-};
-use serde_json::Value;
-
 /// Message type indicating ranges of interest in each doc
 #[derive(Debug)]
-pub struct RangePerDoc {
+pub(crate) struct RangePerDoc {
     pub uri: Uri,
     pub ranges: Vec<Range>,
 }
 
 /// Message sent from background thread to main
 #[derive(Debug)]
-pub enum InternalMessage {
+pub(crate) enum InternalMessage {
     RangeMessage(RangePerDoc),
     Cancelled(ProgressToken),
     Finished(ProgressToken),
     OnGoing(ProgressToken, u32),
 }
 
-fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Result<Paths> {
+fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Result<nu_glob::Paths> {
     let path = uri_to_path(folder_uri);
     if !path.is_dir() {
         return Err(miette!("\nworkspace folder does not exist."));
     }
     let pattern = format!("{}/**/*.nu", path.to_string_lossy());
-    glob(&pattern).into_diagnostic()
-}
-
-fn find_reference_in_file(
-    working_set: &mut StateWorkingSet,
-    file: &FullTextDocument,
-    fp: &Path,
-    id: &Id,
-) -> Option<Vec<Span>> {
-    let block = parse(
-        working_set,
-        fp.to_str(),
-        file.get_content(None).as_bytes(),
-        false,
-    );
-    let references: Vec<Span> = find_reference_by_id(&block, working_set, id);
-
-    // add_block to avoid repeated parsing
-    working_set.add_block(block);
-    (!references.is_empty()).then_some(references)
+    nu_glob::glob(&pattern).into_diagnostic()
 }
 
 impl LanguageServer {
     /// Get initial workspace folders from initialization response
-    pub fn initialize_workspace_folders(&mut self, init_params: Value) -> Result<()> {
+    pub(crate) fn initialize_workspace_folders(
+        &mut self,
+        init_params: serde_json::Value,
+    ) -> Result<()> {
         if let Some(array) = init_params.get("workspaceFolders") {
             let folders: Vec<WorkspaceFolder> =
                 serde_json::from_value(array.clone()).into_diagnostic()?;
@@ -84,7 +62,7 @@ impl LanguageServer {
     }
 
     /// Highlight all occurrences of the text at cursor, in current file
-    pub fn document_highlight(
+    pub(crate) fn document_highlight(
         &mut self,
         params: &DocumentHighlightParams,
     ) -> Option<Vec<DocumentHighlight>> {
@@ -122,7 +100,7 @@ impl LanguageServer {
 
     /// The rename request only happens after the client received a `PrepareRenameResponse`,
     /// and a new name typed in, could happen before ranges ready for all files in the workspace folder
-    pub fn rename(&mut self, params: &RenameParams) -> Option<WorkspaceEdit> {
+    pub(crate) fn rename(&mut self, params: &RenameParams) -> Option<WorkspaceEdit> {
         let new_name = params.new_name.to_owned();
         // changes in WorkspaceEdit have mutable key
         #[allow(clippy::mutable_key_type)]
@@ -153,7 +131,11 @@ impl LanguageServer {
     /// - `timeout`: timeout in milliseconds, when timeout
     ///    1. Respond with all ranges found so far
     ///    2. Cancel the background thread
-    pub fn references(&mut self, params: &ReferenceParams, timeout: u128) -> Option<Vec<Location>> {
+    pub(crate) fn references(
+        &mut self,
+        params: &ReferenceParams,
+        timeout: u128,
+    ) -> Option<Vec<Location>> {
         self.occurrences = BTreeMap::new();
         let mut engine_state = self.new_engine_state();
         let path_uri = params.text_document_position.text_document.uri.to_owned();
@@ -213,7 +195,7 @@ impl LanguageServer {
     /// 1. Parse current file to find the content at the cursor that is suitable for a workspace wide renaming
     /// 2. Parse all nu scripts in the same workspace folder, with the variable/command name in it.
     /// 3. Store the results in `self.occurrences` for later rename quest
-    pub fn prepare_rename(&mut self, request: Request) -> Result<()> {
+    pub(crate) fn prepare_rename(&mut self, request: lsp_server::Request) -> Result<()> {
         let params: TextDocumentPositionParams =
             serde_json::from_value(request.params).into_diagnostic()?;
         self.occurrences = BTreeMap::new();
@@ -244,7 +226,7 @@ impl LanguageServer {
         let response = PrepareRenameResponse::Range(range);
         self.connection
             .sender
-            .send(Message::Response(Response {
+            .send(lsp_server::Message::Response(lsp_server::Response {
                 id: request.id,
                 result: serde_json::to_value(response).ok(),
                 error: None,
@@ -252,10 +234,7 @@ impl LanguageServer {
             .into_diagnostic()?;
 
         // have to clone it again in order to move to another thread
-        let mut engine_state = self.new_engine_state();
-        engine_state
-            .merge_delta(working_set.render())
-            .into_diagnostic()?;
+        let engine_state = self.new_engine_state();
         let current_workspace_folder = self
             .get_workspace_folder_by_uri(&path_uri)
             .ok_or_else(|| miette!("\nCurrent file is not in any workspace"))?;
@@ -271,6 +250,25 @@ impl LanguageServer {
             )
             .ok();
         Ok(())
+    }
+
+    fn find_reference_in_file(
+        working_set: &mut StateWorkingSet,
+        file: &FullTextDocument,
+        fp: &Path,
+        id: &Id,
+    ) -> Option<Vec<Span>> {
+        let block = nu_parser::parse(
+            working_set,
+            fp.to_str(),
+            file.get_content(None).as_bytes(),
+            false,
+        );
+        let references: Vec<Span> = find_reference_by_id(&block, working_set, id);
+
+        // add_block to avoid repeated parsing
+        working_set.add_block(block);
+        (!references.is_empty()).then_some(references)
     }
 
     /// NOTE: for arguments whose declaration is in a signature
@@ -300,6 +298,8 @@ impl LanguageServer {
         None
     }
 
+    /// Time consuming task running in a background thread
+    /// communicating with the main thread using `InternalMessage`
     fn find_reference_in_workspace(
         &self,
         engine_state: EngineState,
@@ -308,7 +308,10 @@ impl LanguageServer {
         span: Span,
         token: ProgressToken,
         message: String,
-    ) -> Result<(Sender<bool>, Arc<Receiver<InternalMessage>>)> {
+    ) -> Result<(
+        crossbeam_channel::Sender<bool>,
+        Arc<crossbeam_channel::Receiver<InternalMessage>>,
+    )> {
         let (data_sender, data_receiver) = crossbeam_channel::unbounded::<InternalMessage>();
         let (cancel_sender, cancel_receiver) = crossbeam_channel::bounded::<bool>(1);
         let engine_state = Arc::new(engine_state);
@@ -371,32 +374,34 @@ impl LanguageServer {
                     }
                     &FullTextDocument::new("nu".to_string(), 0, content_string.into())
                 };
-                let _ = find_reference_in_file(&mut working_set, file, fp, &id).map(|mut refs| {
-                    let file_span = working_set
-                        .get_span_for_filename(fp.to_string_lossy().as_ref())
-                        .unwrap_or(Span::unknown());
-                    if let Some(extra_span) = Self::reference_not_in_ast(
-                        &id,
-                        &working_set,
-                        definition_span,
-                        file_span,
-                        span,
-                    ) {
-                        if !refs.contains(&extra_span) {
-                            refs.push(extra_span)
+                let _ = Self::find_reference_in_file(&mut working_set, file, fp, &id).map(
+                    |mut refs| {
+                        let file_span = working_set
+                            .get_span_for_filename(fp.to_string_lossy().as_ref())
+                            .unwrap_or(Span::unknown());
+                        if let Some(extra_span) = Self::reference_not_in_ast(
+                            &id,
+                            &working_set,
+                            definition_span,
+                            file_span,
+                            span,
+                        ) {
+                            if !refs.contains(&extra_span) {
+                                refs.push(extra_span)
+                            }
                         }
-                    }
-                    let ranges = refs
-                        .iter()
-                        .map(|span| span_to_range(span, file, file_span.start))
-                        .collect();
-                    data_sender
-                        .send(InternalMessage::RangeMessage(RangePerDoc { uri, ranges }))
-                        .ok();
-                    data_sender
-                        .send(InternalMessage::OnGoing(token.clone(), percentage))
-                        .ok();
-                });
+                        let ranges = refs
+                            .iter()
+                            .map(|span| span_to_range(span, file, file_span.start))
+                            .collect();
+                        data_sender
+                            .send(InternalMessage::RangeMessage(RangePerDoc { uri, ranges }))
+                            .ok();
+                        data_sender
+                            .send(InternalMessage::OnGoing(token.clone(), percentage))
+                            .ok();
+                    },
+                );
             }
             data_sender
                 .send(InternalMessage::Finished(token.clone()))
@@ -421,20 +426,16 @@ impl LanguageServer {
 
 #[cfg(test)]
 mod tests {
+    use crate::path_to_uri;
+    use crate::tests::{initialize_language_server, open_unchecked, send_hover_request};
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
-        request, request::Request, InitializeParams, PartialResultParams, Position,
-        ReferenceContext, ReferenceParams, TextDocumentIdentifier, TextDocumentPositionParams, Uri,
-        WorkDoneProgressParams, WorkspaceFolder,
+        request, request::Request, DocumentHighlightParams, InitializeParams, PartialResultParams,
+        Position, ReferenceContext, ReferenceParams, RenameParams, TextDocumentIdentifier,
+        TextDocumentPositionParams, Uri, WorkDoneProgressParams, WorkspaceFolder,
     };
-    use lsp_types::{DocumentHighlightParams, RenameParams};
-    use nu_parser::parse;
-    use nu_protocol::engine::StateWorkingSet;
     use nu_test_support::fs::fixtures;
-
-    use crate::path_to_uri;
-    use crate::tests::{initialize_language_server, open_unchecked, send_hover_request};
 
     fn send_reference_request(
         client_connection: &Connection,
@@ -845,7 +846,7 @@ mod tests {
                     serde_json::json!({
                             "contents": {
                             "kind": "markdown",
-                            "value": "\n-----\n### Usage \n```nu\n  foo str {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                            "value": "\n---\n### Usage \n```nu\n  foo str {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                         }
                     }),
                 ),
@@ -873,8 +874,8 @@ mod tests {
             nu_protocol::Value::test_string(script_path.to_str().unwrap()),
         );
         script_path.push("bar.nu");
-        let mut working_set = StateWorkingSet::new(&engine_state);
-        parse(
+        let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+        nu_parser::parse(
             &mut working_set,
             script_path.to_str(),
             std::fs::read(script_path.clone()).unwrap().as_slice(),

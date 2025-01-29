@@ -12,7 +12,7 @@ mod tests;
 pub trait Encoder<T>: Clone + Send + Sync {
     /// Serialize a value in the [`PluginEncoder`]s format
     ///
-    /// Returns [`ShellError::IOError`] if there was a problem writing, or
+    /// Returns [`ShellError::Io`] if there was a problem writing, or
     /// [`ShellError::PluginFailedToEncode`] for a serialization error.
     fn encode(&self, data: &T, writer: &mut impl std::io::Write) -> Result<(), ShellError>;
 
@@ -20,7 +20,7 @@ pub trait Encoder<T>: Clone + Send + Sync {
     ///
     /// Returns `None` if there is no more output to receive.
     ///
-    /// Returns [`ShellError::IOError`] if there was a problem reading, or
+    /// Returns [`ShellError::Io`] if there was a problem reading, or
     /// [`ShellError::PluginFailedToDecode`] for a deserialization error.
     fn decode(&self, reader: &mut impl std::io::BufRead) -> Result<Option<T>, ShellError>;
 }

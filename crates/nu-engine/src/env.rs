@@ -3,6 +3,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::Expr,
     engine::{Call, EngineState, Stack, StateWorkingSet},
+    shell_error::io::IoError,
     ShellError, Span, Type, Value, VarId,
 };
 use std::{
@@ -139,18 +140,18 @@ pub fn env_to_string(
                     // Try to convert PATH/Path list to a string
                     match value {
                         Value::List { vals, .. } => {
-                            let paths = vals
+                            let paths: Vec<String> = vals
                                 .iter()
-                                .map(Value::coerce_str)
-                                .collect::<Result<Vec<_>, _>>()?;
+                                .filter_map(|v| v.coerce_str().ok())
+                                .map(|s| nu_path::expand_tilde(&*s).to_string_lossy().into_owned())
+                                .collect();
 
-                            match std::env::join_paths(paths.iter().map(AsRef::as_ref)) {
-                                Ok(p) => Ok(p.to_string_lossy().to_string()),
-                                Err(_) => Err(ShellError::EnvVarNotAString {
+                            std::env::join_paths(paths.iter().map(AsRef::<str>::as_ref))
+                                .map(|p| p.to_string_lossy().to_string())
+                                .map_err(|_| ShellError::EnvVarNotAString {
                                     envvar_name: env_name.to_string(),
                                     span: value.span(),
-                                }),
-                            }
+                                })
                         }
                         _ => Err(ShellError::EnvVarNotAString {
                             envvar_name: env_name.to_string(),
@@ -218,9 +219,12 @@ pub fn current_dir(engine_state: &EngineState, stack: &Stack) -> Result<PathBuf,
     // We're using `canonicalize_with` instead of `fs::canonicalize()` because
     // we still need to simplify Windows paths. "." is safe because `cwd` should
     // be an absolute path already.
-    canonicalize_with(&cwd, ".").map_err(|_| ShellError::DirectoryNotFound {
-        dir: cwd.to_string_lossy().to_string(),
-        span: Span::unknown(),
+    canonicalize_with(&cwd, ".").map_err(|err| {
+        ShellError::Io(IoError::new(
+            err.kind(),
+            Span::unknown(),
+            PathBuf::from(cwd),
+        ))
     })
 }
 
@@ -234,9 +238,12 @@ pub fn current_dir_const(working_set: &StateWorkingSet) -> Result<PathBuf, Shell
     // We're using `canonicalize_with` instead of `fs::canonicalize()` because
     // we still need to simplify Windows paths. "." is safe because `cwd` should
     // be an absolute path already.
-    canonicalize_with(&cwd, ".").map_err(|_| ShellError::DirectoryNotFound {
-        dir: cwd.to_string_lossy().to_string(),
-        span: Span::unknown(),
+    canonicalize_with(&cwd, ".").map_err(|err| {
+        ShellError::Io(IoError::new(
+            err.kind(),
+            Span::unknown(),
+            PathBuf::from(cwd),
+        ))
     })
 }
 

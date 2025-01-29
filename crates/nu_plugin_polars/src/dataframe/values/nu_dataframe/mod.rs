@@ -13,6 +13,7 @@ use polars::prelude::{
 };
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::{TotalEq, TotalHash};
+use std::fmt;
 use std::{
     cmp::Ordering,
     collections::HashSet,
@@ -115,6 +116,12 @@ impl AsRef<DataFrame> for NuDataFrame {
 impl From<DataFrame> for NuDataFrame {
     fn from(df: DataFrame) -> Self {
         Self::new(false, df)
+    }
+}
+
+impl fmt::Display for NuDataFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.df)
     }
 }
 
@@ -443,7 +450,7 @@ impl NuDataFrame {
     }
 
     pub fn schema(&self) -> NuSchema {
-        NuSchema::new(self.df.schema())
+        NuSchema::new(Arc::clone(self.df.schema()))
     }
 
     /// This differs from try_from_value as it will attempt to coerce the type into a NuDataFrame.

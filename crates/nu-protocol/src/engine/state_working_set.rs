@@ -410,7 +410,7 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.exit_scope();
     }
 
-    /// Find the [`DeclId`](nu_protocol::id::DeclId) corresponding to a predeclaration with `name`.
+    /// Find the [`DeclId`](crate::DeclId) corresponding to a predeclaration with `name`.
     pub fn find_predecl(&self, name: &[u8]) -> Option<DeclId> {
         let mut removed_overlays = vec![];
 
@@ -429,10 +429,11 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    /// Find the [`DeclId`](nu_protocol::id::DeclId) corresponding to a declaration with `name`.
+    /// Find the [`DeclId`](crate::DeclId) corresponding to a declaration with `name`.
     ///
-    /// Extends [`EngineState::find_decl`] to also search for predeclarations (if [`StateWorkingSet::search_predecls`] is set),
-    /// and declarations from scopes existing only in [`StateDelta`].
+    /// Extends [`EngineState::find_decl`] to also search for predeclarations
+    /// (if [`StateWorkingSet::search_predecls`] is set), and declarations from scopes existing
+    /// only in [`StateDelta`].
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
         let mut removed_overlays = vec![];
 
@@ -516,7 +517,7 @@ impl<'a> StateWorkingSet<'a> {
             .find_decl_name(decl_id, &removed_overlays)
     }
 
-    /// Find the [`ModuleId`](nu_protocol::id::ModuleId) corresponding to `name`.
+    /// Find the [`ModuleId`](crate::ModuleId) corresponding to `name`.
     ///
     /// Extends [`EngineState::find_module`] to also search for ,
     /// and declarations from scopes existing only in [`StateDelta`].

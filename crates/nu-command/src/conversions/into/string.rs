@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::{into_code, Config};
+use nu_protocol::{shell_error::into_code, Config};
 use nu_utils::get_system_locale;
 use num_format::ToFormattedString;
 

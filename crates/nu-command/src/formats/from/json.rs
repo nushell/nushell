@@ -1,7 +1,7 @@
 use std::io::{BufRead, Cursor};
 
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, Signals};
+use nu_protocol::{shell_error::io::IoError, ListStream, Signals};
 
 #[derive(Clone)]
 pub struct FromJson;
@@ -134,7 +134,7 @@ fn read_json_lines(
         .lines()
         .filter(|line| line.as_ref().is_ok_and(|line| !line.trim().is_empty()) || line.is_err())
         .map(move |line| {
-            let line = line.err_span(span)?;
+            let line = line.map_err(|err| IoError::new(err.kind(), span, None))?;
             if strict {
                 convert_string_to_value_strict(&line, span)
             } else {

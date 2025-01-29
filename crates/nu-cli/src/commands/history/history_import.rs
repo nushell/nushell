@@ -1,7 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use nu_engine::command_prelude::*;
-use nu_protocol::HistoryFileFormat;
+use nu_protocol::{
+    shell_error::{self, io::IoError},
+    HistoryFileFormat,
+};
 
 use reedline::{
     FileBackedHistory, History, HistoryItem, ReedlineError, SearchQuery, SqliteBackedHistory,
@@ -69,17 +72,16 @@ Note that history item IDs are ignored when importing from file."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let span = call.head;
         let ok = Ok(Value::nothing(call.head).into_pipeline_data());
 
         let Some(history) = engine_state.history_config() else {
             return ok;
         };
         let Some(current_history_path) = history.file_path() else {
-            return Err(ShellError::ConfigDirNotFound {
-                span: Some(call.head),
-            });
+            return Err(ShellError::ConfigDirNotFound { span: span.into() });
         };
-        if let Some(bak_path) = backup(&current_history_path)? {
+        if let Some(bak_path) = backup(&current_history_path, span)? {
             println!("Backed history to {}", bak_path.display());
         }
         match input {
@@ -216,7 +218,7 @@ fn item_from_record(mut rec: Record, span: Span) -> Result<HistoryItem, ShellErr
         hostname: get(rec, fields::HOSTNAME, |v| Ok(v.as_str()?.to_owned()))?,
         cwd: get(rec, fields::CWD, |v| Ok(v.as_str()?.to_owned()))?,
         exit_status: get(rec, fields::EXIT_STATUS, |v| v.as_int())?,
-        duration: get(rec, fields::DURATION, duration_from_value)?,
+        duration: get(rec, fields::DURATION, |v| duration_from_value(v, span))?,
         more_info: None,
         // TODO: Currently reedline doesn't let you create session IDs.
         session_id: None,
@@ -232,19 +234,21 @@ fn item_from_record(mut rec: Record, span: Span) -> Result<HistoryItem, ShellErr
     Ok(item)
 }
 
-fn duration_from_value(v: Value) -> Result<std::time::Duration, ShellError> {
+fn duration_from_value(v: Value, span: Span) -> Result<std::time::Duration, ShellError> {
     chrono::Duration::nanoseconds(v.as_duration()?)
         .to_std()
-        .map_err(|_| ShellError::IOError {
-            msg: "negative duration not supported".to_string(),
-        })
+        .map_err(|_| ShellError::NeedsPositiveValue { span })
 }
 
-fn find_backup_path(path: &Path) -> Result<PathBuf, ShellError> {
+fn find_backup_path(path: &Path, span: Span) -> Result<PathBuf, ShellError> {
     let Ok(mut bak_path) = path.to_path_buf().into_os_string().into_string() else {
         // This isn't fundamentally problem, but trying to work with OsString is a nightmare.
-        return Err(ShellError::IOError {
-            msg: "History path mush be representable as UTF-8".to_string(),
+        return Err(ShellError::GenericError {
+            error: "History path not UTF-8".to_string(),
+            msg: "History path must be representable as UTF-8".to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
         });
     };
     bak_path.push_str(".bak");
@@ -260,24 +264,45 @@ fn find_backup_path(path: &Path) -> Result<PathBuf, ShellError> {
             return Ok(PathBuf::from(bak_path));
         }
     }
-    Err(ShellError::IOError {
-        msg: "Too many existing backup files".to_string(),
+    Err(ShellError::GenericError {
+        error: "Too many backup files".to_string(),
+        msg: "Found too many existing backup files".to_string(),
+        span: Some(span),
+        help: None,
+        inner: vec![],
     })
 }
 
-fn backup(path: &Path) -> Result<Option<PathBuf>, ShellError> {
+fn backup(path: &Path, span: Span) -> Result<Option<PathBuf>, ShellError> {
     match path.metadata() {
         Ok(md) if md.is_file() => (),
         Ok(_) => {
-            return Err(ShellError::IOError {
-                msg: "history path exists but is not a file".to_string(),
-            })
+            return Err(IoError::new_with_additional_context(
+                shell_error::io::ErrorKind::NotAFile,
+                span,
+                PathBuf::from(path),
+                "history path exists but is not a file",
+            )
+            .into())
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(e) => return Err(e.into()),
+        Err(e) => {
+            return Err(IoError::new_internal(
+                e.kind(),
+                "Could not get metadata",
+                nu_protocol::location!(),
+            )
+            .into())
+        }
     }
-    let bak_path = find_backup_path(path)?;
-    std::fs::copy(path, &bak_path)?;
+    let bak_path = find_backup_path(path, span)?;
+    std::fs::copy(path, &bak_path).map_err(|err| {
+        IoError::new_internal(
+            err.kind(),
+            "Could not copy backup",
+            nu_protocol::location!(),
+        )
+    })?;
     Ok(Some(bak_path))
 }
 
@@ -388,7 +413,7 @@ mod tests {
         for name in existing {
             std::fs::File::create_new(dir.path().join(name)).unwrap();
         }
-        let got = find_backup_path(&dir.path().join("history.dat")).unwrap();
+        let got = find_backup_path(&dir.path().join("history.dat"), Span::test_data()).unwrap();
         assert_eq!(got, dir.path().join(want))
     }
 
@@ -400,7 +425,7 @@ mod tests {
         write!(&mut history, "123").unwrap();
         let want_bak_path = dir.path().join("history.dat.bak");
         assert_eq!(
-            backup(&dir.path().join("history.dat")),
+            backup(&dir.path().join("history.dat"), Span::test_data()),
             Ok(Some(want_bak_path.clone()))
         );
         let got_data = String::from_utf8(std::fs::read(want_bak_path).unwrap()).unwrap();
@@ -410,7 +435,7 @@ mod tests {
     #[test]
     fn test_backup_no_file() {
         let dir = tempfile::tempdir().unwrap();
-        let bak_path = backup(&dir.path().join("history.dat")).unwrap();
+        let bak_path = backup(&dir.path().join("history.dat"), Span::test_data()).unwrap();
         assert!(bak_path.is_none());
     }
 }

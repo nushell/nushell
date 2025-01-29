@@ -49,11 +49,10 @@ impl LanguageServer {
 
 #[cfg(test)]
 mod tests {
-    use assert_json_diff::assert_json_eq;
-    use nu_test_support::fs::fixtures;
-
     use crate::path_to_uri;
     use crate::tests::{initialize_language_server, open_unchecked, update};
+    use assert_json_diff::assert_json_eq;
+    use nu_test_support::fs::fixtures;
 
     #[test]
     fn publish_diagnostics_variable_does_not_exists() {

@@ -1,6 +1,7 @@
 use std::io::Write;
 
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 
 use super::msgpack::write_value;
 
@@ -80,7 +81,8 @@ impl Command for ToMsgpackz {
         );
 
         write_value(&mut out, &value, 0)?;
-        out.flush().err_span(call.head)?;
+        out.flush()
+            .map_err(|err| IoError::new(err.kind(), call.head, None))?;
         drop(out);
 
         Ok(Value::binary(out_buf, call.head).into_pipeline_data())

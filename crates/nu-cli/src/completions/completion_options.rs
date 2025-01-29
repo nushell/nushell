@@ -2,7 +2,7 @@ use nu_parser::trim_quotes_str;
 use nu_protocol::{CompletionAlgorithm, CompletionSort};
 use nu_utils::IgnoreCaseExt;
 use nucleo_matcher::{
-    pattern::{AtomKind, CaseMatching, Normalization, Pattern},
+    pattern::{Atom, AtomKind, CaseMatching, Normalization},
     Config, Matcher, Utf32Str,
 };
 use std::{borrow::Cow, fmt::Display};
@@ -38,9 +38,9 @@ enum State<T> {
     },
     Fuzzy {
         matcher: Matcher,
-        pat: Pattern,
+        atom: Atom,
         /// Holds (haystack, item, score)
-        items: Vec<(String, T, u32)>,
+        items: Vec<(String, T, u16)>,
     },
 }
 
@@ -65,7 +65,7 @@ impl<T> NuMatcher<T> {
                 }
             }
             MatchAlgorithm::Fuzzy => {
-                let pat = Pattern::new(
+                let atom = Atom::new(
                     needle,
                     if options.case_sensitive {
                         CaseMatching::Respect
@@ -74,13 +74,14 @@ impl<T> NuMatcher<T> {
                     },
                     Normalization::Smart,
                     AtomKind::Fuzzy,
+                    false,
                 );
                 NuMatcher {
                     options,
                     needle: needle.to_owned(),
                     state: State::Fuzzy {
                         matcher: Matcher::new(Config::DEFAULT),
-                        pat,
+                        atom,
                         items: Vec::new(),
                     },
                 }
@@ -115,13 +116,13 @@ impl<T> NuMatcher<T> {
             }
             State::Fuzzy {
                 matcher,
-                pat,
+                atom,
                 items,
             } => {
                 let mut haystack_buf = Vec::new();
                 let haystack_utf32 = Utf32Str::new(trim_quotes_str(haystack), &mut haystack_buf);
                 let mut indices = Vec::new();
-                let Some(score) = pat.indices(haystack_utf32, matcher, &mut indices) else {
+                let Some(score) = atom.indices(haystack_utf32, matcher, &mut indices) else {
                     return false;
                 };
                 if let Some(item) = item {
@@ -291,5 +292,23 @@ mod test {
         }
         // Sort by score, then in alphabetical order
         assert_eq!(vec!["fob", "foo bar", "foo/bar"], matcher.results());
+    }
+
+    #[test]
+    fn match_algorithm_fuzzy_sort_strip() {
+        let options = CompletionOptions {
+            match_algorithm: MatchAlgorithm::Fuzzy,
+            ..Default::default()
+        };
+        let mut matcher = NuMatcher::new("'love spaces' ", options);
+        for item in [
+            "'i love spaces'",
+            "'i love spaces' so much",
+            "'lovespaces' ",
+        ] {
+            matcher.add(item, item);
+        }
+        // Make sure the spaces are respected
+        assert_eq!(vec!["'i love spaces' so much"], matcher.results());
     }
 }

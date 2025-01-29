@@ -1,7 +1,9 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
 #[cfg(feature = "os")]
 use nu_protocol::process::{ChildPipe, ChildProcess};
-use nu_protocol::{engine::Closure, ByteStream, ByteStreamSource, OutDest};
+use nu_protocol::{
+    engine::Closure, shell_error::io::IoError, ByteStream, ByteStreamSource, OutDest,
+};
 
 use std::{
     io::{Cursor, Read},
@@ -143,10 +145,16 @@ impl Command for Do {
                                     .name("stdout consumer".to_string())
                                     .spawn(move || {
                                         let mut buf = Vec::new();
-                                        stdout.read_to_end(&mut buf)?;
+                                        stdout.read_to_end(&mut buf).map_err(|err| {
+                                            IoError::new_internal(
+                                                err.kind(),
+                                                "Could not read stdout to end",
+                                                nu_protocol::location!(),
+                                            )
+                                        })?;
                                         Ok::<_, ShellError>(buf)
                                     })
-                                    .err_span(head)
+                                    .map_err(|err| IoError::new(err.kind(), head, None))
                             })
                             .transpose()?;
 
@@ -156,7 +164,9 @@ impl Command for Do {
                             None => String::new(),
                             Some(mut stderr) => {
                                 let mut buf = String::new();
-                                stderr.read_to_string(&mut buf).err_span(span)?;
+                                stderr
+                                    .read_to_string(&mut buf)
+                                    .map_err(|err| IoError::new(err.kind(), span, None))?;
                                 buf
                             }
                         };

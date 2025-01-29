@@ -21,6 +21,7 @@ use nu_color_config::StyleComputer;
 #[allow(deprecated)]
 use nu_engine::env_to_strings;
 use nu_parser::{lex, parse, trim_quotes_str};
+use nu_protocol::shell_error::io::IoError;
 use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -846,21 +847,26 @@ fn do_auto_cd(
         if !path.exists() {
             report_shell_error(
                 engine_state,
-                &ShellError::DirectoryNotFound {
-                    dir: path.to_string_lossy().to_string(),
+                &ShellError::Io(IoError::new_with_additional_context(
+                    std::io::ErrorKind::NotFound,
                     span,
-                },
+                    PathBuf::from(&path),
+                    "Cannot change directory",
+                )),
             );
         }
         path.to_string_lossy().to_string()
     };
 
-    if let PermissionResult::PermissionDenied(reason) = have_permission(path.clone()) {
+    if let PermissionResult::PermissionDenied(_) = have_permission(path.clone()) {
         report_shell_error(
             engine_state,
-            &ShellError::IOError {
-                msg: format!("Cannot change directory to {path}: {reason}"),
-            },
+            &ShellError::Io(IoError::new_with_additional_context(
+                std::io::ErrorKind::PermissionDenied,
+                span,
+                PathBuf::from(path),
+                "Cannot change directory",
+            )),
         );
         return;
     }
@@ -1153,7 +1159,7 @@ fn setup_history(
 /// Setup Reedline keybindingds based on the provided config
 ///
 fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedline {
-    return match create_keybindings(engine_state.get_config()) {
+    match create_keybindings(engine_state.get_config()) {
         Ok(keybindings) => match keybindings {
             KeybindingsMode::Emacs(keybindings) => {
                 let edit_mode = Box::new(Emacs::new(keybindings));
@@ -1171,7 +1177,7 @@ fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedl
             report_shell_error(engine_state, &e);
             line_editor
         }
-    };
+    }
 }
 
 ///

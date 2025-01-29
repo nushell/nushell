@@ -2,8 +2,8 @@
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
 use nu_protocol::{
-    engine::Sequence, ByteStream, IntoSpanned, ListStream, PipelineData, Reader, ShellError,
-    Signals,
+    engine::Sequence, shell_error::io::IoError, ByteStream, ListStream, PipelineData, Reader,
+    ShellError, Signals, Span,
 };
 use std::{
     io::{Read, Write},
@@ -80,8 +80,12 @@ where
     }
 
     fn flush(&self) -> Result<(), ShellError> {
-        self.0.lock().flush().map_err(|err| ShellError::IOError {
-            msg: err.to_string(),
+        self.0.lock().flush().map_err(|err| {
+            ShellError::Io(IoError::new_internal(
+                err.kind(),
+                "PluginWrite could not flush",
+                nu_protocol::location!(),
+            ))
         })
     }
 
@@ -106,8 +110,12 @@ where
         let mut lock = self.0.lock().map_err(|_| ShellError::NushellFailed {
             msg: "writer mutex poisoned".into(),
         })?;
-        lock.flush().map_err(|err| ShellError::IOError {
-            msg: err.to_string(),
+        lock.flush().map_err(|err| {
+            ShellError::Io(IoError::new_internal(
+                err.kind(),
+                "PluginWrite could not flush",
+                nu_protocol::location!(),
+            ))
         })
     }
 }
@@ -332,7 +340,7 @@ where
                 writer.write_all(std::iter::from_fn(move || match reader.read(buf) {
                     Ok(0) => None,
                     Ok(len) => Some(Ok(buf[..len].to_vec())),
-                    Err(err) => Some(Err(ShellError::from(err.into_spanned(span)))),
+                    Err(err) => Some(Err(ShellError::from(IoError::new(err.kind(), span, None)))),
                 }))?;
                 Ok(())
             }
@@ -357,6 +365,14 @@ where
                             log::warn!("Error while writing pipeline in background: {err}");
                         }
                         result
+                    })
+                    .map_err(|err| {
+                        IoError::new_with_additional_context(
+                            err.kind(),
+                            Span::unknown(),
+                            None,
+                            "Could not spawn plugin stream background writer",
+                        )
                     })?,
             )),
         }

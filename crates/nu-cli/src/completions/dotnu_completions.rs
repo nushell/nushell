@@ -41,25 +41,28 @@ impl Completer for DotNuCompletion {
         let mut is_current_folder = false;
 
         // Fetch the lib dirs
-        let lib_dirs: Vec<String> = if let Some(lib_dirs) = working_set.get_env_var("NU_LIB_DIRS") {
-            lib_dirs
-                .as_list()
-                .into_iter()
-                .flat_map(|it| {
-                    it.iter().map(|x| {
-                        x.to_path()
-                            .expect("internal error: failed to convert lib path")
+        let lib_dirs: Vec<String> = working_set
+            .find_variable(b"$NU_LIB_DIRS")
+            .and_then(|vid| working_set.get_variable(vid).const_val.as_ref())
+            .or(working_set.get_env_var("NU_LIB_DIRS"))
+            .map(|lib_dirs| {
+                lib_dirs
+                    .as_list()
+                    .into_iter()
+                    .flat_map(|it| {
+                        it.iter().map(|x| {
+                            x.to_path()
+                                .expect("internal error: failed to convert lib path")
+                        })
                     })
-                })
-                .map(|it| {
-                    it.into_os_string()
-                        .into_string()
-                        .expect("internal error: failed to convert OS path")
-                })
-                .collect()
-        } else {
-            vec![]
-        };
+                    .map(|it| {
+                        it.into_os_string()
+                            .into_string()
+                            .expect("internal error: failed to convert OS path")
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
 
         // Check if the base_dir is a folder
         // rsplit_once removes the separator

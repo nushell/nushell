@@ -113,6 +113,8 @@ fn command(
         nulls_last: call.has_flag("nulls-last")?,
         multithreaded: true,
         maintain_order: call.has_flag("maintain-order")?,
+        // todo - expose limit
+        limit: None,
     };
 
     let mut res = df
