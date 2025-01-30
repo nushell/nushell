@@ -2,6 +2,7 @@ use crate::completions::{
     CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
     DotNuCompletion, FileCompletion, FlagCompletion, OperatorCompletion, VariableCompletion,
 };
+use log::debug;
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_pipeline_element, parse, FlatShape};
@@ -51,6 +52,11 @@ impl NuCompleter {
             sort: config.completions.sort,
             ..Default::default()
         };
+
+        debug!(
+            "process_completion: prefix: {}, new_span: {new_span:?}, offset: {offset}, pos: {pos}",
+            String::from_utf8_lossy(prefix)
+        );
 
         completer.fetch(
             working_set,
@@ -134,9 +140,29 @@ impl NuCompleter {
 
         let config = self.engine_state.get_config();
 
-        let output = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
+        let outermost_block = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
 
-        for pipeline in &output.pipelines {
+        // Try to get the innermost block parsed (by span) so that we consider the correct context/scope.
+        let target_block = working_set
+            .delta
+            .blocks
+            .iter()
+            .filter_map(|block| match block.span {
+                Some(span) if span.contains(pos) => Some((block, span)),
+                _ => None,
+            })
+            .reduce(|prev, cur| {
+                // |(block, span), (block, span)|
+                match cur.1.start.cmp(&prev.1.start) {
+                    core::cmp::Ordering::Greater => cur,
+                    core::cmp::Ordering::Equal if cur.1.end < prev.1.end => cur,
+                    _ => prev,
+                }
+            })
+            .map(|(block, _)| block)
+            .unwrap_or(&outermost_block);
+
+        for pipeline in &target_block.pipelines {
             for pipeline_element in &pipeline.elements {
                 let flattened = flatten_pipeline_element(&working_set, pipeline_element);
                 let mut spans: Vec<String> = vec![];
@@ -146,10 +172,10 @@ impl NuCompleter {
                         .first()
                         .filter(|content| content.as_str() == "sudo" || content.as_str() == "doas")
                         .is_some();
-                    // Read the current spam to string
-                    let current_span = working_set.get_span_contents(flat.0).to_vec();
-                    let current_span_str = String::from_utf8_lossy(&current_span);
 
+                    // Read the current span to string
+                    let current_span = working_set.get_span_contents(flat.0);
+                    let current_span_str = String::from_utf8_lossy(current_span);
                     let is_last_span = pos >= flat.0.start && pos < flat.0.end;
 
                     // Skip the last 'a' as span item
@@ -176,9 +202,8 @@ impl NuCompleter {
                         let new_span = Span::new(flat.0.start, flat.0.end - 1);
 
                         // Parses the prefix. Completion should look up to the cursor position, not after.
-                        let mut prefix = working_set.get_span_contents(flat.0);
                         let index = pos - flat.0.start;
-                        prefix = &prefix[..index];
+                        let prefix = &current_span[..index];
 
                         // Variables completion
                         if prefix.starts_with(b"$") || most_left_var.is_some() {
