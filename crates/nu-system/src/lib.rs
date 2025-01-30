@@ -21,6 +21,8 @@ pub use self::foreground::{
     ForegroundChild, ForegroundGuard, ForegroundWaitStatus, UnfreezeHandle,
 };
 
+pub use self::foreground::kill_by_pid;
+
 #[cfg(target_os = "freebsd")]
 pub use self::freebsd::*;
 #[cfg(any(target_os = "android", target_os = "linux"))]

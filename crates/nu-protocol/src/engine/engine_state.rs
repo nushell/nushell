@@ -31,7 +31,7 @@ type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 #[cfg(feature = "plugin")]
 use crate::{PluginRegistryFile, PluginRegistryItem, RegisteredPlugin};
 
-use super::Jobs;
+use super::{Jobs, ThreadJob};
 
 #[derive(Clone, Debug)]
 pub enum VirtualPath {
@@ -114,6 +114,9 @@ pub struct EngineState {
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
     pub jobs: Arc<Mutex<Jobs>>,
+
+    // the job being executed with this engine state, or None if main thread
+    pub current_thread_job: Option<ThreadJob>,
 }
 
 pub type JobId = u64;
@@ -186,6 +189,7 @@ impl EngineState {
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
             jobs: Arc::new(Mutex::new(Jobs::default())),
+            current_thread_job: None,
         }
     }
 

@@ -1,6 +1,9 @@
-use std::collections::HashMap;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{Arc, Mutex},
+};
 
-use nu_system::UnfreezeHandle;
+use nu_system::{kill_by_pid, UnfreezeHandle};
 
 use crate::Signals;
 
@@ -71,13 +74,67 @@ pub enum Job {
     Frozen(FrozenJob),
 }
 
+// A thread job represents a job that is currently executing as a background thread in nushell.
+// This is an Arc-y type, cloning it does not uniquely clone the information of this particular
+// job.
+
+// Altough rust's documentation does not document the acquire-release semantics of Mutex, this
+// is a direct undocumentented requirement of its soundness, and is thus assumed by this
+// implementaation.
+// see issue https://github.com/rust-lang/rust/issues/126239.
+#[derive(Clone)]
 pub struct ThreadJob {
-    pub signals: Signals,
+    signals: Signals,
+    pids: Arc<Mutex<HashSet<u32>>>,
 }
 
 impl ThreadJob {
     pub fn new(signals: Signals) -> Self {
-        ThreadJob { signals }
+        ThreadJob {
+            signals,
+            pids: Arc::new(Mutex::new(HashSet::default())),
+        }
+    }
+
+    pub fn try_add_pid(&self, pid: u32) -> bool {
+        let mut pids = self.pids.lock().expect("PIDs lock was posioned");
+
+        // note: this signals check must occur after the pids lock has been locked.
+        if self.signals.interrupted() {
+            false
+        } else {
+            pids.insert(pid);
+            true
+        }
+    }
+
+    pub fn collect_pids(&self) -> Vec<u32> {
+        let lock = self.pids.lock().expect("PID lock was poisoned");
+
+        return lock.iter().map(|it| *it).collect();
+    }
+
+    pub fn kill(&self) -> std::io::Result<()> {
+        // it's okay to make this interrupt outside of the mutex, since it has acquire-release
+        // semantics.
+
+        self.signals.trigger();
+
+        let mut pids = self.pids.lock().expect("PIDs lock was poisoned");
+
+        for pid in pids.iter() {
+            kill_by_pid(*pid)?;
+        }
+
+        pids.clear();
+
+        Ok(())
+    }
+
+    pub fn remove_pid(&self, pid: u32) {
+        let mut pids = self.pids.lock().expect("PID lock was posioned");
+
+        pids.remove(&pid);
     }
 }
 

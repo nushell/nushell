@@ -67,7 +67,10 @@ impl Command for JobSpawn {
             let id = {
                 let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");
 
-                jobs.add_job(Job::Thread(ThreadJob::new(job_signals)))
+                let thread_job = ThreadJob::new(job_signals);
+
+                job_state.current_thread_job = Some(thread_job.clone());
+                jobs.add_job(Job::Thread(thread_job))
             };
 
             ClosureEvalOnce::new(&job_state, &job_stack, closure.clone())

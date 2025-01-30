@@ -48,6 +48,22 @@ impl Command for JobList {
                     },
                 );
 
+                record.push(
+                    "pids",
+                    match job {
+                        Job::Thread(job) => Value::list(
+                            job.collect_pids()
+                                .into_iter()
+                                .map(|it| Value::int(it as i64, head))
+                                .collect::<Vec<Value>>(),
+                            head,
+                        ),
+
+                        Job::Frozen(_) => Value::list(vec![], head),
+                        // TODO: add pid of frozen child
+                    },
+                );
+
                 Value::record(record, head)
             })
             .collect::<Vec<Value>>();

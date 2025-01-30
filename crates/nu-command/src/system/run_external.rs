@@ -4,11 +4,11 @@ use nu_path::{dots::expand_ndots_safe, expand_tilde, AbsolutePath};
 use nu_protocol::{
     did_you_mean,
     engine::{FrozenJob, Job},
-    process::{ChildProcess, OnFreeze},
+    process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
     ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
 };
-use nu_system::ForegroundChild;
+use nu_system::{ForegroundChild, ForegroundWaitStatus};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -263,6 +263,18 @@ impl Command for External {
             )
         })?;
 
+        if let Some(thread_job) = &engine_state.current_thread_job {
+            if !thread_job.try_add_pid(child.pid()) {
+                child.kill().map_err(|err| {
+                    ShellError::Io(IoError::new_internal(
+                        err.kind(),
+                        "Could not spawn external stdin worker",
+                        nu_protocol::location!(),
+                    ))
+                })?;
+            }
+        }
+
         // If we need to copy data into the child process, do it now.
         if let Some(data) = data_to_copy_into_stdin {
             let stdin = child.as_mut().stdin.take().expect("stdin is piped");
@@ -284,6 +296,8 @@ impl Command for External {
         }
 
         let jobs = engine_state.jobs.clone();
+        let this_job = engine_state.current_thread_job.clone();
+        let child_pid = child.pid();
 
         // Wrap the output into a `PipelineData::ByteStream`.
         let mut child = ChildProcess::new(
@@ -291,10 +305,17 @@ impl Command for External {
             merged_stream,
             matches!(stderr, OutDest::Pipe),
             call.head,
-            Some(OnFreeze(Box::new(move |unfreeze| {
-                let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
+            // handle wait statuses for job control
+            Some(PostWaitCallback(Box::new(move |status| {
+                if let Some(this_job) = this_job {
+                    this_job.remove_pid(child_pid);
+                }
 
-                jobs.add_job(Job::Frozen(FrozenJob { unfreeze }));
+                if let ForegroundWaitStatus::Frozen(unfreeze) = status {
+                    let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
+
+                    jobs.add_job(Job::Frozen(FrozenJob { unfreeze }));
+                }
             }))),
         )?;
 

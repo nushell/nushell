@@ -1,5 +1,7 @@
-use crate::{byte_stream::convert_file, shell_error::io::IoError, ShellError, Span};
-use nu_system::{ExitStatus, ForegroundChild, ForegroundWaitStatus, UnfreezeHandle};
+use crate::{
+    byte_stream::convert_file, shell_error::io::IoError, ShellError, Span,
+};
+use nu_system::{ExitStatus, ForegroundChild, ForegroundWaitStatus};
 
 use os_pipe::PipeReader;
 use std::{
@@ -166,9 +168,9 @@ pub struct ChildProcess {
     span: Span,
 }
 
-pub struct OnFreeze(pub Box<dyn FnOnce(UnfreezeHandle) + Send>);
+pub struct PostWaitCallback(pub Box<dyn FnOnce(ForegroundWaitStatus) + Send>);
 
-impl Debug for OnFreeze {
+impl Debug for PostWaitCallback {
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
@@ -180,7 +182,7 @@ impl ChildProcess {
         reader: Option<PipeReader>,
         swap: bool,
         span: Span,
-        on_freeze: Option<OnFreeze>,
+        callback: Option<PostWaitCallback>,
     ) -> Result<Self, ShellError> {
         let (stdout, stderr) = if let Some(combined) = reader {
             (Some(combined), None)
@@ -202,13 +204,17 @@ impl ChildProcess {
             .name("exit status waiter".into())
             .spawn(move || {
                 let matched = match child.wait() {
-                    Ok(ForegroundWaitStatus::Finished(status)) => Ok(status),
-                    Ok(ForegroundWaitStatus::Frozen(unfreeze)) => {
-                        if let Some(closure) = on_freeze {
-                            (closure.0)(unfreeze);
+                    Ok(wait_status) => {
+                        let next = match &wait_status {
+                            ForegroundWaitStatus::Frozen(_) => ExitStatus::Exited(0),
+                            ForegroundWaitStatus::Finished(exit_status) => *exit_status,
                         };
 
-                        Ok(ExitStatus::Exited(0))
+                        if let Some(callback) = callback {
+                            (callback.0)(wait_status);
+                        }
+
+                        Ok(next)
                     }
                     Err(err) => Err(err),
                 };
