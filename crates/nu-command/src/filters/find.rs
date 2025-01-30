@@ -53,9 +53,9 @@ impl Command for Find {
                 Some('c'),
             )
             .switch(
-                "raw",
-                "raw mode: find without marking with ascii code",
-                Some('w')
+                "no-highlight",
+                "no-highlight mode: find without marking with ascii code",
+                Some('n')
             )
             .switch("invert", "invert the match", Some('v'))
             .rest("rest", SyntaxShape::Any, "Terms to search.")
@@ -166,7 +166,7 @@ impl Command for Find {
             },
             Example {
                 description: "Remove ANSI sequenses from result",
-                example:"[[foo bar]; [abc 123] [def 456]] | find --raw 123",
+                example:"[[foo bar]; [abc 123] [def 456]] | find --no-highlight 123",
                 result: Some(Value::list(
                     vec![Value::test_record(record! {
                         "foo" => Value::test_string("abc"),
@@ -362,7 +362,7 @@ fn find_with_rest_and_highlight(
     let span = call.head;
     let config = stack.get_config(engine_state);
     let filter_config = config.clone();
-    let raw = call.has_flag(engine_state, stack, "raw")?;
+    let no_highlight = call.has_flag(engine_state, stack, "no-highlight")?;
     let invert = call.has_flag(engine_state, stack, "invert")?;
     let terms = call.rest::<Value>(engine_state, stack, 0)?;
     let lower_terms = terms
@@ -390,7 +390,7 @@ fn find_with_rest_and_highlight(
             .map(
                 move |mut x| {
                     let span = x.span();
-                    if raw { return x };
+                    if no_highlight { return x };
                     match &mut x {
                         Value::Record { val, .. } => highlight_terms_in_record_with_search_columns(
                             &cols_to_search_in_map,
@@ -431,7 +431,7 @@ fn find_with_rest_and_highlight(
             let stream = stream.modify(|iter| {
                 iter.map(move |mut x| {
                     let span = x.span();
-                    if raw { return x };
+                    if no_highlight { return x };
                     match &mut x {
                         Value::Record { val, .. } => highlight_terms_in_record_with_search_columns(
                             &cols_to_search_in_map,
@@ -473,7 +473,7 @@ fn find_with_rest_and_highlight(
                     let lower_val = line.to_lowercase();
                     for term in &terms {
                         if lower_val.contains(term) {
-                            if raw { 
+                            if no_highlight { 
                                 output.push(Value::string(&line, span))
                             } else {
                                 output.push(Value::string(
