@@ -113,6 +113,12 @@ path."#
                 example: r"'eggs\bacon\sausage\spam' | path relative-to 'eggs\bacon\sausage'",
                 result: Some(Value::test_string(r"spam")),
             },
+            Example {
+                description: "Find a relative path that requires parent directory symbols",
+                example: r"'a\b\c' | path relative-to 'a\d\e'",
+
+                result: Some(Value::test_string(r"..\..\b\c")),
+            },
         ]
     }
 
