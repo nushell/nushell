@@ -92,6 +92,30 @@ path."#
         )
     }
 
+    #[cfg(windows)]
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Find a relative path from two absolute paths",
+                example: r"'C:\Users\viking' | path relative-to 'C:\Users'",
+                result: Some(Value::test_string(r"viking")),
+            },
+            Example {
+                description: "Find a relative path from absolute paths in list",
+                example: r"[ C:\Users\viking, C:\Users\spam ] | path relative-to C:\Users",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("viking"),
+                    Value::test_string("spam"),
+                ])),
+            },
+            Example {
+                description: "Find a relative path from two relative paths",
+                example: r"'eggs\bacon\sausage\spam' | path relative-to 'eggs\bacon\sausage'",
+                result: Some(Value::test_string(r"spam")),
+            },
+        ]
+    }
+
     #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
         vec![
