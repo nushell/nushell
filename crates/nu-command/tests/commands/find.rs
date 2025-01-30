@@ -9,10 +9,7 @@ fn find_with_list_search_with_string() {
         actual.out,
         "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[37m\u{1b}[0m"
     );
-    assert_eq!(
-        actual_no_highlight.out,
-        "moe"
-    );
+    assert_eq!(actual_no_highlight.out, "moe");
 }
 
 #[test]
@@ -35,10 +32,7 @@ fn find_with_bytestream_search_with_char() {
         actual.out,
         "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mABC\u{1b}[0m\u{1b}[37m\u{1b}[0m"
     );
-    assert_eq!(
-        actual_no_highlight.out,
-        "ABC"
-    );
+    assert_eq!(actual_no_highlight.out, "ABC");
 }
 
 #[test]
@@ -59,10 +53,7 @@ fn find_with_string_search_with_string() {
         actual.out,
         "\u{1b}[37mCargo.\u{1b}[0m\u{1b}[41;37mtoml\u{1b}[0m\u{1b}[37m\u{1b}[0m"
     );
-    assert_eq!(
-        actual_no_highlight.out,
-        "Cargo.toml"
-    );
+    assert_eq!(actual_no_highlight.out, "Cargo.toml");
 }
 
 #[test]
@@ -78,25 +69,24 @@ fn find_with_string_search_with_string_not_found() {
 fn find_with_filepath_search_with_string() {
     let actual =
         nu!(r#"["amigos.txt","arepas.clu","los.txt","tres.txt"] | find arep | to json -r"#);
-    let actual_no_highlight =
-        nu!(r#"["amigos.txt","arepas.clu","los.txt","tres.txt"] | find --no-highlight arep | to json -r"#);
+    let actual_no_highlight = nu!(
+        r#"["amigos.txt","arepas.clu","los.txt","tres.txt"] | find --no-highlight arep | to json -r"#
+    );
 
     assert_eq!(
         actual.out,
         "[\"\\u001b[37m\\u001b[0m\\u001b[41;37marep\\u001b[0m\\u001b[37mas.clu\\u001b[0m\"]"
     );
-    assert_eq!(
-        actual_no_highlight.out,
-        "[\"arepas.clu\"]"
-    );
+    assert_eq!(actual_no_highlight.out, "[\"arepas.clu\"]");
 }
 
 #[test]
 fn find_with_filepath_search_with_multiple_patterns() {
     let actual =
         nu!(r#"["amigos.txt","arepas.clu","los.txt","tres.txt"] | find arep ami | to json -r"#);
-    let actual_no_highlight =
-        nu!(r#"["amigos.txt","arepas.clu","los.txt","tres.txt"] | find --no-highlight arep ami | to json -r"#);
+    let actual_no_highlight = nu!(
+        r#"["amigos.txt","arepas.clu","los.txt","tres.txt"] | find --no-highlight arep ami | to json -r"#
+    );
 
     assert_eq!(actual.out, "[\"\\u001b[37m\\u001b[0m\\u001b[41;37mami\\u001b[0m\\u001b[37mgos.txt\\u001b[0m\",\"\\u001b[37m\\u001b[0m\\u001b[41;37marep\\u001b[0m\\u001b[37mas.clu\\u001b[0m\"]");
     assert_eq!(actual_no_highlight.out, "[\"amigos.txt\",\"arepas.clu\"]");
@@ -105,7 +95,8 @@ fn find_with_filepath_search_with_multiple_patterns() {
 #[test]
 fn find_takes_into_account_linebreaks_in_string() {
     let actual = nu!(r#""atest\nanothertest\nnohit\n" | find a | length"#);
-    let actual_no_highlight = nu!(r#""atest\nanothertest\nnohit\n" | find --no-highlight a | length"#);
+    let actual_no_highlight =
+        nu!(r#""atest\nanothertest\nnohit\n" | find --no-highlight a | length"#);
 
     assert_eq!(actual.out, "2");
     assert_eq!(actual_no_highlight.out, "2");
@@ -210,89 +201,77 @@ fn find_in_table_keeps_row_with_multiple_matched_and_keeps_other_columns() {
 #[test]
 fn find_with_string_search_with_special_char_1() {
     let actual = nu!("[[d]; [a?b] [a*b] [a{1}b] ] | find '?' | to json -r");
-    let actual_no_highlight = nu!("[[d]; [a?b] [a*b] [a{1}b] ] | find --no-highlight '?' | to json -r");
+    let actual_no_highlight =
+        nu!("[[d]; [a?b] [a*b] [a{1}b] ] | find --no-highlight '?' | to json -r");
 
     assert_eq!(
         actual.out,
         "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m?\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
     );
-    assert_eq!(
-        actual_no_highlight.out,
-        "[{\"d\":\"a?b\"}]"
-    );
+    assert_eq!(actual_no_highlight.out, "[{\"d\":\"a?b\"}]");
 }
 
 #[test]
 fn find_with_string_search_with_special_char_2() {
     let actual = nu!("[[d]; [a?b] [a*b] [a{1}b]] | find '*' | to json -r");
-    let actual_no_highlight = nu!("[[d]; [a?b] [a*b] [a{1}b]] | find --no-highlight '*' | to json -r");
+    let actual_no_highlight =
+        nu!("[[d]; [a?b] [a*b] [a{1}b]] | find --no-highlight '*' | to json -r");
 
     assert_eq!(
         actual.out,
         "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m*\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
     );
-    assert_eq!(
-        actual_no_highlight.out,
-        "[{\"d\":\"a*b\"}]"
-    );
+    assert_eq!(actual_no_highlight.out, "[{\"d\":\"a*b\"}]");
 }
 
 #[test]
 fn find_with_string_search_with_special_char_3() {
     let actual = nu!("[[d]; [a?b] [a*b] [a{1}b] ] | find '{1}' | to json -r");
-    let actual_no_highlight = nu!("[[d]; [a?b] [a*b] [a{1}b] ] | find --no-highlight '{1}' | to json -r");
+    let actual_no_highlight =
+        nu!("[[d]; [a?b] [a*b] [a{1}b] ] | find --no-highlight '{1}' | to json -r");
 
     assert_eq!(
         actual.out,
         "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m{1}\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
     );
-    assert_eq!(
-        actual_no_highlight.out,
-        "[{\"d\":\"a{1}b\"}]"
-    );
+    assert_eq!(actual_no_highlight.out, "[{\"d\":\"a{1}b\"}]");
 }
 
 #[test]
 fn find_with_string_search_with_special_char_4() {
     let actual = nu!("[{d: a?b} {d: a*b} {d: a{1}b} {d: a[]b}] | find '[' | to json -r");
-    let actual_no_highlight = nu!("[{d: a?b} {d: a*b} {d: a{1}b} {d: a[]b}] | find --no-highlight '[' | to json -r");
+    let actual_no_highlight =
+        nu!("[{d: a?b} {d: a*b} {d: a{1}b} {d: a[]b}] | find --no-highlight '[' | to json -r");
 
     assert_eq!(
         actual.out,
         "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m[\\u001b[0m\\u001b[37m]b\\u001b[0m\"}]"
     );
-    assert_eq!(
-        actual_no_highlight.out,
-        "[{\"d\":\"a[]b\"}]"
-    );
+    assert_eq!(actual_no_highlight.out, "[{\"d\":\"a[]b\"}]");
 }
 
 #[test]
 fn find_with_string_search_with_special_char_5() {
     let actual = nu!("[{d: a?b} {d: a*b} {d: a{1}b} {d: a[]b}] | find ']' | to json -r");
-    let actual_no_highlight = nu!("[{d: a?b} {d: a*b} {d: a{1}b} {d: a[]b}] | find --no-highlight ']' | to json -r");
+    let actual_no_highlight =
+        nu!("[{d: a?b} {d: a*b} {d: a{1}b} {d: a[]b}] | find --no-highlight ']' | to json -r");
 
     assert_eq!(
         actual.out,
         "[{\"d\":\"\\u001b[37ma[\\u001b[0m\\u001b[41;37m]\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
     );
-    assert_eq!(
-        actual_no_highlight.out,
-        "[{\"d\":\"a[]b\"}]"
-    );
+    assert_eq!(actual_no_highlight.out, "[{\"d\":\"a[]b\"}]");
 }
 
 #[test]
 fn find_with_string_search_with_special_char_6() {
     let actual = nu!("[{d: a?b} {d: a*b} {d: a{1}b} {d: a[]b}] | find '[]' | to json -r");
-    let actual_no_highlight = nu!("[{d: a?b} {d: a*b} {d: a{1}b} {d: a[]b}] | find --no-highlight '[]' | to json -r");
+    let actual_no_highlight =
+        nu!("[{d: a?b} {d: a*b} {d: a{1}b} {d: a[]b}] | find --no-highlight '[]' | to json -r");
 
     assert_eq!(
         actual.out,
         "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m[]\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
     );
-    assert_eq!(
-        actual_no_highlight.out,
-        "[{\"d\":\"a[]b\"}]"
-    );
+    assert_eq!(actual_no_highlight.out, "[{\"d\":\"a[]b\"}]");
 }
