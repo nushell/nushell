@@ -1251,15 +1251,15 @@ fn gather_arguments(
 
 /// Type check helper. Produces `CantConvert` error if `val` is not compatible with `ty`.
 fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
-    if val.is_subtype_of(ty) {
-        Ok(())
-    } else {
-        Err(ShellError::CantConvert {
+    match val {
+        Value::Error { error, .. } => Err(*error.clone()),
+        _ if val.is_subtype_of(ty) => Ok(()),
+        _ => Err(ShellError::CantConvert {
             to_type: ty.to_string(),
             from_type: val.get_type().to_string(),
             span: val.span(),
             help: None,
-        })
+        }),
     }
 }
 
@@ -1284,12 +1284,12 @@ fn check_input_types(
         _ => (),
     }
 
-    // Errors and custom values bypass input type checking
-    if matches!(
-        input,
-        PipelineData::Value(Value::Error { .. } | Value::Custom { .. }, ..)
-    ) {
-        return Ok(());
+    match input {
+        // early return error directly if detected
+        PipelineData::Value(Value::Error { error, .. }, ..) => return Err(*error.clone()),
+        // bypass run-time typechecking for custom types
+        PipelineData::Value(Value::Custom { .. }, ..) => return Ok(()),
+        _ => (),
     }
 
     // Check if the input type is compatible with *any* of the command's possible input types
