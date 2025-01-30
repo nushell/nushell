@@ -165,7 +165,7 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
     let mut path = PathBuf::new();
     differing_parent.iter().for_each(|_| path.push(".."));
 
-    path.push(&differing_child);
+    path.push(differing_child);
 
     Value::string(path.to_string_lossy(), span)
 }
