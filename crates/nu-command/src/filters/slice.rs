@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::Range;
+use nu_protocol::IntRange;
 use std::ops::Bound;
 
 #[derive(Clone)]
@@ -66,68 +66,49 @@ impl Command for Slice {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let metadata = input.metadata();
-        let rows: Spanned<Range> = call.req(engine_state, stack, 0)?;
+        let range: IntRange = call.req(engine_state, stack, 0)?;
 
-        match rows.item {
-            Range::IntRange(range) => {
-                let start = range.start();
-                let end = match range.end() {
-                    Bound::Included(end) => end,
-                    Bound::Excluded(end) => end - 1,
-                    Bound::Unbounded => {
-                        if range.step() < 0 {
-                            i64::MIN
-                        } else {
-                            i64::MAX
-                        }
-                    }
-                };
+        // only collect the input if we have any negative indices
+        if range.is_relative() {
+            let v: Vec<_> = input.into_iter().collect();
 
-                // only collect the input if we have any negative indices
-                if start < 0 || end < 0 {
-                    let v: Vec<_> = input.into_iter().collect();
-                    let vlen: i64 = v.len() as i64;
+            let (from, to) = range.absolute_bounds(v.len());
 
-                    let from = if start < 0 {
-                        (vlen + start) as usize
+            let count = match to {
+                Bound::Excluded(to) => to.saturating_sub(from),
+                Bound::Included(to) => to.saturating_sub(from) + 1,
+                Bound::Unbounded => usize::MAX,
+            };
+
+            if count == 0 {
+                Ok(PipelineData::Value(Value::list(vec![], head), None))
+            } else {
+                let iter = v.into_iter().skip(from).take(count);
+                Ok(iter.into_pipeline_data(head, engine_state.signals().clone()))
+            }
+        } else {
+            let from = range.start() as usize;
+            let count = match range.end() {
+                Bound::Excluded(to) | Bound::Included(to) if range.start() > to => 0,
+                Bound::Excluded(to) => (to as usize).saturating_sub(from),
+                Bound::Included(to) => (to as usize).saturating_sub(from) + 1,
+                Bound::Unbounded => {
+                    if range.step() < 0 {
+                        0
                     } else {
-                        start as usize
-                    };
-
-                    let to = if end < 0 {
-                        (vlen + end) as usize
-                    } else if end > v.len() as i64 {
-                        v.len()
-                    } else {
-                        end as usize
-                    };
-
-                    if from > to {
-                        Ok(PipelineData::Value(Value::nothing(head), None))
-                    } else {
-                        let iter = v.into_iter().skip(from).take(to - from + 1);
-                        Ok(iter.into_pipeline_data(head, engine_state.signals().clone()))
-                    }
-                } else {
-                    let from = start as usize;
-                    let to = end as usize;
-
-                    if from > to {
-                        Ok(PipelineData::Value(Value::nothing(head), None))
-                    } else {
-                        let iter = input.into_iter().skip(from).take(to - from + 1);
-                        Ok(iter.into_pipeline_data(head, engine_state.signals().clone()))
+                        usize::MAX
                     }
                 }
-                .map(|x| x.set_metadata(metadata))
+            };
+
+            if count == 0 {
+                Ok(PipelineData::Value(Value::list(vec![], head), None))
+            } else {
+                let iter = input.into_iter().skip(from).take(count);
+                Ok(iter.into_pipeline_data(head, engine_state.signals().clone()))
             }
-            Range::FloatRange(_) => Err(ShellError::UnsupportedInput {
-                msg: "float range".into(),
-                input: "value originates from here".into(),
-                msg_span: call.head,
-                input_span: rows.span,
-            }),
         }
+        .map(|x| x.set_metadata(metadata))
     }
 }
 

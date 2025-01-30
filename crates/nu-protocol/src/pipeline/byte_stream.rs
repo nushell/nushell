@@ -295,8 +295,8 @@ impl ByteStream {
 
             match range.distance() {
                 Bound::Unbounded => stream,
-                Bound::Included(distance) => stream.and_then(|s| s.take(val_span, distance)),
-                Bound::Excluded(distance) => stream.and_then(|s| s.take(val_span, distance - 1)),
+                Bound::Included(distance) => stream.and_then(|s| s.take(val_span, distance + 1)),
+                Bound::Excluded(distance) => stream.and_then(|s| s.take(val_span, distance)),
             }
         }
     }

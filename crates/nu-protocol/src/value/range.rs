@@ -5,9 +5,11 @@ use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display};
 
 mod int_range {
-    use crate::{ast::RangeInclusion, ShellError, Signals, Span, Value};
+    use crate::{ast::RangeInclusion, FromValue, ShellError, Signals, Span, Value};
     use serde::{Deserialize, Serialize};
     use std::{cmp::Ordering, fmt::Display, ops::Bound};
+
+    use super::Range;
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct IntRange {
@@ -83,10 +85,9 @@ mod int_range {
 
         // Resolves the absolute start position given the length of the input value
         pub fn absolute_start(&self, len: u64) -> u64 {
-            let max_index = len - 1;
             match self.start {
                 start if start < 0 => len.saturating_sub(start.unsigned_abs()),
-                start => max_index.min(start as u64),
+                start => len.min(start.unsigned_abs()),
             }
         }
 
@@ -95,8 +96,9 @@ mod int_range {
         pub fn distance(&self) -> Bound<u64> {
             match self.end {
                 Bound::Unbounded => Bound::Unbounded,
-                Bound::Included(end) if self.start > end => Bound::Included(0),
-                Bound::Excluded(end) if self.start > end => Bound::Excluded(0),
+                Bound::Included(end) | Bound::Excluded(end) if self.start > end => {
+                    Bound::Excluded(0)
+                }
                 Bound::Included(end) => Bound::Included((end - self.start) as u64),
                 Bound::Excluded(end) => Bound::Excluded((end - self.start) as u64),
             }
@@ -107,17 +109,29 @@ mod int_range {
         }
 
         pub fn absolute_end(&self, len: u64) -> Bound<u64> {
-            let max_index = len - 1;
             match self.end {
                 Bound::Unbounded => Bound::Unbounded,
-                Bound::Included(i) => Bound::Included(match i {
-                    i if i < 0 => len.saturating_sub(i.unsigned_abs()),
-                    i => max_index.min(i as u64),
-                }),
+                Bound::Included(i) => match i {
+                    i if i < 0 => Bound::Excluded(len.saturating_sub((i + 1).unsigned_abs())),
+                    i => Bound::Included((len - 1).min(i.unsigned_abs())),
+                },
                 Bound::Excluded(i) => Bound::Excluded(match i {
                     i if i < 0 => len.saturating_sub(i.unsigned_abs()),
-                    i => len.min(i as u64),
+                    i => len.min(i.unsigned_abs()),
                 }),
+            }
+        }
+
+        pub fn absolute_bounds(&self, len: usize) -> (usize, Bound<usize>) {
+            let start = self.absolute_start(len as u64) as usize;
+            let end = self.absolute_end(len as u64).map(|e| e as usize);
+            match end {
+                Bound::Excluded(end) | Bound::Included(end) if end < start => {
+                    (start, Bound::Excluded(start))
+                }
+                Bound::Excluded(end) => (start, Bound::Excluded(end)),
+                Bound::Included(end) => (start, Bound::Included(end)),
+                Bound::Unbounded => (start, Bound::Unbounded),
             }
         }
 
@@ -242,6 +256,20 @@ mod int_range {
                 Bound::Included(end) => write!(f, "{end}"),
                 Bound::Excluded(end) => write!(f, "<{end}"),
                 Bound::Unbounded => Ok(()),
+            }
+        }
+    }
+
+    impl FromValue for IntRange {
+        fn from_value(v: Value) -> Result<Self, ShellError> {
+            let span = v.span();
+            let range = Range::from_value(v)?;
+            match range {
+                Range::IntRange(v) => Ok(v),
+                Range::FloatRange(_) => Err(ShellError::TypeMismatch {
+                    err_message: "expected an int range".into(),
+                    span,
+                }),
             }
         }
     }

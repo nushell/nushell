@@ -1,16 +1,15 @@
+use std::ops::Bound;
+
 use crate::{grapheme_flags, grapheme_flags_const};
-use nu_cmd_base::{
-    input_handler::{operate, CmdArgument},
-    util,
-};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, Range};
+use nu_protocol::{engine::StateWorkingSet, IntRange};
 use unicode_segmentation::UnicodeSegmentation;
 
 struct Arguments {
     end: bool,
     substring: String,
-    range: Option<Spanned<Range>>,
+    range: Option<Spanned<IntRange>>,
     cell_paths: Option<Vec<CellPath>>,
     graphemes: bool,
 }
@@ -170,46 +169,44 @@ fn action(
 ) -> Value {
     match input {
         Value::String { val: s, .. } => {
-            let mut range_span = head;
-            let (start_index, end_index) = if let Some(spanned_range) = range {
-                range_span = spanned_range.span;
+            let (search_str, start_index) = if let Some(spanned_range) = range {
+                let range_span = spanned_range.span;
                 let range = &spanned_range.item;
-                match util::process_range(range) {
-                    Ok(r) => {
-                        // `process_range()` returns `isize::MAX` if the range is open-ended,
-                        // which is not ideal for us
-                        let end = if r.1 as usize > s.len() {
-                            s.len()
-                        } else {
-                            r.1 as usize
-                        };
-                        (r.0 as usize, end)
-                    }
-                    Err(processing_error) => {
-                        let err = processing_error("could not find `index-of`", head);
-                        return Value::error(err, head);
-                    }
-                }
-            } else {
-                (0usize, s.len())
-            };
 
-            if s.get(start_index..end_index).is_none() {
-                return Value::error(
-                    ShellError::OutOfBounds {
-                        left_flank: start_index.to_string(),
-                        right_flank: end_index.to_string(),
-                        span: range_span,
-                    },
-                    head,
-                );
-            }
+                let (start, end) = range.absolute_bounds(s.len());
+                let s = match end {
+                    Bound::Excluded(end) => s.get(start..end),
+                    Bound::Included(end) => s.get(start..=end),
+                    Bound::Unbounded => s.get(start..),
+                };
+
+                let s = match s {
+                    Some(s) => s,
+                    None => {
+                        return Value::error(
+                            ShellError::OutOfBounds {
+                                left_flank: start.to_string(),
+                                right_flank: match range.end() {
+                                    Bound::Unbounded => "".to_string(),
+                                    Bound::Included(end) => format!("={end}"),
+                                    Bound::Excluded(end) => format!("<{end}"),
+                                },
+                                span: range_span,
+                            },
+                            head,
+                        )
+                    }
+                };
+                (s, start)
+            } else {
+                (s.as_str(), 0)
+            };
 
             // When the -e flag is present, search using rfind instead of find.s
             if let Some(result) = if *end {
-                s[start_index..end_index].rfind(&**substring)
+                search_str.rfind(&**substring)
             } else {
-                s[start_index..end_index].find(&**substring)
+                search_str.find(&**substring)
             } {
                 let result = result + start_index;
                 Value::int(
@@ -294,7 +291,7 @@ mod tests {
     #[test]
     fn returns_index_of_next_substring() {
         let word = Value::test_string("Cargo.Cargo");
-        let range = Range::new(
+        let range = IntRange::new(
             Value::int(1, Span::test_data()),
             Value::nothing(Span::test_data()),
             Value::nothing(Span::test_data()),
@@ -324,7 +321,7 @@ mod tests {
     #[test]
     fn index_does_not_exist_due_to_end_index() {
         let word = Value::test_string("Cargo.Banana");
-        let range = Range::new(
+        let range = IntRange::new(
             Value::nothing(Span::test_data()),
             Value::nothing(Span::test_data()),
             Value::int(5, Span::test_data()),
@@ -354,7 +351,7 @@ mod tests {
     #[test]
     fn returns_index_of_nums_in_middle_due_to_index_limit_from_both_ends() {
         let word = Value::test_string("123123123");
-        let range = Range::new(
+        let range = IntRange::new(
             Value::int(2, Span::test_data()),
             Value::nothing(Span::test_data()),
             Value::int(6, Span::test_data()),
@@ -384,7 +381,7 @@ mod tests {
     #[test]
     fn index_does_not_exists_due_to_strict_bounds() {
         let word = Value::test_string("123456");
-        let range = Range::new(
+        let range = IntRange::new(
             Value::int(2, Span::test_data()),
             Value::nothing(Span::test_data()),
             Value::int(5, Span::test_data()),
@@ -431,7 +428,7 @@ mod tests {
     fn index_is_not_a_char_boundary() {
         let word = Value::string(String::from("💛"), Span::test_data());
 
-        let range = Range::new(
+        let range = IntRange::new(
             Value::int(0, Span::test_data()),
             Value::int(1, Span::test_data()),
             Value::int(2, Span::test_data()),
@@ -462,7 +459,7 @@ mod tests {
     fn index_is_out_of_bounds() {
         let word = Value::string(String::from("hello"), Span::test_data());
 
-        let range = Range::new(
+        let range = IntRange::new(
             Value::int(-1, Span::test_data()),
             Value::int(1, Span::test_data()),
             Value::int(3, Span::test_data()),
@@ -486,6 +483,6 @@ mod tests {
         };
 
         let actual = action(&word, &options, Span::test_data());
-        assert!(actual.is_error());
+        assert_eq!(actual, Value::test_int(-1));
     }
 }
