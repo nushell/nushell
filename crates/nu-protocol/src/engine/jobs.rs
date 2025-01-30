@@ -78,7 +78,7 @@ pub enum Job {
 // This is an Arc-y type, cloning it does not uniquely clone the information of this particular
 // job.
 
-// Altough rust's documentation does not document the acquire-release semantics of Mutex, this
+// Although rust's documentation does not document the acquire-release semantics of Mutex, this
 // is a direct undocumentented requirement of its soundness, and is thus assumed by this
 // implementaation.
 // see issue https://github.com/rust-lang/rust/issues/126239.
@@ -97,7 +97,7 @@ impl ThreadJob {
     }
 
     pub fn try_add_pid(&self, pid: u32) -> bool {
-        let mut pids = self.pids.lock().expect("PIDs lock was posioned");
+        let mut pids = self.pids.lock().expect("PIDs lock was poisoned");
 
         // note: this signals check must occur after the pids lock has been locked.
         if self.signals.interrupted() {
@@ -123,7 +123,7 @@ impl ThreadJob {
         let mut pids = self.pids.lock().expect("PIDs lock was poisoned");
 
         for pid in pids.iter() {
-            kill_by_pid(*pid)?;
+            kill_by_pid((*pid).into())?;
         }
 
         pids.clear();
@@ -132,7 +132,7 @@ impl ThreadJob {
     }
 
     pub fn remove_pid(&self, pid: u32) {
-        let mut pids = self.pids.lock().expect("PID lock was posioned");
+        let mut pids = self.pids.lock().expect("PID lock was poisoned");
 
         pids.remove(&pid);
     }

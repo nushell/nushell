@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_system::build_kill_command;
 use std::process::{Command as CommandSys, Stdio};
 
 #[derive(Clone)]
@@ -56,69 +57,48 @@ impl Command for Kill {
         let signal: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "signal")?;
         let quiet: bool = call.has_flag(engine_state, stack, "quiet")?;
 
-        let mut cmd = if cfg!(windows) {
-            let mut cmd = CommandSys::new("taskkill");
-
-            if force {
-                cmd.arg("/F");
-            }
-
-            cmd.arg("/PID");
-            cmd.arg(pid.to_string());
-
-            // each pid must written as `/PID 0` otherwise
-            // taskkill will act as `killall` unix command
-            for id in &rest {
-                cmd.arg("/PID");
-                cmd.arg(id.to_string());
-            }
-
-            cmd
-        } else {
-            let mut cmd = CommandSys::new("kill");
-            if force {
-                if let Some(Spanned {
+        if cfg!(unix) {
+            if let (
+                true,
+                Some(Spanned {
                     item: _,
                     span: signal_span,
-                }) = signal
-                {
-                    return Err(ShellError::IncompatibleParameters {
-                        left_message: "force".to_string(),
-                        left_span: call.get_flag_span(stack, "force").ok_or_else(|| {
+                }),
+            ) = (force, signal)
+            {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "force".to_string(),
+                    left_span: call.get_flag_span(stack, "force").ok_or_else(|| {
+                        ShellError::GenericError {
+                            error: "Flag error".into(),
+                            msg: "flag force not found".into(),
+                            span: Some(call.head),
+                            help: None,
+                            inner: vec![],
+                        }
+                    })?,
+                    right_message: "signal".to_string(),
+                    right_span: Span::merge(
+                        call.get_flag_span(stack, "signal").ok_or_else(|| {
                             ShellError::GenericError {
                                 error: "Flag error".into(),
-                                msg: "flag force not found".into(),
+                                msg: "flag signal not found".into(),
                                 span: Some(call.head),
                                 help: None,
                                 inner: vec![],
                             }
                         })?,
-                        right_message: "signal".to_string(),
-                        right_span: Span::merge(
-                            call.get_flag_span(stack, "signal").ok_or_else(|| {
-                                ShellError::GenericError {
-                                    error: "Flag error".into(),
-                                    msg: "flag signal not found".into(),
-                                    span: Some(call.head),
-                                    help: None,
-                                    inner: vec![],
-                                }
-                            })?,
-                            signal_span,
-                        ),
-                    });
-                }
-                cmd.arg("-9");
-            } else if let Some(signal_value) = signal {
-                cmd.arg(format!("-{}", signal_value.item));
+                        signal_span,
+                    ),
+                });
             }
-
-            cmd.arg(pid.to_string());
-
-            cmd.args(rest.iter().map(move |id| id.to_string()));
-
-            cmd
         };
+
+        let mut cmd = build_kill_command(
+            force,
+            std::iter::once(pid).chain(rest.into_iter()),
+            signal.map(|spanned| spanned.item as u32),
+        );
 
         // pipe everything to null
         if quiet {

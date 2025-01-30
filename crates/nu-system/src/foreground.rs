@@ -128,18 +128,6 @@ impl ForegroundChild {
     pub fn pid(&self) -> u32 {
         self.inner.id()
     }
-
-    pub fn kill(&mut self) -> io::Result<()> {
-        kill_by_pid(self.pid())
-    }
-}
-
-pub fn kill_by_pid(pid: u32) -> io::Result<()> {
-    // TODO: kill the process
-
-    eprintln!("\n(please pretend i'm killing process {})\n", pid);
-
-    Ok(())
 }
 
 pub enum ForegroundWaitStatus {

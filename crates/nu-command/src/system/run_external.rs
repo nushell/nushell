@@ -8,7 +8,7 @@ use nu_protocol::{
     shell_error::io::IoError,
     ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
 };
-use nu_system::{ForegroundChild, ForegroundWaitStatus};
+use nu_system::{kill_by_pid, ForegroundChild, ForegroundWaitStatus};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -265,7 +265,7 @@ impl Command for External {
 
         if let Some(thread_job) = &engine_state.current_thread_job {
             if !thread_job.try_add_pid(child.pid()) {
-                child.kill().map_err(|err| {
+                kill_by_pid(child.pid().into()).map_err(|err| {
                     ShellError::Io(IoError::new_internal(
                         err.kind(),
                         "Could not spawn external stdin worker",
