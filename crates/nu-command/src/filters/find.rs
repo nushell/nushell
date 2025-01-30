@@ -170,7 +170,7 @@ impl Command for Find {
                 result: Some(Value::list(
                     vec![Value::test_record(record! {
                         "foo" => Value::test_string("abc"),
-                        "bar" => Value::test_string("bar")
+                        "bar" => Value::test_int(123)
                     }
                     )],
                     Span::test_data(),
@@ -431,6 +431,7 @@ fn find_with_rest_and_highlight(
             let stream = stream.modify(|iter| {
                 iter.map(move |mut x| {
                     let span = x.span();
+                    if raw { return x };
                     match &mut x {
                         Value::Record { val, .. } => highlight_terms_in_record_with_search_columns(
                             &cols_to_search_in_map,
@@ -472,15 +473,19 @@ fn find_with_rest_and_highlight(
                     let lower_val = line.to_lowercase();
                     for term in &terms {
                         if lower_val.contains(term) {
-                            output.push(Value::string(
-                                highlight_search_string(
-                                    &line,
-                                    term,
-                                    &string_style,
-                                    &highlight_style,
-                                )?,
-                                span,
-                            ))
+                            if raw { 
+                                output.push(Value::string(&line, span))
+                            } else {
+                                output.push(Value::string(
+                                    highlight_search_string(
+                                        &line,
+                                        term,
+                                        &string_style,
+                                        &highlight_style,
+                                    )?,
+                                    span,
+                                ))
+                            }
                         }
                     }
                 }
