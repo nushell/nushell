@@ -218,10 +218,10 @@ impl PreparedServerCommunication {
                                 if !is_would_block_err(&err) {
                                     // `WouldBlock` is ok, just means it's not ready yet, but some other
                                     // kind of error should be reported
-                                    return Err(ShellError::Io(IoError::new(
-                                        err.kind(),
-                                        Span::unknown(),
-                                        None,
+                                    return Err(ShellError::Io(IoError::new_internal(
+                                        err.kind(), 
+                                        "Accepting new data from listener failed", 
+                                        nu_protocol::location!()
                                     )));
                                 }
                             }

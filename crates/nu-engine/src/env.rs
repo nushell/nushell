@@ -220,10 +220,11 @@ pub fn current_dir(engine_state: &EngineState, stack: &Stack) -> Result<PathBuf,
     // we still need to simplify Windows paths. "." is safe because `cwd` should
     // be an absolute path already.
     canonicalize_with(&cwd, ".").map_err(|err| {
-        ShellError::Io(IoError::new(
-            err.kind(),
-            Span::unknown(),
-            PathBuf::from(cwd),
+        ShellError::Io(IoError::new_internal_with_path(
+            err.kind(), 
+            "Could not canonicalize current dir", 
+            nu_protocol::location!(),
+            PathBuf::from(cwd)
         ))
     })
 }
@@ -239,10 +240,11 @@ pub fn current_dir_const(working_set: &StateWorkingSet) -> Result<PathBuf, Shell
     // we still need to simplify Windows paths. "." is safe because `cwd` should
     // be an absolute path already.
     canonicalize_with(&cwd, ".").map_err(|err| {
-        ShellError::Io(IoError::new(
-            err.kind(),
-            Span::unknown(),
-            PathBuf::from(cwd),
+        ShellError::Io(IoError::new_internal_with_path(
+            err.kind(), 
+            "Could not canonicalize current dir", 
+            nu_protocol::location!(),
+            PathBuf::from(cwd)
         ))
     })
 }
