@@ -1,8 +1,7 @@
 use crate::engine::StateWorkingSet;
 
 use super::{
-    Block, Expr, Expression, ExternalArgument, ListItem, MatchPattern, Pattern,
-    PipelineRedirection, RecordItem,
+    Block, Expr, Expression, ListItem, MatchPattern, Pattern, PipelineRedirection, RecordItem,
 };
 
 /// Trait for traversing the AST
@@ -129,9 +128,7 @@ impl Traverse for Expression {
                 .collect(),
             Expr::ExternalCall(head, args) => recur(head.as_ref())
                 .into_iter()
-                .chain(args.iter().flat_map(|arg| match arg {
-                    ExternalArgument::Regular(e) | ExternalArgument::Spread(e) => recur(e),
-                }))
+                .chain(args.iter().flat_map(|arg| recur(arg.expr())))
                 .collect(),
             Expr::UnaryNot(expr) | Expr::Collect(_, expr) => recur(expr.as_ref()),
             Expr::BinaryOp(lhs, op, rhs) => recur(lhs)
@@ -201,9 +198,7 @@ impl Traverse for Expression {
                     .iter()
                     .find_map(|arg| arg.expr().and_then(recur)),
                 Expr::ExternalCall(head, args) => {
-                    recur(head.as_ref()).or(args.iter().find_map(|arg| match arg {
-                        ExternalArgument::Regular(e) | ExternalArgument::Spread(e) => recur(e),
-                    }))
+                    recur(head.as_ref()).or(args.iter().find_map(|arg| recur(arg.expr())))
                 }
                 Expr::UnaryNot(expr) | Expr::Collect(_, expr) => recur(expr.as_ref()),
                 Expr::BinaryOp(lhs, op, rhs) => recur(lhs).or(recur(op)).or(recur(rhs)),

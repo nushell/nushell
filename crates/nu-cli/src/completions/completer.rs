@@ -7,7 +7,7 @@ use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
-    ast::{Expr, Expression, ExternalArgument, Traverse},
+    ast::{Expr, Expression, Traverse},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
     PipelineData, Span, Value,
@@ -35,28 +35,25 @@ fn find_pipeline_element_by_position<'a>(
             // if no inner call/external_call found, then this is the inner-most one
             .or(Some(expr))
             .map(Some),
+        // TODO: clear separation of internal/external completion logic
         Expr::ExternalCall(head, arguments) => arguments
             .iter()
-            .find_map(|arg| match arg {
-                ExternalArgument::Regular(e) | ExternalArgument::Spread(e) => {
-                    e.find_map(working_set, &closure)
-                }
-            })
+            .find_map(|arg| arg.expr().find_map(working_set, &closure))
             .or(head.as_ref().find_map(working_set, &closure))
             .or(Some(expr))
             .map(Some),
+        // complete the operator
         Expr::BinaryOp(lhs, _, rhs) => lhs
             .find_map(working_set, &closure)
             .or(rhs.find_map(working_set, &closure))
-            // complete the operator
             .or(Some(expr))
             .map(Some),
-        Expr::Var(_) => Some(Some(expr)),
         Expr::FullCellPath(fcp) => fcp
             .head
             .find_map(working_set, &closure)
             .or(Some(expr))
             .map(Some),
+        Expr::Var(_) => Some(Some(expr)),
         _ => None,
     }
 }
