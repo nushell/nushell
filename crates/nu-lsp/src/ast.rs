@@ -301,7 +301,7 @@ fn find_id_in_expr(
                         Some(location),
                         None,
                     ))
-                    .map(|p| Some(p))
+                    .map(Some)
             }
         }
         Expr::FullCellPath(fcp) => {
