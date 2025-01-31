@@ -1,4 +1,3 @@
-use crate::ast::{ast_flat_map, expr_flat_map};
 use crate::{span_to_range, LanguageServer};
 use lsp_textdocument::FullTextDocument;
 use lsp_types::{
@@ -6,7 +5,7 @@ use lsp_types::{
     MarkupKind, Position, Range,
 };
 use nu_protocol::{
-    ast::{Argument, Block, Expr, Expression, Operator},
+    ast::{Argument, Block, Expr, Expression, Operator, Traverse},
     engine::StateWorkingSet,
     Type,
 };
@@ -29,11 +28,12 @@ fn extract_inlay_hints_from_expression(
     file: &FullTextDocument,
 ) -> Option<Vec<InlayHint>> {
     let closure = |e| extract_inlay_hints_from_expression(e, working_set, offset, file);
-    let recur = |expr| expr_flat_map(expr, working_set, &closure);
     match &expr.expr {
         Expr::BinaryOp(lhs, op, rhs) => {
-            let mut hints: Vec<InlayHint> =
-                [lhs, op, rhs].into_iter().flat_map(|e| recur(e)).collect();
+            let mut hints: Vec<InlayHint> = [lhs, op, rhs]
+                .into_iter()
+                .flat_map(|e| e.flat_map(working_set, &closure))
+                .collect();
             if let Expr::Operator(Operator::Assignment(_)) = op.expr {
                 let position = span_to_range(&lhs.span, file, *offset).end;
                 let type_rhs = type_short_name(&rhs.ty);
@@ -103,13 +103,13 @@ fn extract_inlay_hints_from_expression(
                 match arg {
                     // skip the rest when spread/unknown arguments encountered
                     Argument::Spread(expr) | Argument::Unknown(expr) => {
-                        hints.extend(recur(expr));
+                        hints.extend(expr.flat_map(working_set, &closure));
                         sig_idx = signatures.len();
                         continue;
                     }
                     // skip current for flags
                     Argument::Named((_, _, Some(expr))) => {
-                        hints.extend(recur(expr));
+                        hints.extend(expr.flat_map(working_set, &closure));
                         continue;
                     }
                     Argument::Positional(expr) => {
@@ -130,7 +130,7 @@ fn extract_inlay_hints_from_expression(
                                 padding_right: None,
                             });
                         }
-                        hints.extend(recur(expr));
+                        hints.extend(expr.flat_map(working_set, &closure));
                     }
                     _ => {
                         continue;
@@ -154,7 +154,7 @@ impl LanguageServer {
         offset: usize,
         file: &FullTextDocument,
     ) -> Vec<InlayHint> {
-        ast_flat_map(block, working_set, &|e| {
+        block.flat_map(working_set, &|e| {
             extract_inlay_hints_from_expression(e, working_set, &offset, file)
         })
     }
