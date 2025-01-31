@@ -275,22 +275,22 @@ fn find_id_in_expr(
     expr: &Expression,
     working_set: &StateWorkingSet,
     location: &usize,
-) -> Option<Vec<(Id, Span)>> {
+) -> Option<Option<(Id, Span)>> {
     // skip the entire expression if the location is not in it
     if !expr.span.contains(*location) {
-        return Some(Vec::new());
+        return Some(None);
     }
     let span = expr.span;
     match &expr.expr {
-        Expr::VarDecl(var_id) => Some(vec![(Id::Variable(*var_id), span)]),
+        Expr::VarDecl(var_id) => Some(Some((Id::Variable(*var_id), span))),
         // trim leading `$` sign
-        Expr::Var(var_id) => Some(vec![(
+        Expr::Var(var_id) => Some(Some((
             Id::Variable(*var_id),
             Span::new(span.start.saturating_add(1), span.end),
-        )]),
+        ))),
         Expr::Call(call) => {
             if call.head.contains(*location) {
-                Some(vec![(Id::Declaration(call.decl_id), call.head)])
+                Some(Some((Id::Declaration(call.decl_id), call.head)))
             } else {
                 try_find_id_in_def(call, working_set, Some(location), None)
                     .or(try_find_id_in_mod(call, working_set, Some(location), None))
@@ -301,7 +301,7 @@ fn find_id_in_expr(
                         Some(location),
                         None,
                     ))
-                    .map(|p| vec![p])
+                    .map(|p| Some(p))
             }
         }
         Expr::FullCellPath(fcp) => {
@@ -322,10 +322,10 @@ fn find_id_in_expr(
                     .take_while(|pm| pm.span().start <= *location)
                     .collect();
                 let span = tail.last()?.span();
-                Some(vec![(Id::CellPath(var_id, tail), span)])
+                Some(Some((Id::CellPath(var_id, tail), span)))
             }
         }
-        Expr::Overlay(Some(module_id)) => Some(vec![(Id::Module(*module_id), span)]),
+        Expr::Overlay(Some(module_id)) => Some(Some((Id::Module(*module_id), span))),
         // terminal value expressions
         Expr::Bool(_)
         | Expr::Binary(_)
@@ -339,7 +339,7 @@ fn find_id_in_expr(
         | Expr::Nothing
         | Expr::RawString(_)
         | Expr::Signature(_)
-        | Expr::String(_) => Some(vec![(Id::Value(expr.ty.clone()), span)]),
+        | Expr::String(_) => Some(Some((Id::Value(expr.ty.clone()), span))),
         _ => None,
     }
 }
@@ -351,7 +351,7 @@ pub(crate) fn find_id(
     location: &usize,
 ) -> Option<(Id, Span)> {
     let closure = |e| find_id_in_expr(e, working_set, location);
-    ast.flat_map(working_set, &closure).first().cloned()
+    ast.find_map(working_set, &closure)
 }
 
 fn find_reference_by_id_in_expr(
