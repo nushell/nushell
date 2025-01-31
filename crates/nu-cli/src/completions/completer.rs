@@ -192,20 +192,20 @@ impl NuCompleter {
         let flattened = flatten_expression(&working_set, element_expression);
         let mut spans: Vec<String> = vec![];
 
-        for (flat_idx, flat) in flattened.iter().enumerate() {
+        for (flat_idx, (span, shape)) in flattened.iter().enumerate() {
             let is_passthrough_command = spans
                 .first()
                 .filter(|content| content.as_str() == "sudo" || content.as_str() == "doas")
                 .is_some();
 
             // Read the current span to string
-            let current_span = working_set.get_span_contents(flat.0);
+            let current_span = working_set.get_span_contents(*span);
             let current_span_str = String::from_utf8_lossy(current_span);
-            let is_last_span = pos >= flat.0.start && pos < flat.0.end;
+            let is_last_span = span.contains(pos);
 
             // Skip the last 'a' as span item
             if is_last_span {
-                let offset = pos - flat.0.start;
+                let offset = pos - span.start;
                 if offset == 0 {
                     spans.push(String::new())
                 } else {
@@ -223,10 +223,10 @@ impl NuCompleter {
                 let most_left_var = most_left_variable(flat_idx, &working_set, flattened.clone());
 
                 // Create a new span
-                let new_span = Span::new(flat.0.start, flat.0.end - 1);
+                let new_span = Span::new(span.start, span.end - 1);
 
                 // Parses the prefix. Completion should look up to the cursor position, not after.
-                let index = pos - flat.0.start;
+                let index = pos - span.start;
                 let prefix = &current_span[..index];
 
                 // Variables completion
@@ -366,7 +366,7 @@ impl NuCompleter {
                 }
 
                 // Match other types
-                match &flat.1 {
+                match shape {
                     FlatShape::Custom(decl_id) => {
                         let mut completer = CustomCompletion::new(
                             self.stack.clone(),
