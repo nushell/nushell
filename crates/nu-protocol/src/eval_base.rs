@@ -27,6 +27,7 @@ pub trait Eval {
         let expr_span = expr.span(&state);
 
         match &expr.expr {
+            Expr::AttributeBlock(ab) => Self::eval::<D>(state, mut_state, &ab.item),
             Expr::Bool(b) => Ok(Value::bool(*b, expr_span)),
             Expr::Int(i) => Ok(Value::int(*i, expr_span)),
             Expr::Float(f) => Ok(Value::float(*f, expr_span)),

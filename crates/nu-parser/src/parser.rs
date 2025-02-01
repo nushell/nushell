@@ -6355,6 +6355,9 @@ pub fn discover_captures_in_expr(
     output: &mut Vec<(VarId, Span)>,
 ) -> Result<(), ParseError> {
     match &expr.expr {
+        Expr::AttributeBlock(ab) => {
+            discover_captures_in_expr(working_set, &ab.item, seen, seen_blocks, output)?;
+        }
         Expr::BinaryOp(lhs, _, rhs) => {
             discover_captures_in_expr(working_set, lhs, seen, seen_blocks, output)?;
             discover_captures_in_expr(working_set, rhs, seen, seen_blocks, output)?;
