@@ -275,12 +275,21 @@ fn dotnu_completions() {
 
     // Test nested nu script
     #[cfg(windows)]
-    let completion_str = "use .\\dir_module\\sub_module\\".to_string();
+    let completion_str = "use `.\\dir_module\\sub module\\".to_string();
     #[cfg(not(windows))]
-    let completion_str = "use ./dir_module/sub_module/".to_string();
+    let completion_str = "use `./dir_module/sub module/".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
     match_suggestions(&vec!["sub.nu".into()], &suggestions);
+
+    // Test nested nu script, with ending '`'
+    #[cfg(windows)]
+    let completion_str = "use `.\\dir_module\\sub module\\`".to_string();
+    #[cfg(not(windows))]
+    let completion_str = "use `./dir_module/sub module/`".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+
+    match_suggestions(&vec!["sub.nu`".into()], &suggestions);
 
     let expected = vec![
         "asdf.nu".into(),
