@@ -6,7 +6,7 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::path::{is_separator, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR};
 
-use super::SemanticSuggestion;
+use super::{SemanticSuggestion, SuggestionKind};
 
 #[derive(Clone, Default)]
 pub struct DotNuCompletion {}
@@ -112,8 +112,7 @@ impl Completer for DotNuCompletion {
                         append_whitespace,
                         ..Suggestion::default()
                     },
-                    // TODO????
-                    kind: None,
+                    kind: Some(SuggestionKind::Module),
                 }
             })
             .collect::<Vec<_>>()
