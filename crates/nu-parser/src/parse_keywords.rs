@@ -9,7 +9,7 @@ use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
-        Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
+        Argument, Attribute, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
@@ -369,6 +369,26 @@ pub fn parse_def(
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
 ) -> (Pipeline, Option<(Vec<u8>, DeclId)>) {
+    let (expr, decl) = parse_def_inner(working_set, &[], lite_command, module_name);
+    (Pipeline::from_vec(vec![expr]), decl)
+}
+
+pub fn parse_extern(
+    working_set: &mut StateWorkingSet,
+    lite_command: &LiteCommand,
+    module_name: Option<&[u8]>,
+) -> Pipeline {
+    let expr = parse_extern_inner(working_set, &[], lite_command, module_name);
+    Pipeline::from_vec(vec![expr])
+}
+
+// Returns also the parsed command name and ID
+fn parse_def_inner(
+    working_set: &mut StateWorkingSet,
+    attributes: &[(Attribute, Option<String>)],
+    lite_command: &LiteCommand,
+    module_name: Option<&[u8]>,
+) -> (Expression, Option<(Vec<u8>, DeclId)>) {
     let spans = lite_command.command_parts();
 
     let (desc, extra_desc) = working_set.build_desc(&lite_command.comments);
@@ -390,11 +410,11 @@ pub fn parse_def(
             "internal error: Wrong call name for def function".into(),
             Span::concat(spans),
         ));
-        return (garbage_pipeline(working_set, spans), None);
+        return (garbage(working_set, Span::concat(spans)), None);
     }
     if let Some(redirection) = lite_command.redirection.as_ref() {
         working_set.error(redirecting_builtin_error("def", redirection));
-        return (garbage_pipeline(working_set, spans), None);
+        return (garbage(working_set, Span::concat(spans)), None);
     }
 
     // Parsing the spans and checking that they match the register signature
@@ -406,7 +426,7 @@ pub fn parse_def(
                 "internal error: def declaration not found".into(),
                 Span::concat(spans),
             ));
-            return (garbage_pipeline(working_set, spans), None);
+            return (garbage(working_set, Span::concat(spans)), None);
         }
         Some(decl_id) => {
             working_set.enter_scope();
@@ -430,7 +450,7 @@ pub fn parse_def(
                     String::from_utf8_lossy(&def_call).as_ref(),
                 ) {
                     working_set.error(err);
-                    return (garbage_pipeline(working_set, spans), None);
+                    return (garbage(working_set, Span::concat(spans)), None);
                 }
             }
 
@@ -474,17 +494,12 @@ pub fn parse_def(
             working_set.parse_errors.append(&mut new_errors);
 
             let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
-                return (garbage_pipeline(working_set, spans), None);
+                return (garbage(working_set, Span::concat(spans)), None);
             };
 
             if starting_error_count != working_set.parse_errors.len() || is_help {
                 return (
-                    Pipeline::from_vec(vec![Expression::new(
-                        working_set,
-                        Expr::Call(call),
-                        call_span,
-                        output,
-                    )]),
+                    Expression::new(working_set, Expr::Call(call), call_span, output),
                     None,
                 );
             }
@@ -494,10 +509,10 @@ pub fn parse_def(
     };
 
     let Ok(has_env) = has_flag_const(working_set, &call, "env") else {
-        return (garbage_pipeline(working_set, spans), None);
+        return (garbage(working_set, Span::concat(spans)), None);
     };
     let Ok(has_wrapped) = has_flag_const(working_set, &call, "wrapped") else {
-        return (garbage_pipeline(working_set, spans), None);
+        return (garbage(working_set, Span::concat(spans)), None);
     };
 
     // All positional arguments must be in the call positional vector by this point
@@ -517,12 +532,7 @@ pub fn parse_def(
                     name_expr_span,
                 ));
                 return (
-                    Pipeline::from_vec(vec![Expression::new(
-                        working_set,
-                        Expr::Call(call),
-                        call_span,
-                        Type::Any,
-                    )]),
+                    Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
                     None,
                 );
             }
@@ -534,7 +544,7 @@ pub fn parse_def(
             "Could not get string from string expression".into(),
             name_expr.span,
         ));
-        return (garbage_pipeline(working_set, spans), None);
+        return (garbage(working_set, Span::concat(spans)), None);
     };
 
     let mut result = None;
@@ -567,12 +577,7 @@ pub fn parse_def(
                             format!("...rest-like positional argument used in 'def --wrapped' supports only strings. Change the type annotation of ...{} to 'string'.", &rest.name)));
 
                         return (
-                            Pipeline::from_vec(vec![Expression::new(
-                                working_set,
-                                Expr::Call(call),
-                                call_span,
-                                Type::Any,
-                            )]),
+                            Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
                             result,
                         );
                     }
@@ -581,12 +586,7 @@ pub fn parse_def(
                 working_set.error(ParseError::MissingPositional("...rest-like positional argument".to_string(), name_expr.span, "def --wrapped must have a ...rest-like positional argument. Add '...rest: string' to the command's signature.".to_string()));
 
                 return (
-                    Pipeline::from_vec(vec![Expression::new(
-                        working_set,
-                        Expr::Call(call),
-                        call_span,
-                        Type::Any,
-                    )]),
+                    Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
                     result,
                 );
             }
@@ -637,22 +637,19 @@ pub fn parse_def(
     working_set.merge_predecl(name.as_bytes());
 
     (
-        Pipeline::from_vec(vec![Expression::new(
-            working_set,
-            Expr::Call(call),
-            call_span,
-            Type::Any,
-        )]),
+        Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
         result,
     )
 }
 
-pub fn parse_extern(
+fn parse_extern_inner(
     working_set: &mut StateWorkingSet,
+    attributes: &[(Attribute, Option<String>)],
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
-) -> Pipeline {
+) -> Expression {
     let spans = lite_command.command_parts();
+    let concat_span = Span::concat(spans);
 
     let (description, extra_description) = working_set.build_desc(&lite_command.comments);
 
@@ -672,11 +669,11 @@ pub fn parse_extern(
             "internal error: Wrong call name for extern command".into(),
             Span::concat(spans),
         ));
-        return garbage_pipeline(working_set, spans);
+        return garbage(working_set, concat_span);
     }
     if let Some(redirection) = lite_command.redirection.as_ref() {
         working_set.error(redirecting_builtin_error("extern", redirection));
-        return garbage_pipeline(working_set, spans);
+        return garbage(working_set, concat_span);
     }
 
     // Parsing the spans and checking that they match the register signature
@@ -688,7 +685,7 @@ pub fn parse_extern(
                 "internal error: def declaration not found".into(),
                 Span::concat(spans),
             ));
-            return garbage_pipeline(working_set, spans);
+            return garbage(working_set, concat_span);
         }
         Some(decl_id) => {
             working_set.enter_scope();
@@ -702,7 +699,7 @@ pub fn parse_extern(
                     String::from_utf8_lossy(&extern_call).as_ref(),
                 ) {
                     working_set.error(err);
-                    return garbage_pipeline(working_set, spans);
+                    return garbage(working_set, concat_span);
                 }
             }
 
@@ -736,12 +733,7 @@ pub fn parse_extern(
                         "main".to_string(),
                         name_expr_span,
                     ));
-                    return Pipeline::from_vec(vec![Expression::new(
-                        working_set,
-                        Expr::Call(call),
-                        call_span,
-                        Type::Any,
-                    )]);
+                    return Expression::new(working_set, Expr::Call(call), call_span, Type::Any);
                 }
             }
 
@@ -807,12 +799,7 @@ pub fn parse_extern(
         }
     }
 
-    Pipeline::from_vec(vec![Expression::new(
-        working_set,
-        Expr::Call(call),
-        call_span,
-        Type::Any,
-    )])
+    Expression::new(working_set, Expr::Call(call), call_span, Type::Any)
 }
 
 fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> Option<&'a Span> {
