@@ -1,5 +1,5 @@
 use super::{EngineState, Stack, StateWorkingSet};
-use crate::{engine::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature};
+use crate::{engine::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature, Value};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,6 +70,10 @@ pub trait Command: Send + Sync + CommandClone {
 
     // Related terms to help with command search
     fn search_terms(&self) -> Vec<&str> {
+        vec![]
+    }
+
+    fn attributes(&self) -> Vec<(String, Value)> {
         vec![]
     }
 
