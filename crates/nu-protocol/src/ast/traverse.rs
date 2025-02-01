@@ -5,16 +5,12 @@ use super::{
 };
 
 /// Result of find_map closure
+#[derive(Default)]
 pub enum FindMapResult<T> {
     Found(T),
+    #[default]
     Continue,
     Stop,
-}
-
-impl<T> Default for FindMapResult<T> {
-    fn default() -> Self {
-        FindMapResult::Continue
-    }
 }
 
 /// Trait for traversing the AST
