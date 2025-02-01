@@ -4,7 +4,7 @@ use nu_protocol::{
     Span,
 };
 use reedline::Suggestion;
-use std::path::{is_separator, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR};
+use std::path::{is_separator, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR};
 
 use super::SemanticSuggestion;
 
@@ -29,7 +29,7 @@ impl Completer for DotNuCompletion {
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         let prefix_str = String::from_utf8_lossy(prefix).replace('`', "");
-        let mut search_dirs: Vec<String> = vec![];
+        let mut search_dirs: Vec<PathBuf> = vec![];
 
         // If prefix_str is only a word we want to search in the current dir
         let (base, partial) = prefix_str
@@ -38,7 +38,7 @@ impl Completer for DotNuCompletion {
         let base_dir = base.replace(is_separator, MAIN_SEPARATOR_STR);
 
         // Fetch the lib dirs
-        let lib_dirs: Vec<String> = working_set
+        let lib_dirs: Vec<PathBuf> = working_set
             .find_variable(b"$NU_LIB_DIRS")
             .and_then(|vid| working_set.get_variable(vid).const_val.as_ref())
             .or(working_set.get_env_var("NU_LIB_DIRS"))
@@ -52,33 +52,27 @@ impl Completer for DotNuCompletion {
                                 .expect("internal error: failed to convert lib path")
                         })
                     })
-                    .map(|it| {
-                        it.into_os_string()
-                            .into_string()
-                            .expect("internal error: failed to convert OS path")
-                    })
                     .collect()
             })
             .unwrap_or_default();
 
         // Check if the base_dir is a folder
         // rsplit_once removes the separator
-        let cwd = working_set
-            .permanent_state
-            .cwd(None)
-            .ok()
-            .map(|pb| pb.to_string_lossy().into_owned())
-            .unwrap_or_default();
+        let cwd = working_set.permanent_state.cwd(None);
         if base_dir != "." {
             // Search in base_dir as well as lib_dirs
-            search_dirs.push(format!("{cwd}{SEP}{base_dir}"));
-            search_dirs.extend(
-                lib_dirs
-                    .into_iter()
-                    .map(|dir| format!("{dir}{SEP}{base_dir}")),
-            );
+            if let Ok(mut cwd) = cwd {
+                cwd.push(&base_dir);
+                search_dirs.push(cwd.into_std_path_buf());
+            }
+            search_dirs.extend(lib_dirs.into_iter().map(|mut dir| {
+                dir.push(&base_dir);
+                dir
+            }));
         } else {
-            search_dirs.push(cwd);
+            if let Ok(cwd) = cwd {
+                search_dirs.push(cwd.into_std_path_buf());
+            }
             search_dirs.extend(lib_dirs);
         }
 
@@ -88,7 +82,10 @@ impl Completer for DotNuCompletion {
         let completions = file_path_completion(
             span,
             partial,
-            &search_dirs.iter().map(|d| d.as_str()).collect::<Vec<_>>(),
+            &search_dirs
+                .iter()
+                .map(|d| d.to_str().unwrap_or_default())
+                .collect::<Vec<_>>(),
             options,
             working_set.permanent_state,
             stack,
