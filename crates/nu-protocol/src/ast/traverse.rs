@@ -4,6 +4,19 @@ use super::{
     Block, Expr, Expression, ListItem, MatchPattern, Pattern, PipelineRedirection, RecordItem,
 };
 
+/// Result of find_map closure
+pub enum FindMapResult<T> {
+    Found(T),
+    Continue,
+    Stop,
+}
+
+impl<T> Default for FindMapResult<T> {
+    fn default() -> Self {
+        FindMapResult::Continue
+    }
+}
+
 /// Trait for traversing the AST
 pub trait Traverse {
     /// Generic function that do flat_map on an AST node
@@ -20,11 +33,9 @@ pub trait Traverse {
     ///
     /// # Arguments
     /// * `f` - function that overrides the default behavior
-    ///   - returns None if further searching is required
-    ///   - returns Some(None) means stop searching and return None
     fn find_map<'a, T, F>(&'a self, working_set: &'a StateWorkingSet, f: &F) -> Option<T>
     where
-        F: Fn(&'a Expression) -> Option<Option<T>>;
+        F: Fn(&'a Expression) -> FindMapResult<T>;
 }
 
 impl Traverse for Block {
@@ -50,7 +61,7 @@ impl Traverse for Block {
 
     fn find_map<'a, T, F>(&'a self, working_set: &'a StateWorkingSet, f: &F) -> Option<T>
     where
-        F: Fn(&'a Expression) -> Option<Option<T>>,
+        F: Fn(&'a Expression) -> FindMapResult<T>,
     {
         self.pipelines.iter().find_map(|pipeline| {
             pipeline.elements.iter().find_map(|element| {
@@ -83,7 +94,7 @@ impl Traverse for PipelineRedirection {
 
     fn find_map<'a, T, F>(&'a self, working_set: &'a StateWorkingSet, f: &F) -> Option<T>
     where
-        F: Fn(&'a Expression) -> Option<Option<T>>,
+        F: Fn(&'a Expression) -> FindMapResult<T>,
     {
         let recur = |expr: &'a Expression| expr.find_map(working_set, f);
         match self {
@@ -102,7 +113,7 @@ impl Traverse for Expression {
     where
         F: Fn(&'a Expression) -> Option<Vec<T>>,
     {
-        // behavior overridden by f_special
+        // behavior overridden by f
         if let Some(vec) = f(self) {
             return vec;
         }
@@ -177,56 +188,60 @@ impl Traverse for Expression {
 
     fn find_map<'a, T, F>(&'a self, working_set: &'a StateWorkingSet, f: &F) -> Option<T>
     where
-        F: Fn(&'a Expression) -> Option<Option<T>>,
+        F: Fn(&'a Expression) -> FindMapResult<T>,
     {
-        // behavior overridden by f_special
-        f(self).unwrap_or_else(|| {
-            let recur = |expr: &'a Expression| expr.find_map(working_set, f);
-            match &self.expr {
-                Expr::RowCondition(block_id)
-                | Expr::Subexpression(block_id)
-                | Expr::Block(block_id)
-                | Expr::Closure(block_id) => {
-                    let block = working_set.get_block(block_id.to_owned());
-                    block.find_map(working_set, f)
-                }
-                Expr::Range(range) => [&range.from, &range.next, &range.to]
-                    .iter()
-                    .find_map(|e| e.as_ref().and_then(recur)),
-                Expr::Call(call) => call
-                    .arguments
-                    .iter()
-                    .find_map(|arg| arg.expr().and_then(recur)),
-                Expr::ExternalCall(head, args) => {
-                    recur(head.as_ref()).or(args.iter().find_map(|arg| recur(arg.expr())))
-                }
-                Expr::UnaryNot(expr) | Expr::Collect(_, expr) => recur(expr.as_ref()),
-                Expr::BinaryOp(lhs, op, rhs) => recur(lhs).or(recur(op)).or(recur(rhs)),
-                Expr::MatchBlock(matches) => matches
-                    .iter()
-                    .find_map(|(pattern, expr)| pattern.find_map(working_set, f).or(recur(expr))),
-                Expr::List(items) => items.iter().find_map(|item| match item {
-                    ListItem::Item(expr) | ListItem::Spread(_, expr) => recur(expr),
-                }),
-                Expr::Record(items) => items.iter().find_map(|item| match item {
-                    RecordItem::Spread(_, expr) => recur(expr),
-                    RecordItem::Pair(key, val) => [key, val].into_iter().find_map(recur),
-                }),
-                Expr::Table(table) => table
-                    .columns
-                    .iter()
-                    .find_map(recur)
-                    .or(table.rows.iter().find_map(|row| row.iter().find_map(recur))),
-                Expr::ValueWithUnit(vu) => recur(&vu.expr),
-                Expr::FullCellPath(fcp) => recur(&fcp.head),
-                Expr::Keyword(kw) => recur(&kw.expr),
-                Expr::StringInterpolation(vec) | Expr::GlobInterpolation(vec, _) => {
-                    vec.iter().find_map(recur)
-                }
+        // behavior overridden by f
+        match f(self) {
+            FindMapResult::Found(t) => Some(t),
+            FindMapResult::Stop => None,
+            FindMapResult::Continue => {
+                let recur = |expr: &'a Expression| expr.find_map(working_set, f);
+                match &self.expr {
+                    Expr::RowCondition(block_id)
+                    | Expr::Subexpression(block_id)
+                    | Expr::Block(block_id)
+                    | Expr::Closure(block_id) => {
+                        let block = working_set.get_block(block_id.to_owned());
+                        block.find_map(working_set, f)
+                    }
+                    Expr::Range(range) => [&range.from, &range.next, &range.to]
+                        .iter()
+                        .find_map(|e| e.as_ref().and_then(recur)),
+                    Expr::Call(call) => call
+                        .arguments
+                        .iter()
+                        .find_map(|arg| arg.expr().and_then(recur)),
+                    Expr::ExternalCall(head, args) => {
+                        recur(head.as_ref()).or(args.iter().find_map(|arg| recur(arg.expr())))
+                    }
+                    Expr::UnaryNot(expr) | Expr::Collect(_, expr) => recur(expr.as_ref()),
+                    Expr::BinaryOp(lhs, op, rhs) => recur(lhs).or(recur(op)).or(recur(rhs)),
+                    Expr::MatchBlock(matches) => matches.iter().find_map(|(pattern, expr)| {
+                        pattern.find_map(working_set, f).or(recur(expr))
+                    }),
+                    Expr::List(items) => items.iter().find_map(|item| match item {
+                        ListItem::Item(expr) | ListItem::Spread(_, expr) => recur(expr),
+                    }),
+                    Expr::Record(items) => items.iter().find_map(|item| match item {
+                        RecordItem::Spread(_, expr) => recur(expr),
+                        RecordItem::Pair(key, val) => [key, val].into_iter().find_map(recur),
+                    }),
+                    Expr::Table(table) => table
+                        .columns
+                        .iter()
+                        .find_map(recur)
+                        .or(table.rows.iter().find_map(|row| row.iter().find_map(recur))),
+                    Expr::ValueWithUnit(vu) => recur(&vu.expr),
+                    Expr::FullCellPath(fcp) => recur(&fcp.head),
+                    Expr::Keyword(kw) => recur(&kw.expr),
+                    Expr::StringInterpolation(vec) | Expr::GlobInterpolation(vec, _) => {
+                        vec.iter().find_map(recur)
+                    }
 
-                _ => None,
+                    _ => None,
+                }
             }
-        })
+        }
     }
 }
 
@@ -254,7 +269,7 @@ impl Traverse for MatchPattern {
 
     fn find_map<'a, T, F>(&'a self, working_set: &'a StateWorkingSet, f: &F) -> Option<T>
     where
-        F: Fn(&'a Expression) -> Option<Option<T>>,
+        F: Fn(&'a Expression) -> FindMapResult<T>,
     {
         let recur = |expr: &'a Expression| expr.find_map(working_set, f);
         let recur_pattern = |pattern: &'a MatchPattern| pattern.find_map(working_set, f);

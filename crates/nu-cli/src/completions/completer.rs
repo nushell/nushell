@@ -7,7 +7,7 @@ use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
-    ast::{Expr, Expression, Traverse},
+    ast::{Expr, Expression, FindMapResult, Traverse},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
     PipelineData, Span, Value,
@@ -21,10 +21,10 @@ fn find_pipeline_element_by_position<'a>(
     expr: &'a Expression,
     working_set: &'a StateWorkingSet,
     pos: usize,
-) -> Option<Option<&'a Expression>> {
+) -> FindMapResult<&'a Expression> {
     // skip the entire expression if the position is not in it
     if !expr.span.contains(pos) {
-        return Some(None);
+        return FindMapResult::Stop;
     }
     let closure = |expr: &'a Expression| find_pipeline_element_by_position(expr, working_set, pos);
     match &expr.expr {
@@ -34,27 +34,31 @@ fn find_pipeline_element_by_position<'a>(
             .find_map(|arg| arg.expr().and_then(|e| e.find_map(working_set, &closure)))
             // if no inner call/external_call found, then this is the inner-most one
             .or(Some(expr))
-            .map(Some),
+            .map(FindMapResult::Found)
+            .unwrap_or_default(),
         // TODO: clear separation of internal/external completion logic
         Expr::ExternalCall(head, arguments) => arguments
             .iter()
             .find_map(|arg| arg.expr().find_map(working_set, &closure))
             .or(head.as_ref().find_map(working_set, &closure))
             .or(Some(expr))
-            .map(Some),
+            .map(FindMapResult::Found)
+            .unwrap_or_default(),
         // complete the operator
         Expr::BinaryOp(lhs, _, rhs) => lhs
             .find_map(working_set, &closure)
             .or(rhs.find_map(working_set, &closure))
             .or(Some(expr))
-            .map(Some),
+            .map(FindMapResult::Found)
+            .unwrap_or_default(),
         Expr::FullCellPath(fcp) => fcp
             .head
             .find_map(working_set, &closure)
             .or(Some(expr))
-            .map(Some),
-        Expr::Var(_) => Some(Some(expr)),
-        _ => None,
+            .map(FindMapResult::Found)
+            .unwrap_or_default(),
+        Expr::Var(_) => FindMapResult::Found(expr),
+        _ => FindMapResult::Continue,
     }
 }
 
