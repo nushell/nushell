@@ -4,7 +4,7 @@ use nu_protocol::{
     Span,
 };
 use reedline::Suggestion;
-use std::path::{is_separator, Path, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR};
+use std::path::{is_separator, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR};
 
 use super::SemanticSuggestion;
 
@@ -36,9 +36,6 @@ impl Completer for DotNuCompletion {
             .rsplit_once(is_separator)
             .unwrap_or((".", &prefix_str));
         let base_dir = base.replace(is_separator, MAIN_SEPARATOR_STR);
-        let mut partial = partial.to_string();
-        // On windows, this standardizes paths to use \
-        let mut is_current_folder = false;
 
         // Fetch the lib dirs
         let lib_dirs: Vec<String> = working_set
@@ -66,25 +63,22 @@ impl Completer for DotNuCompletion {
 
         // Check if the base_dir is a folder
         // rsplit_once removes the separator
+        let cwd = working_set
+            .permanent_state
+            .cwd(None)
+            .ok()
+            .map(|pb| pb.to_string_lossy().into_owned())
+            .unwrap_or_default();
         if base_dir != "." {
-            // Add the base dir into the directories to be searched
-            search_dirs.push(base_dir.clone());
-
-            // Reset the partial adding the basic dir back
-            // in order to make the span replace work properly
-            let mut base_dir_partial = base_dir;
-            base_dir_partial.push_str(&partial);
-
-            partial = base_dir_partial;
+            // Search in base_dir as well as lib_dirs
+            search_dirs.push(format!("{cwd}{SEP}{base_dir}"));
+            search_dirs.extend(
+                lib_dirs
+                    .into_iter()
+                    .map(|dir| format!("{dir}{SEP}{base_dir}")),
+            );
         } else {
-            // Fetch the current folder
-            #[allow(deprecated)]
-            let current_folder = working_set.permanent_state.current_work_dir();
-            is_current_folder = true;
-
-            // Add the current folder and the lib dirs into the
-            // directories to be searched
-            search_dirs.push(current_folder);
+            search_dirs.push(cwd);
             search_dirs.extend(lib_dirs);
         }
 
@@ -93,7 +87,7 @@ impl Completer for DotNuCompletion {
 
         let completions = file_path_completion(
             span,
-            &partial,
+            partial,
             &search_dirs.iter().map(|d| d.as_str()).collect::<Vec<_>>(),
             options,
             working_set.permanent_state,
@@ -101,32 +95,29 @@ impl Completer for DotNuCompletion {
         );
         completions
             .into_iter()
-            .filter(move |it| {
-                // Different base dir, so we list the .nu files or folders
-                if !is_current_folder {
-                    it.path.ends_with(".nu") || it.path.ends_with(SEP)
+            // Different base dir, so we list the .nu files or folders
+            .filter(|it| it.path.ends_with(".nu") || it.path.ends_with(SEP))
+            .map(|x| {
+                let append_whitespace = x.path.ends_with(".nu");
+                // Re-calculate the span to replace
+                let span_offset = if base_dir == "." {
+                    0
                 } else {
-                    // Lib dirs, so we filter only the .nu files or directory modules
-                    if it.path.ends_with(SEP) {
-                        Path::new(&it.cwd).join(&it.path).join("mod.nu").exists()
-                    } else {
-                        it.path.ends_with(".nu")
-                    }
-                }
-            })
-            .map(move |x| SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: x.path,
-                    style: x.style,
-                    span: reedline::Span {
-                        start: x.span.start - offset,
-                        end: x.span.end - offset,
+                    base_dir.len() + 1
+                } + prefix.iter().take_while(|c| **c == b'`').count();
+                let end = x.span.end - offset;
+                let start = std::cmp::min(end, x.span.start - offset + span_offset);
+                SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: x.path,
+                        style: x.style,
+                        span: reedline::Span { start, end },
+                        append_whitespace,
+                        ..Suggestion::default()
                     },
-                    append_whitespace: true,
-                    ..Suggestion::default()
-                },
-                // TODO????
-                kind: None,
+                    // TODO????
+                    kind: None,
+                }
             })
             .collect::<Vec<_>>()
     }

@@ -157,7 +157,6 @@ pub struct FileSuggestion {
     pub span: nu_protocol::Span,
     pub path: String,
     pub style: Option<Style>,
-    pub cwd: PathBuf,
 }
 
 /// # Parameters
@@ -261,7 +260,6 @@ pub fn complete_item(
         if should_collapse_dots {
             p = collapse_ndots(p);
         }
-        let cwd = p.cwd.clone();
         let path = original_cwd.apply(p, path_separator);
         let style = ls_colors.as_ref().map(|lsc| {
             lsc.style_for_path_with_metadata(
@@ -277,7 +275,6 @@ pub fn complete_item(
             span,
             path: escape_path(path, want_directory),
             style,
-            cwd,
         }
     })
     .collect()
