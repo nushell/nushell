@@ -1,5 +1,5 @@
 use nu_protocol::{
-    ast::{Block, Call, Expr, Expression},
+    ast::{Assignment, Block, Call, Expr, Expression, Operator},
     engine::StateWorkingSet,
     ir::Instruction,
     IntoSpanned, RegId, Type, VarId,
@@ -287,7 +287,7 @@ pub(crate) fn compile_match(
     Ok(())
 }
 
-/// Compile a call to `let` or `mut` (just do store-variable)
+/// Compile a call to `let` or `mut`
 pub(crate) fn compile_let(
     working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
@@ -305,7 +305,8 @@ pub(crate) fn compile_let(
     };
 
     let var_decl_arg = call.positional_nth(0).ok_or_else(invalid)?;
-    let block_arg = call.positional_nth(1).ok_or_else(invalid)?;
+    let assign_op = call.positional_nth(1).ok_or_else(invalid)?;
+    let block_arg = call.positional_nth(2).ok_or_else(invalid)?;
 
     let var_id = var_decl_arg.as_var().ok_or_else(invalid)?;
     let block_id = block_arg.as_block().ok_or_else(invalid)?;
@@ -313,16 +314,74 @@ pub(crate) fn compile_let(
 
     let variable = working_set.get_variable(var_id);
 
-    compile_block(
-        working_set,
-        builder,
-        block,
-        RedirectModes::value(call.head),
-        Some(io_reg),
-        io_reg,
-    )?;
+    match &assign_op.expr {
+        // plain assignment
+        Expr::Operator(Operator::Assignment(Assignment::Assign)) => {
+            compile_block(
+                working_set,
+                builder,
+                block,
+                RedirectModes::value(call.head),
+                Some(io_reg),
+                io_reg,
+            )?;
+        }
 
-    // If the variable is a glob type variable, we should cast it with GlobFrom
+        // compound assignment
+        Expr::Operator(op @ Operator::Assignment(assign_op_inner)) => {
+            let op_decomposed = assign_op_inner
+                .clone()
+                .try_into_decomposed()
+                .ok_or_else(|| CompileError::InternalError {
+                    msg: "failed to decompose the assignment operator".into(),
+                    span: assign_op.span,
+                })?;
+            let prev_var =
+                call.get_parser_info("prev_var")
+                    .ok_or_else(|| CompileError::InternalError {
+                        msg: "missing parser info for previous variable value".into(),
+                        span: assign_op.span,
+                    })?;
+            let prev_var_id = prev_var
+                .as_var()
+                .ok_or_else(|| CompileError::InternalError {
+                    msg: "parser info for previous variable value is not a variable".into(),
+                    span: assign_op.span,
+                })?;
+
+            let block_out = builder.next_register()?;
+            compile_block(
+                working_set,
+                builder,
+                block,
+                RedirectModes::value(call.head),
+                Some(io_reg),
+                block_out,
+            )?;
+
+            builder.push(
+                Instruction::LoadVariable {
+                    dst: io_reg,
+                    var_id: prev_var_id,
+                }
+                .into_spanned(prev_var.span),
+            )?;
+            builder.push(
+                Instruction::BinaryOp {
+                    lhs_dst: io_reg,
+                    op: op_decomposed,
+                    rhs: block_out,
+                }
+                .into_spanned(assign_op.span),
+            )?;
+            builder.add_comment(op);
+        }
+
+        // got non-assignment operator, impossible
+        _ => return Err(invalid()),
+    }
+
+    // If the variable has a `Glob` type, cast the rhs result using `GlobFrom`
     if variable.ty == Type::Glob {
         builder.push(
             Instruction::GlobFrom {
@@ -340,7 +399,10 @@ pub(crate) fn compile_let(
         }
         .into_spanned(call.head),
     )?;
-    builder.add_comment("let");
+
+    let kw = if variable.mutable { "mut" } else { "let" };
+    let name = String::from_utf8_lossy(working_set.get_span_contents(var_decl_arg.span));
+    builder.add_comment(format!("{kw} {name}"));
 
     // Don't forget to set io_reg to Empty afterward, as that's the result of an assignment
     builder.load_empty(io_reg)?;

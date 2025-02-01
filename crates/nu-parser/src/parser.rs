@@ -6457,6 +6457,23 @@ pub fn discover_captures_in_expr(
                     }
                 }
             }
+
+            // Pre-filter using parser_info count/len as it is quick(er) to check (as `decl` is
+            // `&dyn`).
+            if !call.parser_info.is_empty() {
+                let name = decl.name();
+                if name == "let" || name == "mut" {
+                    match call
+                        .get_parser_info("prev_var")
+                        .and_then(|expr| expr.as_var().map(|v| (v, expr.span)))
+                    {
+                        Some(cap @ (ref var_id, _span)) if !seen.contains(var_id) => {
+                            output.push(cap);
+                        }
+                        _ => (),
+                    }
+                }
+            }
         }
         Expr::CellPath(_) => {}
         Expr::DateTime(_) => {}

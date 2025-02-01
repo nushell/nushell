@@ -1,22 +1,23 @@
 use crate::{
     exportable::Exportable,
+    lex::is_assignment_operator,
     parse_block,
-    parser::{parse_redirection, redirecting_builtin_error},
-    type_check::{check_block_input_output, type_compatible},
+    parser::{parse_assignment_operator, parse_redirection, redirecting_builtin_error},
+    type_check::{check_block_input_output, math_result_type, type_compatible},
 };
 use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
-        Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
-        ImportPatternMember, Pipeline, PipelineElement,
+        Argument, Assignment, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
+        ImportPatternMember, Operator, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
     parser_path::ParserPath,
-    Alias, BlockId, DeclId, Module, ModuleId, ParseError, PositionalArg, ResolvedImportPattern,
-    Span, Spanned, SyntaxShape, Type, Value, VarId,
+    Alias, BlockId, DeclId, DidYouMean, Module, ModuleId, ParseError, PositionalArg,
+    ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, Value, VarId,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -3076,114 +3077,222 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
 }
 
 pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
-    trace!("parsing: let");
+    parse_let_or_mut(working_set, spans, false)
+}
+
+pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
+    parse_let_or_mut(working_set, spans, true)
+}
+
+pub fn parse_let_or_mut(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    is_mut: bool,
+) -> Pipeline {
+    let mut_or_let = if is_mut { "mut" } else { "let" };
+    trace!("parsing: {mut_or_let}");
 
     // JT: Disabling check_name because it doesn't work with optional types in the declaration
     // if let Some(span) = check_name(working_set, spans) {
     //     return Pipeline::from_vec(vec![garbage(*span)]);
     // }
 
-    if let Some(decl_id) = working_set.find_decl(b"let") {
-        if spans.len() >= 4 {
-            // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
-            // so that the var-id created by the variable isn't visible in the expression that init it
-            for span in spans.iter().enumerate() {
-                let item = working_set.get_span_contents(*span.1);
-                // https://github.com/nushell/nushell/issues/9596, let = if $
-                // let x = 'f', = at least start from index 2
-                if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
-                    let (tokens, parse_error) = lex(
-                        working_set.get_span_contents(Span::concat(&spans[(span.0 + 1)..])),
-                        spans[span.0 + 1].start,
-                        &[],
-                        &[],
-                        true,
-                    );
+    match working_set.find_decl(mut_or_let.as_bytes()) {
+        Some(decl_id) if spans.len() >= 4 => {
+            // This is a bit of by-hand parsing to get around the issue where we want to parse in
+            // reverse order so that the var-id created by the variable isn't visible in the rhs
+            // expression that initializes it.
 
-                    if let Some(parse_error) = parse_error {
-                        working_set.error(parse_error)
+            // https://github.com/nushell/nushell/issues/9596
+            // `let = if $`
+            // `let x = 'f', =`
+            // At least start from index 2.
+            for span in spans
+                .iter()
+                .enumerate()
+                // skip the last span
+                .take(spans.len().saturating_sub(1))
+                // skip the first two spans
+                .skip(2)
+                .filter(|(_, &span)| is_assignment_operator(working_set.get_span_contents(span)))
+            {
+                let assign_op = parse_assignment_operator(working_set, *span.1);
+                let name_span = spans[1];
+
+                // This assumes that the span after `let` is the variable name, and that valid
+                // variable names cannot contain whitespace or otherwise be more than one span.
+                let (var_name, name_span) = match working_set.get_span_contents(name_span) {
+                    [rest @ .., b':'] => (rest, Span::new(name_span.start, name_span.end - 1)),
+                    v => (v, name_span),
+                };
+                let var_name = String::from_utf8_lossy(var_name).into_owned();
+
+                let rvalue_span = Span::concat(&spans[(span.0 + 1)..]);
+                let (tokens, parse_error) = lex(
+                    working_set.get_span_contents(rvalue_span),
+                    spans[span.0 + 1].start,
+                    &[],
+                    &[],
+                    true,
+                );
+                if let Some(parse_error) = parse_error {
+                    working_set.error(parse_error)
+                }
+
+                let rvalue_block = parse_block(working_set, &tokens, rvalue_span, false, true);
+                let rhs_type = rvalue_block.output_type();
+                let block_id = working_set.add_block(Arc::new(rvalue_block));
+                let mut rvalue = Expression::new(
+                    working_set,
+                    Expr::Block(block_id),
+                    rvalue_span,
+                    rhs_type.clone(),
+                );
+
+                let mut evaluated_span = rvalue_span;
+                let mut call = Call {
+                    decl_id,
+                    head: spans[0],
+                    arguments: vec![],
+                    parser_info: HashMap::new(),
+                };
+
+                let (rhs_type, prev_var_err) = match assign_op.expr {
+                    Expr::Operator(Operator::Assignment(Assignment::Assign)) => (rhs_type, None),
+
+                    // Compound assignment
+                    Expr::Operator(Operator::Assignment(ref op)) => {
+                        let prev_var_id = working_set.find_variable(var_name.as_bytes());
+
+                        // NOTE: including op in span because e.g. `let foo: int += 1` can fail
+                        // with `found float, expected int` when `$foo` has type `float`, and
+                        // it's probably more confusing if only `1` is underlined in this case
+                        // (the type checked here is that resulting from `$foo + 1`, not `1`).
+                        evaluated_span = Span::concat(&spans[span.0..]);
+
+                        if let Some(prev_var_id) = prev_var_id {
+                            let prev_var = working_set.get_variable(prev_var_id).to_owned();
+                            let mut prev_var = Expression::new_unknown(
+                                Expr::Var(prev_var_id),
+                                name_span,
+                                prev_var.ty,
+                            );
+                            call.set_parser_info("prev_var".into(), prev_var.clone());
+
+                            let mut math_op = assign_op.clone();
+                            math_op.expr = Expr::Operator(
+                                op.clone()
+                                    .try_into_decomposed()
+                                    .expect("compound assignment operator to decompose"),
+                            );
+
+                            let (op_result_type, op_err) = math_result_type(
+                                working_set,
+                                &mut prev_var,
+                                &mut math_op,
+                                &mut rvalue,
+                            );
+                            (op_result_type, op_err)
+                        } else {
+                            (
+                                rhs_type,
+                                ParseError::VariableNotFound(
+                                    DidYouMean::new(
+                                        &working_set
+                                            .list_variables()
+                                            .into_iter()
+                                            .map(|v| match v {
+                                                [b'$', rest @ ..] => rest,
+                                                v => v,
+                                            })
+                                            .collect_vec(),
+                                        var_name.as_bytes(),
+                                    ),
+                                    name_span,
+                                )
+                                .into(),
+                            )
+                        }
                     }
 
-                    let rvalue_span = Span::concat(&spans[(span.0 + 1)..]);
-                    let rvalue_block = parse_block(working_set, &tokens, rvalue_span, false, true);
+                    _ => (rhs_type, None),
+                };
 
-                    let output_type = rvalue_block.output_type();
+                let mut idx = 0;
+                let (lvalue, annotated_type) =
+                    parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, is_mut);
 
-                    let block_id = working_set.add_block(Arc::new(rvalue_block));
+                // check for extra tokens after the identifier
+                if idx + 1 < span.0 - 1 {
+                    working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
+                }
 
-                    let rvalue = Expression::new(
-                        working_set,
-                        Expr::Block(block_id),
-                        rvalue_span,
-                        output_type,
-                    );
+                {
+                    let var_name = match var_name.as_bytes() {
+                        [b'$', rest @ ..] => rest,
+                        v => v,
+                    };
 
-                    let mut idx = 0;
-                    let (lvalue, explicit_type) =
-                        parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, false);
-                    // check for extra tokens after the identifier
-                    if idx + 1 < span.0 - 1 {
-                        working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
+                    if RESERVED_VARIABLE_NAMES
+                        .iter()
+                        .any(|reserved| reserved.as_bytes() == var_name)
+                    {
+                        working_set.error(ParseError::NameIsBuiltinVar(
+                            String::from_utf8_lossy(var_name).into_owned(),
+                            lvalue.span,
+                        ))
+                    } else if let Some(e) = prev_var_err {
+                        working_set.error(e)
                     }
+                }
 
-                    let var_name =
-                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-                            .trim_start_matches('$')
-                            .to_string();
-
-                    if RESERVED_VARIABLE_NAMES.contains(&var_name.as_str()) {
-                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
-                    }
-
-                    let var_id = lvalue.as_var();
-                    let rhs_type = rvalue.ty.clone();
-
-                    if let Some(explicit_type) = &explicit_type {
-                        if !type_compatible(explicit_type, &rhs_type) {
+                match (annotated_type, rhs_type, lvalue.as_var()) {
+                    (Some(annotated_type), actual_type, _) => {
+                        // check that explicit type annotation matches type of rhs
+                        if !type_compatible(&annotated_type, &actual_type) {
                             working_set.error(ParseError::TypeMismatch(
-                                explicit_type.clone(),
-                                rhs_type.clone(),
-                                Span::concat(&spans[(span.0 + 1)..]),
+                                annotated_type,
+                                actual_type,
+                                evaluated_span,
                             ));
                         }
                     }
-
-                    if let Some(var_id) = var_id {
-                        if explicit_type.is_none() {
-                            working_set.set_variable_type(var_id, rhs_type);
-                        }
+                    // no annotation, set inferred var type
+                    (None, actual_type, Some(var_id)) => {
+                        working_set.set_variable_type(var_id, actual_type)
                     }
-
-                    let call = Box::new(Call {
-                        decl_id,
-                        head: spans[0],
-                        arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
-                        parser_info: HashMap::new(),
-                    });
-
-                    return Pipeline::from_vec(vec![Expression::new(
-                        working_set,
-                        Expr::Call(call),
-                        Span::concat(spans),
-                        Type::Any,
-                    )]);
+                    _ => (),
                 }
+
+                call.arguments = vec![
+                    Argument::Positional(lvalue),
+                    Argument::Positional(assign_op),
+                    Argument::Positional(rvalue),
+                ];
+                return Pipeline::from_vec(vec![Expression::new(
+                    working_set,
+                    Expr::Call(call.into()),
+                    Span::concat(spans),
+                    Type::Any,
+                )]);
             }
         }
-        let ParsedInternalCall { call, output } =
-            parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
-        return Pipeline::from_vec(vec![Expression::new(
-            working_set,
-            Expr::Call(call),
-            Span::concat(spans),
-            output,
-        )]);
-    } else {
-        working_set.error(ParseError::UnknownState(
+        Some(decl_id) => {
+            let ParsedInternalCall { call, output } =
+                parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            return Pipeline::from_vec(vec![Expression::new(
+                working_set,
+                Expr::Call(call),
+                Span::concat(spans),
+                output,
+            )]);
+        }
+
+        None => working_set.error(ParseError::UnknownState(
             "internal error: let or const statements not found in core language".into(),
             Span::concat(spans),
-        ))
+        )),
     }
 
     working_set.error(ParseError::UnknownState(
@@ -3205,8 +3314,9 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
 
     if let Some(decl_id) = working_set.find_decl(b"const") {
         if spans.len() >= 4 {
-            // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
-            // so that the var-id created by the variable isn't visible in the expression that init it
+            // This is a bit of by-hand parsing to get around the issue where we want to parse in
+            // the reverse order so that the var-id created by the variable isn't visible in the
+            // expression that init it
             for span in spans.iter().enumerate() {
                 let item = working_set.get_span_contents(*span.1);
                 // const x = 'f', = at least start from index 2
@@ -3356,125 +3466,6 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
     ));
 
     (garbage_pipeline(working_set, spans), None)
-}
-
-pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
-    trace!("parsing: mut");
-
-    // JT: Disabling check_name because it doesn't work with optional types in the declaration
-    // if let Some(span) = check_name(working_set, spans) {
-    //     return Pipeline::from_vec(vec![garbage(working_set, *span)]);
-    // }
-
-    if let Some(decl_id) = working_set.find_decl(b"mut") {
-        if spans.len() >= 4 {
-            // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
-            // so that the var-id created by the variable isn't visible in the expression that init it
-            for span in spans.iter().enumerate() {
-                let item = working_set.get_span_contents(*span.1);
-                // mut x = 'f', = at least start from index 2
-                if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
-                    let (tokens, parse_error) = lex(
-                        working_set.get_span_contents(Span::concat(&spans[(span.0 + 1)..])),
-                        spans[span.0 + 1].start,
-                        &[],
-                        &[],
-                        true,
-                    );
-
-                    if let Some(parse_error) = parse_error {
-                        working_set.error(parse_error);
-                    }
-
-                    let rvalue_span = Span::concat(&spans[(span.0 + 1)..]);
-                    let rvalue_block = parse_block(working_set, &tokens, rvalue_span, false, true);
-
-                    let output_type = rvalue_block.output_type();
-
-                    let block_id = working_set.add_block(Arc::new(rvalue_block));
-
-                    let rvalue = Expression::new(
-                        working_set,
-                        Expr::Block(block_id),
-                        rvalue_span,
-                        output_type,
-                    );
-
-                    let mut idx = 0;
-
-                    let (lvalue, explicit_type) =
-                        parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, true);
-                    // check for extra tokens after the identifier
-                    if idx + 1 < span.0 - 1 {
-                        working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
-                    }
-
-                    let var_name =
-                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-                            .trim_start_matches('$')
-                            .to_string();
-
-                    if RESERVED_VARIABLE_NAMES.contains(&var_name.as_str()) {
-                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
-                    }
-
-                    let var_id = lvalue.as_var();
-                    let rhs_type = rvalue.ty.clone();
-
-                    if let Some(explicit_type) = &explicit_type {
-                        if !type_compatible(explicit_type, &rhs_type) {
-                            working_set.error(ParseError::TypeMismatch(
-                                explicit_type.clone(),
-                                rhs_type.clone(),
-                                Span::concat(&spans[(span.0 + 1)..]),
-                            ));
-                        }
-                    }
-
-                    if let Some(var_id) = var_id {
-                        if explicit_type.is_none() {
-                            working_set.set_variable_type(var_id, rhs_type);
-                        }
-                    }
-
-                    let call = Box::new(Call {
-                        decl_id,
-                        head: spans[0],
-                        arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
-                        parser_info: HashMap::new(),
-                    });
-
-                    return Pipeline::from_vec(vec![Expression::new(
-                        working_set,
-                        Expr::Call(call),
-                        Span::concat(spans),
-                        Type::Any,
-                    )]);
-                }
-            }
-        }
-        let ParsedInternalCall { call, output } =
-            parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
-
-        return Pipeline::from_vec(vec![Expression::new(
-            working_set,
-            Expr::Call(call),
-            Span::concat(spans),
-            output,
-        )]);
-    } else {
-        working_set.error(ParseError::UnknownState(
-            "internal error: let or const statements not found in core language".into(),
-            Span::concat(spans),
-        ))
-    }
-
-    working_set.error(ParseError::UnknownState(
-        "internal error: let or const statement unparsable".into(),
-        Span::concat(spans),
-    ));
-
-    garbage_pipeline(working_set, spans)
 }
 
 pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {

@@ -21,7 +21,7 @@ impl Command for Mut {
             .required(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
-                "Equals sign followed by value.",
+                "Any assignment operator followed by a value.",
             )
             .category(Category::Core)
     }
@@ -36,7 +36,9 @@ impl Command for Mut {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["set", "mutable"]
+        vec![
+            "binding", "let mut", "lexical", "local", "mutable", "my", "set", "var",
+        ]
     }
 
     fn run(
@@ -56,7 +58,7 @@ impl Command for Mut {
             .expect("internal error: missing variable");
 
         let block_id = call
-            .positional_nth(1)
+            .positional_nth(2)
             .expect("checked through parser")
             .as_block()
             .expect("internal error: missing right hand side");
@@ -88,12 +90,17 @@ impl Command for Mut {
         vec![
             Example {
                 description: "Set a mutable variable to a value, then update it",
-                example: "mut x = 10; $x = 12",
+                example: "mut x: int = 10; $x = 12",
                 result: None,
             },
             Example {
+                description: "Set a mutable variable to a value, then update it",
+                example: "mut x = [1]; $x ++= [2]; $x.0 += 2; $x",
+                result: Value::test_list(vec![Value::test_int(3), Value::test_int(1)]).into(),
+            },
+            Example {
                 description: "Upsert a value inside a mutable data structure",
-                example: "mut a = {b:{c:1}}; $a.b.c = 2",
+                example: "mut a = { b: { c: 1 } }; $a.b.c = 2; $a.f.g = 3",
                 result: None,
             },
             Example {
@@ -102,9 +109,24 @@ impl Command for Mut {
                 result: None,
             },
             Example {
-                description: "Set a mutable variable based on the condition",
-                example: "mut x = if false { -1 } else { 1 }",
-                result: None,
+                description: "Set a mutable variable based on a condition",
+                example: "mut x = 0; $x = if false { -1 } else { 1 }; $x",
+                result: Value::test_int(1).into(),
+            },
+            Example {
+                description:
+                    "Shorthand to shadow a variable using its previous value via compound assignment operator",
+                example: "mut x = 300; mut x *= 3; $x",
+                result: Value::test_int(900).into(),
+            },
+            Example {
+                description:
+                    "Shorthand to shadow a variable using its previous value via compound assignment operator",
+                example: "let x = [1]; if true { mut x ++= [2 3]; $x } | [$x $in]",
+                result: Value::test_list([
+                    Value::test_list([Value::test_int(1)].into()),
+                    Value::test_list([Value::test_int(2), Value::test_int(3)].into())
+                ].into()).into(),
             },
         ]
     }
