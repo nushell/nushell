@@ -2,7 +2,7 @@ use std/assert
 use std/log
 use std/log *
 
-#[test]
+@test
 def env_log-ansi [] {
     assert equal (log-ansi).CRITICAL (ansi red_bold)
     assert equal (log-ansi).ERROR (ansi red)
@@ -11,7 +11,7 @@ def env_log-ansi [] {
     assert equal (log-ansi).DEBUG (ansi default_dimmed)
 }
 
-#[test]
+@test
 def env_log-level [] {
     assert equal (log-level).CRITICAL 50
     assert equal (log-level).ERROR 40
@@ -20,7 +20,7 @@ def env_log-level [] {
     assert equal (log-level).DEBUG 10
 }
 
-#[test]
+@test
 def env_log-prefix [] {
     assert equal (log-prefix).CRITICAL "CRT"
     assert equal (log-prefix).ERROR "ERR"
@@ -29,7 +29,7 @@ def env_log-prefix [] {
     assert equal (log-prefix).DEBUG "DBG"
 }
 
-#[test]
+@test
 def env_log-short-prefix [] {
     assert equal (log-short-prefix).CRITICAL "C"
     assert equal (log-short-prefix).ERROR "E"
@@ -38,7 +38,7 @@ def env_log-short-prefix [] {
     assert equal (log-short-prefix).DEBUG "D"
 }
 
-#[test]
+@test
 def env_log_format [] {
     assert equal $env.NU_LOG_FORMAT $"%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
 }
