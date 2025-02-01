@@ -31,6 +31,7 @@ pub struct SemanticSuggestion {
 pub enum SuggestionKind {
     Command(nu_protocol::engine::CommandType),
     Type(nu_protocol::Type),
+    Module,
 }
 
 impl From<Suggestion> for SemanticSuggestion {

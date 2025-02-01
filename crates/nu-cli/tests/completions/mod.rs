@@ -273,6 +273,15 @@ fn dotnu_completions() {
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
+    // Test nested nu script
+    #[cfg(windows)]
+    let completion_str = "use .\\dir_module\\sub_module\\".to_string();
+    #[cfg(not(windows))]
+    let completion_str = "use ./dir_module/sub_module/".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+
+    match_suggestions(&vec!["sub.nu".into()], &suggestions);
+
     let expected = vec![
         "asdf.nu".into(),
         "bar.nu".into(),
@@ -283,6 +292,18 @@ fn dotnu_completions() {
         #[cfg(not(windows))]
         "dir_module/".into(),
         "foo.nu".into(),
+        #[cfg(windows)]
+        "lib-dir1\\".into(),
+        #[cfg(not(windows))]
+        "lib-dir1/".into(),
+        #[cfg(windows)]
+        "lib-dir2\\".into(),
+        #[cfg(not(windows))]
+        "lib-dir2/".into(),
+        #[cfg(windows)]
+        "lib-dir3\\".into(),
+        #[cfg(not(windows))]
+        "lib-dir3/".into(),
         "spam.nu".into(),
         "xyzzy.nu".into(),
     ];

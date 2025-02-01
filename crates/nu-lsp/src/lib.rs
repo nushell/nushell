@@ -668,6 +668,7 @@ impl LanguageServer {
                             .map(|kind| match kind {
                                 SuggestionKind::Type(t) => t.to_string(),
                                 SuggestionKind::Command(cmd) => cmd.to_string(),
+                                SuggestionKind::Module => "".to_string(),
                             })
                             .map(|s| CompletionItemLabelDetails {
                                 detail: None,
@@ -715,6 +716,7 @@ impl LanguageServer {
                 nu_protocol::engine::CommandType::Builtin => Some(CompletionItemKind::FUNCTION),
                 _ => None,
             },
+            SuggestionKind::Module => Some(CompletionItemKind::MODULE),
         })
     }
 }
