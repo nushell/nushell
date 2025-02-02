@@ -156,7 +156,7 @@ serde_yml = "0.0.12"
 sha2 = "0.10"
 strip-ansi-escapes = "0.2.0"
 syn = "2.0"
-sysinfo = "0.33"
+sysinfo = "0.32"
 tabled = { version = "0.17.0", default-features = false }
 tempfile = "3.15"
 titlecase = "3.0"
