@@ -120,7 +120,7 @@ impl ScopeFrame {
     pub fn active_overlays<'a, 'b>(
         &'b self,
         removed_overlays: &'a mut Vec<Vec<u8>>,
-    ) -> impl DoubleEndedIterator<Item = &OverlayFrame> + 'a
+    ) -> impl DoubleEndedIterator<Item = &'b OverlayFrame> + 'a
     where
         'b: 'a,
     {

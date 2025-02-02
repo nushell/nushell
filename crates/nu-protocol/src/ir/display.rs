@@ -7,7 +7,7 @@ pub struct FmtIrBlock<'a> {
     pub(super) ir_block: &'a IrBlock,
 }
 
-impl<'a> fmt::Display for FmtIrBlock<'a> {
+impl fmt::Display for FmtIrBlock<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let plural = |count| if count == 1 { "" } else { "s" };
         writeln!(
@@ -55,7 +55,7 @@ pub struct FmtInstruction<'a> {
     pub(super) data: &'a [u8],
 }
 
-impl<'a> fmt::Display for FmtInstruction<'a> {
+impl fmt::Display for FmtInstruction<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         const WIDTH: usize = 22;
 
@@ -321,7 +321,7 @@ impl fmt::Display for RedirectMode {
 
 struct FmtData<'a>(&'a [u8], DataSlice);
 
-impl<'a> fmt::Display for FmtData<'a> {
+impl fmt::Display for FmtData<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Ok(s) = std::str::from_utf8(&self.0[self.1]) {
             // Write as string
@@ -338,7 +338,7 @@ struct FmtLiteral<'a> {
     data: &'a [u8],
 }
 
-impl<'a> fmt::Display for FmtLiteral<'a> {
+impl fmt::Display for FmtLiteral<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.literal {
             Literal::Bool(b) => write!(f, "bool({b:?})"),
@@ -387,7 +387,7 @@ struct FmtPattern<'a> {
     pattern: &'a Pattern,
 }
 
-impl<'a> fmt::Display for FmtPattern<'a> {
+impl fmt::Display for FmtPattern<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.pattern {
             Pattern::Record(bindings) => {

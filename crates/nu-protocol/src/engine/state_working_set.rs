@@ -399,7 +399,7 @@ impl<'a> StateWorkingSet<'a> {
         }
 
         // if no files with span were found, fall back on permanent ones
-        return self.permanent_state.get_span_contents(span);
+        self.permanent_state.get_span_contents(span)
     }
 
     pub fn enter_scope(&mut self) {
@@ -1105,13 +1105,13 @@ impl<'a> GetSpan for &'a StateWorkingSet<'a> {
     }
 }
 
-impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
+impl miette::SourceCode for &StateWorkingSet<'_> {
     fn read_span<'b>(
         &'b self,
         span: &miette::SourceSpan,
         context_lines_before: usize,
         context_lines_after: usize,
-    ) -> Result<Box<dyn miette::SpanContents + 'b>, miette::MietteError> {
+    ) -> Result<Box<dyn miette::SpanContents<'b> + 'b>, miette::MietteError> {
         let debugging = std::env::var("MIETTE_DEBUG").is_ok();
         if debugging {
             let finding_span = "Finding span in StateWorkingSet";
