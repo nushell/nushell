@@ -3526,7 +3526,7 @@ dependencies = [
  "percent-encoding",
  "reedline",
  "rstest",
- "sysinfo 0.32.1",
+ "sysinfo",
  "tempfile",
  "unicode-segmentation",
  "uuid",
@@ -3691,7 +3691,7 @@ dependencies = [
  "serde_urlencoded",
  "serde_yml",
  "sha2",
- "sysinfo 0.32.1",
+ "sysinfo",
  "tabled",
  "tempfile",
  "titlecase",
@@ -3984,7 +3984,7 @@ dependencies = [
  "nix 0.29.0",
  "ntapi",
  "procfs",
- "sysinfo 0.32.1",
+ "sysinfo",
  "web-time",
  "windows 0.56.0",
 ]
@@ -5374,7 +5374,7 @@ dependencies = [
  "serde",
  "serde_json",
  "stacker",
- "sysinfo 0.33.1",
+ "sysinfo",
  "version_check",
 ]
 
@@ -6947,20 +6947,6 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.32.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c33cd241af0f2e9e3b5c32163b873b29956890b5342e6745b917ce9d490f4af"
-dependencies = [
- "core-foundation-sys",
- "libc",
- "memchr",
- "ntapi",
- "rayon",
- "windows 0.57.0",
-]
-
-[[package]]
-name = "sysinfo"
 version = "0.33.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fc858248ea01b66f19d8e8a6d55f41deaf91e9d495246fd01368d99935c6c01"
@@ -6969,6 +6955,7 @@ dependencies = [
  "libc",
  "memchr",
  "ntapi",
+ "rayon",
  "windows 0.57.0",
 ]
 

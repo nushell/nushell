@@ -49,8 +49,8 @@ fn temp(span: Span) -> Value {
         .map(|component| {
             let mut record = record! {
                 "unit" => Value::string(component.label(), span),
-                "temp" => Value::float(component.temperature().into(), span),
-                "high" => Value::float(component.max().into(), span),
+                "temp" => Value::float(component.temperature().unwrap_or_else(|| f32::NAN).into(), span),
+                "high" => Value::float(component.max().unwrap_or_else(|| f32::NAN).into(), span),
             };
 
             if let Some(critical) = component.critical() {

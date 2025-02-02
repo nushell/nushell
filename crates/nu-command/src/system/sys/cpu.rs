@@ -54,9 +54,9 @@ fn cpu(long: bool, span: Span) -> Value {
         // In theory we could just sleep MINIMUM_CPU_UPDATE_INTERVAL, but I've noticed that
         // that gives poor results (error of ~5%). Decided to wait 2x that long, somewhat arbitrarily
         std::thread::sleep(MINIMUM_CPU_UPDATE_INTERVAL * 2);
-        sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
+        sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
     } else {
-        sys.refresh_cpu_specifics(CpuRefreshKind::new().with_frequency());
+        sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_frequency());
     }
 
     let cpus = sys
