@@ -7,10 +7,12 @@ mod parquet;
 use std::path::PathBuf;
 
 use crate::{
+    command::core::Resource,
     values::{cant_convert_err, PolarsFileType, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };
 
+use log::debug;
 use nu_path::expand_path_with;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -127,70 +129,58 @@ impl PluginCommand for SaveDF {
 }
 
 fn command(
-    _plugin: &PolarsPlugin,
+    plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
     polars_object: PolarsPluginObject,
 ) -> Result<PipelineData, ShellError> {
-    let spanned_file: Spanned<PathBuf> = call.req(0)?;
-    let file_path = expand_path_with(&spanned_file.item, engine.get_current_dir()?, true);
-    let file_span = spanned_file.span;
+    let spanned_file: Spanned<String> = call.req(0)?;
+    debug!("file: {}", spanned_file.item);
+
+    let resource = Resource::new(plugin, engine, &spanned_file)?;
     let type_option: Option<(String, Span)> = call
         .get_flag("type")?
         .map(|t: Spanned<String>| (t.item, t.span))
-        .or_else(|| {
-            file_path
-                .extension()
-                .map(|e| (e.to_string_lossy().into_owned(), spanned_file.span))
-        });
+        .or_else(|| resource.extension.clone().map(|e| (e, resource.span)));
+    debug!("resource: {resource:?}");
 
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
             PolarsFileType::Parquet => match polars_object {
                 PolarsPluginObject::NuLazyFrame(ref lazy) => {
-                    parquet::command_lazy(call, lazy, &file_path, file_span)
+                    parquet::command_lazy(call, lazy, resource)
                 }
-                PolarsPluginObject::NuDataFrame(ref df) => {
-                    parquet::command_eager(df, &file_path, file_span)
-                }
-                _ => Err(unknown_file_save_error(file_span)),
+                PolarsPluginObject::NuDataFrame(ref df) => parquet::command_eager(df, resource),
+                _ => Err(unknown_file_save_error(resource.span)),
             },
             PolarsFileType::Arrow => match polars_object {
                 PolarsPluginObject::NuLazyFrame(ref lazy) => {
-                    arrow::command_lazy(call, lazy, &file_path, file_span)
+                    arrow::command_lazy(call, lazy, resource)
                 }
-                PolarsPluginObject::NuDataFrame(ref df) => {
-                    arrow::command_eager(df, &file_path, file_span)
-                }
-                _ => Err(unknown_file_save_error(file_span)),
+                PolarsPluginObject::NuDataFrame(ref df) => arrow::command_eager(df, resource),
+                _ => Err(unknown_file_save_error(resource.span)),
             },
             PolarsFileType::NdJson => match polars_object {
                 PolarsPluginObject::NuLazyFrame(ref lazy) => {
-                    ndjson::command_lazy(call, lazy, &file_path, file_span)
+                    ndjson::command_lazy(call, lazy, resource)
                 }
-                PolarsPluginObject::NuDataFrame(ref df) => {
-                    ndjson::command_eager(df, &file_path, file_span)
-                }
-                _ => Err(unknown_file_save_error(file_span)),
+                PolarsPluginObject::NuDataFrame(ref df) => ndjson::command_eager(df, resource),
+                _ => Err(unknown_file_save_error(resource.span)),
             },
             PolarsFileType::Avro => match polars_object {
                 PolarsPluginObject::NuLazyFrame(lazy) => {
                     let df = lazy.collect(call.head)?;
-                    avro::command_eager(call, &df, &file_path, file_span)
+                    avro::command_eager(call, &df, resource)
                 }
-                PolarsPluginObject::NuDataFrame(ref df) => {
-                    avro::command_eager(call, df, &file_path, file_span)
-                }
-                _ => Err(unknown_file_save_error(file_span)),
+                PolarsPluginObject::NuDataFrame(ref df) => avro::command_eager(call, df, resource),
+                _ => Err(unknown_file_save_error(resource.span)),
             },
             PolarsFileType::Csv => match polars_object {
                 PolarsPluginObject::NuLazyFrame(ref lazy) => {
-                    csv::command_lazy(call, lazy, &file_path, file_span)
+                    csv::command_lazy(call, lazy, resource)
                 }
-                PolarsPluginObject::NuDataFrame(ref df) => {
-                    csv::command_eager(call, df, &file_path, file_span)
-                }
-                _ => Err(unknown_file_save_error(file_span)),
+                PolarsPluginObject::NuDataFrame(ref df) => csv::command_eager(call, df, resource),
+                _ => Err(unknown_file_save_error(resource.span)),
             },
             _ => Err(PolarsFileType::build_unsupported_error(
                 &ext,
@@ -206,8 +196,8 @@ fn command(
         },
         None => Err(ShellError::Io(IoError::new_with_additional_context(
             std::io::ErrorKind::NotFound,
-            spanned_file.span,
-            spanned_file.item,
+            resource.span,
+            Some(PathBuf::from(resource.path)),
             "File without extension",
         ))),
     }?;

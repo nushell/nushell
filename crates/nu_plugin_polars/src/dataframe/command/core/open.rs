@@ -1,5 +1,8 @@
 use crate::{
-    command::core::Resource, dataframe::values::NuSchema, values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType}, EngineWrapper, PolarsPlugin
+    command::core::Resource,
+    dataframe::values::NuSchema,
+    values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType},
+    EngineWrapper, PolarsPlugin,
 };
 use log::debug;
 use nu_utils::perf;
