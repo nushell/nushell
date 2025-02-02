@@ -96,7 +96,7 @@ impl std::fmt::Debug for CliError<'_> {
     }
 }
 
-impl<'src> miette::Diagnostic for CliError<'src> {
+impl miette::Diagnostic for CliError<'_> {
     fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         self.0.code()
     }

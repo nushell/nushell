@@ -169,7 +169,7 @@ impl<'a> StyleComputer<'a> {
 
 // Because EngineState doesn't have Debug (Dec 2022),
 // this incomplete representation must be used.
-impl<'a> Debug for StyleComputer<'a> {
+impl Debug for StyleComputer<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         f.debug_struct("StyleComputer")
             .field("map", &self.map)
