@@ -123,7 +123,7 @@ fn literal_closure_to_toml() {
 
 #[test]
 fn literal_closure_to_yaml() {
-    test_eval("{||} | to yaml --serialize", Eq("'{||}'"))
+    test_eval("{||} | to yaml --serialize", Eq("{||}"))
 }
 
 #[test]

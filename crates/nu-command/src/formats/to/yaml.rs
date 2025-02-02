@@ -51,27 +51,27 @@ pub fn value_to_yaml_value(
     engine_state: &EngineState,
     v: &Value,
     serialize_types: bool,
-) -> Result<serde_yml::Value, ShellError> {
+) -> Result<yaml_rust2::Yaml, ShellError> {
     Ok(match &v {
-        Value::Bool { val, .. } => serde_yml::Value::Bool(*val),
-        Value::Int { val, .. } => serde_yml::Value::Number(serde_yml::Number::from(*val)),
-        Value::Filesize { val, .. } => serde_yml::Value::Number(serde_yml::Number::from(val.get())),
-        Value::Duration { val, .. } => serde_yml::Value::String(val.to_string()),
-        Value::Date { val, .. } => serde_yml::Value::String(val.to_string()),
-        Value::Range { .. } => serde_yml::Value::Null,
-        Value::Float { val, .. } => serde_yml::Value::Number(serde_yml::Number::from(*val)),
+        Value::Bool { val, .. } => yaml_rust2::Yaml::Boolean(*val),
+        Value::Int { val, .. } => yaml_rust2::Yaml::Integer(*val),
+        Value::Filesize { val, .. } => yaml_rust2::Yaml::Integer(val.get()),
+        Value::Duration { val, .. } => yaml_rust2::Yaml::String(val.to_string()),
+        Value::Date { val, .. } => yaml_rust2::Yaml::String(val.to_string()),
+        Value::Range { .. } => yaml_rust2::Yaml::Null,
+        Value::Float { val, .. } => yaml_rust2::Yaml::Real(val.to_string()),
         Value::String { val, .. } | Value::Glob { val, .. } => {
-            serde_yml::Value::String(val.clone())
+            yaml_rust2::Yaml::String(val.clone())
         }
         Value::Record { val, .. } => {
-            let mut m = serde_yml::Mapping::new();
+            let mut m = yaml_rust2::yaml::Hash::new();
             for (k, v) in &**val {
                 m.insert(
-                    serde_yml::Value::String(k.clone()),
+                    yaml_rust2::Yaml::String(k.clone()),
                     value_to_yaml_value(engine_state, v, serialize_types)?,
                 );
             }
-            serde_yml::Value::Mapping(m)
+            yaml_rust2::Yaml::Hash(m)
         }
         Value::List { vals, .. } => {
             let mut out = vec![];
@@ -80,7 +80,7 @@ pub fn value_to_yaml_value(
                 out.push(value_to_yaml_value(engine_state, value, serialize_types)?);
             }
 
-            serde_yml::Value::Sequence(out)
+            yaml_rust2::Yaml::Array(out)
         }
         Value::Closure { val, .. } => {
             if serialize_types {
@@ -88,36 +88,34 @@ pub fn value_to_yaml_value(
                 if let Some(span) = block.span {
                     let contents_bytes = engine_state.get_span_contents(span);
                     let contents_string = String::from_utf8_lossy(contents_bytes);
-                    serde_yml::Value::String(contents_string.to_string())
+                    yaml_rust2::Yaml::String(contents_string.to_string())
                 } else {
-                    serde_yml::Value::String(format!(
+                    yaml_rust2::Yaml::String(format!(
                         "unable to retrieve block contents for yaml block_id {}",
                         val.block_id.get()
                     ))
                 }
             } else {
-                serde_yml::Value::Null
+                yaml_rust2::Yaml::Null
             }
         }
-        Value::Nothing { .. } => serde_yml::Value::Null,
+        Value::Nothing { .. } => yaml_rust2::Yaml::Null,
         Value::Error { error, .. } => return Err(*error.clone()),
-        Value::Binary { val, .. } => serde_yml::Value::Sequence(
+        Value::Binary { val, .. } => yaml_rust2::Yaml::Array(
             val.iter()
-                .map(|x| serde_yml::Value::Number(serde_yml::Number::from(*x)))
+                .map(|x| yaml_rust2::Yaml::Integer(*x as i64))
                 .collect(),
         ),
-        Value::CellPath { val, .. } => serde_yml::Value::Sequence(
+        Value::CellPath { val, .. } => yaml_rust2::Yaml::Array(
             val.members
                 .iter()
                 .map(|x| match &x {
-                    PathMember::String { val, .. } => Ok(serde_yml::Value::String(val.clone())),
-                    PathMember::Int { val, .. } => {
-                        Ok(serde_yml::Value::Number(serde_yml::Number::from(*val)))
-                    }
+                    PathMember::String { val, .. } => Ok(yaml_rust2::Yaml::String(val.clone())),
+                    PathMember::Int { val, .. } => Ok(yaml_rust2::Yaml::Integer(*val as i64)),
                 })
-                .collect::<Result<Vec<serde_yml::Value>, ShellError>>()?,
+                .collect::<Result<Vec<yaml_rust2::Yaml>, ShellError>>()?,
         ),
-        Value::Custom { .. } => serde_yml::Value::Null,
+        Value::Custom { .. } => yaml_rust2::Yaml::Null,
     })
 }
 
@@ -135,8 +133,8 @@ fn to_yaml(
     let value = input.into_value(head)?;
 
     let yaml_value = value_to_yaml_value(engine_state, &value, serialize_types)?;
-    match serde_yml::to_string(&yaml_value) {
-        Ok(serde_yml_string) => {
+    match &yaml_value.into_string() {
+        Some(serde_yml_string) => {
             Ok(Value::string(serde_yml_string, head)
                 .into_pipeline_data_with_metadata(Some(metadata)))
         }
