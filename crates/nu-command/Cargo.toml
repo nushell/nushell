@@ -84,7 +84,6 @@ scopeguard = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["preserve_order"] }
 serde_urlencoded = { workspace = true }
-serde_yml = { workspace = true }
 sha2 = { workspace = true }
 sysinfo = { workspace = true }
 tabled = { workspace = true, features = ["ansi"], default-features = false }
@@ -108,6 +107,7 @@ which = { workspace = true, optional = true }
 unicode-width = { workspace = true }
 data-encoding = { version = "2.7.0", features = ["alloc"] }
 web-time = { workspace = true }
+yaml-rust2 = { workspace = true}
 
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }
