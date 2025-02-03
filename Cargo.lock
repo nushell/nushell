@@ -3542,6 +3542,7 @@ dependencies = [
  "fancy-regex",
  "heck",
  "itertools 0.13.0",
+ "mime",
  "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",

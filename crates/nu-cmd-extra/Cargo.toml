@@ -34,6 +34,7 @@ serde = { workspace = true }
 serde_urlencoded = { workspace = true }
 v_htmlescape = { workspace = true }
 itertools = { workspace = true }
+mime = { workspace = true }
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.101.1" }

@@ -330,7 +330,12 @@ fn to_html(
         output_string = run_regexes(&regex_hm, &output_string);
     }
 
-    Ok(Value::string(output_string, head).into_pipeline_data())
+    let metadata = PipelineMetadata {
+        data_source: nu_protocol::DataSource::None,
+        content_type: Some(mime::TEXT_HTML_UTF_8.to_string()),
+    };
+
+    Ok(Value::string(output_string, head).into_pipeline_data_with_metadata(metadata))
 }
 
 fn theme_demo(span: Span) -> PipelineData {
