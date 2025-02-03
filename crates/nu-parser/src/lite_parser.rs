@@ -194,7 +194,10 @@ enum Mode {
     Normal,
 }
 
-pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
+pub fn lite_parse(
+    tokens: &[Token],
+    working_set: &StateWorkingSet,
+) -> (LiteBlock, Option<ParseError>) {
     if tokens.is_empty() {
         return (LiteBlock::default(), None);
     }

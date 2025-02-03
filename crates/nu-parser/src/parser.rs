@@ -4166,7 +4166,7 @@ pub fn parse_list_expression(
         working_set.error(err)
     }
 
-    let (mut output, err) = lite_parse(&output);
+    let (mut output, err) = lite_parse(&output, working_set);
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -6129,7 +6129,7 @@ pub fn parse_block(
     scoped: bool,
     is_subexpression: bool,
 ) -> Block {
-    let (lite_block, err) = lite_parse(tokens);
+    let (lite_block, err) = lite_parse(tokens, working_set);
     if let Some(err) = err {
         working_set.error(err);
     }

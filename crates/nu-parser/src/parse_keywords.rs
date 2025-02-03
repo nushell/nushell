@@ -1723,7 +1723,7 @@ pub fn parse_module_block(
 
     let module_comments = collect_first_comments(&output);
 
-    let (output, err) = lite_parse(&output);
+    let (output, err) = lite_parse(&output, working_set);
     if let Some(err) = err {
         working_set.error(err)
     }
