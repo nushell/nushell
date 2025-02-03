@@ -785,12 +785,7 @@ pub fn parse_extern(
                         );
                     }
 
-                    let decl = KnownExternal {
-                        name: external_name,
-                        description,
-                        extra_description,
-                        signature,
-                    };
+                    let decl = KnownExternal { signature };
 
                     *declaration = Box::new(decl);
                 }

@@ -7,15 +7,12 @@ use nu_protocol::{
 
 #[derive(Clone)]
 pub struct KnownExternal {
-    pub name: String,
     pub signature: Box<Signature>,
-    pub description: String,
-    pub extra_description: String,
 }
 
 impl Command for KnownExternal {
     fn name(&self) -> &str {
-        &self.name
+        &self.signature.name
     }
 
     fn signature(&self) -> Signature {
@@ -23,7 +20,19 @@ impl Command for KnownExternal {
     }
 
     fn description(&self) -> &str {
-        &self.description
+        &self.signature.description
+    }
+
+    fn extra_description(&self) -> &str {
+        &self.signature.extra_description
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        self.signature
+            .search_terms
+            .iter()
+            .map(String::as_str)
+            .collect()
     }
 
     fn command_type(&self) -> CommandType {
