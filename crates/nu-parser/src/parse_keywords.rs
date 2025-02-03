@@ -758,9 +758,9 @@ pub fn parse_extern(
                     name.clone()
                 };
 
-                signature.name.clone_from(&external_name);
-                signature.description.clone_from(&description);
-                signature.extra_description.clone_from(&extra_description);
+                signature.name = external_name;
+                signature.description = description;
+                signature.extra_description = extra_description;
                 signature.allows_unknown_args = true;
 
                 if let Some(block_id) = body.and_then(|x| x.as_block()) {
