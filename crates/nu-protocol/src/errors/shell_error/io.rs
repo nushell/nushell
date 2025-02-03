@@ -384,10 +384,9 @@ impl Diagnostic for IoError {
     }
 
     fn diagnostic_source(&self) -> Option<&dyn Diagnostic> {
-        match &self.additional_context {
-            Some(ctx) => Some(ctx as &dyn Diagnostic),
-            None => None,
-        }
+        self.additional_context
+            .as_ref()
+            .map(|ctx| ctx as &dyn Diagnostic)
     }
 
     fn source_code(&self) -> Option<&dyn miette::SourceCode> {
