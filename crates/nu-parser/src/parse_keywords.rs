@@ -1267,6 +1267,8 @@ pub fn parse_export_in_module(
                     parts: spans[1..].to_vec(),
                     pipe: lite_command.pipe,
                     redirection: lite_command.redirection.clone(),
+                    // TODO(Bahex):
+                    attribute_idx: vec![],
                 };
                 let (pipeline, cmd_result) =
                     parse_def(working_set, &lite_command, Some(module_name));
@@ -1311,6 +1313,8 @@ pub fn parse_export_in_module(
                     parts: spans[1..].to_vec(),
                     pipe: lite_command.pipe,
                     redirection: lite_command.redirection.clone(),
+                    // TODO(Bahex):
+                    attribute_idx: vec![],
                 };
                 let extern_name = [b"export ", kw_name].concat();
 
@@ -1367,6 +1371,8 @@ pub fn parse_export_in_module(
                     parts: spans[1..].to_vec(),
                     pipe: lite_command.pipe,
                     redirection: lite_command.redirection.clone(),
+                    // TODO(Bahex):
+                    attribute_idx: vec![],
                 };
                 let pipeline = parse_alias(working_set, &lite_command, Some(module_name));
 
@@ -1424,6 +1430,8 @@ pub fn parse_export_in_module(
                     parts: spans[1..].to_vec(),
                     pipe: lite_command.pipe,
                     redirection: lite_command.redirection.clone(),
+                    // TODO(Bahex):
+                    attribute_idx: vec![],
                 };
                 let (pipeline, exportables) =
                     parse_use(working_set, &lite_command, Some(parent_module));

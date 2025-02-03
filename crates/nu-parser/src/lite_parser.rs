@@ -65,6 +65,8 @@ pub struct LiteCommand {
     pub comments: Vec<Span>,
     pub parts: Vec<Span>,
     pub redirection: Option<LiteRedirection>,
+    /// one past the end indices of attributes
+    pub attribute_idx: Vec<usize>,
 }
 
 impl LiteCommand {
