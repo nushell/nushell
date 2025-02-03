@@ -543,6 +543,13 @@ pub enum ParseError {
         help("try assigning to a variable or a cell path of a variable")
     )]
     AssignmentRequiresVar(#[label("needs to be a variable")] Span),
+
+    #[error("Attributes must be followed by a definition.")]
+    #[diagnostic(
+        code(nu::parser::attribute_requires_definition),
+        help("try following this line with a `def` or `extern` definition")
+    )]
+    AttributeRequiresDefinition(#[label("must be followed by a definition")] Span),
 }
 
 impl ParseError {
@@ -634,6 +641,7 @@ impl ParseError {
             ParseError::ExtraTokensAfterClosingDelimiter(s) => *s,
             ParseError::AssignmentRequiresVar(s) => *s,
             ParseError::AssignmentRequiresMutableVar(s) => *s,
+            ParseError::AttributeRequiresDefinition(s) => *s,
         }
     }
 }
