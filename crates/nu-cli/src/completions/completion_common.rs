@@ -10,7 +10,7 @@ use nu_path::dots::expand_ndots;
 use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    CompletionSort, Span,
+    CompletionSort, Span, Value,
 };
 use nu_utils::get_ls_colors;
 use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
@@ -213,16 +213,32 @@ pub fn complete_item(
         _ => {}
     };
 
+    let working_set = StateWorkingSet::new(engine_state);
     let after_prefix = &partial[prefix_len..];
     let partial: Vec<_> = after_prefix
         .strip_prefix(is_separator)
         .unwrap_or(after_prefix)
         .split(is_separator)
         .filter(|s| !s.is_empty())
+        .map(|x| match x.starts_with("$") {
+            true => working_set
+                .find_variable(x.as_bytes())
+                .map(|id| stack.get_var(id, span).ok())
+                .flatten()
+                .map(|var| match var {
+                    Value::String { val, .. } => val,
+                    _ => x.to_string(),
+                })
+                .unwrap_or(x.to_string())
+                .clone(),
+            false => x.to_string(),
+        })
         .collect();
 
+    let p2: Vec<_> = partial.iter().map(|x| x.as_str()).collect();
+
     complete_rec(
-        partial.as_slice(),
+        p2.as_slice(),
         &PathBuiltFromString::default(),
         &cwd,
         options,
