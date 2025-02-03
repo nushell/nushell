@@ -148,6 +148,11 @@ impl LiteCommand {
             )
             .sorted_unstable_by_key(|a| (a.start, a.end))
     }
+
+    pub fn command_parts(&self) -> &[Span] {
+        let command_start = self.attribute_idx.last().copied().unwrap_or(0);
+        &self.parts[command_start..]
+    }
 }
 
 #[derive(Debug, Clone, Default)]

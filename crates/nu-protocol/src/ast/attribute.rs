@@ -1,5 +1,4 @@
 use super::Expression;
-use crate::Span;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

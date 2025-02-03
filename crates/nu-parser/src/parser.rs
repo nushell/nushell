@@ -5728,7 +5728,7 @@ pub fn parse_builtin_commands(
     }
 
     trace!("parsing: checking for keywords");
-    let name = working_set.get_span_contents(lite_command.parts[0]);
+    let name = working_set.get_span_contents(lite_command.command_parts()[0]);
 
     match name {
         b"def" => parse_def(working_set, lite_command, None).0,
@@ -6144,7 +6144,7 @@ pub fn parse_block(
     // that share the same block can see each other
     for pipeline in &lite_block.block {
         if pipeline.commands.len() == 1 {
-            parse_def_predecl(working_set, &pipeline.commands[0].parts)
+            parse_def_predecl(working_set, pipeline.commands[0].command_parts())
         }
     }
 
