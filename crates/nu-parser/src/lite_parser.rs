@@ -3,7 +3,7 @@
 
 use crate::{Token, TokenContents};
 use itertools::{Either, Itertools};
-use nu_protocol::{ast::RedirectionSource, ParseError, Span};
+use nu_protocol::{ast::RedirectionSource, engine::StateWorkingSet, ParseError, Span};
 use std::mem;
 
 #[derive(Debug, Clone, Copy)]
@@ -193,6 +193,7 @@ fn last_non_comment_token(tokens: &[Token], cur_idx: usize) -> Option<TokenConte
 #[derive(PartialEq, Eq)]
 enum Mode {
     Assignment,
+    Attribute,
     Normal,
 }
 
@@ -216,6 +217,26 @@ pub fn lite_parse(
 
     for (idx, token) in tokens.iter().enumerate() {
         match mode {
+            Mode::Attribute => {
+                match &token.contents {
+                    // Consume until semicolon or terminating EOL. Attributes can't contain pipelines or redirections.
+                    TokenContents::Eol | TokenContents::Semicolon => {
+                        command.attribute_idx.push(command.parts.len());
+                        mode = Mode::Normal;
+                        if matches!(last_token, TokenContents::Eol | TokenContents::Semicolon) {
+                            // Clear out the comment as we're entering a new comment
+                            curr_comment = None;
+                            pipeline.push(&mut command);
+                            block.push(&mut pipeline);
+                        }
+                    }
+                    TokenContents::Comment => {
+                        command.comments.push(token.span);
+                        curr_comment = None;
+                    }
+                    _ => command.push(token.span),
+                }
+            }
             Mode::Assignment => {
                 match &token.contents {
                     // Consume until semicolon or terminating EOL. Assignments absorb pipelines and
@@ -336,11 +357,21 @@ pub fn lite_parse(
                             //
                             // For example, this is currently allowed: ^echo thing o> out.txt extra_arg
 
-                            // If we have a comment, go ahead and attach it
-                            if let Some(curr_comment) = curr_comment.take() {
-                                command.comments = curr_comment;
+                            if working_set.get_span_contents(token.span).starts_with(b"@") {
+                                if matches!(
+                                    last_token,
+                                    TokenContents::Eol | TokenContents::Semicolon
+                                ) {
+                                    mode = Mode::Attribute;
+                                }
+                                command.push(token.span);
+                            } else {
+                                // If we have a comment, go ahead and attach it
+                                if let Some(curr_comment) = curr_comment.take() {
+                                    command.comments = curr_comment;
+                                }
+                                command.push(token.span);
                             }
-                            command.push(token.span);
                         }
                         TokenContents::AssignmentOperator => {
                             // When in assignment mode, we'll just consume pipes or redirections as part of
@@ -450,6 +481,10 @@ pub fn lite_parse(
     if let Some((_, _, span)) = file_redirection {
         command.push(span);
         error = error.or(Some(ParseError::Expected("redirection target", span)));
+    }
+
+    if let Mode::Attribute = mode {
+        command.attribute_idx.push(command.parts.len());
     }
 
     pipeline.push(&mut command);
