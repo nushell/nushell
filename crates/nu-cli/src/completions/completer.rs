@@ -201,6 +201,23 @@ impl NuCompleter {
                             );
 
                             variable_completions.append(&mut variable_operations_completions);
+
+                            // Check for file completions that use variable:
+                            if prefix.ends_with(b"/") {
+                                let mut file_completer = FileCompletion::new();
+
+                                let mut file_completions = self.process_completion(
+                                    &mut file_completer,
+                                    &working_set,
+                                    prefix,
+                                    new_span,
+                                    fake_offset,
+                                    pos,
+                                );
+
+                                variable_completions.append(&mut file_completions);
+                            }
+
                             return variable_completions;
                         }
 
