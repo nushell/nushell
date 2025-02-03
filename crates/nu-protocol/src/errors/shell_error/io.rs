@@ -139,12 +139,13 @@ pub enum ErrorKind {
     IsADirectory,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Diagnostic)]
+#[derive(Debug, Clone, PartialEq, Eq, Error, Diagnostic)]
+#[error("{0}")]
 pub struct AdditionalContext(String);
 
-impl Display for AdditionalContext {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.0.as_ref())
+impl From<String> for AdditionalContext {
+    fn from(value: String) -> Self {
+        AdditionalContext(value)
     }
 }
 
@@ -327,13 +328,6 @@ impl Display for ErrorKind {
 }
 
 impl std::error::Error for ErrorKind {}
-impl std::error::Error for AdditionalContext {}
-
-impl From<String> for AdditionalContext {
-    fn from(value: String) -> Self {
-        AdditionalContext(value)
-    }
-}
 
 impl Diagnostic for IoError {
     fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
