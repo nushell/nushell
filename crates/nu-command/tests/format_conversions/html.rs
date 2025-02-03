@@ -20,10 +20,7 @@ fn out_html_metadata() {
             echo 3 | to html | metadata | get content_type
         "#);
 
-    assert_eq!(
-        actual.out,
-        r#"text/html; charset=utf-8"#
-    );
+    assert_eq!(actual.out, r#"text/html; charset=utf-8"#);
 }
 
 #[test]
