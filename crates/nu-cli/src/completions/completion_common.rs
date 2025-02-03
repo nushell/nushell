@@ -220,11 +220,10 @@ pub fn complete_item(
         .unwrap_or(after_prefix)
         .split(is_separator)
         .filter(|s| !s.is_empty())
-        .map(|x| match x.starts_with("$") {
+        .map(|x| match x.starts_with('$') {
             true => working_set
                 .find_variable(x.as_bytes())
-                .map(|id| stack.get_var(id, span).ok())
-                .flatten()
+                .and_then(|id| stack.get_var(id, span).ok())
                 .map(|var| match var {
                     Value::String { val, .. } => val,
                     _ => x.to_string(),
