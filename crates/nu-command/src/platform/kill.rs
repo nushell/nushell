@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_system::build_kill_command;
-use std::process::{Command as CommandSys, Stdio};
+use std::process::Stdio;
 
 #[derive(Clone)]
 pub struct Kill;

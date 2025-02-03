@@ -108,10 +108,7 @@ impl ForegroundChild {
                         // interactive session
                         foreground_pgroup::reset();
 
-                        let handle = UnfreezeHandle {
-                            child_pid,
-                            pipeline_state: self.pipeline_state.clone(),
-                        };
+                        let handle = UnfreezeHandle { child_pid };
 
                         return Ok(ForegroundWaitStatus::Frozen(handle));
                     }
@@ -145,27 +142,30 @@ impl From<std::process::ExitStatus> for ForegroundWaitStatus {
 pub struct UnfreezeHandle {
     #[cfg(unix)]
     child_pid: Pid,
-    #[cfg(unix)]
-    pipeline_state: Option<Arc<(AtomicU32, AtomicU32)>>,
 }
 
 impl UnfreezeHandle {
     #[cfg(unix)]
-    pub fn unfreeze_in_foreground(self) -> io::Result<ForegroundWaitStatus> {
+    pub fn unfreeze(
+        self,
+        pipeline_state: Option<Arc<(AtomicU32, AtomicU32)>>,
+    ) -> io::Result<ForegroundWaitStatus> {
         // bring child's process group back into foreground and continue it
 
-        if let Some(state) = self.pipeline_state.as_ref() {
-            let existing_pgrp = state.0.load(Ordering::SeqCst);
-            foreground_pgroup::set_foreground_pid(self.child_pid, existing_pgrp);
-        }
+        // we only keep the guard for its drop impl
+        let _guard = if let Some(pipeline_state) = pipeline_state {
+            Some(ForegroundGuard::new(
+                self.child_pid.as_raw() as u32,
+                &pipeline_state,
+            ))
+        } else {
+            None
+        };
 
         if let Err(err) = signal::killpg(self.child_pid, signal::SIGCONT) {
-            foreground_pgroup::reset();
-
             return Err(err.into());
         }
 
-        // TODO: refactor this copy-pasted-modified code
         loop {
             use ForegroundWaitStatus::*;
 
@@ -175,19 +175,14 @@ impl UnfreezeHandle {
 
             match status {
                 Err(e) => {
-                    foreground_pgroup::reset();
                     return Err(e.into());
                 }
 
                 Ok(wait::WaitStatus::Exited(_, status)) => {
-                    foreground_pgroup::reset();
-
                     return Ok(Finished(ExitStatus::Exited(status)));
                 }
 
                 Ok(wait::WaitStatus::Signaled(_, signal, core_dumped)) => {
-                    foreground_pgroup::reset();
-
                     return Ok(Finished(ExitStatus::Signaled {
                         signal: signal as i32,
                         core_dumped,
@@ -195,8 +190,6 @@ impl UnfreezeHandle {
                 }
 
                 Ok(wait::WaitStatus::Stopped(_, _)) => {
-                    foreground_pgroup::reset();
-
                     return Ok(ForegroundWaitStatus::Frozen(self));
                 }
                 Ok(_) => {
@@ -204,6 +197,11 @@ impl UnfreezeHandle {
                 }
             };
         }
+    }
+
+    #[cfg(unix)]
+    pub fn pid(&self) -> u32 {
+        self.child_pid.as_raw() as u32
     }
 }
 
@@ -227,7 +225,7 @@ impl Drop for ForegroundChild {
 
 /// Keeps a specific already existing process in the foreground as long as the [`ForegroundGuard`].
 /// If the process needs to be spawned in the foreground, use [`ForegroundChild`] instead. This is
-/// used to temporarily bring plugin processes into the foreground.
+/// used to temporarily bring frozen and plugin processes into the foreground.
 ///
 /// # OS-specific behavior
 /// ## Unix
@@ -236,8 +234,8 @@ impl Drop for ForegroundChild {
 /// this expects the process ID to remain in the process group created by the [`ForegroundChild`]
 /// for the lifetime of the guard, and keeps the terminal controlling process group set to that.
 /// If there is no foreground external process running, this sets the foreground process group to
-/// the plugin's process ID. The process group that is expected can be retrieved with
-/// [`.pgrp()`](Self::pgrp) if different from the plugin process ID.
+/// the provided process ID. The process group that is expected can be retrieved with
+/// [`.pgrp()`](Self::pgrp) if different from the provided process ID.
 ///
 /// ## Other systems
 ///
@@ -278,7 +276,7 @@ impl ForegroundGuard {
                     pipeline_state: pipeline_state.clone(),
                 };
 
-                log::trace!("Giving control of the terminal to the plugin group, pid={pid}");
+                log::trace!("Giving control of the terminal to the process group, pid={pid}");
 
                 // Set the terminal controlling process group to the child process
                 unistd::tcsetpgrp(unsafe { stdin_fd() }, pid_nix)?;
@@ -299,7 +297,7 @@ impl ForegroundGuard {
                 // we only need to tell the child process to join this one
                 let pgrp = pgrp.load(Ordering::SeqCst);
                 log::trace!(
-                    "Will ask the plugin pid={pid} to join pgrp={pgrp} for control of the \
+                    "Will ask the process pid={pid} to join pgrp={pgrp} for control of the \
                     terminal"
                 );
                 return Ok(ForegroundGuard {

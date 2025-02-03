@@ -96,6 +96,10 @@ impl ThreadJob {
         }
     }
 
+    /// Tries to add the provided pid to the active pid set of the current job.
+    ///
+    /// Returns true if the pid was added successfully, or false if the
+    /// current job is interrupted.
     pub fn try_add_pid(&self, pid: u32) -> bool {
         let mut pids = self.pids.lock().expect("PIDs lock was poisoned");
 

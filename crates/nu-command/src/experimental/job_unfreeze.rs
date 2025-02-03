@@ -4,7 +4,7 @@ use nu_protocol::{
     process::check_ok,
     shell_error,
 };
-use nu_system::ForegroundWaitStatus;
+use nu_system::{kill_by_pid, ForegroundWaitStatus};
 
 #[derive(Clone)]
 pub struct JobUnfreeze;
@@ -81,21 +81,49 @@ fn unfreeze_job(
     match job {
         Job::Thread(ThreadJob { .. }) => Err(ShellError::JobNotFrozen { id: old_id, span }),
 
-        Job::Frozen(FrozenJob { unfreeze }) => match unfreeze.unfreeze_in_foreground() {
-            Ok(ForegroundWaitStatus::Frozen(unfreeze)) => {
-                let mut jobs = state.jobs.lock().expect("jobs lock is poisoned!");
-                jobs.add_job_with_id(old_id, Job::Frozen(FrozenJob { unfreeze }))
-                    .expect("job was supposed to be removed");
-                Ok(())
+        Job::Frozen(FrozenJob { unfreeze: handle }) => {
+            let pid = handle.pid();
+
+            if let Some(thread_job) = &state.current_thread_job {
+                if !thread_job.try_add_pid(pid) {
+                    kill_by_pid(pid.into()).map_err(|err| {
+                        ShellError::Io(IoError::new_internal(
+                            err.kind(),
+                            "job was interrupted; could not kill foreground process",
+                            nu_protocol::location!(),
+                        ))
+                    })?;
+                }
             }
 
-            Ok(ForegroundWaitStatus::Finished(status)) => check_ok(status, false, span),
+            let result = handle.unfreeze(
+                state
+                    .is_interactive
+                    .then(|| state.pipeline_externals_state.clone()),
+            );
 
-            Err(err) => Err(ShellError::Io(IoError::new_internal(
-                shell_error::io::ErrorKind::Std(err.kind()),
-                "Failed to unfreeze foreground process",
-                nu_protocol::location!(),
-            ))),
-        },
+            if let Some(thread_job) = &state.current_thread_job {
+                thread_job.remove_pid(pid);
+            }
+
+            match result {
+                Ok(ForegroundWaitStatus::Frozen(handle)) => {
+                    let mut jobs = state.jobs.lock().expect("jobs lock is poisoned!");
+
+                    jobs.add_job_with_id(old_id, Job::Frozen(FrozenJob { unfreeze: handle }))
+                        .expect("job was supposed to be removed");
+
+                    Ok(())
+                }
+
+                Ok(ForegroundWaitStatus::Finished(status)) => check_ok(status, false, span),
+
+                Err(err) => Err(ShellError::Io(IoError::new_internal(
+                    shell_error::io::ErrorKind::Std(err.kind()),
+                    "Failed to unfreeze foreground process",
+                    nu_protocol::location!(),
+                ))),
+            }
+        }
     }
 }
