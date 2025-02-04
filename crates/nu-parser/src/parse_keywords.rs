@@ -419,19 +419,29 @@ pub fn parse_def(
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
 ) -> (Pipeline, Option<(Vec<u8>, DeclId)>) {
-    let attributes = lite_command
-        .attribute_commands()
-        .map(|cmd| parse_attribute(working_set, &cmd))
-        .collect::<Vec<_>>();
+    let mut attributes = vec![];
+    let mut attribute_vals = vec![];
 
-    let (expr, decl) = parse_def_inner(working_set, &attributes, lite_command, module_name);
+    for attr_cmd in lite_command.attribute_commands() {
+        let (attr, name) = parse_attribute(working_set, &attr_cmd);
+        if let Some(name) = name {
+            let val = eval_constant(working_set, &attr.expr);
+            match val {
+                Ok(val) => attribute_vals.push((name, val)),
+                Err(e) => working_set.error(e.wrap(working_set, attr.expr.span)),
+            }
+        }
+        attributes.push(attr);
+    }
+
+    let (expr, decl) = parse_def_inner(working_set, attribute_vals, lite_command, module_name);
 
     let ty = expr.ty.clone();
 
     let attr_block_span = Span::merge_many(
         attributes
             .first()
-            .map(|x| x.0.expr.span)
+            .map(|x| x.expr.span)
             .into_iter()
             .chain(Some(expr.span)),
     );
@@ -442,7 +452,7 @@ pub fn parse_def(
         Expression::new(
             working_set,
             Expr::AttributeBlock(AttributeBlock {
-                attributes: attributes.into_iter().map(|x| x.0).collect(),
+                attributes,
                 item: Box::new(expr),
             }),
             attr_block_span,
@@ -458,19 +468,29 @@ pub fn parse_extern(
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
 ) -> Pipeline {
-    let attributes = lite_command
-        .attribute_commands()
-        .map(|cmd| parse_attribute(working_set, &cmd))
-        .collect::<Vec<_>>();
+    let mut attributes = vec![];
+    let mut attribute_vals = vec![];
 
-    let expr = parse_extern_inner(working_set, &attributes, lite_command, module_name);
+    for attr_cmd in lite_command.attribute_commands() {
+        let (attr, name) = parse_attribute(working_set, &attr_cmd);
+        if let Some(name) = name {
+            let val = eval_constant(working_set, &attr.expr);
+            match val {
+                Ok(val) => attribute_vals.push((name, val)),
+                Err(e) => working_set.error(e.wrap(working_set, attr.expr.span)),
+            }
+        }
+        attributes.push(attr);
+    }
+
+    let expr = parse_extern_inner(working_set, attribute_vals, lite_command, module_name);
 
     let ty = expr.ty.clone();
 
     let attr_block_span = Span::merge_many(
         attributes
             .first()
-            .map(|x| x.0.expr.span)
+            .map(|x| x.expr.span)
             .into_iter()
             .chain(Some(expr.span)),
     );
@@ -481,7 +501,7 @@ pub fn parse_extern(
         Expression::new(
             working_set,
             Expr::AttributeBlock(AttributeBlock {
-                attributes: attributes.into_iter().map(|x| x.0).collect(),
+                attributes,
                 item: Box::new(expr),
             }),
             attr_block_span,
@@ -495,13 +515,22 @@ pub fn parse_extern(
 // Returns also the parsed command name and ID
 fn parse_def_inner(
     working_set: &mut StateWorkingSet,
-    attributes: &[(Attribute, Option<String>)],
+    attributes: Vec<(String, Value)>,
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
 ) -> (Expression, Option<(Vec<u8>, DeclId)>) {
     let spans = lite_command.command_parts();
 
     let (desc, extra_desc) = working_set.build_desc(&lite_command.comments);
+    let mut attribute_vals = vec![];
+
+    for (name, value) in attributes {
+        match name {
+            _ => {
+                attribute_vals.push((name, value));
+            }
+        }
+    }
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -713,7 +742,9 @@ fn parse_def_inner(
             signature.extra_description = extra_desc;
             signature.allows_unknown_args = has_wrapped;
 
-            *declaration = signature.clone().into_block_command(block_id);
+            *declaration = signature
+                .clone()
+                .into_block_command(block_id, attribute_vals);
 
             let block = working_set.get_block_mut(block_id);
             block.signature = signature;
@@ -754,7 +785,7 @@ fn parse_def_inner(
 
 fn parse_extern_inner(
     working_set: &mut StateWorkingSet,
-    attributes: &[(Attribute, Option<String>)],
+    attributes: Vec<(String, Value)>,
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
 ) -> Expression {
@@ -762,6 +793,15 @@ fn parse_extern_inner(
     let concat_span = Span::concat(spans);
 
     let (description, extra_description) = working_set.build_desc(&lite_command.comments);
+    let mut attribute_vals = vec![];
+
+    for (name, value) in attributes {
+        match name {
+            _ => {
+                attribute_vals.push((name, value));
+            }
+        }
+    }
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -872,7 +912,9 @@ fn parse_extern_inner(
                             name_expr.span,
                         ));
                     } else {
-                        *declaration = signature.clone().into_block_command(block_id);
+                        *declaration = signature
+                            .clone()
+                            .into_block_command(block_id, attribute_vals);
 
                         working_set.get_block_mut(block_id).signature = signature;
                     }
@@ -887,7 +929,10 @@ fn parse_extern_inner(
                         );
                     }
 
-                    let decl = KnownExternal { signature };
+                    let decl = KnownExternal {
+                        signature,
+                        attributes: attribute_vals,
+                    };
 
                     *declaration = Box::new(decl);
                 }

@@ -560,10 +560,15 @@ impl Signature {
     }
 
     /// Combines a signature and a block into a runnable block
-    pub fn into_block_command(self, block_id: BlockId) -> Box<dyn Command> {
+    pub fn into_block_command(
+        self,
+        block_id: BlockId,
+        attributes: Vec<(String, Value)>,
+    ) -> Box<dyn Command> {
         Box::new(BlockCommand {
             signature: self,
             block_id,
+            attributes,
         })
     }
 
@@ -655,6 +660,7 @@ fn get_positional_short_name(arg: &PositionalArg, is_required: bool) -> String {
 struct BlockCommand {
     signature: Signature,
     block_id: BlockId,
+    attributes: Vec<(String, Value)>,
 }
 
 impl Command for BlockCommand {
@@ -696,5 +702,9 @@ impl Command for BlockCommand {
 
     fn block_id(&self) -> Option<BlockId> {
         Some(self.block_id)
+    }
+
+    fn attributes(&self) -> Vec<(String, Value)> {
+        self.attributes.clone()
     }
 }

@@ -8,6 +8,7 @@ use nu_protocol::{
 #[derive(Clone)]
 pub struct KnownExternal {
     pub signature: Box<Signature>,
+    pub attributes: Vec<(String, Value)>,
 }
 
 impl Command for KnownExternal {
@@ -83,6 +84,10 @@ impl Command for KnownExternal {
                 command.run(engine_state, stack, &(&extern_call).into(), input)
             }
         }
+    }
+
+    fn attributes(&self) -> Vec<(String, Value)> {
+        self.attributes.clone()
     }
 }
 

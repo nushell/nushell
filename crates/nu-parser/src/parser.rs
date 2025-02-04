@@ -1474,8 +1474,11 @@ pub fn parse_attribute(
     let spans = spans.as_slice();
     let attr_span = Span::concat(spans);
 
-    let (cmd_start, cmd_end, name, decl_id) =
+    let (cmd_start, cmd_end, mut name, decl_id) =
         find_longest_decl_with_prefix(working_set, spans, b"attr");
+
+    debug_assert!(name.starts_with(b"attr "));
+    let _ = name.drain(..(b"attr ".len()));
 
     let name_span = Span::concat(&spans[cmd_start..cmd_end]);
 
