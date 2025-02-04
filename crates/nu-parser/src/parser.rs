@@ -1283,7 +1283,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
         return garbage(working_set, head);
     }
 
-    let (cmd_start, pos, maybe_decl_id) = find_longest_decl(working_set, spans);
+    let (cmd_start, pos, _name, maybe_decl_id) = find_longest_decl(working_set, spans);
 
     if let Some(decl_id) = maybe_decl_id {
         // Before the internal parsing we check if there is no let or alias declarations
@@ -1380,24 +1380,26 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
     }
 }
 
-fn find_longest_decl(
+pub fn find_longest_decl(
     working_set: &mut StateWorkingSet<'_>,
     spans: &[Span],
 ) -> (
     usize,
     usize,
+    Vec<u8>,
     Option<nu_protocol::Id<nu_protocol::marker::Decl>>,
 ) {
     find_longest_decl_with_prefix(working_set, spans, b"")
 }
 
-fn find_longest_decl_with_prefix(
+pub fn find_longest_decl_with_prefix(
     working_set: &mut StateWorkingSet<'_>,
     spans: &[Span],
     prefix: &[u8],
 ) -> (
     usize,
     usize,
+    Vec<u8>,
     Option<nu_protocol::Id<nu_protocol::marker::Decl>>,
 ) {
     let mut pos = 0;
@@ -1447,7 +1449,7 @@ fn find_longest_decl_with_prefix(
         }
         maybe_decl_id = working_set.find_decl(&name);
     }
-    (cmd_start, pos, maybe_decl_id)
+    (cmd_start, pos, name, maybe_decl_id)
 }
 
 pub fn parse_binary(working_set: &mut StateWorkingSet, span: Span) -> Expression {
