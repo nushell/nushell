@@ -1856,7 +1856,11 @@ pub fn parse_module_block(
         if pipeline.commands.len() == 1 {
             let command = &pipeline.commands[0];
 
-            let name = working_set.get_span_contents(command.command_parts()[0]);
+            let name = command
+                .command_parts()
+                .first()
+                .map(|s| working_set.get_span_contents(*s))
+                .unwrap_or(b"");
 
             match name {
                 b"def" => {
@@ -1985,6 +1989,9 @@ pub fn parse_module_block(
 
                     block.pipelines.push(pipe)
                 }
+                _ if command.has_attributes() => block
+                    .pipelines
+                    .push(parse_attribute_block(working_set, command)),
                 _ => {
                     working_set.error(ParseError::ExpectedKeyword(
                         "def, const, extern, alias, use, module, export or export-env keyword"

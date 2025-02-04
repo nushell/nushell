@@ -5842,7 +5842,11 @@ pub fn parse_builtin_commands(
     }
 
     trace!("parsing: checking for keywords");
-    let name = working_set.get_span_contents(lite_command.command_parts()[0]);
+    let name = lite_command
+        .command_parts()
+        .first()
+        .map(|s| working_set.get_span_contents(*s))
+        .unwrap_or(b"");
 
     match name {
         b"def" => parse_def(working_set, lite_command, None).0,
@@ -5892,6 +5896,7 @@ pub fn parse_builtin_commands(
             }
             parse_keyword(working_set, lite_command)
         }
+        _ if lite_command.has_attributes() => parse_attribute_block(working_set, lite_command),
         _ => {
             let element = parse_pipeline_element(working_set, lite_command);
 
