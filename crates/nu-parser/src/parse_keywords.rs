@@ -1287,10 +1287,7 @@ pub fn parse_export_in_block(
 
     if full_name == "export" {
         // export by itself is meaningless
-        working_set.error(ParseError::UnexpectedKeyword(
-            "export".into(),
-            parts[0],
-        ));
+        working_set.error(ParseError::UnexpectedKeyword("export".into(), parts[0]));
         return garbage_pipeline(working_set, &lite_command.parts);
     }
 
@@ -1356,20 +1353,14 @@ pub fn parse_export_in_module(
         parser_info: HashMap::new(),
     });
 
+    let mut out_pipeline = None;
+
     let exportables = if let Some(kw_span) = spans.get(1) {
         let kw_name = working_set.get_span_contents(*kw_span);
         match kw_name {
             b"def" => {
-                let lite_command = LiteCommand {
-                    comments: lite_command.comments.clone(),
-                    parts: spans[1..].to_vec(),
-                    pipe: lite_command.pipe,
-                    redirection: lite_command.redirection.clone(),
-                    // TODO(Bahex):
-                    attribute_idx: vec![],
-                };
-                let (pipeline, cmd_result) =
-                    parse_def(working_set, &lite_command, Some(module_name));
+                let (mut pipeline, cmd_result) =
+                    parse_def(working_set, lite_command, Some(module_name));
 
                 let mut result = vec![];
 
@@ -1391,32 +1382,37 @@ pub fn parse_export_in_module(
                 };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(Expr::Call(def_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
-                {
-                    call.clone_from(def_call);
-                    call.head = Span::concat(&spans[0..=1]);
-                    call.decl_id = export_def_decl_id;
-                } else {
+                // TODO: Rather than this, handle `export def` correctly in `parse_def`
+                'warp: {
+                    match pipeline.elements.first_mut().map(|e| &mut e.expr.expr) {
+                        Some(Expr::Call(def_call)) => {
+                            def_call.head = Span::concat(&spans[0..=1]);
+                            def_call.decl_id = export_def_decl_id;
+                            break 'warp;
+                        }
+                        Some(Expr::AttributeBlock(ab)) => {
+                            if let Expr::Call(def_call) = &mut ab.item.expr {
+                                def_call.head = Span::concat(&spans[0..=1]);
+                                def_call.decl_id = export_def_decl_id;
+                                break 'warp;
+                            }
+                        }
+                        _ => {}
+                    };
+
                     working_set.error(ParseError::InternalError(
                         "unexpected output from parsing a definition".into(),
                         Span::concat(&spans[1..]),
                     ));
-                };
+                }
 
+                out_pipeline = Some(pipeline);
                 result
             }
             b"extern" => {
-                let lite_command = LiteCommand {
-                    comments: lite_command.comments.clone(),
-                    parts: spans[1..].to_vec(),
-                    pipe: lite_command.pipe,
-                    redirection: lite_command.redirection.clone(),
-                    // TODO(Bahex):
-                    attribute_idx: vec![],
-                };
                 let extern_name = [b"export ", kw_name].concat();
 
-                let pipeline = parse_extern(working_set, &lite_command, Some(module_name));
+                let mut pipeline = parse_extern(working_set, lite_command, Some(module_name));
 
                 let export_def_decl_id = if let Some(id) = working_set.find_decl(&extern_name) {
                     id
@@ -1428,18 +1424,30 @@ pub fn parse_export_in_module(
                     return (garbage_pipeline(working_set, spans), vec![]);
                 };
 
-                // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(Expr::Call(def_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
-                {
-                    call.clone_from(def_call);
-                    call.head = Span::concat(&spans[0..=1]);
-                    call.decl_id = export_def_decl_id;
-                } else {
+                // Trying to warp the 'extern' call into the 'export extern' in a very clumsy way
+                // TODO: Rather than this, handle `export extern` correctly in `parse_extern`
+                'warp: {
+                    match pipeline.elements.first_mut().map(|e| &mut e.expr.expr) {
+                        Some(Expr::Call(def_call)) => {
+                            def_call.head = Span::concat(&spans[0..=1]);
+                            def_call.decl_id = export_def_decl_id;
+                            break 'warp;
+                        }
+                        Some(Expr::AttributeBlock(ab)) => {
+                            if let Expr::Call(def_call) = &mut ab.item.expr {
+                                def_call.head = Span::concat(&spans[0..=1]);
+                                def_call.decl_id = export_def_decl_id;
+                                break 'warp;
+                            }
+                        }
+                        _ => {}
+                    };
+
                     working_set.error(ParseError::InternalError(
                         "unexpected output from parsing a definition".into(),
                         Span::concat(&spans[1..]),
                     ));
-                };
+                }
 
                 let mut result = vec![];
 
@@ -1461,6 +1469,7 @@ pub fn parse_export_in_module(
                     ));
                 }
 
+                out_pipeline = Some(pipeline);
                 result
             }
             b"alias" => {
@@ -1685,15 +1694,13 @@ pub fn parse_export_in_module(
         vec![]
     };
 
-    (
-        Pipeline::from_vec(vec![Expression::new(
-            working_set,
-            Expr::Call(call),
-            Span::concat(spans),
-            Type::Any,
-        )]),
-        exportables,
-    )
+    let out_pipeline = out_pipeline.unwrap_or(Pipeline::from_vec(vec![Expression::new(
+        working_set,
+        Expr::Call(call),
+        Span::concat(spans),
+        Type::Any,
+    )]));
+    (out_pipeline, exportables)
 }
 
 pub fn parse_export_env(
