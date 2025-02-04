@@ -153,6 +153,20 @@ impl LiteCommand {
         let command_start = self.attribute_idx.last().copied().unwrap_or(0);
         &self.parts[command_start..]
     }
+
+    pub fn has_attributes(&self) -> bool {
+        !self.attribute_idx.is_empty()
+    }
+
+    pub fn attribute_commands(&'_ self) -> impl Iterator<Item = LiteCommand> + '_ {
+        std::iter::once(0)
+            .chain(self.attribute_idx.iter().copied())
+            .tuple_windows()
+            .map(|(s, e)| LiteCommand {
+                parts: self.parts[s..e].to_owned(),
+                ..Default::default()
+            })
+    }
 }
 
 #[derive(Debug, Clone, Default)]
