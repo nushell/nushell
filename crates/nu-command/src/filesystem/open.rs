@@ -35,7 +35,13 @@ impl Command for Open {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
-            .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::Any),
+                (Type::String, Type::Any),
+                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
+                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
+                (Type::Any, Type::Any),
+            ])
             .rest(
                 "files",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
@@ -112,13 +118,16 @@ impl Command for Open {
                     #[cfg(unix)]
                     let err = {
                         let mut err = err;
-                        err.additional_context = Some(match path.metadata() {
-                            Ok(md) => format!(
-                                "The permissions of {:o} does not allow access for this user",
-                                md.permissions().mode() & 0o0777
-                            ),
-                            Err(e) => e.to_string(),
-                        });
+                        err.additional_context = Some(
+                            match path.metadata() {
+                                Ok(md) => format!(
+                                    "The permissions of {:o} does not allow access for this user",
+                                    md.permissions().mode() & 0o0777
+                                ),
+                                Err(e) => e.to_string(),
+                            }
+                            .into(),
+                        );
                         err
                     };
 

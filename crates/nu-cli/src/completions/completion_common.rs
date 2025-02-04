@@ -284,6 +284,8 @@ pub fn complete_item(
 pub fn escape_path(path: String, dir: bool) -> String {
     // make glob pattern have the highest priority.
     if nu_glob::is_glob(path.as_str()) {
+        let pathbuf = nu_path::expand_tilde(path);
+        let path = pathbuf.to_string_lossy();
         return if path.contains('\'') {
             // decide to use double quote, also need to escape `"` in path
             // or else users can't do anything with completed path either.

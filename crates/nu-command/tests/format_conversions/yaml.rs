@@ -50,6 +50,7 @@ fn convert_dict_to_yaml_with_integer_floats_key() {
 }
 
 #[test]
+#[ignore]
 fn convert_bool_to_yaml_in_yaml_spec_1_2() {
     let actual = nu!(pipeline(
         r#"

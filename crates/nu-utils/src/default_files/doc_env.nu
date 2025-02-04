@@ -1,6 +1,6 @@
 # Nushell Environment Config File Documentation
 #
-# version = "0.101.1"
+# version = "0.102.0"
 #
 # Previously, environment variables were typically configured in `env.nu`.
 # In general, most configuration can and should be performed in `config.nu`

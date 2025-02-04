@@ -68,8 +68,8 @@ impl Registry for NuShellNightly {
             .get::<Vec<Response>>(&url)?;
 
         if let Some(v) = versions.first() {
-            // The nightly repo tags look like "0.101.1-nightly.4+23dc1b6"
-            // We want to return the "0.101.1-nightly.4" part because hustcer
+            // The nightly repo tags look like "0.102.0-nightly.4+23dc1b6"
+            // We want to return the "0.102.0-nightly.4" part because hustcer
             // is changing the cargo.toml package.version to be that syntax
             let up_through_plus = match v.tag_name.split('+').next() {
                 Some(v) => v,
