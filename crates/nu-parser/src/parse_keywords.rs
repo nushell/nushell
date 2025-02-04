@@ -1,7 +1,10 @@
 use crate::{
     exportable::Exportable,
     parse_block,
-    parser::{parse_redirection, redirecting_builtin_error},
+    parser::{
+        find_longest_decl_with_prefix, parse_attribute, parse_redirection,
+        redirecting_builtin_error,
+    },
     type_check::{check_block_input_output, type_compatible},
 };
 use itertools::Itertools;
@@ -9,8 +12,8 @@ use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
-        Argument, Attribute, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
-        ImportPatternMember, Pipeline, PipelineElement,
+        Argument, Attribute, AttributeBlock, Block, Call, Expr, Expression, ImportPattern,
+        ImportPatternHead, ImportPatternMember, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
@@ -363,13 +366,90 @@ fn verify_not_reserved_variable_name(working_set: &mut StateWorkingSet, name: &s
     }
 }
 
+// This is meant for parsing attribute blocks without an accompanying `def` or `extern`. It's
+// necessary to provide consistent syntax highlighting, completions, and helpful errors
+//
+// There is no need to run the const evaluation here
+pub fn parse_attribute_block(
+    working_set: &mut StateWorkingSet,
+    lite_command: &LiteCommand,
+) -> Pipeline {
+    let attributes = lite_command
+        .attribute_commands()
+        .map(|cmd| parse_attribute(working_set, &cmd).0)
+        .collect::<Vec<_>>();
+
+    let last_attr_span = attributes
+        .last()
+        .expect("Attribute block must contain at least one attribute")
+        .expr
+        .span;
+
+    working_set.error(ParseError::AttributeRequiresDefinition(last_attr_span));
+    let cmd_span = if lite_command.command_parts().is_empty() {
+        last_attr_span.past()
+    } else {
+        Span::concat(lite_command.command_parts())
+    };
+    let cmd_expr = garbage(working_set, cmd_span);
+    let ty = cmd_expr.ty.clone();
+
+    let attr_block_span = Span::merge_many(
+        attributes
+            .first()
+            .map(|x| x.expr.span)
+            .into_iter()
+            .chain(Some(cmd_span)),
+    );
+
+    Pipeline::from_vec(vec![Expression::new(
+        working_set,
+        Expr::AttributeBlock(AttributeBlock {
+            attributes,
+            item: Box::new(cmd_expr),
+        }),
+        attr_block_span,
+        ty,
+    )])
+}
+
 // Returns also the parsed command name and ID
 pub fn parse_def(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
 ) -> (Pipeline, Option<(Vec<u8>, DeclId)>) {
-    let (expr, decl) = parse_def_inner(working_set, &[], lite_command, module_name);
+    let attributes = lite_command
+        .attribute_commands()
+        .map(|cmd| parse_attribute(working_set, &cmd))
+        .collect::<Vec<_>>();
+
+    let (expr, decl) = parse_def_inner(working_set, &attributes, lite_command, module_name);
+
+    let ty = expr.ty.clone();
+
+    let attr_block_span = Span::merge_many(
+        attributes
+            .first()
+            .map(|x| x.0.expr.span)
+            .into_iter()
+            .chain(Some(expr.span)),
+    );
+
+    let expr = if attributes.is_empty() {
+        expr
+    } else {
+        Expression::new(
+            working_set,
+            Expr::AttributeBlock(AttributeBlock {
+                attributes: attributes.into_iter().map(|x| x.0).collect(),
+                item: Box::new(expr),
+            }),
+            attr_block_span,
+            ty,
+        )
+    };
+
     (Pipeline::from_vec(vec![expr]), decl)
 }
 
@@ -378,7 +458,37 @@ pub fn parse_extern(
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
 ) -> Pipeline {
-    let expr = parse_extern_inner(working_set, &[], lite_command, module_name);
+    let attributes = lite_command
+        .attribute_commands()
+        .map(|cmd| parse_attribute(working_set, &cmd))
+        .collect::<Vec<_>>();
+
+    let expr = parse_extern_inner(working_set, &attributes, lite_command, module_name);
+
+    let ty = expr.ty.clone();
+
+    let attr_block_span = Span::merge_many(
+        attributes
+            .first()
+            .map(|x| x.0.expr.span)
+            .into_iter()
+            .chain(Some(expr.span)),
+    );
+
+    let expr = if attributes.is_empty() {
+        expr
+    } else {
+        Expression::new(
+            working_set,
+            Expr::AttributeBlock(AttributeBlock {
+                attributes: attributes.into_iter().map(|x| x.0).collect(),
+                item: Box::new(expr),
+            }),
+            attr_block_span,
+            ty,
+        )
+    };
+
     Pipeline::from_vec(vec![expr])
 }
 
