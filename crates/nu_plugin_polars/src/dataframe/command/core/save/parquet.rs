@@ -1,7 +1,8 @@
 use std::fs::File;
 
+use log::debug;
 use nu_plugin::EvaluatedCall;
-use nu_protocol::{ShellError, Span};
+use nu_protocol::ShellError;
 use polars::prelude::ParquetWriter;
 use polars_io::parquet::write::ParquetWriteOptions;
 
@@ -19,9 +20,13 @@ pub(crate) fn command_lazy(
 ) -> Result<(), ShellError> {
     let file_path = resource.path;
     let file_span = resource.span;
+    debug!("Writing parquet file {file_path}");
     lazy.to_polars()
-        // todo - add cloud options
-        .sink_parquet(&file_path, ParquetWriteOptions::default(), None)
+        .sink_parquet(
+            &file_path,
+            ParquetWriteOptions::default(),
+            resource.cloud_options,
+        )
         .map_err(|e| polars_file_save_error(e, file_span))
 }
 

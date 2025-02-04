@@ -20,8 +20,11 @@ pub(crate) fn command_lazy(
     let file_path = resource.path;
     let file_span = resource.span;
     lazy.to_polars()
-        // todo - add cloud options
-        .sink_ipc(file_path, IpcWriterOptions::default(), None)
+        .sink_ipc(
+            file_path,
+            IpcWriterOptions::default(),
+            resource.cloud_options,
+        )
         .map_err(|e| polars_file_save_error(e, file_span))
 }
 

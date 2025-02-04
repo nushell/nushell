@@ -185,7 +185,7 @@ fn from_parquet(
     let file_span = resource.span;
     if !is_eager {
         let args = ScanArgsParquet {
-            cloud_options: resource.cloud_options.clone(),
+            cloud_options: resource.cloud_options,
             ..Default::default()
         };
         let df: NuLazyFrame = LazyFrame::scan_parquet(file_path, args)
@@ -288,7 +288,7 @@ fn from_arrow(
             cache: true,
             rechunk: false,
             row_index: None,
-            cloud_options: resource.cloud_options.clone(),
+            cloud_options: resource.cloud_options,
             include_file_paths: None,
             hive_options: HiveOptions::default(),
         };
@@ -487,8 +487,7 @@ fn from_csv(
     let truncate_ragged_lines: bool = call.has_flag("truncate-ragged-lines")?;
 
     if !is_eager {
-        let csv_reader =
-            LazyCsvReader::new(file_path).with_cloud_options(resource.cloud_options.clone());
+        let csv_reader = LazyCsvReader::new(file_path).with_cloud_options(resource.cloud_options);
 
         let csv_reader = match delimiter {
             None => csv_reader,

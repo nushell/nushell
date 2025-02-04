@@ -20,8 +20,11 @@ pub(crate) fn command_lazy(
     let file_path = resource.path;
     let file_span = resource.span;
     lazy.to_polars()
-        // todo - add cloud options
-        .sink_json(file_path, JsonWriterOptions::default(), None)
+        .sink_json(
+            file_path,
+            JsonWriterOptions::default(),
+            resource.cloud_options,
+        )
         .map_err(|e| polars_file_save_error(e, file_span))
 }
 

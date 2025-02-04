@@ -36,8 +36,7 @@ pub(crate) fn command_lazy(
     };
 
     lazy.to_polars()
-        // todo - add cloud options
-        .sink_csv(file_path, options, None)
+        .sink_csv(file_path, options, resource.cloud_options)
         .map_err(|e| polars_file_save_error(e, file_span))
 }
 

@@ -13,7 +13,6 @@ use crate::{
 };
 
 use log::debug;
-use nu_path::expand_path_with;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     shell_error::io::IoError, Category, Example, LabeledError, PipelineData, ShellError, Signature,
@@ -37,7 +36,7 @@ impl PluginCommand for SaveDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("path", SyntaxShape::Filepath, "Path to write to.")
+            .required("path", SyntaxShape::String, "Path or cloud url to write to")
             .named(
                 "type",
                 SyntaxShape::String,
@@ -150,12 +149,18 @@ fn command(
                 PolarsPluginObject::NuLazyFrame(ref lazy) => {
                     parquet::command_lazy(call, lazy, resource)
                 }
+                PolarsPluginObject::NuDataFrame(ref df) if resource.cloud_options.is_some() => {
+                    parquet::command_lazy(call, &df.lazy(), resource)
+                }
                 PolarsPluginObject::NuDataFrame(ref df) => parquet::command_eager(df, resource),
                 _ => Err(unknown_file_save_error(resource.span)),
             },
             PolarsFileType::Arrow => match polars_object {
                 PolarsPluginObject::NuLazyFrame(ref lazy) => {
                     arrow::command_lazy(call, lazy, resource)
+                }
+                PolarsPluginObject::NuDataFrame(ref df) if resource.cloud_options.is_some() => {
+                    arrow::command_lazy(call, &df.lazy(), resource)
                 }
                 PolarsPluginObject::NuDataFrame(ref df) => arrow::command_eager(df, resource),
                 _ => Err(unknown_file_save_error(resource.span)),
@@ -164,10 +169,20 @@ fn command(
                 PolarsPluginObject::NuLazyFrame(ref lazy) => {
                     ndjson::command_lazy(call, lazy, resource)
                 }
+                PolarsPluginObject::NuDataFrame(ref df) if resource.cloud_options.is_some() => {
+                    ndjson::command_lazy(call, &df.lazy(), resource)
+                }
                 PolarsPluginObject::NuDataFrame(ref df) => ndjson::command_eager(df, resource),
                 _ => Err(unknown_file_save_error(resource.span)),
             },
             PolarsFileType::Avro => match polars_object {
+                _ if resource.cloud_options.is_some() => Err(ShellError::GenericError {
+                    error: "Cloud URLS are not supported with Avro".into(),
+                    msg: "".into(),
+                    span: call.get_flag_span("eager"),
+                    help: Some("Remove flag".into()),
+                    inner: vec![],
+                }),
                 PolarsPluginObject::NuLazyFrame(lazy) => {
                     let df = lazy.collect(call.head)?;
                     avro::command_eager(call, &df, resource)
@@ -178,6 +193,9 @@ fn command(
             PolarsFileType::Csv => match polars_object {
                 PolarsPluginObject::NuLazyFrame(ref lazy) => {
                     csv::command_lazy(call, lazy, resource)
+                }
+                PolarsPluginObject::NuDataFrame(ref df) if resource.cloud_options.is_some() => {
+                    csv::command_lazy(call, &df.lazy(), resource)
                 }
                 PolarsPluginObject::NuDataFrame(ref df) => csv::command_eager(call, df, resource),
                 _ => Err(unknown_file_save_error(resource.span)),
