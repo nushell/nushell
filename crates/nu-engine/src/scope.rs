@@ -111,11 +111,11 @@ impl<'e, 's> ScopeData<'e, 's> {
                     .into_iter()
                     .map(|(name, value)| {
                         Value::record(
-                            record!{
+                            record! {
                                 "name" => Value::string(name, span),
                                 "value" => value,
                             },
-                            span
+                            span,
                         )
                     })
                     .collect();

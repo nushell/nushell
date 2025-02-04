@@ -1,5 +1,7 @@
 use super::{EngineState, Stack, StateWorkingSet};
-use crate::{engine::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature, Value};
+use crate::{
+    engine::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature, Value,
+};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

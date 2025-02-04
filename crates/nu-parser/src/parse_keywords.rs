@@ -1,10 +1,7 @@
 use crate::{
     exportable::Exportable,
     parse_block,
-    parser::{
-        find_longest_decl_with_prefix, parse_attribute, parse_redirection,
-        redirecting_builtin_error,
-    },
+    parser::{parse_attribute, parse_redirection, redirecting_builtin_error},
     type_check::{check_block_input_output, type_compatible},
 };
 use itertools::Itertools;
@@ -12,8 +9,8 @@ use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
-        Argument, Attribute, AttributeBlock, Block, Call, Expr, Expression, ImportPattern,
-        ImportPatternHead, ImportPatternMember, Pipeline, PipelineElement,
+        Argument, AttributeBlock, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
+        ImportPatternMember, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
