@@ -1,3 +1,4 @@
+mod attribute_completions;
 mod base;
 mod command_completions;
 mod completer;
@@ -11,6 +12,7 @@ mod flag_completions;
 mod operator_completions;
 mod variable_completions;
 
+pub use attribute_completions::AttributeCompletion;
 pub use base::{Completer, SemanticSuggestion, SuggestionKind};
 pub use command_completions::CommandCompletion;
 pub use completer::NuCompleter;
