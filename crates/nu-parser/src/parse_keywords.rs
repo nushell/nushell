@@ -1408,6 +1408,9 @@ pub fn parse_export_in_block(
     };
 
     if full_name == "export" {
+        if lite_command.has_attributes() {
+            return parse_attribute_block(working_set, lite_command);
+        }
         // export by itself is meaningless
         working_set.error(ParseError::UnexpectedKeyword("export".into(), parts[0]));
         return garbage_pipeline(working_set, &lite_command.parts);
