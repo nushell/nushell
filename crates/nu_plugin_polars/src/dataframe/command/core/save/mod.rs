@@ -93,12 +93,12 @@ impl PluginCommand for SaveDF {
             },
             Example {
                 description: "Saves dataframe to CSV file",
-                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr save test.csv",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars save test.csv",
                 result: None,
             },
             Example {
                 description: "Saves dataframe to CSV file using other delimiter",
-                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr save test.csv --delimiter '|'",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars save test.csv --csv-delimiter '|'",
                 result: None,
             },
         ]
