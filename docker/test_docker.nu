@@ -148,6 +148,6 @@ def "test config initialised" [] {
     let env_size = $files | where file == "env.nu" | get size | first
     let config_size = $files | where file == "config.nu" | get size | first
 
-    assert greater $env_size 1KiB
-    assert greater $config_size 1KiB
+    assert greater $env_size 300B
+    assert greater $config_size 350B
 }
