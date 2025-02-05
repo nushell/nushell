@@ -1,7 +1,7 @@
 # Default Nushell Environment Config File
 # These "sensible defaults" are set before the user's `env.nu` is loaded
 #
-# version = "0.102.0"
+# version = "0.102.1"
 
 $env.PROMPT_COMMAND = $env.PROMPT_COMMAND? | default {||
     let dir = match (do -i { $env.PWD | path relative-to $nu.home-path }) {
