@@ -34,13 +34,8 @@ little reason to use this over just writing the values as-is."#
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let mut args = call.rest(engine_state, stack, 0)?;
-        let value = match args.len() {
-            0 => Value::string("", call.head),
-            1 => args.pop().expect("one element"),
-            _ => Value::list(args, call.head),
-        };
-        Ok(value.into_pipeline_data())
+        let args = call.rest(engine_state, stack, 0)?;
+        echo_impl(args, call.head)
     }
 
     fn run_const(
@@ -49,13 +44,8 @@ little reason to use this over just writing the values as-is."#
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let mut args = call.rest_const(working_set, 0)?;
-        let value = match args.len() {
-            0 => Value::string("", call.head),
-            1 => args.pop().expect("one element"),
-            _ => Value::list(args, call.head),
-        };
-        Ok(value.into_pipeline_data())
+        let args = call.rest_const(working_set, 0)?;
+        echo_impl(args, call.head)
     }
 
     fn is_const(&self) -> bool {
@@ -80,6 +70,15 @@ little reason to use this over just writing the values as-is."#
             },
         ]
     }
+}
+
+fn echo_impl(mut args: Vec<Value>, head: Span) -> Result<PipelineData, ShellError> {
+    let value = match args.len() {
+        0 => Value::string("", head),
+        1 => args.pop().expect("one element"),
+        _ => Value::list(args, head),
+    };
+    Ok(value.into_pipeline_data())
 }
 
 #[cfg(test)]
