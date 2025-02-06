@@ -1407,15 +1407,6 @@ pub fn parse_export_in_block(
         return garbage_pipeline(working_set, &lite_command.parts);
     };
 
-    if full_name == "export" {
-        if lite_command.has_attributes() {
-            return parse_attribute_block(working_set, lite_command);
-        }
-        // export by itself is meaningless
-        working_set.error(ParseError::UnexpectedKeyword("export".into(), parts[0]));
-        return garbage_pipeline(working_set, &lite_command.parts);
-    }
-
     match full_name {
         "export alias" => parse_alias(working_set, lite_command, None),
         "export def" => parse_def(working_set, lite_command, None).0,
@@ -1423,6 +1414,7 @@ pub fn parse_export_in_block(
         "export use" => parse_use(working_set, lite_command, None).0,
         "export module" => parse_module(working_set, lite_command, None).0,
         "export extern" => parse_extern(working_set, lite_command, None),
+        _ if lite_command.has_attributes() => parse_attribute_block(working_set, lite_command),
         _ => {
             working_set.error(ParseError::UnexpectedKeyword(
                 full_name.into(),
