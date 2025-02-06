@@ -76,7 +76,9 @@ impl Completer for AttributableCompletion {
         let mut matcher = NuMatcher::new(String::from_utf8_lossy(partial), options.clone());
 
         for s in ["def", "extern", "export def", "export extern"] {
-            let decl_id = working_set.find_decl(s.as_bytes()).unwrap();
+            let decl_id = working_set
+                .find_decl(s.as_bytes())
+                .expect("internal error, builtin declaration not found");
             let cmd = working_set.get_decl(decl_id);
             matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {
