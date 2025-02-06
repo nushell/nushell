@@ -1,11 +1,11 @@
 use nu_protocol::{
     ast::{
-        Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, ListItem,
-        MatchPattern, PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection,
-        RecordItem,
+        Argument, Block, Completion, Expr, Expression, ExternalArgument, ImportPatternMember,
+        ListItem, MatchPattern, PathMember, Pattern, Pipeline, PipelineElement,
+        PipelineRedirection, RecordItem,
     },
     engine::StateWorkingSet,
-    DeclId, Span, SyntaxShape, VarId,
+    DeclId, Span, SyntaxShape, Type, VarId,
 };
 use std::fmt::{Display, Formatter, Result};
 
@@ -46,6 +46,10 @@ pub enum FlatShape {
     Table,
     Variable(VarId),
     VarDecl(VarId),
+    Option {
+        options: Vec<String>,
+        matching: bool,
+    },
 }
 
 impl FlatShape {
@@ -56,6 +60,7 @@ impl FlatShape {
             FlatShape::Bool => "shape_bool",
             FlatShape::Closure => "shape_closure",
             FlatShape::Custom(_) => "shape_custom",
+            FlatShape::Option { .. } => "shape_option",
             FlatShape::DateTime => "shape_datetime",
             FlatShape::Directory => "shape_directory",
             FlatShape::External => "shape_external",
@@ -183,9 +188,24 @@ fn flatten_expression_into(
     expr: &Expression,
     output: &mut Vec<(Span, FlatShape)>,
 ) {
-    if let Some(custom_completion) = &expr.custom_completion {
-        output.push((expr.span, FlatShape::Custom(*custom_completion)));
-        return;
+    match &expr.completion {
+        Completion::None => (),
+        Completion::Custom(custom_completion) => {
+            output.push((expr.span, FlatShape::Custom(*custom_completion)));
+            return;
+        }
+        Completion::Options(options) => {
+            output.push((
+                expr.span,
+                FlatShape::Option {
+                    options: options.clone(),
+                    // HACK: A little bit of protocol misuse to avoid searching through options twice, useful for syntax highlighting
+                    // see `parse_value` in `parser.rs`
+                    matching: expr.ty == Type::String,
+                },
+            ));
+            return;
+        }
     }
 
     match &expr.expr {

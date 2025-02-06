@@ -9,6 +9,7 @@ mod dotnu_completions;
 mod file_completions;
 mod flag_completions;
 mod operator_completions;
+mod options_completions;
 mod variable_completions;
 
 pub use base::{Completer, SemanticSuggestion, SuggestionKind};
@@ -21,4 +22,5 @@ pub use dotnu_completions::DotNuCompletion;
 pub use file_completions::{file_path_completion, FileCompletion};
 pub use flag_completions::FlagCompletion;
 pub use operator_completions::OperatorCompletion;
+pub use options_completions::OptionsCompletion;
 pub use variable_completions::VariableCompletion;

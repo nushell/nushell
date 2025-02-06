@@ -1355,7 +1355,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 span: _,
                 span_id: _,
                 ty,
-                custom_completion,
+                completion: custom_completion,
             } = &alias.clone().wrapped_call
             {
                 trace!("parsing: alias of external call");
@@ -1376,7 +1376,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                     ty.clone(),
                 );
 
-                expression.custom_completion = *custom_completion;
+                expression.completion = custom_completion.clone();
                 return expression;
             } else {
                 trace!("parsing: alias of internal call");
@@ -4889,7 +4889,26 @@ pub fn parse_value(
     match shape {
         SyntaxShape::CompleterWrapper(shape, custom_completion) => {
             let mut expression = parse_value(working_set, span, shape);
-            expression.custom_completion = Some(*custom_completion);
+            expression.completion = Completion::Custom(*custom_completion);
+            expression
+        }
+        SyntaxShape::Options(custom_completion) => {
+            let mut expression = parse_string(working_set, span);
+            if let Some(s) = expression.as_string() {
+                if !custom_completion.contains(&s) {
+                    working_set.error(ParseError::IncorrectValue(
+                        "option".into(),
+                        expression.span,
+                        format!("Expected one of the following: {custom_completion:?}"),
+                    ));
+                    // HACK: A little bit of protocol misuse to avoid searching through options twice, useful for syntax highlighting
+                    // see `flatten_expression_into` in `flatten.rs`
+                    expression.ty = Type::Any;
+                } else {
+                    expression.ty = Type::String;
+                }
+            }
+            expression.completion = Completion::Options(custom_completion.clone());
             expression
         }
         SyntaxShape::Number => parse_number(working_set, span),

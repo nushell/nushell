@@ -30,6 +30,7 @@ $env.config.color_config = {
     shape_bool: light_cyan
     shape_closure: green_bold
     shape_custom: green
+    shape_option: blue
     shape_datetime: cyan_bold
     shape_directory: cyan
     shape_external: cyan
