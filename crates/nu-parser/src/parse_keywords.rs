@@ -1366,55 +1366,61 @@ pub fn parse_export_in_block(
         return garbage_pipeline(working_set, &lite_command.parts);
     }
 
-    if let Some(decl_id) = working_set.find_decl(full_name.as_bytes()) {
-        let ParsedInternalCall { call, output, .. } = parse_internal_call(
-            working_set,
-            if full_name == "export" {
-                parts[0]
-            } else {
-                Span::concat(&parts[0..2])
-            },
-            if full_name == "export" {
-                &parts[1..]
-            } else {
-                &parts[2..]
-            },
-            decl_id,
-        );
+    // No need to care for this when attributes are present, parse_attribute_block will throw the
+    // necessary error
+    if !lite_command.has_attributes() {
+        if let Some(decl_id) = working_set.find_decl(full_name.as_bytes()) {
+            let ParsedInternalCall { call, output, .. } = parse_internal_call(
+                working_set,
+                if full_name == "export" {
+                    parts[0]
+                } else {
+                    Span::concat(&parts[0..2])
+                },
+                if full_name == "export" {
+                    &parts[1..]
+                } else {
+                    &parts[2..]
+                },
+                decl_id,
+            );
 
-        let decl = working_set.get_decl(decl_id);
+            let decl = working_set.get_decl(decl_id);
 
-        let starting_error_count = working_set.parse_errors.len();
-        check_call(working_set, call_span, &decl.signature(), &call);
+            let starting_error_count = working_set.parse_errors.len();
+            check_call(working_set, call_span, &decl.signature(), &call);
 
-        let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
+            let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
+                return garbage_pipeline(working_set, &lite_command.parts);
+            };
+
+            if starting_error_count != working_set.parse_errors.len() || is_help {
+                return Pipeline::from_vec(vec![Expression::new(
+                    working_set,
+                    Expr::Call(call),
+                    call_span,
+                    output,
+                )]);
+            }
+        } else {
+            working_set.error(ParseError::UnknownState(
+                format!("internal error: '{full_name}' declaration not found",),
+                Span::concat(&lite_command.parts),
+            ));
             return garbage_pipeline(working_set, &lite_command.parts);
         };
-
-        if starting_error_count != working_set.parse_errors.len() || is_help {
-            return Pipeline::from_vec(vec![Expression::new(
-                working_set,
-                Expr::Call(call),
-                call_span,
-                output,
-            )]);
-        }
-    } else {
-        working_set.error(ParseError::UnknownState(
-            format!("internal error: '{full_name}' declaration not found",),
-            Span::concat(&lite_command.parts),
-        ));
-        return garbage_pipeline(working_set, &lite_command.parts);
-    };
+    }
 
     match full_name {
-        "export alias" => parse_alias(working_set, lite_command, None),
+        // `parse_def` and `parse_extern` work both with and without attributes
         "export def" => parse_def(working_set, lite_command, None).0,
+        "export extern" => parse_extern(working_set, lite_command, None),
+        // Other definitions can't have attributes, so we handle attributes here with parse_attribute_block
+        _ if lite_command.has_attributes() => parse_attribute_block(working_set, lite_command),
+        "export alias" => parse_alias(working_set, lite_command, None),
         "export const" => parse_const(working_set, &lite_command.parts[1..]).0,
         "export use" => parse_use(working_set, lite_command, None).0,
         "export module" => parse_module(working_set, lite_command, None).0,
-        "export extern" => parse_extern(working_set, lite_command, None),
-        _ if lite_command.has_attributes() => parse_attribute_block(working_set, lite_command),
         _ => {
             working_set.error(ParseError::UnexpectedKeyword(
                 full_name.into(),
