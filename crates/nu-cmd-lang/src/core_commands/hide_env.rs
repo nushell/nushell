@@ -29,6 +29,10 @@ impl Command for HideEnv {
         "Hide environment variables in the current scope."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["unset", "drop"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
