@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -45,26 +46,8 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
         let base: Spanned<f64> = call.req(engine_state, stack, 0)?;
-
-        if base.item <= 0.0f64 {
-            return Err(ShellError::UnsupportedInput {
-                msg: "Base has to be greater 0".into(),
-                input: "value originates from here".into(),
-                msg_span: head,
-                input_span: base.span,
-            });
-        }
-        // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty { dst_span: head });
-        }
-        let base = base.item;
-        input.map(
-            move |value| operate(value, head, base),
-            engine_state.signals(),
-        )
+        log(base, call.head, input, engine_state.signals())
     }
 
     fn run_const(
@@ -73,26 +56,8 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
         let base: Spanned<f64> = call.req_const(working_set, 0)?;
-
-        if base.item <= 0.0f64 {
-            return Err(ShellError::UnsupportedInput {
-                msg: "Base has to be greater 0".into(),
-                input: "value originates from here".into(),
-                msg_span: head,
-                input_span: base.span,
-            });
-        }
-        // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty { dst_span: head });
-        }
-        let base = base.item;
-        input.map(
-            move |value| operate(value, head, base),
-            working_set.permanent().signals(),
-        )
+        log(base, call.head, input, working_set.permanent().signals())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -116,6 +81,28 @@ impl Command for SubCommand {
             },
         ]
     }
+}
+
+fn log(
+    base: Spanned<f64>,
+    head: Span,
+    input: PipelineData,
+    signals: &Signals,
+) -> Result<PipelineData, ShellError> {
+    if base.item <= 0.0f64 {
+        return Err(ShellError::UnsupportedInput {
+            msg: "Base has to be greater 0".into(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: base.span,
+        });
+    }
+    // This doesn't match explicit nulls
+    if matches!(input, PipelineData::Empty) {
+        return Err(ShellError::PipelineEmpty { dst_span: head });
+    }
+    let base = base.item;
+    input.map(move |value| operate(value, head, base), signals)
 }
 
 fn operate(value: Value, head: Span, base: f64) -> Value {
