@@ -14,8 +14,8 @@ use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean,
-    FilesizeUnit, Flag, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type,
-    Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    FilesizeUnit, Flag, ParseError, PositionalArg, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -1510,12 +1510,14 @@ pub fn parse_attribute(
                 expr: Expr::ExternalCall(..),
                 ..
             } => {
+                let shell_error = ShellError::NotAConstCommand { span: name_span };
+                working_set.error(shell_error.wrap(working_set, attr_span));
                 return (
                     Attribute {
                         expr: garbage(working_set, Span::concat(spans)),
                     },
                     None,
-                )
+                );
             }
             _ => {
                 trace!("parsing: alias of internal call");
