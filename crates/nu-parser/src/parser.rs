@@ -5872,8 +5872,12 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             // This was a spread operator, so there's no value
             continue;
         }
-        // Got the key, now get the token for the value
-        if lex_n_tokens(&mut lex_state, additional_whitespace, &[b':'], true, 2) < 2 {
+        // Get token for colon
+        if lex_n_tokens(&mut lex_state, additional_whitespace, &[b':'], true, 1) < 1 {
+            break;
+        };
+        // Get token for value
+        if lex_n_tokens(&mut lex_state, additional_whitespace, &[], true, 1) < 1 {
             break;
         };
     }
