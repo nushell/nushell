@@ -414,10 +414,7 @@ impl CursorMoveHandler for RecordView {
         Transition::Ok
     }
     fn handle_expand(&mut self) -> Transition {
-        match self.mode {
-            UIMode::View => Transition::Cmd(String::from("expand")),
-            _ => Transition::None,
-        }
+        Transition::Cmd(String::from("expand"))
     }
     fn handle_transpose(&mut self) -> Transition {
         match self.mode {
