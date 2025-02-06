@@ -1,5 +1,5 @@
 use crate::{
-    command::core::Resource,
+    command::core::resource::Resource,
     dataframe::values::NuSchema,
     values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType},
     EngineWrapper, PolarsPlugin,

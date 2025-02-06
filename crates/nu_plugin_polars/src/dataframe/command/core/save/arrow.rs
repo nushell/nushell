@@ -6,7 +6,7 @@ use polars::prelude::{IpcWriter, SerWriter};
 use polars_io::ipc::IpcWriterOptions;
 
 use crate::{
-    command::core::Resource,
+    command::core::resource::Resource,
     values::{NuDataFrame, NuLazyFrame},
 };
 

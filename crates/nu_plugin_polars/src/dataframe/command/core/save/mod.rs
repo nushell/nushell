@@ -7,7 +7,7 @@ mod parquet;
 use std::path::PathBuf;
 
 use crate::{
-    command::core::Resource,
+    command::core::resource::Resource,
     values::{cant_convert_err, PolarsFileType, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };

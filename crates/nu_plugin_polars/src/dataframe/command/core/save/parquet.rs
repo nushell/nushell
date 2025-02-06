@@ -7,7 +7,7 @@ use polars::prelude::ParquetWriter;
 use polars_io::parquet::write::ParquetWriteOptions;
 
 use crate::{
-    command::core::Resource,
+    command::core::resource::Resource,
     values::{NuDataFrame, NuLazyFrame},
 };
 

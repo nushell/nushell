@@ -5,7 +5,7 @@ use nu_protocol::ShellError;
 use polars_io::avro::{AvroCompression, AvroWriter};
 use polars_io::SerWriter;
 
-use crate::command::core::Resource;
+use crate::command::core::resource::Resource;
 use crate::values::NuDataFrame;
 
 fn get_compression(call: &EvaluatedCall) -> Result<Option<AvroCompression>, ShellError> {

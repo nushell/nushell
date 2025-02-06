@@ -6,7 +6,7 @@ use polars::prelude::{CsvWriter, SerWriter};
 use polars_io::csv::write::{CsvWriterOptions, SerializeOptions};
 
 use crate::{
-    command::core::Resource,
+    command::core::resource::Resource,
     values::{NuDataFrame, NuLazyFrame},
 };
 

@@ -6,7 +6,7 @@ use polars::prelude::{JsonWriter, SerWriter};
 use polars_io::json::JsonWriterOptions;
 
 use crate::{
-    command::core::Resource,
+    command::core::resource::Resource,
     values::{NuDataFrame, NuLazyFrame},
 };
 
