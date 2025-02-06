@@ -440,13 +440,13 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for Iter<'a> {
+impl DoubleEndedIterator for Iter<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back().map(|(col, val): &(_, _)| (col, val))
     }
 }
 
-impl<'a> ExactSizeIterator for Iter<'a> {
+impl ExactSizeIterator for Iter<'_> {
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -482,13 +482,13 @@ impl<'a> Iterator for IterMut<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for IterMut<'a> {
+impl DoubleEndedIterator for IterMut<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back().map(|(col, val)| (&*col, val))
     }
 }
 
-impl<'a> ExactSizeIterator for IterMut<'a> {
+impl ExactSizeIterator for IterMut<'_> {
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -524,13 +524,13 @@ impl<'a> Iterator for Columns<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for Columns<'a> {
+impl DoubleEndedIterator for Columns<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back().map(|(col, _)| col)
     }
 }
 
-impl<'a> ExactSizeIterator for Columns<'a> {
+impl ExactSizeIterator for Columns<'_> {
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -584,13 +584,13 @@ impl<'a> Iterator for Values<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for Values<'a> {
+impl DoubleEndedIterator for Values<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back().map(|(_, val)| val)
     }
 }
 
-impl<'a> ExactSizeIterator for Values<'a> {
+impl ExactSizeIterator for Values<'_> {
     fn len(&self) -> usize {
         self.iter.len()
     }

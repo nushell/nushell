@@ -1,20 +1,24 @@
-use std::{fs::File, path::Path};
+use std::fs::File;
 
 use nu_plugin::EvaluatedCall;
-use nu_protocol::{ShellError, Span, Spanned};
+use nu_protocol::{ShellError, Spanned};
 use polars::prelude::{CsvWriter, SerWriter};
 use polars_io::csv::write::{CsvWriterOptions, SerializeOptions};
 
-use crate::values::{NuDataFrame, NuLazyFrame};
+use crate::{
+    command::core::resource::Resource,
+    values::{NuDataFrame, NuLazyFrame},
+};
 
 use super::polars_file_save_error;
 
 pub(crate) fn command_lazy(
     call: &EvaluatedCall,
     lazy: &NuLazyFrame,
-    file_path: &Path,
-    file_span: Span,
+    resource: Resource,
 ) -> Result<(), ShellError> {
+    let file_path = resource.path;
+    let file_span = resource.span;
     let delimiter: Option<Spanned<String>> = call.get_flag("csv-delimiter")?;
     let separator = delimiter
         .and_then(|d| d.item.chars().next().map(|c| c as u8))
@@ -32,17 +36,17 @@ pub(crate) fn command_lazy(
     };
 
     lazy.to_polars()
-        // todo - add cloud options
-        .sink_csv(file_path, options, None)
+        .sink_csv(file_path, options, resource.cloud_options)
         .map_err(|e| polars_file_save_error(e, file_span))
 }
 
 pub(crate) fn command_eager(
     call: &EvaluatedCall,
     df: &NuDataFrame,
-    file_path: &Path,
-    file_span: Span,
+    resource: Resource,
 ) -> Result<(), ShellError> {
+    let file_path = resource.path;
+    let file_span = resource.span;
     let delimiter: Option<Spanned<String>> = call.get_flag("csv-delimiter")?;
     let no_header: bool = call.has_flag("csv-no-header")?;
 

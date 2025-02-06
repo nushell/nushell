@@ -76,6 +76,15 @@ pub enum ExternalArgument {
     Spread(Expression),
 }
 
+impl ExternalArgument {
+    pub fn expr(&self) -> &Expression {
+        match self {
+            ExternalArgument::Regular(expr) => expr,
+            ExternalArgument::Spread(expr) => expr,
+        }
+    }
+}
+
 /// Parsed call of a `Command`
 ///
 /// As we also implement some internal keywords in terms of the `Command` trait, this type stores the passed arguments as [`Expression`].

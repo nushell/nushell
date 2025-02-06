@@ -707,6 +707,11 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
         EditBindings::Vi => {
             add_menu_keybindings(&mut insert_keybindings);
             add_menu_keybindings(&mut normal_keybindings);
+            normal_keybindings.add_binding(
+                KeyModifiers::NONE,
+                KeyCode::Char('/'),
+                ReedlineEvent::Menu("history_menu".to_string()),
+            );
         }
     }
     for keybinding in parsed_keybindings {
@@ -740,9 +745,15 @@ fn add_keybinding(
     let span = mode.span();
     match &mode {
         Value::String { val, .. } => match val.as_str() {
-            "emacs" => add_parsed_keybinding(emacs_keybindings, keybinding, config),
-            "vi_insert" => add_parsed_keybinding(insert_keybindings, keybinding, config),
-            "vi_normal" => add_parsed_keybinding(normal_keybindings, keybinding, config),
+            str if str.eq_ignore_ascii_case("emacs") => {
+                add_parsed_keybinding(emacs_keybindings, keybinding, config)
+            }
+            str if str.eq_ignore_ascii_case("vi_insert") => {
+                add_parsed_keybinding(insert_keybindings, keybinding, config)
+            }
+            str if str.eq_ignore_ascii_case("vi_normal") => {
+                add_parsed_keybinding(normal_keybindings, keybinding, config)
+            }
             str => Err(ShellError::InvalidValue {
                 valid: "'emacs', 'vi_insert', or 'vi_normal'".into(),
                 actual: format!("'{str}'"),

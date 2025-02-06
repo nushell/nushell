@@ -354,7 +354,7 @@ impl EngineState {
     pub fn active_overlay_ids<'a, 'b>(
         &'b self,
         removed_overlays: &'a [Vec<u8>],
-    ) -> impl DoubleEndedIterator<Item = &OverlayId> + 'a
+    ) -> impl DoubleEndedIterator<Item = &'b OverlayId> + 'a
     where
         'b: 'a,
     {
@@ -368,7 +368,7 @@ impl EngineState {
     pub fn active_overlays<'a, 'b>(
         &'b self,
         removed_overlays: &'a [Vec<u8>],
-    ) -> impl DoubleEndedIterator<Item = &OverlayFrame> + 'a
+    ) -> impl DoubleEndedIterator<Item = &'b OverlayFrame> + 'a
     where
         'b: 'a,
     {
@@ -379,7 +379,7 @@ impl EngineState {
     pub fn active_overlay_names<'a, 'b>(
         &'b self,
         removed_overlays: &'a [Vec<u8>],
-    ) -> impl DoubleEndedIterator<Item = &[u8]> + 'a
+    ) -> impl DoubleEndedIterator<Item = &'b [u8]> + 'a
     where
         'b: 'a,
     {
@@ -1061,7 +1061,7 @@ impl EngineState {
     }
 }
 
-impl<'a> GetSpan for &'a EngineState {
+impl GetSpan for &EngineState {
     /// Get existing span
     fn get_span(&self, span_id: SpanId) -> Span {
         *self

@@ -828,9 +828,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "325918d6fe32f23b19878fe4b34794ae41fc19ddbe53b10571a4874d44ffd39b"
+checksum = "f61dac84819c6588b558454b194026eb1f09c293b9036ae9b159e74e73ab6cf9"
 dependencies = [
  "serde",
 ]
@@ -2978,16 +2978,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "libyml"
-version = "0.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3302702afa434ffa30847a83305f0a69d6abd74293b6554c18ec85c7ef30c980"
-dependencies = [
- "anyhow",
- "version_check",
-]
-
-[[package]]
 name = "libz-rs-sys"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3206,9 +3196,9 @@ dependencies = [
 
 [[package]]
 name = "miette"
-version = "7.4.0"
+version = "7.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "317f146e2eb7021892722af37cf1b971f0a70c8406f487e24952667616192c64"
+checksum = "1a955165f87b37fd1862df2a59547ac542c77ef6d17c666f619d1ad22dd89484"
 dependencies = [
  "backtrace",
  "backtrace-ext",
@@ -3226,9 +3216,9 @@ dependencies = [
 
 [[package]]
 name = "miette-derive"
-version = "7.4.0"
+version = "7.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23c9b935fbe1d6cbd1dac857b54a688145e2d93f48db36010514d0f612d0ad67"
+checksum = "bf45bf44ab49be92fd1227a3be6fc6f617f1a337c06af54981048574d8783147"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3445,7 +3435,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "assert_cmd",
  "crossterm 0.28.1",
@@ -3500,7 +3490,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "chrono",
  "crossterm 0.28.1",
@@ -3526,7 +3516,7 @@ dependencies = [
  "percent-encoding",
  "reedline",
  "rstest",
- "sysinfo 0.32.1",
+ "sysinfo",
  "tempfile",
  "unicode-segmentation",
  "uuid",
@@ -3535,7 +3525,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-base"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "indexmap",
  "miette",
@@ -3547,11 +3537,12 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-extra"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "fancy-regex",
  "heck",
  "itertools 0.13.0",
+ "mime",
  "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",
@@ -3572,7 +3563,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-lang"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "itertools 0.13.0",
  "nu-engine",
@@ -3584,7 +3575,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-plugin"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "itertools 0.13.0",
  "nu-engine",
@@ -3595,7 +3586,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
@@ -3607,7 +3598,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "alphanumeric-sort",
  "base64 0.22.1",
@@ -3689,9 +3680,9 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
- "serde_yml",
+ "serde_yaml",
  "sha2",
- "sysinfo 0.32.1",
+ "sysinfo",
  "tabled",
  "tempfile",
  "titlecase",
@@ -3722,7 +3713,7 @@ dependencies = [
 
 [[package]]
 name = "nu-derive-value"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "heck",
  "proc-macro-error",
@@ -3733,7 +3724,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "log",
  "nu-glob",
@@ -3744,7 +3735,7 @@ dependencies = [
 
 [[package]]
 name = "nu-explore"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "ansi-str",
  "anyhow",
@@ -3768,14 +3759,14 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "doc-comment",
 ]
 
 [[package]]
 name = "nu-json"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "fancy-regex",
  "linked-hash-map",
@@ -3788,7 +3779,7 @@ dependencies = [
 
 [[package]]
 name = "nu-lsp"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
@@ -3811,7 +3802,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "bytesize",
  "chrono",
@@ -3828,7 +3819,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "dirs",
  "omnipath",
@@ -3838,7 +3829,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "log",
  "nix 0.29.0",
@@ -3854,7 +3845,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-core"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "interprocess",
  "log",
@@ -3868,7 +3859,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-engine"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "log",
  "nu-engine",
@@ -3884,7 +3875,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-protocol"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "nu-protocol",
  "nu-utils",
@@ -3896,7 +3887,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-test-support"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "nu-ansi-term",
  "nu-cmd-lang",
@@ -3914,7 +3905,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -3923,7 +3914,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "brotli",
  "bytes",
@@ -3962,7 +3953,7 @@ dependencies = [
 
 [[package]]
 name = "nu-std"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "log",
  "miette",
@@ -3973,7 +3964,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "chrono",
  "itertools 0.13.0",
@@ -3984,14 +3975,14 @@ dependencies = [
  "nix 0.29.0",
  "ntapi",
  "procfs",
- "sysinfo 0.32.1",
+ "sysinfo",
  "web-time",
  "windows 0.56.0",
 ]
 
 [[package]]
 name = "nu-table"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "fancy-regex",
  "nu-ansi-term",
@@ -4004,7 +3995,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "nu-utils",
  "unicode-width 0.2.0",
@@ -4012,7 +4003,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "nu-glob",
  "nu-path",
@@ -4024,7 +4015,7 @@ dependencies = [
 
 [[package]]
 name = "nu-utils"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "crossterm 0.28.1",
  "crossterm_winapi",
@@ -4053,7 +4044,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "nu-cmd-lang",
  "nu-plugin",
@@ -4063,7 +4054,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_formats"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "chrono",
  "eml-parser",
@@ -4078,7 +4069,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "git2",
  "nu-plugin",
@@ -4087,7 +4078,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -4096,7 +4087,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_polars"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "aws-config",
  "aws-credential-types",
@@ -4136,7 +4127,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "gjson",
  "nu-plugin",
@@ -4151,7 +4142,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_stress_internals"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "interprocess",
  "serde",
@@ -4275,7 +4266,7 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "nuon"
-version = "0.101.1"
+version = "0.102.1"
 dependencies = [
  "chrono",
  "nu-engine",
@@ -4459,9 +4450,9 @@ dependencies = [
 
 [[package]]
 name = "openssl"
-version = "0.10.68"
+version = "0.10.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6174bc48f102d208783c2c84bf931bb75927a617866870de8a4ea85597f871f5"
+checksum = "61cfb4e166a8bb8c9b55c500bc2308550148ece889be90f609377e58140f42c6"
 dependencies = [
  "bitflags 2.6.0",
  "cfg-if",
@@ -4500,9 +4491,9 @@ dependencies = [
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.104"
+version = "0.9.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45abf306cbf99debc8195b66b7346498d7b10c210de50418b5ccd7ceba08c741"
+checksum = "8b22d5b84be05a8d6947c7cb71f7c849aa0f112acd4bf51c2a7c1c988ac0a9dc"
 dependencies = [
  "cc",
  "libc",
@@ -5374,7 +5365,7 @@ dependencies = [
  "serde",
  "serde_json",
  "stacker",
- "sysinfo 0.33.1",
+ "sysinfo",
  "version_check",
 ]
 
@@ -6486,18 +6477,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_yml"
-version = "0.0.12"
+name = "serde_yaml"
+version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59e2dd588bf1597a252c3b920e0143eb99b0f76e4e082f4c92ce34fbc9e71ddd"
+checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
 dependencies = [
  "indexmap",
  "itoa",
- "libyml",
- "memchr",
  "ryu",
  "serde",
- "version_check",
+ "unsafe-libyaml",
 ]
 
 [[package]]
@@ -6947,20 +6936,6 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.32.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c33cd241af0f2e9e3b5c32163b873b29956890b5342e6745b917ce9d490f4af"
-dependencies = [
- "core-foundation-sys",
- "libc",
- "memchr",
- "ntapi",
- "rayon",
- "windows 0.57.0",
-]
-
-[[package]]
-name = "sysinfo"
 version = "0.33.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fc858248ea01b66f19d8e8a6d55f41deaf91e9d495246fd01368d99935c6c01"
@@ -6969,6 +6944,7 @@ dependencies = [
  "libc",
  "memchr",
  "ntapi",
+ "rayon",
  "windows 0.57.0",
 ]
 
@@ -7504,6 +7480,12 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "untrusted"

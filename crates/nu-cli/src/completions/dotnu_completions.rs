@@ -1,4 +1,5 @@
 use crate::completions::{file_path_completion, Completer, CompletionOptions};
+use nu_path::expand_tilde;
 use nu_protocol::{
     engine::{Stack, StateWorkingSet},
     Span,
@@ -28,7 +29,10 @@ impl Completer for DotNuCompletion {
         _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let prefix_str = String::from_utf8_lossy(prefix).replace('`', "");
+        let prefix_str = String::from_utf8_lossy(prefix);
+        let start_with_backquote = prefix_str.starts_with('`');
+        let end_with_backquote = prefix_str.ends_with('`');
+        let prefix_str = prefix_str.replace('`', "");
         let mut search_dirs: Vec<PathBuf> = vec![];
 
         // If prefix_str is only a word we want to search in the current dir
@@ -46,12 +50,8 @@ impl Completer for DotNuCompletion {
                 lib_dirs
                     .as_list()
                     .into_iter()
-                    .flat_map(|it| {
-                        it.iter().map(|x| {
-                            x.to_path()
-                                .expect("internal error: failed to convert lib path")
-                        })
-                    })
+                    .flat_map(|it| it.iter().filter_map(|x| x.to_path().ok()))
+                    .map(expand_tilde)
                     .collect()
             })
             .unwrap_or_default();
@@ -78,13 +78,12 @@ impl Completer for DotNuCompletion {
 
         // Fetch the files filtering the ones that ends with .nu
         // and transform them into suggestions
-
         let completions = file_path_completion(
             span,
             partial,
             &search_dirs
                 .iter()
-                .map(|d| d.to_str().unwrap_or_default())
+                .filter_map(|d| d.to_str())
                 .collect::<Vec<_>>(),
             options,
             working_set.permanent_state,
@@ -93,20 +92,35 @@ impl Completer for DotNuCompletion {
         completions
             .into_iter()
             // Different base dir, so we list the .nu files or folders
-            .filter(|it| it.path.ends_with(".nu") || it.path.ends_with(SEP))
+            .filter(|it| {
+                // for paths with spaces in them
+                let path = it.path.trim_end_matches('`');
+                path.ends_with(".nu") || path.ends_with(SEP)
+            })
             .map(|x| {
-                let append_whitespace = x.path.ends_with(".nu");
+                let append_whitespace =
+                    x.path.ends_with(".nu") && (!start_with_backquote || end_with_backquote);
                 // Re-calculate the span to replace
-                let span_offset = if base_dir == "." {
-                    0
-                } else {
-                    base_dir.len() + 1
-                } + prefix.iter().take_while(|c| **c == b'`').count();
+                let mut span_offset = 0;
+                let mut value = x.path.to_string();
+                // Complete only the last path component
+                if base_dir != "." {
+                    span_offset = base_dir.len() + 1
+                }
+                // Retain only one '`'
+                if start_with_backquote {
+                    value = value.trim_start_matches('`').to_string();
+                    span_offset += 1;
+                }
+                // Add the backquote back
+                if end_with_backquote && !value.ends_with('`') {
+                    value.push('`');
+                }
                 let end = x.span.end - offset;
                 let start = std::cmp::min(end, x.span.start - offset + span_offset);
                 SemanticSuggestion {
                     suggestion: Suggestion {
-                        value: x.path,
+                        value,
                         style: x.style,
                         span: reedline::Span { start, end },
                         append_whitespace,
