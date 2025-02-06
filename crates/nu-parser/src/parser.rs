@@ -5858,20 +5858,22 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         error: None,
         span_offset: start,
     };
-    let mut lex_n = |additional_whitespace, special_tokens, max_tokens| {
-        lex_n_tokens(
-            &mut lex_state,
-            additional_whitespace,
-            special_tokens,
-            true,
-            max_tokens,
-        )
-    };
     loop {
-        if lex_n(&[b'\n', b'\r', b','], &[b':'], 2) < 2 {
+        let additional_whitespace = &[b'\n', b'\r', b','];
+        if lex_n_tokens(&mut lex_state, additional_whitespace, &[b':'], true, 1) < 1 {
             break;
         };
-        if lex_n(&[b'\n', b'\r', b','], &[], 1) < 1 {
+        let span = lex_state.output[lex_state.output.len() - 1].span;
+        let contents = working_set.get_span_contents(span);
+        if contents.len() > 3
+            && contents.starts_with(b"...")
+            && (contents[3] == b'$' || contents[3] == b'{' || contents[3] == b'(')
+        {
+            // This was a spread operator, so there's no value
+            continue;
+        }
+        // Got the key, now get the token for the value
+        if lex_n_tokens(&mut lex_state, additional_whitespace, &[b':'], true, 2) < 2 {
             break;
         };
     }
