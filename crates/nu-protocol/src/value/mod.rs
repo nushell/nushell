@@ -2512,7 +2512,7 @@ impl PartialOrd for Value {
 
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        self.partial_cmp(other).map_or(false, Ordering::is_eq)
+        self.partial_cmp(other).is_some_and(Ordering::is_eq)
     }
 }
 

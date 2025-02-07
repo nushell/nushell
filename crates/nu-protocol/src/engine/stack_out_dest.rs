@@ -153,7 +153,7 @@ impl<'a> StackIoGuard<'a> {
     }
 }
 
-impl<'a> Deref for StackIoGuard<'a> {
+impl Deref for StackIoGuard<'_> {
     type Target = Stack;
 
     fn deref(&self) -> &Self::Target {
@@ -161,7 +161,7 @@ impl<'a> Deref for StackIoGuard<'a> {
     }
 }
 
-impl<'a> DerefMut for StackIoGuard<'a> {
+impl DerefMut for StackIoGuard<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.stack
     }
@@ -202,7 +202,7 @@ impl<'a> StackCollectValueGuard<'a> {
     }
 }
 
-impl<'a> Deref for StackCollectValueGuard<'a> {
+impl Deref for StackCollectValueGuard<'_> {
     type Target = Stack;
 
     fn deref(&self) -> &Self::Target {
@@ -210,7 +210,7 @@ impl<'a> Deref for StackCollectValueGuard<'a> {
     }
 }
 
-impl<'a> DerefMut for StackCollectValueGuard<'a> {
+impl DerefMut for StackCollectValueGuard<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.stack
     }
@@ -258,7 +258,7 @@ impl<'a> StackCallArgGuard<'a> {
     }
 }
 
-impl<'a> Deref for StackCallArgGuard<'a> {
+impl Deref for StackCallArgGuard<'_> {
     type Target = Stack;
 
     fn deref(&self) -> &Self::Target {
@@ -266,7 +266,7 @@ impl<'a> Deref for StackCallArgGuard<'a> {
     }
 }
 
-impl<'a> DerefMut for StackCallArgGuard<'a> {
+impl DerefMut for StackCallArgGuard<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.stack
     }

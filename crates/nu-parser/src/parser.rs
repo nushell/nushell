@@ -781,42 +781,57 @@ fn parse_oneof(
     possible_shapes: &Vec<SyntaxShape>,
     multispan: bool,
 ) -> Expression {
+    let starting_spans_idx = *spans_idx;
+    let mut best_guess = None;
+    let mut best_guess_errors = Vec::new();
+    let mut max_first_error_offset = 0;
+    let mut propagate_error = false;
     for shape in possible_shapes {
         let starting_error_count = working_set.parse_errors.len();
+        *spans_idx = starting_spans_idx;
         let value = match multispan {
             true => parse_multispan_value(working_set, spans, spans_idx, shape),
             false => parse_value(working_set, spans[*spans_idx], shape),
         };
 
-        if starting_error_count == working_set.parse_errors.len() {
+        let new_errors = working_set.parse_errors[starting_error_count..].to_vec();
+        // no new errors found means success
+        let Some(first_error_offset) = new_errors.iter().map(|e| e.span().start).min() else {
             return value;
-        }
-
-        // while trying the possible shapes, ignore Expected type errors
-        // unless they're inside a block, closure, or expression
-        let propagate_error = match working_set.parse_errors.last() {
-            Some(ParseError::Expected(_, error_span))
-            | Some(ParseError::ExpectedWithStringMsg(_, error_span)) => {
-                matches!(
-                    shape,
-                    SyntaxShape::Block | SyntaxShape::Closure(_) | SyntaxShape::Expression
-                ) && *error_span != spans[*spans_idx]
-            }
-            _ => true,
         };
-        if !propagate_error {
-            working_set.parse_errors.truncate(starting_error_count);
+
+        if first_error_offset > max_first_error_offset {
+            // while trying the possible shapes, ignore Expected type errors
+            // unless they're inside a block, closure, or expression
+            propagate_error = match working_set.parse_errors.last() {
+                Some(ParseError::Expected(_, error_span))
+                | Some(ParseError::ExpectedWithStringMsg(_, error_span)) => {
+                    matches!(
+                        shape,
+                        SyntaxShape::Block | SyntaxShape::Closure(_) | SyntaxShape::Expression
+                    ) && *error_span != spans[*spans_idx]
+                }
+                _ => true,
+            };
+            max_first_error_offset = first_error_offset;
+            best_guess = Some(value);
+            best_guess_errors = new_errors;
         }
+        working_set.parse_errors.truncate(starting_error_count);
     }
 
-    if working_set.parse_errors.is_empty() {
+    // if best_guess results in new errors further than current span, then accept it
+    // or propagate_error is marked as true for it
+    if max_first_error_offset > spans[starting_spans_idx].start || propagate_error {
+        working_set.parse_errors.extend(best_guess_errors);
+        best_guess.expect("best_guess should not be None here!")
+    } else {
         working_set.error(ParseError::ExpectedWithStringMsg(
             format!("one of a list of accepted shapes: {possible_shapes:?}"),
-            spans[*spans_idx],
+            spans[starting_spans_idx],
         ));
+        Expression::garbage(working_set, spans[starting_spans_idx])
     }
-
-    Expression::garbage(working_set, spans[*spans_idx])
 }
 
 pub fn parse_multispan_value(

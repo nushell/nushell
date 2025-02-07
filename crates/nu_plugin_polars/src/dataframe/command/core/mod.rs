@@ -3,6 +3,7 @@ mod columns;
 mod fetch;
 mod open;
 mod profile;
+mod resource;
 mod save;
 mod schema;
 mod shape;
@@ -12,11 +13,10 @@ mod to_lazy;
 mod to_nu;
 mod to_repr;
 
-use crate::PolarsPlugin;
-use nu_plugin::PluginCommand;
-
 pub use self::open::OpenDataFrame;
+use crate::PolarsPlugin;
 use fetch::LazyFetch;
+use nu_plugin::PluginCommand;
 pub use schema::SchemaCmd;
 pub use shape::ShapeDF;
 pub use summary::Summary;

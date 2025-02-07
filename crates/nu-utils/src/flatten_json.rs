@@ -31,7 +31,7 @@ pub struct JsonFlattener<'a> {
     pub preserve_arrays: bool,
 }
 
-impl<'a> Default for JsonFlattener<'a> {
+impl Default for JsonFlattener<'_> {
     fn default() -> Self {
         JsonFlattener {
             separator: ".",
@@ -56,7 +56,7 @@ impl<'a> Default for JsonFlattener<'a> {
 ///
 /// let flattened_example = flattener.flatten(&example);
 /// ```
-impl<'a> JsonFlattener<'a> {
+impl JsonFlattener<'_> {
     /// Returns a flattener with the default arguments
     /// # Examples
     /// ```

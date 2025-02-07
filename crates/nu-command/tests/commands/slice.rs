@@ -66,3 +66,17 @@ fn negative_indices() {
         assert_eq!(actual.out, "1");
     });
 }
+
+#[test]
+fn zero_to_zero_exclusive() {
+    let actual = nu!(r#"[0 1 2 3] | slice 0..<0 | to nuon"#);
+
+    assert_eq!(actual.out, "[]");
+}
+
+#[test]
+fn to_negative_one_inclusive() {
+    let actual = nu!(r#"[0 1 2 3] | slice 2..-1 | to nuon"#);
+
+    assert_eq!(actual.out, "[2, 3]");
+}

@@ -54,7 +54,7 @@ impl Command for DebugInfo {
 }
 
 fn all_columns(span: Span) -> Value {
-    let rk = RefreshKind::new()
+    let rk = RefreshKind::nothing()
         .with_processes(ProcessRefreshKind::everything())
         .with_memory(MemoryRefreshKind::everything());
 

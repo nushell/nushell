@@ -11,6 +11,7 @@ mod operator;
 mod pipeline;
 mod range;
 mod table;
+mod traverse;
 mod unit;
 mod value_with_unit;
 
@@ -26,5 +27,6 @@ pub use operator::*;
 pub use pipeline::*;
 pub use range::*;
 pub use table::Table;
+pub use traverse::*;
 pub use unit::*;
 pub use value_with_unit::*;

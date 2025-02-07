@@ -41,6 +41,9 @@ impl PluginCommand for ExprWhen {
                     Type::Custom("expression".into()),
                     Type::Custom("expression".into()),
                 ),
+                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
+                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
+                (Type::Any, Type::Custom("expression".into())),
             ])
             .category(Category::Custom("expression".into()))
     }

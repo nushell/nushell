@@ -273,6 +273,33 @@ fn dotnu_completions() {
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
+    // Test nested nu script
+    #[cfg(windows)]
+    let completion_str = "use `.\\dir_module\\".to_string();
+    #[cfg(not(windows))]
+    let completion_str = "use `./dir_module/".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+
+    match_suggestions(
+        &vec![
+            "mod.nu".into(),
+            #[cfg(windows)]
+            "sub module\\`".into(),
+            #[cfg(not(windows))]
+            "sub module/`".into(),
+        ],
+        &suggestions,
+    );
+
+    // Test nested nu script, with ending '`'
+    #[cfg(windows)]
+    let completion_str = "use `.\\dir_module\\sub module\\`".to_string();
+    #[cfg(not(windows))]
+    let completion_str = "use `./dir_module/sub module/`".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+
+    match_suggestions(&vec!["sub.nu`".into()], &suggestions);
+
     let expected = vec![
         "asdf.nu".into(),
         "bar.nu".into(),
@@ -283,6 +310,18 @@ fn dotnu_completions() {
         #[cfg(not(windows))]
         "dir_module/".into(),
         "foo.nu".into(),
+        #[cfg(windows)]
+        "lib-dir1\\".into(),
+        #[cfg(not(windows))]
+        "lib-dir1/".into(),
+        #[cfg(windows)]
+        "lib-dir2\\".into(),
+        #[cfg(not(windows))]
+        "lib-dir2/".into(),
+        #[cfg(windows)]
+        "lib-dir3\\".into(),
+        #[cfg(not(windows))]
+        "lib-dir3/".into(),
         "spam.nu".into(),
         "xyzzy.nu".into(),
     ];
@@ -1861,4 +1900,32 @@ fn alias_offset_bug_7754() {
     // and the alias command contains pipes.
     // This crashes before PR #7756
     let _suggestions = completer.complete("ll -a | c", 9);
+}
+
+#[rstest]
+fn nested_block(mut completer: NuCompleter) {
+    let expected: Vec<String> = vec!["--help".into(), "--mod".into(), "-h".into(), "-s".into()];
+
+    let suggestions = completer.complete("somecmd | lines | each { tst - }", 30);
+    match_suggestions(&expected, &suggestions);
+
+    let suggestions = completer.complete("somecmd | lines | each { tst -}", 30);
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn incomplete_nested_block(mut completer: NuCompleter) {
+    let suggestions = completer.complete("somecmd | lines | each { tst -", 30);
+    let expected: Vec<String> = vec!["--help".into(), "--mod".into(), "-h".into(), "-s".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn deeply_nested_block(mut completer: NuCompleter) {
+    let suggestions = completer.complete(
+        "somecmd | lines | each { print ([each (print) (tst -)]) }",
+        52,
+    );
+    let expected: Vec<String> = vec!["--help".into(), "--mod".into(), "-h".into(), "-s".into()];
+    match_suggestions(&expected, &suggestions);
 }

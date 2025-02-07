@@ -2426,7 +2426,7 @@ mod input_types {
         add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
-        parse(
+        let block = parse(
             &mut working_set,
             None,
             b"if false { 'a' } else { $foo }",
@@ -2437,6 +2437,30 @@ mod input_types {
             working_set.parse_errors.first(),
             Some(ParseError::VariableNotFound(_, _))
         ));
+
+        let element = &block
+            .pipelines
+            .first()
+            .unwrap()
+            .elements
+            .first()
+            .unwrap()
+            .expr;
+        let Expr::Call(call) = &element.expr else {
+            eprintln!("{:?}", element.expr);
+            panic!("Expected Expr::Call");
+        };
+        let Expr::Keyword(else_kwd) = &call
+            .arguments
+            .get(2)
+            .expect("This call of `if` should have 3 arguments")
+            .expr()
+            .unwrap()
+            .expr
+        else {
+            panic!("Expected Expr::Keyword");
+        };
+        assert!(!matches!(else_kwd.expr.expr, Expr::Garbage))
     }
 
     #[test]
@@ -2597,7 +2621,7 @@ mod record {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
         let block = parse(&mut working_set, None, expr, false);
-        assert!(working_set.parse_errors.first().is_none());
+        assert!(working_set.parse_errors.is_empty());
         let pipeline_el_expr = &block
             .pipelines
             .first()

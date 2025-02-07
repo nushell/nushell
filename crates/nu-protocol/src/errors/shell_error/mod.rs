@@ -1,3 +1,4 @@
+use super::chained_error::ChainedError;
 use crate::{
     ast::Operator,
     engine::{JobId, StateWorkingSet},
@@ -1327,6 +1328,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Option<Span>,
     },
 
+
     #[error("Job {id} not found")]
     #[diagnostic(
         code(nu::shell::job_not_found),
@@ -1360,6 +1362,10 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         #[label = "job not frozen"]
         span: Span,
     },
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ChainedError(ChainedError),
 }
 
 impl ShellError {
@@ -1407,6 +1413,16 @@ impl ShellError {
             "Encountered error during parse-time evaluation".into(),
             span,
         )
+    }
+
+    /// Convert self error to a [`ShellError::ChainedError`] variant.
+    pub fn into_chainned(self, span: Span) -> Self {
+        match self {
+            ShellError::ChainedError(inner) => {
+                ShellError::ChainedError(ChainedError::new_chained(inner, span))
+            }
+            other => ShellError::ChainedError(ChainedError::new(other, span)),
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 use pretty_assertions::assert_eq;
@@ -1134,4 +1134,84 @@ fn error_on_out_greater_pipe() {
     assert!(actual
         .err
         .contains("Redirecting stdout to a pipe is the same as normal piping"))
+}
+
+#[test]
+fn error_with_backtrace() {
+    Playground::setup("error with backtrace", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_BACKTRACE = 1")]);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"def a [x] { if $x == 3 { error make {msg: 'a custom error'}}};a 3"#);
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        // run `a 3`, and it raises error, so there should be 1.
+        assert_eq!(chained_error_cnt.len(), 1);
+        assert!(actual.err.contains("a custom error"));
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"def a [x] { if $x == 3 { error make {msg: 'a custom error'}}};def b [] { a 1; a 3; a 2 };b"#);
+
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        // run `b`, it runs `a 3`, and it raises error, so there should be 2.
+        assert_eq!(chained_error_cnt.len(), 2);
+        assert!(actual.err.contains("a custom error"));
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"error make {msg: 'a custom err'}"#);
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        // run error make directly, show no backtrace is available
+        assert_eq!(chained_error_cnt.len(), 0);
+    });
+}
+
+#[test]
+fn liststream_error_with_backtrace() {
+    Playground::setup("liststream error with backtrace", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_BACKTRACE = 1")]);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"def a [x] { if $x == 3 { [1] | each {error make {'msg': 'a custom error'}}}};a 3"#);
+        assert!(actual.err.contains("a custom error"));
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"def a [x] { if $x == 3 { [1] | each {error make {'msg': 'a custom error'}}}};def b [] { a 1; a 3; a 2 };b"#);
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        assert_eq!(chained_error_cnt.len(), 1);
+        assert!(actual.err.contains("a custom error"));
+        let eval_with_input_cnt: Vec<&str> = actual.err.matches("eval_block_with_input").collect();
+        assert_eq!(eval_with_input_cnt.len(), 2);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"[1] | each { error make {msg: 'a custom err'} }"#);
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        // run error make directly, show no backtrace is available
+        assert_eq!(chained_error_cnt.len(), 0);
+    });
 }
