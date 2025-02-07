@@ -10,6 +10,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 nu-protocol = { path = "../../nu-protocol" }
+nu-cmd-lang = { path = "../../nu-cmd-lang" }
 
 
 [dependencies.nu-parser]
@@ -25,5 +26,11 @@ debug = 1
 [[bin]]
 name = "parse"
 path = "fuzz_targets/parse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "parse_with_keywords"
+path = "fuzz_targets/parse_with_keywords.rs"
 test = false
 doc = false
