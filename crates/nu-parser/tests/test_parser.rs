@@ -2,7 +2,7 @@ use nu_parser::*;
 use nu_protocol::{
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
     engine::{Call, Command, EngineState, Stack, StateWorkingSet},
-    Category, DeclId, ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    DeclId, ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
 };
 use rstest::rstest;
 
@@ -63,35 +63,6 @@ impl Command for Mut {
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
                 "equals sign followed by value",
             )
-    }
-
-    fn run(
-        &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        _call: &Call,
-        _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        todo!()
-    }
-}
-
-#[derive(Clone)]
-pub struct ToCustom;
-
-impl Command for ToCustom {
-    fn name(&self) -> &str {
-        "to-custom"
-    }
-
-    fn description(&self) -> &str {
-        "Mock converter command."
-    }
-
-    fn signature(&self) -> nu_protocol::Signature {
-        Signature::build(self.name())
-            .input_output_type(Type::Any, Type::Custom("custom".into()))
-            .category(Category::Custom("custom".into()))
     }
 
     fn run(
@@ -1604,6 +1575,7 @@ fn test_semi_open_brace(#[case] phrase: &[u8]) {
 
 mod range {
     use super::*;
+    use crate::mock::ToCustom;
     use nu_protocol::ast::{RangeInclusion, RangeOperator};
 
     #[rstest]
