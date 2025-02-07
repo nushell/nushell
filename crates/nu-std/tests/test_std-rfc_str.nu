@@ -142,7 +142,7 @@ def str-dedent_error-not_enough_indentation [] {
 
 #[test]
 def str-dedent_error-not_enough_indentation2 [] {
-    # Test 8:
+    # Test 8.1:
     # Error - Line 2 does not have enough indentation
     assert error {||
         let s = "   
@@ -151,8 +151,11 @@ def str-dedent_error-not_enough_indentation2 [] {
             "
         $s | str dedent
     }
+}
 
-    # Test 9:
+#[test]
+def str-dedent_error-not_enough_indentation3 [] {
+    # Test 8.2:
     # Error - Line does not have enough indentation
     assert error {||
         let s = "   
@@ -164,7 +167,7 @@ def str-dedent_error-not_enough_indentation2 [] {
 
 #[test]
 def str-dedent_first_line_whitespace_allowed [] {
-    # Test 10:
+    # Test 9:
     # "Hidden" whitespace on the first line is allowed
     assert equal (
         do {
@@ -172,6 +175,21 @@ def str-dedent_first_line_whitespace_allowed [] {
             $s | str dedent
         }
     ) "  Identity  "
+}
+
+#[test]
+def str-dedent_using_tabs [] {
+    # Test 10:
+    # If the indentation on the last line uses tabs, then the number of tabs
+    # will be used instead of spaces
+    let actual = (
+        "\n\t\tFirst line\n\t\t\tSecond line\n\t\t"
+        | str dedent
+    )
+
+    let expected = "First line\n\tSecond line"
+
+    assert equal $actual $expected
 }
 
 #[test]
@@ -265,7 +283,7 @@ def str-unindent_whitespace_works_with_tabs [] {
 
     let actual = (
         $"(char newline)(char tab)(char tab)Content(char newline)"
-        | str unindent --tab
+        | str unindent --tabs
     )
 
     let expected = $"Content"

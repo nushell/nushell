@@ -1,7 +1,5 @@
 # Removes common indent from a multi-line string based on the number of spaces on the last line.
 # 
-# A.k.a. Unindent
-#
 # Example - Two leading spaces are removed from all lines:
 #
 # > let s = "
@@ -13,27 +11,15 @@
 #      "
 # > $a | str dedent
 #
-# Heading
-#   Indented Line
-#   Another Indented Line
-#
-# Another Heading
-export def dedent []: string -> string {
+# # => Heading
+# # =>   Indented Line
+# # =>   Another Indented Line
+# # => 
+# # => Another Heading
+export def dedent [
+    --tabs (-t)
+]: string -> string {
     let string = $in
-
-    if ($string | describe) != "string" {
-        let span = (view files | last)
-        error make {
-            msg: 'Requires multi-line string as pipeline input'
-            label: {
-                text: "err::pipeline_input"
-                span: {
-                    start: $span.start
-                    end: $span.end
-                }
-            }
-        }
-    }
 
     if ($string !~ '^\s*\n') {
         return (error make {
@@ -41,16 +27,15 @@ export def dedent []: string -> string {
         })
     }
 
-    if ($string !~ '\n\s*$') {
+    if ($string !~ '\n[ \t]*$') {
         return (error make {
             msg: 'Last line must contain only whitespace indicating the dedent'
         })
      }
 
-    # Get number of spaces on the last line
-    let indent = $string
-        | str replace -r '(?s).*\n( *)$' '$1'
-        | str length
+    # Get indent characters from the last line
+    let indent_chars = $string
+        | str replace -r "(?s).*\n([ \t]*)$" '$1'
 
     # Skip the first and last lines
     let lines = (
@@ -63,16 +48,17 @@ export def dedent []: string -> string {
         | rename lineNumber text
     )
 
-    let spaces = ('' | fill -c ' ' -w $indent)
-
     # Has to be done outside the replacement block or the error
     # is converted to text. This is probably a Nushell bug, and
     # this code can be recombined with the next iterator when
     # the Nushell behavior is fixed.
     for line in $lines {
-        if ($line.text !~ '^\s*$') and ($line.text | str index-of --range 0..($indent) $spaces) == -1 {
+        # Skip lines with whitespace-only
+        if $line.text like '^\s*$' { continue }
+        # Error if any line doesn't start with enough indentation
+        if ($line.text | parse -r $"^\(($indent_chars)\)" | get capture0?.0?) != $indent_chars {
             error make {
-                msg: $"Line ($line.lineNumber + 1) must be indented by ($indent) or more spaces."
+                msg: $"Line ($line.lineNumber + 1) must have an indent of ($indent_chars | str length) or more."
             }
         }
     }
@@ -80,8 +66,8 @@ export def dedent []: string -> string {
     $lines
     | each {|line|
         # Don't operate on lines containing only whitespace
-        if ($line.text !~ '^\s*$') {
-            $line.text | str replace $spaces ''
+        if ($line.text not-like '^\s*$') {
+            $line.text | str replace $indent_chars ''
         } else {
             $line.text
         }
@@ -92,11 +78,29 @@ export def dedent []: string -> string {
     | str replace -r '(?s)(.*)\n$' '$1'
 }
 
-# Remove common indent from a multi-line string
+# Remove common indent from a multi-line string based on the line with the smallest indent
+# 
+# Example - Two leading spaces are removed from all lines:
+#
+# > let s = "
+#      Heading
+#        Indented Line
+#        Another Indented Line
+#
+#      Another Heading
+#   "
+# > $a | str dedent
+#
+# # => Heading
+# # =>   Indented Line
+# # =>   Another Indented Line
+# # =>
+# # => Another Heading
+#
 export def unindent [
-    --tab (-t)            # String uses tabs instead of spaces for indentation
+    --tabs (-t)            # String uses tabs instead of spaces for indentation
 ]: string -> string {
-    let indent_char = match $tab {
+    let indent_char = match $tabs {
         true => '\t'
         false => ' '
     }
@@ -105,6 +109,7 @@ export def unindent [
         $in
         | # Remove the first line if it is only whitespace (tabs or spaces)
         | str replace -r $'^[ \t]*(char newline)' ''
+        | # Remove the last line if it is only whitespace (tabs or spaces)
         | str replace -r $'(char newline)[ \t]*$' ''
     )
 
