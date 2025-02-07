@@ -1,80 +1,12 @@
 use nu_parser::*;
 use nu_protocol::{
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
-    engine::{Call, Command, EngineState, Stack, StateWorkingSet},
-    DeclId, ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    engine::{Command, EngineState, Stack, StateWorkingSet},
+    DeclId, ParseError, Signature, Span, SyntaxShape, Type,
 };
 use rstest::rstest;
 
-#[cfg(test)]
-#[derive(Clone)]
-pub struct Let;
-
-#[cfg(test)]
-impl Command for Let {
-    fn name(&self) -> &str {
-        "let"
-    }
-
-    fn description(&self) -> &str {
-        "Create a variable and give it a value."
-    }
-
-    fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("let")
-            .required("var_name", SyntaxShape::VarWithOptType, "variable name")
-            .required(
-                "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
-                "equals sign followed by value",
-            )
-    }
-
-    fn run(
-        &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        _call: &Call,
-        _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        todo!()
-    }
-}
-
-#[cfg(test)]
-#[derive(Clone)]
-pub struct Mut;
-
-#[cfg(test)]
-impl Command for Mut {
-    fn name(&self) -> &str {
-        "mut"
-    }
-
-    fn description(&self) -> &str {
-        "Mock mut command."
-    }
-
-    fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("mut")
-            .required("var_name", SyntaxShape::VarWithOptType, "variable name")
-            .required(
-                "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
-                "equals sign followed by value",
-            )
-    }
-
-    fn run(
-        &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        _call: &Call,
-        _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        todo!()
-    }
-}
+use mock::{Let, Mut, ToCustom};
 
 fn test_int(
     test_tag: &str,     // name of sub-test
@@ -1575,7 +1507,6 @@ fn test_semi_open_brace(#[case] phrase: &[u8]) {
 
 mod range {
     use super::*;
-    use crate::mock::ToCustom;
     use nu_protocol::ast::{RangeInclusion, RangeOperator};
 
     #[rstest]
@@ -1919,6 +1850,71 @@ mod mock {
     use super::*;
     use nu_protocol::{engine::Call, Category, PipelineData, ShellError, Type};
 
+    #[derive(Clone)]
+    pub struct Let;
+
+    impl Command for Let {
+        fn name(&self) -> &str {
+            "let"
+        }
+
+        fn description(&self) -> &str {
+            "Create a variable and give it a value."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("let")
+                .required("var_name", SyntaxShape::VarWithOptType, "variable name")
+                .required(
+                    "initial_value",
+                    SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                    "equals sign followed by value",
+                )
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct Mut;
+
+    impl Command for Mut {
+        fn name(&self) -> &str {
+            "mut"
+        }
+
+        fn description(&self) -> &str {
+            "Mock mut command."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("mut")
+                .required("var_name", SyntaxShape::VarWithOptType, "variable name")
+                .required(
+                    "initial_value",
+                    SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                    "equals sign followed by value",
+                )
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
     #[derive(Clone)]
     pub struct LsTest;
 
