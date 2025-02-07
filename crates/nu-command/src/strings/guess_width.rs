@@ -6,7 +6,7 @@
 /// The width seems to be a fixed length, but it doesn't always fit.
 /// GuessWidth finds the column separation position
 /// from the reference line(header) and multiple lines(body).
-
+///
 /// Briefly, the algorithm uses a histogram of spaces to find widths.
 /// blanks, lines, and pos are variables used in the algorithm. The other
 /// items names below are just for reference.
@@ -19,7 +19,7 @@
 /// spaces = "      ^        ^        ^"
 ///    pos =  6 15 24 <- the carets show these positions
 /// the items in pos map to 3's in the blanks array
-
+///
 /// Now that we have pos, we can let split() use this pos array to figure out
 /// how to split all lines by comparing each index to see if there's a space.
 /// So, it looks at position 6, 15, 24 and sees if it has a space in those

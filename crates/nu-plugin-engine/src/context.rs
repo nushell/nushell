@@ -84,7 +84,7 @@ impl<'a> PluginExecutionCommandContext<'a> {
     }
 }
 
-impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
+impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
     fn span(&self) -> Span {
         self.call.head
     }
