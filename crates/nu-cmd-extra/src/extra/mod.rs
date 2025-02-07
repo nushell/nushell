@@ -6,9 +6,7 @@ mod math;
 mod platform;
 mod strings;
 
-pub use bits::{
-    Bits, BitsAnd, BitsInto, BitsNot, BitsOr, BitsRol, BitsRor, BitsShl, BitsShr, BitsXor,
-};
+pub use bits::{Bits, BitsAnd, BitsNot, BitsOr, BitsRol, BitsRor, BitsShl, BitsShr, BitsXor};
 pub use formats::ToHtml;
 pub use math::{MathArcCos, MathArcCosH, MathArcSin, MathArcSinH, MathArcTan, MathArcTanH};
 pub use math::{MathCos, MathCosH, MathSin, MathSinH, MathTan, MathTanH};
@@ -63,7 +61,6 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Bits,
             BitsAnd,
-            BitsInto,
             BitsNot,
             BitsOr,
             BitsRol,
