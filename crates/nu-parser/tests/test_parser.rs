@@ -673,7 +673,7 @@ pub fn parse_attribute_block_check_spans() {
     "#;
     let block = parse(&mut working_set, None, source, true);
 
-    // There SHOULD be errors here, we're using nonexistant commands
+    // There SHOULD be errors here, we're using nonexistent commands
     assert!(!working_set.parse_errors.is_empty());
 
     assert_eq!(block.len(), 1);
