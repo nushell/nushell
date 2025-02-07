@@ -75,7 +75,7 @@ def str-dedent_ends_with_newline [] {
 }
 
 #[test]
-def str-dedent_indentity [] {
+def str-dedent_identity [] {
     # Test 5:
     # Identity - Returns the original string sans first and last empty lines
     # No other whitespace should be removed

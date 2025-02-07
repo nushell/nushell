@@ -109,7 +109,7 @@ export def "kv get" [
     # Hack to turn a SQLiteDatabase into a table
   | $in.std_kv_store | wrap temp | get temp
   | where key == $key
-    # Should only be one occurence of each key in the stor
+    # Should only be one occurrence of each key in the stor
   | get -i value.0
   | match $in {
       # Key not found

@@ -34,7 +34,7 @@ export def copy [
 	print -n $'(ansi osc)52;c;($output)(ansi st)'
 }
 
-# Paste contenst of system clipboard
+# Paste contents of system clipboard
 #
 # # Example
 # ```nushell
