@@ -6,7 +6,7 @@ use nu_protocol::{
 };
 use rstest::rstest;
 
-use mock::{Let, Mut, ToCustom};
+use mock::{AttrEcho, Def, Let, Mut, ToCustom};
 
 fn test_int(
     test_tag: &str,     // name of sub-test
@@ -659,6 +659,73 @@ pub fn parse_call_missing_req_flag() {
         working_set.parse_errors.first(),
         Some(ParseError::MissingRequiredFlag(..))
     ));
+}
+
+#[test]
+pub fn parse_attribute_block_check_spans() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let source = br#"
+    @foo a 1 2
+    @bar b 3 4
+    echo baz
+    "#;
+    let block = parse(&mut working_set, None, source, true);
+
+    // There SHOULD be errors here, we're using nonexistant commands
+    assert!(!working_set.parse_errors.is_empty());
+
+    assert_eq!(block.len(), 1);
+
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+
+    let Expr::AttributeBlock(ab) = &element.expr.expr else {
+        panic!("Couldn't parse attribute block");
+    };
+
+    assert_eq!(
+        working_set.get_span_contents(ab.attributes[0].expr.span),
+        b"foo a 1 2"
+    );
+    assert_eq!(
+        working_set.get_span_contents(ab.attributes[1].expr.span),
+        b"bar b 3 4"
+    );
+    assert_eq!(working_set.get_span_contents(ab.item.span), b"echo baz");
+}
+
+#[test]
+pub fn parse_attributes_check_values() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let source = br#"
+    @echo "hello world"
+    @echo 42
+    def foo [] {}
+    "#;
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let decl_id = working_set.find_decl(b"foo").unwrap();
+    let cmd = working_set.get_decl(decl_id);
+    let attributes = cmd.attributes();
+
+    let (name, val) = &attributes[0];
+    assert_eq!(name, "echo");
+    assert_eq!(val.as_str(), Ok("hello world"));
+
+    let (name, val) = &attributes[1];
+    assert_eq!(name, "echo");
+    assert_eq!(val.as_int(), Ok(42));
 }
 
 fn test_external_call(input: &str, tag: &str, f: impl FnOnce(&Expression, &[ExternalArgument])) {
@@ -1848,7 +1915,10 @@ mod range {
 #[cfg(test)]
 mod mock {
     use super::*;
-    use nu_protocol::{engine::Call, Category, PipelineData, ShellError, Type};
+    use nu_engine::CallExt;
+    use nu_protocol::{
+        engine::Call, Category, IntoPipelineData, PipelineData, ShellError, Type, Value,
+    };
 
     #[derive(Clone)]
     pub struct Let;
@@ -1971,6 +2041,52 @@ mod mock {
             _input: PipelineData,
         ) -> Result<PipelineData, ShellError> {
             todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct AttrEcho;
+
+    impl Command for AttrEcho {
+        fn name(&self) -> &str {
+            "attr echo"
+        }
+
+        fn signature(&self) -> Signature {
+            Signature::build("attr echo").required(
+                "value",
+                SyntaxShape::Any,
+                "Value to store as an attribute",
+            )
+        }
+
+        fn description(&self) -> &str {
+            "Add an arbitrary value as an attribute to a command"
+        }
+
+        fn run(
+            &self,
+            engine_state: &EngineState,
+            stack: &mut Stack,
+            call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            let value: Value = call.req(engine_state, stack, 0)?;
+            Ok(value.into_pipeline_data())
+        }
+
+        fn is_const(&self) -> bool {
+            true
+        }
+
+        fn run_const(
+            &self,
+            working_set: &StateWorkingSet,
+            call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            let value: Value = call.req_const(working_set, 0)?;
+            Ok(value.into_pipeline_data())
         }
     }
 
