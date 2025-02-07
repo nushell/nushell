@@ -1943,9 +1943,9 @@ mod range {
 }
 
 #[cfg(test)]
-mod input_types {
+mod mock {
     use super::*;
-    use nu_protocol::{ast::Argument, engine::Call, Category, PipelineData, ShellError, Type};
+    use nu_protocol::{engine::Call, Category, PipelineData, ShellError, Type};
 
     #[derive(Clone)]
     pub struct LsTest;
@@ -2255,6 +2255,13 @@ mod input_types {
             todo!()
         }
     }
+}
+
+#[cfg(test)]
+mod input_types {
+    use super::*;
+    use mock::*;
+    use nu_protocol::ast::Argument;
 
     fn add_declarations(engine_state: &mut EngineState) {
         let delta = {
