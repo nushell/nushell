@@ -21,4 +21,4 @@ pub use dotnu_completions::DotNuCompletion;
 pub use file_completions::{file_path_completion, FileCompletion};
 pub use flag_completions::FlagCompletion;
 pub use operator_completions::OperatorCompletion;
-pub use variable_completions::VariableCompletion;
+pub use variable_completions::{CellPathCompletion, VariableNameCompletion};
