@@ -5863,7 +5863,11 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         if lex_n_tokens(&mut lex_state, additional_whitespace, &[b':'], true, 1) < 1 {
             break;
         };
-        let span = lex_state.output[lex_state.output.len() - 1].span;
+        let span = lex_state
+            .output
+            .last()
+            .expect("should have gotten 1 token")
+            .span;
         let contents = working_set.get_span_contents(span);
         if contents.len() > 3
             && contents.starts_with(b"...")
