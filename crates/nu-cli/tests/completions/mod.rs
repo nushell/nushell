@@ -1577,6 +1577,10 @@ fn record_cell_path_completions() {
     let completion_str = "$bar.a.1.";
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&expected, &suggestions);
+
+    let completion_str = "{a: [1 {a: 2}]}.a.1.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
 }
 
 #[test]

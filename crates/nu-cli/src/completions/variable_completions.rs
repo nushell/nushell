@@ -1,7 +1,8 @@
 use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
-use nu_engine::{column::get_columns, eval_variable};
+use nu_engine::{column::get_columns, eval_expression, eval_variable};
 use nu_protocol::{
     ast::{Expr, FullCellPath, PathMember},
+    debugger::WithoutDebug,
     engine::{Stack, StateWorkingSet},
     Span, Value, VarId,
 };
@@ -83,7 +84,6 @@ impl Completer for VariableNameCompletion {
     }
 }
 
-#[derive(Clone)]
 pub struct CellPathCompletion<'a> {
     pub full_cell_path: &'a FullCellPath,
 }
@@ -99,10 +99,7 @@ impl Completer for CellPathCompletion<'_> {
         _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        // if head expression is not a known variable, nothing to complete
-        let Expr::Var(var_id) = self.full_cell_path.head.expr else {
-            return vec![];
-        };
+        // empty tail is already handled as variable names completion
         let Some((prefix_member, path_members)) = self.full_cell_path.tail.split_last() else {
             return vec![];
         };
@@ -118,16 +115,26 @@ impl Completer for CellPathCompletion<'_> {
             start: span.start - offset,
             end: true_end - offset,
         };
+
         let mut matcher = NuMatcher::new(prefix_str, options.clone());
 
-        if let Some(val) = &working_set.get_variable(var_id).const_val {
-            for suggestion in nested_suggestions(val, path_members, current_span) {
-                matcher.add_semantic_suggestion(suggestion);
-            }
-        } else if let Ok(val) = eval_variable(working_set.permanent_state, stack, var_id, span) {
-            for suggestion in nested_suggestions(&val, path_members, current_span) {
-                matcher.add_semantic_suggestion(suggestion);
-            }
+        // evaluate the head expression to get its value
+        let value = if let Expr::Var(var_id) = self.full_cell_path.head.expr {
+            working_set
+                .get_variable(var_id)
+                .const_val
+                .to_owned()
+                .or(eval_variable(working_set.permanent_state, stack, var_id, span).ok())
+        } else {
+            let mut stack = stack.clone();
+            let mut new_engine = working_set.permanent_state.clone();
+            let _ = new_engine.merge_delta(working_set.delta.clone());
+            eval_expression::<WithoutDebug>(&new_engine, &mut stack, &self.full_cell_path.head).ok()
+        }
+        .unwrap_or_default();
+
+        for suggestion in nested_suggestions(&value, path_members, current_span) {
+            matcher.add_semantic_suggestion(suggestion);
         }
         matcher.results()
     }
