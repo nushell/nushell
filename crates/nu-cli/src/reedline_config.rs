@@ -629,7 +629,7 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         KeyCode::Tab,
         ReedlineEvent::UntilFound(vec![
             ReedlineEvent::Menu("completion_menu".to_string()),
-            ReedlineEvent::MenuNext,
+            ReedlineEvent::MenuNextComplete,
             ReedlineEvent::Edit(vec![EditCommand::Complete]),
         ]),
     );
@@ -639,7 +639,7 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         KeyCode::Char(' '),
         ReedlineEvent::UntilFound(vec![
             ReedlineEvent::Menu("ide_completion_menu".to_string()),
-            ReedlineEvent::MenuNext,
+            ReedlineEvent::MenuNextComplete,
             ReedlineEvent::Edit(vec![EditCommand::Complete]),
         ]),
     );
@@ -1015,6 +1015,7 @@ fn event_from_record(
         "menuleft" => ReedlineEvent::MenuLeft,
         "menuright" => ReedlineEvent::MenuRight,
         "menunext" => ReedlineEvent::MenuNext,
+        "menunextcomplete" => ReedlineEvent::MenuNextComplete,
         "menuprevious" => ReedlineEvent::MenuPrevious,
         "menupagenext" => ReedlineEvent::MenuPageNext,
         "menupageprevious" => ReedlineEvent::MenuPagePrevious,
