@@ -255,7 +255,7 @@ pub(crate) fn compile_match(
         builder.drop_reg(match_reg)?;
 
         // Execute match right hand side expression
-        if let Some(block_id) = expr.as_block() {
+        if let Expr::Block(block_id) = expr.expr {
             let block = working_set.get_block(block_id);
             compile_block(
                 working_set,
