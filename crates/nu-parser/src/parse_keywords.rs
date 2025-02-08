@@ -994,13 +994,19 @@ pub fn parse_alias(
             let starting_error_count = working_set.parse_errors.len();
             working_set.search_predecls = false;
 
+            println!("replacement_spans: {replacement_spans:?}");
             let expr = parse_call(working_set, replacement_spans, replacement_spans[0]);
+            println!("errors: {:?}", working_set.parse_errors);
 
             working_set.search_predecls = true;
 
             if starting_error_count != working_set.parse_errors.len() {
                 if let Some(e) = working_set.parse_errors.get(starting_error_count) {
-                    if let ParseError::MissingPositional(..) = e {
+                    if matches!(
+                        e,
+                        ParseError::MissingPositional(..)
+                            | ParseError::BuiltinCommandInPipeline(..)
+                    ) {
                         working_set
                             .parse_errors
                             .truncate(original_starting_error_count);
@@ -1147,6 +1153,8 @@ pub fn parse_export_in_block(
     }
 
     if let Some(decl_id) = working_set.find_decl(full_name.as_bytes()) {
+        // TODO: I guess for export alias, shouln't call parse_internal_call, should
+        // call parse_alias directly
         let ParsedInternalCall { call, output, .. } = parse_internal_call(
             working_set,
             if full_name == "export" {
@@ -1160,6 +1168,10 @@ pub fn parse_export_in_block(
                 &lite_command.parts[2..]
             },
             decl_id,
+        );
+        println!(
+            "parse export in block, parse internal call error: {:?}",
+            working_set.parse_errors
         );
 
         let decl = working_set.get_decl(decl_id);
@@ -1196,6 +1208,7 @@ pub fn parse_export_in_block(
         return garbage_pipeline(working_set, &lite_command.parts);
     }
 
+    println!("lite command in export: {:?}", lite_command);
     match full_name {
         "export alias" => parse_alias(working_set, lite_command, None),
         "export def" => parse_def(working_set, lite_command, None).0,
