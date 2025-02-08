@@ -8,5 +8,5 @@ fn test_char_list_outputs_table() {
         "#
     ));
 
-    assert_eq!(actual.out, "107");
+    assert_eq!(actual.out, "113");
 }

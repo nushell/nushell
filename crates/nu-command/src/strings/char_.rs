@@ -14,7 +14,7 @@ const ENV_PATH_SEPARATOR_CHAR: char = ':';
 
 // Character used to separate directories in a Path Environment variable on windows is ";"
 #[cfg(target_family = "windows")]
-const LINE_SEPARATOR_CHAR: char = "\r\n";
+const LINE_SEPARATOR_CHAR: &str = "\r\n";
 // Character used to separate directories in a Path Environment variable on linux/mac/unix is ":"
 #[cfg(not(target_family = "windows"))]
 const LINE_SEPARATOR_CHAR: char = '\n';
