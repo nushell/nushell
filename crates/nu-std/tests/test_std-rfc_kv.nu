@@ -7,6 +7,8 @@ use std-rfc/kv *
 
 #[test]
 def simple-local-set [] {
+    if ('sqlite' not-in (version).features) { return }
+
     let key = (random uuid)
 
     kv set $key 42
@@ -19,6 +21,8 @@ def simple-local-set [] {
 
 #[test]
 def local-pipeline_set_returns_value [] {
+    if ('sqlite' not-in (version).features) { return }
+
     let key = (random uuid)
     let actual = (42 | kv set $key)
     let expected = 42
@@ -33,6 +37,8 @@ def local-pipeline_set_returns_value [] {
 
 #[test]
 def local-multiple_assignment [] {
+    if ('sqlite' not-in (version).features) { return }
+
     let key1 = (random uuid)
     let key2 = (random uuid)
     let key3 = (random uuid)
@@ -51,6 +57,8 @@ def local-multiple_assignment [] {
 
 #[test]
 def local-transpose_to_record [] {
+    if ('sqlite' not-in (version).features) { return }
+
     let key1 = (random uuid)
     let key2 = (random uuid)
     let key3 = (random uuid)
@@ -70,6 +78,8 @@ def local-transpose_to_record [] {
 
 #[test]
 def local-using_closure [] {
+    if ('sqlite' not-in (version).features) { return }
+
     let name_key = (random uuid)
     let size_key = (random uuid)
 
@@ -91,6 +101,8 @@ def local-using_closure [] {
 
 #[test]
 def local-return-entire-list [] {
+    if ('sqlite' not-in (version).features) { return }
+
     let key1 = (random uuid)
     let key2 = (random uuid)
 
@@ -111,6 +123,8 @@ def local-return-entire-list [] {
 
 #[test]
 def local-return_value_only [] {
+    if ('sqlite' not-in (version).features) { return }
+
     let key = (random uuid)
 
     let expected = 'VALUE'
@@ -124,6 +138,8 @@ def local-return_value_only [] {
 
 #[test]
 def universal-simple_set [] {
+    if ('sqlite' not-in (version).features) { return }
+
     let key = (random uuid)
 
     kv set -u $key 42
@@ -136,6 +152,8 @@ def universal-simple_set [] {
 
 #[test]
 def universal-pipeline_set_returns_value [] {
+    if ('sqlite' not-in (version).features) { return }
+
     let key = (random uuid)
     let actual = (42 | kv set -u $key)
     let expected = 42
@@ -150,6 +168,8 @@ def universal-pipeline_set_returns_value [] {
 
 #[test]
 def universal-multiple_assignment [] {
+    if ('sqlite' not-in (version).features) { return }
+
     let key1 = (random uuid)
     let key2 = (random uuid)
     let key3 = (random uuid)
@@ -168,6 +188,8 @@ def universal-multiple_assignment [] {
 
 #[test]
 def universal-transpose_to_record [] {
+    if ('sqlite' not-in (version).features) { return }
+
     let key1 = (random uuid)
     let key2 = (random uuid)
     let key3 = (random uuid)
@@ -187,6 +209,8 @@ def universal-transpose_to_record [] {
 
 #[test]
 def universal-using_closure [] {
+    if ('sqlite' not-in (version).features) { return }
+
     let name_key = (random uuid)
     let size_key = (random uuid)
 
@@ -208,6 +232,8 @@ def universal-using_closure [] {
 
 #[test]
 def universal-return-entire-list [] {
+    if ('sqlite' not-in (version).features) { return }
+
     let key1 = (random uuid)
     let key2 = (random uuid)
 
@@ -228,6 +254,8 @@ def universal-return-entire-list [] {
 
 #[test]
 def universal-return_value_only [] {
+    if ('sqlite' not-in (version).features) { return }
+
     let key = (random uuid)
 
     let expected = 'VALUE'

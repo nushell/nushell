@@ -103,7 +103,14 @@ pub fn load_standard_library(
             "std-rfc/conversions",
             include_str!("../std-rfc/conversions/mod.nu"),
         ),
+        #[cfg(feature = "sqlite")]
         ("mod.nu", "std-rfc/kv", include_str!("../std-rfc/kv/mod.nu")),
+        #[cfg(not(feature = "sqlite"))]
+        (
+            "mod.nu",
+            "std-rfc/kv",
+            include_str!("../std-rfc/kv/mod-not-available.nu"),
+        ),
         (
             "mod.nu",
             "std-rfc/path",
