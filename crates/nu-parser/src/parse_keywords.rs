@@ -995,15 +995,12 @@ pub fn parse_alias(
             working_set.search_predecls = false;
 
             let expr = parse_call(working_set, replacement_spans, replacement_spans[0]);
+
             working_set.search_predecls = true;
 
             if starting_error_count != working_set.parse_errors.len() {
                 if let Some(e) = working_set.parse_errors.get(starting_error_count) {
-                    if matches!(
-                        e,
-                        ParseError::MissingPositional(..)
-                            | ParseError::BuiltinCommandInPipeline(..)
-                    ) {
+                    if let ParseError::MissingPositional(..) = e {
                         working_set
                             .parse_errors
                             .truncate(original_starting_error_count);

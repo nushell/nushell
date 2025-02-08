@@ -5622,6 +5622,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
                         "overlay".into(),
                         spans[0],
                     ));
+
                     parse_call(working_set, &spans[pos..], spans[0])
                 }
             }
