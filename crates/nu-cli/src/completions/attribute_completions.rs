@@ -30,7 +30,7 @@ impl Completer for AttributeCompletion {
             |s| {
                 if let Some(s) = s.strip_prefix(b"attr ") {
                     let name = String::from_utf8_lossy(s);
-                    matcher.add(&name, name.to_string())
+                    matcher.matches(&name)
                 } else {
                     false
                 }
@@ -38,7 +38,6 @@ impl Completer for AttributeCompletion {
             true,
         );
 
-        let mut matcher = NuMatcher::new(String::from_utf8_lossy(partial), options.clone());
         for (name, desc, ty) in attr_commands {
             let name = name.strip_prefix(b"attr ").unwrap_or(&name);
             matcher.add_semantic_suggestion(SemanticSuggestion {
