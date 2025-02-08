@@ -1436,6 +1436,7 @@ pub fn find_longest_decl_with_prefix(
         name_spans.pop();
         pos -= 1;
 
+        // TODO: Refactor to avoid recreating name with an inner loop.
         name.clear();
         name.extend(prefix);
         for name_span in &name_spans {

@@ -309,6 +309,7 @@ fn find_matching_block_end_in_expr(
             .unwrap_or(expression.span.start);
 
         return match &expression.expr {
+            // TODO: Can't these be handled with an `_ => None` branch? Refactor
             Expr::Bool(_) => None,
             Expr::Int(_) => None,
             Expr::Float(_) => None,
