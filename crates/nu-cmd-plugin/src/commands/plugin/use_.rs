@@ -25,7 +25,7 @@ impl Command for PluginUse {
             .required(
                 "name",
                 SyntaxShape::String,
-                "The name, or filename, of the plugin to load",
+                "The name, or filename, of the plugin to load.",
             )
             .category(Category::Plugin)
     }

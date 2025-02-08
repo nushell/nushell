@@ -40,7 +40,7 @@ impl Command for BitsShl {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .required("bits", SyntaxShape::Int, "number of bits to shift left")
+            .required("bits", SyntaxShape::Int, "Number of bits to shift left.")
             .switch(
                 "signed",
                 "always treat input number as a signed number",

@@ -18,7 +18,7 @@ impl Command for FormatPattern {
             .required(
                 "pattern",
                 SyntaxShape::String,
-                "the pattern to output. e.g.) \"{foo}: {bar}\"",
+                "The pattern to output. e.g.) \"{foo}: {bar}\".",
             )
             .allow_variants_without_examples(true)
             .category(Category::Strings)
