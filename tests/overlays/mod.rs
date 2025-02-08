@@ -1288,6 +1288,44 @@ fn alias_overlay_use() {
 }
 
 #[test]
+fn alias_overlay_use_2() {
+    let inp = &[
+        "module inner {}",
+        "module spam { export alias b = overlay use inner }",
+        "use spam",
+        "spam b",
+        "overlay list | get 1",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert!(actual.err.is_empty());
+    assert!(actual_repl.err.is_empty());
+    assert_eq!(actual.out, "inner");
+    assert_eq!(actual_repl.out, "inner");
+}
+
+#[test]
+fn alias_overlay_use_3() {
+    let inp = &[
+        "module inner {}",
+        "module spam { export alias b = overlay use inner }",
+        "use spam b",
+        "b",
+        "overlay list | get 1",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert!(actual.err.is_empty());
+    assert!(actual_repl.err.is_empty());
+    assert_eq!(actual.out, "inner");
+    assert_eq!(actual_repl.out, "inner");
+}
+
+#[test]
 fn alias_overlay_new() {
     let inp = &[
         "alias on = overlay new",
