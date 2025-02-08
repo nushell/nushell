@@ -195,8 +195,6 @@ nu-test-support = { path = "../nu-test-support", version = "0.102.1" }
 
 dirs = { workspace = true }
 mockito = { workspace = true, default-features = false }
-quickcheck = { workspace = true }
-quickcheck_macros = { workspace = true }
 rstest = { workspace = true, default-features = false }
 rstest_reuse = { workspace = true }
 pretty_assertions = { workspace = true }

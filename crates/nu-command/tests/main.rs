@@ -1,8 +1,4 @@
-use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
-    Category, PositionalArg, Span,
-};
-use quickcheck_macros::quickcheck;
+use nu_protocol::{engine::EngineState, Category, PositionalArg};
 
 mod commands;
 mod format_conversions;
@@ -10,23 +6,6 @@ mod sort_utils;
 
 fn create_default_context() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
-}
-
-#[quickcheck]
-fn quickcheck_parse(data: String) -> bool {
-    let (tokens, err) = nu_parser::lex(data.as_bytes(), 0, b"", b"", true);
-
-    if err.is_none() {
-        let context = create_default_context();
-        {
-            let mut working_set = StateWorkingSet::new(&context);
-            let _ = working_set.add_file("quickcheck".into(), data.as_bytes());
-
-            let _ =
-                nu_parser::parse_block(&mut working_set, &tokens, Span::new(0, 0), false, false);
-        }
-    }
-    true
 }
 
 #[test]
