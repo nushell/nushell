@@ -1214,6 +1214,49 @@ fn flag_completions() {
 }
 
 #[test]
+fn attribute_completions() {
+    // Create a new engine
+    let (_, _, engine, stack) = new_engine();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    // Test completions for the 'ls' flags
+    let suggestions = completer.complete("@", 1);
+
+    // Only checking for the builtins and not the std attributes
+    let expected: Vec<String> = vec![
+        "env".into(),
+        "example".into(),
+        "search-terms".into(),
+        "wrapped".into(),
+    ];
+
+    // Match results
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn attributable_completions() {
+    // Create a new engine
+    let (_, _, engine, stack) = new_engine();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    // Test completions for the 'ls' flags
+    let suggestions = completer.complete("@env; ", 6);
+
+    let expected: Vec<String> = vec![
+        "def".into(),
+        "export def".into(),
+        "export extern".into(),
+        "extern".into(),
+    ];
+
+    // Match results
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
 fn folder_with_directorycompletions() {
     // Create a new engine
     let (dir, dir_str, engine, stack) = new_engine();
