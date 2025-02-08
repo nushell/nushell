@@ -3,7 +3,7 @@
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
 use nu_protocol::{
     engine::Sequence, shell_error::io::IoError, ByteStream, ListStream, PipelineData, Reader,
-    ShellError, Signals, Span,
+    ShellError, Signals,
 };
 use std::{
     io::{Read, Write},
@@ -367,11 +367,10 @@ where
                         result
                     })
                     .map_err(|err| {
-                        IoError::new_with_additional_context(
+                        IoError::new_internal(
                             err.kind(),
-                            Span::unknown(),
-                            None,
                             "Could not spawn plugin stream background writer",
+                            nu_protocol::location!(),
                         )
                     })?,
             )),

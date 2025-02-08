@@ -252,11 +252,10 @@ impl Command for External {
         );
 
         let mut child = child.map_err(|err| {
-            IoError::new_with_additional_context(
+            IoError::new_internal(
                 err.kind(),
-                Span::unknown(),
-                None,
                 "Could not spawn foreground child",
+                nu_protocol::location!(),
             )
         })?;
 
@@ -443,11 +442,10 @@ fn write_pipeline_data(
         stream.write_to(writer)?;
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
         writer.write_all(&val).map_err(|err| {
-            IoError::new_with_additional_context(
+            IoError::new_internal(
                 err.kind(),
-                Span::unknown(),
-                None,
                 "Could not write pipeline data",
+                nu_protocol::location!(),
             )
         })?;
     } else {
@@ -464,11 +462,10 @@ fn write_pipeline_data(
         for value in output {
             let bytes = value.coerce_into_binary()?;
             writer.write_all(&bytes).map_err(|err| {
-                IoError::new_with_additional_context(
+                IoError::new_internal(
                     err.kind(),
-                    Span::unknown(),
-                    None,
                     "Could not write pipeline data",
+                    nu_protocol::location!(),
                 )
             })?;
         }
