@@ -12,16 +12,11 @@ use std::path::Path;
 use super::{completion_common::FileSuggestion, SemanticSuggestion};
 
 #[derive(Clone, Default)]
-pub struct FileCompletion {
-    suffix: String,
-}
+pub struct FileCompletion {}
 
 impl FileCompletion {
     pub fn new() -> Self {
         Self::default()
-    }
-    pub fn new_with_suffix(suffix: String) -> Self {
-        Self { suffix }
     }
 }
 
@@ -42,46 +37,31 @@ impl Completer for FileCompletion {
             readjusted,
         } = adjust_if_intermediate(prefix, working_set, span);
 
-        let cwd = working_set
-            .permanent_state
-            .cwd(None)
-            .ok()
-            .and_then(|p| p.into_os_string().into_string().ok());
-
-        let cwds = if let Some(d) = cwd {
-            vec![d]
-        } else {
-            Vec::new()
-        };
-
-        let mut files = complete_item(
+        #[allow(deprecated)]
+        let items: Vec<_> = complete_item(
             readjusted,
             span,
             &prefix,
-            &cwds,
+            &[&working_set.permanent_state.current_work_dir()],
             options,
             working_set.permanent_state,
             stack,
-        );
-        if !self.suffix.is_empty() {
-            files.retain(|f| f.path.trim_end_matches('`').ends_with(&self.suffix));
-        }
-        let items: Vec<_> = files
-            .into_iter()
-            .map(move |x| SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: x.path,
-                    style: x.style,
-                    span: reedline::Span {
-                        start: x.span.start - offset,
-                        end: x.span.end - offset,
-                    },
-                    ..Suggestion::default()
+        )
+        .into_iter()
+        .map(move |x| SemanticSuggestion {
+            suggestion: Suggestion {
+                value: x.path,
+                style: x.style,
+                span: reedline::Span {
+                    start: x.span.start - offset,
+                    end: x.span.end - offset,
                 },
-                // TODO????
-                kind: None,
-            })
-            .collect();
+                ..Suggestion::default()
+            },
+            // TODO????
+            kind: None,
+        })
+        .collect();
 
         // Sort results prioritizing the non hidden folders
 

@@ -322,46 +322,16 @@ impl NuCompleter {
                             || prev_expr_str == b"overlay use"
                             || prev_expr_str == b"source-env"
                         {
-                            // Apart from default completer, which searches for .nu files from NU_LIB_DIRS,
-                            // we also support the case where .nu files are in other folders, like Python
-                            // virtual environments.
-                            let mut default_completer = DotNuCompletion::new();
-                            let default_suggestions = self.process_completion(
-                                &mut default_completer,
-                                &working_set,
-                                prefix,
-                                new_span,
-                                fake_offset,
-                                pos,
-                            );
-                            if !default_suggestions.is_empty() || prefix.len() < 2 {
-                                return default_suggestions;
-                            }
+                            let mut completer = DotNuCompletion::new();
 
-                            // When user types the beginning of a path, sometimes DotNuCompletion doesn't give a result.
-                            // We will search subdirectories and files, then. We only switch to these provider if user
-                            // has typed at least 2 characters for the path.
-                            let mut file_completer =
-                                FileCompletion::new_with_suffix(".nu".to_string());
-                            let mut file_suggestions = self.process_completion(
-                                &mut file_completer,
+                            return self.process_completion(
+                                &mut completer,
                                 &working_set,
                                 prefix,
                                 new_span,
                                 fake_offset,
                                 pos,
                             );
-                            let mut dir_completer = DirectoryCompletion::new();
-                            let mut dir_suggestions = self.process_completion(
-                                &mut dir_completer,
-                                &working_set,
-                                prefix,
-                                new_span,
-                                fake_offset,
-                                pos,
-                            );
-                            file_suggestions.append(&mut dir_suggestions);
-                            return file_suggestions;
                         } else if prev_expr_str == b"ls" {
                             let mut completer = FileCompletion::new();
 

@@ -35,10 +35,19 @@ impl Completer for DotNuCompletion {
         let prefix_str = prefix_str.replace('`', "");
         let mut search_dirs: Vec<PathBuf> = vec![];
 
-        // If prefix_str is only a word we want to search in the current dir
-        let (base, partial) = prefix_str
-            .rsplit_once(is_separator)
-            .unwrap_or((".", &prefix_str));
+        let (base, partial) = if prefix_str == "~" {
+            ("~", "")
+        } else if let Some((parent, remain)) = prefix_str.split_once(is_separator) {
+            // If prefix_str is only a word we want to search in the current dir.
+            // "/xx" should be split to "/" and "xx".
+            if parent.is_empty() {
+                ("/", remain)
+            } else {
+                (parent, remain)
+            }
+        } else {
+            (".", prefix_str.as_str())
+        };
         let base_dir = base.replace(is_separator, MAIN_SEPARATOR_STR);
 
         // Fetch the lib dirs
@@ -61,15 +70,26 @@ impl Completer for DotNuCompletion {
         // rsplit_once removes the separator
         let cwd = working_set.permanent_state.cwd(None);
         if base_dir != "." {
-            // Search in base_dir as well as lib_dirs
+            let expanded_base_dir = expand_tilde(&base_dir);
+            let is_base_dir_relative = expanded_base_dir.is_relative();
+            // Search in base_dir as well as lib_dirs.
+            // After expanded, base_dir can be a relative path or absolute path.
+            // If relative, we join "current working dir" with it to get subdirectory and add to search_dirs.
+            // If absolute, we add it to search_dirs.
             if let Ok(mut cwd) = cwd {
-                cwd.push(&base_dir);
-                search_dirs.push(cwd.into_std_path_buf());
+                if is_base_dir_relative {
+                    cwd.push(&base_dir);
+                    search_dirs.push(cwd.into_std_path_buf());
+                } else {
+                    search_dirs.push(expanded_base_dir);
+                }
             }
-            search_dirs.extend(lib_dirs.into_iter().map(|mut dir| {
-                dir.push(&base_dir);
-                dir
-            }));
+            if is_base_dir_relative {
+                search_dirs.extend(lib_dirs.into_iter().map(|mut dir| {
+                    dir.push(&base_dir);
+                    dir
+                }));
+            }
         } else {
             if let Ok(cwd) = cwd {
                 search_dirs.push(cwd.into_std_path_buf());
@@ -105,7 +125,9 @@ impl Completer for DotNuCompletion {
                 let mut span_offset = 0;
                 let mut value = x.path.to_string();
                 // Complete only the last path component
-                if base_dir != "." {
+                if base_dir == "/" {
+                    span_offset = base_dir.len()
+                } else if base_dir != "." {
                     span_offset = base_dir.len() + 1
                 }
                 // Retain only one '`'
