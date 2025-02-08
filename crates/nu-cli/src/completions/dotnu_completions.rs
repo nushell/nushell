@@ -42,6 +42,7 @@ impl Completer for DotNuCompletion {
         let base_dir = base.replace(is_separator, MAIN_SEPARATOR_STR);
 
         // Fetch the lib dirs
+        // FIXME: lib_dirs doesn't include entries in $env.NU_LIB_DIRS set in $nu.config-path file.
         let lib_dirs: Vec<PathBuf> = working_set
             .find_variable(b"$NU_LIB_DIRS")
             .and_then(|vid| working_set.get_variable(vid).const_val.as_ref())
