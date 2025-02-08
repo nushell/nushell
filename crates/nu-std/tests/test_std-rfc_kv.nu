@@ -1,5 +1,6 @@
 use std/assert
-use std-rfc/kv *
+const kv_module = if ("sqlite" in (version).features) { "std-rfc/kv" } else { null }
+use $kv_module *
 
 # It's important to use random keys and to clean-up
 # after since the user running these tests may have
