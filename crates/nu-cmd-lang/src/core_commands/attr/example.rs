@@ -53,40 +53,25 @@ impl Command for AttrExample {
     ) -> Result<PipelineData, ShellError> {
         let description: Spanned<String> = call.req(engine_state, stack, 0)?;
         let result: Option<Value> = call.get_flag(engine_state, stack, "result")?;
-        let example = call
+
+        let example_string: Result<String, _> = call.req(engine_state, stack, 1);
+        let example_expr = call
             .positional_nth(stack, 1)
             .ok_or(ShellError::MissingParameter {
                 param_name: "example".into(),
                 span: call.head,
             })?;
 
-        let example_content = match example.as_block() {
-            Some(block_id) => {
-                let block = engine_state.get_block(block_id);
-                let contents =
-                    engine_state.get_span_contents(block.span.expect("a block must have a span"));
-                let contents = contents
-                    .strip_prefix(b"{")
-                    .and_then(|x| x.strip_suffix(b"}"))
-                    .unwrap_or(contents)
-                    .trim_ascii();
-                String::from_utf8_lossy(contents).into_owned()
-            }
-            None => match example.as_string() {
-                Some(v) => v,
-                None => panic!("internal error: missing block"),
-            },
-        };
+        let working_set = StateWorkingSet::new(engine_state);
 
-        let mut rec = record! {
-            "description" => Value::string(description.item, description.span),
-            "example" => Value::string(example_content, example.span),
-        };
-        if let Some(result) = result {
-            rec.push("result", result);
-        }
-
-        Ok(Value::record(rec, call.head).into_pipeline_data())
+        attr_example_impl(
+            example_expr,
+            example_string,
+            &working_set,
+            call,
+            description,
+            result,
+        )
     }
 
     fn run_const(
@@ -97,6 +82,8 @@ impl Command for AttrExample {
     ) -> Result<PipelineData, ShellError> {
         let description: Spanned<String> = call.req_const(working_set, 0)?;
         let result: Option<Value> = call.get_flag_const(working_set, "result")?;
+
+        let example_string: Result<String, _> = call.req_const(working_set, 1);
         let example_expr =
             call.assert_ast_call()?
                 .positional_nth(1)
@@ -105,33 +92,14 @@ impl Command for AttrExample {
                     span: call.head,
                 })?;
 
-        let example_content = match example_expr.as_block() {
-            Some(block_id) => {
-                let block = working_set.get_block(block_id);
-                let contents =
-                    working_set.get_span_contents(block.span.expect("a block must have a span"));
-                let contents = contents
-                    .strip_prefix(b"{")
-                    .and_then(|x| x.strip_suffix(b"}"))
-                    .unwrap_or(contents)
-                    .trim_ascii();
-                String::from_utf8_lossy(contents).into_owned()
-            }
-            None => {
-                let example: String = call.req_const(working_set, 1)?;
-                example
-            }
-        };
-
-        let mut rec = record! {
-            "description" => Value::string(description.item, description.span),
-            "example" => Value::string(example_content, example_expr.span),
-        };
-        if let Some(result) = result {
-            rec.push("result", result);
-        }
-
-        Ok(Value::record(rec, call.head).into_pipeline_data())
+        attr_example_impl(
+            example_expr,
+            example_string,
+            working_set,
+            call,
+            description,
+            result,
+        )
     }
 
     fn is_const(&self) -> bool {
@@ -141,4 +109,38 @@ impl Command for AttrExample {
     fn requires_ast_for_arguments(&self) -> bool {
         true
     }
+}
+
+fn attr_example_impl(
+    example_expr: &nu_protocol::ast::Expression,
+    example_string: Result<String, ShellError>,
+    working_set: &StateWorkingSet<'_>,
+    call: &Call<'_>,
+    description: Spanned<String>,
+    result: Option<Value>,
+) -> Result<PipelineData, ShellError> {
+    let example_content = match example_expr.as_block() {
+        Some(block_id) => {
+            let block = working_set.get_block(block_id);
+            let contents =
+                working_set.get_span_contents(block.span.expect("a block must have a span"));
+            let contents = contents
+                .strip_prefix(b"{")
+                .and_then(|x| x.strip_suffix(b"}"))
+                .unwrap_or(contents)
+                .trim_ascii();
+            String::from_utf8_lossy(contents).into_owned()
+        }
+        None => example_string?,
+    };
+
+    let mut rec = record! {
+        "description" => Value::string(description.item, description.span),
+        "example" => Value::string(example_content, example_expr.span),
+    };
+    if let Some(result) = result {
+        rec.push("result", result);
+    }
+
+    Ok(Value::record(rec, call.head).into_pipeline_data())
 }
