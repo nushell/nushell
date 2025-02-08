@@ -994,10 +994,7 @@ pub fn parse_alias(
             let starting_error_count = working_set.parse_errors.len();
             working_set.search_predecls = false;
 
-            println!("replacement_spans: {replacement_spans:?}");
             let expr = parse_call(working_set, replacement_spans, replacement_spans[0]);
-            println!("errors: {:?}", working_set.parse_errors);
-
             working_set.search_predecls = true;
 
             if starting_error_count != working_set.parse_errors.len() {
@@ -1153,8 +1150,7 @@ pub fn parse_export_in_block(
     }
 
     if let Some(decl_id) = working_set.find_decl(full_name.as_bytes()) {
-        // TODO: I guess for export alias, shouln't call parse_internal_call, should
-        // call parse_alias directly
+        let starting_error_count = working_set.parse_errors.len();
         let ParsedInternalCall { call, output, .. } = parse_internal_call(
             working_set,
             if full_name == "export" {
@@ -1169,16 +1165,10 @@ pub fn parse_export_in_block(
             },
             decl_id,
         );
-        println!(
-            "parse export in block, parse internal call error: {:?}",
-            working_set.parse_errors
-        );
+        working_set.parse_errors.truncate(starting_error_count);
 
         let decl = working_set.get_decl(decl_id);
-
-        let starting_error_count = working_set.parse_errors.len();
         check_call(working_set, call_span, &decl.signature(), &call);
-
         let Ok(is_help) = has_flag_const(working_set, &call, "help") else {
             return garbage_pipeline(working_set, &lite_command.parts);
         };
@@ -1208,7 +1198,6 @@ pub fn parse_export_in_block(
         return garbage_pipeline(working_set, &lite_command.parts);
     }
 
-    println!("lite command in export: {:?}", lite_command);
     match full_name {
         "export alias" => parse_alias(working_set, lite_command, None),
         "export def" => parse_def(working_set, lite_command, None).0,

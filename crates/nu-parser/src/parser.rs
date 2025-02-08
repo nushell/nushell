@@ -5614,23 +5614,15 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
                 parse_call(working_set, &spans[pos..], spans[0])
             }
             b"overlay" => {
-                println!("spans len: {}", spans.len());
                 if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"list" {
                     // whitelist 'overlay list'
                     parse_call(working_set, &spans[pos..], spans[0])
                 } else {
-                    println!("set error??, pos: {pos}");
                     working_set.error(ParseError::BuiltinCommandInPipeline(
                         "overlay".into(),
                         spans[0],
                     ));
-
-                    let x = parse_call(working_set, &spans[pos..], spans[0]);
-                    println!(
-                        "in parse expression, errors: {:?}",
-                        working_set.parse_errors
-                    );
-                    x
+                    parse_call(working_set, &spans[pos..], spans[0])
                 }
             }
             b"where" => parse_where_expr(working_set, &spans[pos..]),
@@ -5757,10 +5749,7 @@ pub fn parse_builtin_commands(
             let expr = parse_for(working_set, lite_command);
             Pipeline::from_vec(vec![expr])
         }
-        b"alias" => {
-            println!("lite command: {:?}", lite_command);
-            parse_alias(working_set, lite_command, None)
-        }
+        b"alias" => parse_alias(working_set, lite_command, None),
         b"module" => parse_module(working_set, lite_command, None).0,
         b"use" => parse_use(working_set, lite_command, None).0,
         b"overlay" => {
