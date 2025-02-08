@@ -322,7 +322,7 @@ impl NuCompleter {
                             || prev_expr_str == b"overlay use"
                             || prev_expr_str == b"source-env"
                         {
-                            // Apart from default completer, which searchs for .nu files from NU_LIB_DIRS,
+                            // Apart from default completer, which searches for .nu files from NU_LIB_DIRS,
                             // we also support the case where .nu files are in other folders, like Python
                             // virtual environments.
                             let mut default_completer = DotNuCompletion::new();
