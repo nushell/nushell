@@ -6,7 +6,7 @@ use nu_protocol::{
 };
 use rstest::rstest;
 
-use mock::{AttrEcho, Def, Let, Mut, ToCustom};
+use mock::{Alias, AttrEcho, Def, Let, Mut, ToCustom};
 
 fn test_int(
     test_tag: &str,     // name of sub-test
@@ -726,6 +726,62 @@ pub fn parse_attributes_check_values() {
     let (name, val) = &attributes[1];
     assert_eq!(name, "echo");
     assert_eq!(val.as_int(), Ok(42));
+}
+
+#[test]
+pub fn parse_attributes_alias() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(Alias));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let source = br#"
+    alias "attr test" = attr echo
+
+    @test null
+    def foo [] {}
+    "#;
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let decl_id = working_set.find_decl(b"foo").unwrap();
+    let cmd = working_set.get_decl(decl_id);
+    let attributes = cmd.attributes();
+
+    let (name, val) = &attributes[0];
+    assert_eq!(name, "test");
+    assert!(val.is_nothing());
+}
+
+#[test]
+pub fn parse_attributes_external_alias() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(Alias));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let source = br#"
+    alias "attr test" = ^echo
+
+    @test null
+    def foo [] {}
+    "#;
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(!working_set.parse_errors.is_empty());
+
+    let ParseError::LabeledError(shell_error, parse_error, _span) = &working_set.parse_errors[0]
+    else {
+        panic!("Expected LabeledError");
+    };
+
+    assert!(shell_error.contains("nu::shell::not_a_const_command"));
+    assert!(parse_error.contains("Encountered error during parse-time evaluation"));
 }
 
 fn test_external_call(input: &str, tag: &str, f: impl FnOnce(&Expression, &[ExternalArgument])) {
@@ -2030,6 +2086,41 @@ mod mock {
                 .required("def_name", SyntaxShape::String, "definition name")
                 .required("params", SyntaxShape::Signature, "parameters")
                 .required("body", SyntaxShape::Closure(None), "body of the definition")
+                .category(Category::Core)
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct Alias;
+
+    impl Command for Alias {
+        fn name(&self) -> &str {
+            "alias"
+        }
+
+        fn description(&self) -> &str {
+            "Mock alias command."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("alias")
+                .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+                .required("name", SyntaxShape::String, "Name of the alias.")
+                .required(
+                    "initial_value",
+                    SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                    "Equals sign followed by value.",
+                )
                 .category(Category::Core)
         }
 
