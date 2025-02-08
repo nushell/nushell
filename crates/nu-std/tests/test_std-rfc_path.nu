@@ -15,25 +15,24 @@ def path_with_extension_for_list [] {
     let new_path = ["ab.txt", "cd.exe"] | path with-extension "rs"
     assert equal $new_path ["ab.rs", "cd.rs"]
 
-
     let new_path = ["ab.txt", "cd.exe"] | path with-extension ".rs"
     assert equal $new_path ["ab.rs", "cd.rs"]
 }
 
 #[test]
 def path_with_stem [] {
-    let new_path = "/usr/bin" | path with-stem "share"
-    assert equal $new_path "/usr/share"
+    let new_path = $"(char psep)usr(char psep)bin" | path with-stem "share"
+    assert equal $new_path $"(char psep)usr(char psep)share"
 
-    let new_path = ["/home/alice/", "/home/bob/secret.txt"] | path with-stem "nushell"
-    assert equal $new_path ["/home/nushell", "/home/bob/nushell.txt"]
+    let new_path = [$"(char psep)home(char psep)alice(char psep)", $"(char psep)home(char psep)bob(char psep)secret.txt"] | path with-stem "nushell"
+    assert equal $new_path [$"(char psep)home(char psep)nushell", $"(char psep)home(char psep)bob(char psep)nushell.txt"]
 }
 
 #[test]
 def path_with_parent [] {
-    let new_path = "/etc/foobar" | path with-parent "/usr/share/"
-    assert equal $new_path "/usr/share/foobar"
+    let new_path = $"(char psep)etc(char psep)foobar" | path with-parent $"(char psep)usr(char psep)share(char psep)"
+    assert equal $new_path $"(char psep)usr(char psep)share(char psep)foobar"
 
-    let new_path = ["/home/rose/meow", "/home/fdncred/"] | path with-parent "/root/"
-    assert equal $new_path ["/root/meow", "/root/fdncred"]
+    let new_path = [$"(char psep)home(char psep)rose(char psep)meow", $"(char psep)home(char psep)fdncred(char psep)"] | path with-parent $"(char psep)root(char psep)"
+    assert equal $new_path [$"(char psep)root(char psep)meow", $"(char psep)root(char psep)fdncred"]
 }
