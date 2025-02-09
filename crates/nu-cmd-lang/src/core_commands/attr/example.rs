@@ -109,6 +109,17 @@ impl Command for AttrExample {
     fn requires_ast_for_arguments(&self) -> bool {
         true
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Add examples to custom command",
+            example: r###"# Double numbers
+    @example "double an int" { 2 | double } --result 4
+    @example "double a float" { 0.25 | double } --result 0.5
+    def double []: [number -> number] { $in * 2 }"###,
+            result: None,
+        }]
+    }
 }
 
 fn attr_example_impl(
