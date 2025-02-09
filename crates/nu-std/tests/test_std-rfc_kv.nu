@@ -140,6 +140,7 @@ def local-return_value_only [] {
 #[test]
 def universal-simple_set [] {
     if ('sqlite' not-in (version).features) { return }
+    $env.NU_UNIVERSAL_KV_PATH = (mktemp -t --suffix .sqlite3)
 
     let key = (random uuid)
 
@@ -149,11 +150,13 @@ def universal-simple_set [] {
     assert equal $actual $expected
 
     kv drop -u $key | ignore
+    rm $env.NU_UNIVERSAL_KV_PATH
 }
 
 #[test]
 def universal-pipeline_set_returns_value [] {
     if ('sqlite' not-in (version).features) { return }
+    $env.NU_UNIVERSAL_KV_PATH = (mktemp -t --suffix .sqlite3)
 
     let key = (random uuid)
     let actual = (42 | kv set -u $key)
@@ -165,11 +168,13 @@ def universal-pipeline_set_returns_value [] {
     assert equal $actual $expected
 
     kv drop -u $key | ignore
+    rm $env.NU_UNIVERSAL_KV_PATH
 }
 
 #[test]
 def universal-multiple_assignment [] {
     if ('sqlite' not-in (version).features) { return }
+    $env.NU_UNIVERSAL_KV_PATH = (mktemp -t --suffix .sqlite3)
 
     let key1 = (random uuid)
     let key2 = (random uuid)
@@ -185,11 +190,13 @@ def universal-multiple_assignment [] {
     kv drop -u $key1
     kv drop -u $key2
     kv drop -u $key3
+    rm $env.NU_UNIVERSAL_KV_PATH
 }
 
 #[test]
 def universal-transpose_to_record [] {
     if ('sqlite' not-in (version).features) { return }
+    $env.NU_UNIVERSAL_KV_PATH = (mktemp -t --suffix .sqlite3)
 
     let key1 = (random uuid)
     let key2 = (random uuid)
@@ -206,11 +213,13 @@ def universal-transpose_to_record [] {
     kv drop -u $key1
     kv drop -u $key2
     kv drop -u $key3
+    rm $env.NU_UNIVERSAL_KV_PATH
 }
 
 #[test]
 def universal-using_closure [] {
     if ('sqlite' not-in (version).features) { return }
+    $env.NU_UNIVERSAL_KV_PATH = (mktemp -t --suffix .sqlite3)
 
     let name_key = (random uuid)
     let size_key = (random uuid)
@@ -229,11 +238,13 @@ def universal-using_closure [] {
 
     kv drop -u $name_key
     kv drop -u $size_key
+    rm $env.NU_UNIVERSAL_KV_PATH
 }
 
 #[test]
 def universal-return-entire-list [] {
     if ('sqlite' not-in (version).features) { return }
+    $env.NU_UNIVERSAL_KV_PATH = (mktemp -t --suffix .sqlite3)
 
     let key1 = (random uuid)
     let key2 = (random uuid)
@@ -251,11 +262,13 @@ def universal-return-entire-list [] {
     assert equal $actual $expected
     kv drop --universal $key1
     kv drop --universal $key2
+    rm $env.NU_UNIVERSAL_KV_PATH
 }
 
 #[test]
 def universal-return_value_only [] {
     if ('sqlite' not-in (version).features) { return }
+    $env.NU_UNIVERSAL_KV_PATH = (mktemp -t --suffix .sqlite3)
 
     let key = (random uuid)
 
@@ -265,5 +278,6 @@ def universal-return_value_only [] {
     assert equal $actual $expected
 
     kv drop --universal $key
+    rm $env.NU_UNIVERSAL_KV_PATH
 }
 
