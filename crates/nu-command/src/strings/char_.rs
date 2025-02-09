@@ -69,7 +69,6 @@ static CHAR_MAP: LazyLock<IndexMap<&'static str, String>> = LazyLock::new(|| {
         "eol" => LINE_SEPARATOR_CHAR.to_string(),
         "lsep" => LINE_SEPARATOR_CHAR.to_string(),
         "line_sep" => LINE_SEPARATOR_CHAR.to_string(),
-        "lsep" => '\n'.to_string(),
         "esep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
         "env_sep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
         "tilde" => '~'.to_string(),                                // ~
