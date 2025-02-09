@@ -17,3 +17,7 @@ log = "0.4"
 
 [lints]
 workspace = true
+
+[features]
+sqlite = []
+

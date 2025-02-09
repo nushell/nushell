@@ -294,7 +294,7 @@ system-clipboard = [
 trash-support = ["nu-command/trash-support", "nu-cmd-lang/trash-support"]
 
 # SQLite commands for nushell
-sqlite = ["nu-command/sqlite", "nu-cmd-lang/sqlite"]
+sqlite = ["nu-command/sqlite", "nu-cmd-lang/sqlite", "nu-std/sqlite"]
 
 [profile.release]
 opt-level = "s"     # Optimize for size
