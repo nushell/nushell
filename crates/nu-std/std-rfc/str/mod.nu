@@ -106,9 +106,9 @@ export def unindent [
     let text = (
         $in
         | # Remove the first line if it is only whitespace (tabs or spaces)
-        | str replace -r $'^[ \t]*(char newline)' ''
+        | str replace -r $'^[ \t]*(char lsep)' ''
         | # Remove the last line if it is only whitespace (tabs or spaces)
-        | str replace -r $'(char newline)[ \t]*$' ''
+        | str replace -r $'(char lsep)[ \t]*$' ''
     )
 
     # Early return if there is only a single, empty (other than whitespace) line
