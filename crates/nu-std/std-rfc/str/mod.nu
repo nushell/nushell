@@ -21,13 +21,13 @@ export def dedent [
 ]: string -> string {
     let string = $in
 
-    if ($string !~ '^\s*\n') {
+    if ($string !~ $'^\s*(char lsep)') {
         return (error make {
             msg: 'First line must be empty'
         })
     }
 
-    if ($string !~ '\n[ \t]*$') {
+    if ($string !~ $'(char lsep)[ \t]*$') {
         return (error make {
             msg: 'Last line must contain only whitespace indicating the dedent'
         })
@@ -35,15 +35,16 @@ export def dedent [
 
     # Get indent characters from the last line
     let indent_chars = $string
-        | str replace -r "(?s).*\n([ \t]*)$" '$1'
+        | str replace -r $"\(?s\).*(char lsep)\([ \t]*\)$" '$1'
 
     # Skip the first and last lines
     let lines = (
         $string
-        | str replace -r '(?s)^[^\n]*\n(.*)\n[^\n]*$' '$1'
-          # Use `split` instead of `lines`, since `lines` will
-          # drop legitimate trailing empty lines
-        | split row "\n"
+        | lines
+        | skip
+        | # Only drop if there is whitespace. Otherwise, `lines`
+        | # drops a 0-length line anyway
+        | if ($indent_chars | str length) > 0 { drop } else {}
         | enumerate
         | rename lineNumber text
     )
@@ -72,10 +73,7 @@ export def dedent [
             $line.text
         }
       }
-    | to text
-      # Remove the trailing newline which indicated
-      # indent level
-    | str replace -r '(?s)(.*)\n$' '$1'
+    | str join (char line_sep)
 }
 
 # Remove common indent from a multi-line string based on the line with the smallest indent

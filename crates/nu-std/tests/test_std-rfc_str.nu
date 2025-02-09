@@ -18,7 +18,7 @@ def str-dedent_simple [] {
                 "
             $s | str dedent
         }
-    ) "Heading\n\n    one\n    two"
+    ) $"Heading(char lsep)(char lsep)    one(char lsep)    two"
 }
 
 #[test]
@@ -36,7 +36,7 @@ def str-dedent_leave_blankline_whitespace [] {
                 "
             $s | str dedent
         }
-    ) "Heading\n                \n    one\n    two"
+    ) $"Heading(char lsep)                (char lsep)    one(char lsep)    two"
 }
 
 #[test]
@@ -45,15 +45,15 @@ def str-dedent_leave_blankline_tab [] {
     # Same, but with a single tab character on the "blank" line
     assert equal (
         do {
-            let s = "   
+            let s = $"   
                 Heading
-\t
+(char tab)
                     one
                     two
                 "
             $s | str dedent
         }
-    ) "Heading\n\t\n    one\n    two"
+    ) $"Heading(char lsep)(char tab)(char lsep)    one(char lsep)    two"
 }
 
 #[test]
@@ -71,7 +71,7 @@ def str-dedent_ends_with_newline [] {
                 "
             $s | str dedent
         }
-    ) "Heading\n\n    one\n    two\n"
+    ) $"Heading(char lsep)(char lsep)    one(char lsep)    two(char lsep)"
 }
 
 #[test]
@@ -81,7 +81,7 @@ def str-dedent_identity [] {
     # No other whitespace should be removed
     assert equal (
         do {
-            let s = "\n  Identity  \n"
+            let s = $"(char lsep)  Identity  (char lsep)"
             $s | str dedent
         }
     ) "  Identity  "
@@ -99,7 +99,7 @@ def str-dedent_error-no_blank_lines [] {
     # Test 6.1:
     # Error - Does not contain an empty first line
     assert error {||
-        let s = "Error\n \nTesting\n"
+        let s = $"Error(char lsep) (char lsep)Testing(char lsep)"
         $s | str dedent
     }
 }
@@ -171,7 +171,7 @@ def str-dedent_first_line_whitespace_allowed [] {
     # "Hidden" whitespace on the first line is allowed
     assert equal (
         do {
-            let s = "   \t \n  Identity  \n"
+            let s = $"   (char tab) (char lsep)  Identity  (char lsep)"
             $s | str dedent
         }
     ) "  Identity  "
@@ -183,11 +183,11 @@ def str-dedent_using_tabs [] {
     # If the indentation on the last line uses tabs, then the number of tabs
     # will be used instead of spaces
     let actual = (
-        "\n\t\tFirst line\n\t\t\tSecond line\n\t\t"
+        $"(char lsep)(char tab)(char tab)First line(char lsep)(char tab)(char tab)(char tab)Second line(char lsep)(char tab)(char tab)"
         | str dedent
     )
 
-    let expected = "First line\n\tSecond line"
+    let expected = $"First line(char lsep)(char tab)Second line"
 
     assert equal $actual $expected
 }
@@ -208,7 +208,7 @@ def str-unindent_simple [] {
         | str unindent
     )
 
-    let expected = "Heading\n\n    one\n    two"
+    let expected = $"Heading(char lsep)(char lsep)    one(char lsep)    two"
 
     assert equal $actual $expected
 }
@@ -247,7 +247,7 @@ def str-unindent_keep_extra_line [] {
 
   " | str unindent
 
-  let expected = $"(char newline)Content(char newline)"
+  let expected = $"(char lsep)Content(char lsep)"
 
   assert equal $actual $expected
 }
@@ -282,11 +282,11 @@ def str-unindent_whitespace_works_with_tabs [] {
     # Works with tabs for indentation
 
     let actual = (
-        $"(char newline)(char tab)(char tab)Content(char newline)"
+        $"(char lsep)(char tab)(char tab)Content(char lsep)"
         | str unindent --tabs
     )
 
-    let expected = $"Content"
+    let expected = "Content"
 
     assert equal $actual $expected
 }
