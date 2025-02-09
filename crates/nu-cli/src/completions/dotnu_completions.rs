@@ -35,13 +35,11 @@ impl Completer for DotNuCompletion {
         let prefix_str = prefix_str.replace('`', "");
         let mut search_dirs: Vec<PathBuf> = vec![];
 
-        let (base, partial) = if prefix_str == "~" {
-            ("~", "")
-        } else if let Some((parent, remain)) = prefix_str.split_once(is_separator) {
+        let (base, partial) = if let Some((parent, remain)) = prefix_str.rsplit_once(is_separator) {
             // If prefix_str is only a word we want to search in the current dir.
             // "/xx" should be split to "/" and "xx".
             if parent.is_empty() {
-                ("/", remain)
+                (MAIN_SEPARATOR_STR, remain)
             } else {
                 (parent, remain)
             }
@@ -125,7 +123,7 @@ impl Completer for DotNuCompletion {
                 let mut span_offset = 0;
                 let mut value = x.path.to_string();
                 // Complete only the last path component
-                if base_dir == "/" {
+                if base_dir == MAIN_SEPARATOR_STR {
                     span_offset = base_dir.len()
                 } else if base_dir != "." {
                     span_offset = base_dir.len() + 1

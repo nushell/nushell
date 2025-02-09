@@ -343,6 +343,20 @@ fn dotnu_completions() {
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
     match_suggestions(&expected, &suggestions);
+
+    // Test special paths
+    #[cfg(windows)]
+    let completion_str = "use \\".to_string();
+    #[cfg(not(windows))]
+    let completion_str = "use /b".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+
+    assert!(!suggestions.is_empty());
+
+    let completion_str = "use ~".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+
+    assert!(!suggestions.is_empty());
 }
 
 #[test]
