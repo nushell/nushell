@@ -16,13 +16,15 @@
 #
 # If the key already exists, it is updated
 # to the new value provided.
-#
-# Usage:
-# <input> | kv set <key> <value?>
-#
-# Example:
-# ls ~ | kv set "home snapshot"
-# kv set foo 5
+@example "Store the list of files in the home directory" {
+  ls ~ | kv set "home snapshot"
+}
+@example "Store a number" {
+  kv set foo 5
+}
+@example "Update a number" {
+  kv set foo { $in + 1 }
+}
 export def "kv set" [
   key: string
   value_or_closure?: any
@@ -97,9 +99,9 @@ export def "kv set" [
 #
 # Counterpart of "kv set". Returns null
 # if the key is not found.
-# 
-# Usage:
-# kv get <key> | <pipeline>
+@example "Retrieve a stored value" {
+  kv get foo
+}
 export def "kv get" [
   key: string # Key of the kv-pair to retrieve
   --universal (-u)

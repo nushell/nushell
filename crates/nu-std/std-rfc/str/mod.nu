@@ -1,21 +1,19 @@
+alias "str dedent" = dedent
+
 # Removes common indent from a multi-line string based on the number of spaces on the last line.
-# 
-# Example - Two leading spaces are removed from all lines:
-#
-# > let s = "
-#      Heading
-#        Indented Line
-#        Another Indented Line
-#
-#      Another Heading
-#      "
-# > $a | str dedent
-#
-# # => Heading
-# # =>   Indented Line
-# # =>   Another Indented Line
-# # => 
-# # => Another Heading
+@example "Two leading spaces are removed from all lines" {
+  "
+  Heading
+    Indented Line
+    Another Indented Line
+
+  Another Heading
+  " | str dedent
+} --result "Heading
+  Indented Line
+  Another Indented Line
+
+Another Heading"
 export def dedent [
     --tabs (-t)
 ]: string -> string {
@@ -76,25 +74,22 @@ export def dedent [
     | str join (char line_sep)
 }
 
+alias "str unindent" = unindent
+
 # Remove common indent from a multi-line string based on the line with the smallest indent
-# 
-# Example - Two leading spaces are removed from all lines:
-#
-# > let s = "
-#      Heading
-#        Indented Line
-#        Another Indented Line
-#
-#      Another Heading
-#   "
-# > $a | str dedent
-#
-# # => Heading
-# # =>   Indented Line
-# # =>   Another Indented Line
-# # =>
-# # => Another Heading
-#
+@example "Two leading spaces are removed from all lines" {
+"
+  Heading
+    Indented Line
+    Another Indented Line
+
+  Another Heading
+" | str unindent
+} --result "Heading
+  Indented Line
+  Another Indented Line
+
+Another Heading"
 export def unindent [
     --tabs (-t)            # String uses tabs instead of spaces for indentation
 ]: string -> string {

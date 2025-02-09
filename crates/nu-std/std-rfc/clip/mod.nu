@@ -4,11 +4,9 @@
 # > Terminal multiplexers such as screen, tmux, zellij etc may interfere with this command
 
 # Copy input to system clipboard
-#
-# # Example
-# ```nushell
-# >_ "Hello" | clip copy
-# ```
+@example "Copy a string to the clipboard" {
+  "Hello" | clip copy
+}
 export def copy [
   --ansi (-a)                 # Copy ansi formatting
 ]: any -> nothing {
@@ -35,12 +33,9 @@ export def copy [
 }
 
 # Paste contents of system clipboard
-#
-# # Example
-# ```nushell
-# >_ clip paste
-# "Hello"
-# ```
+@example "Paste a string from the clipboard" {
+  clip paste
+} --result "Hello"
 export def paste []: [nothing -> string] {
 	try {
 		term query $'(ansi osc)52;c;?(ansi st)' -p $'(ansi osc)52;c;' -t (ansi st)
@@ -56,9 +51,17 @@ export def paste []: [nothing -> string] {
 }
 
 # Add a prefix to each line of the content to be copied
-#
-# # Example: Format output for Nushell doc
-# ls | clip prefix '# => ' | clip copy
+@example "Format output for Nushell doc" {
+  [1 2 3] | clip prefix '# => '
+} --result "# => ╭───┬───╮
+# => │ 0 │ 1 │
+# => │ 1 │ 2 │
+# => │ 2 │ 3 │
+# => ╰───┴───╯
+# => "
+@example "Format output for Nushell doc and copy it" {
+  ls | clip prefix '# => ' | clip copy
+}
 export def prefix [prefix: string]: any -> string {
   let input = $in | collect
   match ($input | describe -d | get type) {
