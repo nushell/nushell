@@ -1,9 +1,9 @@
 use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
-use nu_engine::{column::get_columns, eval_expression, eval_variable};
+use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
     ast::{Expr, FullCellPath, PathMember},
-    debugger::WithoutDebug,
     engine::{Stack, StateWorkingSet},
+    eval_const::eval_constant,
     Span, Value, VarId,
 };
 use reedline::Suggestion;
@@ -124,12 +124,9 @@ impl Completer for CellPathCompletion<'_> {
                 .get_variable(var_id)
                 .const_val
                 .to_owned()
-                .or(eval_variable(working_set.permanent_state, stack, var_id, span).ok())
+                .or_else(|| eval_variable(working_set.permanent_state, stack, var_id, span).ok())
         } else {
-            let mut stack = stack.clone();
-            let mut new_engine = working_set.permanent_state.clone();
-            let _ = new_engine.merge_delta(working_set.delta.clone());
-            eval_expression::<WithoutDebug>(&new_engine, &mut stack, &self.full_cell_path.head).ok()
+            eval_constant(working_set, &self.full_cell_path.head).ok()
         }
         .unwrap_or_default();
 
