@@ -1224,12 +1224,7 @@ fn attribute_completions() {
     let suggestions = completer.complete("@", 1);
 
     // Only checking for the builtins and not the std attributes
-    let expected: Vec<String> = vec![
-        "env".into(),
-        "example".into(),
-        "search-terms".into(),
-        "wrapped".into(),
-    ];
+    let expected: Vec<String> = vec!["example".into(), "search-terms".into()];
 
     // Match results
     match_suggestions(&expected, &suggestions);
@@ -1243,7 +1238,7 @@ fn attributable_completions() {
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     // Test completions for the 'ls' flags
-    let suggestions = completer.complete("@env; ", 6);
+    let suggestions = completer.complete("@example; ", 10);
 
     let expected: Vec<String> = vec![
         "def".into(),
