@@ -8,7 +8,7 @@ use std::fmt::Write;
 
 // Make nu_protocol available in this namespace, consumers of this crate will
 // have this without such an export.
-// The derive macro fully qualifies paths to "nu_protocol".
+// The `FromValue` derive macro fully qualifies paths to "nu_protocol".
 use crate as nu_protocol;
 
 /// The signature definition of a named flag that either accepts a value or acts as a toggle flag
