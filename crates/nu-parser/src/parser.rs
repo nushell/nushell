@@ -1506,6 +1506,8 @@ pub fn parse_attribute(
     let decl = working_set.get_decl(decl_id);
 
     let parsed_call = match decl.as_alias() {
+        // TODO: Once `const def` is available, we should either disallow aliases as attributes OR
+        // allow them but rather than using the aliases' name, use the name of the aliased command
         Some(alias) => match &alias.clone().wrapped_call {
             Expression {
                 expr: Expr::ExternalCall(..),
