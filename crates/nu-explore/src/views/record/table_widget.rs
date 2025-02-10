@@ -502,7 +502,7 @@ impl<'a> IndexColumn<'a> {
 impl Widget for IndexColumn<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         for row in 0..area.height {
-            let i = 1 + row as usize + self.start;
+            let i = row as usize + self.start;
             let text = i.to_string();
             let style = nu_style_to_tui(self.style_computer.compute(
                 "row_index",
