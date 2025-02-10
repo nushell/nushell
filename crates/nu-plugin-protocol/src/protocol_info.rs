@@ -1,4 +1,5 @@
 use nu_protocol::ShellError;
+use semver::Prerelease;
 use serde::{Deserialize, Serialize};
 
 /// Protocol information, sent as a `Hello` message on initialization. This determines the
@@ -41,6 +42,12 @@ impl ProtocolInfo {
         ];
 
         versions.sort();
+
+        // the versions maybe a nightly version(1.2.3-nightly.1)
+        // it's good to mark the prelease field to be empty, so plugins
+        // are able to play with a nightly version of nushell.
+        versions[1].pre = Prerelease::EMPTY;
+        versions[0].pre = Prerelease::EMPTY;
 
         // For example, if the lower version is 1.1.0, and the higher version is 1.2.3, the
         // requirement is that 1.2.3 matches ^1.1.0 (which it does)
