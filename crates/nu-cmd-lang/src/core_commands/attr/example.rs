@@ -8,6 +8,8 @@ impl Command for AttrExample {
         "attr example"
     }
 
+    // TODO: When const closure are available, switch to using them for the `example` argument
+    // rather than a block. That should remove the need for `requires_ast_for_arguments` to be true
     fn signature(&self) -> Signature {
         Signature::build("attr example")
             .input_output_types(vec![(
