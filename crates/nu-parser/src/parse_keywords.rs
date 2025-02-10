@@ -2762,8 +2762,7 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
     working_set.add_overlay(
         overlay_name.as_bytes().to_vec(),
         module_id,
-        vec![],
-        vec![],
+        ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
         false,
     );
 
@@ -2977,8 +2976,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         working_set.add_overlay(
             final_overlay_name.as_bytes().to_vec(),
             origin_module_id,
-            definitions.decls,
-            definitions.modules,
+            definitions,
             has_prefix,
         );
     } else {
