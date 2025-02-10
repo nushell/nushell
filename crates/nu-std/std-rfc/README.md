@@ -13,7 +13,7 @@ This module includes potential candidate commands (and other definitions) for in
 
 ## Showcase and Discussion
 
-While primary feedback should take place in the PR, we have also established a [Drawing Board]([https://discord.gg/C3eMKV58MQ](https://discord.com/channels/601130461678272522/1313988919477538888)) Discord channel which can be used for several purposes:
+While primary feedback should take place in the PR, we have also established a [Drawing Board](https://discord.com/channels/601130461678272522/1313988919477538888) Discord channel which can be used for several purposes:
 
 * Ideation before a PR is submitted
 * Raise awareness of the feature
