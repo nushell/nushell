@@ -235,4 +235,17 @@ pub enum CompileError {
         #[label("label was used while compiling this code")]
         span: Option<Span>,
     },
+
+    /// An internal compiler error which shouldn't be possible (e.g. an invariant was violated or
+    /// not upheld). Generally signifies a Nushell bug as opposed to user error.
+    #[error("An unexpected error occurred: {msg}")]
+    #[diagnostic(
+        code(nu::compile::internal_error),
+        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new"),
+    )]
+    InternalError {
+        msg: String,
+        #[label("while compiling this code")]
+        span: Span,
+    },
 }

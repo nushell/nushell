@@ -70,6 +70,23 @@ pub enum Operator {
     Assignment(Assignment),
 }
 
+impl Assignment {
+    /// Decomposes a compound assignment operator into its corresponding non-assignment operator.
+    /// Returns `None` if this is not a compound assignment operator.
+    pub fn try_into_decomposed(self) -> Option<Operator> {
+        // NOTE: callers expect this to always returns `Some` when self is a compound assignment
+        // operator
+        match self {
+            Assignment::Assign => None,
+            Assignment::PlusAssign => Some(Operator::Math(Math::Plus)),
+            Assignment::ConcatAssign => Some(Operator::Math(Math::Concat)),
+            Assignment::MinusAssign => Some(Operator::Math(Math::Minus)),
+            Assignment::MultiplyAssign => Some(Operator::Math(Math::Multiply)),
+            Assignment::DivideAssign => Some(Operator::Math(Math::Divide)),
+        }
+    }
+}
+
 impl Operator {
     pub fn precedence(&self) -> u8 {
         match self {

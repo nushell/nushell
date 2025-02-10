@@ -1,5 +1,5 @@
 use nu_protocol::{
-    ast::{Assignment, Boolean, CellPath, Expr, Expression, Math, Operator, PathMember, Pattern},
+    ast::{Boolean, CellPath, Expr, Expression, Operator, PathMember, Pattern},
     engine::StateWorkingSet,
     ir::{Instruction, Literal},
     IntoSpanned, RegId, Span, Spanned, Value, ENV_VARIABLE_ID,
@@ -18,7 +18,7 @@ pub(crate) fn compile_binary_op(
     out_reg: RegId,
 ) -> Result<(), CompileError> {
     if let Operator::Assignment(assign_op) = op.item {
-        if let Some(decomposed_op) = decompose_assignment(assign_op) {
+        if let Some(decomposed_op) = assign_op.try_into_decomposed() {
             // Compiling an assignment that uses a binary op with the existing value
             compile_binary_op(
                 working_set,
@@ -143,18 +143,6 @@ pub(crate) fn compile_binary_op(
         builder.push(Instruction::Span { src_dst: out_reg }.into_spanned(span))?;
 
         Ok(())
-    }
-}
-
-/// The equivalent plain operator to use for an assignment, if any
-pub(crate) fn decompose_assignment(assignment: Assignment) -> Option<Operator> {
-    match assignment {
-        Assignment::Assign => None,
-        Assignment::PlusAssign => Some(Operator::Math(Math::Plus)),
-        Assignment::ConcatAssign => Some(Operator::Math(Math::Concat)),
-        Assignment::MinusAssign => Some(Operator::Math(Math::Minus)),
-        Assignment::MultiplyAssign => Some(Operator::Math(Math::Multiply)),
-        Assignment::DivideAssign => Some(Operator::Math(Math::Divide)),
     }
 }
 

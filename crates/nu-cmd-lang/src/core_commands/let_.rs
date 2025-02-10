@@ -21,7 +21,7 @@ impl Command for Let {
             .required(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
-                "Equals sign followed by value.",
+                "Any assignment operator followed by a value.",
             )
             .category(Category::Core)
     }
@@ -36,7 +36,7 @@ impl Command for Let {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["set", "const"]
+        vec!["binding", "const", "lexical", "local", "my", "set", "var"]
     }
 
     fn run(
@@ -56,7 +56,7 @@ impl Command for Let {
             .expect("internal error: missing variable");
 
         let block_id = call
-            .positional_nth(1)
+            .positional_nth(2)
             .expect("checked through parser")
             .as_block()
             .expect("internal error: missing right hand side");
@@ -87,8 +87,8 @@ impl Command for Let {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Set a variable to a value",
-                example: "let x = 10",
+                description: "Set a variable to a value using an explicit type",
+                example: "let x: int = 10",
                 result: None,
             },
             Example {
@@ -97,9 +97,27 @@ impl Command for Let {
                 result: None,
             },
             Example {
-                description: "Set a variable based on the condition",
-                example: "let x = if false { -1 } else { 1 }",
-                result: None,
+                description: "Set a variable based on a condition",
+                example: "let x = 'foobar'; let x = if $x starts-with foo { 'baz' } else { '' }",
+                result: Value::test_string("baz").into(),
+            },
+            Example {
+                description:
+                    "Shorthand to shadow a variable using its previous value via compound assignment operator",
+                example: "let x = 300; let x *= 3; $x",
+                result: Value::test_int(900).into(),
+            },
+            Example {
+                description:
+                    "Shorthand to shadow a variable using its previous value via compound assignment operator",
+                example: "let x = [1]; do {|| let x ++= [2 3]; $x } | append $x.0",
+                result: Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(1),
+                ])
+                .into(),
             },
         ]
     }
