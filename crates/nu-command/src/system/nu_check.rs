@@ -168,16 +168,6 @@ impl Command for NuCheck {
                 example: "$'two(char nl)lines' | nu-check ",
                 result: None,
             },
-            Example {
-                description: "Heuristically parse which begins with script first, if it sees a failure, try module afterwards",
-                example: "nu-check -a script.nu",
-                result: None,
-            },
-            Example {
-                description: "Heuristically parse by showing error message",
-                example: "open foo.nu | lines | nu-check --all --debug",
-                result: None,
-            },
         ]
     }
 }

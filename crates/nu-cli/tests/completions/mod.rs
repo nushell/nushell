@@ -1593,6 +1593,58 @@ fn variables_completions() {
 }
 
 #[test]
+fn record_cell_path_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"let foo = {a: [1 {a: 2}]}; const bar = {a: [1 {a: 2}]}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let expected: Vec<String> = vec!["a".into()];
+    let completion_str = "$foo.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "$foo.a.1.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "$bar.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "$bar.a.1.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "{a: [1 {a: 2}]}.a.1.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn table_cell_path_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"let foo = [{a:{b:1}}, {a:{b:2}}]; const bar = [[a b]; [1 2]]"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let expected: Vec<String> = vec!["a".into()];
+    let completion_str = "$foo.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let expected: Vec<String> = vec!["b".into()];
+    let completion_str = "$foo.a.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let expected: Vec<String> = vec!["a".into(), "b".into()];
+    let completion_str = "$bar.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
 fn alias_of_command_and_flags() {
     let (_, _, mut engine, mut stack) = new_engine();
 

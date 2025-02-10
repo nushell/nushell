@@ -4,7 +4,7 @@ def format-event [ ] {
   # Replace numeric value of raw_code with hex string
   let record = match $record {
     {raw_code: $code} => {
-      $record | update raw_code {|| $in | fmt | get upperhex}
+      $record | update raw_code {|| $in | format number | get upperhex}
     }
     _ => $record
   }
@@ -12,7 +12,7 @@ def format-event [ ] {
   # Replace numeric value of raw_modifiers with binary string
   let record = match $record {
     {raw_modifiers: $flags} => {
-      $record | update raw_modifiers {|| $in | fmt | get binary}
+      $record | update raw_modifiers {|| $in | format number | get binary}
     }
     _ => $record
   }

@@ -1,11 +1,11 @@
 use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
-    shell_error::io::IoError,
+    location,
+    shell_error::{io::IoError, location::Location},
     ByteStream, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError,
     Signals, Span, Type, Value,
 };
-use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::io::Write;
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
@@ -662,25 +662,24 @@ impl PipelineData {
         no_newline: bool,
         to_stderr: bool,
     ) -> Result<(), ShellError> {
+        let span = self.span();
         if let PipelineData::Value(Value::Binary { val: bytes, .. }, _) = self {
             if to_stderr {
-                stderr_write_all_and_flush(bytes).map_err(|err| {
-                    IoError::new_with_additional_context(
-                        err.kind(),
-                        Span::unknown(),
-                        None,
-                        "Writing to stderr failed",
-                    )
-                })?
+                write_all_and_flush(
+                    bytes,
+                    &mut std::io::stderr().lock(),
+                    "stderr",
+                    span,
+                    engine_state.signals(),
+                )?;
             } else {
-                stdout_write_all_and_flush(bytes).map_err(|err| {
-                    IoError::new_with_additional_context(
-                        err.kind(),
-                        Span::unknown(),
-                        None,
-                        "Writing to stdout failed",
-                    )
-                })?
+                write_all_and_flush(
+                    bytes,
+                    &mut std::io::stdout().lock(),
+                    "stdout",
+                    span,
+                    engine_state.signals(),
+                )?;
             }
             Ok(())
         } else {
@@ -694,6 +693,7 @@ impl PipelineData {
         no_newline: bool,
         to_stderr: bool,
     ) -> Result<(), ShellError> {
+        let span = self.span();
         if let PipelineData::ByteStream(stream, ..) = self {
             // Copy ByteStreams directly
             stream.print(to_stderr)
@@ -711,23 +711,21 @@ impl PipelineData {
                 }
 
                 if to_stderr {
-                    stderr_write_all_and_flush(out).map_err(|err| {
-                        IoError::new_with_additional_context(
-                            err.kind(),
-                            Span::unknown(),
-                            None,
-                            "Writing to stderr failed",
-                        )
-                    })?
+                    write_all_and_flush(
+                        out,
+                        &mut std::io::stderr().lock(),
+                        "stderr",
+                        span,
+                        engine_state.signals(),
+                    )?;
                 } else {
-                    stdout_write_all_and_flush(out).map_err(|err| {
-                        IoError::new_with_additional_context(
-                            err.kind(),
-                            Span::unknown(),
-                            None,
-                            "Writing to stdout failed",
-                        )
-                    })?
+                    write_all_and_flush(
+                        out,
+                        &mut std::io::stdout().lock(),
+                        "stdout",
+                        span,
+                        engine_state.signals(),
+                    )?;
                 }
             }
 
@@ -762,6 +760,41 @@ impl PipelineData {
             },
         }
     }
+}
+
+pub fn write_all_and_flush<T>(
+    data: T,
+    destination: &mut impl Write,
+    destination_name: &str,
+    span: Option<Span>,
+    signals: &Signals,
+) -> Result<(), ShellError>
+where
+    T: AsRef<[u8]>,
+{
+    let io_error_map = |err: std::io::Error, location: Location| {
+        let context = format!("Writing to {} failed", destination_name);
+        match span {
+            None => IoError::new_internal(err.kind(), context, location),
+            Some(span) if span == Span::unknown() => {
+                IoError::new_internal(err.kind(), context, location)
+            }
+            Some(span) => IoError::new_with_additional_context(err.kind(), span, None, context),
+        }
+    };
+
+    let span = span.unwrap_or(Span::unknown());
+    const OUTPUT_CHUNK_SIZE: usize = 8192;
+    for chunk in data.as_ref().chunks(OUTPUT_CHUNK_SIZE) {
+        signals.check(span)?;
+        destination
+            .write_all(chunk)
+            .map_err(|err| io_error_map(err, location!()))?;
+    }
+    destination
+        .flush()
+        .map_err(|err| io_error_map(err, location!()))?;
+    Ok(())
 }
 
 enum PipelineIteratorInner {

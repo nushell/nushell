@@ -146,7 +146,7 @@ export def ($test_function_name) [] {
     open $test.file
     | lines
     | append ($test_function)
-    | str join (char nl)
+    | str join (char lsep)
     | save $rendered_module_path
 
     let result = (

@@ -52,7 +52,7 @@ impl Dirs {
     }
 }
 
-impl<'a> Playground<'a> {
+impl Playground<'_> {
     pub fn root(&self) -> &AbsolutePath {
         &self.dirs.root
     }

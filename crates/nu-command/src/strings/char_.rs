@@ -12,6 +12,13 @@ const ENV_PATH_SEPARATOR_CHAR: char = ';';
 #[cfg(not(target_family = "windows"))]
 const ENV_PATH_SEPARATOR_CHAR: char = ':';
 
+// Character used to separate directories in a Path Environment variable on windows is ";"
+#[cfg(target_family = "windows")]
+const LINE_SEPARATOR_CHAR: &str = "\r\n";
+// Character used to separate directories in a Path Environment variable on linux/mac/unix is ":"
+#[cfg(not(target_family = "windows"))]
+const LINE_SEPARATOR_CHAR: char = '\n';
+
 #[derive(Clone)]
 pub struct Char;
 
@@ -59,6 +66,9 @@ static CHAR_MAP: LazyLock<IndexMap<&'static str, String>> = LazyLock::new(|| {
         "path_sep" => std::path::MAIN_SEPARATOR.to_string(),
         "psep" => std::path::MAIN_SEPARATOR.to_string(),
         "separator" => std::path::MAIN_SEPARATOR.to_string(),
+        "eol" => LINE_SEPARATOR_CHAR.to_string(),
+        "lsep" => LINE_SEPARATOR_CHAR.to_string(),
+        "line_sep" => LINE_SEPARATOR_CHAR.to_string(),
         "esep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
         "env_sep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
         "tilde" => '~'.to_string(),                                // ~
@@ -163,6 +173,9 @@ static NO_OUTPUT_CHARS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
         "crlf",
         "bel",
         "backspace",
+        "lsep",
+        "line_sep",
+        "eol",
     ]
     .into_iter()
     .collect()

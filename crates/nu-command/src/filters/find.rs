@@ -543,12 +543,12 @@ fn value_should_be_printed(
 
 fn term_contains_value(term: &Value, value: &Value, span: Span) -> bool {
     term.r#in(span, value, span)
-        .map_or(false, |value| value.is_true())
+        .is_ok_and(|value| value.is_true())
 }
 
 fn term_equals_value(term: &Value, value: &Value, span: Span) -> bool {
     term.eq(span, value, span)
-        .map_or(false, |value| value.is_true())
+        .is_ok_and(|value| value.is_true())
 }
 
 fn record_matches_term(

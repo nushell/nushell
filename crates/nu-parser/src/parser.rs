@@ -5911,6 +5911,31 @@ pub fn parse_builtin_commands(
         _ => {
             let element = parse_pipeline_element(working_set, lite_command);
 
+            // There is still a chance to make `parse_pipeline_element` parse into
+            // some keyword that should apply side effects first, Example:
+            //
+            // module a { export alias b = overlay use first.nu };
+            // use a
+            // a b
+            //
+            // In this case, `a b` will be parsed as a pipeline element, which leads
+            // to the `overlay use` command.
+            // In this case, we need to ensure that the side effects of these keywords
+            // are applied.
+            if let Expression {
+                expr: Expr::Call(call),
+                ..
+            } = &element.expr
+            {
+                // Apply parse keyword side effects
+                let cmd = working_set.get_decl(call.decl_id);
+                match cmd.name() {
+                    "overlay hide" => return parse_overlay_hide(working_set, call.clone()),
+                    "overlay new" => return parse_overlay_new(working_set, call.clone()),
+                    "overlay use" => return parse_overlay_use(working_set, call.clone()),
+                    _ => { /* this alias is not a parser keyword */ }
+                }
+            }
             Pipeline {
                 elements: vec![element],
             }

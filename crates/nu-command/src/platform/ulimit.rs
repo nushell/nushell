@@ -42,7 +42,7 @@ impl<'a> ResourceInfo<'a> {
     }
 }
 
-impl<'a> Default for ResourceInfo<'a> {
+impl Default for ResourceInfo<'_> {
     fn default() -> Self {
         Self {
             name: "file-size",

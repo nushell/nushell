@@ -148,7 +148,7 @@ fn counter(contents: &str, span: Span) -> Value {
     Value::record(record, span)
 }
 
-/// Take all the counts in `other_counts` and sum them into `accum`.
+// /// Take all the counts in `other_counts` and sum them into `accum`.
 // pub fn sum_counts(accum: &mut Counted, other_counts: &Counted) {
 //     for (counter, count) in other_counts {
 //         let entry = accum.entry(*counter).or_insert(0);
@@ -156,7 +156,7 @@ fn counter(contents: &str, span: Span) -> Value {
 //     }
 // }
 
-/// Sums all the `Counted` instances into a new one.
+// /// Sums all the `Counted` instances into a new one.
 // pub fn sum_all_counts<'a, I>(counts: I) -> Counted
 // where
 //     I: IntoIterator<Item = &'a Counted>,

@@ -3,7 +3,7 @@ use std::io::{Stdin, Stdout};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 use nu_protocol::shell_error::io::IoError;
-use nu_protocol::{ShellError, Span};
+use nu_protocol::ShellError;
 
 #[cfg(feature = "local-socket")]
 mod local_socket;
@@ -189,11 +189,10 @@ impl PreparedServerCommunication {
                 listener
                     .set_nonblocking(ListenerNonblockingMode::Accept)
                     .map_err(|err| {
-                        IoError::new_with_additional_context(
+                        IoError::new_internal(
                             err.kind(),
-                            Span::unknown(),
-                            None,
                             "Could not set non-blocking mode accept for listener",
+                            nu_protocol::location!(),
                         )
                     })?;
                 let mut get_socket = || {
@@ -204,11 +203,10 @@ impl PreparedServerCommunication {
                                 // Success! Ensure the stream is in nonblocking mode though, for
                                 // good measure. Had an issue without this on macOS.
                                 stream.set_nonblocking(false).map_err(|err| {
-                                    IoError::new_with_additional_context(
+                                    IoError::new_internal(
                                         err.kind(),
-                                        Span::unknown(),
-                                        None,
                                         "Could not disable non-blocking mode for listener",
+                                        nu_protocol::location!(),
                                     )
                                 })?;
                                 result = Some(stream);

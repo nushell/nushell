@@ -151,7 +151,7 @@ impl LanguageServer {
                 !self.initial_engine_state.signals().interrupted()
             })
             .into_diagnostic()?;
-        self.initialize_workspace_folders(init_params)?;
+        self.initialize_workspace_folders(init_params);
 
         while !self.initial_engine_state.signals().interrupted() {
             // first check new messages from child thread
@@ -730,7 +730,7 @@ mod tests {
             DidChangeTextDocument, DidOpenTextDocument, Exit, Initialized, Notification,
         },
         request::{Completion, HoverRequest, Initialize, Request, Shutdown},
-        CompletionParams, DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams,
+        CompletionParams, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
         InitializedParams, PartialResultParams, Position, TextDocumentContentChangeEvent,
         TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams,
         WorkDoneProgressParams,
@@ -740,7 +740,7 @@ mod tests {
     use std::time::Duration;
 
     pub(crate) fn initialize_language_server(
-        params: Option<InitializeParams>,
+        params: Option<serde_json::Value>,
     ) -> (Connection, Receiver<Result<()>>) {
         use std::sync::mpsc;
         let (client_connection, server_connection) = Connection::memory();
@@ -757,7 +757,7 @@ mod tests {
             .send(Message::Request(lsp_server::Request {
                 id: 1.into(),
                 method: Initialize::METHOD.to_string(),
-                params: serde_json::to_value(params.unwrap_or_default()).unwrap(),
+                params: params.unwrap_or(serde_json::Value::Null),
             }))
             .unwrap();
         client_connection
