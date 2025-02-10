@@ -2227,15 +2227,15 @@ pub fn parse_module(
 
     let module_name = module_name_or_path;
 
-    let block_span = spans[split_id + 1];
-    let block_bytes = working_set.get_span_contents(block_span);
-    let mut start = block_span.start;
-    let mut end = block_span.end;
+    let block_expr_span = spans[split_id + 1];
+    let block_bytes = working_set.get_span_contents(block_expr_span);
+    let mut start = block_expr_span.start;
+    let mut end = block_expr_span.end;
 
     if block_bytes.starts_with(b"{") {
         start += 1;
     } else {
-        working_set.error(ParseError::Expected("block", block_span));
+        working_set.error(ParseError::Expected("block", block_expr_span));
         return (garbage_pipeline(working_set, spans), None);
     }
 
@@ -2245,17 +2245,22 @@ pub fn parse_module(
         working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
     }
 
-    let block_span = Span::new(start, end);
+    let block_content_span = Span::new(start, end);
 
     let (block, module, inner_comments) =
-        parse_module_block(working_set, block_span, module_name.as_bytes());
+        parse_module_block(working_set, block_content_span, module_name.as_bytes());
 
     let block_id = working_set.add_block(Arc::new(block));
 
     module_comments.extend(inner_comments);
     let module_id = working_set.add_module(&module_name, module, module_comments);
 
-    let block_expr = Expression::new(working_set, Expr::Block(block_id), block_span, Type::Any);
+    let block_expr = Expression::new(
+        working_set,
+        Expr::Block(block_id),
+        block_expr_span,
+        Type::Any,
+    );
 
     let module_decl_id = working_set
         .find_decl(b"module")
