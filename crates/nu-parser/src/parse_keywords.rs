@@ -520,46 +520,8 @@ fn parse_def_inner(
 
     let (desc, extra_desc) = working_set.build_desc(&lite_command.comments);
 
-    let mut attribute_vals = vec![];
-    let mut examples = vec![];
-    let mut search_terms = vec![];
-
-    for (name, value) in attributes {
-        let val_span = value.span();
-        match name.as_str() {
-            "example" => match CustomExample::from_value(value) {
-                Ok(example) => examples.push(example),
-                Err(_) => {
-                    let e = ShellError::GenericError {
-                        error: "nu::shell::invalid_example".into(),
-                        msg: "Value couldn't be converted to an example".into(),
-                        span: Some(val_span),
-                        help: Some("Is `attr example` shadowed?".into()),
-                        inner: vec![],
-                    };
-                    working_set.error(e.wrap(working_set, val_span));
-                }
-            },
-            "search-terms" => match <Vec<String>>::from_value(value) {
-                Ok(mut terms) => {
-                    search_terms.append(&mut terms);
-                }
-                Err(_) => {
-                    let e = ShellError::GenericError {
-                        error: "nu::shell::invalid_search_terms".into(),
-                        msg: "Value couldn't be converted to search-terms".into(),
-                        span: Some(val_span),
-                        help: Some("Is `attr search-terms` shadowed?".into()),
-                        inner: vec![],
-                    };
-                    working_set.error(e.wrap(working_set, val_span));
-                }
-            },
-            _ => {
-                attribute_vals.push((name, value));
-            }
-        }
-    }
+    let (attribute_vals, examples, search_terms) =
+        handle_special_attributes(attributes, working_set);
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -824,46 +786,8 @@ fn parse_extern_inner(
 
     let (description, extra_description) = working_set.build_desc(&lite_command.comments);
 
-    let mut attribute_vals = vec![];
-    let mut examples = vec![];
-    let mut search_terms = vec![];
-
-    for (name, value) in attributes {
-        let val_span = value.span();
-        match name.as_str() {
-            "example" => match CustomExample::from_value(value) {
-                Ok(example) => examples.push(example),
-                Err(_) => {
-                    let e = ShellError::GenericError {
-                        error: "nu::shell::invalid_example".into(),
-                        msg: "Value couldn't be converted to an example".into(),
-                        span: Some(val_span),
-                        help: Some("Is `attr example` shadowed?".into()),
-                        inner: vec![],
-                    };
-                    working_set.error(e.wrap(working_set, val_span));
-                }
-            },
-            "search-terms" => match <Vec<String>>::from_value(value) {
-                Ok(mut terms) => {
-                    search_terms.append(&mut terms);
-                }
-                Err(_) => {
-                    let e = ShellError::GenericError {
-                        error: "nu::shell::invalid_search_terms".into(),
-                        msg: "Value couldn't be converted to search-terms".into(),
-                        span: Some(val_span),
-                        help: Some("Is `attr search-terms` shadowed?".into()),
-                        inner: vec![],
-                    };
-                    working_set.error(e.wrap(working_set, val_span));
-                }
-            },
-            _ => {
-                attribute_vals.push((name, value));
-            }
-        }
-    }
+    let (attribute_vals, examples, search_terms) =
+        handle_special_attributes(attributes, working_set);
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -1021,6 +945,53 @@ fn parse_extern_inner(
     }
 
     Expression::new(working_set, Expr::Call(call), call_span, Type::Any)
+}
+
+fn handle_special_attributes(
+    attributes: Vec<(String, Value)>,
+    working_set: &mut StateWorkingSet<'_>,
+) -> (Vec<(String, Value)>, Vec<CustomExample>, Vec<String>) {
+    let mut attribute_vals = vec![];
+    let mut examples = vec![];
+    let mut search_terms = vec![];
+
+    for (name, value) in attributes {
+        let val_span = value.span();
+        match name.as_str() {
+            "example" => match CustomExample::from_value(value) {
+                Ok(example) => examples.push(example),
+                Err(_) => {
+                    let e = ShellError::GenericError {
+                        error: "nu::shell::invalid_example".into(),
+                        msg: "Value couldn't be converted to an example".into(),
+                        span: Some(val_span),
+                        help: Some("Is `attr example` shadowed?".into()),
+                        inner: vec![],
+                    };
+                    working_set.error(e.wrap(working_set, val_span));
+                }
+            },
+            "search-terms" => match <Vec<String>>::from_value(value) {
+                Ok(mut terms) => {
+                    search_terms.append(&mut terms);
+                }
+                Err(_) => {
+                    let e = ShellError::GenericError {
+                        error: "nu::shell::invalid_search_terms".into(),
+                        msg: "Value couldn't be converted to search-terms".into(),
+                        span: Some(val_span),
+                        help: Some("Is `attr search-terms` shadowed?".into()),
+                        inner: vec![],
+                    };
+                    working_set.error(e.wrap(working_set, val_span));
+                }
+            },
+            _ => {
+                attribute_vals.push((name, value));
+            }
+        }
+    }
+    (attribute_vals, examples, search_terms)
 }
 
 fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> Option<&'a Span> {
