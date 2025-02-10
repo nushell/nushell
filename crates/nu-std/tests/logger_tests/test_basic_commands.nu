@@ -1,3 +1,4 @@
+use std/testing *
 use std/assert
 
 def run [

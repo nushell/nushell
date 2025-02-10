@@ -1,4 +1,5 @@
 # Test std/formats when importing `use std *`
+use std/testing *
 use std *
 
 def test_data_multiline [--nuon] {

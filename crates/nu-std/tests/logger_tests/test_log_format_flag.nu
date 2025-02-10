@@ -1,3 +1,4 @@
+use std/testing *
 use std *
 use std/log *
 use std/assert

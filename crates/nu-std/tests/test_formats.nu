@@ -1,4 +1,5 @@
 # Test std/formats when importing module-only
+use std/testing *
 use std/assert
 use std/formats *
 
