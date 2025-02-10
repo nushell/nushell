@@ -5857,8 +5857,13 @@ pub fn parse_builtin_commands(
         .unwrap_or(b"");
 
     match name {
+        // `parse_def` and `parse_extern` work both with and without attributes
         b"def" => parse_def(working_set, lite_command, None).0,
         b"extern" => parse_extern(working_set, lite_command, None),
+        // `parse_export_in_block` also handles attributes by itself
+        b"export" => parse_export_in_block(working_set, lite_command),
+        // Other definitions can't have attributes, so we handle attributes here with parse_attribute_block
+        _ if lite_command.has_attributes() => parse_attribute_block(working_set, lite_command),
         b"let" => parse_let(
             working_set,
             &lite_command
@@ -5887,7 +5892,6 @@ pub fn parse_builtin_commands(
             parse_keyword(working_set, lite_command)
         }
         b"source" | b"source-env" => parse_source(working_set, lite_command),
-        b"export" => parse_export_in_block(working_set, lite_command),
         b"hide" => parse_hide(working_set, lite_command),
         b"where" => parse_where(working_set, lite_command),
         // Only "plugin use" is a keyword
@@ -5904,7 +5908,6 @@ pub fn parse_builtin_commands(
             }
             parse_keyword(working_set, lite_command)
         }
-        _ if lite_command.has_attributes() => parse_attribute_block(working_set, lite_command),
         _ => {
             let element = parse_pipeline_element(working_set, lite_command);
 

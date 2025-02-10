@@ -1470,6 +1470,7 @@ pub fn parse_export_in_module(
     let exportables = if let Some(kw_span) = spans.get(1) {
         let kw_name = working_set.get_span_contents(*kw_span);
         match kw_name {
+            // `parse_def` and `parse_extern` work both with and without attributes
             b"def" => {
                 let (mut pipeline, cmd_result) =
                     parse_def(working_set, lite_command, Some(module_name));
@@ -1584,13 +1585,17 @@ pub fn parse_export_in_module(
                 out_pipeline = Some(pipeline);
                 result
             }
+            // Other definitions can't have attributes, so we handle attributes here with parse_attribute_block
+            _ if lite_command.has_attributes() => {
+                out_pipeline = Some(parse_attribute_block(working_set, lite_command));
+                vec![]
+            }
             b"alias" => {
                 let lite_command = LiteCommand {
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                     pipe: lite_command.pipe,
                     redirection: lite_command.redirection.clone(),
-                    // TODO(Bahex):
                     attribute_idx: vec![],
                 };
                 let pipeline = parse_alias(working_set, &lite_command, Some(module_name));
@@ -1649,7 +1654,6 @@ pub fn parse_export_in_module(
                     parts: spans[1..].to_vec(),
                     pipe: lite_command.pipe,
                     redirection: lite_command.redirection.clone(),
-                    // TODO(Bahex):
                     attribute_idx: vec![],
                 };
                 let (pipeline, exportables) =
@@ -1975,6 +1979,7 @@ pub fn parse_module_block(
                 .unwrap_or(b"");
 
             match name {
+                // `parse_def` and `parse_extern` work both with and without attributes
                 b"def" => {
                     block.pipelines.push(
                         parse_def(
@@ -1985,33 +1990,10 @@ pub fn parse_module_block(
                         .0,
                     )
                 }
-                b"const" => block
-                    .pipelines
-                    .push(parse_const(working_set, &command.parts).0),
                 b"extern" => block
                     .pipelines
                     .push(parse_extern(working_set, command, None)),
-                b"alias" => {
-                    block.pipelines.push(parse_alias(
-                        working_set,
-                        command,
-                        None, // using aliases named as the module locally is OK
-                    ))
-                }
-                b"use" => {
-                    let (pipeline, _) = parse_use(working_set, command, Some(&mut module));
-
-                    block.pipelines.push(pipeline)
-                }
-                b"module" => {
-                    let (pipeline, _) = parse_module(
-                        working_set,
-                        command,
-                        None, // using modules named as the module locally is OK
-                    );
-
-                    block.pipelines.push(pipeline)
-                }
+                // `parse_export_in_module` also handles attributes by itself
                 b"export" => {
                     let (pipe, exportables) =
                         parse_export_in_module(working_set, command, module_name, &mut module);
@@ -2092,6 +2074,34 @@ pub fn parse_module_block(
 
                     block.pipelines.push(pipe)
                 }
+                // Other definitions can't have attributes, so we handle attributes here with parse_attribute_block
+                _ if command.has_attributes() => block
+                    .pipelines
+                    .push(parse_attribute_block(working_set, command)),
+                b"const" => block
+                    .pipelines
+                    .push(parse_const(working_set, &command.parts).0),
+                b"alias" => {
+                    block.pipelines.push(parse_alias(
+                        working_set,
+                        command,
+                        None, // using aliases named as the module locally is OK
+                    ))
+                }
+                b"use" => {
+                    let (pipeline, _) = parse_use(working_set, command, Some(&mut module));
+
+                    block.pipelines.push(pipeline)
+                }
+                b"module" => {
+                    let (pipeline, _) = parse_module(
+                        working_set,
+                        command,
+                        None, // using modules named as the module locally is OK
+                    );
+
+                    block.pipelines.push(pipeline)
+                }
                 b"export-env" => {
                     let (pipe, maybe_env_block) = parse_export_env(working_set, &command.parts);
 
@@ -2101,9 +2111,6 @@ pub fn parse_module_block(
 
                     block.pipelines.push(pipe)
                 }
-                _ if command.has_attributes() => block
-                    .pipelines
-                    .push(parse_attribute_block(working_set, command)),
                 _ => {
                     working_set.error(ParseError::ExpectedKeyword(
                         "def, const, extern, alias, use, module, export or export-env keyword"
