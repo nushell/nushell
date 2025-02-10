@@ -28,12 +28,9 @@ impl Completer for AttributeCompletion {
 
         let attr_commands = working_set.find_commands_by_predicate(
             |s| {
-                if let Some(s) = s.strip_prefix(b"attr ") {
-                    let name = String::from_utf8_lossy(s);
-                    matcher.matches(&name)
-                } else {
-                    false
-                }
+                s.strip_prefix(b"attr ")
+                    .map(String::from_utf8_lossy)
+                    .is_some_and(|name| matcher.matches(&name))
             },
             true,
         );
