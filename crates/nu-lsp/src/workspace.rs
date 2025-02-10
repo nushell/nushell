@@ -376,7 +376,7 @@ impl LanguageServer {
                 let _ = Self::find_reference_in_file(&mut working_set, file, fp, &id).map(
                     |mut refs| {
                         let file_span = working_set
-                            .get_span_for_filename(fp.to_string_lossy().as_ref())
+                            .reverse_get_span_for_filename(fp.to_string_lossy().as_ref())
                             .unwrap_or(Span::unknown());
                         if let Some(extra_span) = Self::reference_not_in_ast(
                             &id,
@@ -914,7 +914,7 @@ mod tests {
         script_path.pop();
         script_path.push("foo.nu");
         let span_foo = working_set
-            .get_span_for_filename(script_path.to_str().unwrap())
+            .reverse_get_span_for_filename(script_path.to_str().unwrap())
             .unwrap();
         assert!(working_set.find_block_by_span(span_foo).is_some())
     }
