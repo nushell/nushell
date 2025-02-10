@@ -43,9 +43,9 @@ impl ProtocolInfo {
 
         versions.sort();
 
-        // the versions maybe a nightly version(1.2.3-nightly.1)
-        // it's good to mark the prelease field to be empty, so plugins
-        // are able to play with a nightly version of nushell.
+        // The version may be a nightly version (1.2.3-nightly.1).
+        // It's good to mark the prerelease field as empty, so plugins
+        // can work with a nightly version of Nushell.
         versions[1].pre = Prerelease::EMPTY;
         versions[0].pre = Prerelease::EMPTY;
 
