@@ -1,4 +1,5 @@
 mod base;
+mod cell_path_completions;
 mod command_completions;
 mod completer;
 mod completion_common;
@@ -12,6 +13,7 @@ mod operator_completions;
 mod variable_completions;
 
 pub use base::{Completer, SemanticSuggestion, SuggestionKind};
+pub use cell_path_completions::CellPathCompletion;
 pub use command_completions::CommandCompletion;
 pub use completer::NuCompleter;
 pub use completion_options::{CompletionOptions, MatchAlgorithm};
@@ -21,4 +23,4 @@ pub use dotnu_completions::DotNuCompletion;
 pub use file_completions::{file_path_completion, FileCompletion};
 pub use flag_completions::FlagCompletion;
 pub use operator_completions::OperatorCompletion;
-pub use variable_completions::{CellPathCompletion, VariableNameCompletion};
+pub use variable_completions::VariableCompletion;

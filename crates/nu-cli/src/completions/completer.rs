@@ -1,7 +1,7 @@
 use crate::completions::{
     CellPathCompletion, CommandCompletion, Completer, CompletionOptions, CustomCompletion,
     DirectoryCompletion, DotNuCompletion, FileCompletion, FlagCompletion, OperatorCompletion,
-    VariableNameCompletion,
+    VariableCompletion,
 };
 use log::debug;
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
@@ -104,7 +104,7 @@ impl NuCompleter {
         if !prefix.starts_with(b"$") {
             return vec![];
         }
-        let mut variable_names_completer = VariableNameCompletion {};
+        let mut variable_names_completer = VariableCompletion {};
         self.process_completion(
             &mut variable_names_completer,
             working_set,
