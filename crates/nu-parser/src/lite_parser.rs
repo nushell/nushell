@@ -363,7 +363,7 @@ pub fn lite_parse(
                             command.push(token.span);
                         }
                         TokenContents::Item => {
-                            // This is commented out to preserve old parser behavior,
+                            // FIXME: This is commented out to preserve old parser behavior,
                             // but we should probably error here.
                             //
                             // if element.redirection.is_some() {
