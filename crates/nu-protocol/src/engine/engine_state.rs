@@ -880,7 +880,9 @@ impl EngineState {
         }
     }
 
-    pub fn files(&self) -> impl Iterator<Item = &CachedFile> {
+    pub fn files(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = &CachedFile> + ExactSizeIterator<Item = &CachedFile> {
         self.files.iter()
     }
 
