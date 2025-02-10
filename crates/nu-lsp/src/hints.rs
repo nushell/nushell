@@ -160,6 +160,7 @@ impl LanguageServer {
     }
 }
 
+/// TODO: test for files loaded as user config
 #[cfg(test)]
 mod tests {
     use crate::path_to_uri;

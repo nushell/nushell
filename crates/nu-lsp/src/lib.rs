@@ -345,7 +345,7 @@ impl LanguageServer {
         let contents = file.get_content(None).as_bytes();
         let _ = working_set.files.push(file_path.clone(), Span::unknown());
         let block = nu_parser::parse(&mut working_set, Some(file_path_str), contents, false);
-        let span = working_set.reverse_get_span_for_filename(file_path_str)?;
+        let span = working_set.get_span_for_filename(file_path_str)?;
         if need_hints {
             let file_inlay_hints =
                 Self::extract_inlay_hints(&working_set, &block, span.start, file);

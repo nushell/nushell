@@ -368,15 +368,15 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn get_span_for_filename(&self, filename: &str) -> Option<Span> {
-        let file_id = self.files().position(|file| &*file.name == filename)?;
-        let file_id = FileId::new(file_id);
-
-        Some(self.get_span_for_file(file_id))
-    }
-
-    pub fn reverse_get_span_for_filename(&self, filename: &str) -> Option<Span> {
-        let file_vec: Vec<_> = self.files().collect();
-        let file_id = file_vec.iter().rposition(|file| &*file.name == filename)?;
+        let predicate = |file: &CachedFile| &*file.name == filename;
+        // search from end to start, in case there're duplicated files with the same name
+        let file_id = self
+            .delta
+            .files
+            .iter()
+            .rposition(predicate)
+            .map(|idx| idx + self.permanent_state.num_files())
+            .or_else(|| self.permanent_state.files().rposition(predicate))?;
         let file_id = FileId::new(file_id);
 
         Some(self.get_span_for_file(file_id))
