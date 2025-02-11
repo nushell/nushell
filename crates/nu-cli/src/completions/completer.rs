@@ -263,7 +263,7 @@ impl NuCompleter {
                                 decl_id,
                                 initial_line,
                                 pos - offset,
-                                FileCompletion::new(),
+                                FileCompletion,
                             );
 
                             suggestions.extend(self.process_completion(&mut completer, &ctx));
@@ -356,13 +356,12 @@ impl NuCompleter {
         }
 
         if suggestions.is_empty() {
-            let mut file_completions = FileCompletion::new();
             let (new_span, prefix) =
                 strip_placeholder_with_rsplit(&working_set, &element_expression.span, |c| {
                     *c == b' '
                 });
             let ctx = Context::new(&working_set, new_span, prefix, offset);
-            suggestions.extend(self.process_completion(&mut file_completions, &ctx));
+            suggestions.extend(self.process_completion(&mut FileCompletion, &ctx));
         }
         suggestions
     }
@@ -377,9 +376,8 @@ impl NuCompleter {
         if !prefix.starts_with(b"$") {
             return vec![];
         }
-        let mut variable_names_completer = VariableCompletion {};
         let ctx = Context::new(working_set, new_span, prefix, offset);
-        self.process_completion(&mut variable_names_completer, &ctx)
+        self.process_completion(&mut VariableCompletion, &ctx)
     }
 
     fn command_completion_helper(
@@ -409,8 +407,7 @@ impl NuCompleter {
         // special commands
         match command_head {
             b"use" | b"export use" | b"overlay use" | b"source-env" => {
-                let mut completer = DotNuCompletion::new();
-                return self.process_completion(&mut completer, ctx);
+                return self.process_completion(&mut DotNuCompletion, ctx);
             }
             b"which" => {
                 let mut completer = CommandCompletion {
@@ -423,15 +420,9 @@ impl NuCompleter {
         }
 
         // general positional arguments
-        let file_completion_helper = || {
-            let mut completer = FileCompletion::new();
-            self.process_completion(&mut completer, ctx)
-        };
+        let file_completion_helper = || self.process_completion(&mut FileCompletion, ctx);
         match &expr.expr {
-            Expr::Directory(_, _) => {
-                let mut completer = DirectoryCompletion::new();
-                self.process_completion(&mut completer, ctx)
-            }
+            Expr::Directory(_, _) => self.process_completion(&mut DirectoryCompletion, ctx),
             Expr::Filepath(_, _) | Expr::GlobPattern(_, _) => file_completion_helper(),
             // fallback to file completion if necessary
             _ if need_fallback => file_completion_helper(),

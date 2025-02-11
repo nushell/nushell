@@ -7,7 +7,7 @@ use reedline::Suggestion;
 
 use super::completion_options::NuMatcher;
 
-pub struct VariableCompletion {}
+pub struct VariableCompletion;
 
 impl Completer for VariableCompletion {
     fn fetch(

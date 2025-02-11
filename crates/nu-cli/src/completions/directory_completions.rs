@@ -11,14 +11,7 @@ use std::path::Path;
 
 use super::{completion_common::FileSuggestion, SemanticSuggestion};
 
-#[derive(Clone, Default)]
-pub struct DirectoryCompletion {}
-
-impl DirectoryCompletion {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
+pub struct DirectoryCompletion;
 
 impl Completer for DirectoryCompletion {
     fn fetch(
