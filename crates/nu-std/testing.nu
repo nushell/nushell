@@ -8,12 +8,18 @@ def "nu-complete threads" [] {
     seq 1 (sys cpu | length)
 }
 
-# Here we store the map of annotations internal names and the annotation actually used during test creation
-# The reason we do that is to allow annotations to be easily renamed without modifying rest of the code
-# Functions with no annotations or with annotations not on the list are rejected during module evaluation
-# test and test-skip annotations may be used multiple times throughout the module as the function names are stored in a list
-# Other annotations should only be used once within a module file
-# If you find yourself in need of multiple before- or after- functions it's a sign your test suite probably needs redesign
+# Here we store the map of annotations' internal names along with the annotation actually
+# used during test creation. We do this to allow annotations to be easily renamed without
+# modifying rest of the code.
+# Functions with no annotations or with annotations not on the list are rejected during module evaluation.
+#
+# `test` and `test-skip` annotations may be used multiple times throughout the module as the function names
+# are stored in a list.
+#
+# Other annotations should only be used once within a module file.
+#
+# If you find yourself in need of multiple `before-*` or `after-*` functions, it's a sign your test suite
+# probably needs redesign.
 const valid_annotations = {
     "test": "test",
     "ignore": "test-skip",
@@ -23,7 +29,7 @@ const valid_annotations = {
     "after-all": "after-all"
 }
 
-# Returns a table containing the list of function names together with their annotations (comments above the declaration)
+# Returns a table containing the list of command names along with their attributes. 
 def get-annotated [
     file: path
 ]: nothing -> table<function_name: string, annotation: string> {

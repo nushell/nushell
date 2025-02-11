@@ -1,7 +1,8 @@
 use std-rfc/path
 use std/assert
+use std/testing *
 
-#[test]
+@test
 def path_with_extension [] {
     let new_path = "ab.txt" | path with-extension "rs"
     assert equal $new_path "ab.rs"
@@ -10,7 +11,7 @@ def path_with_extension [] {
     assert equal $new_path "ab.rs"
 }
 
-#[test]
+@test
 def path_with_extension_for_list [] {
     let new_path = ["ab.txt", "cd.exe"] | path with-extension "rs"
     assert equal $new_path ["ab.rs", "cd.rs"]
@@ -19,7 +20,7 @@ def path_with_extension_for_list [] {
     assert equal $new_path ["ab.rs", "cd.rs"]
 }
 
-#[test]
+@test
 def path_with_stem [] {
     let new_path = $"(char psep)usr(char psep)bin" | path with-stem "share"
     assert equal $new_path $"(char psep)usr(char psep)share"
@@ -28,7 +29,7 @@ def path_with_stem [] {
     assert equal $new_path [$"(char psep)home(char psep)nushell", $"(char psep)home(char psep)bob(char psep)nushell.txt"]
 }
 
-#[test]
+@test
 def path_with_parent [] {
     let new_path = $"(char psep)etc(char psep)foobar" | path with-parent $"(char psep)usr(char psep)share(char psep)"
     assert equal $new_path $"(char psep)usr(char psep)share(char psep)foobar"

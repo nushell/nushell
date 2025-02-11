@@ -1,7 +1,8 @@
 use std/assert
+use std/testing *
 use std-rfc/str
 
-#[test]
+@test
 def str-dedent_simple [] {
     
     # Test 1:
@@ -21,7 +22,7 @@ def str-dedent_simple [] {
     ) $"Heading(char lsep)(char lsep)    one(char lsep)    two"
 }
 
-#[test]
+@test
 def str-dedent_leave_blankline_whitespace [] {
     # Test 2:
     # Same as #1, but the blank line has leftover whitespace
@@ -39,7 +40,7 @@ def str-dedent_leave_blankline_whitespace [] {
     ) $"Heading(char lsep)                (char lsep)    one(char lsep)    two"
 }
 
-#[test]
+@test
 def str-dedent_leave_blankline_tab [] {
     # Test 3:
     # Same, but with a single tab character on the "blank" line
@@ -56,7 +57,7 @@ def str-dedent_leave_blankline_tab [] {
     ) $"Heading(char lsep)(char tab)(char lsep)    one(char lsep)    two"
 }
 
-#[test]
+@test
 def str-dedent_ends_with_newline [] {
     # Test 4:
     # Ends with line-break
@@ -74,7 +75,7 @@ def str-dedent_ends_with_newline [] {
     ) $"Heading(char lsep)(char lsep)    one(char lsep)    two(char lsep)"
 }
 
-#[test]
+@test
 def str-dedent_identity [] {
     # Test 5:
     # Identity - Returns the original string sans first and last empty lines
@@ -87,7 +88,7 @@ def str-dedent_identity [] {
     ) "  Identity  "
 }
 
-#[test]
+@test
 def str-dedent_error-no_blank_lines [] {
     # Test 6:
     # Error - Does not contain an empty first line
@@ -104,7 +105,7 @@ def str-dedent_error-no_blank_lines [] {
     }
 }
 
-#[test]
+@test
 def str-dedent_error-no_blank_first_line [] {
     # Test 7:
     # Error - Does not contain an empty last line
@@ -115,7 +116,7 @@ def str-dedent_error-no_blank_first_line [] {
     }
 }
 
-#[test]
+@test
 def str-dedent_error-missing_last_empty_line [] {
     # Test 7.1:
     # Error - Does not contain an empty last line
@@ -127,7 +128,7 @@ def str-dedent_error-missing_last_empty_line [] {
     }
 }
 
-#[test]
+@test
 def str-dedent_error-not_enough_indentation [] {
     # Test 8:
     # Error - Line 1 does not have enough indentation
@@ -140,7 +141,7 @@ def str-dedent_error-not_enough_indentation [] {
     }
 }
 
-#[test]
+@test
 def str-dedent_error-not_enough_indentation2 [] {
     # Test 8.1:
     # Error - Line 2 does not have enough indentation
@@ -153,7 +154,7 @@ def str-dedent_error-not_enough_indentation2 [] {
     }
 }
 
-#[test]
+@test
 def str-dedent_error-not_enough_indentation3 [] {
     # Test 8.2:
     # Error - Line does not have enough indentation
@@ -165,7 +166,7 @@ def str-dedent_error-not_enough_indentation3 [] {
     }
 }
 
-#[test]
+@test
 def str-dedent_first_line_whitespace_allowed [] {
     # Test 9:
     # "Hidden" whitespace on the first line is allowed
@@ -177,7 +178,7 @@ def str-dedent_first_line_whitespace_allowed [] {
     ) "  Identity  "
 }
 
-#[test]
+@test
 def str-dedent_using_tabs [] {
     # Test 10:
     # If the indentation on the last line uses tabs, then the number of tabs
@@ -192,7 +193,7 @@ def str-dedent_using_tabs [] {
     assert equal $actual $expected
 }
 
-#[test]
+@test
 def str-unindent_simple [] {
     # Test 1:
     # Should start with "Heading" in the first character position
@@ -213,7 +214,7 @@ def str-unindent_simple [] {
     assert equal $actual $expected
 }
 
-#[test]
+@test
 def str-unindent_ignore_first_and_last_whitespace [] {
     # Test 2:
     # If the first and/or last line are only whitespace
@@ -236,7 +237,7 @@ def str-unindent_ignore_first_and_last_whitespace [] {
     assert equal $actual $expected
 }
 
-#[test]
+@test
 def str-unindent_keep_extra_line [] {
   # Test 3:
   # Keep intentional blank lines at start and/or end
@@ -252,7 +253,7 @@ def str-unindent_keep_extra_line [] {
   assert equal $actual $expected
 }
 
-#[test]
+@test
 def str-unindent_works_on_single_line [] {
     # Test 4:
     # Works on a single-line string
@@ -264,7 +265,7 @@ def str-unindent_works_on_single_line [] {
     assert equal $actual $expected
 }
 
-#[test]
+@test
 def str-unindent_whitespace_only_single_line [] {
     # Test 4:
     # Works on a single-line string with whitespace-only
@@ -276,7 +277,7 @@ def str-unindent_whitespace_only_single_line [] {
     assert equal $actual $expected
 }
     
-#[test]
+@test
 def str-unindent_whitespace_works_with_tabs [] {
     # Test 4:
     # Works with tabs for indentation
