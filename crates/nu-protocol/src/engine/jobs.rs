@@ -142,6 +142,30 @@ impl ThreadJob {
     }
 }
 
+impl Job {
+    pub fn kill(&self) -> std::io::Result<()> {
+        match self {
+            Job::Thread(thread_job) => thread_job.kill(),
+            Job::Frozen(frozen_job) => frozen_job.kill(),
+        }
+    }
+}
+
 pub struct FrozenJob {
     pub unfreeze: UnfreezeHandle,
+}
+
+impl FrozenJob {
+    pub fn kill(&self) -> std::io::Result<()> {
+        #[cfg(unix)]
+        {
+            kill_by_pid(self.unfreeze.pid() as i64)
+        }
+
+        // it doesn't happen in windows.
+        #[cfg(windows)]
+        {
+            Ok(())
+        }
+    }
 }

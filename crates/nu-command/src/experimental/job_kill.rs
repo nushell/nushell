@@ -54,17 +54,11 @@ impl Command for JobKill {
 }
 
 fn kill_job(job: &Job) -> Result<(), ShellError> {
-    match job {
-        Job::Thread(job) => job.kill().map_err(|err| {
-            ShellError::Io(IoError::new_internal(
-                err.kind(),
-                "Failed to kill the requested job",
-                nu_protocol::location!(),
-            ))
-        }),
-
-        Job::Frozen(FrozenJob { .. }) => {
-            todo!("implement killing frozen jobs");
-        }
-    }
+    job.kill().map_err(|err| {
+        ShellError::Io(IoError::new_internal(
+            err.kind(),
+            "Failed to kill the requested job",
+            nu_protocol::location!(),
+        ))
+    })
 }
