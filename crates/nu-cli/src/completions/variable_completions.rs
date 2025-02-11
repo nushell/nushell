@@ -17,7 +17,6 @@ impl Completer for VariableCompletion {
         prefix: &[u8],
         span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         let prefix_str = String::from_utf8_lossy(prefix);

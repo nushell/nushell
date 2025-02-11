@@ -28,7 +28,6 @@ impl Completer for DirectoryCompletion {
         prefix: &[u8],
         span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         let AdjustView { prefix, span, .. } = adjust_if_intermediate(prefix, working_set, span);

@@ -15,7 +15,6 @@ pub trait Completer {
         prefix: &[u8],
         span: Span,
         offset: usize,
-        pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion>;
 }

@@ -28,7 +28,6 @@ impl Completer for FileCompletion {
         prefix: &[u8],
         span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         let AdjustView {

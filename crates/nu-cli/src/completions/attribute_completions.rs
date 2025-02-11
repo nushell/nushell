@@ -20,7 +20,6 @@ impl Completer for AttributeCompletion {
         _prefix: &[u8],
         span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         let partial = working_set.get_span_contents(span);
@@ -65,7 +64,6 @@ impl Completer for AttributableCompletion {
         _prefix: &[u8],
         span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         let partial = working_set.get_span_contents(span);

@@ -22,7 +22,6 @@ impl Completer for CellPathCompletion<'_> {
         _prefix: &[u8],
         _span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         // empty tail is already handled as variable names completion
