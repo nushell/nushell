@@ -1,23 +1,15 @@
 # Run aggregate operations on output of `group-by --to-table`.
-#
-# # Example
-#
-# - group files by type and extension, and get stats about their sizes
-# ```nushell
-# >_ ls | group-by type { get name | path parse | get extension } --to-table | aggregate size
-# ```
-# 
-# - group data by multiple columns, and run custom aggregate operations
-# ```nushell
-# >_ open movies.csv
-#    | group-by Lead_Studio Genre --to-table
-#    | aggregate Worldwide_Gross Profitability --ops {avg: {math avg}, std: {math stddev}}
-# ```
-#
-# - run aggregate operations without grouping the input
-# ```nushell
-# >_ open movies.csv | aggregate Year
-# ```
+@example "group files by type and extension, and get stats about their sizes" {
+    ls | group-by type { get name | path parse | get extension } --to-table | aggregate size
+}
+@example "group data by multiple columns, and run custom aggregate operations" {
+    open movies.csv
+    | group-by Lead_Studio Genre --to-table
+    | aggregate Worldwide_Gross Profitability --ops {avg: {math avg}, std: {math stddev}}
+}
+@example "run aggregate operations without grouping the input" {
+    open movies.csv | aggregate Year
+}
 export def aggregate [
     --ops: record, # default = {min: {math min}, avg: {math avg}, max: {math max}, sum: {math sum}}  
     ...columns: cell-path, # columns to perform aggregations on
@@ -161,16 +153,12 @@ def row-indices [ ...slices ] {
 }
 
 # Selects one or more rows while keeping the original indices.
-#
-# Example - Selects the first, fifth, and sixth rows from the table:
-#
-# ls / | select slices 0 4..5
-#
-# Example - Select the 4th row.
-#
-# Note that the difference between this and `select 3` is that the index (#) column shows the *original* (pre-select) position in the table.
-#
-# ls | select slices 3
+@example "Selects the first, fifth, and sixth rows from the table" {
+    ls / | select slices 0 4..5
+}
+@example "Select the 4th row (difference to `select 3` is that the index (#) column shows the *original* (pre-select) position in the table)" {
+    ls | select slices 3
+}
 export def "select slices" [ ...slices ] {
   enumerate
   | flatten
@@ -178,10 +166,9 @@ export def "select slices" [ ...slices ] {
 }
 
 # Rejects one or more rows while keeping the original indices.
-#
-# Example - Rejects the first, fifth, and sixth rows from the table:
-#
-# ls / | reject slices 0 4..5
+@example "Rejects the first, fifth, and sixth rows from the table" {
+    ls / | reject slices 0 4..5
+}
 export def "reject slices" [ ...slices ] {
   enumerate
   | flatten
@@ -190,17 +177,14 @@ export def "reject slices" [ ...slices ] {
 }
 
 # Select one or more columns by their indices
-#
-# Example:
-# 
-# ls -l | select column-slices 0 10..12 | first 3
-# # => ╭───┬────────────────────┬──────────────┬─────────────┬──────────────╮
-# # => │ # │        name        │   created    │  accessed   │   modified   │
-# # => ├───┼────────────────────┼──────────────┼─────────────┼──────────────┤
-# # => │ 0 │ CITATION.cff       │ 3 months ago │ 4 hours ago │ 3 months ago │
-# # => │ 1 │ CODE_OF_CONDUCT.md │ 7 months ago │ 4 hours ago │ 7 months ago │
-# # => │ 2 │ CONTRIBUTING.md    │ 3 months ago │ 4 hours ago │ 3 months ago │
-# # => ╰───┴────────────────────┴──────────────┴─────────────┴──────────────╯
+@example "Select column [0, 10, 11, 12]" {
+    ls -l | select column-slices 0 10..12 | first 3
+} --result [
+    [name, created, accessed, modified];
+    ["CITATION.cff", 2024-11-09T21:58:12+03:00, 2025-02-09T17:58:12+03:00, 2024-11-09T21:58:12+03:00],
+    ["CODE_OF_CONDUCT.md", 2024-07-09T21:58:12+03:00, 2025-02-09T17:58:12+03:00, 2024-07-09T21:58:12+03:00],
+    ["CONTRIBUTING.md", 2024-11-09T21:58:12+03:00, 2025-02-09T17:58:12+03:00, 2024-11-09T21:58:12+03:00]
+]
 export def "select column-slices" [
     ...slices
 ] {
@@ -209,10 +193,9 @@ export def "select column-slices" [
 }
 
 # Reject one or more columns by their indices
-#
-# Example:
-#
-# ls | reject column-slices 0 4 5 | first 3
+@example "Reject columns [0, 4, 5]" {
+    ls | reject column-slices 0 4 5 | first 3
+}
 export def "reject column-slices" [
     ...slices
 ] {
