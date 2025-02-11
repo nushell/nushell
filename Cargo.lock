@@ -5810,8 +5810,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.38.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9bfa8cb0ad84c396c936d8abb814703d7042a433d2da75a0c7060cbdc89109f3"
+source = "git+https://github.com/mrdgo/reedline.git?rev=3a6ad518#3a6ad518a00f9482c509e284c07df90d6fd41e0d"
 dependencies = [
  "arboard",
  "chrono",
