@@ -202,14 +202,20 @@ impl NuCompleter {
                 }
             }
             Expr::AttributeBlock(ab) => {
-                let last_attr = ab.attributes.last().expect("at least one attribute");
-                let (new_span, prefix) = strip_placeholder(&working_set, &last_attr.expr.span);
-                let ctx = Context::new(&working_set, new_span, prefix, offset);
-                return if let Expr::Garbage = last_attr.expr.expr {
-                    self.process_completion(&mut AttributeCompletion, &ctx)
-                } else {
-                    self.process_completion(&mut AttributableCompletion, &ctx)
+                if let Some(span) = ab.attributes.iter().find_map(|attr| {
+                    let span = attr.expr.span;
+                    span.contains(pos).then_some(span)
+                }) {
+                    let (new_span, prefix) = strip_placeholder(&working_set, &span);
+                    let ctx = Context::new(&working_set, new_span, prefix, offset);
+                    return self.process_completion(&mut AttributeCompletion, &ctx);
                 };
+                let span = ab.item.span;
+                if span.contains(pos) {
+                    let (new_span, prefix) = strip_placeholder(&working_set, &span);
+                    let ctx = Context::new(&working_set, new_span, prefix, offset);
+                    return self.process_completion(&mut AttributableCompletion, &ctx);
+                }
             }
             // NOTE: user defined internal commands can have any length
             // e.g. `def "foo -f --ff bar"`, complete by line text
