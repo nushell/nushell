@@ -372,6 +372,34 @@ fn external_commands_only() {
     match_suggestions(&expected, &suggestions);
 }
 
+/// Which completes both internals and externals
+#[test]
+#[cfg(not(windows))]
+fn which_command_completions() {
+    let (_, _, mut engine, stack) = new_engine();
+    engine.add_env_var(
+        "PATH".into(),
+        Value::List {
+            vals: vec![Value::String {
+                val: "/bin/".into(),
+                internal_span: Span::unknown(),
+            }],
+            internal_span: Span::unknown(),
+        },
+    );
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    // flags
+    let completion_str = "which --all";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<String> = vec!["--all".into()];
+    match_suggestions(&expected, &suggestions);
+    // commands
+    let completion_str = "which sleep";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<String> = vec!["sleep".into(), "^sleep".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
 /// Suppress completions for invalid values
 #[test]
 fn customcompletions_invalid() {
@@ -411,6 +439,15 @@ fn dotnu_completions() {
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // Flags should still be working
+    let completion_str = "overlay use --".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+
+    match_suggestions(
+        &vec!["--help".into(), "--prefix".into(), "--reload".into()],
+        &suggestions,
+    );
 
     // Test nested nu script
     #[cfg(windows)]
