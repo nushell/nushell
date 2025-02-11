@@ -785,6 +785,13 @@ $env.config.color_config.empty
 # Use { attr: n } to disable.
 $env.config.color_config.leading_trailing_space_bg = { bg: 'red' }
 
+# banner_foreground: The default text style for the Welcome Banner displayed at startup
+$env.config.color_config.banner_foreground = "attr_normal"
+
+# banner_highlight1 and banner_highlight2: Colors for highlighted text in the Welcome Banner
+$env.config.color_config.banner_highlight1 = "green"
+$env.config.color_config.banner_highlight2 = "purple"
+
 # ------------------------
 # `explore` command colors
 # ------------------------
