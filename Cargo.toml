@@ -127,7 +127,7 @@ pathdiff = "0.2"
 percent-encoding = "2"
 pretty_assertions = "1.4"
 print-positions = "0.6"
-proc-macro-error = { version = "1.0", default-features = false }
+proc-macro-error2 = "2.0"
 proc-macro2 = "1.0"
 procfs = "0.17.0"
 pwd = "1.3"
