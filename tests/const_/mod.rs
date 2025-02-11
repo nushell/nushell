@@ -364,7 +364,7 @@ fn complex_const_overlay_use_hide() {
     let inp = &[
         MODULE_SETUP,
         "overlay use spam",
-        "($eggs.bacon.none | is-empty)",
+        "($eggs.bacon not-has 'none')",
     ];
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "true");
