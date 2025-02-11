@@ -26,6 +26,10 @@ shadow-rs = { version = "0.38", default-features = false }
 [build-dependencies]
 shadow-rs = { version = "0.38", default-features = false }
 
+[dev-dependencies]
+quickcheck = { workspace = true }
+quickcheck_macros = { workspace = true }
+
 [features]
 default = ["os"]
 os = [

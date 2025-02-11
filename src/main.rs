@@ -1,4 +1,5 @@
 mod command;
+mod command_context;
 mod config_files;
 mod ide;
 mod logger;
@@ -25,25 +26,14 @@ use nu_engine::convert_env_values;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::{EngineState, Stack},
-    record, report_shell_error, ByteStream, Config, IntoValue, PipelineData, ShellError, Span,
-    Spanned, Type, Value,
+    engine::Stack, record, report_shell_error, ByteStream, Config, IntoValue, PipelineData,
+    ShellError, Span, Spanned, Type, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
 use std::{path::PathBuf, str::FromStr, sync::Arc};
-
-fn get_engine_state() -> EngineState {
-    let engine_state = nu_cmd_lang::create_default_context();
-    #[cfg(feature = "plugin")]
-    let engine_state = nu_cmd_plugin::add_plugin_command_context(engine_state);
-    let engine_state = nu_command::add_shell_command_context(engine_state);
-    let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
-    let engine_state = nu_cli::add_cli_context(engine_state);
-    nu_explore::add_explore_context(engine_state)
-}
 
 /// Get the directory where the Nushell executable is located.
 fn current_exe_directory() -> PathBuf {
@@ -76,7 +66,7 @@ fn main() -> Result<()> {
         miette_hook(x);
     }));
 
-    let mut engine_state = get_engine_state();
+    let mut engine_state = command_context::get_engine_state();
 
     // Get the current working directory from the environment.
     let init_cwd = current_dir_from_environment();

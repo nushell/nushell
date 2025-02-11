@@ -3570,6 +3570,8 @@ dependencies = [
  "nu-parser",
  "nu-protocol",
  "nu-utils",
+ "quickcheck",
+ "quickcheck_macros",
  "shadow-rs",
 ]
 
@@ -3666,8 +3668,6 @@ dependencies = [
  "print-positions",
  "procfs",
  "quick-xml 0.37.1",
- "quickcheck",
- "quickcheck_macros",
  "rand",
  "rand_chacha",
  "rayon",
