@@ -72,6 +72,14 @@ pub(crate) fn compile_expression(
     };
 
     match &expr.expr {
+        Expr::AttributeBlock(ab) => compile_expression(
+            working_set,
+            builder,
+            &ab.item,
+            redirect_modes,
+            in_reg,
+            out_reg,
+        ),
         Expr::Bool(b) => lit(builder, Literal::Bool(*b)),
         Expr::Int(i) => lit(builder, Literal::Int(*i)),
         Expr::Float(f) => lit(builder, Literal::Float(*f)),

@@ -106,12 +106,27 @@ impl<'e, 's> ScopeData<'e, 's> {
                     })
                     .collect();
 
+                let attributes = decl
+                    .attributes()
+                    .into_iter()
+                    .map(|(name, value)| {
+                        Value::record(
+                            record! {
+                                "name" => Value::string(name, span),
+                                "value" => value,
+                            },
+                            span,
+                        )
+                    })
+                    .collect();
+
                 let record = record! {
                     "name" => Value::string(String::from_utf8_lossy(command_name), span),
                     "category" => Value::string(signature.category.to_string(), span),
                     "signatures" => self.collect_signatures(&signature, span),
                     "description" => Value::string(decl.description(), span),
                     "examples" => Value::list(examples, span),
+                    "attributes" => Value::list(attributes, span),
                     "type" => Value::string(decl.command_type().to_string(), span),
                     "is_sub" => Value::bool(decl.is_sub(), span),
                     "is_const" => Value::bool(decl.is_const(), span),

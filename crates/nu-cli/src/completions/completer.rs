@@ -1,7 +1,7 @@
 use crate::completions::{
-    CellPathCompletion, CommandCompletion, Completer, CompletionOptions, CustomCompletion,
-    DirectoryCompletion, DotNuCompletion, FileCompletion, FlagCompletion, OperatorCompletion,
-    VariableCompletion,
+    AttributableCompletion, AttributeCompletion, CellPathCompletion, CommandCompletion, Completer,
+    CompletionOptions, CustomCompletion, DirectoryCompletion, DotNuCompletion, FileCompletion,
+    FlagCompletion, OperatorCompletion, VariableCompletion,
 };
 use log::debug;
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
@@ -63,6 +63,15 @@ fn find_pipeline_element_by_position<'a>(
             .map(FindMapResult::Found)
             .unwrap_or_default(),
         Expr::Var(_) => FindMapResult::Found(expr),
+        Expr::AttributeBlock(ab) => ab
+            .attributes
+            .iter()
+            .map(|attr| &attr.expr)
+            .chain(Some(ab.item.as_ref()))
+            .find_map(|expr| expr.find_map(working_set, &closure))
+            .or(Some(expr))
+            .map(FindMapResult::Found)
+            .unwrap_or_default(),
         _ => FindMapResult::Continue,
     }
 }
@@ -296,6 +305,29 @@ impl NuCompleter {
                 // Parses the prefix. Completion should look up to the cursor position, not after.
                 let index = pos - span.start;
                 let prefix = &current_span[..index];
+
+                if let Expr::AttributeBlock(ab) = &element_expression.expr {
+                    let last_attr = ab.attributes.last().expect("at least one attribute");
+                    if let Expr::Garbage = last_attr.expr.expr {
+                        return self.process_completion(
+                            &mut AttributeCompletion,
+                            &working_set,
+                            prefix,
+                            new_span,
+                            fake_offset,
+                            pos,
+                        );
+                    } else {
+                        return self.process_completion(
+                            &mut AttributableCompletion,
+                            &working_set,
+                            prefix,
+                            new_span,
+                            fake_offset,
+                            pos,
+                        );
+                    }
+                }
 
                 // Flags completion
                 if prefix.starts_with(b"-") {
