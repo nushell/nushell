@@ -190,8 +190,8 @@ def db_setup [
 
   # Return the correct closure for opening on-disk vs. in-memory
   match $universal {
-    true  => {|| {|| open (universal_db_path)}}
-    false => {|| {|| stor open}}
+    true  => {{|| open (universal_db_path)}}
+    false => {{|| stor open}}
   }
 }
 
