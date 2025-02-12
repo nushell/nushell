@@ -1,7 +1,8 @@
-use std assert
+use std/assert
+use std/testing *
 use std-rfc/conversions *
 
-#[test]
+@test
 def range-into-list [] {
   assert equal (
     1..10 | into list
@@ -10,7 +11,7 @@ def range-into-list [] {
   )
 }
 
-#[test]
+@test
 def string-into-list [] {
   assert equal (
     "foo" | into list
@@ -19,7 +20,7 @@ def string-into-list [] {
   )
 }
 
-#[test]
+@test
 def range-stride-into-list [] {
   assert equal (
     0..2..10 | into list
@@ -28,7 +29,7 @@ def range-stride-into-list [] {
   )
 }
 
-#[test]
+@test
 def null-into-list [] {
   assert equal (
     null | into list | get 0 | describe
@@ -37,7 +38,7 @@ def null-into-list [] {
   )
 }
 
-#[test]
+@test
 def list-into-list [] {
   assert equal (
     [ foo bar baz ] | into list
@@ -47,7 +48,7 @@ def list-into-list [] {
 
 }
 
-#[test]
+@test
 def table-into-columns--roundtrip [] {
   assert equal (
     ls
@@ -61,7 +62,7 @@ const test_record_of_lists = {
   b: [ 4 5 6 ]
 }
 
-#[test]
+@test
 def record-into-columns--simple [] {
   let actual = (
     $test_record_of_lists
@@ -74,7 +75,7 @@ def record-into-columns--simple [] {
   assert equal $actual $expected
 }
 
-#[test]
+@test
 def table-into-columns--simple [] {
   let actual = (
     ls | table-into-columns | get 1 | columns | get 0
@@ -84,7 +85,7 @@ def table-into-columns--simple [] {
   assert equal $actual $expected
 }
 
-#[test]
+@test
 def name-values--simple [] {
   let actual = (
     [ 1 2 3 ] | name-values one two three
@@ -96,7 +97,7 @@ def name-values--simple [] {
   assert equal $actual $expected
 }
 
-#[test]
+@test
 def name-values--missing-keyname [] {
   let actual = (
     [ 1 2 3 ] | name-values one two
