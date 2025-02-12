@@ -1089,7 +1089,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24f165e7b643266ea80cb858aed492ad9280e3e05ce24d4a99d7d7b889b6a4d9"
 dependencies = [
  "crossterm 0.28.1",
- "strum",
+ "strum 0.26.3",
  "strum_macros",
  "unicode-width 0.2.0",
 ]
@@ -3942,7 +3942,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
- "strum",
+ "strum 0.27.0",
  "strum_macros",
  "tempfile",
  "thiserror 2.0.6",
@@ -5725,7 +5725,7 @@ dependencies = [
  "lru",
  "paste",
  "stability",
- "strum",
+ "strum 0.26.3",
  "unicode-segmentation",
  "unicode-truncate",
  "unicode-width 0.1.11",
@@ -5822,7 +5822,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strip-ansi-escapes",
- "strum",
+ "strum 0.26.3",
  "strum_macros",
  "thiserror 1.0.69",
  "unicode-segmentation",
@@ -6820,6 +6820,12 @@ checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
 dependencies = [
  "strum_macros",
 ]
+
+[[package]]
+name = "strum"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce1475c515a4f03a8a7129bb5228b81a781a86cb0b3fbbc19e1c556d491a401f"
 
 [[package]]
 name = "strum_macros"
