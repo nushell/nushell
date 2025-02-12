@@ -1328,7 +1328,6 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Option<Span>,
     },
 
-
     #[error("Job {id} not found")]
     #[diagnostic(
         code(nu::shell::job_not_found),

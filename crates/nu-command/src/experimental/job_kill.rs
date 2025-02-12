@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::{FrozenJob, Job, JobId};
+use nu_protocol::engine::{Job, JobId};
 
 #[derive(Clone)]
 pub struct JobKill;

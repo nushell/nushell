@@ -153,14 +153,9 @@ impl UnfreezeHandle {
         // bring child's process group back into foreground and continue it
 
         // we only keep the guard for its drop impl
-        let _guard = if let Some(pipeline_state) = pipeline_state {
-            Some(ForegroundGuard::new(
-                self.child_pid.as_raw() as u32,
-                &pipeline_state,
-            ))
-        } else {
-            None
-        };
+        let _guard = pipeline_state.map(|pipeline_state| {
+            ForegroundGuard::new(self.child_pid.as_raw() as u32, &pipeline_state)
+        });
 
         if let Err(err) = signal::killpg(self.child_pid, signal::SIGCONT) {
             return Err(err.into());

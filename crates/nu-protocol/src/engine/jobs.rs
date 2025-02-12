@@ -115,7 +115,7 @@ impl ThreadJob {
     pub fn collect_pids(&self) -> Vec<u32> {
         let lock = self.pids.lock().expect("PID lock was poisoned");
 
-        return lock.iter().map(|it| *it).collect();
+        lock.iter().copied().collect()
     }
 
     pub fn kill(&self) -> std::io::Result<()> {
