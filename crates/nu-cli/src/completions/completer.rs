@@ -269,9 +269,10 @@ impl NuCompleter {
                             suggestions.extend(self.process_completion(&mut completer, &ctx));
                             break;
                         }
+
+                        // normal arguments completion
                         let (new_span, prefix) = strip_placeholder(&working_set, &span);
                         let ctx = Context::new(&working_set, new_span, prefix, offset);
-                        // normal arguments completion
                         suggestions.extend(match arg {
                             // flags
                             Argument::Named(_) | Argument::Unknown(_)
@@ -284,9 +285,6 @@ impl NuCompleter {
                             }
                             // complete according to expression type and command head
                             Argument::Positional(expr) => {
-                                // complete module file/directory
-                                // TODO: if module file already specified,
-                                // should parse it to get modules/commands/consts to complete
                                 let command_head = working_set.get_span_contents(call.head);
                                 self.argument_completion_helper(
                                     command_head,
@@ -306,6 +304,7 @@ impl NuCompleter {
                     let span = arg.expr().span;
                     if span.contains(pos) {
                         // e.g. `sudo l<tab>`
+                        // HACK: judge by index 0 is not accurate
                         if i == 0 {
                             let external_cmd = working_set.get_span_contents(head.span);
                             if external_cmd == b"sudo" || external_cmd == b"doas" {
@@ -324,23 +323,21 @@ impl NuCompleter {
                         }
                         // resort to external completer set in config
                         if let Some(closure) = config.completions.external.completer.as_ref() {
-                            let mut spans: Vec<String> =
+                            let mut text_spans: Vec<String> =
                                 flatten_expression(&working_set, element_expression)
                                     .iter()
                                     .map(|(span, _)| {
-                                        String::from_utf8_lossy(
-                                            working_set.get_span_contents(*span),
-                                        )
-                                        .to_string()
+                                        let bytes = working_set.get_span_contents(*span);
+                                        String::from_utf8_lossy(bytes).to_string()
                                     })
                                     .collect();
                             // strip the placeholder
-                            if let Some(last) = spans.last_mut() {
+                            if let Some(last) = text_spans.last_mut() {
                                 last.pop();
                             }
                             if let Some(external_result) = self.external_completion(
                                 closure,
-                                &spans,
+                                &text_spans,
                                 offset,
                                 Span::new(span.start, span.end.saturating_sub(1)),
                             ) {
@@ -355,6 +352,7 @@ impl NuCompleter {
             _ => (),
         }
 
+        // if no suggestions yet, fallback to file completion
         if suggestions.is_empty() {
             let (new_span, prefix) =
                 strip_placeholder_with_rsplit(&working_set, &element_expression.span, |c| {
@@ -406,6 +404,9 @@ impl NuCompleter {
     ) -> Vec<SemanticSuggestion> {
         // special commands
         match command_head {
+            // complete module file/directory
+            // TODO: if module file already specified,
+            // should parse it to get modules/commands/consts to complete
             b"use" | b"export use" | b"overlay use" | b"source-env" => {
                 return self.process_completion(&mut DotNuCompletion, ctx);
             }
