@@ -96,7 +96,7 @@ impl Command for Kill {
 
         let mut cmd = build_kill_command(
             force,
-            std::iter::once(pid).chain(rest.into_iter()),
+            std::iter::once(pid).chain(rest),
             signal.map(|spanned| spanned.item as u32),
         );
 

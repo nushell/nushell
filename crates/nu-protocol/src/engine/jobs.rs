@@ -67,6 +67,26 @@ impl Jobs {
             Err("job already exists")
         }
     }
+
+    pub fn kill_and_remove(&mut self, id: JobId) -> std::io::Result<()> {
+        if let Some(job) = self.jobs.get(&id) {
+            job.kill()?;
+
+            self.jobs.remove(&id);
+        }
+
+        Ok(())
+    }
+
+    pub fn kill_all(&mut self) -> std::io::Result<()> {
+        for (_, job) in self.iter() {
+            job.kill()?;
+        }
+
+        self.jobs.clear();
+
+        Ok(())
+    }
 }
 
 pub enum Job {

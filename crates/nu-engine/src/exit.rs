@@ -10,27 +10,23 @@ use nu_protocol::engine::EngineState;
 ///
 // Currently, this `tag` argument exists mostly so that a LineEditor can be dropped before exiting the process.
 pub fn cleanup_exit<T>(tag: T, engine_state: &EngineState, exit_code: i32) -> T {
-    if engine_state.is_interactive {
-        let jobs = engine_state.jobs.lock().expect("failed to lock job table");
+    let mut jobs = engine_state.jobs.lock().expect("failed to lock job table");
 
-        if jobs.iter().next().is_some() {
-            if engine_state.exit_warning_given.load(Ordering::SeqCst) {
-                for job in jobs.iter() {
-                    let _ = job.1.kill();
-                }
-            } else {
-                let job_count = jobs.iter().count();
+    if engine_state.is_interactive && jobs.iter().next().is_some() {
+        if engine_state.exit_warning_given.load(Ordering::SeqCst) {
+            let _ = jobs.kill_all();
+        } else {
+            let job_count = jobs.iter().count();
 
-                println!("There are still {} background jobs running.", job_count);
+            println!("There are still {} background jobs running.", job_count);
 
-                println!("Running `exit` a second time will kill all of them.");
+            println!("Running `exit` a second time will kill all of them.");
 
-                engine_state
-                    .exit_warning_given
-                    .store(true, Ordering::SeqCst);
+            engine_state
+                .exit_warning_given
+                .store(true, Ordering::SeqCst);
 
-                return tag;
-            }
+            return tag;
         }
     }
 
