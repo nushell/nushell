@@ -65,7 +65,7 @@ plugin = [
 [dev-dependencies]
 serde_json = { workspace = true }
 strum = "0.26"
-strum_macros = "0.26"
+strum_macros = "0.27"
 nu-test-support = { path = "../nu-test-support", version = "0.102.1" }
 nu-utils = { path = "../nu-utils", version = "0.102.1" }
 pretty_assertions = { workspace = true }

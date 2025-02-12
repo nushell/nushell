@@ -1090,7 +1090,7 @@ checksum = "24f165e7b643266ea80cb858aed492ad9280e3e05ce24d4a99d7d7b889b6a4d9"
 dependencies = [
  "crossterm 0.28.1",
  "strum",
- "strum_macros",
+ "strum_macros 0.26.4",
  "unicode-width 0.2.0",
 ]
 
@@ -3943,7 +3943,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strum",
- "strum_macros",
+ "strum_macros 0.27.0",
  "tempfile",
  "thiserror 2.0.6",
  "typetag",
@@ -4861,7 +4861,7 @@ dependencies = [
  "simdutf8",
  "streaming-iterator",
  "strength_reduce",
- "strum_macros",
+ "strum_macros 0.26.4",
  "version_check",
  "zstd",
 ]
@@ -4928,7 +4928,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "strum_macros",
+ "strum_macros 0.26.4",
  "thiserror 2.0.6",
  "version_check",
  "xxhash-rust",
@@ -5129,7 +5129,7 @@ dependencies = [
  "regex-syntax",
  "serde",
  "serde_json",
- "strum_macros",
+ "strum_macros 0.26.4",
  "unicode-normalization",
  "unicode-reverse",
  "version_check",
@@ -5234,7 +5234,7 @@ dependencies = [
  "recursive",
  "regex",
  "serde",
- "strum_macros",
+ "strum_macros 0.26.4",
  "version_check",
 ]
 
@@ -5337,7 +5337,7 @@ dependencies = [
  "rayon",
  "regex",
  "serde",
- "strum_macros",
+ "strum_macros 0.26.4",
 ]
 
 [[package]]
@@ -5823,7 +5823,7 @@ dependencies = [
  "serde_json",
  "strip-ansi-escapes",
  "strum",
- "strum_macros",
+ "strum_macros 0.26.4",
  "thiserror 1.0.69",
  "unicode-segmentation",
  "unicode-width 0.1.11",
@@ -6818,7 +6818,7 @@ version = "0.26.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
 dependencies = [
- "strum_macros",
+ "strum_macros 0.26.4",
 ]
 
 [[package]]
@@ -6826,6 +6826,19 @@ name = "strum_macros"
 version = "0.26.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.90",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9688894b43459159c82bfa5a5fa0435c19cbe3c9b427fa1dd7b1ce0c279b18a7"
 dependencies = [
  "heck",
  "proc-macro2",
