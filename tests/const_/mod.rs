@@ -433,3 +433,12 @@ fn const_takes_pipeline() {
     let actual = nu!(r#"const list = 'bar_baz_quux' | split row '_'; $list | length"#);
     assert_eq!(actual.out, "3");
 }
+
+#[test]
+fn const_const() {
+    let actual = nu!(r#"const y = (const x = "foo"; $x + $x); $y"#);
+    assert_eq!(actual.out, "foofoo");
+
+    let actual = nu!(r#"const y = (const x = "foo"; $x + $x); $x"#);
+    assert!(actual.err.contains("nu::parser::variable_not_found"));
+}
