@@ -46,6 +46,8 @@ def dirs_command [] {
     # must set PWD *before* doing `use` that will run the def --env block in dirs module.
     cd $c.base_path
 
+    # hide existing variables to prevent the state from outside affecting the tests
+    hide-env -i DIRS_LIST DIRS_POSITION
     # must execute these uses for the UOT commands *after* the test and *not* just put them at top of test module.
     # the def --env gets messed up
     use std/dirs
@@ -96,6 +98,7 @@ def dirs_next [] {
     cd $c.base_path
     assert equal $env.PWD $c.base_path "test setup"
 
+    hide-env -i DIRS_LIST DIRS_POSITION
     use std/dirs
     cur_dir_check $c.base_path "use module test setup"
 
@@ -117,6 +120,7 @@ def dirs_cd [] {
     # must set PWD *before* doing `use` that will run the def --env block in dirs module.
     cd $c.base_path
 
+    hide-env -i DIRS_LIST DIRS_POSITION
     use std/dirs
 
     cur_dir_check $c.base_path "use module test setup"
@@ -139,6 +143,8 @@ def dirs_cd [] {
 def dirs_goto_bug10696 [] {
     let $c = $in
     cd $c.base_path
+
+    hide-env -i DIRS_LIST DIRS_POSITION
     use std/dirs
 
     dirs add $c.path_a
@@ -153,6 +159,8 @@ def dirs_goto_bug10696 [] {
 def dirs_goto [] {
     let $c = $in
     cd $c.base_path
+
+    hide-env -i DIRS_LIST DIRS_POSITION
     use std/dirs
 
     # check that goto can move *from* any position in the ring *to* any other position (correctly)
