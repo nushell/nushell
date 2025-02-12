@@ -21,7 +21,7 @@ use super::base::{SemanticSuggestion, SuggestionKind};
 ///
 /// returns the inner-most pipeline_element of interest
 /// i.e. the one that contains given position and needs completion
-fn find_pipeline_element_by_position<'a>(
+pub fn find_pipeline_element_by_position<'a>(
     expr: &'a Expression,
     working_set: &'a StateWorkingSet,
     pos: usize,
@@ -150,26 +150,44 @@ impl NuCompleter {
         // Adjust offset so that the spans of the suggestions will start at the right
         // place even with `only_buffer_difference: true`
         let pos = offset + pos;
-        let initial_line = line.to_string();
-        let mut line = line.to_string();
-        // put extra placeholder at the end
-        line.push('a');
 
-        let config = self.engine_state.get_config();
-
-        let block = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
+        let block = parse(
+            &mut working_set,
+            Some("completer"),
+            // Add a placeholder `a` to the end
+            format!("{}a", line).as_bytes(),
+            false,
+        );
         let Some(element_expression) = block.find_map(&working_set, &|expr: &Expression| {
             find_pipeline_element_by_position(expr, &working_set, pos)
         }) else {
             return vec![];
         };
 
+        self.complete_by_expression(&working_set, element_expression, offset, pos, line)
+    }
+
+    /// Complete given the expression of interest
+    /// Usually, the expression is get from `find_pipeline_element_by_position`
+    ///
+    /// # Arguments
+    /// * `offset` - start offset of current working_set span
+    /// * `pos` - cursor position, should be > offset
+    /// * `prefix_str` - all the text before the cursor
+    pub fn complete_by_expression(
+        &self,
+        working_set: &StateWorkingSet,
+        element_expression: &Expression,
+        offset: usize,
+        pos: usize,
+        prefix_str: &str,
+    ) -> Vec<SemanticSuggestion> {
         let mut suggestions: Vec<SemanticSuggestion> = vec![];
 
         match &element_expression.expr {
             Expr::Var(_) => {
                 return self.variable_names_completion_helper(
-                    &working_set,
+                    working_set,
                     element_expression.span,
                     offset,
                 );
@@ -178,13 +196,13 @@ impl NuCompleter {
                 // e.g. `$e<tab>` parsed as FullCellPath
                 if full_cell_path.tail.is_empty() {
                     return self.variable_names_completion_helper(
-                        &working_set,
+                        working_set,
                         element_expression.span,
                         offset,
                     );
                 } else {
                     let mut cell_path_completer = CellPathCompletion { full_cell_path };
-                    let ctx = Context::new(&working_set, Span::unknown(), &[], offset);
+                    let ctx = Context::new(working_set, Span::unknown(), &[], offset);
                     return self.process_completion(&mut cell_path_completer, &ctx);
                 }
             }
@@ -193,8 +211,8 @@ impl NuCompleter {
                     let mut operator_completions = OperatorCompletion {
                         left_hand_side: lhs.as_ref(),
                     };
-                    let (new_span, prefix) = strip_placeholder(&working_set, &op.span);
-                    let ctx = Context::new(&working_set, new_span, prefix, offset);
+                    let (new_span, prefix) = strip_placeholder(working_set, &op.span);
+                    let ctx = Context::new(working_set, new_span, prefix, offset);
                     let results = self.process_completion(&mut operator_completions, &ctx);
                     if !results.is_empty() {
                         return results;
@@ -206,29 +224,30 @@ impl NuCompleter {
                     let span = attr.expr.span;
                     span.contains(pos).then_some(span)
                 }) {
-                    let (new_span, prefix) = strip_placeholder(&working_set, &span);
-                    let ctx = Context::new(&working_set, new_span, prefix, offset);
+                    let (new_span, prefix) = strip_placeholder(working_set, &span);
+                    let ctx = Context::new(working_set, new_span, prefix, offset);
                     return self.process_completion(&mut AttributeCompletion, &ctx);
                 };
                 let span = ab.item.span;
                 if span.contains(pos) {
-                    let (new_span, prefix) = strip_placeholder(&working_set, &span);
-                    let ctx = Context::new(&working_set, new_span, prefix, offset);
+                    let (new_span, prefix) = strip_placeholder(working_set, &span);
+                    let ctx = Context::new(working_set, new_span, prefix, offset);
                     return self.process_completion(&mut AttributableCompletion, &ctx);
                 }
             }
+
             // NOTE: user defined internal commands can have any length
             // e.g. `def "foo -f --ff bar"`, complete by line text
             // instead of relying on the parsing result in that case
             Expr::Call(_) | Expr::ExternalCall(_, _) => {
-                let need_externals = !initial_line.contains(' ');
-                let need_internals = !initial_line.starts_with('^');
+                let need_externals = !prefix_str.contains(' ');
+                let need_internals = !prefix_str.starts_with('^');
                 let mut span = element_expression.span;
                 if !need_internals {
                     span = Span::new(span.start + 1, span.end)
                 };
                 suggestions.extend(self.command_completion_helper(
-                    &working_set,
+                    working_set,
                     span,
                     offset,
                     need_internals,
@@ -251,17 +270,17 @@ impl NuCompleter {
                         if let Some(decl_id) = arg.expr().and_then(|e| e.custom_completion) {
                             // for `--foo <tab>` and `--foo=<tab>`, the arg span should be trimmed
                             let (new_span, prefix) = if matches!(arg, Argument::Named(_)) {
-                                strip_placeholder_with_rsplit(&working_set, &span, |b| {
+                                strip_placeholder_with_rsplit(working_set, &span, |b| {
                                     *b == b'=' || *b == b' '
                                 })
                             } else {
-                                strip_placeholder(&working_set, &span)
+                                strip_placeholder(working_set, &span)
                             };
-                            let ctx = Context::new(&working_set, new_span, prefix, offset);
+                            let ctx = Context::new(working_set, new_span, prefix, offset);
 
                             let mut completer = CustomCompletion::new(
                                 decl_id,
-                                initial_line,
+                                prefix_str.into(),
                                 pos - offset,
                                 FileCompletion,
                             );
@@ -271,8 +290,8 @@ impl NuCompleter {
                         }
 
                         // normal arguments completion
-                        let (new_span, prefix) = strip_placeholder(&working_set, &span);
-                        let ctx = Context::new(&working_set, new_span, prefix, offset);
+                        let (new_span, prefix) = strip_placeholder(working_set, &span);
+                        let ctx = Context::new(working_set, new_span, prefix, offset);
                         suggestions.extend(match arg {
                             // flags
                             Argument::Named(_) | Argument::Unknown(_)
@@ -309,7 +328,7 @@ impl NuCompleter {
                             let external_cmd = working_set.get_span_contents(head.span);
                             if external_cmd == b"sudo" || external_cmd == b"doas" {
                                 let commands = self.command_completion_helper(
-                                    &working_set,
+                                    working_set,
                                     span,
                                     offset,
                                     true,
@@ -322,9 +341,10 @@ impl NuCompleter {
                             }
                         }
                         // resort to external completer set in config
+                        let config = self.engine_state.get_config();
                         if let Some(closure) = config.completions.external.completer.as_ref() {
                             let mut text_spans: Vec<String> =
-                                flatten_expression(&working_set, element_expression)
+                                flatten_expression(working_set, element_expression)
                                     .iter()
                                     .map(|(span, _)| {
                                         let bytes = working_set.get_span_contents(*span);
@@ -355,10 +375,10 @@ impl NuCompleter {
         // if no suggestions yet, fallback to file completion
         if suggestions.is_empty() {
             let (new_span, prefix) =
-                strip_placeholder_with_rsplit(&working_set, &element_expression.span, |c| {
+                strip_placeholder_with_rsplit(working_set, &element_expression.span, |c| {
                     *c == b' '
                 });
-            let ctx = Context::new(&working_set, new_span, prefix, offset);
+            let ctx = Context::new(working_set, new_span, prefix, offset);
             suggestions.extend(self.process_completion(&mut FileCompletion, &ctx));
         }
         suggestions
