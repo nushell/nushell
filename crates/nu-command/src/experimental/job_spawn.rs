@@ -63,6 +63,8 @@ impl Command for JobSpawn {
         // the new job has a separate process group for its processes
         job_state.pipeline_externals_state = Arc::new((AtomicU32::new(0), AtomicU32::new(0)));
 
+        job_state.exit_warning_given = Arc::new(AtomicBool::new(false));
+
         thread::spawn(move || {
             let id = {
                 let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");

@@ -113,10 +113,12 @@ pub struct EngineState {
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
+
     pub jobs: Arc<Mutex<Jobs>>,
 
     // the job being executed with this engine state, or None if main thread
     pub current_thread_job: Option<ThreadJob>,
+    pub exit_warning_given: Arc<AtomicBool>,
 }
 
 pub type JobId = u64;
@@ -190,6 +192,7 @@ impl EngineState {
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
             jobs: Arc::new(Mutex::new(Jobs::default())),
             current_thread_job: None,
+            exit_warning_given: Arc::new(AtomicBool::new(false)),
         }
     }
 
