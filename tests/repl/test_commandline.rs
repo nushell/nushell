@@ -140,3 +140,20 @@ fn commandline_test_cursor_end() -> TestResult {
 fn commandline_test_cursor_type() -> TestResult {
     run_test("commandline get-cursor | describe", "int")
 }
+
+#[test]
+fn commandline_test_accept() -> TestResult {
+    // Explanation: run_test captures a command's output.
+    // But `--accept` executes a new command that then outputs "accepted".
+    // So `commandline edit -A` doesn't have any output.
+    // Therefore the additional test that pipes to `commandline`
+    run_test("commandline edit --accept \"print accepted\"", "")
+}
+
+#[test]
+fn commandline_test_accepted_command() -> TestResult {
+    run_test(
+        "commandline edit --accept \"print accepted\"\n | commandline",
+        "print accepted",
+    )
+}
