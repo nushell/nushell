@@ -86,6 +86,24 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Add $nu
     engine_state.generate_nu_constant();
 
+    // const $NU_LIB_DIRS
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let var_id = working_set.add_variable(
+        b"$NU_LIB_DIRS".into(),
+        Span::unknown(),
+        nu_protocol::Type::List(Box::new(nu_protocol::Type::String)),
+        false,
+    );
+    working_set.set_variable_const_val(
+        var_id,
+        Value::test_list(vec![
+            Value::string(file(dir.join("lib-dir1")), dir_span),
+            Value::string(file(dir.join("lib-dir2")), dir_span),
+            Value::string(file(dir.join("lib-dir3")), dir_span),
+        ]),
+    );
+    let _ = engine_state.merge_delta(working_set.render());
+
     // New stack
     let mut stack = Stack::new();
 
@@ -94,18 +112,6 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     stack.add_env_var(
         "TEST".to_string(),
         Value::string("NUSHELL".to_string(), dir_span),
-    );
-
-    stack.add_env_var(
-        "NU_LIB_DIRS".to_string(),
-        Value::list(
-            vec![
-                Value::string(file(dir.join("lib-dir1")), dir_span),
-                Value::string(file(dir.join("lib-dir2")), dir_span),
-                Value::string(file(dir.join("lib-dir3")), dir_span),
-            ],
-            dir_span,
-        ),
     );
 
     // Merge environment into the permanent state

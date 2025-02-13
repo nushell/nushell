@@ -33,6 +33,12 @@ impl Completer for DotNuCompletion {
         let start_with_backquote = prefix_str.starts_with('`');
         let end_with_backquote = prefix_str.ends_with('`');
         let prefix_str = prefix_str.replace('`', "");
+        // e.g. `./`, `..\`
+        let cwd_only = prefix_str.starts_with('.')
+            && prefix_str
+                .chars()
+                .find(|c| *c != '.')
+                .is_some_and(|c| c == SEP);
         let mut search_dirs: Vec<PathBuf> = vec![];
 
         let (base, partial) = if let Some((parent, remain)) = prefix_str.rsplit_once(is_separator) {
@@ -49,7 +55,8 @@ impl Completer for DotNuCompletion {
         let base_dir = base.replace(is_separator, MAIN_SEPARATOR_STR);
 
         // Fetch the lib dirs
-        // FIXME: lib_dirs doesn't include entries in $env.NU_LIB_DIRS set in $nu.config-path file.
+        // NOTE: `$env.NU_LIB_DIRS` will be overshadowed by a default const `NU_LIB_DIRS`
+        // set `const NU_LIB_DIRS = [paths]` instead
         let lib_dirs: Vec<PathBuf> = working_set
             .find_variable(b"$NU_LIB_DIRS")
             .and_then(|vid| working_set.get_variable(vid).const_val.as_ref())
@@ -82,7 +89,7 @@ impl Completer for DotNuCompletion {
                     search_dirs.push(expanded_base_dir);
                 }
             }
-            if is_base_dir_relative {
+            if is_base_dir_relative && !cwd_only {
                 search_dirs.extend(lib_dirs.into_iter().map(|mut dir| {
                     dir.push(&base_dir);
                     dir
@@ -92,7 +99,9 @@ impl Completer for DotNuCompletion {
             if let Ok(cwd) = cwd {
                 search_dirs.push(cwd.into_std_path_buf());
             }
-            search_dirs.extend(lib_dirs);
+            if !cwd_only {
+                search_dirs.extend(lib_dirs);
+            }
         }
 
         // Fetch the files filtering the ones that ends with .nu
