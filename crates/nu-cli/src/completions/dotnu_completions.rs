@@ -38,7 +38,7 @@ impl Completer for DotNuCompletion {
             && prefix_str
                 .chars()
                 .find(|c| *c != '.')
-                .is_some_and(|c| c == SEP);
+                .is_some_and(is_separator);
         let mut search_dirs: Vec<PathBuf> = vec![];
 
         let (base, partial) = if let Some((parent, remain)) = prefix_str.rsplit_once(is_separator) {

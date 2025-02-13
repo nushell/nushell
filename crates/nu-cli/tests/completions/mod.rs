@@ -348,7 +348,7 @@ fn dotnu_completions() {
     #[cfg(windows)]
     let completion_str = "use \\".to_string();
     #[cfg(not(windows))]
-    let completion_str = "use /b".to_string();
+    let completion_str = "use /".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
     assert!(!suggestions.is_empty());
@@ -376,8 +376,11 @@ fn dotnu_completions_const_nu_lib_dirs() {
 
     // if `./` specified by user, file in `lib-dir*` should be ignored
     #[cfg(windows)]
-    let completion_str = "use .\\asdf".to_string();
-    #[cfg(not(windows))]
+    {
+        let completion_str = "use .\\asdf".to_string();
+        let suggestions = completer.complete(&completion_str, completion_str.len());
+        assert!(suggestions.is_empty());
+    }
     let completion_str = "use ./asdf".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
     assert!(suggestions.is_empty());
