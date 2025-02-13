@@ -347,9 +347,8 @@ fn const_captures_in_closures_work() {
     assert_eq!(actual.out, "hello world");
 }
 
-#[ignore = "TODO: Need to fix `overlay hide` to hide the constants brought by `overlay use`"]
 #[test]
-fn complex_const_overlay_use_hide() {
+fn complex_const_overlay_use() {
     let inp = &[MODULE_SETUP, "overlay use spam", "$X"];
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "x");
@@ -365,11 +364,15 @@ fn complex_const_overlay_use_hide() {
     let inp = &[
         MODULE_SETUP,
         "overlay use spam",
-        "($eggs.bacon.none | is-empty)",
+        "($eggs.bacon not-has 'none')",
     ];
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "true");
+}
 
+#[ignore = "TODO: `overlay hide` should be possible to use after `overlay use` in the same source unit."]
+#[test]
+fn overlay_use_hide_in_single_source_unit() {
     let inp = &[MODULE_SETUP, "overlay use spam", "overlay hide", "$eggs"];
     let actual = nu!(&inp.join("; "));
     assert!(actual.err.contains("nu::parser::variable_not_found"));

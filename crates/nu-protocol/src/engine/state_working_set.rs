@@ -5,7 +5,8 @@ use crate::{
         StateDelta, Variable, VirtualPath, Visibility,
     },
     BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, OverlayId,
-    ParseError, ParseWarning, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    ParseError, ParseWarning, ResolvedImportPattern, Signature, Span, SpanId, Type, Value, VarId,
+    VirtualPathId,
 };
 use core::panic;
 use std::{
@@ -915,7 +916,12 @@ impl<'a> StateWorkingSet<'a> {
             let name = self.last_overlay_name().to_vec();
             let origin = overlay_frame.origin;
             let prefixed = overlay_frame.prefixed;
-            self.add_overlay(name, origin, vec![], vec![], prefixed);
+            self.add_overlay(
+                name,
+                origin,
+                ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+                prefixed,
+            );
         }
 
         self.delta
@@ -952,8 +958,7 @@ impl<'a> StateWorkingSet<'a> {
         &mut self,
         name: Vec<u8>,
         origin: ModuleId,
-        decls: Vec<(Vec<u8>, DeclId)>,
-        modules: Vec<(Vec<u8>, ModuleId)>,
+        definitions: ResolvedImportPattern,
         prefixed: bool,
     ) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
@@ -980,8 +985,22 @@ impl<'a> StateWorkingSet<'a> {
 
         self.move_predecls_to_overlay();
 
-        self.use_decls(decls);
-        self.use_modules(modules);
+        self.use_decls(definitions.decls);
+        self.use_modules(definitions.modules);
+
+        let mut constants = vec![];
+
+        for (name, const_vid) in definitions.constants {
+            constants.push((name, const_vid));
+        }
+
+        for (name, const_val) in definitions.constant_values {
+            let const_var_id =
+                self.add_variable(name.clone(), Span::unknown(), const_val.get_type(), false);
+            self.set_variable_const_val(const_var_id, const_val);
+            constants.push((name, const_var_id));
+        }
+        self.use_variables(constants);
     }
 
     pub fn remove_overlay(&mut self, name: &[u8], keep_custom: bool) {
