@@ -33,7 +33,7 @@ const valid_annotations = {
 def get-annotated [
     file: path
 ]: nothing -> table<function_name: string, annotation: string> {
-    ^$nu.current-exe -c $'
+    ^$nu.current-exe --no-config-file -c $'
         source `($file)`
         scope commands
         | select name attributes
