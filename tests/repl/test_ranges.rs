@@ -27,7 +27,7 @@ fn float_in_dec_range() -> TestResult {
 
 #[test]
 fn non_number_in_range() -> TestResult {
-    fail_test(r#"'a' in 1..3"#, "subset comparison is not supported")
+    fail_test(r#"'a' in 1..3"#, "nu::parser::operator_incompatible_types")
 }
 
 #[test]

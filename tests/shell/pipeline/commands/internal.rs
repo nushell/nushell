@@ -770,8 +770,10 @@ fn filesize_math() {
 
 #[test]
 fn filesize_math2() {
-    let actual = nu!("100 / 10kb");
-    assert!(actual.err.contains("doesn't support"));
+    let actual = nu!("100 / 10kB");
+    assert!(actual
+        .err
+        .contains("nu::parser::operator_incompatible_types"));
 }
 
 #[test]
