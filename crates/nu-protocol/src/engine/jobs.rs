@@ -182,8 +182,8 @@ impl FrozenJob {
             kill_by_pid(self.unfreeze.pid() as i64)
         }
 
-        // it doesn't happen in windows.
-        #[cfg(windows)]
+        // it doesn't happen outside unix.
+        #[cfg(not(unix))]
         {
             Ok(())
         }
