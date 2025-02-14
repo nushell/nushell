@@ -1072,6 +1072,11 @@ impl EngineState {
             .position(|sp| sp == &span)
             .map(SpanId::new)
     }
+
+    // Determines whether the current state is being held by a background job
+    pub fn is_background_job(&self) -> bool {
+        self.current_thread_job.is_some()
+    }
 }
 
 impl GetSpan for &EngineState {
