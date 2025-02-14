@@ -206,6 +206,10 @@ impl Command for External {
             );
             command.stderr(writer);
             Some(reader)
+        } else if engine_state.is_background_job() {
+            command.stdout(Stdio::null());
+            command.stderr(Stdio::null());
+            None
         } else {
             command.stdout(
                 Stdio::try_from(stdout).map_err(|err| IoError::new(err.kind(), call.head, None))?,
