@@ -43,6 +43,7 @@ pub(crate) enum Id {
     Value(Type),
     Module(ModuleId),
     CellPath(VarId, Vec<PathMember>),
+    External(String),
 }
 
 pub struct LanguageServer {
@@ -594,14 +595,12 @@ impl LanguageServer {
                     .const_val
                     .clone()
                     .and_then(|v| v.coerce_into_string().ok())
-                    .map(|s| format!("\n---\n{}", s))
-                    .unwrap_or_default();
-                let contents = format!(
-                    "{} ```\n{}\n``` {}",
-                    if var.mutable { "mutable " } else { "" },
-                    var.ty,
-                    value
-                );
+                    .unwrap_or(String::from(if var.mutable {
+                        "mutable"
+                    } else {
+                        "immutable"
+                    }));
+                let contents = format!("```\n{}\n``` \n---\n{}", var.ty, value);
                 markdown_hover(contents)
             }
             Id::CellPath(var_id, cell_path) => {
@@ -636,6 +635,20 @@ impl LanguageServer {
                 markdown_hover(description)
             }
             Id::Value(t) => markdown_hover(format!("`{}`", t)),
+            Id::External(cmd) => {
+                let command_output = if cfg!(windows) {
+                    std::process::Command::new("powershell.exe")
+                        .args(["-NoProfile", "-Command", "help", &cmd])
+                        .output()
+                } else {
+                    std::process::Command::new("man").arg(&cmd).output()
+                };
+                let manpage_str = match command_output {
+                    Ok(output) => String::from_utf8_lossy(&output.stdout).to_string(),
+                    Err(_) => format!("No command help found for {}", &cmd),
+                };
+                markdown_hover(manpage_str)
+            }
         }
     }
 
@@ -929,7 +942,7 @@ mod tests {
 
         assert_json_eq!(
             result_from_message(resp),
-            serde_json::json!({ "contents": { "kind": "markdown", "value": " ```\ntable\n``` " } })
+            serde_json::json!({ "contents": { "kind": "markdown", "value": "```\ntable\n``` \n---\nimmutable" } })
         );
     }
 
@@ -989,6 +1002,32 @@ mod tests {
                 }
             })
         );
+    }
+
+    #[test]
+    fn hover_on_external_command() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hover");
+        script.push("command.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+        let resp = send_hover_request(&client_connection, script.clone(), 6, 2);
+
+        let hover_text = result_from_message(resp)
+            .pointer("/contents/value")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        #[cfg(not(windows))]
+        assert!(hover_text.starts_with("SLEEP(1)"));
+        #[cfg(windows)]
+        assert!(hover_text.starts_with("NAME\r\n    Start-Sleep"));
     }
 
     #[test]

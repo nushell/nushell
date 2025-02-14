@@ -274,9 +274,9 @@ impl LanguageServer {
         let uri = params.text_document.uri.to_owned();
         let docs = self.docs.lock().ok()?;
         self.symbol_cache.update(&uri, &engine_state, &docs);
-        Some(DocumentSymbolResponse::Flat(
-            self.symbol_cache.get_symbols_by_uri(&uri)?,
-        ))
+        self.symbol_cache
+            .get_symbols_by_uri(&uri)
+            .map(DocumentSymbolResponse::Flat)
     }
 
     pub(crate) fn workspace_symbol(
