@@ -29,38 +29,38 @@ impl PluginCommand for StrStripCharsEnd {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("pattern", SyntaxShape::String, "Characters to strip from the end")
-            .input_output_types(vec![
-                (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
-                )
-            ])
+            .required(
+                "pattern",
+                SyntaxShape::String,
+                "Characters to strip from the end",
+            )
+            .input_output_types(vec![(
+                Type::Custom("expression".into()),
+                Type::Custom("expression".into()),
+            )])
             .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Strip characters from end of strings in a column",
-                example: r#"[[text]; ["hello!!!"] ["world!!!"] ["test!!!"]] | polars into-df | polars select (polars col text | polars str-strip-chars-end "!") | polars collect"#,
-                result: Some(
-                    NuDataFrame::try_from_columns(
-                        vec![Column::new(
-                            "text".to_string(),
-                            vec![
-                                Value::test_string("hello"),
-                                Value::test_string("world"),
-                                Value::test_string("test"),
-                            ],
-                        )],
-                        None,
-                    )
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
-            },
-        ]
+        vec![Example {
+            description: "Strip characters from end of strings in a column",
+            example: r#"[[text]; ["hello!!!"] ["world!!!"] ["test!!!"]] | polars into-df | polars select (polars col text | polars str-strip-chars-end "!") | polars collect"#,
+            result: Some(
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "text".to_string(),
+                        vec![
+                            Value::test_string("hello"),
+                            Value::test_string("world"),
+                            Value::test_string("test"),
+                        ],
+                    )],
+                    None,
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
+        }]
     }
 
     fn run(
@@ -88,7 +88,7 @@ fn command_expr(
     let pattern: String = call.req(0)?;
 
     let pattern_expr = polars::prelude::lit(pattern);
-    
+
     let res: NuExpression = expr
         .into_polars()
         .str()
