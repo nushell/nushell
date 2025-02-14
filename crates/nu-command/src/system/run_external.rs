@@ -251,6 +251,7 @@ impl Command for External {
         let child = ForegroundChild::spawn(
             command,
             engine_state.is_interactive,
+            engine_state.current_thread_job.is_some(),
             &engine_state.pipeline_externals_state,
         );
 

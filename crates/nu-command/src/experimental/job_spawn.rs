@@ -60,7 +60,7 @@ impl Command for JobSpawn {
         let job_signals = Signals::new(Arc::new(AtomicBool::new(false)));
         job_state.set_signals(job_signals.clone());
 
-        // the new job has a separate process group for its processes
+        // the new job has a separate process group state for its processes
         job_state.pipeline_externals_state = Arc::new((AtomicU32::new(0), AtomicU32::new(0)));
 
         job_state.exit_warning_given = Arc::new(AtomicBool::new(false));
