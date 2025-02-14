@@ -97,6 +97,8 @@ $env.config.edit_mode = "emacs"
 # Tip: Set to "editor" to use the default editor on Unix platforms using
 #      the Alternatives system or equivalent
 $env.config.buffer_editor = "editor"
+# To set arguments for the editor, a list can be used:
+$env.config.buffer_editor = ["emacsclient", "-s", "light", "-t"]
 
 # cursor_shape_* (string)
 # -----------------------
