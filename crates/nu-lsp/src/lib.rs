@@ -1011,12 +1011,16 @@ mod tests {
         open_unchecked(&client_connection, script.clone());
         let resp = send_hover_request(&client_connection, script.clone(), 6, 2);
 
-        assert!(result_from_message(resp)
+        let hover_text = result_from_message(resp)
             .pointer("/contents/value")
             .unwrap()
             .as_str()
             .unwrap()
-            .starts_with("SLEEP(1)"))
+            .to_string();
+        #[cfg(not(windows))]
+        assert!(hover_text.starts_with("SLEEP(1)"));
+        #[cfg(windows)]
+        assert!(hover_text.starts_with("No manpage found for sleep"));
     }
 
     #[test]
