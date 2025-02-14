@@ -1,18 +1,21 @@
 pub mod support;
 
-use nu_cli::NuCompleter;
-use nu_engine::eval_block;
-use nu_parser::parse;
-use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, PipelineData};
-use reedline::{Completer, Suggestion};
-use rstest::{fixture, rstest};
 use std::{
+    fs::read_dir,
     path::{PathBuf, MAIN_SEPARATOR},
     sync::Arc,
 };
+
+use nu_cli::NuCompleter;
+use nu_engine::eval_block;
+use nu_parser::parse;
+use nu_path::expand_tilde;
+use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, PipelineData};
+use reedline::{Completer, Suggestion};
+use rstest::{fixture, rstest};
 use support::{
     completions_helpers::{new_dotnu_engine, new_partial_engine, new_quote_engine},
-    file, folder, match_suggestions, new_engine,
+    file, folder, match_dir_content_for_dotnu, match_suggestions, new_engine,
 };
 
 #[fixture]
@@ -346,17 +349,22 @@ fn dotnu_completions() {
 
     // Test special paths
     #[cfg(windows)]
-    let completion_str = "use \\".to_string();
-    #[cfg(not(windows))]
+    {
+        let completion_str = "use \\".to_string();
+        let dir_content = read_dir("\\").unwrap();
+        let suggestions = completer.complete(&completion_str, completion_str.len());
+        match_dir_content_for_dotnu(dir_content, &suggestions);
+    }
+
     let completion_str = "use /".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
-
-    assert!(!suggestions.is_empty());
+    let dir_content = read_dir("/").unwrap();
+    match_dir_content_for_dotnu(dir_content, &suggestions);
 
     let completion_str = "use ~".to_string();
+    let dir_content = read_dir(expand_tilde("~")).unwrap();
     let suggestions = completer.complete(&completion_str, completion_str.len());
-
-    assert!(!suggestions.is_empty());
+    match_dir_content_for_dotnu(dir_content, &suggestions);
 }
 
 #[test]

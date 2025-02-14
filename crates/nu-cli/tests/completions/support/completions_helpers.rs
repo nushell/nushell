@@ -8,7 +8,7 @@ use nu_protocol::{
 };
 use nu_test_support::fs;
 use reedline::Suggestion;
-use std::path::MAIN_SEPARATOR;
+use std::{fs::ReadDir, path::MAIN_SEPARATOR};
 
 fn create_default_context() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
@@ -252,4 +252,41 @@ pub fn merge_input(
 
     // Merge environment into the permanent state
     engine_state.merge_env(stack)
+}
+
+// Match a list of suggestions with the content of a directory.
+// This helper is for DotNutCompletion, so actually it only retrieves
+// *.nu files and subdirectories.
+pub fn match_dir_content_for_dotnu(dir: ReadDir, suggestions: &[Suggestion]) {
+    let actual_dir_entries: Vec<_> = dir.filter_map(|c| c.ok()).collect();
+    let type_name_pairs: Vec<_> = actual_dir_entries
+        .iter()
+        .filter_map(|t| t.file_type().ok().zip(t.file_name().into_string().ok()))
+        .collect();
+    let mut simple_dir_entries: Vec<&str> = type_name_pairs
+        .iter()
+        .filter_map(|(t, n)| {
+            if t.is_dir() || n.ends_with(".nu") {
+                Some(n.as_str())
+            } else {
+                None
+            }
+        })
+        .collect();
+    simple_dir_entries.sort();
+    let mut pure_suggestions: Vec<&str> = suggestions
+        .iter()
+        .map(|s| {
+            // The file names in suggestions contain some extra characters,
+            // we clean them to compare more exactly with read_dir result.
+            s.value
+                .as_str()
+                .trim_end_matches('`')
+                .trim_end_matches('/')
+                .trim_start_matches('`')
+                .trim_start_matches("~/")
+        })
+        .collect();
+    pure_suggestions.sort();
+    assert_eq!(simple_dir_entries, pure_suggestions);
 }
