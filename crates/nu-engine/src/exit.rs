@@ -12,24 +12,26 @@ use nu_protocol::engine::EngineState;
 pub fn cleanup_exit<T>(tag: T, engine_state: &EngineState, exit_code: i32) -> T {
     let mut jobs = engine_state.jobs.lock().expect("failed to lock job table");
 
-    if engine_state.is_interactive && jobs.iter().next().is_some() {
-        if engine_state.exit_warning_given.load(Ordering::SeqCst) {
-            let _ = jobs.kill_all();
-        } else {
-            let job_count = jobs.iter().count();
+    if engine_state.is_interactive
+        && jobs.iter().next().is_some()
+        && !engine_state.exit_warning_given.load(Ordering::SeqCst)
+    {
+        let job_count = jobs.iter().count();
 
-            println!("There are still {} background jobs running.", job_count);
+        println!("There are still background jobs running ({}).", job_count);
 
-            println!("Running `exit` a second time will kill all of them.");
+        println!("Running `exit` a second time will kill all of them.");
 
-            engine_state
-                .exit_warning_given
-                .store(true, Ordering::SeqCst);
+        engine_state
+            .exit_warning_given
+            .store(true, Ordering::SeqCst);
 
-            return tag;
-        }
+        return tag;
     }
 
+    let _ = jobs.kill_all();
+
     drop(tag);
+
     std::process::exit(exit_code);
 }

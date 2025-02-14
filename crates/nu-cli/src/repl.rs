@@ -697,7 +697,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
             cleanup_exit((), engine_state, 0);
 
-            return (false, stack, line_editor);
+            // if cleanup_exit didn't exit, we should keep running
+            return (true, stack, line_editor);
         }
         Err(err) => {
             let message = err.to_string();

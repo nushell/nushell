@@ -20,7 +20,7 @@ impl Default for Jobs {
         Self {
             next_job_id: 1,
             last_frozen_job_id: None,
-            jobs: HashMap::default()
+            jobs: HashMap::default(),
         }
     }
 }

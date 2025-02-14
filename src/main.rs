@@ -21,7 +21,7 @@ use command::gather_commandline_args;
 use log::{trace, Level};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
-use nu_engine::convert_env_values;
+use nu_engine::{convert_env_values, exit::cleanup_exit};
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
@@ -489,6 +489,8 @@ fn main() -> Result<()> {
             input,
             entire_start_time,
         );
+
+        cleanup_exit(0, &engine_state, 0);
     } else if !script_name.is_empty() {
         run_file(
             &mut engine_state,
@@ -499,6 +501,8 @@ fn main() -> Result<()> {
             args_to_script,
             input,
         );
+
+        cleanup_exit(0, &engine_state, 0);
     } else {
         // Environment variables that apply only when in REPL
         engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
@@ -534,7 +538,9 @@ fn main() -> Result<()> {
             stack,
             parsed_nu_cli_args,
             entire_start_time,
-        )?
+        )?;
+
+        cleanup_exit(0, &engine_state, 0);
     }
 
     Ok(())
