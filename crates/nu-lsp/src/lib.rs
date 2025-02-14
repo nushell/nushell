@@ -647,7 +647,7 @@ impl LanguageServer {
                     Ok(output) => String::from_utf8_lossy(&output.stdout).to_string(),
                     Err(_) => format!("No command help found for {}", &cmd),
                 };
-                markdown_hover(manpage_str.to_string())
+                markdown_hover(manpage_str)
             }
         }
     }
