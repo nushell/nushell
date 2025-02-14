@@ -25,7 +25,7 @@ impl Command for Chunks {
     }
 
     fn description(&self) -> &str {
-        "Divide a list or table into chunks of `chunk_size`."
+        "Divide a list, table or binary input into chunks of `chunk_size`."
     }
 
     fn extra_description(&self) -> &str {
@@ -33,7 +33,7 @@ impl Command for Chunks {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["batch", "group"]
+        vec!["batch", "group", "split", "bytes"]
     }
 
     fn examples(&self) -> Vec<Example> {
