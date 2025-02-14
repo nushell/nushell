@@ -104,6 +104,7 @@ impl Expression {
 
     pub fn has_in_variable(&self, working_set: &StateWorkingSet) -> bool {
         match &self.expr {
+            Expr::AttributeBlock(ab) => ab.item.has_in_variable(working_set),
             Expr::BinaryOp(left, _, right) => {
                 left.has_in_variable(working_set) || right.has_in_variable(working_set)
             }
@@ -280,6 +281,7 @@ impl Expression {
             self.span = new_span;
         }
         match &mut self.expr {
+            Expr::AttributeBlock(ab) => ab.item.replace_span(working_set, replaced, new_span),
             Expr::BinaryOp(left, _, right) => {
                 left.replace_span(working_set, replaced, new_span);
                 right.replace_span(working_set, replaced, new_span);
@@ -428,6 +430,7 @@ impl Expression {
 
     pub fn replace_in_variable(&mut self, working_set: &mut StateWorkingSet, new_var_id: VarId) {
         match &mut self.expr {
+            Expr::AttributeBlock(ab) => ab.item.replace_in_variable(working_set, new_var_id),
             Expr::Bool(_) => {}
             Expr::Int(_) => {}
             Expr::Float(_) => {}

@@ -1,9 +1,15 @@
 use crate::{
     engine::{Call, Command, CommandType, EngineState, Stack},
-    BlockId, PipelineData, ShellError, SyntaxShape, Type, Value, VarId,
+    BlockId, Example, PipelineData, ShellError, SyntaxShape, Type, Value, VarId,
 };
+use nu_derive_value::FromValue;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+
+// Make nu_protocol available in this namespace, consumers of this crate will
+// have this without such an export.
+// The `FromValue` derive macro fully qualifies paths to "nu_protocol".
+use crate as nu_protocol;
 
 /// The signature definition of a named flag that either accepts a value or acts as a toggle flag
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -560,10 +566,17 @@ impl Signature {
     }
 
     /// Combines a signature and a block into a runnable block
-    pub fn into_block_command(self, block_id: BlockId) -> Box<dyn Command> {
+    pub fn into_block_command(
+        self,
+        block_id: BlockId,
+        attributes: Vec<(String, Value)>,
+        examples: Vec<CustomExample>,
+    ) -> Box<dyn Command> {
         Box::new(BlockCommand {
             signature: self,
             block_id,
+            attributes,
+            examples,
         })
     }
 
@@ -651,10 +664,29 @@ fn get_positional_short_name(arg: &PositionalArg, is_required: bool) -> String {
     }
 }
 
+#[derive(Clone, FromValue)]
+pub struct CustomExample {
+    pub example: String,
+    pub description: String,
+    pub result: Option<Value>,
+}
+
+impl CustomExample {
+    pub fn to_example(&self) -> Example<'_> {
+        Example {
+            example: self.example.as_str(),
+            description: self.description.as_str(),
+            result: self.result.clone(),
+        }
+    }
+}
+
 #[derive(Clone)]
 struct BlockCommand {
     signature: Signature,
     block_id: BlockId,
+    attributes: Vec<(String, Value)>,
+    examples: Vec<CustomExample>,
 }
 
 impl Command for BlockCommand {
@@ -696,5 +728,24 @@ impl Command for BlockCommand {
 
     fn block_id(&self) -> Option<BlockId> {
         Some(self.block_id)
+    }
+
+    fn attributes(&self) -> Vec<(String, Value)> {
+        self.attributes.clone()
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        self.examples
+            .iter()
+            .map(CustomExample::to_example)
+            .collect()
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        self.signature
+            .search_terms
+            .iter()
+            .map(String::as_str)
+            .collect()
     }
 }

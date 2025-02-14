@@ -324,12 +324,7 @@ impl EngineState {
 
         let cwd = self.cwd(Some(stack))?;
         std::env::set_current_dir(cwd).map_err(|err| {
-            IoError::new_with_additional_context(
-                err.kind(),
-                Span::unknown(),
-                None,
-                "Could not set current dir",
-            )
+            IoError::new_internal(err.kind(), "Could not set current dir", crate::location!())
         })?;
 
         if let Some(config) = stack.config.take() {
@@ -521,11 +516,11 @@ impl EngineState {
                 if err.kind() == std::io::ErrorKind::NotFound {
                     Ok(PluginRegistryFile::default())
                 } else {
-                    Err(ShellError::Io(IoError::new_with_additional_context(
+                    Err(ShellError::Io(IoError::new_internal_with_path(
                         err.kind(),
-                        Span::unknown(),
-                        PathBuf::from(plugin_path),
                         "Failed to open plugin file",
+                        crate::location!(),
+                        PathBuf::from(plugin_path),
                     )))
                 }
             }
@@ -538,11 +533,11 @@ impl EngineState {
 
         // Write it to the same path
         let plugin_file = File::create(plugin_path.as_path()).map_err(|err| {
-            IoError::new_with_additional_context(
+            IoError::new_internal_with_path(
                 err.kind(),
-                Span::unknown(),
-                PathBuf::from(plugin_path),
                 "Failed to write plugin file",
+                crate::location!(),
+                PathBuf::from(plugin_path),
             )
         })?;
 
@@ -885,7 +880,9 @@ impl EngineState {
         }
     }
 
-    pub fn files(&self) -> impl Iterator<Item = &CachedFile> {
+    pub fn files(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = &CachedFile> + ExactSizeIterator<Item = &CachedFile> {
         self.files.iter()
     }
 

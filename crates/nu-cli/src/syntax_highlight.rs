@@ -309,6 +309,7 @@ fn find_matching_block_end_in_expr(
             .unwrap_or(expression.span.start);
 
         return match &expression.expr {
+            // TODO: Can't these be handled with an `_ => None` branch? Refactor
             Expr::Bool(_) => None,
             Expr::Int(_) => None,
             Expr::Float(_) => None,
@@ -334,6 +335,28 @@ fn find_matching_block_end_in_expr(
             Expr::MatchBlock(_) => None,
             Expr::Nothing => None,
             Expr::Garbage => None,
+
+            Expr::AttributeBlock(ab) => ab
+                .attributes
+                .iter()
+                .find_map(|attr| {
+                    find_matching_block_end_in_expr(
+                        line,
+                        working_set,
+                        &attr.expr,
+                        global_span_offset,
+                        global_cursor_offset,
+                    )
+                })
+                .or_else(|| {
+                    find_matching_block_end_in_expr(
+                        line,
+                        working_set,
+                        &ab.item,
+                        global_span_offset,
+                        global_cursor_offset,
+                    )
+                }),
 
             Expr::Table(table) => {
                 if expr_last == global_cursor_offset {

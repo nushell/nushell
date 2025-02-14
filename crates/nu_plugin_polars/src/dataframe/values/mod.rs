@@ -7,20 +7,21 @@ mod nu_schema;
 mod nu_when;
 pub mod utils;
 
+use crate::{Cacheable, PolarsPlugin};
+use nu_plugin::EngineInterface;
+use nu_protocol::{
+    ast::Operator, CustomValue, PipelineData, ShellError, Span, Spanned, Type, Value,
+};
 use std::{cmp::Ordering, fmt};
+use uuid::Uuid;
 
 pub use file_type::PolarsFileType;
 pub use nu_dataframe::{Axis, Column, NuDataFrame, NuDataFrameCustomValue};
 pub use nu_expression::{NuExpression, NuExpressionCustomValue};
 pub use nu_lazyframe::{NuLazyFrame, NuLazyFrameCustomValue};
 pub use nu_lazygroupby::{NuLazyGroupBy, NuLazyGroupByCustomValue};
-use nu_plugin::EngineInterface;
-use nu_protocol::{ast::Operator, CustomValue, PipelineData, ShellError, Span, Spanned, Value};
 pub use nu_schema::{str_to_dtype, NuSchema};
 pub use nu_when::{NuWhen, NuWhenCustomValue, NuWhenType};
-use uuid::Uuid;
-
-use crate::{Cacheable, PolarsPlugin};
 
 #[derive(Debug, Clone)]
 pub enum PolarsPluginType {
@@ -217,13 +218,16 @@ pub trait PolarsPluginCustomValue: CustomValue {
         &self,
         _plugin: &PolarsPlugin,
         _engine: &EngineInterface,
-        _lhs_span: Span,
+        lhs_span: Span,
         operator: Spanned<Operator>,
         _right: Value,
     ) -> Result<Value, ShellError> {
-        Err(ShellError::UnsupportedOperator {
-            operator: operator.item,
-            span: operator.span,
+        Err(ShellError::OperatorUnsupportedType {
+            op: operator.item,
+            unsupported: Type::Custom(self.type_name().into()),
+            op_span: operator.span,
+            unsupported_span: lhs_span,
+            help: None,
         })
     }
 

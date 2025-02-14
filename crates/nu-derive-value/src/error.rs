@@ -1,7 +1,7 @@
 use std::{any, fmt::Debug, marker::PhantomData};
 
 use proc_macro2::Span;
-use proc_macro_error::{Diagnostic, Level};
+use proc_macro_error2::{Diagnostic, Level};
 
 #[derive(Debug)]
 pub enum DeriveError<M> {

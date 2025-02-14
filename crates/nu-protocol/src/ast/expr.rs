@@ -2,8 +2,8 @@ use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword, MatchPattern, Operator,
-    Range, Table, ValueWithUnit,
+    AttributeBlock, Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword,
+    MatchPattern, Operator, Range, Table, ValueWithUnit,
 };
 use crate::{
     ast::ImportPattern, engine::StateWorkingSet, BlockId, ModuleId, OutDest, Signature, Span, VarId,
@@ -12,6 +12,7 @@ use crate::{
 /// An [`Expression`] AST node
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
+    AttributeBlock(AttributeBlock),
     Bool(bool),
     Int(i64),
     Float(f64),
@@ -67,6 +68,7 @@ impl Expr {
         working_set: &StateWorkingSet,
     ) -> (Option<OutDest>, Option<OutDest>) {
         match self {
+            Expr::AttributeBlock(ab) => ab.item.expr.pipe_redirection(working_set),
             Expr::Call(call) => working_set.get_decl(call.decl_id).pipe_redirection(),
             Expr::Collect(_, _) => {
                 // A collect expression always has default redirection, it's just going to collect

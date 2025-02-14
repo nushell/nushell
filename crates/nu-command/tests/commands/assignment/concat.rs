@@ -62,7 +62,9 @@ fn concat_assign_type_mismatch() {
         $a ++= 'str'
     "#);
 
-    assert!(actual.err.contains("nu::parser::unsupported_operation"));
+    assert!(actual
+        .err
+        .contains("nu::parser::operator_incompatible_types"));
 }
 
 #[test]
@@ -72,5 +74,7 @@ fn concat_assign_runtime_type_mismatch() {
         $a ++= if true { 'str' }
     "#);
 
-    assert!(actual.err.contains("nu::shell::type_mismatch"));
+    assert!(actual
+        .err
+        .contains("nu::shell::operator_incompatible_types"));
 }

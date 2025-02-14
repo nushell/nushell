@@ -16,7 +16,7 @@ let banner_msg = match $short {
 (ansi green)'|, . ,'   (ansi reset)based on the (ansi green)nu(ansi reset) language,
 (ansi green) !_-\(_\\    (ansi reset)where all data is structured!
 
-Version: (ansi green)($ver.version) \(($ver.build_os)\)
+Version: (ansi green)($ver.version) \(($ver.build_target)\)
 Please join our (ansi purple)Discord(ansi reset) community at (ansi purple)https://discord.gg/NtAbbGn(ansi reset)
 Our (ansi green_bold)GitHub(ansi reset) repository is at (ansi green_bold)https://github.com/nushell/nushell(ansi reset)
 Our (ansi green)Documentation(ansi reset) is located at (ansi green)https://nushell.sh(ansi reset)

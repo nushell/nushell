@@ -1255,6 +1255,44 @@ fn flag_completions() {
 }
 
 #[test]
+fn attribute_completions() {
+    // Create a new engine
+    let (_, _, engine, stack) = new_engine();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    // Test completions for the 'ls' flags
+    let suggestions = completer.complete("@", 1);
+
+    // Only checking for the builtins and not the std attributes
+    let expected: Vec<String> = vec!["example".into(), "search-terms".into()];
+
+    // Match results
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn attributable_completions() {
+    // Create a new engine
+    let (_, _, engine, stack) = new_engine();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    // Test completions for the 'ls' flags
+    let suggestions = completer.complete("@example; ", 10);
+
+    let expected: Vec<String> = vec![
+        "def".into(),
+        "export def".into(),
+        "export extern".into(),
+        "extern".into(),
+    ];
+
+    // Match results
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
 fn folder_with_directorycompletions() {
     // Create a new engine
     let (dir, dir_str, engine, stack) = new_engine();
@@ -1592,6 +1630,58 @@ fn variables_completions() {
     let suggestions = completer.complete("$", 1);
     let expected: Vec<String> = vec!["$actor".into(), "$env".into(), "$in".into(), "$nu".into()];
 
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn record_cell_path_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"let foo = {a: [1 {a: 2}]}; const bar = {a: [1 {a: 2}]}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let expected: Vec<String> = vec!["a".into()];
+    let completion_str = "$foo.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "$foo.a.1.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "$bar.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "$bar.a.1.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "{a: [1 {a: 2}]}.a.1.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn table_cell_path_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"let foo = [{a:{b:1}}, {a:{b:2}}]; const bar = [[a b]; [1 2]]"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let expected: Vec<String> = vec!["a".into()];
+    let completion_str = "$foo.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let expected: Vec<String> = vec!["b".into()];
+    let completion_str = "$foo.a.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let expected: Vec<String> = vec!["a".into(), "b".into()];
+    let completion_str = "$bar.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&expected, &suggestions);
 }
 

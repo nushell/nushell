@@ -29,7 +29,7 @@ impl Command for SubCommand {
             .required(
                 "str",
                 SyntaxShape::String,
-                "the string to perform the operation with",
+                "The string to perform the operation with.",
             )
             .category(Category::Core)
     }

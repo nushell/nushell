@@ -106,7 +106,7 @@ v_htmlescape = { workspace = true }
 wax = { workspace = true }
 which = { workspace = true, optional = true }
 unicode-width = { workspace = true }
-data-encoding = { version = "2.7.0", features = ["alloc"] }
+data-encoding = { version = "2.8.0", features = ["alloc"] }
 web-time = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
@@ -195,8 +195,6 @@ nu-test-support = { path = "../nu-test-support", version = "0.102.1" }
 
 dirs = { workspace = true }
 mockito = { workspace = true, default-features = false }
-quickcheck = { workspace = true }
-quickcheck_macros = { workspace = true }
 rstest = { workspace = true, default-features = false }
 rstest_reuse = { workspace = true }
 pretty_assertions = { workspace = true }

@@ -37,7 +37,7 @@ impl Command for BitsRor {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .required("bits", SyntaxShape::Int, "number of bits to rotate right")
+            .required("bits", SyntaxShape::Int, "Number of bits to rotate right.")
             .switch(
                 "signed",
                 "always treat input number as a signed number",

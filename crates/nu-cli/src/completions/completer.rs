@@ -1,6 +1,7 @@
 use crate::completions::{
-    CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
-    DotNuCompletion, FileCompletion, FlagCompletion, OperatorCompletion, VariableCompletion,
+    AttributableCompletion, AttributeCompletion, CellPathCompletion, CommandCompletion, Completer,
+    CompletionOptions, CustomCompletion, DirectoryCompletion, DotNuCompletion, FileCompletion,
+    FlagCompletion, OperatorCompletion, VariableCompletion,
 };
 use log::debug;
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
@@ -17,6 +18,10 @@ use std::{str, sync::Arc};
 
 use super::base::{SemanticSuggestion, SuggestionKind};
 
+/// Used as the function `f` in find_map Traverse
+///
+/// returns the inner-most pipeline_element of interest
+/// i.e. the one that contains given position and needs completion
 fn find_pipeline_element_by_position<'a>(
     expr: &'a Expression,
     working_set: &'a StateWorkingSet,
@@ -58,8 +63,26 @@ fn find_pipeline_element_by_position<'a>(
             .map(FindMapResult::Found)
             .unwrap_or_default(),
         Expr::Var(_) => FindMapResult::Found(expr),
+        Expr::AttributeBlock(ab) => ab
+            .attributes
+            .iter()
+            .map(|attr| &attr.expr)
+            .chain(Some(ab.item.as_ref()))
+            .find_map(|expr| expr.find_map(working_set, &closure))
+            .or(Some(expr))
+            .map(FindMapResult::Found)
+            .unwrap_or_default(),
         _ => FindMapResult::Continue,
     }
+}
+
+/// Before completion, an additional character `a` is added to the source as a placeholder for correct parsing results.
+/// This function helps to strip it
+fn strip_placeholder<'a>(working_set: &'a StateWorkingSet, span: &Span) -> (Span, &'a [u8]) {
+    let new_end = std::cmp::max(span.end - 1, span.start);
+    let new_span = Span::new(span.start, new_end);
+    let prefix = working_set.get_span_contents(new_span);
+    (new_span, prefix)
 }
 
 #[derive(Clone)]
@@ -78,6 +101,28 @@ impl NuCompleter {
 
     pub fn fetch_completions_at(&mut self, line: &str, pos: usize) -> Vec<SemanticSuggestion> {
         self.completion_helper(line, pos)
+    }
+
+    fn variable_names_completion_helper(
+        &self,
+        working_set: &StateWorkingSet,
+        span: Span,
+        offset: usize,
+    ) -> Vec<SemanticSuggestion> {
+        let (new_span, prefix) = strip_placeholder(working_set, &span);
+        if !prefix.starts_with(b"$") {
+            return vec![];
+        }
+        let mut variable_names_completer = VariableCompletion {};
+        self.process_completion(
+            &mut variable_names_completer,
+            working_set,
+            prefix,
+            new_span,
+            offset,
+            // pos is not required
+            0,
+        )
     }
 
     // Process the completion for a given completer
@@ -193,6 +238,37 @@ impl NuCompleter {
             return vec![];
         };
 
+        match &element_expression.expr {
+            Expr::Var(_) => {
+                return self.variable_names_completion_helper(
+                    &working_set,
+                    element_expression.span,
+                    fake_offset,
+                );
+            }
+            Expr::FullCellPath(full_cell_path) => {
+                // e.g. `$e<tab>` parsed as FullCellPath
+                if full_cell_path.tail.is_empty() {
+                    return self.variable_names_completion_helper(
+                        &working_set,
+                        element_expression.span,
+                        fake_offset,
+                    );
+                } else {
+                    let mut cell_path_completer = CellPathCompletion { full_cell_path };
+                    return self.process_completion(
+                        &mut cell_path_completer,
+                        &working_set,
+                        &[],
+                        element_expression.span,
+                        fake_offset,
+                        pos,
+                    );
+                }
+            }
+            _ => (),
+        }
+
         let flattened = flatten_expression(&working_set, element_expression);
         let mut spans: Vec<String> = vec![];
 
@@ -223,9 +299,6 @@ impl NuCompleter {
 
             // Complete based on the last span
             if is_last_span {
-                // Context variables
-                let most_left_var = most_left_variable(flat_idx, &working_set, flattened.clone());
-
                 // Create a new span
                 let new_span = Span::new(span.start, span.end - 1);
 
@@ -233,34 +306,27 @@ impl NuCompleter {
                 let index = pos - span.start;
                 let prefix = &current_span[..index];
 
-                // Variables completion
-                if prefix.starts_with(b"$") || most_left_var.is_some() {
-                    let mut variable_names_completer =
-                        VariableCompletion::new(most_left_var.unwrap_or((vec![], vec![])));
-
-                    let mut variable_completions = self.process_completion(
-                        &mut variable_names_completer,
-                        &working_set,
-                        prefix,
-                        new_span,
-                        fake_offset,
-                        pos,
-                    );
-
-                    let mut variable_operations_completer =
-                        OperatorCompletion::new(element_expression.clone());
-
-                    let mut variable_operations_completions = self.process_completion(
-                        &mut variable_operations_completer,
-                        &working_set,
-                        prefix,
-                        new_span,
-                        fake_offset,
-                        pos,
-                    );
-
-                    variable_completions.append(&mut variable_operations_completions);
-                    return variable_completions;
+                if let Expr::AttributeBlock(ab) = &element_expression.expr {
+                    let last_attr = ab.attributes.last().expect("at least one attribute");
+                    if let Expr::Garbage = last_attr.expr.expr {
+                        return self.process_completion(
+                            &mut AttributeCompletion,
+                            &working_set,
+                            prefix,
+                            new_span,
+                            fake_offset,
+                            pos,
+                        );
+                    } else {
+                        return self.process_completion(
+                            &mut AttributableCompletion,
+                            &working_set,
+                            prefix,
+                            new_span,
+                            fake_offset,
+                            pos,
+                        );
+                    }
                 }
 
                 // Flags completion
@@ -472,56 +538,6 @@ impl ReedlineCompleter for NuCompleter {
             .map(|s| s.suggestion)
             .collect()
     }
-}
-
-// reads the most left variable returning it's name (e.g: $myvar)
-// and the depth (a.b.c)
-fn most_left_variable(
-    idx: usize,
-    working_set: &StateWorkingSet<'_>,
-    flattened: Vec<(Span, FlatShape)>,
-) -> Option<(Vec<u8>, Vec<Vec<u8>>)> {
-    // Reverse items to read the list backwards and truncate
-    // because the only items that matters are the ones before the current index
-    let mut rev = flattened;
-    rev.truncate(idx);
-    rev = rev.into_iter().rev().collect();
-
-    // Store the variables and sub levels found and reverse to correct order
-    let mut variables_found: Vec<Vec<u8>> = vec![];
-    let mut found_var = false;
-    for item in rev.clone() {
-        let result = working_set.get_span_contents(item.0).to_vec();
-
-        match item.1 {
-            FlatShape::Variable(_) => {
-                variables_found.push(result);
-                found_var = true;
-
-                break;
-            }
-            FlatShape::String => {
-                variables_found.push(result);
-            }
-            _ => {
-                break;
-            }
-        }
-    }
-
-    // If most left var was not found
-    if !found_var {
-        return None;
-    }
-
-    // Reverse the order back
-    variables_found = variables_found.into_iter().rev().collect();
-
-    // Extract the variable and the sublevels
-    let var = variables_found.first().unwrap_or(&vec![]).to_vec();
-    let sublevels: Vec<Vec<u8>> = variables_found.into_iter().skip(1).collect();
-
-    Some((var, sublevels))
 }
 
 pub fn map_value_completions<'a>(

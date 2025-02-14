@@ -20,7 +20,7 @@ fn string_in_string() -> TestResult {
 
 #[test]
 fn non_string_in_string() -> TestResult {
-    fail_test(r#"42 in 'abc'"#, "is not supported")
+    fail_test(r#"42 in 'abc'"#, "nu::parser::operator_incompatible_types")
 }
 
 #[test]
@@ -32,7 +32,7 @@ fn string_in_record() -> TestResult {
 fn non_string_in_record() -> TestResult {
     fail_test(
         r#"4 in ('{ "a": 13, "b": 14 }' | from json)"#,
-        "mismatch during operation",
+        "nu::shell::operator_incompatible_types",
     )
 }
 

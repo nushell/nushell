@@ -72,6 +72,14 @@ pub(crate) fn compile_expression(
     };
 
     match &expr.expr {
+        Expr::AttributeBlock(ab) => compile_expression(
+            working_set,
+            builder,
+            &ab.item,
+            redirect_modes,
+            in_reg,
+            out_reg,
+        ),
         Expr::Bool(b) => lit(builder, Literal::Bool(*b)),
         Expr::Int(i) => lit(builder, Literal::Int(*i)),
         Expr::Float(f) => lit(builder, Literal::Float(*f)),
@@ -156,13 +164,13 @@ pub(crate) fn compile_expression(
             Ok(())
         }
         Expr::BinaryOp(lhs, op, rhs) => {
-            if let Expr::Operator(ref operator) = op.expr {
+            if let Expr::Operator(operator) = op.expr {
                 drop_input(builder)?;
                 compile_binary_op(
                     working_set,
                     builder,
                     lhs,
-                    operator.clone().into_spanned(op.span),
+                    operator.into_spanned(op.span),
                     rhs,
                     expr.span,
                     out_reg,

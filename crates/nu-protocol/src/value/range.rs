@@ -112,8 +112,9 @@ mod int_range {
             match self.end {
                 Bound::Unbounded => Bound::Unbounded,
                 Bound::Included(i) => match i {
+                    _ if len == 0 => Bound::Excluded(0),
                     i if i < 0 => Bound::Excluded(len.saturating_sub((i + 1).unsigned_abs())),
-                    i => Bound::Included((len - 1).min(i.unsigned_abs())),
+                    i => Bound::Included((len.saturating_sub(1)).min(i.unsigned_abs())),
                 },
                 Bound::Excluded(i) => Bound::Excluded(match i {
                     i if i < 0 => len.saturating_sub(i.unsigned_abs()),

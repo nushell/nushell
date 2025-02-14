@@ -118,6 +118,12 @@ fn convert_to_value(
     original_text: &str,
 ) -> Result<Value, ShellError> {
     match expr.expr {
+        Expr::AttributeBlock(..) => Err(ShellError::OutsideSpannedLabeledError {
+            src: original_text.to_string(),
+            error: "Error when loading".into(),
+            msg: "attributes not supported in nuon".into(),
+            span: expr.span,
+        }),
         Expr::BinaryOp(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),

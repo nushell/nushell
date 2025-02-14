@@ -21,7 +21,7 @@ impl Command for HistoryImport {
     }
 
     fn description(&self) -> &str {
-        "Import command line history"
+        "Import command line history."
     }
 
     fn extra_description(&self) -> &str {

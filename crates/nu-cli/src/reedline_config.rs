@@ -707,11 +707,6 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
         EditBindings::Vi => {
             add_menu_keybindings(&mut insert_keybindings);
             add_menu_keybindings(&mut normal_keybindings);
-            normal_keybindings.add_binding(
-                KeyModifiers::NONE,
-                KeyCode::Char('/'),
-                ReedlineEvent::Menu("history_menu".to_string()),
-            );
         }
     }
     for keybinding in parsed_keybindings {

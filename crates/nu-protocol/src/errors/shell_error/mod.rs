@@ -17,22 +17,35 @@ pub mod location;
 /// and pass it into an error viewer to display to the user.
 #[derive(Debug, Clone, Error, Diagnostic, PartialEq)]
 pub enum ShellError {
-    /// An operator received two arguments of incompatible types.
-    ///
-    /// ## Resolution
-    ///
-    /// Check each argument's type and convert one or both as needed.
-    #[error("Type mismatch during operation.")]
-    #[diagnostic(code(nu::shell::type_mismatch))]
-    OperatorMismatch {
-        #[label = "type mismatch for operator"]
+    /// One or more of the values have types not supported by the operator.
+    #[error("The '{op}' operator does not work on values of type '{unsupported}'.")]
+    #[diagnostic(code(nu::shell::operator_unsupported_type))]
+    OperatorUnsupportedType {
+        op: Operator,
+        unsupported: Type,
+        #[label = "does not support '{unsupported}'"]
         op_span: Span,
-        lhs_ty: String,
-        #[label("{lhs_ty}")]
+        #[label("{unsupported}")]
+        unsupported_span: Span,
+        #[help]
+        help: Option<&'static str>,
+    },
+
+    /// The operator supports the types of both values, but not the specific combination of their types.
+    #[error("Types '{lhs}' and '{rhs}' are not compatible for the '{op}' operator.")]
+    #[diagnostic(code(nu::shell::operator_incompatible_types))]
+    OperatorIncompatibleTypes {
+        op: Operator,
+        lhs: Type,
+        rhs: Type,
+        #[label = "does not operate between '{lhs}' and '{rhs}'"]
+        op_span: Span,
+        #[label("{lhs}")]
         lhs_span: Span,
-        rhs_ty: String,
-        #[label("{rhs_ty}")]
+        #[label("{rhs}")]
         rhs_span: Span,
+        #[help]
+        help: Option<&'static str>,
     },
 
     /// An arithmetic operation's resulting value overflowed its possible size.
@@ -154,20 +167,6 @@ pub enum ShellError {
         val_span: Span,
         #[label = "encountered here"]
         call_span: Span,
-    },
-
-    /// This value cannot be used with this operator.
-    ///
-    /// ## Resolution
-    ///
-    /// Not all values, for example custom values, can be used with all operators. Either
-    /// implement support for the operator on this type, or convert the type to a supported one.
-    #[error("Unsupported operator: {operator}.")]
-    #[diagnostic(code(nu::shell::unsupported_operator))]
-    UnsupportedOperator {
-        operator: Operator,
-        #[label = "unsupported operator"]
-        span: Span,
     },
 
     /// Invalid assignment left-hand side

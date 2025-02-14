@@ -177,6 +177,12 @@ impl Traverse for Expression {
             Expr::StringInterpolation(vec) | Expr::GlobInterpolation(vec, _) => {
                 vec.iter().flat_map(recur).collect()
             }
+            Expr::AttributeBlock(ab) => ab
+                .attributes
+                .iter()
+                .flat_map(|attr| recur(&attr.expr))
+                .chain(recur(&ab.item))
+                .collect(),
 
             _ => Vec::new(),
         }
@@ -233,6 +239,11 @@ impl Traverse for Expression {
                     Expr::StringInterpolation(vec) | Expr::GlobInterpolation(vec, _) => {
                         vec.iter().find_map(recur)
                     }
+                    Expr::AttributeBlock(ab) => ab
+                        .attributes
+                        .iter()
+                        .find_map(|attr| recur(&attr.expr))
+                        .or_else(|| recur(&ab.item)),
 
                     _ => None,
                 }
