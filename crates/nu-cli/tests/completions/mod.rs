@@ -372,15 +372,20 @@ fn dotnu_completions_const_nu_lib_dirs() {
     let (_, _, engine, stack) = new_dotnu_engine();
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    // file in `lib-dir1/`
+    // file in `lib-dir1/`, set by `const NU_LIB_DIRS`
     let completion_str = "use xyzz".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
     match_suggestions(&vec!["xyzzy.nu".into()], &suggestions);
 
-    // file in `lib-dir2/`
+    // file in `lib-dir2/`, set by `$env.NU_LIB_DIRS`
     let completion_str = "use asdf".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
     match_suggestions(&vec!["asdf.nu".into()], &suggestions);
+
+    // file in `lib-dir3/`, set by both, should not replicate
+    let completion_str = "use spam".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+    match_suggestions(&vec!["spam.nu".into()], &suggestions);
 
     // if `./` specified by user, file in `lib-dir*` should be ignored
     #[cfg(windows)]

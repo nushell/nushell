@@ -98,7 +98,6 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
         var_id,
         Value::test_list(vec![
             Value::string(file(dir.join("lib-dir1")), dir_span),
-            Value::string(file(dir.join("lib-dir2")), dir_span),
             Value::string(file(dir.join("lib-dir3")), dir_span),
         ]),
     );
@@ -112,6 +111,13 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     stack.add_env_var(
         "TEST".to_string(),
         Value::string("NUSHELL".to_string(), dir_span),
+    );
+    stack.add_env_var(
+        "NU_LIB_DIRS".into(),
+        Value::test_list(vec![
+            Value::string(file(dir.join("lib-dir2")), dir_span),
+            Value::string(file(dir.join("lib-dir3")), dir_span),
+        ]),
     );
 
     // Merge environment into the permanent state
