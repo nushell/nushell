@@ -9,11 +9,20 @@ use crate::Signals;
 
 use super::JobId;
 
-#[derive(Default)]
 pub struct Jobs {
     next_job_id: JobId,
     last_frozen_job_id: Option<JobId>,
     jobs: HashMap<JobId, Job>,
+}
+
+impl Default for Jobs {
+    fn default() -> Self {
+        Self {
+            next_job_id: 1,
+            last_frozen_job_id: None,
+            jobs: HashMap::default()
+        }
+    }
 }
 
 impl Jobs {
