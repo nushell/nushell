@@ -636,10 +636,16 @@ impl LanguageServer {
             }
             Id::Value(t) => markdown_hover(format!("`{}`", t)),
             Id::External(cmd) => {
-                let output = std::process::Command::new("man").arg(&cmd).output();
-                let manpage_str = match output {
+                let command_output = if cfg!(windows) {
+                    std::process::Command::new("powershell.exe")
+                        .args(["-NoProfile", "-Command", "help", &cmd])
+                        .output()
+                } else {
+                    std::process::Command::new("man").arg(&cmd).output()
+                };
+                let manpage_str = match command_output {
                     Ok(output) => String::from_utf8_lossy(&output.stdout).to_string(),
-                    Err(_) => format!("No manpage found for {}", &cmd),
+                    Err(_) => format!("No command help found for {}", &cmd),
                 };
                 markdown_hover(manpage_str.to_string())
             }
@@ -1017,10 +1023,11 @@ mod tests {
             .as_str()
             .unwrap()
             .to_string();
+
         #[cfg(not(windows))]
         assert!(hover_text.starts_with("SLEEP(1)"));
         #[cfg(windows)]
-        assert!(hover_text.starts_with("No manpage found for sleep"));
+        assert!(hover_text.starts_with("NAME\r\n    Start-Sleep"));
     }
 
     #[test]
