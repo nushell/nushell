@@ -19,6 +19,26 @@ fn strip_quotes(span: Span, working_set: &StateWorkingSet) -> Span {
     }
 }
 
+fn try_find_id_in_misc(
+    call: &Call,
+    working_set: &StateWorkingSet,
+    location: Option<&usize>,
+    id_ref: Option<&Id>,
+) -> Option<(Id, Span)> {
+    let call_name = working_set.get_span_contents(call.head);
+    match call_name {
+        b"def" | b"export def" => try_find_id_in_def(call, working_set, location, id_ref),
+        b"module" | b"export module" => try_find_id_in_mod(call, working_set, location, id_ref),
+        b"use" | b"export use" | b"hide" => {
+            try_find_id_in_use(call, working_set, location, id_ref, call_name)
+        }
+        b"overlay use" | b"overlay hide" => {
+            try_find_id_in_overlay(call, working_set, location, id_ref)
+        }
+        _ => None,
+    }
+}
+
 /// For situations like
 /// ```nushell
 /// def foo [] {}
@@ -35,10 +55,6 @@ fn try_find_id_in_def(
     location: Option<&usize>,
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
-    let call_name = working_set.get_span_contents(call.head);
-    if call_name != b"def" && call_name != b"export def" {
-        return None;
-    };
     let mut span = None;
     for arg in call.arguments.iter() {
         if location.map_or(true, |pos| arg.span().contains(*pos)) {
@@ -80,10 +96,6 @@ fn try_find_id_in_mod(
     location: Option<&usize>,
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
-    let call_name = working_set.get_span_contents(call.head);
-    if call_name != b"module" && call_name != b"export module" {
-        return None;
-    };
     let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
 
     call.arguments.first().and_then(|arg| {
@@ -119,11 +131,8 @@ fn try_find_id_in_use(
     working_set: &StateWorkingSet,
     location: Option<&usize>,
     id: Option<&Id>,
+    call_name: &[u8],
 ) -> Option<(Id, Span)> {
-    let call_name = working_set.get_span_contents(call.head);
-    if call_name != b"use" && call_name != b"export use" && call_name != b"hide" {
-        return None;
-    }
     // TODO: for keyword `hide`, the decl/var is already hidden in working_set,
     // this function will always return None.
     let find_by_name = |name: &[u8]| match id {
@@ -223,10 +232,6 @@ fn try_find_id_in_overlay(
     location: Option<&usize>,
     id: Option<&Id>,
 ) -> Option<(Id, Span)> {
-    let call_name = working_set.get_span_contents(call.head);
-    if call_name != b"overlay use" && call_name != b"overlay hide" {
-        return None;
-    }
     let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
     let module_from_overlay_name = |name: &str, span: Span| {
         let found_id = Id::Module(working_set.find_overlay(name.as_bytes())?.origin);
@@ -292,15 +297,7 @@ fn find_id_in_expr(
             if call.head.contains(*location) {
                 FindMapResult::Found((Id::Declaration(call.decl_id), call.head))
             } else {
-                try_find_id_in_def(call, working_set, Some(location), None)
-                    .or(try_find_id_in_mod(call, working_set, Some(location), None))
-                    .or(try_find_id_in_use(call, working_set, Some(location), None))
-                    .or(try_find_id_in_overlay(
-                        call,
-                        working_set,
-                        Some(location),
-                        None,
-                    ))
+                try_find_id_in_misc(call, working_set, Some(location), None)
                     .map(FindMapResult::Found)
                     .unwrap_or_default()
             }
@@ -383,11 +380,7 @@ fn find_reference_by_id_in_expr(
                 occurs.push(call.head);
                 return Some(occurs);
             }
-            if let Some((_, span_found)) = try_find_id_in_def(call, working_set, None, Some(id))
-                .or(try_find_id_in_mod(call, working_set, None, Some(id)))
-                .or(try_find_id_in_use(call, working_set, None, Some(id)))
-                .or(try_find_id_in_overlay(call, working_set, None, Some(id)))
-            {
+            if let Some((_, span_found)) = try_find_id_in_misc(call, working_set, None, Some(id)) {
                 occurs.push(span_found);
             }
             Some(occurs)

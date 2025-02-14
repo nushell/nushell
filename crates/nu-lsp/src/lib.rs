@@ -927,7 +927,7 @@ mod tests {
 
         assert_json_eq!(
             result_from_message(resp),
-            serde_json::json!({ "contents": { "kind": "markdown", "value": "```\ntable\n``` " } })
+            serde_json::json!({ "contents": { "kind": "markdown", "value": "```\ntable\n``` \n---\nimmutable" } })
         );
     }
 
