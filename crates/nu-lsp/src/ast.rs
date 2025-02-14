@@ -302,6 +302,14 @@ fn find_id_in_expr(
                     .unwrap_or_default()
             }
         }
+        Expr::ExternalCall(head, _) => {
+            if head.span.contains(*location) {
+                if let Expr::GlobPattern(cmd, _) = &head.expr {
+                    return FindMapResult::Found((Id::External(cmd.clone()), head.span));
+                }
+            }
+            FindMapResult::Continue
+        }
         Expr::FullCellPath(fcp) => {
             if fcp.head.span.contains(*location) {
                 FindMapResult::Continue

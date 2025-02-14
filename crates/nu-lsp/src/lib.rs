@@ -43,6 +43,7 @@ pub(crate) enum Id {
     Value(Type),
     Module(ModuleId),
     CellPath(VarId, Vec<PathMember>),
+    External(String),
 }
 
 pub struct LanguageServer {
@@ -634,6 +635,14 @@ impl LanguageServer {
                 markdown_hover(description)
             }
             Id::Value(t) => markdown_hover(format!("`{}`", t)),
+            Id::External(cmd) => {
+                let output = std::process::Command::new("man").arg(&cmd).output();
+                let manpage_str = match output {
+                    Ok(output) => String::from_utf8_lossy(&output.stdout).to_string(),
+                    Err(_) => format!("No manpage found for {}", &cmd),
+                };
+                markdown_hover(manpage_str.to_string())
+            }
         }
     }
 
@@ -987,6 +996,27 @@ mod tests {
                 }
             })
         );
+    }
+
+    #[test]
+    fn hover_on_external_command() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hover");
+        script.push("command.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+        let resp = send_hover_request(&client_connection, script.clone(), 6, 2);
+
+        assert!(result_from_message(resp)
+            .pointer("/contents/value")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .starts_with("SLEEP(1)"))
     }
 
     #[test]
