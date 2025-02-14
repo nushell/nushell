@@ -145,7 +145,7 @@ fn extract_inlay_hints_from_expression(
 
 impl LanguageServer {
     pub(crate) fn get_inlay_hints(&mut self, params: &InlayHintParams) -> Option<Vec<InlayHint>> {
-        Some(self.inlay_hints.get(&params.text_document.uri)?.clone())
+        self.inlay_hints.get(&params.text_document.uri).cloned()
     }
 
     pub(crate) fn extract_inlay_hints(

@@ -594,14 +594,12 @@ impl LanguageServer {
                     .const_val
                     .clone()
                     .and_then(|v| v.coerce_into_string().ok())
-                    .map(|s| format!("\n---\n{}", s))
-                    .unwrap_or_default();
-                let contents = format!(
-                    "{} ```\n{}\n``` {}",
-                    if var.mutable { "mutable " } else { "" },
-                    var.ty,
-                    value
-                );
+                    .unwrap_or(String::from(if var.mutable {
+                        "mutable"
+                    } else {
+                        "immutable"
+                    }));
+                let contents = format!("```\n{}\n``` \n---\n{}", var.ty, value);
                 markdown_hover(contents)
             }
             Id::CellPath(var_id, cell_path) => {
@@ -929,7 +927,7 @@ mod tests {
 
         assert_json_eq!(
             result_from_message(resp),
-            serde_json::json!({ "contents": { "kind": "markdown", "value": " ```\ntable\n``` " } })
+            serde_json::json!({ "contents": { "kind": "markdown", "value": "```\ntable\n``` " } })
         );
     }
 
