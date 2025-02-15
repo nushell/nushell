@@ -1,4 +1,6 @@
 use crate::completions::{file_path_completion, Completer, CompletionOptions};
+#[cfg(windows)]
+use log::debug;
 use nu_path::expand_tilde;
 use nu_protocol::{
     engine::{Stack, StateWorkingSet},
@@ -109,6 +111,9 @@ impl Completer for DotNuCompletion {
                 search_dirs.extend(lib_dirs);
             }
         }
+        // Attempt to debug "duplicate suggestions" issue on Windows.
+        #[cfg(windows)]
+        debug!("Search dirs on Windows: {:?}", search_dirs);
 
         // Fetch the files filtering the ones that ends with .nu
         // and transform them into suggestions
@@ -122,6 +127,15 @@ impl Completer for DotNuCompletion {
             options,
             working_set.permanent_state,
             stack,
+        );
+        // Attempt to debug "duplicate suggestions" issue on Windows.
+        #[cfg(windows)]
+        debug!(
+            "Completions on Windows: {:?}",
+            completions
+                .iter()
+                .map(|c| c.path.as_str())
+                .collect::<Vec<_>>()
         );
         completions
             .into_iter()

@@ -289,6 +289,7 @@ pub fn match_dir_content_for_dotnu(dir: ReadDir, suggestions: &[Suggestion]) {
                 .as_str()
                 .trim_end_matches('`')
                 .trim_end_matches('/')
+                .trim_end_matches('\\')
                 .trim_start_matches('`')
                 .trim_start_matches("~/")
         })
