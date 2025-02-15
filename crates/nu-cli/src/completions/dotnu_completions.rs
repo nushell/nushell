@@ -39,11 +39,10 @@ impl Completer for DotNuCompletion {
         let end_with_backquote = prefix_str.ends_with('`');
         let prefix_str = prefix_str.replace('`', "");
         // e.g. `./`, `..\`
-        let cwd_only = prefix_str.starts_with('.')
-            && prefix_str
-                .chars()
-                .find(|c| *c != '.')
-                .is_some_and(is_separator);
+        let cwd_only = prefix_str
+            .chars()
+            .find(|c| *c != '.')
+            .is_some_and(is_separator);
         let mut search_dirs: Vec<PathBuf> = vec![];
 
         let (base, partial) = if let Some((parent, remain)) = prefix_str.rsplit_once(is_separator) {
@@ -97,7 +96,7 @@ impl Completer for DotNuCompletion {
                     search_dirs.push(expanded_base_dir);
                 }
             }
-            if is_base_dir_relative && !cwd_only {
+            if !cwd_only {
                 search_dirs.extend(lib_dirs.into_iter().map(|mut dir| {
                     dir.push(&base_dir);
                     dir
