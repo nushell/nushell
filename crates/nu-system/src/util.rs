@@ -1,10 +1,9 @@
 use std::io;
 use std::process::Command as CommandSys;
 
+/// Tries to forcefully kill a process by its PID
 pub fn kill_by_pid(pid: i64) -> io::Result<()> {
-    // TODO: kill the process
-
-    let mut cmd = build_kill_command(false, std::iter::once(pid), None);
+    let mut cmd = build_kill_command(true, std::iter::once(pid), None);
 
     let output = cmd.output()?;
 
@@ -18,6 +17,8 @@ pub fn kill_by_pid(pid: i64) -> io::Result<()> {
     Ok(())
 }
 
+/// Create a `std::process::Command` for the current target platform, for killing
+/// the processes with the given PIDs
 pub fn build_kill_command(
     force: bool,
     pids: impl Iterator<Item = i64>,
