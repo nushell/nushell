@@ -1412,8 +1412,8 @@ fn overlay_help_no_error() {
 #[test]
 fn test_overlay_use_with_printing_file_pwd() {
     Playground::setup("use_with_printing_file_pwd", |dirs, nu| {
-        let file = dirs.test().join("mod.nu");
-        nu.with_files(&[FileWithContent(
+        let file = dirs.test().join("foo").join("mod.nu");
+        nu.mkdir("foo").with_files(&[FileWithContent(
             file.as_os_str().to_str().unwrap(),
             r#"
                 export-env {
@@ -1424,18 +1424,18 @@ fn test_overlay_use_with_printing_file_pwd() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "overlay use ."
+            "overlay use foo"
         );
 
-        assert_eq!(actual.out, dirs.test().to_string_lossy());
+        assert_eq!(actual.out, dirs.test().join("foo").to_string_lossy());
     });
 }
 
 #[test]
 fn test_overlay_use_with_printing_current_file() {
     Playground::setup("use_with_printing_current_file", |dirs, nu| {
-        let file = dirs.test().join("mod.nu");
-        nu.with_files(&[FileWithContent(
+        let file = dirs.test().join("foo").join("mod.nu");
+        nu.mkdir("foo").with_files(&[FileWithContent(
             file.as_os_str().to_str().unwrap(),
             r#"
                 export-env {
@@ -1446,9 +1446,12 @@ fn test_overlay_use_with_printing_current_file() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "overlay use ."
+            "overlay use foo"
         );
 
-        assert_eq!(actual.out, dirs.test().join("mod.nu").to_string_lossy());
+        assert_eq!(
+            actual.out,
+            dirs.test().join("foo").join("mod.nu").to_string_lossy()
+        );
     });
 }
