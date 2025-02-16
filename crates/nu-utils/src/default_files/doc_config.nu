@@ -97,6 +97,8 @@ $env.config.edit_mode = "emacs"
 # Tip: Set to "editor" to use the default editor on Unix platforms using
 #      the Alternatives system or equivalent
 $env.config.buffer_editor = "editor"
+# To set arguments for the editor, a list can be used:
+$env.config.buffer_editor = ["emacsclient", "-s", "light", "-t"]
 
 # cursor_shape_* (string)
 # -----------------------
@@ -784,6 +786,13 @@ $env.config.color_config.empty
 # whitespace, that whitespace will be displayed using this style.
 # Use { attr: n } to disable.
 $env.config.color_config.leading_trailing_space_bg = { bg: 'red' }
+
+# banner_foreground: The default text style for the Welcome Banner displayed at startup
+$env.config.color_config.banner_foreground = "attr_normal"
+
+# banner_highlight1 and banner_highlight2: Colors for highlighted text in the Welcome Banner
+$env.config.color_config.banner_highlight1 = "green"
+$env.config.color_config.banner_highlight2 = "purple"
 
 # ------------------------
 # `explore` command colors
