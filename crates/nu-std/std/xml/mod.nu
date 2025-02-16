@@ -1,5 +1,4 @@
-# Utility functions to read, change and create XML data in format supported
-# by `to xml` and `from xml` commands
+# Utility commands to read, change and create XML data in format supported by the `to xml` and `from xml` commands
 
 # Get all xml entries matching simple xpath-inspired query
 export def xaccess [
@@ -152,7 +151,7 @@ def xupdate-internal [ path: list updater: closure ] {
 
 }
 
-# Update xml data entries matching simple xpath-inspired query
+# Update XML data entries matching simple xpath-inspired query
 export def xupdate [
     path: list  # List of steps. Each step can be a
                 # 1. String with tag name. Finds all children with specified name. Equivalent to `child::A` in xpath
@@ -164,7 +163,7 @@ export def xupdate [
     {tag:? attributes:? content: [$in]} | xupdate-internal $path $updater | get content.0
 }
 
-# Get type of an xml entry
+# Get type of an XML entry
 #
 # Possible types are 'tag', 'text', 'pi' and 'comment'
 export def xtype [] {

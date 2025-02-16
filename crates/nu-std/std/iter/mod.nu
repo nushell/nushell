@@ -1,19 +1,16 @@
 # | Filter Extensions
 # 
-# This module implements extensions to the `filters` commands
+# This module implements extensions to the `filters` commands.
 #
-# They are prefixed with `iter` so as to avoid conflicts with 
-# the inbuilt filters
+# They are prefixed with `iter` so as to avoid conflicts with the inbuilt filters.
 
-# Returns the first element of the list that matches the
-# closure predicate, `null` otherwise
+# Returns the first element of the list that matches the closure predicate, `null` otherwise
 #
 # # Invariant
-# > The closure has to be a predicate (returning a bool value)
-# > else `null` is returned
-# > The closure also has to be valid for the types it receives
-# > These will be flagged as errors later as closure annotations
-# > are implemented
+#
+# The closure must be a predicate (returning a bool value), otherwise `null` is returned.
+# The closure also has to be valid for the types it receives.
+# These will be flagged as errors later as closure annotations are implemented.
 @example "Find an element starting with 'a'" {
     ["shell", "abc", "around", "nushell", "std"] | iter find {|e| $e starts-with "a" }
 } --result "abc"
@@ -24,11 +21,11 @@ export def find [
     filter {|e| try {do $fn $e} } | try { first }
 }
 
-# Returns the index of the first element that matches the predicate or
-# -1 if none
+# Returns the index of the first element that matches the predicate or -1 if none
 #
 # # Invariant
-# > The closure has to return a bool
+#
+# The closure must return a bool
 @example "Find the index of an element starting with 's'" {
     ["iter", "abc", "shell", "around", "nushell", "std"] | iter find-index {|x| $x starts-with 's'}
 } --result 2
@@ -43,8 +40,7 @@ export def find-index [
     | try { get index } catch { -1 }
 }
 
-# Returns a new list with the separator between adjacent
-# items of the original list
+# Returns a new list with the separator between adjacent items of the original list
 @example "Intersperse the list with `0`" {
     [1 2 3 4] | iter intersperse 0
 } --result [1 0 2 0 3 0 4]
@@ -60,11 +56,14 @@ export def intersperse [
     }
 }
 
-# Returns a list of intermediate steps performed by `reduce`
-# (`fold`). It takes two arguments, an initial value to seed the
-# initial state and a closure that takes two arguments, the first
-# being the list element in the current iteration and the second
-# the internal state.
+# Returns a list of intermediate steps performed by `reduce` (`fold`).
+#
+# It takes two arguments:
+# * an initial value to seed the initial state
+# * a closure that takes two arguments
+#   1. the list element in the current iteration
+#   2. the internal state
+#
 # The internal state is also provided as pipeline input.
 @example "Get a running sum of the input list" {
     [1 2 3] | iter scan 0 {|x, y| $x + $y}
@@ -84,9 +83,11 @@ export def scan [ # -> list<any>
     | if not $noinit { prepend $init } else { }
 }
 
-# Returns a list of values for which the supplied closure does not
-# return `null` or an error. It is equivalent to 
-#     `$in | each $fn | filter $fn`
+# Returns a list of values for which the supplied closure does not return `null` or an error.
+#
+# This is equivalent to 
+#
+#     $in | each $fn | filter $fn
 @example "Get the squares of elements that can be squared" {
     [2 5 "4" 7] | iter filter-map {|e| $e ** 2}
 } --result [4, 25, 49]

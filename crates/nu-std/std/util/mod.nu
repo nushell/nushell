@@ -55,7 +55,7 @@ export def --env "path add" [
     }
 }
 
-# the cute and friendly mascot of Nushell :)
+# The cute and friendly mascot of Nushell :)
 export def ellie [] {
     let ellie = [
         "     __  ,",
@@ -67,7 +67,7 @@ export def ellie [] {
     $ellie | str join "\n" | $"(ansi green)($in)(ansi reset)"
 }
 
-# repeat anything a bunch of times, yielding a list of *n* times the input
+# Repeat anything a bunch of times, yielding a list of *n* times the input
 @example "repeat a string" {
     "foo" | std repeat 3 | str join
 } --result "foofoofoo"
@@ -101,7 +101,7 @@ export const null_device = if $nu.os-info.name == "windows" {
 	'/dev/null'
 }
 
-# return a null device file.
+# Return a null device file.
 @example "run a command and ignore it's stderr output" {
     cat xxx.txt e> (null-device)
 }
