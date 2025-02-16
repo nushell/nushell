@@ -38,8 +38,8 @@ impl Completer for DotNuCompletion {
         let start_with_backquote = prefix_str.starts_with('`');
         let end_with_backquote = prefix_str.ends_with('`');
         let prefix_str = prefix_str.replace('`', "");
-        // e.g. `./`, `..\`
-        let cwd_only = prefix_str
+        // e.g. `./`, `..\`, `/`
+        let not_lib_dirs = prefix_str
             .chars()
             .find(|c| *c != '.')
             .is_some_and(is_separator);
@@ -79,7 +79,6 @@ impl Completer for DotNuCompletion {
             .collect();
 
         // Check if the base_dir is a folder
-        // rsplit_once removes the separator
         let cwd = working_set.permanent_state.cwd(None);
         if base_dir != "." {
             let expanded_base_dir = expand_tilde(&base_dir);
@@ -96,7 +95,7 @@ impl Completer for DotNuCompletion {
                     search_dirs.push(expanded_base_dir);
                 }
             }
-            if !cwd_only {
+            if !not_lib_dirs {
                 search_dirs.extend(lib_dirs.into_iter().map(|mut dir| {
                     dir.push(&base_dir);
                     dir
@@ -106,13 +105,10 @@ impl Completer for DotNuCompletion {
             if let Ok(cwd) = cwd {
                 search_dirs.push(cwd.into_std_path_buf());
             }
-            if !cwd_only {
+            if !not_lib_dirs {
                 search_dirs.extend(lib_dirs);
             }
         }
-        // Attempt to debug "duplicate suggestions" issue on Windows.
-        #[cfg(windows)]
-        debug!("Search dirs on Windows: {:?}", search_dirs);
 
         // Fetch the files filtering the ones that ends with .nu
         // and transform them into suggestions
@@ -126,15 +122,6 @@ impl Completer for DotNuCompletion {
             options,
             working_set.permanent_state,
             stack,
-        );
-        // Attempt to debug "duplicate suggestions" issue on Windows.
-        #[cfg(windows)]
-        debug!(
-            "Completions on Windows: {:?}",
-            completions
-                .iter()
-                .map(|c| c.path.as_str())
-                .collect::<Vec<_>>()
         );
         completions
             .into_iter()

@@ -1,7 +1,7 @@
 pub mod support;
 
 use std::{
-    fs::read_dir,
+    fs::{read_dir, FileType, ReadDir},
     path::{PathBuf, MAIN_SEPARATOR},
     sync::Arc,
 };
@@ -15,8 +15,47 @@ use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
 use support::{
     completions_helpers::{new_dotnu_engine, new_partial_engine, new_quote_engine},
-    file, folder, match_dir_content_for_dotnu, match_suggestions, new_engine,
+    file, folder, match_suggestions, new_engine,
 };
+
+// Match a list of suggestions with the content of a directory.
+// This helper is for DotNutCompletion, so actually it only retrieves
+// *.nu files and subdirectories.
+pub fn match_dir_content_for_dotnu(dir: ReadDir, suggestions: &[Suggestion]) {
+    let actual_dir_entries: Vec<_> = dir.filter_map(|c| c.ok()).collect();
+    let type_name_pairs: Vec<(FileType, String)> = actual_dir_entries
+        .into_iter()
+        .filter_map(|t| t.file_type().ok().zip(t.file_name().into_string().ok()))
+        .collect();
+    let mut simple_dir_entries: Vec<&str> = type_name_pairs
+        .iter()
+        .filter_map(|(t, n)| {
+            if t.is_dir() || n.ends_with(".nu") {
+                Some(n.as_str())
+            } else {
+                None
+            }
+        })
+        .collect();
+    simple_dir_entries.sort();
+    let mut pure_suggestions: Vec<&str> = suggestions
+        .iter()
+        .map(|s| {
+            // The file names in suggestions contain some extra characters,
+            // we clean them to compare more exactly with read_dir result.
+            s.value
+                .as_str()
+                .trim_end_matches('`')
+                .trim_end_matches('/')
+                .trim_end_matches('\\')
+                .trim_start_matches('`')
+                .trim_start_matches("~/")
+                .trim_start_matches("~\\")
+        })
+        .collect();
+    pure_suggestions.sort();
+    assert_eq!(simple_dir_entries, pure_suggestions);
+}
 
 #[fixture]
 fn completer() -> NuCompleter {
