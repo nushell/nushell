@@ -125,16 +125,6 @@ impl Command for OverlayUse {
                     caller_stack,
                     get_dirs_var_from_call(caller_stack, call),
                 )?;
-                // module_arg_str maybe a directory, in this case
-                // find_in_dirs_env returns a directory.
-                let maybe_parent = maybe_file_path_or_dir.as_ref().and_then(|path| {
-                    if path.is_dir() {
-                        Some(path.to_path_buf())
-                    } else {
-                        path.parent().map(|p| p.to_path_buf())
-                    }
-                });
-
                 let block = engine_state.get_block(block_id);
                 let mut callee_stack = caller_stack
                     .gather_captures(engine_state, &block.captures)
