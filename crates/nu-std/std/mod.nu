@@ -1,4 +1,4 @@
-# std.nu, `used` to load all standard library components
+# std.nu, `use`d to load all standard library components
 
 # Top-level commands: ellie, repeat, null-device, and "path add"
 export use std/util *
