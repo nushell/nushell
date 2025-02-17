@@ -481,7 +481,18 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = std::time::Instant::now();
     line_editor = line_editor.with_transient_prompt(transient_prompt);
-    let input = line_editor.read_line(nu_prompt);
+
+    let input = line_editor.read_line(
+        nu_prompt,
+        if let Ok(mut flag) = engine_state.immediately_execute.lock() {
+            let ret = *flag;
+            *flag = false;
+            ret
+        } else {
+            false
+        },
+    );
+
     // we got our inputs, we can now drop our stack references
     // This lists all of the stack references that we have cleaned up
     line_editor = line_editor

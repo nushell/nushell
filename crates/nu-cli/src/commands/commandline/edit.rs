@@ -26,6 +26,11 @@ impl Command for SubCommand {
                 "replaces the current contents of the buffer (default)",
                 Some('r'),
             )
+            .switch(
+                "accept",
+                "immediately executes the result after edit",
+                Some('A'),
+            )
             .required(
                 "str",
                 SyntaxShape::String,
@@ -61,6 +66,13 @@ impl Command for SubCommand {
             repl.buffer = str;
             repl.cursor_pos = repl.buffer.len();
         }
+
+        if call.has_flag(engine_state, stack, "accept")? {
+            if let Ok(mut flag) = engine_state.immediately_execute.lock() {
+                *flag = true;
+            }
+        }
+
         Ok(Value::nothing(call.head).into_pipeline_data())
     }
 }
