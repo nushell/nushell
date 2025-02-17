@@ -1,12 +1,12 @@
 # formats.nu
 #
-# This file contains commands for formatting data in various ways.
+# This file contains helpers for formatting data in various ways.
 #
 # Usage:
 #   use std/format *
 #   use std/format <command name>
 #
-# These commands help `open` the files with unsupported extensions such as ndjson.
+# These custom commands help `open` the files with unsupported extensions such as ndjson.
 #
 
 # Convert from NDJSON (https://github.com/ndjson/ndjson-spec) to structured data.

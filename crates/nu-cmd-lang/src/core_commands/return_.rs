@@ -10,7 +10,7 @@ impl Command for Return {
     }
 
     fn description(&self) -> &str {
-        "Return early from a command."
+        "Return early from a custom command."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

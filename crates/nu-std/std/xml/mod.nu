@@ -1,4 +1,4 @@
-# Utility commands to read, change and create XML data in format supported by the `to xml` and `from xml` commands
+# Custom commands to read, change and create XML data in format supported by the `to xml` and `from xml` commands
 
 # Get all xml entries matching simple xpath-inspired query
 export def xaccess [
