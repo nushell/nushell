@@ -1,6 +1,6 @@
 use std/dt [datetime-diff, pretty-print-duration]
 
-# Print a banner for nushell with information about the project
+# Print a banner for Nushell with information about the project
 export def banner [
     --short    # Only show startup time
 ] {

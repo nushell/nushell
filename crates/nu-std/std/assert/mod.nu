@@ -32,7 +32,6 @@ export def main [
     }
 }
 
-
 # Negative assertion
 #
 # If the condition is not false, it generates an error.
