@@ -16,7 +16,7 @@ impl Command for JobList {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("job list")
             .category(Category::Experimental)
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Any)))])
             .allow_variants_without_examples(true)
     }
 
