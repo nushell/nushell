@@ -27,7 +27,7 @@ impl Command for JobSpawn {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("job spawn")
             .category(Category::Experimental)
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Nothing, Type::Int)])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
@@ -65,6 +65,8 @@ impl Command for JobSpawn {
 
         job_state.exit_warning_given = Arc::new(AtomicBool::new(false));
 
+        let (send_id, recv_id) = std::sync::mpsc::channel();
+
         thread::spawn(move || {
             let id = {
                 let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");
@@ -74,6 +76,8 @@ impl Command for JobSpawn {
                 job_state.current_thread_job = Some(thread_job.clone());
                 jobs.add_job(Job::Thread(thread_job))
             };
+
+            _ = send_id.send(id);
 
             ClosureEvalOnce::new(&job_state, &job_stack, closure.clone())
                 .run_with_input(Value::nothing(head).into_pipeline_data())
@@ -93,7 +97,11 @@ impl Command for JobSpawn {
             }
         });
 
-        Ok(Value::nothing(head).into_pipeline_data())
+        // this will always works, since thread::spawn never fails and the spawned thread
+        // will certainly run the send command
+        let id = recv_id.recv().expect("failed to get new job's ID");
+
+        Ok(Value::int(id as i64, head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
