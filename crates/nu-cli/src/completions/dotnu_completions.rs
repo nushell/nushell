@@ -5,7 +5,10 @@ use nu_protocol::{
     Span,
 };
 use reedline::Suggestion;
-use std::path::{is_separator, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR};
+use std::{
+    collections::HashSet,
+    path::{is_separator, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR},
+};
 
 use super::{SemanticSuggestion, SuggestionKind};
 
@@ -33,47 +36,76 @@ impl Completer for DotNuCompletion {
         let start_with_backquote = prefix_str.starts_with('`');
         let end_with_backquote = prefix_str.ends_with('`');
         let prefix_str = prefix_str.replace('`', "");
+        // e.g. `./`, `..\`, `/`
+        let not_lib_dirs = prefix_str
+            .chars()
+            .find(|c| *c != '.')
+            .is_some_and(is_separator);
         let mut search_dirs: Vec<PathBuf> = vec![];
 
-        // If prefix_str is only a word we want to search in the current dir
-        let (base, partial) = prefix_str
-            .rsplit_once(is_separator)
-            .unwrap_or((".", &prefix_str));
+        let (base, partial) = if let Some((parent, remain)) = prefix_str.rsplit_once(is_separator) {
+            // If prefix_str is only a word we want to search in the current dir.
+            // "/xx" should be split to "/" and "xx".
+            if parent.is_empty() {
+                (MAIN_SEPARATOR_STR, remain)
+            } else {
+                (parent, remain)
+            }
+        } else {
+            (".", prefix_str.as_str())
+        };
         let base_dir = base.replace(is_separator, MAIN_SEPARATOR_STR);
 
         // Fetch the lib dirs
-        let lib_dirs: Vec<PathBuf> = working_set
+        // NOTE: 2 ways to setup `NU_LIB_DIRS`
+        // 1. `const NU_LIB_DIRS = [paths]`, equal to `nu -I paths`
+        // 2. `$env.NU_LIB_DIRS = [paths]`
+        let const_lib_dirs = working_set
             .find_variable(b"$NU_LIB_DIRS")
-            .and_then(|vid| working_set.get_variable(vid).const_val.as_ref())
-            .or(working_set.get_env_var("NU_LIB_DIRS"))
-            .map(|lib_dirs| {
+            .and_then(|vid| working_set.get_variable(vid).const_val.as_ref());
+        let env_lib_dirs = working_set.get_env_var("NU_LIB_DIRS");
+        let lib_dirs: HashSet<PathBuf> = [const_lib_dirs, env_lib_dirs]
+            .into_iter()
+            .flatten()
+            .flat_map(|lib_dirs| {
                 lib_dirs
                     .as_list()
                     .into_iter()
                     .flat_map(|it| it.iter().filter_map(|x| x.to_path().ok()))
                     .map(expand_tilde)
-                    .collect()
             })
-            .unwrap_or_default();
+            .collect();
 
         // Check if the base_dir is a folder
-        // rsplit_once removes the separator
         let cwd = working_set.permanent_state.cwd(None);
         if base_dir != "." {
-            // Search in base_dir as well as lib_dirs
+            let expanded_base_dir = expand_tilde(&base_dir);
+            let is_base_dir_relative = expanded_base_dir.is_relative();
+            // Search in base_dir as well as lib_dirs.
+            // After expanded, base_dir can be a relative path or absolute path.
+            // If relative, we join "current working dir" with it to get subdirectory and add to search_dirs.
+            // If absolute, we add it to search_dirs.
             if let Ok(mut cwd) = cwd {
-                cwd.push(&base_dir);
-                search_dirs.push(cwd.into_std_path_buf());
+                if is_base_dir_relative {
+                    cwd.push(&base_dir);
+                    search_dirs.push(cwd.into_std_path_buf());
+                } else {
+                    search_dirs.push(expanded_base_dir);
+                }
             }
-            search_dirs.extend(lib_dirs.into_iter().map(|mut dir| {
-                dir.push(&base_dir);
-                dir
-            }));
+            if !not_lib_dirs {
+                search_dirs.extend(lib_dirs.into_iter().map(|mut dir| {
+                    dir.push(&base_dir);
+                    dir
+                }));
+            }
         } else {
             if let Ok(cwd) = cwd {
                 search_dirs.push(cwd.into_std_path_buf());
             }
-            search_dirs.extend(lib_dirs);
+            if !not_lib_dirs {
+                search_dirs.extend(lib_dirs);
+            }
         }
 
         // Fetch the files filtering the ones that ends with .nu
@@ -104,7 +136,9 @@ impl Completer for DotNuCompletion {
                 let mut span_offset = 0;
                 let mut value = x.path.to_string();
                 // Complete only the last path component
-                if base_dir != "." {
+                if base_dir == MAIN_SEPARATOR_STR {
+                    span_offset = base_dir.len()
+                } else if base_dir != "." {
                     span_offset = base_dir.len() + 1
                 }
                 // Retain only one '`'

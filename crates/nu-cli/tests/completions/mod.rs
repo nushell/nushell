@@ -1,19 +1,61 @@
 pub mod support;
 
-use nu_cli::NuCompleter;
-use nu_engine::eval_block;
-use nu_parser::parse;
-use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, PipelineData};
-use reedline::{Completer, Suggestion};
-use rstest::{fixture, rstest};
 use std::{
+    fs::{read_dir, FileType, ReadDir},
     path::{PathBuf, MAIN_SEPARATOR},
     sync::Arc,
 };
+
+use nu_cli::NuCompleter;
+use nu_engine::eval_block;
+use nu_parser::parse;
+use nu_path::expand_tilde;
+use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, PipelineData};
+use reedline::{Completer, Suggestion};
+use rstest::{fixture, rstest};
 use support::{
     completions_helpers::{new_dotnu_engine, new_partial_engine, new_quote_engine},
     file, folder, match_suggestions, new_engine,
 };
+
+// Match a list of suggestions with the content of a directory.
+// This helper is for DotNutCompletion, so actually it only retrieves
+// *.nu files and subdirectories.
+pub fn match_dir_content_for_dotnu(dir: ReadDir, suggestions: &[Suggestion]) {
+    let actual_dir_entries: Vec<_> = dir.filter_map(|c| c.ok()).collect();
+    let type_name_pairs: Vec<(FileType, String)> = actual_dir_entries
+        .into_iter()
+        .filter_map(|t| t.file_type().ok().zip(t.file_name().into_string().ok()))
+        .collect();
+    let mut simple_dir_entries: Vec<&str> = type_name_pairs
+        .iter()
+        .filter_map(|(t, n)| {
+            if t.is_dir() || n.ends_with(".nu") {
+                Some(n.as_str())
+            } else {
+                None
+            }
+        })
+        .collect();
+    simple_dir_entries.sort();
+    let mut pure_suggestions: Vec<&str> = suggestions
+        .iter()
+        .map(|s| {
+            // The file names in suggestions contain some extra characters,
+            // we clean them to compare more exactly with read_dir result.
+            s.value
+                .as_str()
+                .trim_end_matches('`')
+                .trim_end_matches('/')
+                .trim_end_matches('\\')
+                .trim_start_matches('`')
+                .trim_start_matches("~/")
+                .trim_start_matches("~\\")
+        })
+        .collect();
+    pure_suggestions.sort();
+    assert_eq!(simple_dir_entries, pure_suggestions);
+}
 
 #[fixture]
 fn completer() -> NuCompleter {
@@ -343,6 +385,57 @@ fn dotnu_completions() {
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
     match_suggestions(&expected, &suggestions);
+
+    // Test special paths
+    #[cfg(windows)]
+    {
+        let completion_str = "use \\".to_string();
+        let dir_content = read_dir("\\").unwrap();
+        let suggestions = completer.complete(&completion_str, completion_str.len());
+        match_dir_content_for_dotnu(dir_content, &suggestions);
+    }
+
+    let completion_str = "use /".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+    let dir_content = read_dir("/").unwrap();
+    match_dir_content_for_dotnu(dir_content, &suggestions);
+
+    let completion_str = "use ~".to_string();
+    let dir_content = read_dir(expand_tilde("~")).unwrap();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+    match_dir_content_for_dotnu(dir_content, &suggestions);
+}
+
+#[test]
+fn dotnu_completions_const_nu_lib_dirs() {
+    let (_, _, engine, stack) = new_dotnu_engine();
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // file in `lib-dir1/`, set by `const NU_LIB_DIRS`
+    let completion_str = "use xyzz".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+    match_suggestions(&vec!["xyzzy.nu".into()], &suggestions);
+
+    // file in `lib-dir2/`, set by `$env.NU_LIB_DIRS`
+    let completion_str = "use asdf".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+    match_suggestions(&vec!["asdf.nu".into()], &suggestions);
+
+    // file in `lib-dir3/`, set by both, should not replicate
+    let completion_str = "use spam".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+    match_suggestions(&vec!["spam.nu".into()], &suggestions);
+
+    // if `./` specified by user, file in `lib-dir*` should be ignored
+    #[cfg(windows)]
+    {
+        let completion_str = "use .\\asdf".to_string();
+        let suggestions = completer.complete(&completion_str, completion_str.len());
+        assert!(suggestions.is_empty());
+    }
+    let completion_str = "use ./asdf".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+    assert!(suggestions.is_empty());
 }
 
 #[test]
