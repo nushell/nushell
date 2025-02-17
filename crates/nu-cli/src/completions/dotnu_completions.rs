@@ -1,6 +1,4 @@
 use crate::completions::{file_path_completion, Completer, CompletionOptions};
-#[cfg(windows)]
-use log::debug;
 use nu_path::expand_tilde;
 use nu_protocol::{
     engine::{Stack, StateWorkingSet},
