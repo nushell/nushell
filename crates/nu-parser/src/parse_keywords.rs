@@ -12,6 +12,7 @@ use nu_protocol::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline, PipelineElement,
     },
+    category_from_string,
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
     parser_path::ParserPath,
@@ -520,7 +521,7 @@ fn parse_def_inner(
 
     let (desc, extra_desc) = working_set.build_desc(&lite_command.comments);
 
-    let (attribute_vals, examples, search_terms) =
+    let (attribute_vals, examples, search_terms, category) =
         handle_special_attributes(attributes, working_set);
 
     // Checking that the function is used with the correct name
@@ -733,6 +734,7 @@ fn parse_def_inner(
             signature.extra_description = extra_desc;
             signature.allows_unknown_args = has_wrapped;
             signature.search_terms = search_terms;
+            signature.category = category_from_string(&category);
 
             *declaration = signature
                 .clone()
@@ -786,7 +788,7 @@ fn parse_extern_inner(
 
     let (description, extra_description) = working_set.build_desc(&lite_command.comments);
 
-    let (attribute_vals, examples, search_terms) =
+    let (attribute_vals, examples, search_terms, category) =
         handle_special_attributes(attributes, working_set);
 
     // Checking that the function is used with the correct name
@@ -891,6 +893,7 @@ fn parse_extern_inner(
                 signature.extra_description = extra_description;
                 signature.search_terms = search_terms;
                 signature.allows_unknown_args = true;
+                signature.category = category_from_string(&category);
 
                 if let Some(block_id) = body.and_then(|x| x.as_block()) {
                     if signature.rest_positional.is_none() {
@@ -947,13 +950,20 @@ fn parse_extern_inner(
     Expression::new(working_set, Expr::Call(call), call_span, Type::Any)
 }
 
+#[allow(clippy::type_complexity)]
 fn handle_special_attributes(
     attributes: Vec<(String, Value)>,
     working_set: &mut StateWorkingSet<'_>,
-) -> (Vec<(String, Value)>, Vec<CustomExample>, Vec<String>) {
+) -> (
+    Vec<(String, Value)>,
+    Vec<CustomExample>,
+    Vec<String>,
+    String,
+) {
     let mut attribute_vals = vec![];
     let mut examples = vec![];
     let mut search_terms = vec![];
+    let mut category = String::new();
 
     for (name, value) in attributes {
         let val_span = value.span();
@@ -986,12 +996,27 @@ fn handle_special_attributes(
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
+            "category" => match <String>::from_value(value) {
+                Ok(term) => {
+                    category.push_str(&term);
+                }
+                Err(_) => {
+                    let e = ShellError::GenericError {
+                        error: "nu::shell::invalid_category".into(),
+                        msg: "Value couldn't be converted to category".into(),
+                        span: Some(val_span),
+                        help: Some("Is `attr category` shadowed?".into()),
+                        inner: vec![],
+                    };
+                    working_set.error(e.wrap(working_set, val_span));
+                }
+            },
             _ => {
                 attribute_vals.push((name, value));
             }
         }
     }
-    (attribute_vals, examples, search_terms)
+    (attribute_vals, examples, search_terms, category)
 }
 
 fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> Option<&'a Span> {
