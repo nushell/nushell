@@ -16,7 +16,7 @@ impl Command for JobKill {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("job kill")
             .category(Category::Experimental)
-            .required("id", SyntaxShape::Int, "The process id to kill.")
+            .required("id", SyntaxShape::Int, "The id of the job to kill.")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
     }
@@ -56,6 +56,10 @@ impl Command for JobKill {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![Example {
+            example: "let id = job spawn { sleep 10sec }; job kill $id",
+            description: "Kill a newly spawned job",
+            result: None,
+        }]
     }
 }

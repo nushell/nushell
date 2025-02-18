@@ -16,8 +16,7 @@ impl Command for JobList {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("job list")
             .category(Category::Experimental)
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Any)))])
-            .allow_variants_without_examples(true)
+            .input_output_types(vec![(Type::Nothing, Type::table())])
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -71,6 +70,10 @@ impl Command for JobList {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![Example {
+            example: "job list",
+            description: "List all background jobs",
+            result: None,
+        }]
     }
 }

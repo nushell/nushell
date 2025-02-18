@@ -21,7 +21,7 @@ impl Command for JobSpawn {
     }
 
     fn description(&self) -> &str {
-        "Spawn a background job."
+        "Spawn a background job and retrieve its ID"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -33,7 +33,6 @@ impl Command for JobSpawn {
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run in another thread.",
             )
-            .allow_variants_without_examples(true)
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -105,6 +104,18 @@ impl Command for JobSpawn {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![Example {
+            example: "job spawn { sleep 5sec; rm evidence.pdf }",
+            description: "Spawn a background job to do some time consuming work",
+            result: None,
+        }]
+    }
+
+    fn extra_description(&self) -> &str {
+        r#"Executes the provided closure in a background thread
+and registers this task in the background job table, which can be retrieved with `job list`.
+
+This command returns the job id of the newly created job.
+            "#
     }
 }
