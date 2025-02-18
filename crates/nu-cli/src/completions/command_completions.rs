@@ -98,7 +98,7 @@ impl Completer for CommandCompletion {
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(prefix, options.clone());
+        let mut matcher = NuMatcher::new(prefix, options);
 
         let sugg_span = reedline::Span::new(span.start - offset, span.end - offset);
 

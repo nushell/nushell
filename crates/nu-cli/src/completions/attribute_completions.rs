@@ -22,7 +22,7 @@ impl Completer for AttributeCompletion {
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(prefix, options.clone());
+        let mut matcher = NuMatcher::new(prefix, options);
 
         let attr_commands = working_set.find_commands_by_predicate(
             |s| {
@@ -65,7 +65,7 @@ impl Completer for AttributableCompletion {
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(prefix, options.clone());
+        let mut matcher = NuMatcher::new(prefix, options);
 
         for s in ["def", "extern", "export def", "export extern"] {
             let decl_id = working_set

@@ -51,7 +51,7 @@ fn complete_rec(
     }
 
     let prefix = partial.first().unwrap_or(&"");
-    let mut matcher = NuMatcher::new(prefix, options.clone());
+    let mut matcher = NuMatcher::new(prefix, options);
 
     for built in built_paths {
         let mut path = built.cwd.clone();

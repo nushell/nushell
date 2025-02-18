@@ -41,7 +41,7 @@ impl Completer for CellPathCompletion<'_> {
             end: true_end - offset,
         };
 
-        let mut matcher = NuMatcher::new(prefix_str, options.clone());
+        let mut matcher = NuMatcher::new(prefix_str, options);
 
         // evaluate the head expression to get its value
         let value = if let Expr::Var(var_id) = self.full_cell_path.head.expr {

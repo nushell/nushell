@@ -134,7 +134,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
             }
         };
 
-        let mut matcher = NuMatcher::new(prefix, completion_options);
+        let mut matcher = NuMatcher::new(prefix, &completion_options);
 
         if should_sort {
             for sugg in suggestions {

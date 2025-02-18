@@ -107,7 +107,7 @@ impl Completer for OperatorCompletion<'_> {
             _ => vec![],
         };
 
-        let mut matcher = NuMatcher::new(prefix, options.clone());
+        let mut matcher = NuMatcher::new(prefix, options);
         for (symbol, desc) in possible_operations.into_iter() {
             matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {
