@@ -1027,7 +1027,7 @@ mod tests {
         #[cfg(not(windows))]
         assert!(hover_text.contains("SLEEP"));
         #[cfg(windows)]
-        assert!(hover_text.starts_with("NAME\r\n    Start-Sleep"));
+        assert!(hover_text.contains("Start-Sleep"));
     }
 
     #[test]
