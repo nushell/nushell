@@ -119,7 +119,8 @@ pub fn category_from_string(category: &str) -> Category {
         "bytes" => Category::Bytes,
         "chart" => Category::Chart,
         "conversions" => Category::Conversions,
-        "core" => Category::Core,
+        // Let's protect our own "core" commands by preventing scripts from having this category.
+        "core" => Category::Custom("custom_core".to_string()),
         "database" => Category::Database,
         "date" => Category::Date,
         "debug" => Category::Debug,
