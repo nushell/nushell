@@ -2,7 +2,7 @@ use std::sync::atomic::Ordering;
 
 use nu_protocol::engine::EngineState;
 
-/// Exiting the process or clean jobs if appropriate.
+/// Exit the process or clean jobs if appropriate.
 ///
 /// Drops `tag` and exits the current process if there are no running jobs, or if `exit_warning_given` is true.
 /// When running in an interactive session, warns the user if there

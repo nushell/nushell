@@ -21,8 +21,6 @@ impl Command for JobUnfreeze {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("job unfreeze")
             .category(Category::Experimental)
-            // TODO: make this argument optional and use highest most recent job if
-            // no argument is passed
             .optional("id", SyntaxShape::Int, "The process id to unfreeze.")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)

@@ -60,7 +60,6 @@ impl Command for JobList {
                         ),
 
                         Job::Frozen(_) => Value::list(vec![], head),
-                        // TODO: add pid of frozen child
                     },
                 );
 

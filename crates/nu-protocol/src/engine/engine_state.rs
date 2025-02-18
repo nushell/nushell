@@ -119,12 +119,12 @@ pub struct EngineState {
     // The job being executed with this engine state, or None if main thread
     pub current_thread_job: Option<ThreadJob>,
 
-    // When there are background jobs running, the interactive behavior of exit changes depending on
+    // When there are background jobs running, the interactive behavior of `exit` changes depending on
     // the value of this flag:
     // - if this is false, then a warning about running jobs is shown and `exit` enables this flag
-    // - if this is true, then exit will `std::process::exit`
+    // - if this is true, then `exit` will `std::process::exit`
     //
-    // This ensures that running exit twice will terminates the program correctly
+    // This ensures that running exit twice will terminate the program correctly
     pub exit_warning_given: Arc<AtomicBool>,
 }
 
