@@ -35,7 +35,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
         orig_options: &CompletionOptions,
@@ -134,7 +134,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
             }
         };
 
-        let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), completion_options);
+        let mut matcher = NuMatcher::new(prefix, completion_options);
 
         if should_sort {
             for sugg in suggestions {

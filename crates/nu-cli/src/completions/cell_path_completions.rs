@@ -19,7 +19,7 @@ impl Completer for CellPathCompletion<'_> {
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        _prefix: &[u8],
+        _prefix: impl AsRef<str>,
         _span: Span,
         offset: usize,
         options: &CompletionOptions,

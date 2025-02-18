@@ -14,13 +14,12 @@ impl Completer for VariableCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let prefix_str = String::from_utf8_lossy(prefix);
-        let mut matcher = NuMatcher::new(prefix_str, options.clone());
+        let mut matcher = NuMatcher::new(prefix, options.clone());
         let current_span = reedline::Span {
             start: span.start - offset,
             end: span.end - offset,

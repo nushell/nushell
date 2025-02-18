@@ -17,12 +17,12 @@ impl Completer for AttributeCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), options.clone());
+        let mut matcher = NuMatcher::new(prefix, options.clone());
 
         let attr_commands = working_set.find_commands_by_predicate(
             |s| {
@@ -60,12 +60,12 @@ impl Completer for AttributableCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), options.clone());
+        let mut matcher = NuMatcher::new(prefix, options.clone());
 
         for s in ["def", "extern", "export def", "export extern"] {
             let decl_id = working_set

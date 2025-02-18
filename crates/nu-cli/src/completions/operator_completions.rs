@@ -18,13 +18,12 @@ impl Completer for OperatorCompletion<'_> {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         //Check if int, float, or string
-        let partial = std::str::from_utf8(prefix).unwrap_or("");
         let possible_operations = match &self.left_hand_side.expr {
             Expr::Int(_) => vec![
                 ("+", "Add (Plus)"),
@@ -108,7 +107,7 @@ impl Completer for OperatorCompletion<'_> {
             _ => vec![],
         };
 
-        let mut matcher = NuMatcher::new(partial, options.clone());
+        let mut matcher = NuMatcher::new(prefix, options.clone());
         for (symbol, desc) in possible_operations.into_iter() {
             matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {

@@ -93,12 +93,12 @@ impl Completer for CommandCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), options.clone());
+        let mut matcher = NuMatcher::new(prefix, options.clone());
 
         let sugg_span = reedline::Span::new(span.start - offset, span.end - offset);
 

@@ -469,7 +469,7 @@ impl NuCompleter {
         completer.fetch(
             ctx.working_set,
             &self.stack,
-            ctx.prefix,
+            String::from_utf8_lossy(ctx.prefix),
             ctx.span,
             ctx.offset,
             &options,

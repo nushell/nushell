@@ -17,12 +17,12 @@ impl Completer for FlagCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), options.clone());
+        let mut matcher = NuMatcher::new(prefix, options.clone());
         let mut add_suggestion = |value: String, description: String| {
             matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {

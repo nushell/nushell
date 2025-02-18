@@ -315,12 +315,12 @@ pub struct AdjustView {
 }
 
 pub fn adjust_if_intermediate(
-    prefix: &[u8],
+    prefix: &str,
     working_set: &StateWorkingSet,
     mut span: nu_protocol::Span,
 ) -> AdjustView {
     let span_contents = String::from_utf8_lossy(working_set.get_span_contents(span)).to_string();
-    let mut prefix = String::from_utf8_lossy(prefix).to_string();
+    let mut prefix = prefix.to_string();
 
     // A difference of 1 because of the cursor's unicode code point in between.
     // Using .chars().count() because unicode and Windows.
