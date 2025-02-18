@@ -1317,7 +1317,7 @@ fn attribute_completions() {
     let suggestions = completer.complete("@", 1);
 
     // Only checking for the builtins and not the std attributes
-    let expected: Vec<String> = vec!["example".into(), "search-terms".into()];
+    let expected: Vec<String> = vec!["category".into(), "example".into(), "search-terms".into()];
 
     // Match results
     match_suggestions(&expected, &suggestions);
