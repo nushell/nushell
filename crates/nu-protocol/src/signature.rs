@@ -113,6 +113,43 @@ impl std::fmt::Display for Category {
     }
 }
 
+pub fn category_from_string(category: &str) -> Category {
+    match category {
+        "bits" => Category::Bits,
+        "bytes" => Category::Bytes,
+        "chart" => Category::Chart,
+        "conversions" => Category::Conversions,
+        // Let's protect our own "core" commands by preventing scripts from having this category.
+        "core" => Category::Custom("custom_core".to_string()),
+        "database" => Category::Database,
+        "date" => Category::Date,
+        "debug" => Category::Debug,
+        "default" => Category::Default,
+        "deprecated" => Category::Deprecated,
+        "removed" => Category::Removed,
+        "env" => Category::Env,
+        "experimental" => Category::Experimental,
+        "filesystem" => Category::FileSystem,
+        "filter" => Category::Filters,
+        "formats" => Category::Formats,
+        "generators" => Category::Generators,
+        "hash" => Category::Hash,
+        "history" => Category::History,
+        "math" => Category::Math,
+        "misc" => Category::Misc,
+        "network" => Category::Network,
+        "path" => Category::Path,
+        "platform" => Category::Platform,
+        "plugin" => Category::Plugin,
+        "random" => Category::Random,
+        "shells" => Category::Shells,
+        "strings" => Category::Strings,
+        "system" => Category::System,
+        "viewers" => Category::Viewers,
+        _ => Category::Custom(category.to_string()),
+    }
+}
+
 /// Signature information of a [`Command`]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Signature {
