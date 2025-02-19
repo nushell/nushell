@@ -94,42 +94,13 @@ impl ForegroundChild {
     pub fn wait(&mut self) -> io::Result<ForegroundWaitStatus> {
         #[cfg(unix)]
         {
-            use ForegroundWaitStatus::*;
+            let child_pid = Pid::from_raw(self.inner.id() as i32);
 
-            // the child may be stopped multiple times, we loop until it exits
-            loop {
-                let child_pid = Pid::from_raw(self.inner.id() as i32);
-                let status = wait::waitpid(child_pid, Some(wait::WaitPidFlag::WUNTRACED));
-                match status {
-                    Err(e) => {
-                        drop(self.inner.stdin.take());
-                        return Err(e.into());
-                    }
-                    Ok(wait::WaitStatus::Exited(_, status)) => {
-                        drop(self.inner.stdin.take());
-                        return Ok(Finished(ExitStatus::Exited(status)));
-                    }
-                    Ok(wait::WaitStatus::Signaled(_, signal, core_dumped)) => {
-                        drop(self.inner.stdin.take());
-                        return Ok(Finished(ExitStatus::Signaled {
-                            signal: signal as i32,
-                            core_dumped,
-                        }));
-                    }
-                    Ok(wait::WaitStatus::Stopped(_, _)) => {
-                        if self.interactive {
-                            child_pgroup::reset();
-                        }
-
-                        let handle = UnfreezeHandle { child_pid };
-
-                        return Ok(Frozen(handle));
-                    }
-                    Ok(_) => {
-                        // keep waiting
-                    }
-                };
-            }
+            unix_wait(child_pid).inspect(|result| {
+                if let (true, ForegroundWaitStatus::Frozen(_)) = (self.interactive, result) {
+                    child_pgroup::reset();
+                }
+            })
         }
         #[cfg(not(unix))]
         self.as_mut().wait().map(Into::into)
@@ -137,6 +108,36 @@ impl ForegroundChild {
 
     pub fn pid(&self) -> u32 {
         self.inner.id()
+    }
+}
+
+#[cfg(unix)]
+fn unix_wait(child_pid: Pid) -> std::io::Result<ForegroundWaitStatus> {
+    use ForegroundWaitStatus::*;
+
+    // the child may be stopped multiple times, we loop until it exits
+    loop {
+        let status = wait::waitpid(child_pid, Some(wait::WaitPidFlag::WUNTRACED));
+        match status {
+            Err(e) => {
+                return Err(e.into());
+            }
+            Ok(wait::WaitStatus::Exited(_, status)) => {
+                return Ok(Finished(ExitStatus::Exited(status)));
+            }
+            Ok(wait::WaitStatus::Signaled(_, signal, core_dumped)) => {
+                return Ok(Finished(ExitStatus::Signaled {
+                    signal: signal as i32,
+                    core_dumped,
+                }));
+            }
+            Ok(wait::WaitStatus::Stopped(_, _)) => {
+                return Ok(Frozen(UnfreezeHandle { child_pid }));
+            }
+            Ok(_) => {
+                // keep waiting
+            }
+        };
     }
 }
 
@@ -174,37 +175,9 @@ impl UnfreezeHandle {
             return Err(err.into());
         }
 
-        loop {
-            use ForegroundWaitStatus::*;
+        let child_pid = self.child_pid;
 
-            let child_pid = self.child_pid;
-
-            let status = wait::waitpid(child_pid, Some(wait::WaitPidFlag::WUNTRACED));
-
-            match status {
-                Err(e) => {
-                    return Err(e.into());
-                }
-
-                Ok(wait::WaitStatus::Exited(_, status)) => {
-                    return Ok(Finished(ExitStatus::Exited(status)));
-                }
-
-                Ok(wait::WaitStatus::Signaled(_, signal, core_dumped)) => {
-                    return Ok(Finished(ExitStatus::Signaled {
-                        signal: signal as i32,
-                        core_dumped,
-                    }));
-                }
-
-                Ok(wait::WaitStatus::Stopped(_, _)) => {
-                    return Ok(ForegroundWaitStatus::Frozen(self));
-                }
-                Ok(_) => {
-                    // keep waiting
-                }
-            };
-        }
+        unix_wait(child_pid)
     }
 
     #[cfg(unix)]
