@@ -206,7 +206,7 @@ impl ChildProcess {
                     // 1. the process finishes as usual
                     // 2. (unix only) the process gets signaled with SIGTSTP
                     //
-                    // in the second case, altough the process may still be alive in a
+                    // in the second case, although the process may still be alive in a
                     // cryonic state, we explicitly treat as it has finished with exit code 0
                     // for the sake of the current pipeline
                     Ok(wait_status) => {
