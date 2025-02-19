@@ -42,7 +42,7 @@ fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Result<nu_glob::Paths> {
         return Err(miette!("\nworkspace folder does not exist."));
     }
     let pattern = format!("{}/**/*.nu", path.to_string_lossy());
-    nu_glob::glob(&pattern).into_diagnostic()
+    nu_glob::glob(&pattern, None).into_diagnostic()
 }
 
 impl LanguageServer {

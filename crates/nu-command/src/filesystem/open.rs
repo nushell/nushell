@@ -95,15 +95,16 @@ impl Command for Open {
             let arg_span = path.span;
             // let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
-            for path in nu_engine::glob_from(&path, &cwd, call_span, None)
-                .map_err(|err| match err {
-                    ShellError::Io(mut err) => {
-                        err.span = arg_span;
-                        err.into()
-                    }
-                    _ => err,
-                })?
-                .1
+            for path in
+                nu_engine::glob_from(&path, &cwd, call_span, None, engine_state.signals().clone())
+                    .map_err(|err| match err {
+                        ShellError::Io(mut err) => {
+                            err.span = arg_span;
+                            err.into()
+                        }
+                        _ => err,
+                    })?
+                    .1
             {
                 let path = path?;
                 let path = Path::new(&path);
