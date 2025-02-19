@@ -79,26 +79,41 @@ impl Jobs {
         }
     }
 
+    /// This function tries to forcefully kill a job from this job table,
+    /// removes it from the job table. It always succeeds in removing the job
+    /// from the table, but may fail in killing the job's active processes.
     pub fn kill_and_remove(&mut self, id: JobId) -> std::io::Result<()> {
         if let Some(job) = self.jobs.get(&id) {
-            job.kill()?;
+            let err = job.kill();
 
-            self.jobs.remove(&id);
             self.remove_job(id);
+
+            err?
         }
 
         Ok(())
     }
 
+    /// This function tries to forcefully kill all the background jobs and
+    /// removes all of them from the job table.
+    ///
+    /// It returns an error if any of the job killing attempts fails, but always
+    /// succeeds in removing the jobs from the table.
     pub fn kill_all(&mut self) -> std::io::Result<()> {
-        for (_, job) in self.iter() {
-            job.kill()?;
-        }
         self.last_frozen_job_id = None;
 
         self.jobs.clear();
 
-        Ok(())
+        let first_err = self
+            .iter()
+            .map(|(_, job)| job.kill().err())
+            .fold(None, |acc, x| acc.or(x));
+
+        if let Some(err) = first_err {
+            Err(err)
+        } else {
+            Ok(())
+        }
     }
 }
 
