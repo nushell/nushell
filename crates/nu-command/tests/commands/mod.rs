@@ -120,6 +120,7 @@ mod ulimit;
 mod window;
 
 mod debug;
+mod job;
 mod umkdir;
 mod uname;
 mod uniq;

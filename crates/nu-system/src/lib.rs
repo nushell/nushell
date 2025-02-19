@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 mod exit_status;
 mod foreground;
+mod util;
 
 #[cfg(target_os = "freebsd")]
 mod freebsd;
@@ -17,7 +18,11 @@ mod windows;
 pub use self::exit_status::ExitStatus;
 #[cfg(unix)]
 pub use self::foreground::stdin_fd;
-pub use self::foreground::{ForegroundChild, ForegroundGuard};
+pub use self::foreground::{
+    ForegroundChild, ForegroundGuard, ForegroundWaitStatus, UnfreezeHandle,
+};
+
+pub use self::util::*;
 
 #[cfg(target_os = "freebsd")]
 pub use self::freebsd::*;

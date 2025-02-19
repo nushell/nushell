@@ -31,6 +31,8 @@ type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 #[cfg(feature = "plugin")]
 use crate::{PluginRegistryFile, PluginRegistryItem, RegisteredPlugin};
 
+use super::{Jobs, ThreadJob};
+
 #[derive(Clone, Debug)]
 pub enum VirtualPath {
     File(FileId),
@@ -111,7 +113,22 @@ pub struct EngineState {
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
+
+    pub jobs: Arc<Mutex<Jobs>>,
+
+    // The job being executed with this engine state, or None if main thread
+    pub current_thread_job: Option<ThreadJob>,
+
+    // When there are background jobs running, the interactive behavior of `exit` changes depending on
+    // the value of this flag:
+    // - if this is false, then a warning about running jobs is shown and `exit` enables this flag
+    // - if this is true, then `exit` will `std::process::exit`
+    //
+    // This ensures that running exit twice will terminate the program correctly
+    pub exit_warning_given: Arc<AtomicBool>,
 }
+
+pub type JobId = u64;
 
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
 const REGEX_CACHE_SIZE: usize = 100; // must be nonzero, otherwise will panic
@@ -180,6 +197,9 @@ impl EngineState {
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
+            jobs: Arc::new(Mutex::new(Jobs::default())),
+            current_thread_job: None,
+            exit_warning_given: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -1055,6 +1075,11 @@ impl EngineState {
             .iter()
             .position(|sp| sp == &span)
             .map(SpanId::new)
+    }
+
+    // Determines whether the current state is being held by a background job
+    pub fn is_background_job(&self) -> bool {
+        self.current_thread_job.is_some()
     }
 }
 
