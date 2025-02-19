@@ -11,12 +11,12 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::expand_tilde;
 use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, PipelineData};
-#[cfg(not(windows))]
-use nu_protocol::{Span, Value};
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
 use support::{
-    completions_helpers::{new_dotnu_engine, new_partial_engine, new_quote_engine},
+    completions_helpers::{
+        new_dotnu_engine, new_external_engine, new_partial_engine, new_quote_engine,
+    },
     file, folder, match_suggestions, new_engine,
 };
 
@@ -347,47 +347,37 @@ fn custom_arguments_vs_subcommands() {
 
 /// External command only if starts with `^`
 #[test]
-#[cfg(not(windows))]
 fn external_commands_only() {
-    let (_, _, mut engine, stack) = new_engine();
-    engine.add_env_var(
-        "PATH".into(),
-        Value::List {
-            vals: vec![Value::String {
-                val: "/bin/".into(),
-                internal_span: Span::unknown(),
-            }],
-            internal_span: Span::unknown(),
-        },
+    let engine = new_external_engine();
+    let mut completer = NuCompleter::new(
+        Arc::new(engine),
+        Arc::new(nu_protocol::engine::Stack::new()),
     );
-    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     let completion_str = "^sleep";
     let suggestions = completer.complete(completion_str, completion_str.len());
+    #[cfg(windows)]
+    let expected: Vec<String> = vec!["sleep.exe".into()];
+    #[cfg(not(windows))]
     let expected: Vec<String> = vec!["sleep".into()];
     match_suggestions(&expected, &suggestions);
 
     let completion_str = "sleep";
     let suggestions = completer.complete(completion_str, completion_str.len());
+    #[cfg(windows)]
+    let expected: Vec<String> = vec!["sleep".into(), "sleep.exe".into()];
+    #[cfg(not(windows))]
     let expected: Vec<String> = vec!["sleep".into(), "^sleep".into()];
     match_suggestions(&expected, &suggestions);
 }
 
 /// Which completes both internals and externals
 #[test]
-#[cfg(not(windows))]
 fn which_command_completions() {
-    let (_, _, mut engine, stack) = new_engine();
-    engine.add_env_var(
-        "PATH".into(),
-        Value::List {
-            vals: vec![Value::String {
-                val: "/bin/".into(),
-                internal_span: Span::unknown(),
-            }],
-            internal_span: Span::unknown(),
-        },
+    let engine = new_external_engine();
+    let mut completer = NuCompleter::new(
+        Arc::new(engine),
+        Arc::new(nu_protocol::engine::Stack::new()),
     );
-    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     // flags
     let completion_str = "which --all";
     let suggestions = completer.complete(completion_str, completion_str.len());
@@ -396,6 +386,9 @@ fn which_command_completions() {
     // commands
     let completion_str = "which sleep";
     let suggestions = completer.complete(completion_str, completion_str.len());
+    #[cfg(windows)]
+    let expected: Vec<String> = vec!["sleep".into(), "sleep.exe".into()];
+    #[cfg(not(windows))]
     let expected: Vec<String> = vec!["sleep".into(), "^sleep".into()];
     match_suggestions(&expected, &suggestions);
 }
