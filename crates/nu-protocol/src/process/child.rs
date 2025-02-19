@@ -202,6 +202,13 @@ impl ChildProcess {
             .name("exit status waiter".into())
             .spawn(move || {
                 let matched = match child.wait() {
+                    // there are two possible outcomes when we `wait` for a process to finish:
+                    // 1. the process finishes as usual
+                    // 2. (unix only) the process gets signaled with SIGTSTP
+                    //
+                    // in the second case, altough the process may still be alive in a
+                    // cryonic state, we explicitly treat as it has finished with exit code 0
+                    // for the sake of the current pipeline
                     Ok(wait_status) => {
                         let next = match &wait_status {
                             ForegroundWaitStatus::Frozen(_) => ExitStatus::Exited(0),

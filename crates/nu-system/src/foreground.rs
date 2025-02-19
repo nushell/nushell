@@ -123,7 +123,7 @@ impl ForegroundChild {
 
                         let handle = UnfreezeHandle { child_pid };
 
-                        return Ok(ForegroundWaitStatus::Frozen(handle));
+                        return Ok(Frozen(handle));
                     }
                     Ok(_) => {
                         // keep waiting

@@ -65,7 +65,7 @@ impl Jobs {
         }
     }
 
-    // this is useful when you want to remove a job form the list and add it back later
+    // this is useful when you want to remove a job from the list and add it back later
     pub fn add_job_with_id(&mut self, id: JobId, job: Job) -> Result<(), &'static str> {
         self.assign_last_frozen_id_if_frozen(id, &job);
 
