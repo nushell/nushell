@@ -11,6 +11,10 @@ use super::JobId;
 
 pub struct Jobs {
     next_job_id: JobId,
+
+    // this is the ID of the most recently added frozen job in the jobs table.
+    // the methods of this struct must ensure the invariant of this always
+    // being None or pointing to a valid job in the table
     last_frozen_job_id: Option<JobId>,
     jobs: HashMap<JobId, Job>,
 }
@@ -35,6 +39,10 @@ impl Jobs {
     }
 
     pub fn remove_job(&mut self, id: JobId) -> Option<Job> {
+        if self.last_frozen_job_id.is_some_and(|last| id == last) {
+            self.last_frozen_job_id = None;
+        }
+
         self.jobs.remove(&id)
     }
 
@@ -55,14 +63,8 @@ impl Jobs {
         this_id
     }
 
-    pub fn most_recent_frozen_job_id(&self) -> Option<JobId> {
-        let id = self.last_frozen_job_id?;
-
-        if self.jobs.contains_key(&id) {
-            Some(id)
-        } else {
-            None
-        }
+    pub fn most_recent_frozen_job_id(&mut self) -> Option<JobId> {
+        self.last_frozen_job_id
     }
 
     // this is useful when you want to remove a job from the list and add it back later
@@ -82,6 +84,7 @@ impl Jobs {
             job.kill()?;
 
             self.jobs.remove(&id);
+            self.remove_job(id);
         }
 
         Ok(())
@@ -91,6 +94,7 @@ impl Jobs {
         for (_, job) in self.iter() {
             job.kill()?;
         }
+        self.last_frozen_job_id = None;
 
         self.jobs.clear();
 
