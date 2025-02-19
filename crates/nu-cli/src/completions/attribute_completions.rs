@@ -24,14 +24,8 @@ impl Completer for AttributeCompletion {
     ) -> Vec<SemanticSuggestion> {
         let mut matcher = NuMatcher::new(prefix, options);
 
-        let attr_commands = working_set.find_commands_by_predicate(
-            |s| {
-                s.strip_prefix(b"attr ")
-                    .map(String::from_utf8_lossy)
-                    .is_some_and(|name| matcher.matches(&name))
-            },
-            true,
-        );
+        let attr_commands =
+            working_set.find_commands_by_predicate(|s| s.starts_with(b"attr "), true);
 
         for (name, desc, ty) in attr_commands {
             let name = name.strip_prefix(b"attr ").unwrap_or(&name);

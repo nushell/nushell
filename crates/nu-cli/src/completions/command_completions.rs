@@ -59,24 +59,26 @@ impl CommandCompletion {
                             if suggs.contains_key(&value) {
                                 continue;
                             }
-                            if is_executable::is_executable(item.path()) {
+                            // TODO: check name matching before a relative heavy IO involved
+                            // `is_executable` for performance consideration, should avoid
+                            // duplicated `match_aux` call for matched items in the future
+                            if matcher.matches(&name) && is_executable::is_executable(item.path()) {
                                 // If there's an internal command with the same name, adds ^cmd to the
                                 // matcher so that both the internal and external command are included
-                                if matcher.add(&name, value.clone()) {
-                                    suggs.insert(
-                                        value.clone(),
-                                        SemanticSuggestion {
-                                            suggestion: Suggestion {
-                                                value,
-                                                span: sugg_span,
-                                                append_whitespace: true,
-                                                ..Default::default()
-                                            },
-                                            // TODO: is there a way to create a test?
-                                            kind: None,
+                                matcher.add(&name, value.clone());
+                                suggs.insert(
+                                    value.clone(),
+                                    SemanticSuggestion {
+                                        suggestion: Suggestion {
+                                            value,
+                                            span: sugg_span,
+                                            append_whitespace: true,
+                                            ..Default::default()
                                         },
-                                    );
-                                }
+                                        // TODO: is there a way to create a test?
+                                        kind: None,
+                                    },
+                                );
                             }
                         }
                     }
