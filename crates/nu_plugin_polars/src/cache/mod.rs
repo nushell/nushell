@@ -197,11 +197,11 @@ mod test {
 
     impl EngineWrapper for &MockEngineWrapper {
         fn get_env_var(&self, _key: &str) -> Option<String> {
-            todo!()
+            unimplemented!()
         }
 
         fn use_color(&self) -> bool {
-            todo!()
+            unimplemented!()
         }
 
         fn set_gc_disabled(&self, disabled: bool) -> Result<(), ShellError> {

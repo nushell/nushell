@@ -6,8 +6,6 @@ pub const DEFAULT_ROWS: usize = 5;
 
 // Converts a Vec<Value> to a Vec<Spanned<String>> with a Span marking the whole
 // location of the columns for error referencing
-// todo - fix
-#[allow(dead_code)]
 pub(crate) fn convert_columns(
     columns: Vec<Value>,
     span: Span,
@@ -49,8 +47,6 @@ pub(crate) fn convert_columns(
 
 // Converts a Vec<Value> to a Vec<String> with a Span marking the whole
 // location of the columns for error referencing
-// todo - fix
-#[allow(dead_code)]
 pub(crate) fn convert_columns_string(
     columns: Vec<Value>,
     span: Span,
@@ -92,8 +88,6 @@ pub(crate) fn convert_columns_string(
 
 // Converts a Vec<Value> to a Vec<String> with a Span marking the whole
 // location of the columns for error referencing
-// todo - fix
-#[allow(dead_code)]
 pub(crate) fn convert_columns_sm_str(
     columns: Vec<Value>,
     span: Span,
