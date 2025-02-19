@@ -79,7 +79,7 @@ impl NuTable {
     }
 
     pub fn insert(&mut self, pos: Position, text: String) {
-        self.data[pos.0][pos.1] = Text::new(text);
+        self.data[pos.row()][pos.col()] = Text::new(text);
     }
 
     pub fn insert_row(&mut self, index: usize, row: Vec<String>) {
@@ -1017,12 +1017,9 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>>
         _: &mut CompleteDimensionVecRecords<'_>,
     ) {
         let row = self.0;
-        self.1 = *cfg.get_alignment_horizontal(Entity::Row(row));
-        self.2 = cfg
-            .get_colors()
-            .get_color((row, 0))
-            .cloned()
-            .map(Color::from);
+        let pos = Position::new(row, 0);
+        self.1 = *cfg.get_alignment_horizontal(pos);
+        self.2 = cfg.get_colors().get_color(pos).cloned().map(Color::from);
     }
 }
 
@@ -1209,20 +1206,17 @@ fn shift_alignments_down(
             let align = *cfg.get_alignment_horizontal(pos);
             cfg.set_alignment_horizontal(posn, align);
         }
-
-        let align = *cfg.get_alignment_horizontal(Entity::Row(row + 1));
-        cfg.set_alignment_horizontal(Entity::Row(row), align);
     }
 }
 
 fn shift_colors_down(cfg: &mut ColoredConfig, row: usize, count_rows: usize, count_columns: usize) {
     for row in row..count_rows {
         for col in 0..count_columns {
-            let pos = (row + 1, col);
-            let posn = (row, col).into();
-            let color = cfg.get_colors().get_color(pos).cloned();
+            let pos = Position::new(row, col);
+            let color = cfg.get_colors().get_color(pos);
             if let Some(color) = color {
-                cfg.set_color(posn, color);
+                let pos_next = pos + (1, 0);
+                cfg.set_color(pos_next.into(), color.clone());
             }
         }
     }

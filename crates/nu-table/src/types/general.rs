@@ -111,7 +111,7 @@ fn create_table_with_header(
         for (col, header) in headers.iter().enumerate() {
             let (text, style) = get_string_value_with_header(item, header.as_ref(), opts);
 
-            let pos = (row + 1, col);
+            let pos = (row + 1, col).into();
             table.insert(pos, text);
             table.insert_style(pos, style);
         }
@@ -142,12 +142,12 @@ fn create_table_with_header_and_index(
         check_value(item)?;
 
         let text = get_table_row_index(item, opts.config, row, row_offset);
-        table.insert((row + 1, 0), text);
+        table.insert((row + 1, 0).into(), text);
 
         for (col, header) in headers.iter().enumerate().skip(1) {
             let (text, style) = get_string_value_with_header(item, header.as_ref(), opts);
 
-            let pos = (row + 1, col);
+            let pos = (row + 1, col).into();
             table.insert(pos, text);
             table.insert_style(pos, style);
         }
@@ -169,7 +169,7 @@ fn create_table_with_no_header(
 
         let (text, style) = get_string_value(item, opts);
 
-        let pos = (row, 0);
+        let pos = (row, 0).into();
         table.insert(pos, text);
         table.insert_style(pos, style);
     }
@@ -190,11 +190,11 @@ fn create_table_with_no_header_and_index(
         check_value(item)?;
 
         let text = get_table_row_index(item, opts.config, row, row_offset);
-        table.insert((row, 0), text);
+        table.insert((row, 0).into(), text);
 
         let (text, style) = get_string_value(item, opts);
 
-        let pos = (row, 1);
+        let pos = (row, 1).into();
         table.insert(pos, text);
         table.insert_style(pos, style);
     }
