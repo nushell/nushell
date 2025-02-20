@@ -492,3 +492,12 @@ impl ErrorKindExt for std::io::ErrorKind {
         }
     }
 }
+
+impl ErrorKindExt for ErrorKind {
+    fn not_found_as(self, kind: NotFound) -> ErrorKind {
+        match self {
+            Self::Std(std_kind) => std_kind.not_found_as(kind),
+            _ => self,
+        }
+    }
+}
