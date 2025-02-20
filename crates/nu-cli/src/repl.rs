@@ -20,6 +20,7 @@ use nu_cmd_base::util::get_editor;
 use nu_color_config::StyleComputer;
 #[allow(deprecated)]
 use nu_engine::env_to_strings;
+use nu_engine::exit::cleanup_exit;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::shell_error::io::IoError;
 use nu_protocol::{
@@ -36,6 +37,7 @@ use reedline::{
     CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
     HistorySessionId, Reedline, SqliteBackedHistory, Vi,
 };
+use std::sync::atomic::Ordering;
 use std::{
     collections::HashMap,
     env::temp_dir,
@@ -692,7 +694,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             );
 
             println!();
-            return (false, stack, line_editor);
+
+            cleanup_exit((), engine_state, 0);
+
+            // if cleanup_exit didn't exit, we should keep running
+            return (true, stack, line_editor);
         }
         Err(err) => {
             let message = err.to_string();
@@ -930,6 +936,9 @@ fn do_run_cmd(
     trace!("eval source: {}", s);
 
     let mut cmds = s.split_whitespace();
+
+    let had_warning_before = engine_state.exit_warning_given.load(Ordering::SeqCst);
+
     if let Some("exit") = cmds.next() {
         let mut working_set = StateWorkingSet::new(engine_state);
         let _ = parse(&mut working_set, None, s.as_bytes(), false);
@@ -938,13 +947,11 @@ fn do_run_cmd(
             match cmds.next() {
                 Some(s) => {
                     if let Ok(n) = s.parse::<i32>() {
-                        drop(line_editor);
-                        std::process::exit(n);
+                        return cleanup_exit(line_editor, engine_state, n);
                     }
                 }
                 None => {
-                    drop(line_editor);
-                    std::process::exit(0);
+                    return cleanup_exit(line_editor, engine_state, 0);
                 }
             }
         }
@@ -962,6 +969,14 @@ fn do_run_cmd(
         PipelineData::empty(),
         false,
     );
+
+    // if there was a warning before, and we got to this point, it means
+    // the possible call to cleanup_exit did not occur.
+    if had_warning_before && engine_state.is_interactive {
+        engine_state
+            .exit_warning_given
+            .store(false, Ordering::SeqCst);
+    }
 
     line_editor
 }

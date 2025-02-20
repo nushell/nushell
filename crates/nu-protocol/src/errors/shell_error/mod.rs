@@ -1,7 +1,8 @@
 use super::chained_error::ChainedError;
 use crate::{
-    ast::Operator, engine::StateWorkingSet, format_shell_error, record, ConfigError, LabeledError,
-    ParseError, Span, Spanned, Type, Value,
+    ast::Operator,
+    engine::{JobId, StateWorkingSet},
+    format_shell_error, record, ConfigError, LabeledError, ParseError, Span, Spanned, Type, Value,
 };
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
@@ -1324,6 +1325,40 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         msg: String,
         #[label = "while running this code"]
         span: Option<Span>,
+    },
+
+    #[error("Job {id} not found")]
+    #[diagnostic(
+        code(nu::shell::job_not_found),
+        help(
+            "The operation could not be completed, there is no job currently running with this id"
+        )
+    )]
+    JobNotFound {
+        id: JobId,
+        #[label = "job not found"]
+        span: Span,
+    },
+
+    #[error("No frozen job to unfreeze")]
+    #[diagnostic(
+        code(nu::shell::no_frozen_job),
+        help("There is currently no frozen job to unfreeze")
+    )]
+    NoFrozenJob {
+        #[label = "no frozen job"]
+        span: Span,
+    },
+
+    #[error("Job {id} is not frozen")]
+    #[diagnostic(
+        code(nu::shell::os_disabled),
+        help("You tried to unfreeze a job which is not frozen")
+    )]
+    JobNotFrozen {
+        id: JobId,
+        #[label = "job not frozen"]
+        span: Span,
     },
 
     #[error(transparent)]
