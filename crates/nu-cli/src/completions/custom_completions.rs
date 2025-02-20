@@ -13,18 +13,18 @@ use std::collections::HashMap;
 use super::completion_options::NuMatcher;
 
 pub struct CustomCompletion<T: Completer> {
-    stack: Stack,
     decl_id: DeclId,
     line: String,
+    line_pos: usize,
     fallback: T,
 }
 
 impl<T: Completer> CustomCompletion<T> {
-    pub fn new(stack: Stack, decl_id: DeclId, line: String, fallback: T) -> Self {
+    pub fn new(decl_id: DeclId, line: String, line_pos: usize, fallback: T) -> Self {
         Self {
-            stack,
             decl_id,
             line,
+            line_pos,
             fallback,
         }
     }
@@ -35,19 +35,16 @@ impl<T: Completer> Completer for CustomCompletion<T> {
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
-        pos: usize,
         orig_options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        // Line position
-        let line_pos = pos - offset;
-
         // Call custom declaration
+        let mut stack_mut = stack.clone();
         let result = eval_call::<WithoutDebug>(
             working_set.permanent_state,
-            &mut self.stack,
+            &mut stack_mut,
             &Call {
                 decl_id: self.decl_id,
                 head: span,
@@ -58,7 +55,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                         Type::String,
                     )),
                     Argument::Positional(Expression::new_unknown(
-                        Expr::Int(line_pos as i64),
+                        Expr::Int(self.line_pos as i64),
                         Span::unknown(),
                         Type::Int,
                     )),
@@ -120,7 +117,6 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                         prefix,
                         span,
                         offset,
-                        pos,
                         orig_options,
                     );
                 }
@@ -138,7 +134,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
             }
         };
 
-        let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), completion_options);
+        let mut matcher = NuMatcher::new(prefix, &completion_options);
 
         if should_sort {
             for sugg in suggestions {
