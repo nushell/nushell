@@ -87,7 +87,7 @@ impl StatefulWidget for TableWidget<'_> {
 }
 
 // todo: refactoring these to methods as they have quite a bit in common.
-impl<'a> TableWidget<'a> {
+impl TableWidget<'_> {
     // header at the top; header is always 1 line
     fn render_table_horizontal(self, area: Rect, buf: &mut Buffer, state: &mut TableWidgetState) {
         let padding_l = self.config.column_padding_left as u16;
