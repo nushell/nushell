@@ -29,11 +29,7 @@ impl PluginCommand for StrStripChars {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
-                "pattern",
-                SyntaxShape::String,
-                "Characters to strip",
-            )
+            .required("pattern", SyntaxShape::String, "Characters to strip")
             .switch("start", "Strip from start of strings only", Some('s'))
             .switch("end", "Strip from end of strings only", Some('e'))
             .input_output_types(vec![(
@@ -132,13 +128,19 @@ fn command_expr(
     let strip_end = call.has_flag("end")?;
 
     let pattern_expr = polars::prelude::lit(pattern);
-    
+
     let res: NuExpression = if strip_start {
         // Use strip_chars_start when --start flag is provided
-        expr.into_polars().str().strip_chars_start(pattern_expr).into()
+        expr.into_polars()
+            .str()
+            .strip_chars_start(pattern_expr)
+            .into()
     } else if strip_end {
         // Use strip_chars_end when --end flag is provided
-        expr.into_polars().str().strip_chars_end(pattern_expr).into()
+        expr.into_polars()
+            .str()
+            .strip_chars_end(pattern_expr)
+            .into()
     } else {
         // Use strip_chars when no flags are provided (both ends)
         expr.into_polars().str().strip_chars(pattern_expr).into()
