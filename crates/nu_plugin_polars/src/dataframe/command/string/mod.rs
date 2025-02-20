@@ -6,7 +6,7 @@ mod str_join;
 mod str_lengths;
 mod str_slice;
 mod str_split;
-mod str_strip_chars_end;
+mod str_strip_chars;
 mod to_lowercase;
 mod to_uppercase;
 
@@ -30,7 +30,7 @@ pub(crate) fn string_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         Box::new(Replace),
         Box::new(ReplaceAll),
         Box::new(str_split::StrSplit),
-        Box::new(str_strip_chars_end::StrStripCharsEnd),
+        Box::new(str_strip_chars::StrStripChars),
         Box::new(StrJoin),
         Box::new(StrLengths),
         Box::new(StrSlice),
