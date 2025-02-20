@@ -37,11 +37,7 @@ use super::{location::Location, ShellError};
 ///
 /// # let span = Span::test_data();
 /// let path = PathBuf::from("/some/missing/file");
-/// let error = IoError::new(
-///     std::io::ErrorKind::NotFound,
-///     span,
-///     path
-/// );
+/// let error = IoError::new(std::io::ErrorKind::NotFound, span, path);
 /// println!("Error: {:?}", error);
 /// ```
 ///
@@ -137,6 +133,9 @@ pub enum ErrorKind {
     NotAFile,
     // TODO: in Rust 1.83 this can be std::io::ErrorKind::IsADirectory
     IsADirectory,
+    // use these variants in cases where we know precisely whether a file or directory was expected
+    FileNotFound,
+    DirectoryNotFound,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error, Diagnostic)]
@@ -273,8 +272,8 @@ impl IoError {
     ///
     /// # Examples
     /// ```rust
-    /// use std::path::PathBuf;
     /// use nu_protocol::shell_error::io::IoError;
+    /// use std::path::PathBuf;
     ///
     /// let error = IoError::new_internal_with_path(
     ///     std::io::ErrorKind::NotFound,
@@ -316,6 +315,7 @@ impl IoError {
 impl Display for ErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            ErrorKind::Std(std::io::ErrorKind::NotFound) => write!(f, "Not found"),
             ErrorKind::Std(error_kind) => {
                 let msg = error_kind.to_string();
                 let (first, rest) = msg.split_at(1);
@@ -324,6 +324,8 @@ impl Display for ErrorKind {
             ErrorKind::NotADirectory => write!(f, "Not a directory"),
             ErrorKind::NotAFile => write!(f, "Not a file"),
             ErrorKind::IsADirectory => write!(f, "Is a directory"),
+            ErrorKind::FileNotFound => write!(f, "File not found"),
+            ErrorKind::DirectoryNotFound => write!(f, "Directory not found"),
         }
     }
 }
@@ -360,6 +362,8 @@ impl Diagnostic for IoError {
             ErrorKind::NotADirectory => code.push_str("not_a_directory"),
             ErrorKind::NotAFile => code.push_str("not_a_file"),
             ErrorKind::IsADirectory => code.push_str("is_a_directory"),
+            ErrorKind::FileNotFound => code.push_str("file_not_found"),
+            ErrorKind::DirectoryNotFound => code.push_str("directory_not_found"),
         }
 
         Some(Box::new(code))
@@ -422,6 +426,69 @@ impl From<ErrorKind> for std::io::ErrorKind {
         match value {
             ErrorKind::Std(error_kind) => error_kind,
             _ => std::io::ErrorKind::Other,
+        }
+    }
+}
+
+/// More specific variants of [`NotFound`](std::io::ErrorKind).
+///
+/// Use these to define how a `NotFound` error maps to our custom [`ErrorKind`].
+pub enum NotFound {
+    /// Map into [`FileNotFound`](ErrorKind::FileNotFound).
+    File,
+    /// Map into [`DirectoryNotFound`](ErrorKind::DirectoryNotFound).
+    Directory,
+}
+
+/// Extension trait for working with [`std::io::ErrorKind`].
+pub trait ErrorKindExt {
+    /// Map [`NotFound`](std::io::ErrorKind) variants into more precise variants.
+    ///
+    /// The OS doesn't know when an entity was not found whether it was meant to be a file or a
+    /// directory or something else.
+    /// But sometimes we, the application, know what we expect and with this method, we can further
+    /// specify it.
+    ///
+    /// # Examples
+    /// Reading a file.
+    /// If the file isn't found, return [`FileNotFound`](ErrorKind::FileNotFound).
+    /// ```rust
+    /// # use nu_protocol::{
+    /// #     shell_error::io::{ErrorKind, ErrorKindExt, IoError, NotFound},
+    /// #     ShellError, Span,
+    /// # };
+    /// # use std::{fs, path::PathBuf};
+    /// #
+    /// # fn example() -> Result<(), ShellError> {
+    /// #     let span = Span::test_data();
+    /// let a_file = PathBuf::from("scripts/ellie.nu");
+    /// let ellie = fs::read_to_string(&a_file).map_err(|err| {
+    ///     ShellError::Io(IoError::new(
+    ///         err.kind().not_found_as(NotFound::File),
+    ///         span,
+    ///         a_file,
+    ///     ))
+    /// })?;
+    /// #     Ok(())
+    /// # }
+    /// #
+    /// # assert!(matches!(
+    /// #     example(),
+    /// #     Err(ShellError::Io(IoError {
+    /// #         kind: ErrorKind::FileNotFound,
+    /// #         ..
+    /// #     }))
+    /// # ));
+    /// ```
+    fn not_found_as(self, kind: NotFound) -> ErrorKind;
+}
+
+impl ErrorKindExt for std::io::ErrorKind {
+    fn not_found_as(self, kind: NotFound) -> ErrorKind {
+        match (kind, self) {
+            (NotFound::File, Self::NotFound) => ErrorKind::FileNotFound,
+            (NotFound::Directory, Self::NotFound) => ErrorKind::DirectoryNotFound,
+            _ => ErrorKind::Std(self),
         }
     }
 }
