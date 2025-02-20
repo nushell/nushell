@@ -231,7 +231,7 @@ impl Playground<'_> {
     }
 
     pub fn glob_vec(pattern: &str) -> Vec<std::path::PathBuf> {
-        let glob = glob(pattern);
+        let glob = glob(pattern, None);
 
         glob.expect("invalid pattern")
             .map(|path| {

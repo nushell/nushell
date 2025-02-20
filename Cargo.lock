@@ -3762,6 +3762,7 @@ name = "nu-glob"
 version = "0.102.1"
 dependencies = [
  "doc-comment",
+ "nu-protocol",
 ]
 
 [[package]]
