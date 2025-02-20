@@ -358,9 +358,9 @@ mod global_horizontal_char {
 
             let has_vertical = cfg.has_vertical(0, count_columns);
             if has_vertical && self.index == 0 {
-                let mut border = cfg.get_border((0, 0), (count_rows, count_columns));
+                let mut border = cfg.get_border((0, 0).into(), (count_rows, count_columns));
                 border.left_top_corner = Some(self.intersection);
-                cfg.set_border((0, 0), border);
+                cfg.set_border((0, 0).into(), border);
                 return;
             }
 
@@ -368,7 +368,7 @@ mod global_horizontal_char {
             for (col, width) in widths.into_iter().enumerate() {
                 if self.index < i + width {
                     let o = self.index - i;
-                    cfg.set_horizontal_char((0, col), self.split, Offset::Begin(o));
+                    cfg.set_horizontal_char((0, col).into(), self.split, Offset::Begin(o));
                     return;
                 }
 
@@ -377,9 +377,10 @@ mod global_horizontal_char {
                 let has_vertical = cfg.has_vertical(col, count_columns);
                 if has_vertical {
                     if self.index == i {
-                        let mut border = cfg.get_border((0, col), (count_rows, count_columns));
+                        let mut border =
+                            cfg.get_border((0, col).into(), (count_rows, count_columns));
                         border.right_top_corner = Some(self.intersection);
-                        cfg.set_border((0, col), border);
+                        cfg.set_border((0, col).into(), border);
                         return;
                     }
 
