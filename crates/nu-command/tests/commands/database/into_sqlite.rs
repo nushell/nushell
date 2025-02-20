@@ -405,7 +405,7 @@ impl From<TestRow> for Value {
     }
 }
 
-impl<'r> TryFrom<&rusqlite::Row<'r>> for TestRow {
+impl TryFrom<&rusqlite::Row<'_>> for TestRow {
     type Error = rusqlite::Error;
 
     fn try_from(row: &rusqlite::Row) -> Result<Self, Self::Error> {
