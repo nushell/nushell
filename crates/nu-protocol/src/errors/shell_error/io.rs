@@ -132,11 +132,7 @@ pub struct IoError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Diagnostic)]
 pub enum ErrorKind {
     Std(std::io::ErrorKind),
-    // TODO: in Rust 1.83 this can be std::io::ErrorKind::NotADirectory
-    NotADirectory,
     NotAFile,
-    // TODO: in Rust 1.83 this can be std::io::ErrorKind::IsADirectory
-    IsADirectory,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error, Diagnostic)]
@@ -321,9 +317,7 @@ impl Display for ErrorKind {
                 let (first, rest) = msg.split_at(1);
                 write!(f, "{}{}", first.to_uppercase(), rest)
             }
-            ErrorKind::NotADirectory => write!(f, "Not a directory"),
             ErrorKind::NotAFile => write!(f, "Not a file"),
-            ErrorKind::IsADirectory => write!(f, "Is a directory"),
         }
     }
 }
@@ -357,9 +351,7 @@ impl Diagnostic for IoError {
                 std::io::ErrorKind::Other => code.push_str("other"),
                 kind => code.push_str(&kind.to_string().to_lowercase().replace(" ", "_")),
             },
-            ErrorKind::NotADirectory => code.push_str("not_a_directory"),
             ErrorKind::NotAFile => code.push_str("not_a_file"),
-            ErrorKind::IsADirectory => code.push_str("is_a_directory"),
         }
 
         Some(Box::new(code))

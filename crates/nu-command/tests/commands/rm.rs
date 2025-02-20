@@ -419,7 +419,7 @@ fn set_dir_read_only(directory: &AbsolutePath, read_only: bool) {
 }
 
 #[cfg(not(windows))]
-impl<'a> Drop for Cleanup<'a> {
+impl Drop for Cleanup<'_> {
     /// Restores write permissions to the given directory so that the Playground can be successfully
     /// cleaned up.
     fn drop(&mut self) {
