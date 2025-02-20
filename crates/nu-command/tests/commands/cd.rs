@@ -210,7 +210,7 @@ fn filesystem_directory_not_found() {
             actual.err
         );
         assert!(
-            actual.err.contains("nu::shell::io::not_found"),
+            actual.err.contains("nu::shell::io::directory_not_found"),
             "actual={:?}",
             actual.err
         );
