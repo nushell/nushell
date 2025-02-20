@@ -424,7 +424,9 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
             // A TOCTOU problem exists here, which may cause wrong error message to be shown
             #[cfg(target_os = "windows")]
             if path.is_dir() {
-                Err(nu_protocol::shell_error::io::ErrorKind::IsADirectory)
+                Err(nu_protocol::shell_error::io::ErrorKind::Std(
+                    std::io::ErrorKind::IsADirectory,
+                ))
             } else {
                 std::fs::File::create(path).map_err(|err| err.kind().into())
             }
