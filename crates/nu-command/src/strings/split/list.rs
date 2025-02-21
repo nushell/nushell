@@ -1,5 +1,6 @@
 use fancy_regex::Regex;
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -90,6 +91,7 @@ impl Command for SubCommand {
                 example: "[a, b, c, d, a, e, f, g] | split list a",
                 result: Some(Value::list(
                     vec![
+                        Value::list(vec![], Span::test_data()),
                         Value::list(
                             vec![
                                 Value::test_string("b"),
@@ -209,26 +211,77 @@ fn split_list(
     has_regex: bool,
     separator: Value,
 ) -> Result<PipelineData, ShellError> {
-    let mut temp_list = Vec::new();
-    let mut returned_list = Vec::new();
-
     let matcher = Matcher::new(has_regex, separator)?;
-    for val in input {
-        engine_state.signals().check(call.head)?;
+    let head = call.head;
+    Ok(SplitList::new(
+        input.into_iter(),
+        engine_state.signals().clone(),
+        move |x| matcher.compare(x).unwrap_or(false),
+    )
+    .map(move |x| Value::list(x, head))
+    .into_pipeline_data(head, engine_state.signals().clone()))
+}
 
-        if matcher.compare(&val)? {
-            if !temp_list.is_empty() {
-                returned_list.push(Value::list(temp_list.clone(), call.head));
-                temp_list = Vec::new();
-            }
-        } else {
-            temp_list.push(val);
+struct SplitList<I, F> {
+    iterator: I,
+    closure: F,
+    done: bool,
+    signals: Signals,
+}
+
+impl<I, F> SplitList<I, F>
+where
+    I: Iterator,
+    F: FnMut(&I::Item) -> bool,
+{
+    fn new(iterator: I, signals: Signals, closure: F) -> Self {
+        Self {
+            iterator,
+            closure,
+            done: false,
+            signals,
         }
     }
-    if !temp_list.is_empty() {
-        returned_list.push(Value::list(temp_list.clone(), call.head));
+
+    fn inner_iterator_next(&mut self) -> Option<I::Item> {
+        if self.signals.interrupted() {
+            self.done = true;
+            return None;
+        }
+        self.iterator.next()
     }
-    Ok(Value::list(returned_list, call.head).into_pipeline_data())
+}
+
+impl<I, F> Iterator for SplitList<I, F>
+where
+    I: Iterator,
+    F: FnMut(&I::Item) -> bool,
+{
+    type Item = Vec<I::Item>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+
+        let mut items = vec![];
+
+        loop {
+            match self.inner_iterator_next() {
+                None => {
+                    self.done = true;
+                    return Some(items);
+                }
+                Some(value) => {
+                    if (self.closure)(&value) {
+                        return Some(items);
+                    } else {
+                        items.push(value);
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
