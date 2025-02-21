@@ -64,43 +64,48 @@ impl Command for JobSpawn {
 
         job_state.exit_warning_given = Arc::new(AtomicBool::new(false));
 
-        let (send_id, recv_id) = std::sync::mpsc::channel();
+        let jobs = job_state.jobs.clone();
+        let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
 
-        thread::spawn(move || {
-            let id = {
-                let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");
+        let id = {
+            let thread_job = ThreadJob::new(job_signals);
+            job_state.current_thread_job = Some(thread_job.clone());
+            jobs.add_job(Job::Thread(thread_job))
+        };
 
-                let thread_job = ThreadJob::new(job_signals);
+        let result = thread::Builder::new()
+            .name(format!("background job {}", id))
+            .spawn(move || {
+                ClosureEvalOnce::new(&job_state, &job_stack, closure)
+                    .run_with_input(Value::nothing(head).into_pipeline_data())
+                    .and_then(|data| data.into_value(head))
+                    .unwrap_or_else(|err| {
+                        if !job_state.signals().interrupted() {
+                            report_shell_error(&job_state, &err);
+                        }
 
-                job_state.current_thread_job = Some(thread_job.clone());
-                jobs.add_job(Job::Thread(thread_job))
-            };
+                        Value::nothing(head)
+                    });
 
-            _ = send_id.send(id);
+                {
+                    let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");
 
-            ClosureEvalOnce::new(&job_state, &job_stack, closure.clone())
-                .run_with_input(Value::nothing(head).into_pipeline_data())
-                .and_then(|data| data.into_value(head))
-                .unwrap_or_else(|err| {
-                    if !job_state.signals().interrupted() {
-                        report_shell_error(&job_state, &err);
-                    }
+                    jobs.remove_job(id);
+                }
+            });
 
-                    Value::nothing(head)
-                });
-
-            {
-                let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");
-
+        match result {
+            Ok(_) => Ok(Value::int(id as i64, head).into_pipeline_data()),
+            Err(err) => {
                 jobs.remove_job(id);
+                Err(ShellError::Io(IoError::new_with_additional_context(
+                    err.kind(),
+                    call.head,
+                    None,
+                    "Failed to spawn thread for job",
+                )))
             }
-        });
-
-        // this will always works, since thread::spawn never fails and the spawned thread
-        // will certainly run the send command
-        let id = recv_id.recv().expect("failed to get new job's ID");
-
-        Ok(Value::int(id as i64, head).into_pipeline_data())
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
