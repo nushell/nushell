@@ -1,6 +1,7 @@
 use miette::{Diagnostic, LabeledSpan, SourceSpan};
 use std::{
-    fmt::Display,
+    error::Error as StdError,
+    fmt::{self, Display, Formatter},
     path::{Path, PathBuf},
 };
 use thiserror::Error;
@@ -83,9 +84,8 @@ use super::{location::Location, ShellError};
 /// This approach ensures clarity about where such container transfers occur.
 /// All other I/O errors should be handled using the provided constructors for `IoError`.
 /// This way, the code explicitly indicates when and where a `ShellError` transfer might happen.
-#[derive(Debug, Clone, Error, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
-#[error("I/O error")]
 pub struct IoError {
     /// The type of the underlying I/O error.
     ///
@@ -308,8 +308,20 @@ impl IoError {
     }
 }
 
+impl StdError for IoError {}
+impl Display for IoError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.kind {
+            ErrorKind::Std(std::io::ErrorKind::NotFound) => write!(f, "Not found"),
+            ErrorKind::FileNotFound => write!(f, "File not found"),
+            ErrorKind::DirectoryNotFound => write!(f, "Directory not found"),
+            _ => write!(f, "I/O error"),
+        }
+    }
+}
+
 impl Display for ErrorKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             ErrorKind::Std(std::io::ErrorKind::NotFound) => write!(f, "Not found"),
             ErrorKind::Std(error_kind) => {
@@ -362,9 +374,20 @@ impl Diagnostic for IoError {
     }
 
     fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        let make_msg = |path: &Path| {
+            let path = format!("'{}'", path.display());
+            match self.kind {
+                ErrorKind::NotAFile => format!("{path} is not a file"),
+                ErrorKind::Std(std::io::ErrorKind::NotFound)
+                | ErrorKind::FileNotFound
+                | ErrorKind::DirectoryNotFound => format!("{path} does not exist"),
+                _ => format!("The error occurred at {path}"),
+            }
+        };
+
         self.path
             .as_ref()
-            .map(|path| format!("The error occurred at '{}'", path.display()))
+            .map(|path| make_msg(path))
             .map(|s| Box::new(s) as Box<dyn std::fmt::Display>)
     }
 
