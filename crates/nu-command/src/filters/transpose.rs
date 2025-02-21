@@ -182,6 +182,19 @@ pub fn transpose(
         }
     }
 
+    let first_non_record_value = input
+        .iter()
+        .find(|value| !matches!(value, Value::Record { .. }));
+
+    if let Some(non_record_value) = first_non_record_value {
+        return Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "table or record".into(),
+            wrong_type: "list<any>".into(),
+            dst_span: call.head,
+            src_span: non_record_value.span(),
+        });
+    }
+
     let descs = get_columns(&input);
 
     let mut headers: Vec<String> = Vec::with_capacity(input.len());
