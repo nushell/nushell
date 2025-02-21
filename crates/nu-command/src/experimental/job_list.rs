@@ -37,19 +37,13 @@ impl Command for JobList {
         let values = jobs
             .iter()
             .map(|(id, job)| {
-                let mut record = Record::new();
-                record.push("id", Value::int(id as i64, head));
-                record.push(
-                    "type",
-                    match job {
+                let record = record! {
+                    "id" => Value::int(id as i64, head),
+                    "type" => match job {
                         Job::Thread(_) => Value::string("thread", head),
                         Job::Frozen(_) => Value::string("frozen", head),
                     },
-                );
-
-                record.push(
-                    "pids",
-                    match job {
+                    "pids" => match job {
                         Job::Thread(job) => Value::list(
                             job.collect_pids()
                                 .into_iter()
@@ -57,10 +51,9 @@ impl Command for JobList {
                                 .collect::<Vec<Value>>(),
                             head,
                         ),
-
                         Job::Frozen(_) => Value::list(vec![], head),
-                    },
-                );
+                    }
+                };
 
                 Value::record(record, head)
             })
