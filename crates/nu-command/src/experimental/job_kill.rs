@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::JobId;
+use nu_protocol::JobId;
 
 #[derive(Clone)]
 pub struct JobKill;
@@ -36,12 +36,15 @@ impl Command for JobKill {
 
         let id: i64 = call.req(engine_state, stack, 0)?;
 
-        let id: JobId = id as JobId;
+        let id: JobId = JobId::new(id as usize);
 
         let mut jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
         if jobs.lookup(id).is_none() {
-            return Err(ShellError::JobNotFound { id, span: head });
+            return Err(ShellError::JobNotFound {
+                id: id.get(),
+                span: head,
+            });
         }
 
         jobs.kill_and_remove(id).map_err(|err| {

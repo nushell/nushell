@@ -38,7 +38,7 @@ impl Command for JobList {
             .iter()
             .map(|(id, job)| {
                 let record = record! {
-                    "id" => Value::int(id as i64, head),
+                    "id" => Value::int(id.get() as i64, head),
                     "type" => match job {
                         Job::Thread(_) => Value::string("thread", head),
                         Job::Frozen(_) => Value::string("frozen", head),

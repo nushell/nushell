@@ -94,6 +94,8 @@ pub mod marker {
     pub struct Span;
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Reg;
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct Job;
 }
 
 pub type VarId = Id<marker::Var>;
@@ -104,6 +106,7 @@ pub type OverlayId = Id<marker::Overlay>;
 pub type FileId = Id<marker::File>;
 pub type VirtualPathId = Id<marker::VirtualPath>;
 pub type SpanId = Id<marker::Span>;
+pub type JobId = Id<marker::Job>;
 
 /// An ID for an [IR](crate::ir) register.
 ///

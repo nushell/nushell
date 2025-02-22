@@ -74,7 +74,7 @@ impl Command for JobSpawn {
         };
 
         let result = thread::Builder::new()
-            .name(format!("background job {}", id))
+            .name(format!("background job {}", id.get()))
             .spawn(move || {
                 ClosureEvalOnce::new(&job_state, &job_stack, closure)
                     .run_with_input(Value::nothing(head).into_pipeline_data())
@@ -95,7 +95,7 @@ impl Command for JobSpawn {
             });
 
         match result {
-            Ok(_) => Ok(Value::int(id as i64, head).into_pipeline_data()),
+            Ok(_) => Ok(Value::int(id.get() as i64, head).into_pipeline_data()),
             Err(err) => {
                 jobs.remove_job(id);
                 Err(ShellError::Io(IoError::new_with_additional_context(

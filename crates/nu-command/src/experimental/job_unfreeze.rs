@@ -1,8 +1,8 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    engine::{FrozenJob, Job, JobId, ThreadJob},
+    engine::{FrozenJob, Job, ThreadJob},
     process::check_ok,
-    shell_error,
+    shell_error, JobId,
 };
 use nu_system::{kill_by_pid, ForegroundWaitStatus};
 
@@ -44,14 +44,22 @@ impl Command for JobUnfreeze {
         let mut jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
         let id = option_id
-            .map(|it| it as JobId)
+            .map(|it| JobId::new(it as usize))
             .or_else(|| jobs.most_recent_frozen_job_id())
             .ok_or_else(|| ShellError::NoFrozenJob { span: head })?;
 
         let job = match jobs.lookup(id) {
-            None => return Err(ShellError::JobNotFound { id, span: head }),
+            None => {
+                return Err(ShellError::JobNotFound {
+                    id: id.get(),
+                    span: head,
+                })
+            }
             Some(Job::Thread(ThreadJob { .. })) => {
-                return Err(ShellError::JobNotFrozen { id, span: head })
+                return Err(ShellError::JobNotFrozen {
+                    id: id.get(),
+                    span: head,
+                })
             }
             Some(Job::Frozen(FrozenJob { .. })) => jobs
                 .remove_job(id)
@@ -93,7 +101,10 @@ fn unfreeze_job(
     span: Span,
 ) -> Result<(), ShellError> {
     match job {
-        Job::Thread(ThreadJob { .. }) => Err(ShellError::JobNotFrozen { id: old_id, span }),
+        Job::Thread(ThreadJob { .. }) => Err(ShellError::JobNotFrozen {
+            id: old_id.get(),
+            span,
+        }),
 
         Job::Frozen(FrozenJob { unfreeze: handle }) => {
             let pid = handle.pid();

@@ -1,8 +1,7 @@
 use super::chained_error::ChainedError;
 use crate::{
-    ast::Operator,
-    engine::{JobId, StateWorkingSet},
-    format_shell_error, record, ConfigError, LabeledError, ParseError, Span, Spanned, Type, Value,
+    ast::Operator, engine::StateWorkingSet, format_shell_error, record, ConfigError, LabeledError,
+    ParseError, Span, Spanned, Type, Value,
 };
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
@@ -1336,7 +1335,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         )
     )]
     JobNotFound {
-        id: JobId,
+        id: usize,
         #[label = "job not found"]
         span: Span,
     },
@@ -1357,7 +1356,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         help("You tried to unfreeze a job which is not frozen")
     )]
     JobNotFrozen {
-        id: JobId,
+        id: usize,
         #[label = "job not frozen"]
         span: Span,
     },

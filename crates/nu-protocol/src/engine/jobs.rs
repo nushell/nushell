@@ -7,10 +7,10 @@ use nu_system::{kill_by_pid, UnfreezeHandle};
 
 use crate::Signals;
 
-use super::JobId;
+use crate::JobId;
 
 pub struct Jobs {
-    next_job_id: JobId,
+    next_job_id: usize,
 
     // this is the ID of the most recently added frozen job in the jobs table.
     // the methods of this struct must ensure the invariant of this always
@@ -53,7 +53,7 @@ impl Jobs {
     }
 
     pub fn add_job(&mut self, job: Job) -> JobId {
-        let this_id = self.next_job_id;
+        let this_id = JobId::new(self.next_job_id);
 
         self.assign_last_frozen_id_if_frozen(this_id, &job);
 
