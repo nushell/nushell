@@ -39,12 +39,18 @@ impl Command for JobUnfreeze {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let option_id: Option<i64> = call.opt(engine_state, stack, 0)?;
+        let option_id: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
 
         let mut jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
+        if let Some(id_arg) = option_id {
+            if id_arg.item < 0 {
+                return Err(ShellError::NeedsPositiveValue { span: id_arg.span });
+            }
+        }
+
         let id = option_id
-            .map(|it| JobId::new(it as usize))
+            .map(|it| JobId::new(it.item as usize))
             .or_else(|| jobs.most_recent_frozen_job_id())
             .ok_or_else(|| ShellError::NoFrozenJob { span: head })?;
 
@@ -89,7 +95,7 @@ impl Command for JobUnfreeze {
     }
 
     fn extra_description(&self) -> &str {
-        r#"When a running process is frozen (with the SIGTSTP signal or with the Ctrl-Z key on unix), 
+        r#"When a running process is frozen (with the SIGTSTP signal or with the Ctrl-Z key on unix),
 a background job gets registered for this process, which can then be resumed using this command."#
     }
 }

@@ -34,9 +34,13 @@ impl Command for JobKill {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let id: i64 = call.req(engine_state, stack, 0)?;
+        let id_arg: Spanned<i64> = call.req(engine_state, stack, 0)?;
 
-        let id: JobId = JobId::new(id as usize);
+        if id_arg.item < 0 {
+            return Err(ShellError::NeedsPositiveValue { span: id_arg.span });
+        }
+
+        let id: JobId = JobId::new(id_arg.item as usize);
 
         let mut jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
