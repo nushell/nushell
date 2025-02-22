@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::Job;
+use nu_protocol::engine::{FrozenJob, Job};
 
 #[derive(Clone)]
 pub struct JobList;
@@ -51,7 +51,9 @@ impl Command for JobList {
                                 .collect::<Vec<Value>>(),
                             head,
                         ),
-                        Job::Frozen(_) => Value::list(vec![], head),
+                        Job::Frozen(FrozenJob { unfreeze }) => Value::list(vec![
+                            Value::int(unfreeze.pid() as i64, head)
+                        ], head),
                     }
                 };
 
