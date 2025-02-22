@@ -180,9 +180,14 @@ impl UnfreezeHandle {
         unix_wait(child_pid)
     }
 
-    #[cfg(unix)]
     pub fn pid(&self) -> u32 {
-        self.child_pid.as_raw() as u32
+        #[cfg(unix)]
+        {
+            self.child_pid.as_raw() as u32
+        }
+
+        #[cfg(not(unix))]
+        0
     }
 }
 

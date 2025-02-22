@@ -51,9 +51,10 @@ impl Command for JobList {
                                 .collect::<Vec<Value>>(),
                             head,
                         ),
-                        Job::Frozen(FrozenJob { unfreeze }) => Value::list(vec![
-                            Value::int(unfreeze.pid() as i64, head)
-                        ], head),
+
+                        Job::Frozen(FrozenJob { unfreeze }) => {
+                            Value::list(vec![ Value::int(unfreeze.pid() as i64, head) ], head)
+                        }
                     }
                 };
 
