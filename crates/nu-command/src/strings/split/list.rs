@@ -1,6 +1,6 @@
 use fancy_regex::Regex;
 use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::Signals;
+use nu_protocol::{FromValue, Signals};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -25,6 +25,7 @@ impl Command for SubCommand {
                 "regex",
                 "separator is a regular expression, matching values that can be coerced into a string",
                 Some('r'))
+            .named("split", SyntaxShape::String, "Whether to split lists before, after, or on (default) the separator", None)
             .category(Category::Filters)
     }
 
@@ -150,13 +151,15 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let has_regex = call.has_flag(engine_state, stack, "regex")?;
         let separator: Value = call.req(engine_state, stack, 0)?;
+        let split: Option<Split> = call.get_flag(engine_state, stack, "split")?;
+        let split = split.unwrap_or(Split::On);
         let matcher = match separator {
             Value::Closure { val, .. } => {
                 Matcher::from_closure(ClosureEval::new(engine_state, stack, *val))
             }
             _ => Matcher::new(has_regex, separator)?,
         };
-        split_list(engine_state, call, input, matcher)
+        split_list(engine_state, call, input, matcher, split)
     }
 
     fn run_const(
@@ -167,8 +170,10 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let has_regex = call.has_flag_const(working_set, "regex")?;
         let separator: Value = call.req_const(working_set, 0)?;
+        let split: Option<Split> = call.get_flag_const(working_set, "split")?;
+        let split = split.unwrap_or(Split::On);
         let matcher = Matcher::new(has_regex, separator)?;
-        split_list(working_set.permanent(), call, input, matcher)
+        split_list(working_set.permanent(), call, input, matcher, split)
     }
 }
 
@@ -176,6 +181,29 @@ enum Matcher {
     Regex(Regex),
     Direct(Value),
     Closure(ClosureEval),
+}
+
+enum Split {
+    On,
+    Before,
+    After,
+}
+
+impl FromValue for Split {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        let span = v.span();
+        let s = <String>::from_value(v)?;
+        match s.as_str() {
+            "on" => Ok(Split::On),
+            "before" => Ok(Split::Before),
+            "after" => Ok(Split::After),
+            _ => Err(ShellError::InvalidValue {
+                valid: "one of: on, before, after".into(),
+                actual: s,
+                span,
+            }),
+        }
+    }
 }
 
 impl Matcher {
@@ -226,35 +254,41 @@ fn split_list(
     call: &Call,
     input: PipelineData,
     mut matcher: Matcher,
+    split: Split,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
     Ok(SplitList::new(
         input.into_iter(),
         engine_state.signals().clone(),
+        split,
         move |x| matcher.compare(x).unwrap_or(false),
     )
     .map(move |x| Value::list(x, head))
     .into_pipeline_data(head, engine_state.signals().clone()))
 }
 
-struct SplitList<I, F> {
+struct SplitList<I, T, F> {
     iterator: I,
     closure: F,
     done: bool,
     signals: Signals,
+    split: Split,
+    last_item: Option<T>,
 }
 
-impl<I, F> SplitList<I, F>
+impl<I, T, F> SplitList<I, T, F>
 where
-    I: Iterator,
+    I: Iterator<Item = T>,
     F: FnMut(&I::Item) -> bool,
 {
-    fn new(iterator: I, signals: Signals, closure: F) -> Self {
+    fn new(iterator: I, signals: Signals, split: Split, closure: F) -> Self {
         Self {
             iterator,
             closure,
             done: false,
             signals,
+            split,
+            last_item: None,
         }
     }
 
@@ -267,9 +301,9 @@ where
     }
 }
 
-impl<I, F> Iterator for SplitList<I, F>
+impl<I, T, F> Iterator for SplitList<I, T, F>
 where
-    I: Iterator,
+    I: Iterator<Item = T>,
     F: FnMut(&I::Item) -> bool,
 {
     type Item = Vec<I::Item>;
@@ -280,6 +314,9 @@ where
         }
 
         let mut items = vec![];
+        if let Some(item) = self.last_item.take() {
+            items.push(item);
+        }
 
         loop {
             match self.inner_iterator_next() {
@@ -289,6 +326,15 @@ where
                 }
                 Some(value) => {
                     if (self.closure)(&value) {
+                        match self.split {
+                            Split::On => {}
+                            Split::Before => {
+                                self.last_item = Some(value);
+                            }
+                            Split::After => {
+                                items.push(value);
+                            }
+                        }
                         return Some(items);
                     } else {
                         items.push(value);
