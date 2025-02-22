@@ -340,7 +340,7 @@ fn custom_arguments_vs_subcommands() {
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     let completion_str = "foo test";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    // including both subcommand and directory completions
+    // including only subcommand completions
     let expected: Vec<String> = vec!["foo test bar".into()];
     match_suggestions(&expected, &suggestions);
 }
