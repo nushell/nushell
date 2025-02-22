@@ -8,7 +8,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_parse_error, report_parse_warning,
-    shell_error::io::IoError,
+    shell_error::io::*,
     PipelineData, ShellError, Span, Value,
 };
 use std::{path::PathBuf, sync::Arc};
@@ -28,7 +28,7 @@ pub fn evaluate_file(
 
     let file_path = canonicalize_with(&path, cwd).map_err(|err| {
         IoError::new_internal_with_path(
-            err.kind(),
+            err.kind().not_found_as(NotFound::File),
             "Could not access file",
             nu_protocol::location!(),
             PathBuf::from(&path),
@@ -47,7 +47,7 @@ pub fn evaluate_file(
 
     let file = std::fs::read(&file_path).map_err(|err| {
         IoError::new_internal_with_path(
-            err.kind(),
+            err.kind().not_found_as(NotFound::File),
             "Could not read file",
             nu_protocol::location!(),
             file_path.clone(),
@@ -57,7 +57,7 @@ pub fn evaluate_file(
 
     let parent = file_path.parent().ok_or_else(|| {
         IoError::new_internal_with_path(
-            std::io::ErrorKind::NotFound,
+            ErrorKind::DirectoryNotFound,
             "The file path does not have a parent",
             nu_protocol::location!(),
             file_path.clone(),

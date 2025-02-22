@@ -3,7 +3,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::Expr,
     engine::{Call, EngineState, Stack, StateWorkingSet},
-    shell_error::io::IoError,
+    shell_error::io::{ErrorKindExt, IoError, NotFound},
     ShellError, Span, Type, Value, VarId,
 };
 use std::{
@@ -221,7 +221,7 @@ pub fn current_dir(engine_state: &EngineState, stack: &Stack) -> Result<PathBuf,
     // be an absolute path already.
     canonicalize_with(&cwd, ".").map_err(|err| {
         ShellError::Io(IoError::new_internal_with_path(
-            err.kind(),
+            err.kind().not_found_as(NotFound::Directory),
             "Could not canonicalize current dir",
             nu_protocol::location!(),
             PathBuf::from(cwd),
@@ -241,7 +241,7 @@ pub fn current_dir_const(working_set: &StateWorkingSet) -> Result<PathBuf, Shell
     // be an absolute path already.
     canonicalize_with(&cwd, ".").map_err(|err| {
         ShellError::Io(IoError::new_internal_with_path(
-            err.kind(),
+            err.kind().not_found_as(NotFound::Directory),
             "Could not canonicalize current dir",
             nu_protocol::location!(),
             PathBuf::from(cwd),

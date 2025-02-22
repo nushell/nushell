@@ -98,6 +98,7 @@ impl Command for Open {
             for path in nu_engine::glob_from(&path, &cwd, call_span, None)
                 .map_err(|err| match err {
                     ShellError::Io(mut err) => {
+                        err.kind = err.kind.not_found_as(NotFound::File);
                         err.span = arg_span;
                         err.into()
                     }
