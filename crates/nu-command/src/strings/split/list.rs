@@ -1,5 +1,5 @@
 use fancy_regex::Regex;
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::Signals;
 
 #[derive(Clone)]
@@ -150,7 +150,13 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let has_regex = call.has_flag(engine_state, stack, "regex")?;
         let separator: Value = call.req(engine_state, stack, 0)?;
-        split_list(engine_state, call, input, has_regex, separator)
+        let matcher = match separator {
+            Value::Closure { val, .. } => {
+                Matcher::from_closure(ClosureEval::new(engine_state, stack, *val))
+            }
+            _ => Matcher::new(has_regex, separator)?,
+        };
+        split_list(engine_state, call, input, matcher)
     }
 
     fn run_const(
@@ -161,13 +167,15 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let has_regex = call.has_flag_const(working_set, "regex")?;
         let separator: Value = call.req_const(working_set, 0)?;
-        split_list(working_set.permanent(), call, input, has_regex, separator)
+        let matcher = Matcher::new(has_regex, separator)?;
+        split_list(working_set.permanent(), call, input, matcher)
     }
 }
 
 enum Matcher {
     Regex(Regex),
     Direct(Value),
+    Closure(ClosureEval),
 }
 
 impl Matcher {
@@ -190,7 +198,11 @@ impl Matcher {
         }
     }
 
-    pub fn compare(&self, rhs: &Value) -> Result<bool, ShellError> {
+    pub fn from_closure(closure: ClosureEval) -> Self {
+        Self::Closure(closure)
+    }
+
+    pub fn compare(&mut self, rhs: &Value) -> Result<bool, ShellError> {
         Ok(match self {
             Matcher::Regex(regex) => {
                 if let Ok(rhs_str) = rhs.coerce_str() {
@@ -200,6 +212,11 @@ impl Matcher {
                 }
             }
             Matcher::Direct(lhs) => rhs == lhs,
+            Matcher::Closure(closure) => closure
+                .run_with_value(rhs.clone())
+                .and_then(|data| data.into_value(Span::unknown()))
+                .map(|value| value.is_true())
+                .unwrap_or(false),
         })
     }
 }
@@ -208,10 +225,8 @@ fn split_list(
     engine_state: &EngineState,
     call: &Call,
     input: PipelineData,
-    has_regex: bool,
-    separator: Value,
+    mut matcher: Matcher,
 ) -> Result<PipelineData, ShellError> {
-    let matcher = Matcher::new(has_regex, separator)?;
     let head = call.head;
     Ok(SplitList::new(
         input.into_iter(),
