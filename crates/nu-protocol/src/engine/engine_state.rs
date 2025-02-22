@@ -1057,6 +1057,9 @@ impl EngineState {
                 cursor_pos: 0,
             }));
         }
+        if Mutex::is_poisoned(&self.jobs) {
+            self.jobs = Arc::new(Mutex::new(Jobs::default()));
+        }
         if Mutex::is_poisoned(&self.regex_cache) {
             self.regex_cache = Arc::new(Mutex::new(LruCache::new(
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
