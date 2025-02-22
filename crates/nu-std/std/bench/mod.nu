@@ -43,7 +43,7 @@ export def main [
         mean: ($times | math avg)
         min: ($times | math min)
         max: ($times | math max)
-        std: ($times | into int | math stddev | into int | into duration)
+        std: ($times | into float | math stddev | into int | into duration)
         times: ($times)
     }
 
