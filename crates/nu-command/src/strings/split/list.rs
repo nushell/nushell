@@ -137,16 +137,17 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a list of numbers on multiples of 3",
-                example: r"[1 2 3 4 5 6 7 8 9] | split list {|e| $e mod 3 == 0 }",
+                example: r"[1 2 3 4 5 6 7 8 9 10] | split list {|e| $e mod 3 == 0 }",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
                     Value::test_list(vec![Value::test_int(4), Value::test_int(5)]),
                     Value::test_list(vec![Value::test_int(7), Value::test_int(8)]),
+                    Value::test_list(vec![Value::test_int(10)]),
                 ])),
             },
             Example {
                 description: "Split a list of numbers into lists ending with 0",
-                example: r"[1 2 0 3 4 5 0 6 0 0] | split list --split=after 0",
+                example: r"[1 2 0 3 4 5 0 6 0 0 7] | split list --split=after 0",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![
                         Value::test_int(1),
@@ -161,6 +162,7 @@ impl Command for SubCommand {
                     ]),
                     Value::test_list(vec![Value::test_int(6), Value::test_int(0)]),
                     Value::test_list(vec![Value::test_int(0)]),
+                    Value::test_list(vec![Value::test_int(7)]),
                 ])),
             },
         ]
