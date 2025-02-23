@@ -119,31 +119,40 @@ impl Command for OverlayUse {
 
             // Evaluate the export-env block (if any) and keep its environment
             if let Some(block_id) = module.env_block {
-                let maybe_path = find_in_dirs_env(
+                let maybe_file_path_or_dir = find_in_dirs_env(
                     &name_arg.item,
                     engine_state,
                     caller_stack,
                     get_dirs_var_from_call(caller_stack, call),
                 )?;
-
                 let block = engine_state.get_block(block_id);
                 let mut callee_stack = caller_stack
                     .gather_captures(engine_state, &block.captures)
                     .reset_pipes();
 
-                if let Some(path) = &maybe_path {
+                if let Some(path) = &maybe_file_path_or_dir {
                     // Set the currently evaluated directory, if the argument is a valid path
-                    let mut parent = path.clone();
-                    parent.pop();
-
+                    let parent = if path.is_dir() {
+                        path.clone()
+                    } else {
+                        let mut parent = path.clone();
+                        parent.pop();
+                        parent
+                    };
                     let file_pwd = Value::string(parent.to_string_lossy(), call.head);
 
                     callee_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
                 }
 
-                if let Some(file_path) = &maybe_path {
-                    let file_path = Value::string(file_path.to_string_lossy(), call.head);
-                    callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
+                if let Some(path) = &maybe_file_path_or_dir {
+                    let module_file_path = if path.is_dir() {
+                        // the existence of `mod.nu` is verified in parsing time
+                        // so it's safe to use it here.
+                        Value::string(path.join("mod.nu").to_string_lossy(), call.head)
+                    } else {
+                        Value::string(path.to_string_lossy(), call.head)
+                    };
+                    callee_stack.add_env_var("CURRENT_FILE".to_string(), module_file_path);
                 }
 
                 let eval_block = get_eval_block(engine_state);
