@@ -11,7 +11,7 @@ impl Command for ErrorMake {
 
     fn signature(&self) -> Signature {
         Signature::build("error make")
-            .input_output_types(vec![(Type::Nothing, Type::Error)])
+            .input_output_types(vec![(PipelineType::Empty, Type::Error)])
             .required(
                 "error_struct",
                 SyntaxShape::Record(vec![]),

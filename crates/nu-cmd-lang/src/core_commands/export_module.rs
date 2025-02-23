@@ -15,7 +15,7 @@ impl Command for ExportModule {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("export module")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .allow_variants_without_examples(true)
             .required("module", SyntaxShape::String, "Module name or module path.")
             .optional(

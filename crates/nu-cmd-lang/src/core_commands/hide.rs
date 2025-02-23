@@ -11,7 +11,7 @@ impl Command for Hide {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("hide")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .required("module", SyntaxShape::String, "Module or module file.")
             .optional(
                 "members",

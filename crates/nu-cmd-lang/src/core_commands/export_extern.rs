@@ -15,7 +15,7 @@ impl Command for ExportExtern {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("export extern")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .required("def_name", SyntaxShape::String, "Definition name.")
             .required("params", SyntaxShape::Signature, "Parameters.")
             .category(Category::Core)

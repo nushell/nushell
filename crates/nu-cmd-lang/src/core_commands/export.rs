@@ -11,7 +11,7 @@ impl Command for ExportCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("export")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .category(Category::Core)
     }
 

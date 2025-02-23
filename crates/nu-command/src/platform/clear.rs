@@ -27,7 +27,7 @@ impl Command for Clear {
     fn signature(&self) -> Signature {
         Signature::build("clear")
             .category(Category::Platform)
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .switch(
                 "keep-scrollback",
                 "Do not clear the scrollback history",

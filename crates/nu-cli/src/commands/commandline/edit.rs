@@ -10,7 +10,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .switch(
                 "append",
                 "appends the string to the end of the buffer",

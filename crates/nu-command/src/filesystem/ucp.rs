@@ -30,7 +30,7 @@ impl Command for UCp {
 
     fn signature(&self) -> Signature {
         Signature::build("cp")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .switch("recursive", "copy directories recursively", Some('r'))
             .switch("verbose", "explicitly state what is being done", Some('v'))
             .switch(

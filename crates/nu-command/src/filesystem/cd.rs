@@ -22,7 +22,7 @@ impl Command for Cd {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .switch("physical", "use the physical directory structure; resolve symbolic links before processing instances of ..", Some('P'))
             .optional("path", SyntaxShape::Directory, "The path to change to.")
             .allow_variants_without_examples(true)

@@ -2075,7 +2075,7 @@ mod mock {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build("def")
-                .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+                .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
                 .required("def_name", SyntaxShape::String, "definition name")
                 .required("params", SyntaxShape::Signature, "parameters")
                 .required("body", SyntaxShape::Closure(None), "body of the definition")
