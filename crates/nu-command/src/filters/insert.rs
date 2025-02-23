@@ -114,6 +114,22 @@ When inserting into a specific index, the closure will instead get the current v
                     Value::test_int(4),
                 ])),
             },
+            Example {
+                description: "Insert into a nested path, creating new values as needed",
+                example: "[{} {a: [{}]}] | insert a.0.b \"value\"",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record!(
+                        "a" => Value::test_list(vec![Value::test_record(record!(
+                            "b" => Value::test_string("value"),
+                        ))]),
+                    )),
+                    Value::test_record(record!(
+                        "a" => Value::test_list(vec![Value::test_record(record!(
+                            "b" => Value::test_string("value"),
+                        ))]),
+                    )),
+                ])),
+            },
         ]
     }
 }

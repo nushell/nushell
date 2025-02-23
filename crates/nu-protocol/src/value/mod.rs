@@ -1333,15 +1333,8 @@ impl Value {
                                     if let Some(val) = record.get_mut(col_name) {
                                         val.upsert_data_at_cell_path(path, new_val.clone())?;
                                     } else {
-                                        let new_col = if path.is_empty() {
-                                            new_val.clone()
-                                        } else {
-                                            let mut new_col =
-                                                Value::record(Record::new(), new_val.span());
-                                            new_col
-                                                .upsert_data_at_cell_path(path, new_val.clone())?;
-                                            new_col
-                                        };
+                                        let new_col =
+                                            Value::with_data_at_cell_path(path, new_val.clone())?;
                                         record.push(col_name, new_col);
                                     }
                                 }
@@ -1361,13 +1354,7 @@ impl Value {
                         if let Some(val) = record.get_mut(col_name) {
                             val.upsert_data_at_cell_path(path, new_val)?;
                         } else {
-                            let new_col = if path.is_empty() {
-                                new_val
-                            } else {
-                                let mut new_col = Value::record(Record::new(), new_val.span());
-                                new_col.upsert_data_at_cell_path(path, new_val)?;
-                                new_col
-                            };
+                            let new_col = Value::with_data_at_cell_path(path, new_val.clone())?;
                             record.push(col_name, new_col);
                         }
                     }
@@ -1391,14 +1378,9 @@ impl Value {
                                 available_idx: vals.len(),
                                 span: *span,
                             });
-                        } else if !path.is_empty() {
-                            return Err(ShellError::AccessBeyondEnd {
-                                max_idx: vals.len() - 1,
-                                span: *span,
-                            });
                         } else {
                             // If the upsert is at 1 + the end of the list, it's OK.
-                            vals.push(new_val);
+                            vals.push(Value::with_data_at_cell_path(path, new_val)?);
                         }
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
@@ -1679,7 +1661,6 @@ impl Value {
             }
         }
     }
-
     pub fn insert_data_at_cell_path(
         &mut self,
         cell_path: &[PathMember],
@@ -1715,18 +1696,8 @@ impl Value {
                                             )?;
                                         }
                                     } else {
-                                        let new_col = if path.is_empty() {
-                                            new_val.clone()
-                                        } else {
-                                            let mut new_col =
-                                                Value::record(Record::new(), new_val.span());
-                                            new_col.insert_data_at_cell_path(
-                                                path,
-                                                new_val.clone(),
-                                                head_span,
-                                            )?;
-                                            new_col
-                                        };
+                                        let new_col =
+                                            Value::with_data_at_cell_path(path, new_val.clone())?;
                                         record.push(col_name, new_col);
                                     }
                                 }
@@ -1755,13 +1726,7 @@ impl Value {
                                 val.insert_data_at_cell_path(path, new_val, head_span)?;
                             }
                         } else {
-                            let new_col = if path.is_empty() {
-                                new_val
-                            } else {
-                                let mut new_col = Value::record(Record::new(), new_val.span());
-                                new_col.insert_data_at_cell_path(path, new_val, head_span)?;
-                                new_col
-                            };
+                            let new_col = Value::with_data_at_cell_path(path, new_val)?;
                             record.push(col_name, new_col);
                         }
                     }
@@ -1789,14 +1754,9 @@ impl Value {
                                 available_idx: vals.len(),
                                 span: *span,
                             });
-                        } else if !path.is_empty() {
-                            return Err(ShellError::AccessBeyondEnd {
-                                max_idx: vals.len() - 1,
-                                span: *span,
-                            });
                         } else {
                             // If the insert is at 1 + the end of the list, it's OK.
-                            vals.push(new_val);
+                            vals.push(Value::with_data_at_cell_path(path, new_val)?);
                         }
                     }
                     _ => {
@@ -1811,6 +1771,36 @@ impl Value {
             *self = new_val;
         }
         Ok(())
+    }
+
+    /// Creates a new [Value] with the specified member at the specified path.
+    /// This is used by [Value::insert_data_at_cell_path] and [Value::upsert_data_at_cell_path] whenever they have the need to insert a non-existent element
+    fn with_data_at_cell_path(cell_path: &[PathMember], value: Value) -> Result<Value, ShellError> {
+        if let Some((member, path)) = cell_path.split_first() {
+            let span = value.span();
+            match member {
+                PathMember::String { val, .. } => Ok(Value::record(
+                    std::iter::once((val.clone(), Value::with_data_at_cell_path(path, value)?))
+                        .collect(),
+                    span,
+                )),
+                PathMember::Int { val, .. } => {
+                    if *val == 0usize {
+                        Ok(Value::list(
+                            vec![Value::with_data_at_cell_path(path, value)?],
+                            span,
+                        ))
+                    } else {
+                        Err(ShellError::InsertAfterNextFreeIndex {
+                            available_idx: 0,
+                            span,
+                        })
+                    }
+                }
+            }
+        } else {
+            Ok(value)
+        }
     }
 
     /// Visits all values contained within the value (including this value) with a mutable reference
@@ -4026,6 +4016,161 @@ fn operator_type_error(
 mod tests {
     use super::{Record, Value};
     use crate::record;
+
+    mod at_cell_path {
+        use crate::{IntoValue, Span};
+
+        use super::super::PathMember;
+        use super::*;
+
+        #[test]
+        fn test_record_with_data_at_cell_path() {
+            let value_to_insert = Value::test_string("value");
+            let span = Span::test_data();
+            assert_eq!(
+                Value::with_data_at_cell_path(
+                    &[
+                        PathMember::test_string("a".to_string(), false),
+                        PathMember::test_string("b".to_string(), false),
+                        PathMember::test_string("c".to_string(), false),
+                        PathMember::test_string("d".to_string(), false),
+                    ],
+                    value_to_insert,
+                ),
+                // {a:{b:c{d:"value"}}}
+                Ok(record!(
+                    "a" => record!(
+                        "b" => record!(
+                            "c" => record!(
+                                "d" => Value::test_string("value")
+                            ).into_value(span)
+                        ).into_value(span)
+                    ).into_value(span)
+                )
+                .into_value(span))
+            );
+        }
+
+        #[test]
+        fn test_lists_with_data_at_cell_path() {
+            let value_to_insert = Value::test_string("value");
+            assert_eq!(
+                Value::with_data_at_cell_path(
+                    &[
+                        PathMember::test_int(0, false),
+                        PathMember::test_int(0, false),
+                        PathMember::test_int(0, false),
+                        PathMember::test_int(0, false),
+                    ],
+                    value_to_insert.clone(),
+                ),
+                // [[[[["value"]]]]]
+                Ok(Value::test_list(vec![Value::test_list(vec![
+                    Value::test_list(vec![Value::test_list(vec![value_to_insert])])
+                ])]))
+            );
+        }
+        #[test]
+        fn test_mixed_with_data_at_cell_path() {
+            let value_to_insert = Value::test_string("value");
+            let span = Span::test_data();
+            assert_eq!(
+                Value::with_data_at_cell_path(
+                    &[
+                        PathMember::test_string("a".to_string(), false),
+                        PathMember::test_int(0, false),
+                        PathMember::test_string("b".to_string(), false),
+                        PathMember::test_int(0, false),
+                        PathMember::test_string("c".to_string(), false),
+                        PathMember::test_int(0, false),
+                        PathMember::test_string("d".to_string(), false),
+                        PathMember::test_int(0, false),
+                    ],
+                    value_to_insert.clone(),
+                ),
+                // [{a:[{b:[{c:[{d:["value"]}]}]}]]}
+                Ok(record!(
+                    "a" => Value::test_list(vec![record!(
+                        "b" => Value::test_list(vec![record!(
+                            "c" => Value::test_list(vec![record!(
+                                "d" => Value::test_list(vec![value_to_insert])
+                            ).into_value(span)])
+                        ).into_value(span)])
+                    ).into_value(span)])
+                )
+                .into_value(span))
+            );
+        }
+
+        #[test]
+        fn test_nested_upsert_data_at_cell_path() {
+            let span = Span::test_data();
+            let mut base_value = record!(
+                "a" => Value::test_list(vec![])
+            )
+            .into_value(span);
+
+            let value_to_insert = Value::test_string("value");
+            let res = base_value.upsert_data_at_cell_path(
+                &[
+                    PathMember::test_string("a".to_string(), false),
+                    PathMember::test_int(0, false),
+                    PathMember::test_string("b".to_string(), false),
+                    PathMember::test_int(0, false),
+                ],
+                value_to_insert.clone(),
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                base_value,
+                // {a:[{b:["value"]}]}
+                record!(
+                    "a" => Value::test_list(vec![
+                        record!(
+                            "b" => Value::test_list(vec![value_to_insert])
+                        )
+                        .into_value(span)
+                    ])
+                )
+                .into_value(span)
+            );
+        }
+
+        #[test]
+        fn test_nested_insert_data_at_cell_path() {
+            let span = Span::test_data();
+            let mut base_value = record!(
+                "a" => Value::test_list(vec![])
+            )
+            .into_value(span);
+
+            let value_to_insert = Value::test_string("value");
+            let res = base_value.insert_data_at_cell_path(
+                &[
+                    PathMember::test_string("a".to_string(), false),
+                    PathMember::test_int(0, false),
+                    PathMember::test_string("b".to_string(), false),
+                    PathMember::test_int(0, false),
+                ],
+                value_to_insert.clone(),
+                span,
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                base_value,
+                // {a:[{b:["value"]}]}
+                record!(
+                    "a" => Value::test_list(vec![
+                        record!(
+                            "b" => Value::test_list(vec![value_to_insert])
+                        )
+                        .into_value(span)
+                    ])
+                )
+                .into_value(span)
+            );
+        }
+    }
 
     mod is_empty {
         use super::*;
