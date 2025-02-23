@@ -92,7 +92,7 @@ pub fn collect_input(value: Value) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
     let span = value.span();
     match value {
         Value::Record { val: record, .. } => {
-            let (key, val): (_, Vec<Value>) = record.into_owned().into_iter().unzip();
+            let (key, val): (_, Vec<Value>) = record.into_iter().unzip();
 
             Ok((
                 key,

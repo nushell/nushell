@@ -170,7 +170,7 @@ fn error_from_reedline(e: ReedlineError) -> ShellError {
 fn item_from_value(v: Value) -> Result<HistoryItem, ShellError> {
     let span = v.span();
     match v {
-        Value::Record { val, .. } => item_from_record(val.into_owned(), span),
+        Value::Record { val, .. } => item_from_record(val, span),
         Value::String { val, .. } => Ok(HistoryItem {
             command_line: val,
             id: None,

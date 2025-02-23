@@ -120,7 +120,7 @@ fn handle(
                 });
             }
             match value {
-                Value::Record { val, .. } => Ok(val.into_owned()),
+                Value::Record { val, .. } => Ok(val),
                 val => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "record".into(),
                     wrong_type: val.get_type().to_string(),

@@ -164,7 +164,7 @@ pub fn value_to_json_value(
         }
         Value::Record { val, .. } => {
             let mut m = nu_json::Map::new();
-            for (k, v) in &**val {
+            for (k, v) in val {
                 m.insert(
                     k.clone(),
                     value_to_json_value(engine_state, v, serialize_types)?,

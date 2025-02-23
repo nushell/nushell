@@ -112,7 +112,7 @@ pub enum Value {
         internal_span: Span,
     },
     Record {
-        val: SharedCow<Record>,
+        val: Record,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -1332,7 +1332,6 @@ impl Value {
                         for val in vals.iter_mut() {
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    let record = record.to_mut();
                                     if let Some(val) = record.get_mut(col_name) {
                                         val.upsert_data_at_cell_path(path, new_val.clone())?;
                                     } else {
@@ -1360,7 +1359,6 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        let record = record.to_mut();
                         if let Some(val) = record.get_mut(col_name) {
                             val.upsert_data_at_cell_path(path, new_val)?;
                         } else {
@@ -1702,7 +1700,6 @@ impl Value {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    let record = record.to_mut();
                                     if let Some(val) = record.get_mut(col_name) {
                                         if path.is_empty() {
                                             return Err(ShellError::ColumnAlreadyExists {
@@ -1746,7 +1743,6 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        let record = record.to_mut();
                         if let Some(val) = record.get_mut(col_name) {
                             if path.is_empty() {
                                 return Err(ShellError::ColumnAlreadyExists {

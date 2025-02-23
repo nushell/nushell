@@ -1,6 +1,4 @@
 //! Our insertion ordered map-type [`Record`]
-use std::{iter::FusedIterator, ops::RangeBounds};
-
 use crate::{ShellError, Span, Value};
 use ecow::EcoVec;
 use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
@@ -107,7 +105,7 @@ impl Record {
     }
 
     pub fn get_index(&self, idx: usize) -> Option<(&String, &Value)> {
-        self.inner.get(idx).map(|(col, val): &(_, _)| (col, val))
+        self.inner.get(idx).map(|(col, val)| (col, val))
     }
 
     /// Remove single value by key

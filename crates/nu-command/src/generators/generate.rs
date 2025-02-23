@@ -202,12 +202,11 @@ fn parse_closure_result(
             match value {
                 // {out: ..., next: ...} -> output and continue
                 Value::Record { val, .. } => {
-                    let iter = val.into_owned().into_iter();
                     let mut out = None;
                     let mut next = None;
                     let mut err = None;
 
-                    for (k, v) in iter {
+                    for (k, v) in val {
                         if k.eq_ignore_ascii_case("out") {
                             out = Some(v);
                         } else if k.eq_ignore_ascii_case("next") {
