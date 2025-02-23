@@ -9,36 +9,22 @@ use nu_protocol::{
 use reedline::Suggestion;
 
 #[derive(Clone)]
-pub struct OperatorCompletion {
-    previous_expr: Expression,
+pub struct OperatorCompletion<'a> {
+    pub left_hand_side: &'a Expression,
 }
 
-impl OperatorCompletion {
-    pub fn new(previous_expr: Expression) -> Self {
-        OperatorCompletion { previous_expr }
-    }
-}
-
-impl Completer for OperatorCompletion {
+impl Completer for OperatorCompletion<'_> {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        _prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         //Check if int, float, or string
-        let partial = std::str::from_utf8(working_set.get_span_contents(span)).unwrap_or("");
-        let op = match &self.previous_expr.expr {
-            Expr::BinaryOp(x, _, _) => &x.expr,
-            _ => {
-                return vec![];
-            }
-        };
-        let possible_operations = match op {
+        let possible_operations = match &self.left_hand_side.expr {
             Expr::Int(_) => vec![
                 ("+", "Add (Plus)"),
                 ("-", "Subtract (Minus)"),
@@ -121,7 +107,7 @@ impl Completer for OperatorCompletion {
             _ => vec![],
         };
 
-        let mut matcher = NuMatcher::new(partial, options.clone());
+        let mut matcher = NuMatcher::new(prefix, options);
         for (symbol, desc) in possible_operations.into_iter() {
             matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {

@@ -17,23 +17,15 @@ impl Completer for AttributeCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        _prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let partial = working_set.get_span_contents(span);
-        let mut matcher = NuMatcher::new(String::from_utf8_lossy(partial), options.clone());
+        let mut matcher = NuMatcher::new(prefix, options);
 
-        let attr_commands = working_set.find_commands_by_predicate(
-            |s| {
-                s.strip_prefix(b"attr ")
-                    .map(String::from_utf8_lossy)
-                    .is_some_and(|name| matcher.matches(&name))
-            },
-            true,
-        );
+        let attr_commands =
+            working_set.find_commands_by_predicate(|s| s.starts_with(b"attr "), true);
 
         for (name, desc, ty) in attr_commands {
             let name = name.strip_prefix(b"attr ").unwrap_or(&name);
@@ -62,14 +54,12 @@ impl Completer for AttributableCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        _prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let partial = working_set.get_span_contents(span);
-        let mut matcher = NuMatcher::new(String::from_utf8_lossy(partial), options.clone());
+        let mut matcher = NuMatcher::new(prefix, options);
 
         for s in ["def", "extern", "export def", "export extern"] {
             let decl_id = working_set

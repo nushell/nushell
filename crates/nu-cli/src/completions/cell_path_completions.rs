@@ -19,10 +19,9 @@ impl Completer for CellPathCompletion<'_> {
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        _prefix: &[u8],
+        _prefix: impl AsRef<str>,
         _span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         // empty tail is already handled as variable names completion
@@ -42,7 +41,7 @@ impl Completer for CellPathCompletion<'_> {
             end: true_end - offset,
         };
 
-        let mut matcher = NuMatcher::new(prefix_str, options.clone());
+        let mut matcher = NuMatcher::new(prefix_str, options);
 
         // evaluate the head expression to get its value
         let value = if let Expr::Var(var_id) = self.full_cell_path.head.expr {

@@ -12,10 +12,9 @@ pub trait Completer {
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
-        pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion>;
 }

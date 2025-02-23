@@ -14,7 +14,9 @@ use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, PipelineData}
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
 use support::{
-    completions_helpers::{new_dotnu_engine, new_partial_engine, new_quote_engine},
+    completions_helpers::{
+        new_dotnu_engine, new_external_engine, new_partial_engine, new_quote_engine,
+    },
     file, folder, match_suggestions, new_engine,
 };
 
@@ -292,6 +294,105 @@ fn customcompletions_fallback() {
     match_suggestions(&expected, &suggestions);
 }
 
+/// Custom function arguments mixed with subcommands
+#[test]
+fn custom_arguments_and_subcommands() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def foo [i: directory] {}
+        def "foo test bar" [] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "foo test";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    // including both subcommand and directory completions
+    let expected: Vec<String> = vec!["foo test bar".into(), folder("test_a"), folder("test_b")];
+    match_suggestions(&expected, &suggestions);
+}
+
+/// Custom function flags mixed with subcommands
+#[test]
+fn custom_flags_and_subcommands() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def foo [--test: directory] {}
+        def "foo --test bar" [] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "foo --test";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    // including both flag and directory completions
+    let expected: Vec<String> = vec!["foo --test bar".into(), "--test".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
+/// If argument type is something like int/string, complete only subcommands
+#[test]
+fn custom_arguments_vs_subcommands() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def foo [i: string] {}
+        def "foo test bar" [] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "foo test";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    // including only subcommand completions
+    let expected: Vec<String> = vec!["foo test bar".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
+/// External command only if starts with `^`
+#[test]
+fn external_commands_only() {
+    let engine = new_external_engine();
+    let mut completer = NuCompleter::new(
+        Arc::new(engine),
+        Arc::new(nu_protocol::engine::Stack::new()),
+    );
+    let completion_str = "^sleep";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    #[cfg(windows)]
+    let expected: Vec<String> = vec!["sleep.exe".into()];
+    #[cfg(not(windows))]
+    let expected: Vec<String> = vec!["sleep".into()];
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "sleep";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    #[cfg(windows)]
+    let expected: Vec<String> = vec!["sleep".into(), "sleep.exe".into()];
+    #[cfg(not(windows))]
+    let expected: Vec<String> = vec!["sleep".into(), "^sleep".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
+/// Which completes both internals and externals
+#[test]
+fn which_command_completions() {
+    let engine = new_external_engine();
+    let mut completer = NuCompleter::new(
+        Arc::new(engine),
+        Arc::new(nu_protocol::engine::Stack::new()),
+    );
+    // flags
+    let completion_str = "which --all";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<String> = vec!["--all".into()];
+    match_suggestions(&expected, &suggestions);
+    // commands
+    let completion_str = "which sleep";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    #[cfg(windows)]
+    let expected: Vec<String> = vec!["sleep".into(), "sleep.exe".into()];
+    #[cfg(not(windows))]
+    let expected: Vec<String> = vec!["sleep".into(), "^sleep".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
 /// Suppress completions for invalid values
 #[test]
 fn customcompletions_invalid() {
@@ -308,12 +409,40 @@ fn customcompletions_invalid() {
 }
 
 #[test]
+fn dont_use_dotnu_completions() {
+    // Create a new engine
+    let (_, _, engine, stack) = new_dotnu_engine();
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    // Test nested nu script
+    let completion_str = "go work use `./dir_module/".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+
+    // including a plaintext file
+    let expected: Vec<String> = vec![
+        "./dir_module/mod.nu".into(),
+        "./dir_module/plain.txt".into(),
+        "`./dir_module/sub module/`".into(),
+    ];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
 fn dotnu_completions() {
     // Create a new engine
     let (_, _, engine, stack) = new_dotnu_engine();
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // Flags should still be working
+    let completion_str = "overlay use --".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+
+    match_suggestions(
+        &vec!["--help".into(), "--prefix".into(), "--reload".into()],
+        &suggestions,
+    );
 
     // Test nested nu script
     #[cfg(windows)]
@@ -482,6 +611,17 @@ fn external_completer_fallback() {
     let input = "foo test".to_string();
 
     let expected = vec![folder("test_a"), file("test_a_symlink"), folder("test_b")];
+    let suggestions = run_external_completion(block, &input);
+    match_suggestions(&expected, &suggestions);
+}
+
+/// Fallback to external completions for flags of `sudo`
+#[test]
+fn external_completer_sudo() {
+    let block = "{|spans| ['--background']}";
+    let input = "sudo --back".to_string();
+
+    let expected = vec!["--background".into()];
     let suggestions = run_external_completion(block, &input);
     match_suggestions(&expected, &suggestions);
 }

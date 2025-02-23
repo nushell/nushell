@@ -12,27 +12,19 @@ use std::{
 
 use super::{SemanticSuggestion, SuggestionKind};
 
-#[derive(Clone, Default)]
-pub struct DotNuCompletion {}
-
-impl DotNuCompletion {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
+pub struct DotNuCompletion;
 
 impl Completer for DotNuCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let prefix_str = String::from_utf8_lossy(prefix);
+        let prefix_str = prefix.as_ref();
         let start_with_backquote = prefix_str.starts_with('`');
         let end_with_backquote = prefix_str.ends_with('`');
         let prefix_str = prefix_str.replace('`', "");
