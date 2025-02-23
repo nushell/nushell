@@ -328,7 +328,7 @@ fn custom_flags_and_subcommands() {
     match_suggestions(&expected, &suggestions);
 }
 
-/// Only complete subcommands if argument type is something like int/string
+/// If argument type is something like int/string, complete only subcommands
 #[test]
 fn custom_arguments_vs_subcommands() {
     let (_, _, mut engine, mut stack) = new_engine();
@@ -415,14 +415,16 @@ fn dont_use_dotnu_completions() {
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     // Test nested nu script
-    #[cfg(windows)]
-    let completion_str = "go work use `.\\dir_module\\".to_string();
-    #[cfg(not(windows))]
     let completion_str = "go work use `./dir_module/".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
     // including a plaintext file
-    assert_eq!(3, suggestions.len());
+    let expected: Vec<String> = vec![
+        "./dir_module/mod.nu".into(),
+        "./dir_module/plain.txt".into(),
+        "`./dir_module/sub module/`".into(),
+    ];
+    match_suggestions(&expected, &suggestions);
 }
 
 #[test]
