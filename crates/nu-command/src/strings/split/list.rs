@@ -147,7 +147,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a list of numbers into lists ending with 0",
-                example: r"[1 2 0 3 4 5 0 6 0 0 7] | split list --split=after 0",
+                example: r"[1 2 0 3 4 5 0 6 0 0 7] | split list --split after 0",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![
                         Value::test_int(1),
