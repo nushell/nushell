@@ -36,11 +36,8 @@ impl Command for Open {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
             .input_output_types(vec![
-                (Type::Nothing, Type::Any),
-                (Type::String, Type::Any),
-                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
-                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
-                (Type::Any, Type::Any),
+                (PipelineType::Empty, Type::Any),
+                (Type::String.into(), Type::Any),
             ])
             .rest(
                 "files",
