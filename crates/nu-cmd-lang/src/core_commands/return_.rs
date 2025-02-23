@@ -15,7 +15,7 @@ impl Command for Return {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("return")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(PipelineType::Empty, Type::Any)])
             .optional(
                 "return_value",
                 SyntaxShape::Any,

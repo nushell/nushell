@@ -11,7 +11,7 @@ impl Command for ConfigEnv {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Env)
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(PipelineType::Empty, Type::Any)])
             .switch(
                 "default",
                 "Print the internal default `env.nu` file instead.",

@@ -509,7 +509,7 @@ impl Command for ULimit {
 
     fn signature(&self) -> Signature {
         let mut sig = Signature::build("ulimit")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(PipelineType::Empty, Type::Any)])
             .switch("soft", "Sets soft resource limit", Some('S'))
             .switch("hard", "Sets hard resource limit", Some('H'))
             .switch("all", "Prints all current limits", Some('a'))

@@ -10,7 +10,7 @@ impl Command for ScopeEngineStats {
 
     fn signature(&self) -> Signature {
         Signature::build("scope engine-stats")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(PipelineType::Empty, Type::Any)])
             .allow_variants_without_examples(true)
             .category(Category::Core)
     }

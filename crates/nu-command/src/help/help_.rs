@@ -14,7 +14,7 @@ impl Command for Help {
 
     fn signature(&self) -> Signature {
         Signature::build("help")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(PipelineType::Empty, Type::Any)])
             .rest(
                 "rest",
                 SyntaxShape::String,
