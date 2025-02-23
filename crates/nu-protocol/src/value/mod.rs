@@ -1333,12 +1333,8 @@ impl Value {
                                     if let Some(val) = record.get_mut(col_name) {
                                         val.upsert_data_at_cell_path(path, new_val.clone())?;
                                     } else {
-                                        let new_val_span = new_val.span();
-                                        let new_col = Value::with_data_at_cell_path(
-                                            path,
-                                            new_val.clone(),
-                                            new_val_span,
-                                        )?;
+                                        let new_col =
+                                            Value::with_data_at_cell_path(path, new_val.clone())?;
                                         record.push(col_name, new_col);
                                     }
                                 }
@@ -1358,9 +1354,7 @@ impl Value {
                         if let Some(val) = record.get_mut(col_name) {
                             val.upsert_data_at_cell_path(path, new_val)?;
                         } else {
-                            let new_val_span = new_val.span();
-                            let new_col =
-                                Value::with_data_at_cell_path(path, new_val.clone(), new_val_span)?;
+                            let new_col = Value::with_data_at_cell_path(path, new_val.clone())?;
                             record.push(col_name, new_col);
                         }
                     }
@@ -1386,8 +1380,7 @@ impl Value {
                             });
                         } else {
                             // If the upsert is at 1 + the end of the list, it's OK.
-                            let new_val_span = new_val.span();
-                            vals.push(Value::with_data_at_cell_path(path, new_val, new_val_span)?);
+                            vals.push(Value::with_data_at_cell_path(path, new_val)?);
                         }
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
@@ -1703,11 +1696,8 @@ impl Value {
                                             )?;
                                         }
                                     } else {
-                                        let new_col = Value::with_data_at_cell_path(
-                                            path,
-                                            new_val.clone(),
-                                            new_val.span(),
-                                        )?;
+                                        let new_col =
+                                            Value::with_data_at_cell_path(path, new_val.clone())?;
                                         record.push(col_name, new_col);
                                     }
                                 }
@@ -1736,9 +1726,7 @@ impl Value {
                                 val.insert_data_at_cell_path(path, new_val, head_span)?;
                             }
                         } else {
-                            let new_val_span = new_val.span();
-                            let new_col =
-                                Value::with_data_at_cell_path(path, new_val, new_val_span)?;
+                            let new_col = Value::with_data_at_cell_path(path, new_val)?;
                             record.push(col_name, new_col);
                         }
                     }
@@ -1768,8 +1756,7 @@ impl Value {
                             });
                         } else {
                             // If the insert is at 1 + the end of the list, it's OK.
-                            let new_val_span = new_val.span();
-                            vals.push(Value::with_data_at_cell_path(path, new_val, new_val_span)?);
+                            vals.push(Value::with_data_at_cell_path(path, new_val)?);
                         }
                     }
                     _ => {
@@ -1788,25 +1775,19 @@ impl Value {
 
     /// Creates a new [Value] with the specified member at the specified path.
     /// This is used by [Value::insert_data_at_cell_path] and [Value::upsert_data_at_cell_path] whenever they have the need to insert a non-existent element
-    pub fn with_data_at_cell_path(
-        cell_path: &[PathMember],
-        value: Value,
-        span: Span,
-    ) -> Result<Value, ShellError> {
+    fn with_data_at_cell_path(cell_path: &[PathMember], value: Value) -> Result<Value, ShellError> {
         if let Some((member, path)) = cell_path.split_first() {
+            let span = value.span();
             match member {
                 PathMember::String { val, .. } => Ok(Value::record(
-                    std::iter::once((
-                        val.clone(),
-                        Value::with_data_at_cell_path(path, value, span)?,
-                    ))
-                    .collect(),
+                    std::iter::once((val.clone(), Value::with_data_at_cell_path(path, value)?))
+                        .collect(),
                     span,
                 )),
                 PathMember::Int { val, .. } => {
                     if *val == 0usize {
                         Ok(Value::list(
-                            vec![Value::with_data_at_cell_path(path, value, span)?],
+                            vec![Value::with_data_at_cell_path(path, value)?],
                             span,
                         ))
                     } else {
@@ -4055,7 +4036,6 @@ mod tests {
                         PathMember::test_string("d".to_string(), false),
                     ],
                     value_to_insert,
-                    span
                 ),
                 // {a:{b:c{d:"value"}}}
                 Ok(record!(
@@ -4074,7 +4054,6 @@ mod tests {
         #[test]
         fn test_lists_with_data_at_cell_path() {
             let value_to_insert = Value::test_string("value");
-            let span = Span::test_data();
             assert_eq!(
                 Value::with_data_at_cell_path(
                     &[
@@ -4084,7 +4063,6 @@ mod tests {
                         PathMember::test_int(0, false),
                     ],
                     value_to_insert.clone(),
-                    span
                 ),
                 // [[[[["value"]]]]]
                 Ok(Value::test_list(vec![Value::test_list(vec![
@@ -4109,7 +4087,6 @@ mod tests {
                         PathMember::test_int(0, false),
                     ],
                     value_to_insert.clone(),
-                    span
                 ),
                 // [{a:[{b:[{c:[{d:["value"]}]}]}]]}
                 Ok(record!(
