@@ -1,7 +1,6 @@
 use nu_cli::{eval_source, evaluate_commands};
 use nu_plugin_core::{Encoder, EncodingType};
 use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
-
 use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Signals, Span, Spanned, Value,
@@ -9,12 +8,11 @@ use nu_protocol::{
 use nu_std::load_standard_library;
 use nu_utils::{get_default_config, get_default_env};
 use std::{
+    fmt::Write,
+    hint::black_box,
     rc::Rc,
     sync::{atomic::AtomicBool, Arc},
 };
-
-use std::hint::black_box;
-
 use tango_bench::{benchmark_fn, tango_benchmarks, tango_main, IntoBenchmarks};
 
 fn load_bench_commands() -> EngineState {
@@ -141,13 +139,10 @@ fn bench_load_standard_lib() -> impl IntoBenchmarks {
     })]
 }
 
-fn create_flat_record_string(n: i32) -> String {
-    let mut s = String::from("let record = {");
+fn create_flat_record_string(n: usize) -> String {
+    let mut s = String::from("let record = { ");
     for i in 0..n {
-        s.push_str(&format!("col_{}: {}", i, i));
-        if i < n - 1 {
-            s.push_str(", ");
-        }
+        write!(s, "col_{i}: {i}, ").unwrap();
     }
     s.push('}');
     s
@@ -166,7 +161,7 @@ fn create_nested_record_string(depth: i32) -> String {
     s
 }
 
-fn create_example_table_nrows(n: i32) -> String {
+fn create_example_table_nrows(n: usize) -> String {
     let mut s = String::from("let table = [[foo bar baz]; ");
     for i in 0..n {
         s.push_str(&format!("[0, 1, {i}]"));
@@ -181,14 +176,14 @@ fn create_example_table_nrows(n: i32) -> String {
 fn bench_record_create(n: i32) -> impl IntoBenchmarks {
     bench_command(
         &format!("record_create_{n}"),
-        &create_flat_record_string(n),
+        &create_flat_record_string(n as usize),
         Stack::new(),
         setup_engine(),
     )
 }
 
 fn bench_record_flat_access(n: i32) -> impl IntoBenchmarks {
-    let setup_command = create_flat_record_string(n);
+    let setup_command = create_flat_record_string(n as usize);
     let (stack, engine) = setup_stack_and_engine_from_command(&setup_command);
     bench_command(
         &format!("record_flat_access_{n}"),
@@ -210,17 +205,28 @@ fn bench_record_nested_access(n: i32) -> impl IntoBenchmarks {
     )
 }
 
+fn bench_record_insert(n: usize, m: usize) -> impl IntoBenchmarks {
+    let setup_command = create_flat_record_string(n);
+    let (stack, engine) = setup_stack_and_engine_from_command(&setup_command);
+    let mut insert = String::from("$record");
+    for i in n..(n + m) {
+        write!(insert, " | insert col_{i} {i}").unwrap();
+    }
+    insert.push_str(" | ignore");
+    bench_command(&format!("record_insert_{n}_{m}"), &insert, stack, engine)
+}
+
 fn bench_table_create(n: i32) -> impl IntoBenchmarks {
     bench_command(
         &format!("table_create_{n}"),
-        &create_example_table_nrows(n),
+        &create_example_table_nrows(n as usize),
         Stack::new(),
         setup_engine(),
     )
 }
 
 fn bench_table_get(n: i32) -> impl IntoBenchmarks {
-    let setup_command = create_example_table_nrows(n);
+    let setup_command = create_example_table_nrows(n as usize);
     let (stack, engine) = setup_stack_and_engine_from_command(&setup_command);
     bench_command(
         &format!("table_get_{n}"),
@@ -231,7 +237,7 @@ fn bench_table_get(n: i32) -> impl IntoBenchmarks {
 }
 
 fn bench_table_select(n: i32) -> impl IntoBenchmarks {
-    let setup_command = create_example_table_nrows(n);
+    let setup_command = create_example_table_nrows(n as usize);
     let (stack, engine) = setup_stack_and_engine_from_command(&setup_command);
     bench_command(
         &format!("table_select_{n}"),
@@ -239,6 +245,28 @@ fn bench_table_select(n: i32) -> impl IntoBenchmarks {
         stack,
         engine,
     )
+}
+
+fn bench_table_insert_row(n: usize, m: usize) -> impl IntoBenchmarks {
+    let setup_command = create_example_table_nrows(n);
+    let (stack, engine) = setup_stack_and_engine_from_command(&setup_command);
+    let mut insert = String::from("$table");
+    for i in n..(n + m) {
+        write!(insert, " | insert {i} {{ foo: 0, bar: 1, baz: {i} }}").unwrap();
+    }
+    insert.push_str(" | ignore");
+    bench_command(&format!("table_insert_row_{n}_{m}"), &insert, stack, engine)
+}
+
+fn bench_table_insert_col(n: usize, m: usize) -> impl IntoBenchmarks {
+    let setup_command = create_example_table_nrows(n);
+    let (stack, engine) = setup_stack_and_engine_from_command(&setup_command);
+    let mut insert = String::from("$table");
+    for i in 0..m {
+        write!(insert, " | insert col_{i} {i}").unwrap();
+    }
+    insert.push_str(" | ignore");
+    bench_command(&format!("table_insert_col_{n}_{m}"), &insert, stack, engine)
 }
 
 fn bench_eval_interleave(n: i32) -> impl IntoBenchmarks {
@@ -427,6 +455,14 @@ tango_benchmarks!(
     bench_record_nested_access(32),
     bench_record_nested_access(64),
     bench_record_nested_access(128),
+    bench_record_insert(1, 1),
+    bench_record_insert(10, 1),
+    bench_record_insert(100, 1),
+    bench_record_insert(1000, 1),
+    bench_record_insert(1, 10),
+    bench_record_insert(10, 10),
+    bench_record_insert(100, 10),
+    bench_record_insert(1000, 10),
     // Table
     bench_table_create(1),
     bench_table_create(10),
@@ -440,6 +476,22 @@ tango_benchmarks!(
     bench_table_select(10),
     bench_table_select(100),
     bench_table_select(1_000),
+    bench_table_insert_row(1, 1),
+    bench_table_insert_row(10, 1),
+    bench_table_insert_row(100, 1),
+    bench_table_insert_row(1000, 1),
+    bench_table_insert_row(1, 10),
+    bench_table_insert_row(10, 10),
+    bench_table_insert_row(100, 10),
+    bench_table_insert_row(1000, 10),
+    bench_table_insert_col(1, 1),
+    bench_table_insert_col(10, 1),
+    bench_table_insert_col(100, 1),
+    bench_table_insert_col(1000, 1),
+    bench_table_insert_col(1, 10),
+    bench_table_insert_col(10, 10),
+    bench_table_insert_col(100, 10),
+    bench_table_insert_col(1000, 10),
     // Eval
     // Interleave
     bench_eval_interleave(100),
