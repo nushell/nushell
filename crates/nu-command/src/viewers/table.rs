@@ -1106,7 +1106,8 @@ fn create_empty_placeholder(
     let style_computer = &StyleComputer::from_config(engine_state, stack);
     configure_table(&mut out, &config, style_computer, TableMode::default());
 
-    let ret = out.table
+    let ret = out
+        .table
         .draw(termwidth)
         .expect("Could not create empty table placeholder");
     maybe_strip_color(ret, use_ansi_coloring)
