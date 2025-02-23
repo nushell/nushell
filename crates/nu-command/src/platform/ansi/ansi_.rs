@@ -1,11 +1,8 @@
 use nu_ansi_term::*;
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::StateWorkingSet;
-use once_cell::sync::Lazy;
-use std::{
-    collections::HashMap,
-    sync::{atomic::AtomicBool, Arc},
-};
+use nu_protocol::{engine::StateWorkingSet, Signals};
+use std::collections::HashMap;
+use std::sync::LazyLock;
 
 #[derive(Clone)]
 pub struct AnsiCommand;
@@ -17,7 +14,7 @@ struct AnsiCode {
 }
 
 #[rustfmt::skip]
-static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
+static CODE_LIST: LazyLock<Vec<AnsiCode>> = LazyLock::new(|| { vec![
     AnsiCode{ short_name: Some("g"), long_name: "green", code: Color::Green.prefix().to_string()},
     AnsiCode{ short_name: Some("gb"), long_name: "green_bold", code: Color::Green.bold().prefix().to_string()},
     AnsiCode{ short_name: Some("gu"), long_name: "green_underline", code: Color::Green.underline().prefix().to_string()},
@@ -428,8 +425,6 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode { short_name: Some("grey89"), long_name: "xterm_grey89", code: Color::Fixed(254).prefix().to_string()},
     AnsiCode { short_name: Some("grey93"), long_name: "xterm_grey93", code: Color::Fixed(255).prefix().to_string()},
 
-    AnsiCode{ short_name: None, long_name: "reset", code: "\x1b[0m".to_owned()},
-
     // Attributes
     AnsiCode { short_name: Some("n"), long_name: "attr_normal", code: Color::Green.suffix().to_string()},
     AnsiCode { short_name: Some("bo"), long_name: "attr_bold", code: Style::new().bold().prefix().to_string()},
@@ -439,6 +434,8 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode { short_name: Some("bl"), long_name: "attr_blink", code: Style::new().blink().prefix().to_string()},
     AnsiCode { short_name: Some("h"), long_name: "attr_hidden", code: Style::new().hidden().prefix().to_string()},
     AnsiCode { short_name: Some("s"), long_name: "attr_strike", code: Style::new().strikethrough().prefix().to_string()},
+
+    AnsiCode{ short_name: None, long_name: "reset", code: "\x1b[0m".to_owned()},
 
     // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
     // Another good reference http://ascii-table.com/ansi-escape-sequences.php
@@ -451,7 +448,8 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode{ short_name: None, long_name:"clear_screen_from_cursor_to_end", code: "\x1b[0J".to_string()}, // clears from cursor until end of screen
     AnsiCode{ short_name: None, long_name:"clear_screen_from_cursor_to_beginning", code: "\x1b[1J".to_string()}, // clears from cursor to beginning of screen
     AnsiCode{ short_name: Some("cls"), long_name:"clear_entire_screen", code: "\x1b[2J".to_string()}, // clears the entire screen
-    AnsiCode{ short_name: Some("clsb"), long_name:"clear_entire_screen_plus_buffer", code: "\x1b[3J".to_string()}, // clear entire screen and delete all lines saved in the scrollback buffer
+    AnsiCode{ short_name: Some("clsb"), long_name:"clear_entire_screen_plus_buffer", code: "\x1b[2J\x1b[3J".to_string()}, // clear entire screen and delete all lines saved in the scrollback buffer
+    AnsiCode{ short_name: Some("clb"), long_name:"clear_scrollback_buffer", code: "\x1b[3J".to_string()}, // clear entire screen and delete all lines saved in the scrollback buffer
     AnsiCode{ short_name: None, long_name:"erase_line", code: "\x1b[K".to_string()},                   // clears the current line
     AnsiCode{ short_name: None, long_name:"erase_line_from_cursor_to_end", code: "\x1b[0K".to_string()}, // clears from cursor to end of line
     AnsiCode{ short_name: None, long_name:"erase_line_from_cursor_to_beginning", code: "\x1b[1K".to_string()}, // clears from cursor to start of line
@@ -496,8 +494,8 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     ]
 });
 
-static CODE_MAP: Lazy<HashMap<&'static str, &'static str>> =
-    Lazy::new(|| build_ansi_hashmap(&CODE_LIST));
+static CODE_MAP: LazyLock<HashMap<&'static str, &'static str>> =
+    LazyLock::new(|| build_ansi_hashmap(&CODE_LIST));
 
 impl Command for AnsiCommand {
     fn name(&self) -> &str {
@@ -531,11 +529,11 @@ impl Command for AnsiCommand {
         true
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Output ANSI codes to change color and style of text."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "An introduction to what ANSI escape sequences are can be found in the
 \u{1b}]8;;https://en.wikipedia.org/wiki/ANSI_escape_code\u{1b}\\ANSI escape code\u{1b}]8;;\u{1b}\\ Wikipedia page.
 
@@ -656,11 +654,17 @@ Operating system commands:
         let list: bool = call.has_flag(engine_state, stack, "list")?;
         let escape: bool = call.has_flag(engine_state, stack, "escape")?;
         let osc: bool = call.has_flag(engine_state, stack, "osc")?;
-        let use_ansi_coloring = engine_state.get_config().use_ansi_coloring;
-        let ctrlc = engine_state.ctrlc.clone();
+        let use_ansi_coloring = stack
+            .get_config(engine_state)
+            .use_ansi_coloring
+            .get(engine_state);
 
         if list {
-            return Ok(generate_ansi_code_list(ctrlc, call.head, use_ansi_coloring));
+            return Ok(generate_ansi_code_list(
+                engine_state.signals().clone(),
+                call.head,
+                use_ansi_coloring,
+            ));
         }
 
         // The code can now be one of the ansi abbreviations like green_bold
@@ -676,7 +680,7 @@ Operating system commands:
             }
         };
 
-        let output = heavy_lifting(code, escape, osc, call)?;
+        let output = heavy_lifting(code, escape, osc, stack, call)?;
 
         Ok(Value::string(output, call.head).into_pipeline_data())
     }
@@ -690,11 +694,17 @@ Operating system commands:
         let list: bool = call.has_flag_const(working_set, "list")?;
         let escape: bool = call.has_flag_const(working_set, "escape")?;
         let osc: bool = call.has_flag_const(working_set, "osc")?;
-        let use_ansi_coloring = working_set.get_config().use_ansi_coloring;
-        let ctrlc = working_set.permanent().ctrlc.clone();
+        let use_ansi_coloring = working_set
+            .get_config()
+            .use_ansi_coloring
+            .get(working_set.permanent());
 
         if list {
-            return Ok(generate_ansi_code_list(ctrlc, call.head, use_ansi_coloring));
+            return Ok(generate_ansi_code_list(
+                working_set.permanent().signals().clone(),
+                call.head,
+                use_ansi_coloring,
+            ));
         }
 
         // The code can now be one of the ansi abbreviations like green_bold
@@ -710,26 +720,30 @@ Operating system commands:
             }
         };
 
-        let output = heavy_lifting(code, escape, osc, call)?;
+        let output = heavy_lifting(code, escape, osc, &Stack::new(), call)?;
 
         Ok(Value::string(output, call.head).into_pipeline_data())
     }
 }
 
-fn heavy_lifting(code: Value, escape: bool, osc: bool, call: &Call) -> Result<String, ShellError> {
+fn heavy_lifting(
+    code: Value,
+    escape: bool,
+    osc: bool,
+    stack: &Stack,
+    call: &Call,
+) -> Result<String, ShellError> {
     let param_is_string = matches!(code, Value::String { .. });
     if escape && osc {
         return Err(ShellError::IncompatibleParameters {
             left_message: "escape".into(),
             left_span: call
-                .get_named_arg("escape")
-                .expect("Unexpected missing argument")
-                .span,
+                .get_flag_span(stack, "escape")
+                .expect("Unexpected missing argument"),
             right_message: "osc".into(),
             right_span: call
-                .get_named_arg("osc")
-                .expect("Unexpected missing argument")
-                .span,
+                .get_flag_span(stack, "osc")
+                .expect("Unexpected missing argument"),
         });
     }
     let code_string = if param_is_string {
@@ -741,10 +755,7 @@ fn heavy_lifting(code: Value, escape: bool, osc: bool, call: &Call) -> Result<St
     if (escape || osc) && (param_is_valid_string) {
         let code_vec: Vec<char> = code_string.chars().collect();
         if code_vec[0] == '\\' {
-            let span = match call.get_flag_expr("escape") {
-                Some(expr) => expr.span,
-                None => call.head,
-            };
+            let span = call.get_flag_span(stack, "escape").unwrap_or(call.head);
 
             return Err(ShellError::TypeMismatch {
                 err_message: "no need for escape characters".into(),
@@ -827,7 +838,7 @@ pub fn str_to_ansi(s: &str) -> Option<String> {
 }
 
 fn generate_ansi_code_list(
-    ctrlc: Option<Arc<AtomicBool>>,
+    signals: Signals,
     call_span: Span,
     use_ansi_coloring: bool,
 ) -> PipelineData {
@@ -837,15 +848,19 @@ fn generate_ansi_code_list(
         .map(move |(i, ansi_code)| {
             let name = Value::string(ansi_code.long_name, call_span);
             let short_name = Value::string(ansi_code.short_name.unwrap_or(""), call_span);
-            // The first 102 items in the ansi array are colors
-            let preview = if i < 389 {
-                Value::string(format!("{}NUSHELL\u{1b}[0m", &ansi_code.code), call_span)
-            } else {
-                Value::string("\u{1b}[0m", call_span)
-            };
             let code = Value::string(ansi_code.code.replace('\u{1b}', "\\e"), call_span);
 
             let record = if use_ansi_coloring {
+                // The first 397 items in the ansi array are previewable
+                let preview = if i < 397 {
+                    Value::string(
+                        format!("\u{1b}[0m{}NUSHELL\u{1b}[0m", &ansi_code.code),
+                        call_span,
+                    )
+                } else {
+                    Value::string("\u{1b}[0m", call_span)
+                };
+
                 record! {
                     "name" => name,
                     "preview" => preview,
@@ -862,7 +877,7 @@ fn generate_ansi_code_list(
 
             Value::record(record, call_span)
         })
-        .into_pipeline_data(call_span, ctrlc)
+        .into_pipeline_data(call_span, signals.clone())
 }
 
 fn build_ansi_hashmap(v: &[AnsiCode]) -> HashMap<&str, &str> {

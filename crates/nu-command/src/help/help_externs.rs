@@ -10,7 +10,7 @@ impl Command for HelpExterns {
         "help externs"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show help on nushell externs."
     }
 
@@ -25,7 +25,7 @@ impl Command for HelpExterns {
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in extern names and usage",
+                "string to find in extern names and descriptions",
                 Some('f'),
             )
             .input_output_types(vec![(Type::Nothing, Type::table())])
@@ -45,7 +45,7 @@ impl Command for HelpExterns {
                 result: None,
             },
             Example {
-                description: "search for string in extern names and usages",
+                description: "search for string in extern names and descriptions",
                 example: "help externs --find smth",
                 result: None,
             },
@@ -86,7 +86,7 @@ pub fn help_externs(
         let found_cmds_vec = highlight_search_in_table(
             all_cmds_vec,
             &f.item,
-            &["name", "usage"],
+            &["name", "description"],
             &string_style,
             &highlight_style,
         )?;
@@ -107,20 +107,10 @@ pub fn help_externs(
             name.push_str(&r.item);
         }
 
-        let output = engine_state
-            .get_signatures_with_examples(false)
-            .iter()
-            .filter(|(signature, _, _, _, _)| signature.name == name)
-            .map(|(signature, examples, _, _, is_parser_keyword)| {
-                get_full_help(signature, examples, engine_state, stack, *is_parser_keyword)
-            })
-            .collect::<Vec<String>>();
-
-        if !output.is_empty() {
-            Ok(
-                Value::string(output.join("======================\n\n"), call.head)
-                    .into_pipeline_data(),
-            )
+        if let Some(decl) = engine_state.find_decl(name.as_bytes(), &[]) {
+            let cmd = engine_state.get_decl(decl);
+            let help_text = get_full_help(cmd, engine_state, stack);
+            Ok(Value::string(help_text, call.head).into_pipeline_data())
         } else {
             Err(ShellError::CommandNotFound {
                 span: Span::merge_many(rest.iter().map(|s| s.span)),

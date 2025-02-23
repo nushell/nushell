@@ -2,13 +2,13 @@ use crate::util::eval_source;
 #[cfg(feature = "plugin")]
 use nu_path::canonicalize_with;
 #[cfg(feature = "plugin")]
-use nu_protocol::{engine::StateWorkingSet, report_error, ParseError, PluginRegistryFile, Spanned};
+use nu_protocol::{engine::StateWorkingSet, ParseError, PluginRegistryFile, Spanned};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    report_error_new, HistoryFileFormat, PipelineData,
+    report_shell_error, PipelineData,
 };
 #[cfg(feature = "plugin")]
-use nu_utils::utils::perf;
+use nu_utils::perf;
 use std::path::PathBuf;
 
 #[cfg(feature = "plugin")]
@@ -16,16 +16,9 @@ const PLUGIN_FILE: &str = "plugin.msgpackz";
 #[cfg(feature = "plugin")]
 const OLD_PLUGIN_FILE: &str = "plugin.nu";
 
-const HISTORY_FILE_TXT: &str = "history.txt";
-const HISTORY_FILE_SQLITE: &str = "history.sqlite3";
-
 #[cfg(feature = "plugin")]
-pub fn read_plugin_file(
-    engine_state: &mut EngineState,
-    plugin_file: Option<Spanned<String>>,
-    storage_path: &str,
-) {
-    use nu_protocol::ShellError;
+pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Spanned<String>>) {
+    use nu_protocol::{shell_error::io::IoError, ShellError};
     use std::path::Path;
 
     let span = plugin_file.as_ref().map(|s| s.span);
@@ -36,7 +29,7 @@ pub fn read_plugin_file(
         .and_then(|p| Path::new(&p.item).extension())
         .is_some_and(|ext| ext == "nu")
     {
-        report_error_new(
+        report_shell_error(
             engine_state,
             &ShellError::GenericError {
                 error: "Wrong plugin file format".into(),
@@ -52,14 +45,14 @@ pub fn read_plugin_file(
     let mut start_time = std::time::Instant::now();
     // Reading signatures from plugin registry file
     // The plugin.msgpackz file stores the parsed signature collected from each registered plugin
-    add_plugin_file(engine_state, plugin_file.clone(), storage_path);
-    perf(
+    add_plugin_file(engine_state, plugin_file.clone());
+    perf!(
         "add plugin file to engine_state",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        engine_state.get_config().use_ansi_coloring,
+        engine_state
+            .get_config()
+            .use_ansi_coloring
+            .get(engine_state)
     );
 
     start_time = std::time::Instant::now();
@@ -73,8 +66,7 @@ pub fn read_plugin_file(
                     log::warn!("Plugin file not found: {}", plugin_path.display());
 
                     // Try migration of an old plugin file if this wasn't a custom plugin file
-                    if plugin_file.is_none() && migrate_old_plugin_file(engine_state, storage_path)
-                    {
+                    if plugin_file.is_none() && migrate_old_plugin_file(engine_state) {
                         let Ok(file) = std::fs::File::open(&plugin_path) else {
                             log::warn!("Failed to load newly migrated plugin file");
                             return;
@@ -84,18 +76,14 @@ pub fn read_plugin_file(
                         return;
                     }
                 } else {
-                    report_error_new(
+                    report_shell_error(
                         engine_state,
-                        &ShellError::GenericError {
-                            error: format!(
-                                "Error while opening plugin registry file: {}",
-                                plugin_path.display()
-                            ),
-                            msg: "plugin path defined here".into(),
-                            span,
-                            help: None,
-                            inner: vec![err.into()],
-                        },
+                        &ShellError::Io(IoError::new_internal_with_path(
+                            err.kind(),
+                            "Could not open plugin registry file",
+                            nu_protocol::location!(),
+                            plugin_path,
+                        )),
                     );
                     return;
                 }
@@ -116,7 +104,7 @@ pub fn read_plugin_file(
             Ok(contents) => contents,
             Err(err) => {
                 log::warn!("Failed to read plugin registry file: {err:?}");
-                report_error_new(
+                report_shell_error(
                     engine_state,
                     &ShellError::GenericError {
                         error: format!(
@@ -137,13 +125,13 @@ pub fn read_plugin_file(
             }
         };
 
-        perf(
+        perf!(
             &format!("read plugin file {}", plugin_path.display()),
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            engine_state.get_config().use_ansi_coloring,
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(engine_state)
         );
         start_time = std::time::Instant::now();
 
@@ -152,30 +140,26 @@ pub fn read_plugin_file(
         nu_plugin_engine::load_plugin_file(&mut working_set, &contents, span);
 
         if let Err(err) = engine_state.merge_delta(working_set.render()) {
-            report_error_new(engine_state, &err);
+            report_shell_error(engine_state, &err);
             return;
         }
 
-        perf(
+        perf!(
             &format!("load plugin file {}", plugin_path.display()),
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            engine_state.get_config().use_ansi_coloring,
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(engine_state)
         );
     }
 }
 
 #[cfg(feature = "plugin")]
-pub fn add_plugin_file(
-    engine_state: &mut EngineState,
-    plugin_file: Option<Spanned<String>>,
-    storage_path: &str,
-) {
+pub fn add_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Spanned<String>>) {
     use std::path::Path;
 
-    let working_set = StateWorkingSet::new(engine_state);
+    use nu_protocol::report_parse_error;
 
     if let Ok(cwd) = engine_state.cwd_as_string(None) {
         if let Some(plugin_file) = plugin_file {
@@ -190,18 +174,18 @@ pub fn add_plugin_file(
                 engine_state.plugin_path = Some(path)
             } else {
                 // It's an error if the directory for the plugin file doesn't exist.
-                report_error(
-                    &working_set,
+                report_parse_error(
+                    &StateWorkingSet::new(engine_state),
                     &ParseError::FileNotFound(
                         path_dir.to_string_lossy().into_owned(),
                         plugin_file.span,
                     ),
                 );
             }
-        } else if let Some(mut plugin_path) = nu_path::config_dir() {
+        } else if let Some(plugin_path) = nu_path::nu_config_dir() {
             // Path to store plugins signatures
-            plugin_path.push(storage_path);
-            let mut plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
+            let mut plugin_path =
+                canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path.into());
             plugin_path.push(PLUGIN_FILE);
             let plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
             engine_state.plugin_path = Some(plugin_path);
@@ -222,7 +206,8 @@ pub fn eval_config_contents(
             let prev_file = engine_state.file.take();
             engine_state.file = Some(config_path.clone());
 
-            eval_source(
+            // TODO: ignore this error?
+            let _ = eval_source(
                 engine_state,
                 stack,
                 &contents,
@@ -235,36 +220,18 @@ pub fn eval_config_contents(
             engine_state.file = prev_file;
 
             // Merge the environment in case env vars changed in the config
-            match engine_state.cwd(Some(stack)) {
-                Ok(cwd) => {
-                    if let Err(e) = engine_state.merge_env(stack, cwd) {
-                        report_error_new(engine_state, &e);
-                    }
-                }
-                Err(e) => {
-                    report_error_new(engine_state, &e);
-                }
+            if let Err(e) = engine_state.merge_env(stack) {
+                report_shell_error(engine_state, &e);
             }
         }
     }
 }
 
-pub(crate) fn get_history_path(storage_path: &str, mode: HistoryFileFormat) -> Option<PathBuf> {
-    nu_path::config_dir().map(|mut history_path| {
-        history_path.push(storage_path);
-        history_path.push(match mode {
-            HistoryFileFormat::PlainText => HISTORY_FILE_TXT,
-            HistoryFileFormat::Sqlite => HISTORY_FILE_SQLITE,
-        });
-        history_path
-    })
-}
-
 #[cfg(feature = "plugin")]
-pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -> bool {
+pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
     use nu_protocol::{
-        PluginExample, PluginIdentity, PluginRegistryItem, PluginRegistryItemData, PluginSignature,
-        ShellError,
+        shell_error::io::IoError, PluginExample, PluginIdentity, PluginRegistryItem,
+        PluginRegistryItemData, PluginSignature, ShellError,
     };
     use std::collections::BTreeMap;
 
@@ -274,10 +241,9 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
         return false;
     };
 
-    let Some(config_dir) = nu_path::config_dir().and_then(|mut dir| {
-        dir.push(storage_path);
-        nu_path::canonicalize_with(dir, &cwd).ok()
-    }) else {
+    let Some(config_dir) =
+        nu_path::nu_config_dir().and_then(|dir| nu_path::canonicalize_with(dir, &cwd).ok())
+    else {
         return false;
     };
 
@@ -288,7 +254,7 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
     let old_contents = match std::fs::read(&old_plugin_file_path) {
         Ok(old_contents) => old_contents,
         Err(err) => {
-            report_error_new(
+            report_shell_error(
                 engine_state,
                 &ShellError::GenericError {
                     error: "Can't read old plugin file to migrate".into(),
@@ -344,17 +310,28 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
             name: identity.name().to_owned(),
             filename: identity.filename().to_owned(),
             shell: identity.shell().map(|p| p.to_owned()),
-            data: PluginRegistryItemData::Valid { commands },
+            data: PluginRegistryItemData::Valid {
+                metadata: Default::default(),
+                commands,
+            },
         });
     }
 
     // Write the new file
     let new_plugin_file_path = config_dir.join(PLUGIN_FILE);
     if let Err(err) = std::fs::File::create(&new_plugin_file_path)
-        .map_err(|e| e.into())
+        .map_err(|err| {
+            IoError::new_internal_with_path(
+                err.kind(),
+                "Could not create new plugin file",
+                nu_protocol::location!(),
+                new_plugin_file_path.clone(),
+            )
+        })
+        .map_err(ShellError::from)
         .and_then(|file| contents.write_to(file, None))
     {
-        report_error_new(
+        report_shell_error(
             &engine_state,
             &ShellError::GenericError {
                 error: "Failed to save migrated plugin file".into(),
@@ -378,13 +355,13 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
         );
     }
 
-    perf(
+    perf!(
         "migrate old plugin file",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        engine_state.get_config().use_ansi_coloring,
+        engine_state
+            .get_config()
+            .use_ansi_coloring
+            .get(&engine_state)
     );
     true
 }

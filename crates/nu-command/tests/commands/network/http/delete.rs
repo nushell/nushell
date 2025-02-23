@@ -1,3 +1,5 @@
+use std::{thread, time::Duration};
+
 use mockito::Server;
 use nu_test_support::{nu, pipeline};
 
@@ -11,6 +13,25 @@ fn http_delete_is_success() {
         format!(
             r#"
         http delete {url}
+        "#,
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert!(actual.out.is_empty())
+}
+
+#[test]
+fn http_delete_is_success_pipeline() {
+    let mut server = Server::new();
+
+    let _mock = server.mock("DELETE", "/").create();
+
+    let actual = nu!(pipeline(
+        format!(
+            r#"
+        "foo" | http delete {url}
         "#,
             url = server.url()
         )
@@ -102,4 +123,23 @@ fn http_delete_redirect_mode_error() {
     assert!(&actual.err.contains(
         "Redirect encountered when redirect handling mode was 'error' (301 Moved Permanently)"
     ));
+}
+
+#[test]
+fn http_delete_timeout() {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("DELETE", "/")
+        .with_chunked_body(|w| {
+            thread::sleep(Duration::from_secs(10));
+            w.write_all(b"Delayed response!")
+        })
+        .create();
+
+    let actual = nu!(pipeline(
+        format!("http delete --max-time 100ms {url}", url = server.url()).as_str()
+    ));
+
+    assert!(&actual.err.contains("nu::shell::io::timed_out"));
+    assert!(&actual.err.contains("Timed out"));
 }

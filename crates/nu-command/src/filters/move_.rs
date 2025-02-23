@@ -1,9 +1,13 @@
+use std::ops::Not;
+
 use nu_engine::command_prelude::*;
 
 #[derive(Clone, Debug)]
-enum BeforeOrAfter {
-    Before(String),
-    After(String),
+enum Location {
+    Before(Spanned<String>),
+    After(Spanned<String>),
+    Last,
+    First,
 }
 
 #[derive(Clone)]
@@ -14,8 +18,8 @@ impl Command for Move {
         "move"
     }
 
-    fn usage(&self) -> &str {
-        "Move columns before or after other columns."
+    fn description(&self) -> &str {
+        "Moves columns relative to other columns or make them the first/last columns. Flags are mutually exclusive."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -37,6 +41,8 @@ impl Command for Move {
                 "the column that will be the next after the columns moved",
                 None,
             )
+            .switch("first", "makes the columns be the first ones", None)
+            .switch("last", "makes the columns be the last ones", None)
             .category(Category::Filters)
     }
 
@@ -113,29 +119,33 @@ impl Command for Move {
         let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let after: Option<Value> = call.get_flag(engine_state, stack, "after")?;
         let before: Option<Value> = call.get_flag(engine_state, stack, "before")?;
+        let first = call.has_flag(engine_state, stack, "first")?;
+        let last = call.has_flag(engine_state, stack, "last")?;
 
-        let before_or_after = match (after, before) {
-            (Some(v), None) => Spanned {
+        let location = match (after, before, first, last) {
+            (Some(v), None, false, false) => Location::After(Spanned {
                 span: v.span(),
-                item: BeforeOrAfter::After(v.coerce_into_string()?),
-            },
-            (None, Some(v)) => Spanned {
+                item: v.coerce_into_string()?,
+            }),
+            (None, Some(v), false, false) => Location::Before(Spanned {
                 span: v.span(),
-                item: BeforeOrAfter::Before(v.coerce_into_string()?),
-            },
-            (Some(_), Some(_)) => {
+                item: v.coerce_into_string()?,
+            }),
+            (None, None, true, false) => Location::First,
+            (None, None, false, true) => Location::Last,
+            (None, None, false, false) => {
                 return Err(ShellError::GenericError {
                     error: "Cannot move columns".into(),
-                    msg: "Use either --after, or --before, not both".into(),
+                    msg: "Missing required location flag".into(),
                     span: Some(head),
                     help: None,
                     inner: vec![],
                 })
             }
-            (None, None) => {
+            _ => {
                 return Err(ShellError::GenericError {
                     error: "Cannot move columns".into(),
-                    msg: "Missing --after or --before flag".into(),
+                    msg: "Use only a single flag".into(),
                     span: Some(head),
                     help: None,
                     inner: vec![],
@@ -144,25 +154,25 @@ impl Command for Move {
         };
 
         let metadata = input.metadata();
-        let ctrlc = engine_state.ctrlc.clone();
 
         match input {
             PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream { .. } => {
                 let res = input.into_iter().map(move |x| match x.as_record() {
-                    Ok(record) => {
-                        match move_record_columns(record, &columns, &before_or_after, head) {
-                            Ok(val) => val,
-                            Err(error) => Value::error(error, head),
-                        }
-                    }
+                    Ok(record) => match move_record_columns(record, &columns, &location, head) {
+                        Ok(val) => val,
+                        Err(error) => Value::error(error, head),
+                    },
                     Err(error) => Value::error(error, head),
                 });
 
-                Ok(res.into_pipeline_data_with_metadata(head, ctrlc, metadata))
+                Ok(res.into_pipeline_data_with_metadata(
+                    head,
+                    engine_state.signals().clone(),
+                    metadata,
+                ))
             }
             PipelineData::Value(Value::Record { val, .. }, ..) => {
-                Ok(move_record_columns(&val, &columns, &before_or_after, head)?
-                    .into_pipeline_data())
+                Ok(move_record_columns(&val, &columns, &location, head)?.into_pipeline_data())
             }
             _ => Err(ShellError::PipelineMismatch {
                 exp_input_type: "record or table".to_string(),
@@ -177,26 +187,10 @@ impl Command for Move {
 fn move_record_columns(
     record: &Record,
     columns: &[Value],
-    before_or_after: &Spanned<BeforeOrAfter>,
+    location: &Location,
     span: Span,
 ) -> Result<Value, ShellError> {
     let mut column_idx: Vec<usize> = Vec::with_capacity(columns.len());
-
-    let pivot = match &before_or_after.item {
-        BeforeOrAfter::Before(before) => before,
-        BeforeOrAfter::After(after) => after,
-    };
-
-    // check if pivot exists
-    if !record.contains(pivot) {
-        return Err(ShellError::GenericError {
-            error: "Cannot move columns".into(),
-            msg: "column does not exist".into(),
-            span: Some(before_or_after.span),
-            help: None,
-            inner: vec![],
-        });
-    }
 
     // Find indices of columns to be moved
     for column in columns.iter() {
@@ -211,48 +205,93 @@ fn move_record_columns(
                 inner: vec![],
             });
         }
-
-        let column_as_string = column.coerce_string()?;
-        // check if column is also pivot
-        if &column_as_string == pivot {
-            return Err(ShellError::IncompatibleParameters {
-                left_message: "Column cannot be moved".to_string(),
-                left_span: column.span(),
-                right_message: "relative to itself".to_string(),
-                right_span: before_or_after.span,
-            });
-        }
     }
 
     let mut out = Record::with_capacity(record.len());
 
-    for (i, (inp_col, inp_val)) in record.iter().enumerate() {
-        if inp_col == pivot {
-            if matches!(&before_or_after.item, BeforeOrAfter::After(..)) {
-                out.push(inp_col.clone(), inp_val.clone());
+    match &location {
+        Location::Before(pivot) | Location::After(pivot) => {
+            // Check if pivot exists
+            if !record.contains(&pivot.item) {
+                return Err(ShellError::GenericError {
+                    error: "Cannot move columns".into(),
+                    msg: "column does not exist".into(),
+                    span: Some(pivot.span),
+                    help: None,
+                    inner: vec![],
+                });
             }
 
-            for idx in column_idx.iter() {
-                if let Some((col, val)) = record.get_index(*idx) {
-                    out.push(col.clone(), val.clone());
-                } else {
-                    return Err(ShellError::NushellFailedSpanned {
-                        msg: "Error indexing input columns".to_string(),
-                        label: "originates from here".to_string(),
-                        span,
-                    });
+            for (i, (inp_col, inp_val)) in record.iter().enumerate() {
+                if inp_col == &pivot.item {
+                    // Check if this pivot is also a column we are supposed to move
+                    if column_idx.contains(&i) {
+                        return Err(ShellError::IncompatibleParameters {
+                            left_message: "Column cannot be moved".to_string(),
+                            left_span: inp_val.span(),
+                            right_message: "relative to itself".to_string(),
+                            right_span: pivot.span,
+                        });
+                    }
+
+                    if matches!(location, Location::After(..)) {
+                        out.push(inp_col.clone(), inp_val.clone());
+                    }
+
+                    insert_moved(record, span, &column_idx, &mut out)?;
+
+                    if matches!(location, Location::Before(..)) {
+                        out.push(inp_col.clone(), inp_val.clone());
+                    }
+                } else if !column_idx.contains(&i) {
+                    out.push(inp_col.clone(), inp_val.clone());
                 }
             }
-
-            if matches!(&before_or_after.item, BeforeOrAfter::Before(..)) {
-                out.push(inp_col.clone(), inp_val.clone());
-            }
-        } else if !column_idx.contains(&i) {
-            out.push(inp_col.clone(), inp_val.clone());
         }
-    }
+        Location::First => {
+            insert_moved(record, span, &column_idx, &mut out)?;
+
+            out.extend(where_unmoved(record, &column_idx));
+        }
+        Location::Last => {
+            out.extend(where_unmoved(record, &column_idx));
+
+            insert_moved(record, span, &column_idx, &mut out)?;
+        }
+    };
 
     Ok(Value::record(out, span))
+}
+
+fn where_unmoved<'a>(
+    record: &'a Record,
+    column_idx: &'a [usize],
+) -> impl Iterator<Item = (String, Value)> + use<'a> {
+    record
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| column_idx.contains(i).not())
+        .map(|(_, (c, v))| (c.clone(), v.clone()))
+}
+
+fn insert_moved(
+    record: &Record,
+    span: Span,
+    column_idx: &[usize],
+    out: &mut Record,
+) -> Result<(), ShellError> {
+    for idx in column_idx.iter() {
+        if let Some((col, val)) = record.get_index(*idx) {
+            out.push(col.clone(), val.clone());
+        } else {
+            return Err(ShellError::NushellFailedSpanned {
+                msg: "Error indexing input columns".to_string(),
+                label: "originates from here".to_string(),
+                span,
+            });
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -282,140 +321,186 @@ mod test {
     fn move_after_with_single_column() {
         let test_span = Span::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d"], vec![1, 2, 3, 4]);
-        let after: Spanned<BeforeOrAfter> = Spanned {
-            item: BeforeOrAfter::After("c".to_string()),
+        let after: Location = Location::After(Spanned {
+            item: "c".to_string(),
             span: test_span,
-        };
-        let columns = [Value::test_string("a")];
+        });
+        let columns = ["a"].map(Value::test_string);
 
         // corresponds to: {a: 1, b: 2, c: 3, d: 4} | move a --after c
         let result = move_record_columns(&test_record, &columns, &after, test_span);
 
         assert!(result.is_ok());
 
-        let result_rec_tmp = result.unwrap();
-        let result_record = result_rec_tmp.as_record().unwrap();
+        let result_record = result.unwrap().into_record().unwrap();
+        let result_columns = result_record.into_columns().collect::<Vec<String>>();
 
-        assert_eq!(*result_record.get_index(0).unwrap().0, "b".to_string());
-        assert_eq!(*result_record.get_index(1).unwrap().0, "c".to_string());
-        assert_eq!(*result_record.get_index(2).unwrap().0, "a".to_string());
-        assert_eq!(*result_record.get_index(3).unwrap().0, "d".to_string());
+        assert_eq!(result_columns, ["b", "c", "a", "d"]);
     }
 
     #[test]
     fn move_after_with_multiple_columns() {
         let test_span = Span::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d", "e"], vec![1, 2, 3, 4, 5]);
-        let after: Spanned<BeforeOrAfter> = Spanned {
-            item: BeforeOrAfter::After("c".to_string()),
+        let after: Location = Location::After(Spanned {
+            item: "c".to_string(),
             span: test_span,
-        };
-        let columns = [Value::test_string("b"), Value::test_string("e")];
+        });
+        let columns = ["b", "e"].map(Value::test_string);
 
         // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move b e --after c
         let result = move_record_columns(&test_record, &columns, &after, test_span);
 
         assert!(result.is_ok());
 
-        let result_rec_tmp = result.unwrap();
-        let result_record = result_rec_tmp.as_record().unwrap();
+        let result_record = result.unwrap().into_record().unwrap();
+        let result_columns = result_record.into_columns().collect::<Vec<String>>();
 
-        assert_eq!(*result_record.get_index(0).unwrap().0, "a".to_string());
-        assert_eq!(*result_record.get_index(1).unwrap().0, "c".to_string());
-        assert_eq!(*result_record.get_index(2).unwrap().0, "b".to_string());
-        assert_eq!(*result_record.get_index(3).unwrap().0, "e".to_string());
-        assert_eq!(*result_record.get_index(4).unwrap().0, "d".to_string());
+        assert_eq!(result_columns, ["a", "c", "b", "e", "d"]);
     }
 
     #[test]
     fn move_before_with_single_column() {
         let test_span = Span::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d"], vec![1, 2, 3, 4]);
-        let after: Spanned<BeforeOrAfter> = Spanned {
-            item: BeforeOrAfter::Before("b".to_string()),
+        let before: Location = Location::Before(Spanned {
+            item: "b".to_string(),
             span: test_span,
-        };
-        let columns = [Value::test_string("d")];
+        });
+        let columns = ["d"].map(Value::test_string);
 
         // corresponds to: {a: 1, b: 2, c: 3, d: 4} | move d --before b
-        let result = move_record_columns(&test_record, &columns, &after, test_span);
+        let result = move_record_columns(&test_record, &columns, &before, test_span);
 
         assert!(result.is_ok());
 
-        let result_rec_tmp = result.unwrap();
-        let result_record = result_rec_tmp.as_record().unwrap();
+        let result_record = result.unwrap().into_record().unwrap();
+        let result_columns = result_record.into_columns().collect::<Vec<String>>();
 
-        assert_eq!(*result_record.get_index(0).unwrap().0, "a".to_string());
-        assert_eq!(*result_record.get_index(1).unwrap().0, "d".to_string());
-        assert_eq!(*result_record.get_index(2).unwrap().0, "b".to_string());
-        assert_eq!(*result_record.get_index(3).unwrap().0, "c".to_string());
+        assert_eq!(result_columns, ["a", "d", "b", "c"]);
     }
 
     #[test]
     fn move_before_with_multiple_columns() {
         let test_span = Span::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d", "e"], vec![1, 2, 3, 4, 5]);
-        let after: Spanned<BeforeOrAfter> = Spanned {
-            item: BeforeOrAfter::Before("b".to_string()),
+        let before: Location = Location::Before(Spanned {
+            item: "b".to_string(),
             span: test_span,
-        };
-        let columns = [Value::test_string("c"), Value::test_string("e")];
+        });
+        let columns = ["c", "e"].map(Value::test_string);
 
         // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move c e --before b
-        let result = move_record_columns(&test_record, &columns, &after, test_span);
+        let result = move_record_columns(&test_record, &columns, &before, test_span);
 
         assert!(result.is_ok());
 
-        let result_rec_tmp = result.unwrap();
-        let result_record = result_rec_tmp.as_record().unwrap();
+        let result_record = result.unwrap().into_record().unwrap();
+        let result_columns = result_record.into_columns().collect::<Vec<String>>();
 
-        assert_eq!(*result_record.get_index(0).unwrap().0, "a".to_string());
-        assert_eq!(*result_record.get_index(1).unwrap().0, "c".to_string());
-        assert_eq!(*result_record.get_index(2).unwrap().0, "e".to_string());
-        assert_eq!(*result_record.get_index(3).unwrap().0, "b".to_string());
-        assert_eq!(*result_record.get_index(4).unwrap().0, "d".to_string());
+        assert_eq!(result_columns, ["a", "c", "e", "b", "d"]);
+    }
+
+    #[test]
+    fn move_first_with_single_column() {
+        let test_span = Span::test_data();
+        let test_record = get_test_record(vec!["a", "b", "c", "d"], vec![1, 2, 3, 4]);
+        let columns = ["c"].map(Value::test_string);
+
+        // corresponds to: {a: 1, b: 2, c: 3, d: 4} | move c --first
+        let result = move_record_columns(&test_record, &columns, &Location::First, test_span);
+
+        assert!(result.is_ok());
+
+        let result_record = result.unwrap().into_record().unwrap();
+        let result_columns = result_record.into_columns().collect::<Vec<String>>();
+
+        assert_eq!(result_columns, ["c", "a", "b", "d"]);
+    }
+
+    #[test]
+    fn move_first_with_multiple_columns() {
+        let test_span = Span::test_data();
+        let test_record = get_test_record(vec!["a", "b", "c", "d", "e"], vec![1, 2, 3, 4, 5]);
+        let columns = ["c", "e"].map(Value::test_string);
+
+        // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move c e --first
+        let result = move_record_columns(&test_record, &columns, &Location::First, test_span);
+
+        assert!(result.is_ok());
+
+        let result_record = result.unwrap().into_record().unwrap();
+        let result_columns = result_record.into_columns().collect::<Vec<String>>();
+
+        assert_eq!(result_columns, ["c", "e", "a", "b", "d"]);
+    }
+
+    #[test]
+    fn move_last_with_single_column() {
+        let test_span = Span::test_data();
+        let test_record = get_test_record(vec!["a", "b", "c", "d"], vec![1, 2, 3, 4]);
+        let columns = ["b"].map(Value::test_string);
+
+        // corresponds to: {a: 1, b: 2, c: 3, d: 4} | move b --last
+        let result = move_record_columns(&test_record, &columns, &Location::Last, test_span);
+
+        assert!(result.is_ok());
+
+        let result_record = result.unwrap().into_record().unwrap();
+        let result_columns = result_record.into_columns().collect::<Vec<String>>();
+
+        assert_eq!(result_columns, ["a", "c", "d", "b"]);
+    }
+
+    #[test]
+    fn move_last_with_multiple_columns() {
+        let test_span = Span::test_data();
+        let test_record = get_test_record(vec!["a", "b", "c", "d", "e"], vec![1, 2, 3, 4, 5]);
+        let columns = ["c", "d"].map(Value::test_string);
+
+        // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move c d --last
+        let result = move_record_columns(&test_record, &columns, &Location::Last, test_span);
+
+        assert!(result.is_ok());
+
+        let result_record = result.unwrap().into_record().unwrap();
+        let result_columns = result_record.into_columns().collect::<Vec<String>>();
+
+        assert_eq!(result_columns, ["a", "b", "e", "c", "d"]);
     }
 
     #[test]
     fn move_with_multiple_columns_reorders_columns() {
         let test_span = Span::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d", "e"], vec![1, 2, 3, 4, 5]);
-        let after: Spanned<BeforeOrAfter> = Spanned {
-            item: BeforeOrAfter::After("e".to_string()),
+        let after: Location = Location::After(Spanned {
+            item: "e".to_string(),
             span: test_span,
-        };
-        let columns = [
-            Value::test_string("d"),
-            Value::test_string("c"),
-            Value::test_string("a"),
-        ];
+        });
+        let columns = ["d", "c", "a"].map(Value::test_string);
 
         // corresponds to: {a: 1, b: 2, c: 3, d: 4, e: 5} | move d c a --after e
         let result = move_record_columns(&test_record, &columns, &after, test_span);
 
         assert!(result.is_ok());
 
-        let result_rec_tmp = result.unwrap();
-        let result_record = result_rec_tmp.as_record().unwrap();
+        let result_record = result.unwrap().into_record().unwrap();
+        let result_columns = result_record.into_columns().collect::<Vec<String>>();
 
-        assert_eq!(*result_record.get_index(0).unwrap().0, "b".to_string());
-        assert_eq!(*result_record.get_index(1).unwrap().0, "e".to_string());
-        assert_eq!(*result_record.get_index(2).unwrap().0, "d".to_string());
-        assert_eq!(*result_record.get_index(3).unwrap().0, "c".to_string());
-        assert_eq!(*result_record.get_index(4).unwrap().0, "a".to_string());
+        assert_eq!(result_columns, ["b", "e", "d", "c", "a"]);
     }
 
     #[test]
     fn move_fails_when_pivot_not_present() {
         let test_span = Span::test_data();
         let test_record = get_test_record(vec!["a", "b"], vec![1, 2]);
-        let after: Spanned<BeforeOrAfter> = Spanned {
-            item: BeforeOrAfter::Before("non-existent".to_string()),
+        let before: Location = Location::Before(Spanned {
+            item: "non-existent".to_string(),
             span: test_span,
-        };
-        let columns = [Value::test_string("a")];
+        });
+        let columns = ["a"].map(Value::test_string);
 
-        let result = move_record_columns(&test_record, &columns, &after, test_span);
+        let result = move_record_columns(&test_record, &columns, &before, test_span);
 
         assert!(result.is_err());
     }
@@ -424,13 +509,13 @@ mod test {
     fn move_fails_when_column_not_present() {
         let test_span = Span::test_data();
         let test_record = get_test_record(vec!["a", "b"], vec![1, 2]);
-        let after: Spanned<BeforeOrAfter> = Spanned {
-            item: BeforeOrAfter::Before("b".to_string()),
+        let before: Location = Location::Before(Spanned {
+            item: "b".to_string(),
             span: test_span,
-        };
-        let columns = [Value::test_string("a"), Value::test_string("non-existent")];
+        });
+        let columns = ["a", "non-existent"].map(Value::test_string);
 
-        let result = move_record_columns(&test_record, &columns, &after, test_span);
+        let result = move_record_columns(&test_record, &columns, &before, test_span);
 
         assert!(result.is_err());
     }
@@ -439,11 +524,11 @@ mod test {
     fn move_fails_when_column_is_also_pivot() {
         let test_span = Span::test_data();
         let test_record = get_test_record(vec!["a", "b", "c", "d"], vec![1, 2, 3, 4]);
-        let after: Spanned<BeforeOrAfter> = Spanned {
-            item: BeforeOrAfter::After("b".to_string()),
+        let after: Location = Location::After(Spanned {
+            item: "b".to_string(),
             span: test_span,
-        };
-        let columns = [Value::test_string("b"), Value::test_string("d")];
+        });
+        let columns = ["b", "d"].map(Value::test_string);
 
         let result = move_record_columns(&test_record, &columns, &after, test_span);
 

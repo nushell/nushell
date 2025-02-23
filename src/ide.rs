@@ -3,7 +3,9 @@ use nu_cli::NuCompleter;
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error_new, DeclId, ShellError, Span, Value, VarId,
+    report_shell_error,
+    shell_error::io::{ErrorKindExt, IoError, NotFound},
+    DeclId, ShellError, Span, Value, VarId,
 };
 use reedline::Completer;
 use serde_json::{json, Value as JsonValue};
@@ -24,10 +26,11 @@ fn find_id(
 ) -> Option<(Id, usize, Span)> {
     let file_id = working_set.add_file(file_path.to_string(), file);
     let offset = working_set.get_span_for_file(file_id).start;
+    let _ = working_set.files.push(file_path.into(), Span::unknown());
     let block = parse(working_set, Some(file_path), file, false);
     let flattened = flatten_block(working_set, &block);
 
-    if let Ok(location) = location.as_i64() {
+    if let Ok(location) = location.as_int() {
         let location = location as usize + offset;
         for item in flattened {
             if location >= item.0.start && location < item.0.end {
@@ -53,15 +56,16 @@ fn read_in_file<'a>(
     file_path: &str,
 ) -> (Vec<u8>, StateWorkingSet<'a>) {
     let file = std::fs::read(file_path)
-        .into_diagnostic()
-        .unwrap_or_else(|e| {
-            report_error_new(
-                engine_state,
-                &ShellError::FileNotFoundCustom {
-                    msg: format!("Could not read file '{}': {:?}", file_path, e.to_string()),
-                    span: Span::unknown(),
-                },
-            );
+        .map_err(|err| {
+            ShellError::Io(IoError::new_with_additional_context(
+                err.kind().not_found_as(NotFound::File),
+                Span::unknown(),
+                PathBuf::from(file_path),
+                "Could not read file",
+            ))
+        })
+        .unwrap_or_else(|err| {
+            report_shell_error(engine_state, &err);
             std::process::exit(1);
         });
 
@@ -80,7 +84,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value
     let mut working_set = StateWorkingSet::new(engine_state);
     let file = std::fs::read(file_path);
 
-    let max_errors = if let Ok(max_errors) = max_errors.as_i64() {
+    let max_errors = if let Ok(max_errors) = max_errors.as_int() {
         max_errors as usize
     } else {
         100
@@ -88,6 +92,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value
 
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
+        let _ = working_set.files.push(file_path.into(), Span::unknown());
         let block = parse(&mut working_set, Some(file_path), &contents, false);
 
         for (idx, err) in working_set.parse_errors.iter().enumerate() {
@@ -145,7 +150,7 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &str, location: &Valu
     match find_id(&mut working_set, file_path, &file, location) {
         Some((Id::Declaration(decl_id), ..)) => {
             let result = working_set.get_decl(decl_id);
-            if let Some(block_id) = result.get_block_id() {
+            if let Some(block_id) = result.block_id() {
                 let block = working_set.get_block(block_id);
                 if let Some(span) = &block.span {
                     for file in working_set.files() {
@@ -203,11 +208,11 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
             let mut description = String::new();
 
             // first description
-            description.push_str(&format!("{}\n", decl.usage()));
+            description.push_str(&format!("{}\n", decl.description()));
 
             // additional description
-            if !decl.extra_usage().is_empty() {
-                description.push_str(&format!("\n{}\n", decl.extra_usage()));
+            if !decl.extra_description().is_empty() {
+                description.push_str(&format!("\n{}\n", decl.extra_description()));
             }
 
             // Usage
@@ -603,7 +608,7 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &
             std::process::exit(1);
         });
 
-    if let Ok(location) = location.as_i64() {
+    if let Ok(location) = location.as_int() {
         let results = completer.complete(
             &String::from_utf8_lossy(&file)[..location as usize],
             location as usize,
@@ -631,6 +636,7 @@ pub fn ast(engine_state: &mut EngineState, file_path: &str) {
 
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
+        let _ = working_set.files.push(file_path.into(), Span::unknown());
         let parsed_block = parse(&mut working_set, Some(file_path), &contents, false);
 
         let flat = flatten_block(&working_set, &parsed_block);
@@ -642,8 +648,8 @@ pub fn ast(engine_state: &mut EngineState, file_path: &str) {
                 {
                     "type": "ast",
                     "span": {
-                        "start": span.start - offset,
-                        "end": span.end - offset,
+                        "start": span.start.checked_sub(offset),
+                        "end": span.end.checked_sub(offset),
                     },
                     "shape": shape.to_string(),
                     "content": content // may not be necessary, but helpful for debugging

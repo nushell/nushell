@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::{Expr, Expression, ListItem, RecordItem},
     engine::{EngineState, StateWorkingSet},
-    Range, Record, ShellError, Span, Type, Unit, Value,
+    Filesize, IntoValue, Range, Record, ShellError, Span, Type, Unit, Value,
 };
 use std::sync::Arc;
 
@@ -9,10 +9,10 @@ use std::sync::Arc;
 ///
 // WARNING: please leave the following two trailing spaces, they matter for the documentation
 // formatting
-/// > **Note**  
+/// > **Note**
 /// > [`Span`] can be passed to [`from_nuon`] if there is context available to the caller, e.g. when
 /// > using this function in a command implementation such as
-/// [`from nuon`](https://www.nushell.sh/commands/docs/from_nuon.html).
+/// > [`from nuon`](https://www.nushell.sh/commands/docs/from_nuon.html).
 ///
 /// also see [`super::to_nuon`] for the inverse operation
 pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
@@ -56,12 +56,12 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
     }
 
     let expr = if block.pipelines.is_empty() {
-        Expression {
-            expr: Expr::Nothing,
-            span: span.unwrap_or(Span::unknown()),
-            custom_completion: None,
-            ty: Type::Nothing,
-        }
+        Expression::new(
+            &mut working_set,
+            Expr::Nothing,
+            span.unwrap_or(Span::unknown()),
+            Type::Nothing,
+        )
     } else {
         let mut pipeline = Arc::make_mut(&mut block).pipelines.remove(0);
 
@@ -81,12 +81,12 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
         }
 
         if pipeline.elements.is_empty() {
-            Expression {
-                expr: Expr::Nothing,
-                span: span.unwrap_or(Span::unknown()),
-                custom_completion: None,
-                ty: Type::Nothing,
-            }
+            Expression::new(
+                &mut working_set,
+                Expr::Nothing,
+                span.unwrap_or(Span::unknown()),
+                Type::Nothing,
+            )
         } else {
             pipeline.elements.remove(0).expr
         }
@@ -118,6 +118,12 @@ fn convert_to_value(
     original_text: &str,
 ) -> Result<Value, ShellError> {
     match expr.expr {
+        Expr::AttributeBlock(..) => Err(ShellError::OutsideSpannedLabeledError {
+            src: original_text.to_string(),
+            error: "Error when loading".into(),
+            msg: "attributes not supported in nuon".into(),
+            span: expr.span,
+        }),
         Expr::BinaryOp(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),
@@ -323,6 +329,18 @@ fn convert_to_value(
             msg: "string interpolation not supported in nuon".into(),
             span: expr.span,
         }),
+        Expr::GlobInterpolation(..) => Err(ShellError::OutsideSpannedLabeledError {
+            src: original_text.to_string(),
+            error: "Error when loading".into(),
+            msg: "glob interpolation not supported in nuon".into(),
+            span: expr.span,
+        }),
+        Expr::Collect(..) => Err(ShellError::OutsideSpannedLabeledError {
+            src: original_text.to_string(),
+            error: "Error when loading".into(),
+            msg: "`$in` not supported in nuon".into(),
+            span: expr.span,
+        }),
         Expr::Subexpression(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),
@@ -395,32 +413,15 @@ fn convert_to_value(
             };
 
             match value.unit.item {
-                Unit::Byte => Ok(Value::filesize(size, span)),
-                Unit::Kilobyte => Ok(Value::filesize(size * 1000, span)),
-                Unit::Megabyte => Ok(Value::filesize(size * 1000 * 1000, span)),
-                Unit::Gigabyte => Ok(Value::filesize(size * 1000 * 1000 * 1000, span)),
-                Unit::Terabyte => Ok(Value::filesize(size * 1000 * 1000 * 1000 * 1000, span)),
-                Unit::Petabyte => Ok(Value::filesize(
-                    size * 1000 * 1000 * 1000 * 1000 * 1000,
-                    span,
-                )),
-                Unit::Exabyte => Ok(Value::filesize(
-                    size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
-                    span,
-                )),
-
-                Unit::Kibibyte => Ok(Value::filesize(size * 1024, span)),
-                Unit::Mebibyte => Ok(Value::filesize(size * 1024 * 1024, span)),
-                Unit::Gibibyte => Ok(Value::filesize(size * 1024 * 1024 * 1024, span)),
-                Unit::Tebibyte => Ok(Value::filesize(size * 1024 * 1024 * 1024 * 1024, span)),
-                Unit::Pebibyte => Ok(Value::filesize(
-                    size * 1024 * 1024 * 1024 * 1024 * 1024,
-                    span,
-                )),
-                Unit::Exbibyte => Ok(Value::filesize(
-                    size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
-                    span,
-                )),
+                Unit::Filesize(unit) => match Filesize::from_unit(size, unit) {
+                    Some(val) => Ok(val.into_value(span)),
+                    None => Err(ShellError::OutsideSpannedLabeledError {
+                        src: original_text.into(),
+                        error: "filesize too large".into(),
+                        msg: "filesize too large".into(),
+                        span: expr.span,
+                    }),
+                },
 
                 Unit::Nanosecond => Ok(Value::duration(size, span)),
                 Unit::Microsecond => Ok(Value::duration(size * 1000, span)),

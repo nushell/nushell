@@ -8,7 +8,7 @@ impl Command for Wrap {
         "wrap"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Wrap the value into a column."
     }
 
@@ -42,7 +42,7 @@ impl Command for Wrap {
             | PipelineData::ListStream { .. } => Ok(input
                 .into_iter()
                 .map(move |x| Value::record(record! { name.clone() => x }, span))
-                .into_pipeline_data_with_metadata(span, engine_state.ctrlc.clone(), metadata)),
+                .into_pipeline_data_with_metadata(span, engine_state.signals().clone(), metadata)),
             PipelineData::ByteStream(stream, ..) => Ok(Value::record(
                 record! { name => stream.into_value()? },
                 span,
@@ -57,31 +57,34 @@ impl Command for Wrap {
         vec![
             Example {
                 description: "Wrap a list into a table with a given column name",
-                example: "[1 2 3] | wrap num",
+                example: "[ Pachisi Mahjong Catan Carcassonne ] | wrap game",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
-                        "num" => Value::test_int(1),
+                        "game" => Value::test_string("Pachisi"),
                     }),
                     Value::test_record(record! {
-                        "num" => Value::test_int(2),
+                        "game" => Value::test_string("Mahjong"),
                     }),
                     Value::test_record(record! {
-                        "num" => Value::test_int(3),
+                        "game" => Value::test_string("Catan"),
+                    }),
+                    Value::test_record(record! {
+                        "game" => Value::test_string("Carcassonne"),
                     }),
                 ])),
             },
             Example {
                 description: "Wrap a range into a table with a given column name",
-                example: "1..3 | wrap num",
+                example: "4..6 | wrap num",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
-                        "num" => Value::test_int(1),
+                        "num" => Value::test_int(4),
                     }),
                     Value::test_record(record! {
-                        "num" => Value::test_int(2),
+                        "num" => Value::test_int(5),
                     }),
                     Value::test_record(record! {
-                        "num" => Value::test_int(3),
+                        "num" => Value::test_int(6),
                     }),
                 ])),
             },

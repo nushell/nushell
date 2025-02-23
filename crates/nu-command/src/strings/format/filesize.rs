@@ -1,9 +1,9 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::format_filesize;
+use nu_protocol::{engine::StateWorkingSet, FilesizeUnit};
 
 struct Arguments {
-    format_value: String,
+    format: FilesizeUnit,
     cell_paths: Option<Vec<CellPath>>,
 }
 
@@ -42,12 +42,16 @@ impl Command for FormatFilesize {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts a column of filesizes to some specified format."
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["convert", "display", "pattern", "human readable"]
+    }
+
+    fn is_const(&self) -> bool {
+        true
     }
 
     fn run(
@@ -57,22 +61,35 @@ impl Command for FormatFilesize {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let format_value = call
-            .req::<Value>(engine_state, stack, 0)?
-            .coerce_into_string()?
-            .to_ascii_lowercase();
+        let format = parse_filesize_unit(call.req::<Spanned<String>>(engine_state, stack, 0)?)?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let arg = Arguments {
-            format_value,
-            cell_paths,
-        };
+        let arg = Arguments { format, cell_paths };
         operate(
             format_value_impl,
             arg,
             input,
             call.head,
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
+        )
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let format = parse_filesize_unit(call.req_const::<Spanned<String>>(working_set, 0)?)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let arg = Arguments { format, cell_paths };
+        operate(
+            format_value_impl,
+            arg,
+            input,
+            call.head,
+            working_set.permanent().signals(),
         )
     }
 
@@ -90,21 +107,27 @@ impl Command for FormatFilesize {
             },
             Example {
                 description: "Convert the size data to MB",
-                example: "4Gb | format filesize MB",
-                result: Some(Value::test_string("4000.0 MB")),
+                example: "4GB | format filesize MB",
+                result: Some(Value::test_string("4000 MB")),
             },
         ]
     }
 }
 
+fn parse_filesize_unit(format: Spanned<String>) -> Result<FilesizeUnit, ShellError> {
+    format.item.parse().map_err(|_| ShellError::InvalidValue {
+        valid:
+            "'B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', or 'EiB'"
+                .into(),
+        actual: format.item,
+        span: format.span,
+    })
+}
+
 fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
     let value_span = val.span();
     match val {
-        Value::Filesize { val, .. } => Value::string(
-            // don't need to concern about metric, we just format units by what user input.
-            format_filesize(*val, &arg.format_value, None),
-            span,
-        ),
+        Value::Filesize { val, .. } => Value::string(val.display(arg.format).to_string(), span),
         Value::Error { .. } => val.clone(),
         _ => Value::error(
             ShellError::OnlySupportsThisInputType {

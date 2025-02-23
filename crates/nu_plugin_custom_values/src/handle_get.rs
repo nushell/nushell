@@ -17,7 +17,7 @@ impl SimplePluginCommand for HandleGet {
             .input_output_type(Type::Custom("HandleCustomValue".into()), Type::Any)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get a value previously stored in a handle"
     }
 

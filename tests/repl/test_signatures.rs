@@ -1,4 +1,5 @@
 use crate::repl::tests::{fail_test, run_test, TestResult};
+use rstest::rstest;
 
 #[test]
 fn list_annotations() -> TestResult {
@@ -270,68 +271,30 @@ fn table_annotations_none() -> TestResult {
     run_test(input, expected)
 }
 
-#[test]
-fn table_annotations() -> TestResult {
-    let input = "def run [t: table<age: int>] { $t }; run [[age]; [3]] | describe";
-    let expected = "table<age: int>";
-    run_test(input, expected)
-}
+#[rstest]
+fn table_annotations(
+    #[values(true, false)] list_annotation: bool,
+    #[values(
+        ("age: int", "age: int", "[[age]; [3]]"  ),
+        ("name: string age: int", "name: string, age: int", "[[name, age]; [nushell, 3]]"  ),
+        ("name: string, age: int", "name: string, age: int", "[[name, age]; [nushell, 3]]"  ),
+        ("name", "name: string", "[[name]; [nushell]]"),
+        ("name: string, age", "name: string, age: int", "[[name, age]; [nushell, 3]]"),
+        ("name, age", "name: string, age: int", "[[name, age]; [nushell, 3]]"),
+        ("age: any", "age: duration", "[[age]; [2wk]]"),
+        ("size", "size: filesize", "[[size]; [2mb]]")
+    )]
+    record_annotation_data: (&str, &str, &str),
+) -> TestResult {
+    let (record_annotation, inferred_type, data) = record_annotation_data;
 
-#[test]
-fn table_annotations_two_types() -> TestResult {
-    let input = "\
-def run [t: table<name: string age: int>] { $t };
-run [[name, age]; [nushell, 3]] | describe";
-    let expected = "table<name: string, age: int>";
-    run_test(input, expected)
-}
-
-#[test]
-fn table_annotations_two_types_comma_sep() -> TestResult {
-    let input = "\
-def run [t: table<name: string, age: int>] { $t };
-run [[name, age]; [nushell, 3]] | describe";
-    let expected = "table<name: string, age: int>";
-    run_test(input, expected)
-}
-
-#[test]
-fn table_annotations_key_with_no_type() -> TestResult {
-    let input = "def run [t: table<name>] { $t }; run [[name]; [nushell]] | describe";
-    let expected = "table<name: string>";
-    run_test(input, expected)
-}
-
-#[test]
-fn table_annotations_two_types_one_with_no_type() -> TestResult {
-    let input = "\
-def run [t: table<name: string, age>] { $t };
-run [[name, age]; [nushell, 3]] | describe";
-    let expected = "table<name: string, age: int>";
-    run_test(input, expected)
-}
-
-#[test]
-fn table_annotations_two_types_both_with_no_types() -> TestResult {
-    let input = "\
-def run [t: table<name, age>] { $t };
-run [[name, age]; [nushell, 3]] | describe";
-    let expected = "table<name: string, age: int>";
-    run_test(input, expected)
-}
-
-#[test]
-fn table_annotations_type_inference_1() -> TestResult {
-    let input = "def run [t: table<age: any>] { $t }; run [[age]; [2wk]] | describe";
-    let expected = "table<age: duration>";
-    run_test(input, expected)
-}
-
-#[test]
-fn table_annotations_type_inference_2() -> TestResult {
-    let input = "def run [t: table<size>] { $t }; run [[size]; [2mb]] | describe";
-    let expected = "table<size: filesize>";
-    run_test(input, expected)
+    let type_annotation = match list_annotation {
+        true => format!("list<record<{record_annotation}>>"),
+        false => format!("table<{record_annotation}>"),
+    };
+    let input = format!("def run [t: {type_annotation}] {{ $t }}; run {data} | describe");
+    let expected = format!("table<{inferred_type}>");
+    run_test(&input, &expected)
 }
 
 #[test]
@@ -374,4 +337,13 @@ fn table_annotations_with_extra_characters() -> TestResult {
     let input = "def run [t: table<int>extra] {$t | length}; run [[int]; [8]]";
     let expected = "Extra characters in the parameter name";
     fail_test(input, expected)
+}
+
+#[rstest]
+#[case("{ |a $a }")]
+#[case("{ |a, b $a + $b }")]
+#[case("do { |a $a } 1")]
+#[case("do { |a $a } 1 2")]
+fn closure_param_list_not_terminated(#[case] input: &str) -> TestResult {
+    fail_test(input, "unclosed |")
 }

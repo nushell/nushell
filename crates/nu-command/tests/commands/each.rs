@@ -9,7 +9,7 @@ fn each_works_separately() {
 
 #[test]
 fn each_group_works() {
-    let actual = nu!("echo [1 2 3 4 5 6] | group 3 | to json --raw");
+    let actual = nu!("echo [1 2 3 4 5 6] | chunks 3 | to json --raw");
 
     assert_eq!(actual.out, "[[1,2,3],[4,5,6]]");
 }
@@ -56,22 +56,6 @@ fn each_while_uses_enumerate_index() {
     let actual = nu!("[7 8 9 10] | enumerate | each while {|el| $el.index } | to nuon");
 
     assert_eq!(actual.out, "[0, 1, 2, 3]");
-}
-
-#[test]
-fn each_element_continue_command() {
-    let actual =
-        nu!("[1,2,3,4,6,7] | each { |x| if ($x mod 2 == 0) {continue} else { $x }} | to nuon");
-
-    assert_eq!(actual.out, "[1, 3, 7]");
-}
-
-#[test]
-fn each_element_break_command() {
-    let actual =
-        nu!("[1,2,5,4,6,7] | each { |x| if ($x mod 3 == 0) {break} else { $x }} | to nuon");
-
-    assert_eq!(actual.out, "[1, 2, 5, 4]");
 }
 
 #[test]

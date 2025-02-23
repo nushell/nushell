@@ -24,19 +24,15 @@ impl Command for Reduce {
             )
             .required(
                 "closure",
-                SyntaxShape::Closure(Some(vec![
-                    SyntaxShape::Any,
-                    SyntaxShape::Any,
-                    SyntaxShape::Int,
-                ])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
                 "Reducing function.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
-        "Aggregate a list to a single value using an accumulator closure."
+    fn description(&self) -> &str {
+        "Aggregate a list (starting from the left) to a single value using an accumulator closure."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -51,6 +47,11 @@ impl Command for Reduce {
                 result: Some(Value::test_int(10)),
             },
             Example {
+                example: "[ 1 2 3 4 ] | reduce {|it, acc| $acc - $it }",
+                description: r#"`reduce` accumulates value from left to right, equivalent to (((1 - 2) - 3) - 4)."#,
+                result: Some(Value::test_int(-8)),
+            },
+            Example {
                 example:
                     "[ 8 7 6 ] | enumerate | reduce --fold 0 {|it, acc| $acc + $it.item + $it.index }",
                 description: "Sum values of a list, plus their indexes",
@@ -60,6 +61,11 @@ impl Command for Reduce {
                 example: "[ 1 2 3 4 ] | reduce --fold 10 {|it, acc| $acc + $it }",
                 description: "Sum values with a starting value (fold)",
                 result: Some(Value::test_int(20)),
+            },
+            Example {
+                example: r#"[[foo baz] [baz quux]] | reduce --fold "foobar" {|it, acc| $acc | str replace $it.0 $it.1}"#,
+                description: "Iteratively perform string replace (from left to right): 'foobar' -> 'bazbar' -> 'quuxbar'",
+                result: Some(Value::test_string("quuxbar")),
             },
             Example {
                 example: r#"[ i o t ] | reduce --fold "Arthur, King of the Britons" {|it, acc| $acc | str replace --all $it "X" }"#,
@@ -78,6 +84,15 @@ impl Command for Reduce {
                     "Concatenate a string with itself, using a range to determine the number of times.",
                 result: Some(Value::test_string("StrStrStr")),
             },
+            Example {
+                example: r#"[{a: 1} {b: 2} {c: 3}] | reduce {|it| merge $it}"#,
+                description: "Merge multiple records together, making use of the fact that the accumulated value is also supplied as pipeline input to the closure.",
+                result: Some(Value::test_record(record!(
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(2),
+                    "c" => Value::test_int(3),
+                ))),
+            }
         ]
     }
 
@@ -107,14 +122,11 @@ impl Command for Reduce {
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
         for value in iter {
-            if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-                break;
-            }
-
+            engine_state.signals().check(head)?;
             acc = closure
                 .add_arg(value)
-                .add_arg(acc)
-                .run_with_input(PipelineData::Empty)?
+                .add_arg(acc.clone())
+                .run_with_input(PipelineData::Value(acc, None))?
                 .into_value(head)?;
         }
 
@@ -128,8 +140,8 @@ mod test {
 
     #[test]
     fn test_examples() {
-        use crate::test_examples;
+        use crate::{test_examples_with_commands, Merge};
 
-        test_examples(Reduce {})
+        test_examples_with_commands(Reduce {}, &[&Merge])
     }
 }

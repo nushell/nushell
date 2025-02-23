@@ -33,11 +33,11 @@ impl Command for Insert {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Insert a new column, using an expression or closure to create each row's values."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "When inserting a column, the closure will be run for each row, and the current row will be passed as the first argument.
 When inserting into a specific index, the closure will instead get the current value at the index or null if inserting at the end of a list/table."
     }
@@ -129,6 +129,8 @@ fn insert(
     let replacement: Value = call.req(engine_state, stack, 1)?;
 
     match input {
+        // Propagate errors in the pipeline
+        PipelineData::Value(Value::Error { error, .. }, ..) => Err(*error),
         PipelineData::Value(mut value, metadata) => {
             if let Value::Closure { val, .. } = replacement {
                 match (cell_path.members.first(), &mut value) {
@@ -222,7 +224,11 @@ fn insert(
                 Ok(pre_elems
                     .into_iter()
                     .chain(stream)
-                    .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
+                    .into_pipeline_data_with_metadata(
+                        head,
+                        engine_state.signals().clone(),
+                        metadata,
+                    ))
             } else if let Value::Closure { val, .. } = replacement {
                 let mut closure = ClosureEval::new(engine_state, stack, *val);
                 let stream = stream.map(move |mut value| {
@@ -261,8 +267,8 @@ fn insert(
             type_name: "empty pipeline".to_string(),
             span: head,
         }),
-        PipelineData::ByteStream(..) => Err(ShellError::IncompatiblePathAccess {
-            type_name: "byte stream".to_string(),
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::IncompatiblePathAccess {
+            type_name: stream.type_().describe().into(),
             span: head,
         }),
     }

@@ -1,4 +1,7 @@
-use nu_protocol::{ast, CustomValue, ShellError, Span, Value};
+use nu_protocol::{
+    ast::{self, Math, Operator},
+    CustomValue, ShellError, Span, Type, Value,
+};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
@@ -87,7 +90,7 @@ impl CustomValue for CoolCustomValue {
         } else {
             Err(ShellError::CantFindColumn {
                 col_name: column_name,
-                span: path_span,
+                span: Some(path_span),
                 src_span: self_span,
             })
         }
@@ -112,7 +115,7 @@ impl CustomValue for CoolCustomValue {
     ) -> Result<Value, ShellError> {
         match operator {
             // Append the string inside `cool`
-            ast::Operator::Math(ast::Math::Append) => {
+            Operator::Math(Math::Concatenate) => {
                 if let Some(right) = right
                     .as_custom_value()
                     .ok()
@@ -125,18 +128,21 @@ impl CustomValue for CoolCustomValue {
                         op_span,
                     ))
                 } else {
-                    Err(ShellError::OperatorMismatch {
+                    Err(ShellError::OperatorUnsupportedType {
+                        op: Operator::Math(Math::Concatenate),
+                        unsupported: right.get_type(),
                         op_span,
-                        lhs_ty: self.typetag_name().into(),
-                        lhs_span,
-                        rhs_ty: right.get_type().to_string(),
-                        rhs_span: right.span(),
+                        unsupported_span: right.span(),
+                        help: None,
                     })
                 }
             }
-            _ => Err(ShellError::UnsupportedOperator {
-                operator,
-                span: op_span,
+            _ => Err(ShellError::OperatorUnsupportedType {
+                op: Operator::Math(Math::Concatenate),
+                unsupported: Type::Custom(self.type_name().into()),
+                op_span,
+                unsupported_span: lhs_span,
+                help: None,
             }),
         }
     }

@@ -1,5 +1,7 @@
-use nu_cmd_base::util::get_init_cwd;
+use std::path::PathBuf;
+
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::{self, io::IoError};
 use nu_utils::filesystem::{have_permission, PermissionResult};
 
 #[derive(Clone)]
@@ -10,7 +12,7 @@ impl Command for Cd {
         "cd"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Change directory."
     }
 
@@ -23,10 +25,6 @@ impl Command for Cd {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch("physical", "use the physical directory structure; resolve symbolic links before processing instances of ..", Some('P'))
             .optional("path", SyntaxShape::Directory, "The path to change to.")
-            .input_output_types(vec![
-                (Type::Nothing, Type::Nothing),
-                (Type::String, Type::Nothing),
-            ])
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }
@@ -41,9 +39,14 @@ impl Command for Cd {
         let physical = call.has_flag(engine_state, stack, "physical")?;
         let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
 
-        // If getting PWD failed, default to the initial directory. This way, the
-        // user can use `cd` to recover PWD to a good state.
-        let cwd = engine_state.cwd(Some(stack)).unwrap_or(get_init_cwd());
+        // If getting PWD failed, default to the home directory. The user can
+        // use `cd` to reset PWD to a good state.
+        let cwd = engine_state
+            .cwd(Some(stack))
+            .ok()
+            .or_else(nu_path::home_dir)
+            .map(|path| path.into_std_path_buf())
+            .unwrap_or_default();
 
         let path_val = {
             if let Some(path) = path_val {
@@ -73,25 +76,41 @@ impl Command for Cd {
                     if physical {
                         if let Ok(path) = nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                             if !path.is_dir() {
-                                return Err(ShellError::NotADirectory { span: v.span });
+                                return Err(shell_error::io::IoError::new(
+                                    shell_error::io::ErrorKind::Std(
+                                        std::io::ErrorKind::NotADirectory,
+                                    ),
+                                    v.span,
+                                    None,
+                                )
+                                .into());
                             };
                             path
                         } else {
-                            return Err(ShellError::DirectoryNotFound {
-                                dir: path_no_whitespace.to_string(),
-                                span: v.span,
-                            });
+                            return Err(shell_error::io::IoError::new(
+                                ErrorKind::DirectoryNotFound,
+                                v.span,
+                                PathBuf::from(path_no_whitespace),
+                            )
+                            .into());
                         }
                     } else {
                         let path = nu_path::expand_path_with(path_no_whitespace, &cwd, true);
                         if !path.exists() {
-                            return Err(ShellError::DirectoryNotFound {
-                                dir: path_no_whitespace.to_string(),
-                                span: v.span,
-                            });
+                            return Err(shell_error::io::IoError::new(
+                                ErrorKind::DirectoryNotFound,
+                                v.span,
+                                PathBuf::from(path_no_whitespace),
+                            )
+                            .into());
                         };
                         if !path.is_dir() {
-                            return Err(ShellError::NotADirectory { span: v.span });
+                            return Err(shell_error::io::IoError::new(
+                                shell_error::io::ErrorKind::Std(std::io::ErrorKind::NotADirectory),
+                                v.span,
+                                path,
+                            )
+                            .into());
                         };
                         path
                     }
@@ -103,7 +122,7 @@ impl Command for Cd {
         // Set OLDPWD.
         // We're using `Stack::get_env_var()` instead of `EngineState::cwd()` to avoid a conversion roundtrip.
         if let Some(oldpwd) = stack.get_env_var(engine_state, "PWD") {
-            stack.add_env_var("OLDPWD".into(), oldpwd)
+            stack.add_env_var("OLDPWD".into(), oldpwd.clone())
         }
 
         match have_permission(&path) {
@@ -113,13 +132,9 @@ impl Command for Cd {
                 stack.set_cwd(path)?;
                 Ok(PipelineData::empty())
             }
-            PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError {
-                msg: format!(
-                    "Cannot change directory to {}: {}",
-                    path.to_string_lossy(),
-                    reason
-                ),
-            }),
+            PermissionResult::PermissionDenied(_) => {
+                Err(IoError::new(std::io::ErrorKind::PermissionDenied, call.head, path).into())
+            }
         }
     }
 
@@ -131,8 +146,23 @@ impl Command for Cd {
                 result: None,
             },
             Example {
-                description: "Change to the previous working directory ($OLDPWD)",
+                description: r#"Change to the previous working directory (same as "cd $env.OLDPWD")"#,
                 example: r#"cd -"#,
+                result: None,
+            },
+            Example {
+                description: "Changing directory with a custom command requires 'def --env'",
+                example: r#"def --env gohome [] { cd ~ }"#,
+                result: None,
+            },
+            Example {
+                description: "Move two directories up in the tree (the parent directory's parent). Additional dots can be added for additional levels.",
+                example: r#"cd ..."#,
+                result: None,
+            },
+            Example {
+                description: "The cd command itself is often optional. Simply entering a path to a directory will cd to it.",
+                example: r#"/home"#,
                 result: None,
             },
         ]

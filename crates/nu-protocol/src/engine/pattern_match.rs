@@ -48,13 +48,14 @@ impl Matcher for Pattern {
             Pattern::List(items) => match &value {
                 Value::List { vals, .. } => {
                     if items.len() > vals.len() {
-                        // The only we we allow this is to have a rest pattern in the n+1 position
+                        // We only allow this is to have a rest pattern in the n+1 position
                         if items.len() == (vals.len() + 1) {
                             match &items[vals.len()].pattern {
                                 Pattern::IgnoreRest => {}
-                                Pattern::Rest(var_id) => {
-                                    matches.push((*var_id, Value::nothing(items[vals.len()].span)))
-                                }
+                                Pattern::Rest(var_id) => matches.push((
+                                    *var_id,
+                                    Value::list(Vec::new(), items[vals.len()].span),
+                                )),
                                 _ => {
                                     // There is a pattern which can't skip missing values, so we fail
                                     return false;
@@ -93,7 +94,7 @@ impl Matcher for Pattern {
                 }
                 _ => false,
             },
-            Pattern::Value(pattern_value) => {
+            Pattern::Expression(pattern_value) => {
                 // TODO: Fill this out with the rest of them
                 match &pattern_value.expr {
                     Expr::Nothing => {
@@ -127,7 +128,7 @@ impl Matcher for Pattern {
                             false
                         }
                     }
-                    Expr::String(x) => {
+                    Expr::String(x) | Expr::RawString(x) => {
                         if let Value::String { val, .. } = &value {
                             x == val
                         } else {
@@ -204,6 +205,7 @@ impl Matcher for Pattern {
                     _ => false,
                 }
             }
+            Pattern::Value(pattern_value) => value == pattern_value,
             Pattern::Or(patterns) => {
                 let mut result = false;
 

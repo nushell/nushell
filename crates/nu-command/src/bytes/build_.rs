@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, get_eval_expression};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct BytesBuild;
@@ -8,7 +8,7 @@ impl Command for BytesBuild {
         "bytes build"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Create bytes from the arguments."
     }
 
@@ -49,10 +49,7 @@ impl Command for BytesBuild {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let mut output = vec![];
-        for val in call.rest_iter_flattened(0, |expr| {
-            let eval_expression = get_eval_expression(engine_state);
-            eval_expression(engine_state, stack, expr)
-        })? {
+        for val in call.rest::<Value>(engine_state, stack, 0)? {
             let val_span = val.span();
             match val {
                 Value::Binary { mut val, .. } => output.append(&mut val),

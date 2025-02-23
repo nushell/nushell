@@ -20,13 +20,13 @@ impl Command for TakeWhile {
             ])
             .required(
                 "predicate",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The predicate that element(s) must match.",
             )
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Take elements of the input while a predicate is true."
     }
 
@@ -85,7 +85,7 @@ impl Command for TakeWhile {
                     .map(|cond| cond.is_true())
                     .unwrap_or(false)
             })
-            .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
+            .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }
 

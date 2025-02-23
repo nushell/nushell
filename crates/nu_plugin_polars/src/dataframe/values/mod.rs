@@ -1,3 +1,4 @@
+mod file_type;
 mod nu_dataframe;
 mod nu_expression;
 mod nu_lazyframe;
@@ -6,19 +7,21 @@ mod nu_schema;
 mod nu_when;
 pub mod utils;
 
+use crate::{Cacheable, PolarsPlugin};
+use nu_plugin::EngineInterface;
+use nu_protocol::{
+    ast::Operator, CustomValue, PipelineData, ShellError, Span, Spanned, Type, Value,
+};
 use std::{cmp::Ordering, fmt};
+use uuid::Uuid;
 
+pub use file_type::PolarsFileType;
 pub use nu_dataframe::{Axis, Column, NuDataFrame, NuDataFrameCustomValue};
 pub use nu_expression::{NuExpression, NuExpressionCustomValue};
 pub use nu_lazyframe::{NuLazyFrame, NuLazyFrameCustomValue};
 pub use nu_lazygroupby::{NuLazyGroupBy, NuLazyGroupByCustomValue};
-use nu_plugin::EngineInterface;
-use nu_protocol::{ast::Operator, CustomValue, PipelineData, ShellError, Span, Spanned, Value};
 pub use nu_schema::{str_to_dtype, NuSchema};
 pub use nu_when::{NuWhen, NuWhenCustomValue, NuWhenType};
-use uuid::Uuid;
-
-use crate::{Cacheable, PolarsPlugin};
 
 #[derive(Debug, Clone)]
 pub enum PolarsPluginType {
@@ -27,6 +30,7 @@ pub enum PolarsPluginType {
     NuExpression,
     NuLazyGroupBy,
     NuWhen,
+    NuPolarsTestData,
 }
 
 impl fmt::Display for PolarsPluginType {
@@ -37,6 +41,7 @@ impl fmt::Display for PolarsPluginType {
             Self::NuExpression => write!(f, "NuExpression"),
             Self::NuLazyGroupBy => write!(f, "NuLazyGroupBy"),
             Self::NuWhen => write!(f, "NuWhen"),
+            Self::NuPolarsTestData => write!(f, "NuPolarsTestData"),
         }
     }
 }
@@ -48,6 +53,7 @@ pub enum PolarsPluginObject {
     NuExpression(NuExpression),
     NuLazyGroupBy(NuLazyGroupBy),
     NuWhen(NuWhen),
+    NuPolarsTestData(Uuid, String),
 }
 
 impl PolarsPluginObject {
@@ -95,6 +101,7 @@ impl PolarsPluginObject {
             Self::NuExpression(_) => PolarsPluginType::NuExpression,
             Self::NuLazyGroupBy(_) => PolarsPluginType::NuLazyGroupBy,
             Self::NuWhen(_) => PolarsPluginType::NuWhen,
+            Self::NuPolarsTestData(_, _) => PolarsPluginType::NuPolarsTestData,
         }
     }
 
@@ -105,6 +112,7 @@ impl PolarsPluginObject {
             PolarsPluginObject::NuExpression(e) => e.id,
             PolarsPluginObject::NuLazyGroupBy(lg) => lg.id,
             PolarsPluginObject::NuWhen(w) => w.id,
+            PolarsPluginObject::NuPolarsTestData(id, _) => *id,
         }
     }
 
@@ -115,6 +123,23 @@ impl PolarsPluginObject {
             PolarsPluginObject::NuExpression(e) => e.into_value(span),
             PolarsPluginObject::NuLazyGroupBy(lg) => lg.into_value(span),
             PolarsPluginObject::NuWhen(w) => w.into_value(span),
+            PolarsPluginObject::NuPolarsTestData(id, s) => {
+                Value::string(format!("{id}:{s}"), Span::test_data())
+            }
+        }
+    }
+
+    pub fn dataframe(&self) -> Option<&NuDataFrame> {
+        match self {
+            PolarsPluginObject::NuDataFrame(df) => Some(df),
+            _ => None,
+        }
+    }
+
+    pub fn lazyframe(&self) -> Option<&NuLazyFrame> {
+        match self {
+            PolarsPluginObject::NuLazyFrame(lf) => Some(lf),
+            _ => None,
         }
     }
 }
@@ -161,8 +186,8 @@ impl CustomValueType {
     }
 }
 
-pub fn cant_convert_err(value: &Value, types: &[PolarsPluginType]) -> ShellError {
-    let type_string = types
+pub fn cant_convert_err(value: &Value, expected_types: &[PolarsPluginType]) -> ShellError {
+    let type_string = expected_types
         .iter()
         .map(ToString::to_string)
         .collect::<Vec<String>>()
@@ -193,13 +218,16 @@ pub trait PolarsPluginCustomValue: CustomValue {
         &self,
         _plugin: &PolarsPlugin,
         _engine: &EngineInterface,
-        _lhs_span: Span,
+        lhs_span: Span,
         operator: Spanned<Operator>,
         _right: Value,
     ) -> Result<Value, ShellError> {
-        Err(ShellError::UnsupportedOperator {
-            operator: operator.item,
-            span: operator.span,
+        Err(ShellError::OperatorUnsupportedType {
+            op: operator.item,
+            unsupported: Type::Custom(self.type_name().into()),
+            op_span: operator.span,
+            unsupported_span: lhs_span,
+            help: None,
         })
     }
 
@@ -323,7 +351,19 @@ pub trait CustomValueSupport: Cacheable {
         engine: &EngineInterface,
         span: Span,
     ) -> Result<Value, ShellError> {
-        Ok(self.cache(plugin, engine, span)?.into_value(span))
+        match self.to_cache_value()? {
+            // if it was from a lazy value, make it lazy again
+            PolarsPluginObject::NuDataFrame(df) if df.from_lazy => {
+                let df = df.lazy();
+                Ok(df.cache(plugin, engine, span)?.into_value(span))
+            }
+            // if it was from an eager value, make it eager again
+            PolarsPluginObject::NuLazyFrame(lf) if lf.from_eager => {
+                let lf = lf.collect(span)?;
+                Ok(lf.cache(plugin, engine, span)?.into_value(span))
+            }
+            _ => Ok(self.cache(plugin, engine, span)?.into_value(span)),
+        }
     }
 
     /// Caches the object, converts it to a it's CustomValue counterpart

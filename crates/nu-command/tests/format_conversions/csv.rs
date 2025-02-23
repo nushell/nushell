@@ -284,7 +284,7 @@ fn from_csv_text_skipping_headers_to_table() {
             r#"
                 open los_tres_amigos.txt
                 | from csv --noheaders
-                | get column3
+                | get column2
                 | length
             "#
         ));
@@ -394,7 +394,7 @@ fn list_not_table_error() {
         "#
     ));
 
-    assert!(actual.err.contains("can't convert"))
+    assert!(actual.err.contains("Input type not supported"))
 }
 
 #[test]
@@ -469,7 +469,7 @@ fn from_csv_test_flexible_extra_vals() {
           echo "a,b\n1,2,3" | from csv --flexible | first | values | to nuon
         "#
     ));
-    assert_eq!(actual.out, "[1, 2]");
+    assert_eq!(actual.out, "[1, 2, 3]");
 }
 
 #[test]
@@ -479,5 +479,5 @@ fn from_csv_test_flexible_missing_vals() {
           echo "a,b\n1" | from csv --flexible | first | values | to nuon
         "#
     ));
-    assert_eq!(actual.out, "[1, null]");
+    assert_eq!(actual.out, "[1]");
 }

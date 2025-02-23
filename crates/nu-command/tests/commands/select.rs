@@ -50,7 +50,7 @@ fn complex_nested_columns() {
         r#"
                 {sample}
                 | select nu."0xATYKARNU" nu.committers.name nu.releases.version
-                | get nu_releases_version
+                | get "nu.releases.version"
                 | where $it > "0.8"
                 | get 0
             "#
@@ -63,7 +63,7 @@ fn complex_nested_columns() {
 fn fails_if_given_unknown_column_name() {
     let actual = nu!(pipeline(
         r#"
-            echo [
+            [
                 [first_name, last_name, rusty_at, type];
 
                 [Andrés Robalino '10/11/2013' A]
@@ -71,7 +71,6 @@ fn fails_if_given_unknown_column_name() {
                 [Yehuda Katz '10/11/2013' A]
             ]
             | select rrusty_at first_name
-            | length
         "#
     ));
 

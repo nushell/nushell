@@ -2,7 +2,7 @@ use super::PathSubcommandArguments;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, current_dir_const};
 use nu_path::expand_path_with;
-use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::{engine::StateWorkingSet, shell_error::io::IoError};
 use std::path::{Path, PathBuf};
 
 struct Arguments {
@@ -33,13 +33,14 @@ impl Command for SubCommand {
             .category(Category::Path)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Check whether a path exists."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This only checks if it is possible to either `open` or `cd` to the given path.
-If you need to distinguish dirs and files, please use `path type`."#
+If you need to distinguish dirs and files, please use `path type`.
+Also note that if you don't have a permission to a directory of a path, false will be returned"#
     }
 
     fn is_const(&self) -> bool {
@@ -65,7 +66,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         }
         input.map(
             move |value| super::operate(&exists, &args, value, head),
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
     }
 
@@ -87,7 +88,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         }
         input.map(
             move |value| super::operate(&exists, &args, value, head),
-            working_set.permanent().ctrlc.clone(),
+            working_set.permanent().signals(),
         )
     }
 
@@ -139,7 +140,7 @@ fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
         // symlink_metadata returns true if the file/folder exists
         // whether it is a symbolic link or not. Sorry, but returns Err
         // in every other scenario including the NotFound
-        std::fs::symlink_metadata(path).map_or_else(
+        std::fs::symlink_metadata(&path).map_or_else(
             |e| match e.kind() {
                 std::io::ErrorKind::NotFound => Ok(false),
                 _ => Err(e),
@@ -147,20 +148,12 @@ fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
             |_| Ok(true),
         )
     } else {
-        path.try_exists()
+        Ok(path.exists())
     };
     Value::bool(
         match exists {
             Ok(exists) => exists,
-            Err(err) => {
-                return Value::error(
-                    ShellError::IOErrorSpanned {
-                        msg: err.to_string(),
-                        span,
-                    },
-                    span,
-                )
-            }
+            Err(err) => return Value::error(IoError::new(err.kind(), span, path).into(), span),
         },
         span,
     )

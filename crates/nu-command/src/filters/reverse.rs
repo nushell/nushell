@@ -17,7 +17,7 @@ impl Command for Reverse {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Reverses the input list or table."
     }
 
@@ -63,7 +63,7 @@ impl Command for Reverse {
         let metadata = input.metadata();
         let values = input.into_iter_strict(head)?.collect::<Vec<_>>();
         let iter = values.into_iter().rev();
-        Ok(iter.into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
+        Ok(iter.into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }
 

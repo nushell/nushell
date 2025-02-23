@@ -1,52 +1,48 @@
-use std log
+use std/log
+export-env {
+    # Place NU_FORMAT... environment variables in module-scope
+    export use std/log *
+}
 
 def "nu-complete threads" [] {
     seq 1 (sys cpu | length)
 }
 
-# Here we store the map of annotations internal names and the annotation actually used during test creation
-# The reason we do that is to allow annotations to be easily renamed without modifying rest of the code
-# Functions with no annotations or with annotations not on the list are rejected during module evaluation
-# test and test-skip annotations may be used multiple times throughout the module as the function names are stored in a list
-# Other annotations should only be used once within a module file
-# If you find yourself in need of multiple before- or after- functions it's a sign your test suite probably needs redesign
-def valid-annotations [] {
-    {
-        "#[test]": "test",
-        "#[ignore]": "test-skip",
-        "#[before-each]": "before-each"
-        "#[before-all]": "before-all"
-        "#[after-each]": "after-each"
-        "#[after-all]": "after-all"
-    }
+# Here we store the map of annotations' internal names along with the annotation actually
+# used during test creation. We do this to allow annotations to be easily renamed without
+# modifying rest of the code.
+# Functions with no annotations or with annotations not on the list are rejected during module evaluation.
+#
+# `test` and `test-skip` annotations may be used multiple times throughout the module as the function names
+# are stored in a list.
+#
+# Other annotations should only be used once within a module file.
+#
+# If you find yourself in need of multiple `before-*` or `after-*` functions, it's a sign your test suite
+# probably needs redesign.
+const valid_annotations = {
+    "test": "test",
+    "ignore": "test-skip",
+    "before-each": "before-each"
+    "before-all": "before-all"
+    "after-each": "after-each"
+    "after-all": "after-all"
 }
 
-# Returns a table containing the list of function names together with their annotations (comments above the declaration)
+# Returns a table containing the list of command names along with their attributes. 
 def get-annotated [
     file: path
-] path -> table<function_name: string, annotation: string> {
-    let raw_file = (
-        open $file
-        | lines
-        | enumerate
-        | flatten
-    )
-
-    $raw_file
-    | where item starts-with def and index > 0
-    | insert annotation {|x|
-        $raw_file
-        | get ($x.index - 1)
-        | get item
-        | str trim
-    }
-    | where annotation in (valid-annotations|columns)
-    | reject index
-    | update item {
-        split column --collapse-empty ' '
-        | get column2.0
-    }
-    | rename function_name
+]: nothing -> table<function_name: string, annotation: string> {
+    ^$nu.current-exe --no-config-file -c $'
+        source `($file)`
+        scope commands
+        | select name attributes
+        | where attributes != []
+        | to nuon
+    '
+    | from nuon
+    | update attributes { get name | each {|x| $valid_annotations | get -i $x } | first }
+    | rename function_name annotation
 }
 
 # Takes table of function names and their annotations such as the one returned by get-annotated
@@ -55,7 +51,7 @@ def get-annotated [
 # Annotations that allow multiple functions are of type list<string>
 # Other annotations are of type string
 # Result gets merged with the template record so that the output shape remains consistent regardless of the table content
-def create-test-record [] nothing -> record<before-each: string, after-each: string, before-all: string, after-all: string, test: list<string>, test-skip: list<string>> {
+def create-test-record []: nothing -> record<before-each: string, after-each: string, before-all: string, after-all: string, test: list<string>, test-skip: list<string>> {
     let input = $in
 
     let template_record = {
@@ -68,14 +64,10 @@ def create-test-record [] nothing -> record<before-each: string, after-each: str
 
     let test_record = (
         $input
-        | update annotation {|x|
-            valid-annotations
-            | get $x.annotation
-        }
         | group-by --to-table annotation
         | update items {|x|
             $x.items.function_name
-            | if $x.group in ["test", "test-skip"] {
+            | if $x.annotation in ["test", "test-skip"] {
                 $in
             } else {
                 get 0
@@ -160,7 +152,7 @@ export def ($test_function_name) [] {
     open $test.file
     | lines
     | append ($test_function)
-    | str join (char nl)
+    | str join (char lsep)
     | save $rendered_module_path
 
     let result = (
@@ -183,7 +175,7 @@ export def ($test_function_name) [] {
 def run-tests-for-module [
     module: record<file: path name: string before-each: string after-each: string before-all: string after-all: string test: list test-skip: list>
     threads: int
-] -> table<file: path, name: string, test: string, result: string> {
+]: nothing -> table<file: path, name: string, test: string, result: string> {
     let global_context = if not ($module.before-all|is-empty) {
             log info $"Running before-all for module ($module.name)"
             run-test {

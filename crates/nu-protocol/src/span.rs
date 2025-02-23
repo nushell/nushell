@@ -1,6 +1,12 @@
+//! [`Span`] to point to sections of source code and the [`Spanned`] wrapper type
+use crate::SpanId;
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
+
+pub trait GetSpan {
+    fn get_span(&self, span_id: SpanId) -> Span;
+}
 
 /// A spanned area of interest, generic over what kind of thing is of interest
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -44,6 +50,22 @@ impl<T> Spanned<T> {
         Spanned {
             item: f(self.item),
             span: self.span,
+        }
+    }
+}
+
+impl<T, E> Spanned<Result<T, E>> {
+    /// Move the `Result` to the outside, resulting in a spanned `Ok` or unspanned `Err`.
+    pub fn transpose(self) -> Result<Spanned<T>, E> {
+        match self {
+            Spanned {
+                item: Ok(item),
+                span,
+            } => Ok(Spanned { item, span }),
+            Spanned {
+                item: Err(err),
+                span: _,
+            } => Err(err),
         }
     }
 }
@@ -93,10 +115,17 @@ impl Span {
         Self { start: 0, end: 0 }
     }
 
+    /// Span for testing purposes.
+    ///
+    /// The provided span does not point into any known source but is unequal to [`Span::unknown()`].
+    ///
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
+    /// when used in errors
     pub const fn test_data() -> Self {
-        Self::unknown()
+        Self {
+            start: usize::MAX / 2,
+            end: usize::MAX / 2,
+        }
     }
 
     pub fn offset(&self, offset: usize) -> Self {
@@ -108,7 +137,7 @@ impl Span {
     }
 
     pub fn contains_span(&self, span: Self) -> bool {
-        self.start <= span.start && span.end <= self.end
+        self.start <= span.start && span.end <= self.end && span.end != 0
     }
 
     /// Point to the space just past this span, useful for missing values
@@ -193,26 +222,15 @@ impl From<Span> for SourceSpan {
     }
 }
 
-/// An extension trait for `Result`, which adds a span to the error type.
+/// An extension trait for [`Result`], which adds a span to the error type.
+///
+/// This trait might be removed later, since the old [`Spanned<std::io::Error>`] to
+/// [`ShellError`](crate::ShellError) conversion was replaced by
+/// [`IoError`](crate::shell_error::io::IoError).
 pub trait ErrSpan {
     type Result;
 
-    /// Add the given span to the error type `E`, turning it into a `Spanned<E>`.
-    ///
-    /// Some auto-conversion methods to `ShellError` from other error types are available on spanned
-    /// errors, to give users better information about where an error came from. For example, it is
-    /// preferred when working with `std::io::Error`:
-    ///
-    /// ```no_run
-    /// use nu_protocol::{ErrSpan, ShellError, Span};
-    /// use std::io::Read;
-    ///
-    /// fn read_from(mut reader: impl Read, span: Span) -> Result<Vec<u8>, ShellError> {
-    ///     let mut vec = vec![];
-    ///     reader.read_to_end(&mut vec).err_span(span)?;
-    ///     Ok(vec)
-    /// }
-    /// ```
+    /// Adds the given span to the error type, turning it into a [`Spanned<E>`].
     fn err_span(self, span: Span) -> Self::Result;
 }
 

@@ -1,7 +1,8 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 
 #[test]
 fn module_private_import_decl() {
@@ -612,6 +613,29 @@ fn deep_import_patterns() {
     assert_eq!(actual.out, "foo");
 }
 
+#[rstest]
+fn deep_import_aliased_external_args(
+    #[values(
+        "use spam; spam eggs beans foo bar",
+        "use spam eggs; eggs beans foo bar",
+        "use spam eggs beans; beans foo bar",
+        "use spam eggs beans foo; foo bar"
+    )]
+    input: &str,
+) {
+    let module_decl = "
+        module spam {
+            export module eggs {
+                export module beans {
+                    export alias foo = ^echo
+                }
+            }
+        }
+    ";
+    let actual = nu!(format!("{module_decl}; {input}"));
+    assert_eq!(actual.out, "bar");
+}
+
 #[test]
 fn module_dir() {
     let import = "use samples/spam";
@@ -759,4 +783,163 @@ fn nested_list_export_works() {
     let inp = &[module, "use spam [sausage eggs]", "eggs bacon"];
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "bacon");
+}
+
+#[test]
+fn reload_submodules() {
+    Playground::setup("reload_submodule_changed_file", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("voice.nu", r#"export module animals.nu"#),
+            FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
+        ]);
+
+        let inp = [
+            "use voice.nu",
+            r#""export def cat [] {'woem'}" | save -f animals.nu"#,
+            "use voice.nu",
+            "(voice animals cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
+
+        // should also verify something unchanged if `use voice`.
+        let inp = [
+            "use voice.nu",
+            r#""export def cat [] {'meow'}" | save -f animals.nu"#,
+            "use voice",
+            "(voice animals cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
+
+        // should also works if we use members directly.
+        sandbox.with_files(&[
+            FileWithContent("voice.nu", r#"export module animals.nu"#),
+            FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
+        ]);
+        let inp = [
+            "use voice.nu animals cat",
+            r#""export def cat [] {'woem'}" | save -f animals.nu"#,
+            "use voice.nu animals cat",
+            "(cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
+    });
+}
+
+#[test]
+fn use_submodules() {
+    Playground::setup("use_submodules", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("voice.nu", r#"export use animals.nu"#),
+            FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
+        ]);
+
+        let inp = [
+            "use voice.nu",
+            r#""export def cat [] {'woem'}" | save -f animals.nu"#,
+            "use voice.nu",
+            "(voice animals cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
+
+        // should also verify something unchanged if `use voice`.
+        let inp = [
+            "use voice.nu",
+            r#""export def cat [] {'meow'}" | save -f animals.nu"#,
+            "use voice",
+            "(voice animals cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
+
+        // also verify something is changed when using members.
+        sandbox.with_files(&[
+            FileWithContent("voice.nu", r#"export use animals.nu cat"#),
+            FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
+        ]);
+        let inp = [
+            "use voice.nu",
+            r#""export def cat [] {'woem'}" | save -f animals.nu"#,
+            "use voice.nu",
+            "(voice cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
+
+        sandbox.with_files(&[
+            FileWithContent("voice.nu", r#"export use animals.nu *"#),
+            FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
+        ]);
+        let inp = [
+            "use voice.nu",
+            r#""export def cat [] {'woem'}" | save -f animals.nu"#,
+            "use voice.nu",
+            "(voice cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
+
+        sandbox.with_files(&[
+            FileWithContent("voice.nu", r#"export use animals.nu [cat]"#),
+            FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
+        ]);
+        let inp = [
+            "use voice.nu",
+            r#""export def cat [] {'woem'}" | save -f animals.nu"#,
+            "use voice.nu",
+            "(voice cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
+    });
+}
+
+#[test]
+fn use_nested_submodules() {
+    Playground::setup("use_submodules", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("voice.nu", r#"export use animals.nu"#),
+            FileWithContent("animals.nu", r#"export use nested_animals.nu"#),
+            FileWithContent("nested_animals.nu", "export def cat [] { 'meow'}"),
+        ]);
+        let inp = [
+            "use voice.nu",
+            r#""export def cat [] {'woem'}" | save -f nested_animals.nu"#,
+            "use voice.nu",
+            "(voice animals nested_animals cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
+
+        sandbox.with_files(&[
+            FileWithContent("voice.nu", r#"export use animals.nu"#),
+            FileWithContent("animals.nu", r#"export use nested_animals.nu cat"#),
+            FileWithContent("nested_animals.nu", "export def cat [] { 'meow'}"),
+        ]);
+        let inp = [
+            "use voice.nu",
+            r#""export def cat [] {'woem'}" | save -f nested_animals.nu"#,
+            "use voice.nu",
+            "(voice animals cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
+
+        sandbox.with_files(&[
+            FileWithContent("animals.nu", r#"export use nested_animals.nu cat"#),
+            FileWithContent("nested_animals.nu", "export def cat [] { 'meow' }"),
+        ]);
+        let inp = [
+            "module voice { export module animals.nu }",
+            "use voice",
+            r#""export def cat [] {'woem'}" | save -f nested_animals.nu"#,
+            "use voice.nu",
+            "(voice animals cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
+    })
 }

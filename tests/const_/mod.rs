@@ -122,8 +122,8 @@ fn const_string_interpolation_date() {
 
 #[test]
 fn const_string_interpolation_filesize() {
-    let actual = nu!(r#"const s = $"(2kb)"; $s"#);
-    assert_eq!(actual.out, "2.0 KiB");
+    let actual = nu!(r#"const s = $"(2kB)"; $s"#);
+    assert_eq!(actual.out, "2.0 kB");
 }
 
 #[test]
@@ -154,7 +154,6 @@ fn const_unary_operator(#[case] inp: &[&str], #[case] expect: &str) {
 #[case(&[r#"const x = "a" ++ "b" "#, "$x"], "ab")]
 #[case(&[r#"const x = [1,2] ++ [3]"#, "$x | describe"], "list<int>")]
 #[case(&[r#"const x = 0x[1,2] ++ 0x[3]"#, "$x | describe"], "binary")]
-#[case(&[r#"const x = 0x[1,2] ++ [3]"#, "$x | describe"], "list<any>")]
 #[case(&["const x = 1 < 2", "$x"], "true")]
 #[case(&["const x = (3 * 200) > (2 * 100)", "$x"], "true")]
 #[case(&["const x = (3 * 200) < (2 * 100)", "$x"], "false")]
@@ -168,7 +167,7 @@ fn const_binary_operator(#[case] inp: &[&str], #[case] expect: &str) {
 #[case(&["const x = 1 / 0", "$x"], "division by zero")]
 #[case(&["const x = 10 ** 10000000", "$x"], "pow operation overflowed")]
 #[case(&["const x = 2 ** 62 * 2", "$x"], "multiply operation overflowed")]
-#[case(&["const x = 1 ++ 0", "$x"], "doesn't support this value")]
+#[case(&["const x = 1 ++ 0", "$x"], "nu::parser::operator_unsupported_type")]
 fn const_operator_error(#[case] inp: &[&str], #[case] expect: &str) {
     let actual = nu!(&inp.join("; "));
     assert!(actual.err.contains(expect));
@@ -238,13 +237,30 @@ fn complex_const_export() {
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "eats");
 
-    let inp = &[
-        MODULE_SETUP,
-        "use spam",
-        "($spam.eggs.bacon.none | is-empty)",
-    ];
+    let inp = &[MODULE_SETUP, "use spam", "'none' in $spam.eggs.bacon"];
     let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual.out, "false");
+}
+
+#[test]
+fn only_nested_module_have_const() {
+    let setup = r#"
+        module spam {
+            export module eggs {
+                export module bacon {
+                    export const viking = 'eats'
+                    export module none {}
+                }
+            }
+        }
+    "#;
+    let inp = &[setup, "use spam", "$spam.eggs.bacon.viking"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "eats");
+
+    let inp = &[setup, "use spam", "'none' in $spam.eggs.bacon"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "false");
 }
 
 #[test]
@@ -261,20 +277,16 @@ fn complex_const_glob_export() {
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "eats");
 
-    let inp = &[MODULE_SETUP, "use spam *", "($eggs.bacon.none | is-empty)"];
+    let inp = &[MODULE_SETUP, "use spam *", "'none' in $eggs.bacon"];
     let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "true");
+    assert_eq!(actual.out, "false");
 }
 
 #[test]
 fn complex_const_drill_export() {
-    let inp = &[
-        MODULE_SETUP,
-        "use spam eggs bacon none",
-        "($none | is-empty)",
-    ];
+    let inp = &[MODULE_SETUP, "use spam eggs bacon none", "$none"];
     let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "true");
+    assert!(actual.err.contains("variable not found"));
 }
 
 #[test]
@@ -335,9 +347,8 @@ fn const_captures_in_closures_work() {
     assert_eq!(actual.out, "hello world");
 }
 
-#[ignore = "TODO: Need to fix `overlay hide` to hide the constants brought by `overlay use`"]
 #[test]
-fn complex_const_overlay_use_hide() {
+fn complex_const_overlay_use() {
     let inp = &[MODULE_SETUP, "overlay use spam", "$X"];
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "x");
@@ -353,11 +364,15 @@ fn complex_const_overlay_use_hide() {
     let inp = &[
         MODULE_SETUP,
         "overlay use spam",
-        "($eggs.bacon.none | is-empty)",
+        "($eggs.bacon not-has 'none')",
     ];
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "true");
+}
 
+#[ignore = "TODO: `overlay hide` should be possible to use after `overlay use` in the same source unit."]
+#[test]
+fn overlay_use_hide_in_single_source_unit() {
     let inp = &[MODULE_SETUP, "overlay use spam", "overlay hide", "$eggs"];
     let actual = nu!(&inp.join("; "));
     assert!(actual.err.contains("nu::parser::variable_not_found"));
@@ -414,4 +429,19 @@ fn const_raw_string() {
 
     let actual = nu!(r#"const x = r#'abc'#; $x"#);
     assert_eq!(actual.out, "abc");
+}
+
+#[test]
+fn const_takes_pipeline() {
+    let actual = nu!(r#"const list = 'bar_baz_quux' | split row '_'; $list | length"#);
+    assert_eq!(actual.out, "3");
+}
+
+#[test]
+fn const_const() {
+    let actual = nu!(r#"const y = (const x = "foo"; $x + $x); $y"#);
+    assert_eq!(actual.out, "foofoo");
+
+    let actual = nu!(r#"const y = (const x = "foo"; $x + $x); $x"#);
+    assert!(actual.err.contains("nu::parser::variable_not_found"));
 }

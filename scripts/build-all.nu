@@ -1,7 +1,7 @@
 use std log warning
 
 print '-------------------------------------------------------------------'
-print 'Building nushell (nu) with dataframes and all the plugins'
+print 'Building nushell (nu) and all the plugins'
 print '-------------------------------------------------------------------'
 
 warning "./scripts/build-all.nu will be deprecated, please use the `toolkit build` command instead"
@@ -13,7 +13,7 @@ def build-nushell [] {
     print '----------------------------'
 
     cd $repo_root
-    cargo build --features=dataframe --locked
+    cargo build --locked
 }
 
 def build-plugin [] {
@@ -33,6 +33,7 @@ let plugins = [
     nu_plugin_example,
     nu_plugin_custom_values,
     nu_plugin_formats,
+    nu_plugin_polars
 ]
 
 for plugin in $plugins {

@@ -8,7 +8,7 @@ impl Command for LoadEnv {
         "load-env"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Loads an environment update from a record."
     }
 
@@ -17,6 +17,9 @@ impl Command for LoadEnv {
             .input_output_types(vec![
                 (Type::record(), Type::Nothing),
                 (Type::Nothing, Type::Nothing),
+                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
+                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
+                (Type::Any, Type::Nothing),
             ])
             .allow_variants_without_examples(true)
             .optional(

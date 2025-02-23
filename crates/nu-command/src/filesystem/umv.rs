@@ -1,8 +1,7 @@
-use super::util::get_rest_for_glob_pattern;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
-use nu_protocol::NuGlob;
+use nu_protocol::{shell_error::io::IoError, NuGlob};
 use std::{ffi::OsString, path::PathBuf};
 use uu_mv::{BackupMode, UpdateMode};
 
@@ -14,7 +13,7 @@ impl Command for UMv {
         "mv"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Move files or directories using uutils/coreutils mv."
     }
 
@@ -31,8 +30,18 @@ impl Command for UMv {
                 result: None,
             },
             Example {
+                description: "Move only if source file is newer than target file",
+                example: "mv -u new/test.txt old/",
+                result: None,
+            },
+            Example {
                 description: "Move many files into a directory",
                 example: "mv *.txt my/subdirectory",
+                result: None,
+            },
+            Example {
+                description: r#"Move a file into the "my" directory two levels up in the directory tree"#,
+                example: "mv test.txt .../my/",
                 result: None,
             },
         ]
@@ -49,6 +58,11 @@ impl Command for UMv {
             .switch("verbose", "explain what is being done.", Some('v'))
             .switch("progress", "display a progress bar", Some('p'))
             .switch("interactive", "prompt before overwriting", Some('i'))
+            .switch(
+                "update",
+                "move and overwrite only when the SOURCE file is newer than the destination file or when the destination file is missing",
+                Some('u')
+            )
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .rest(
                 "paths",
@@ -77,10 +91,15 @@ impl Command for UMv {
         } else {
             uu_mv::OverwriteMode::Force
         };
+        let update = if call.has_flag(engine_state, stack, "update")? {
+            UpdateMode::ReplaceIfOlder
+        } else {
+            UpdateMode::ReplaceAll
+        };
 
         #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
-        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
@@ -119,10 +138,11 @@ impl Command for UMv {
                     .map(|f| f.1)?
                     .collect();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound {
-                    file: p.item.to_string(),
-                    span: p.span,
-                });
+                return Err(ShellError::Io(IoError::new(
+                    std::io::ErrorKind::NotFound,
+                    p.span,
+                    PathBuf::from(p.item.to_string()),
+                )));
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
@@ -141,7 +161,7 @@ impl Command for UMv {
         for (files, need_expand_tilde) in files.iter_mut() {
             for src in files.iter_mut() {
                 if !src.is_absolute() {
-                    *src = nu_path::expand_path_with(&src, &cwd, *need_expand_tilde);
+                    *src = nu_path::expand_path_with(&*src, &cwd, *need_expand_tilde);
                 }
             }
         }
@@ -164,10 +184,11 @@ impl Command for UMv {
             verbose,
             suffix: String::from("~"),
             backup: BackupMode::NoBackup,
-            update: UpdateMode::ReplaceAll,
+            update,
             target_dir: None,
             no_target_dir: false,
             strip_slashes: false,
+            debug: false,
         };
         if let Err(error) = uu_mv::mv(&files, &options) {
             return Err(ShellError::GenericError {

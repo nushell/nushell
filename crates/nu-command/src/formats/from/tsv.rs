@@ -50,7 +50,7 @@ impl Command for FromTsv {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse text as .tsv and create table."
     }
 
@@ -74,6 +74,21 @@ impl Command for FromTsv {
                         "ColA" =>  Value::test_int(1),
                         "ColB" =>  Value::test_int(2),
                     })],
+                ))
+            },
+            Example {
+                description: "Convert comma-separated data to a table, allowing variable number of columns per row and ignoring headers",
+                example: "\"value 1\nvalue 2\tdescription 2\" | from tsv --flexible --noheaders",
+                result: Some(Value::test_list (
+                    vec![
+                        Value::test_record(record! {
+                            "column0" => Value::test_string("value 1"),
+                        }),
+                        Value::test_record(record! {
+                            "column0" => Value::test_string("value 2"),
+                            "column1" => Value::test_string("description 2"),
+                        }),
+                    ],
                 ))
             },
             Example {
@@ -147,6 +162,10 @@ fn from_tsv(
 
 #[cfg(test)]
 mod test {
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::{Metadata, MetadataSet};
+
     use super::*;
 
     #[test]
@@ -154,5 +173,34 @@ mod test {
         use crate::test_examples;
 
         test_examples(FromTsv {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(FromTsv {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(MetadataSet {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = r#""a\tb\n1\t2" | metadata set --content-type 'text/tab-separated-values' --datasource-ls | from tsv | metadata | $in"#;
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("source" => Value::test_string("ls"))),
+            result.expect("There should be a result")
+        )
     }
 }

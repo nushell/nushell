@@ -1,8 +1,8 @@
 mod common;
 
-use common::create_row as row;
-use nu_table::{NuTable, NuTableConfig, TableTheme as theme};
-use tabled::grid::records::vec_records::CellInfo;
+use common::{create_row as row, TestCase};
+use nu_table::{NuTable, TableTheme as theme};
+use tabled::grid::records::vec_records::Text;
 
 #[test]
 fn test_rounded() {
@@ -451,32 +451,19 @@ fn test_with_love() {
     assert_eq!(create_table_with_size(vec![], true, theme::with_love()), "");
 }
 
-fn create_table(data: Vec<Vec<CellInfo<String>>>, with_header: bool, theme: theme) -> String {
-    let config = NuTableConfig {
-        theme,
-        with_header,
-        ..Default::default()
-    };
+fn create_table(data: Vec<Vec<Text<String>>>, with_header: bool, theme: theme) -> String {
+    let mut case = TestCase::new(usize::MAX).theme(theme);
+    if with_header {
+        case = case.header();
+    }
 
-    let out = common::create_table(data, config, usize::MAX);
-
-    out.expect("not expected to get None")
+    common::create_table(data, case).expect("not expected to get None")
 }
 
-fn create_table_with_size(
-    data: Vec<Vec<CellInfo<String>>>,
-    with_header: bool,
-    theme: theme,
-) -> String {
-    let config = NuTableConfig {
-        theme,
-        with_header,
-        ..Default::default()
-    };
+fn create_table_with_size(data: Vec<Vec<Text<String>>>, with_header: bool, theme: theme) -> String {
+    let mut table = NuTable::from(data);
+    table.set_theme(theme);
+    table.set_structure(false, with_header, false);
 
-    let table = NuTable::from(data);
-
-    table
-        .draw(config, usize::MAX)
-        .expect("not expected to get None")
+    table.draw(usize::MAX).expect("not expected to get None")
 }

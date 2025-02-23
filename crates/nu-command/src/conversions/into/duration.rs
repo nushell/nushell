@@ -36,11 +36,11 @@ impl Command for SubCommand {
             .category(Category::Conversions)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert value to duration."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Max duration value is i64::MAX nanoseconds; max duration time unit is wk (weeks)."
     }
 
@@ -166,20 +166,24 @@ fn into_duration(
                 ret
             }
         },
-        engine_state.ctrlc.clone(),
+        engine_state.signals(),
     )
-}
-
-// convert string list of duration values to duration NS.
-// technique for getting substrings and span based on: https://stackoverflow.com/a/67098851/2036651
-#[inline]
-fn addr_of(s: &str) -> usize {
-    s.as_ptr() as usize
 }
 
 fn split_whitespace_indices(s: &str, span: Span) -> impl Iterator<Item = (&str, Span)> {
     s.split_whitespace().map(move |sub| {
-        let start_offset = span.start + addr_of(sub) - addr_of(s);
+        // Gets the offset of the `sub` substring inside the string `s`.
+        // `wrapping_` operations are necessary because the pointers can
+        // overflow on 32-bit platforms.  The result will not overflow, because
+        // `sub` is within `s`, and the end of `s` has to be a valid memory
+        // address.
+        //
+        // XXX: this should be replaced with `str::substr_range` from the
+        // standard library when it's stabilized.
+        let start_offset = span
+            .start
+            .wrapping_add(sub.as_ptr() as usize)
+            .wrapping_sub(s.as_ptr() as usize);
         (sub, Span::new(start_offset, start_offset + sub.len()))
     })
 }

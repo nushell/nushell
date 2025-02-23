@@ -1,9 +1,10 @@
+use crate::util::{get_plugin_dirs, modify_plugin_file};
 use nu_engine::command_prelude::*;
 use nu_plugin_engine::{GetPlugin, PersistentPlugin};
-use nu_protocol::{PluginGcConfig, PluginIdentity, PluginRegistryItem, RegisteredPlugin};
-use std::sync::Arc;
-
-use crate::util::{get_plugin_dirs, modify_plugin_file};
+use nu_protocol::{
+    shell_error::io::IoError, PluginGcConfig, PluginIdentity, PluginRegistryItem, RegisteredPlugin,
+};
+use std::{path::PathBuf, sync::Arc};
 
 #[derive(Clone)]
 pub struct PluginAdd;
@@ -31,17 +32,17 @@ impl Command for PluginAdd {
             )
             .required(
                 "filename",
-                SyntaxShape::Filepath,
-                "Path to the executable for the plugin",
+                SyntaxShape::String,
+                "Path to the executable for the plugin.",
             )
             .category(Category::Plugin)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Add a plugin to the plugin registry file."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"
 This does not load the plugin commands into the scope - see `plugin use` for
 that.
@@ -81,18 +82,20 @@ apparent the next time `nu` is next launched with that plugin registry file.
     ) -> Result<PipelineData, ShellError> {
         let filename: Spanned<String> = call.req(engine_state, stack, 0)?;
         let shell: Option<Spanned<String>> = call.get_flag(engine_state, stack, "shell")?;
-
         let cwd = engine_state.cwd(Some(stack))?;
 
         // Check the current directory, or fall back to NU_PLUGIN_DIRS
         let filename_expanded = nu_path::locate_in_dirs(&filename.item, &cwd, || {
             get_plugin_dirs(engine_state, stack)
         })
-        .err_span(filename.span)?;
+        .map_err(|err| IoError::new(err.kind(), filename.span, PathBuf::from(filename.item)))?;
 
         let shell_expanded = shell
             .as_ref()
-            .map(|s| nu_path::canonicalize_with(&s.item, &cwd).err_span(s.span))
+            .map(|s| {
+                nu_path::canonicalize_with(&s.item, &cwd)
+                    .map_err(|err| IoError::new(err.kind(), s.span, None))
+            })
             .transpose()?;
 
         // Parse the plugin filename so it can be used to spawn the plugin
@@ -118,11 +121,12 @@ apparent the next time `nu` is next launched with that plugin registry file.
             },
         ));
         let interface = plugin.clone().get_plugin(Some((engine_state, stack)))?;
+        let metadata = interface.get_metadata()?;
         let commands = interface.get_signature()?;
 
-        modify_plugin_file(engine_state, stack, call.head, custom_path, |contents| {
-            // Update the file with the received signatures
-            let item = PluginRegistryItem::new(plugin.identity(), commands);
+        modify_plugin_file(engine_state, stack, call.head, &custom_path, |contents| {
+            // Update the file with the received metadata and signatures
+            let item = PluginRegistryItem::new(plugin.identity(), metadata, commands);
             contents.upsert_plugin(item);
             Ok(())
         })?;

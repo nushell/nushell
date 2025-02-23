@@ -27,7 +27,7 @@ impl Command for BitsXor {
             .required(
                 "target",
                 SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::Int]),
-                "right-hand side of the operation",
+                "Right-hand side of the operation.",
             )
             .named(
                 "endian",
@@ -38,7 +38,7 @@ impl Command for BitsXor {
             .category(Category::Bits)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Performs bitwise xor for ints or binary values."
     }
 
@@ -80,7 +80,7 @@ impl Command for BitsXor {
 
         input.map(
             move |value| binary_op(&value, &target, little_endian, |(l, r)| l ^ r, head),
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
     }
 

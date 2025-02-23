@@ -12,10 +12,15 @@ impl Command for ToYaml {
     fn signature(&self) -> Signature {
         Signature::build("to yaml")
             .input_output_types(vec![(Type::Any, Type::String)])
+            .switch(
+                "serialize",
+                "serialize nushell types that cannot be deserialized",
+                Some('s'),
+            )
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert table into .yaml/.yml text."
     }
 
@@ -29,22 +34,30 @@ impl Command for ToYaml {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
         let input = input.try_expand_range()?;
-        to_yaml(input, head)
+
+        to_yaml(engine_state, input, head, serialize_types)
     }
 }
 
-pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
+pub fn value_to_yaml_value(
+    engine_state: &EngineState,
+    v: &Value,
+    serialize_types: bool,
+) -> Result<serde_yaml::Value, ShellError> {
     Ok(match &v {
         Value::Bool { val, .. } => serde_yaml::Value::Bool(*val),
         Value::Int { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
-        Value::Filesize { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
+        Value::Filesize { val, .. } => {
+            serde_yaml::Value::Number(serde_yaml::Number::from(val.get()))
+        }
         Value::Duration { val, .. } => serde_yaml::Value::String(val.to_string()),
         Value::Date { val, .. } => serde_yaml::Value::String(val.to_string()),
         Value::Range { .. } => serde_yaml::Value::Null,
@@ -57,7 +70,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
             for (k, v) in val {
                 m.insert(
                     serde_yaml::Value::String(k.clone()),
-                    value_to_yaml_value(v)?,
+                    value_to_yaml_value(engine_state, v, serialize_types)?,
                 );
             }
             serde_yaml::Value::Mapping(m)
@@ -66,12 +79,28 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
             let mut out = vec![];
 
             for value in vals {
-                out.push(value_to_yaml_value(value)?);
+                out.push(value_to_yaml_value(engine_state, value, serialize_types)?);
             }
 
             serde_yaml::Value::Sequence(out)
         }
-        Value::Closure { .. } => serde_yaml::Value::Null,
+        Value::Closure { val, .. } => {
+            if serialize_types {
+                let block = engine_state.get_block(val.block_id);
+                if let Some(span) = block.span {
+                    let contents_bytes = engine_state.get_span_contents(span);
+                    let contents_string = String::from_utf8_lossy(contents_bytes);
+                    serde_yaml::Value::String(contents_string.to_string())
+                } else {
+                    serde_yaml::Value::String(format!(
+                        "unable to retrieve block contents for yaml block_id {}",
+                        val.block_id.get()
+                    ))
+                }
+            } else {
+                serde_yaml::Value::Null
+            }
+        }
         Value::Nothing { .. } => serde_yaml::Value::Null,
         Value::Error { error, .. } => return Err(*error.clone()),
         Value::Binary { val, .. } => serde_yaml::Value::Sequence(
@@ -94,12 +123,25 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
     })
 }
 
-fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+fn to_yaml(
+    engine_state: &EngineState,
+    input: PipelineData,
+    head: Span,
+    serialize_types: bool,
+) -> Result<PipelineData, ShellError> {
+    let metadata = input
+        .metadata()
+        .unwrap_or_default()
+        // Per RFC-9512, application/yaml should be used
+        .with_content_type(Some("application/yaml".into()));
     let value = input.into_value(head)?;
 
-    let yaml_value = value_to_yaml_value(&value)?;
+    let yaml_value = value_to_yaml_value(engine_state, &value, serialize_types)?;
     match serde_yaml::to_string(&yaml_value) {
-        Ok(serde_yaml_string) => Ok(Value::string(serde_yaml_string, head).into_pipeline_data()),
+        Ok(serde_yaml_string) => {
+            Ok(Value::string(serde_yaml_string, head)
+                .into_pipeline_data_with_metadata(Some(metadata)))
+        }
         _ => Ok(Value::error(
             ShellError::CantConvert {
                 to_type: "YAML".into(),
@@ -109,18 +151,51 @@ fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> 
             },
             head,
         )
-        .into_pipeline_data()),
+        .into_pipeline_data_with_metadata(Some(metadata))),
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::{Get, Metadata};
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
         test_examples(ToYaml {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            // Base functions that are needed for testing
+            // Try to keep this working set small to keep tests running as fast as possible
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(ToYaml {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = "{a: 1 b: 2} | to yaml  | metadata | get content_type";
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("content_type" => Value::test_string("application/yaml"))),
+            result.expect("There should be a result")
+        );
     }
 }

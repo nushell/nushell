@@ -2,7 +2,7 @@ use nu_engine::eval_block;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack},
-    IntoPipelineData, Span, Value,
+    BlockId, IntoPipelineData, Span, Value,
 };
 use reedline::{menu_functions::parse_selection_char, Completer, Suggestion};
 use std::sync::Arc;
@@ -10,7 +10,7 @@ use std::sync::Arc;
 const SELECTION_CHAR: char = '!';
 
 pub struct NuMenuCompleter {
-    block_id: usize,
+    block_id: BlockId,
     span: Span,
     stack: Stack,
     engine_state: Arc<EngineState>,
@@ -19,7 +19,7 @@ pub struct NuMenuCompleter {
 
 impl NuMenuCompleter {
     pub fn new(
-        block_id: usize,
+        block_id: BlockId,
         span: Span,
         stack: Stack,
         engine_state: Arc<EngineState>,
@@ -28,7 +28,7 @@ impl NuMenuCompleter {
         Self {
             block_id,
             span,
-            stack: stack.reset_out_dest().capture(),
+            stack: stack.reset_out_dest().collect_value(),
             engine_state,
             only_buffer_difference,
         }
@@ -142,10 +142,9 @@ fn convert_to_suggestions(
             vec![Suggestion {
                 value: text,
                 description,
-                style: None,
                 extra,
                 span,
-                append_whitespace: false,
+                ..Suggestion::default()
             }]
         }
         Value::List { vals, .. } => vals
@@ -154,9 +153,6 @@ fn convert_to_suggestions(
             .collect(),
         _ => vec![Suggestion {
             value: format!("Not a record: {value:?}"),
-            description: None,
-            style: None,
-            extra: None,
             span: reedline::Span {
                 start: if only_buffer_difference {
                     pos - line.len()
@@ -169,7 +165,7 @@ fn convert_to_suggestions(
                     line.len()
                 },
             },
-            append_whitespace: false,
+            ..Suggestion::default()
         }],
     }
 }

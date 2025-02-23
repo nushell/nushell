@@ -138,11 +138,11 @@ impl Command for ToHtml {
         ]
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert table into simple HTML."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Screenshots of the themes can be browsed here: https://github.com/mbadolato/iTerm2-Color-Schemes."
     }
 
@@ -239,7 +239,7 @@ fn to_html(
     let partial = call.has_flag(engine_state, stack, "partial")?;
     let list = call.has_flag(engine_state, stack, "list")?;
     let theme: Option<Spanned<String>> = call.get_flag(engine_state, stack, "theme")?;
-    let config = engine_state.get_config();
+    let config = &stack.get_config(engine_state);
 
     let vec_of_values = input.into_iter().collect::<Vec<Value>>();
     let headers = merge_descriptors(&vec_of_values);
@@ -330,7 +330,12 @@ fn to_html(
         output_string = run_regexes(&regex_hm, &output_string);
     }
 
-    Ok(Value::string(output_string, head).into_pipeline_data())
+    let metadata = PipelineMetadata {
+        data_source: nu_protocol::DataSource::None,
+        content_type: Some(mime::TEXT_HTML_UTF_8.to_string()),
+    };
+
+    Ok(Value::string(output_string, head).into_pipeline_data_with_metadata(metadata))
 }
 
 fn theme_demo(span: Span) -> PipelineData {
@@ -368,6 +373,7 @@ fn theme_demo(span: Span) -> PipelineData {
         .collect();
     Value::list(result, span).into_pipeline_data_with_metadata(PipelineMetadata {
         data_source: DataSource::HtmlThemes,
+        content_type: None,
     })
 }
 

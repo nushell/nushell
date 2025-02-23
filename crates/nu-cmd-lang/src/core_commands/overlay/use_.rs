@@ -2,7 +2,7 @@ use nu_engine::{
     command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
 };
 use nu_parser::trim_quotes_str;
-use nu_protocol::ast::Expr;
+use nu_protocol::{ast::Expr, engine::CommandType, ModuleId};
 
 use std::path::Path;
 
@@ -14,7 +14,7 @@ impl Command for OverlayUse {
         "overlay use"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Use definitions from a module as an overlay."
     }
 
@@ -24,8 +24,8 @@ impl Command for OverlayUse {
             .allow_variants_without_examples(true)
             .required(
                 "name",
-                SyntaxShape::String,
-                "Module name to use overlay for.",
+                SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]),
+                "Module name to use overlay for (`null` for no-op).",
             )
             .optional(
                 "as",
@@ -45,13 +45,13 @@ impl Command for OverlayUse {
             .category(Category::Core)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(
@@ -61,13 +61,18 @@ impl Command for OverlayUse {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let noop = call.get_parser_info(caller_stack, "noop");
+        if noop.is_some() {
+            return Ok(PipelineData::empty());
+        }
+
         let mut name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
         name_arg.item = trim_quotes_str(&name_arg.item).to_string();
 
-        let maybe_origin_module_id =
-            if let Some(overlay_expr) = call.get_parser_info("overlay_expr") {
+        let maybe_origin_module_id: Option<ModuleId> =
+            if let Some(overlay_expr) = call.get_parser_info(caller_stack, "overlay_expr") {
                 if let Expr::Overlay(module_id) = &overlay_expr.expr {
-                    module_id
+                    *module_id
                 } else {
                     return Err(ShellError::NushellFailedSpanned {
                         msg: "Not an overlay".to_string(),
@@ -110,7 +115,7 @@ impl Command for OverlayUse {
             // a) adding a new overlay
             // b) refreshing an active overlay (the origin module changed)
 
-            let module = engine_state.get_module(*module_id);
+            let module = engine_state.get_module(module_id);
 
             // Evaluate the export-env block (if any) and keep its environment
             if let Some(block_id) = module.env_block {
@@ -118,7 +123,7 @@ impl Command for OverlayUse {
                     &name_arg.item,
                     engine_state,
                     caller_stack,
-                    get_dirs_var_from_call(call),
+                    get_dirs_var_from_call(caller_stack, call),
                 )?;
 
                 let block = engine_state.get_block(block_id);

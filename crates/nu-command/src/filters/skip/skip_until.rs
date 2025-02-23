@@ -20,13 +20,13 @@ impl Command for SkipUntil {
             ])
             .required(
                 "predicate",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The predicate that skipped element must not match.",
             )
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Skip elements of the input until a predicate is true."
     }
 
@@ -89,7 +89,7 @@ impl Command for SkipUntil {
                     .map(|cond| cond.is_false())
                     .unwrap_or(false)
             })
-            .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
+            .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }
 

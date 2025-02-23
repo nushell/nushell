@@ -1,16 +1,16 @@
 mod binary;
-mod coloredtextw;
+mod colored_text_widget;
 mod cursor;
-mod interactive;
 mod preview;
 mod record;
+mod r#try;
 pub mod util;
 
 use super::{
     nu_common::NuText,
     pager::{Frame, Transition, ViewInfo},
 };
-use crate::{nu_common::NuConfig, pager::ConfigMap};
+use crate::{explore::ExploreConfig, nu_common::NuConfig};
 use crossterm::event::KeyEvent;
 use lscolors::LsColors;
 use nu_color_config::StyleComputer;
@@ -21,8 +21,8 @@ use nu_protocol::{
 use ratatui::layout::Rect;
 
 pub use binary::BinaryView;
-pub use interactive::InteractiveView;
 pub use preview::Preview;
+pub use r#try::TryView;
 pub use record::{Orientation, RecordView};
 
 #[derive(Debug, Default)]
@@ -55,23 +55,26 @@ impl ElementInfo {
 #[derive(Debug, Clone, Copy)]
 pub struct ViewConfig<'a> {
     pub nu_config: &'a NuConfig,
+    pub explore_config: &'a ExploreConfig,
     pub style_computer: &'a StyleComputer<'a>,
-    pub config: &'a ConfigMap,
     pub lscolors: &'a LsColors,
+    pub cwd: &'a str,
 }
 
 impl<'a> ViewConfig<'a> {
     pub fn new(
         nu_config: &'a NuConfig,
+        explore_config: &'a ExploreConfig,
         style_computer: &'a StyleComputer<'a>,
-        config: &'a ConfigMap,
         lscolors: &'a LsColors,
+        cwd: &'a str,
     ) -> Self {
         Self {
             nu_config,
+            explore_config,
             style_computer,
-            config,
             lscolors,
+            cwd,
         }
     }
 }
@@ -86,7 +89,7 @@ pub trait View {
         layout: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
-    ) -> Option<Transition>;
+    ) -> Transition;
 
     fn show_data(&mut self, _: usize) -> bool {
         false
@@ -99,8 +102,6 @@ pub trait View {
     fn exit(&mut self) -> Option<Value> {
         None
     }
-
-    fn setup(&mut self, _: ViewConfig<'_>) {}
 }
 
 impl View for Box<dyn View> {
@@ -115,7 +116,7 @@ impl View for Box<dyn View> {
         layout: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
-    ) -> Option<Transition> {
+    ) -> Transition {
         self.as_mut()
             .handle_input(engine_state, stack, layout, info, key)
     }
@@ -130,9 +131,5 @@ impl View for Box<dyn View> {
 
     fn show_data(&mut self, i: usize) -> bool {
         self.as_mut().show_data(i)
-    }
-
-    fn setup(&mut self, cfg: ViewConfig<'_>) {
-        self.as_mut().setup(cfg)
     }
 }

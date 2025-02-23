@@ -8,7 +8,8 @@ use notify_debouncer_full::{
 use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::{
     engine::{Closure, StateWorkingSet},
-    format_error,
+    format_shell_error,
+    shell_error::io::IoError,
 };
 use std::{
     path::PathBuf,
@@ -28,7 +29,7 @@ impl Command for Watch {
         "watch"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Watch for file changes and execute Nu code when they happen."
     }
 
@@ -61,6 +62,7 @@ impl Command for Watch {
                 "Watch all directories under `<path>` recursively. Will be ignored if `<path>` is a file (default: true)",
                 Some('r'),
             )
+            .switch("quiet", "Hide the initial status message (default: false)", Some('q'))
             .switch("verbose", "Operate in verbose mode (default: false)", Some('v'))
             .category(Category::FileSystem)
     }
@@ -82,17 +84,20 @@ impl Command for Watch {
 
         let path = match nu_path::canonicalize_with(path_no_whitespace, cwd) {
             Ok(p) => p,
-            Err(_) => {
-                return Err(ShellError::DirectoryNotFound {
-                    dir: path_no_whitespace.to_string(),
-                    span: path_arg.span,
-                })
+            Err(err) => {
+                return Err(ShellError::Io(IoError::new(
+                    err.kind(),
+                    path_arg.span,
+                    PathBuf::from(path_no_whitespace),
+                )))
             }
         };
 
         let closure: Closure = call.req(engine_state, stack, 1)?;
 
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
+
+        let quiet = call.has_flag(engine_state, stack, "quiet")?;
 
         let debounce_duration_flag: Option<Spanned<i64>> =
             call.get_flag(engine_state, stack, "debounce-ms")?;
@@ -143,26 +148,35 @@ impl Command for Watch {
             None => RecursiveMode::Recursive,
         };
 
-        let ctrlc_ref = &engine_state.ctrlc.clone();
         let (tx, rx) = channel();
 
         let mut debouncer = match new_debouncer(debounce_duration, None, tx) {
             Ok(d) => d,
             Err(e) => {
-                return Err(ShellError::IOError {
-                    msg: format!("Failed to create watcher: {e}"),
-                })
+                return Err(ShellError::GenericError {
+                    error: "Failed to create watcher".to_string(),
+                    msg: e.to_string(),
+                    span: Some(call.head),
+                    help: None,
+                    inner: vec![],
+                });
             }
         };
         if let Err(e) = debouncer.watcher().watch(&path, recursive_mode) {
-            return Err(ShellError::IOError {
-                msg: format!("Failed to create watcher: {e}"),
+            return Err(ShellError::GenericError {
+                error: "Failed to create watcher".to_string(),
+                msg: e.to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
             });
         }
         // need to cache to make sure that rename event works.
         debouncer.cache().add_root(&path, recursive_mode);
 
-        eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
+        if !quiet {
+            eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
+        }
 
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
@@ -190,11 +204,11 @@ impl Command for Watch {
 
                 match result {
                     Ok(val) => {
-                        val.print(engine_state, stack, false, false)?;
+                        val.print_table(engine_state, stack, false, false)?;
                     }
                     Err(err) => {
                         let working_set = StateWorkingSet::new(engine_state);
-                        eprintln!("{}", format_error(&working_set, &err));
+                        eprintln!("{}", format_shell_error(&working_set, &err));
                     }
                 }
             }
@@ -245,18 +259,26 @@ impl Command for Watch {
                     }
                 }
                 Ok(Err(_)) => {
-                    return Err(ShellError::IOError {
+                    return Err(ShellError::GenericError {
+                        error: "Receiving events failed".to_string(),
                         msg: "Unexpected errors when receiving events".into(),
-                    })
+                        span: None,
+                        help: None,
+                        inner: vec![],
+                    });
                 }
                 Err(RecvTimeoutError::Disconnected) => {
-                    return Err(ShellError::IOError {
+                    return Err(ShellError::GenericError {
+                        error: "Disconnected".to_string(),
                         msg: "Unexpected disconnect from file watcher".into(),
+                        span: None,
+                        help: None,
+                        inner: vec![],
                     });
                 }
                 Err(RecvTimeoutError::Timeout) => {}
             }
-            if nu_utils::ctrl_c::was_pressed(ctrlc_ref) {
+            if engine_state.signals().interrupted() {
                 break;
             }
         }

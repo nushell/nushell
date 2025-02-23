@@ -142,7 +142,7 @@ impl PluginCustomValue {
     ) -> Result<PluginCustomValue, ShellError> {
         let name = custom_value.type_name();
         let notify_on_drop = custom_value.notify_plugin_on_drop();
-        bincode::serialize(custom_value)
+        rmp_serde::to_vec(custom_value)
             .map(|data| PluginCustomValue::new(name, data, notify_on_drop))
             .map_err(|err| ShellError::CustomValueFailedToEncode {
                 msg: err.to_string(),
@@ -156,7 +156,7 @@ impl PluginCustomValue {
         &self,
         span: Span,
     ) -> Result<Box<dyn CustomValue>, ShellError> {
-        bincode::deserialize::<Box<dyn CustomValue>>(self.data()).map_err(|err| {
+        rmp_serde::from_slice::<Box<dyn CustomValue>>(self.data()).map_err(|err| {
             ShellError::CustomValueFailedToDecode {
                 msg: err.to_string(),
                 span,

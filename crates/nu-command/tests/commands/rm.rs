@@ -1,9 +1,11 @@
+#[cfg(not(windows))]
+use nu_path::AbsolutePath;
 use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use rstest::rstest;
+#[cfg(not(windows))]
 use std::fs;
-use std::path::Path;
 
 #[test]
 fn removes_a_file() {
@@ -47,7 +49,7 @@ fn removes_files_with_wildcard() {
         );
 
         assert!(!files_exist_at(
-            vec![
+            &[
                 "src/parser/parse/token_tree.rs",
                 "src/parser/hir/baseline_parse.rs",
                 "src/parser/hir/baseline_parse_tokens.rs"
@@ -88,7 +90,7 @@ fn removes_deeply_nested_directories_with_wildcard_and_recursive_flag() {
         );
 
         assert!(!files_exist_at(
-            vec!["src/parser/parse", "src/parser/hir"],
+            &["src/parser/parse", "src/parser/hir"],
             dirs.test()
         ));
     })
@@ -143,7 +145,7 @@ fn errors_if_attempting_to_delete_home() {
     Playground::setup("rm_test_8", |dirs, _| {
         let actual = nu!(
             cwd: dirs.root(),
-            "$env.HOME = myhome ; rm -rf ~"
+            "$env.HOME = 'myhome' ; rm -rf ~"
         );
 
         assert!(actual.err.contains("please use -I or -i"));
@@ -274,7 +276,7 @@ fn remove_files_from_two_parents_up_using_multiple_dots_and_glob() {
         );
 
         assert!(!files_exist_at(
-            vec!["yehuda.txt", "jttxt", "kevin.txt"],
+            &["yehuda.txt", "jttxt", "kevin.txt"],
             dirs.test()
         ));
     })
@@ -302,8 +304,8 @@ fn rm_wildcard_keeps_dotfiles() {
             r#"rm *"#
         );
 
-        assert!(!files_exist_at(vec!["foo"], dirs.test()));
-        assert!(files_exist_at(vec![".bar"], dirs.test()));
+        assert!(!files_exist_at(&["foo"], dirs.test()));
+        assert!(files_exist_at(&[".bar"], dirs.test()));
     })
 }
 
@@ -317,8 +319,8 @@ fn rm_wildcard_leading_dot_deletes_dotfiles() {
             "rm .*"
         );
 
-        assert!(files_exist_at(vec!["foo"], dirs.test()));
-        assert!(!files_exist_at(vec![".bar"], dirs.test()));
+        assert!(files_exist_at(&["foo"], dirs.test()));
+        assert!(!files_exist_at(&[".bar"], dirs.test()));
     })
 }
 
@@ -404,17 +406,20 @@ fn removes_file_after_cd() {
     })
 }
 
+#[cfg(not(windows))]
 struct Cleanup<'a> {
-    dir_to_clean: &'a Path,
+    dir_to_clean: &'a AbsolutePath,
 }
 
-fn set_dir_read_only(directory: &Path, read_only: bool) {
+#[cfg(not(windows))]
+fn set_dir_read_only(directory: &AbsolutePath, read_only: bool) {
     let mut permissions = fs::metadata(directory).unwrap().permissions();
     permissions.set_readonly(read_only);
     fs::set_permissions(directory, permissions).expect("failed to set directory permissions");
 }
 
-impl<'a> Drop for Cleanup<'a> {
+#[cfg(not(windows))]
+impl Drop for Cleanup<'_> {
     /// Restores write permissions to the given directory so that the Playground can be successfully
     /// cleaned up.
     fn drop(&mut self) {
@@ -447,16 +452,10 @@ fn rm_prints_filenames_on_error() {
         // This rm is expected to fail, and stderr output indicating so is also expected.
         let actual = nu!(cwd: test_dir, "rm test*.txt");
 
-        assert!(files_exist_at(file_names.clone(), test_dir));
+        assert!(files_exist_at(&file_names, test_dir));
         for file_name in file_names {
-            let path = test_dir.join(file_name);
-            let substr = format!("Could not delete {}", path.to_string_lossy());
-            assert!(
-                actual.err.contains(&substr),
-                "Matching: {}\n=== Command stderr:\n{}\n=== End stderr",
-                substr,
-                actual.err
-            );
+            assert!(actual.err.contains("nu::shell::io::permission_denied"));
+            assert!(actual.err.contains(file_name));
         }
     });
 }
@@ -476,7 +475,7 @@ fn rm_files_inside_glob_metachars_dir() {
 
         assert!(actual.err.is_empty());
         assert!(!files_exist_at(
-            vec!["test_file.txt"],
+            &["test_file.txt"],
             dirs.test().join(sub_dir)
         ));
     });
@@ -550,22 +549,16 @@ fn rm_with_tilde() {
 
         let actual = nu!(cwd: dirs.test(), "rm '~tilde/f1.txt'");
         assert!(actual.err.is_empty());
-        assert!(!files_exist_at(
-            vec![Path::new("f1.txt")],
-            dirs.test().join("~tilde")
-        ));
+        assert!(!files_exist_at(&["f1.txt"], dirs.test().join("~tilde")));
 
         // pass variable
         let actual = nu!(cwd: dirs.test(), "let f = '~tilde/f2.txt'; rm $f");
         assert!(actual.err.is_empty());
-        assert!(!files_exist_at(
-            vec![Path::new("f2.txt")],
-            dirs.test().join("~tilde")
-        ));
+        assert!(!files_exist_at(&["f2.txt"], dirs.test().join("~tilde")));
 
         // remove directory
         let actual = nu!(cwd: dirs.test(), "let f = '~tilde'; rm -r $f");
         assert!(actual.err.is_empty());
-        assert!(!files_exist_at(vec![Path::new("~tilde")], dirs.test()));
+        assert!(!files_exist_at(&["~tilde"], dirs.test()));
     })
 }

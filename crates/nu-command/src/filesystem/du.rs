@@ -1,12 +1,10 @@
-use super::util::get_rest_for_glob_pattern;
 use crate::{DirBuilder, DirInfo, FileInfo};
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_glob::Pattern;
-use nu_protocol::NuGlob;
+use nu_protocol::{NuGlob, Signals};
 use serde::Deserialize;
 use std::path::Path;
-use std::sync::{atomic::AtomicBool, Arc};
 
 #[derive(Clone)]
 pub struct Du;
@@ -14,8 +12,8 @@ pub struct Du;
 #[derive(Deserialize, Clone, Debug)]
 pub struct DuArgs {
     path: Option<Spanned<NuGlob>>,
-    all: bool,
     deref: bool,
+    long: bool,
     exclude: Option<Spanned<NuGlob>>,
     #[serde(rename = "max-depth")]
     max_depth: Option<Spanned<i64>>,
@@ -28,7 +26,7 @@ impl Command for Du {
         "du"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Find disk usage sizes of specified items."
     }
 
@@ -42,14 +40,14 @@ impl Command for Du {
                 "Starting directory.",
             )
             .switch(
-                "all",
-                "Output file sizes as well as directory sizes",
-                Some('a'),
-            )
-            .switch(
                 "deref",
                 "Dereference symlinks to their targets for size",
                 Some('r'),
+            )
+            .switch(
+                "long",
+                "Get underlying directories and files for each entry",
+                Some('l'),
             )
             .named(
                 "exclude",
@@ -96,14 +94,14 @@ impl Command for Du {
                 });
             }
         }
-        let all = call.has_flag(engine_state, stack, "all")?;
         let deref = call.has_flag(engine_state, stack, "deref")?;
+        let long = call.has_flag(engine_state, stack, "long")?;
         let exclude = call.get_flag(engine_state, stack, "exclude")?;
         #[allow(deprecated)]
         let current_dir = current_dir(engine_state, stack)?;
 
-        let paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
-        let paths = if call.rest_iter(0).count() == 0 {
+        let paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
+        let paths = if !call.has_positional_args(stack, 0) {
             None
         } else {
             Some(paths)
@@ -113,15 +111,15 @@ impl Command for Du {
             None => {
                 let args = DuArgs {
                     path: None,
-                    all,
                     deref,
+                    long,
                     exclude,
                     max_depth,
                     min_size,
                 };
                 Ok(
-                    du_for_one_pattern(args, &current_dir, tag, engine_state.ctrlc.clone())?
-                        .into_pipeline_data(tag, engine_state.ctrlc.clone()),
+                    du_for_one_pattern(args, &current_dir, tag, engine_state.signals())?
+                        .into_pipeline_data(tag, engine_state.signals().clone()),
                 )
             }
             Some(paths) => {
@@ -129,8 +127,8 @@ impl Command for Du {
                 for p in paths {
                     let args = DuArgs {
                         path: Some(p),
-                        all,
                         deref,
+                        long,
                         exclude: exclude.clone(),
                         max_depth,
                         min_size,
@@ -139,7 +137,7 @@ impl Command for Du {
                         args,
                         &current_dir,
                         tag,
-                        engine_state.ctrlc.clone(),
+                        engine_state.signals(),
                     )?)
                 }
 
@@ -147,7 +145,7 @@ impl Command for Du {
                 Ok(result_iters
                     .into_iter()
                     .flatten()
-                    .into_pipeline_data(tag, engine_state.ctrlc.clone()))
+                    .into_pipeline_data(tag, engine_state.signals().clone()))
             }
         }
     }
@@ -164,9 +162,10 @@ impl Command for Du {
 fn du_for_one_pattern(
     args: DuArgs,
     current_dir: &Path,
-    call_span: Span,
-    ctrl_c: Option<Arc<AtomicBool>>,
+    span: Span,
+    signals: &Signals,
 ) -> Result<impl Iterator<Item = Value> + Send, ShellError> {
+    let signals_clone = signals.clone();
     let exclude = args.exclude.map_or(Ok(None), move |x| {
         Pattern::new(x.item.as_ref())
             .map(Some)
@@ -176,9 +175,8 @@ fn du_for_one_pattern(
             })
     })?;
 
-    let include_files = args.all;
-    let mut paths = match args.path {
-        Some(p) => nu_engine::glob_from(&p, current_dir, call_span, None),
+    let paths = match args.path {
+        Some(p) => nu_engine::glob_from(&p, current_dir, span, None),
         // The * pattern should never fail.
         None => nu_engine::glob_from(
             &Spanned {
@@ -186,48 +184,41 @@ fn du_for_one_pattern(
                 span: Span::unknown(),
             },
             current_dir,
-            call_span,
+            span,
             None,
         ),
     }
-    .map(|f| f.1)?
-    .filter(move |p| {
-        if include_files {
-            true
-        } else {
-            matches!(p, Ok(f) if f.is_dir())
-        }
-    });
+    .map(|f| f.1)?;
 
-    let all = args.all;
     let deref = args.deref;
+    let long = args.long;
     let max_depth = args.max_depth.map(|f| f.item as u64);
     let min_size = args.min_size.map(|f| f.item as u64);
 
     let params = DirBuilder {
-        tag: call_span,
+        tag: span,
         min: min_size,
         deref,
         exclude,
-        all,
+        long,
     };
 
-    let mut output: Vec<Value> = vec![];
-    for p in paths.by_ref() {
-        match p {
-            Ok(a) => {
-                if a.is_dir() {
-                    output.push(DirInfo::new(a, &params, max_depth, ctrl_c.clone()).into());
-                } else if let Ok(v) = FileInfo::new(a, deref, call_span) {
-                    output.push(v.into());
+    Ok(paths.filter_map(move |p| match p {
+        Ok(a) => {
+            if a.is_dir() {
+                match DirInfo::new(a, &params, max_depth, span, &signals_clone) {
+                    Ok(v) => Some(Value::from(v)),
+                    Err(_) => None,
+                }
+            } else {
+                match FileInfo::new(a, deref, span, params.long) {
+                    Ok(v) => Some(Value::from(v)),
+                    Err(_) => None,
                 }
             }
-            Err(e) => {
-                output.push(Value::error(e, call_span));
-            }
         }
-    }
-    Ok(output.into_iter())
+        Err(e) => Some(Value::error(e, span)),
+    }))
 }
 
 #[cfg(test)]

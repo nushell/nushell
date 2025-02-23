@@ -1,6 +1,7 @@
 use crate::test_util::TestCaseExt;
 
 use super::{EngineInterfaceManager, ReceivedPluginCall};
+use nu_engine::command_prelude::IoError;
 use nu_plugin_core::{interface_test_util::TestCase, Interface, InterfaceManager};
 use nu_plugin_protocol::{
     test_util::{expected_test_custom_value, test_plugin_custom_value, TestCustomValue},
@@ -9,8 +10,8 @@ use nu_plugin_protocol::{
     PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, StreamData,
 };
 use nu_protocol::{
-    engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
-    PipelineData, PluginSignature, ShellError, Span, Spanned, Value,
+    engine::Closure, BlockId, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData,
+    LabeledError, PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value, VarId,
 };
 use std::{
     collections::HashMap,
@@ -55,11 +56,8 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
 
     // Create a stream...
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ListStream(ListStreamInfo {
-            id: 0,
-            span: Span::test_data(),
-        }),
-        None,
+        PipelineDataHeader::list_stream(ListStreamInfo::new(0, Span::test_data())),
+        &Signals::empty(),
     )?;
 
     // and an interface...
@@ -91,9 +89,12 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
 }
 
 fn test_io_error() -> ShellError {
-    ShellError::IOError {
-        msg: "test io error".into(),
-    }
+    ShellError::Io(IoError::new_with_additional_context(
+        std::io::ErrorKind::Other,
+        Span::test_data(),
+        None,
+        "test io error",
+    ))
 }
 
 fn check_test_io_error(error: &ShellError) {
@@ -111,11 +112,8 @@ fn manager_consume_all_propagates_io_error_to_readers() -> Result<(), ShellError
     test.set_read_error(test_io_error());
 
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ListStream(ListStreamInfo {
-            id: 0,
-            span: Span::test_data(),
-        }),
-        None,
+        PipelineDataHeader::list_stream(ListStreamInfo::new(0, Span::test_data())),
+        &Signals::empty(),
     )?;
 
     manager
@@ -157,11 +155,12 @@ fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), Shell
     test.add(invalid_input());
 
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ByteStream(ByteStreamInfo {
-            id: 0,
-            span: Span::test_data(),
-        }),
-        None,
+        PipelineDataHeader::byte_stream(ByteStreamInfo::new(
+            0,
+            Span::test_data(),
+            ByteStreamType::Unknown,
+        )),
+        &Signals::empty(),
     )?;
 
     manager
@@ -322,6 +321,26 @@ fn manager_consume_goodbye_closes_plugin_call_channel() -> Result<(), ShellError
 }
 
 #[test]
+fn manager_consume_call_metadata_forwards_to_receiver_with_context() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    set_default_protocol_info(&mut manager)?;
+
+    let rx = manager
+        .take_plugin_call_receiver()
+        .expect("couldn't take receiver");
+
+    manager.consume(PluginInput::Call(0, PluginCall::Metadata))?;
+
+    match rx.try_recv().expect("call was not forwarded to receiver") {
+        ReceivedPluginCall::Metadata { engine } => {
+            assert_eq!(Some(0), engine.context);
+            Ok(())
+        }
+        call => panic!("wrong call type: {call:?}"),
+    }
+}
+
+#[test]
 fn manager_consume_call_signature_forwards_to_receiver_with_context() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
     set_default_protocol_info(&mut manager)?;
@@ -393,10 +412,7 @@ fn manager_consume_call_run_forwards_to_receiver_with_pipeline_data() -> Result<
                 positional: vec![],
                 named: vec![],
             },
-            input: PipelineDataHeader::ListStream(ListStreamInfo {
-                id: 6,
-                span: Span::test_data(),
-            }),
+            input: PipelineDataHeader::list_stream(ListStreamInfo::new(6, Span::test_data())),
         }),
     ))?;
 
@@ -535,10 +551,10 @@ fn manager_consume_engine_call_response_forwards_to_subscriber_with_pipeline_dat
 
     manager.consume(PluginInput::EngineCallResponse(
         0,
-        EngineCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo {
-            id: 0,
-            span: Span::test_data(),
-        })),
+        EngineCallResponse::PipelineData(PipelineDataHeader::list_stream(ListStreamInfo::new(
+            0,
+            Span::test_data(),
+        ))),
     ))?;
 
     for i in 0..2 {
@@ -594,7 +610,7 @@ fn manager_prepare_pipeline_data_deserializes_custom_values_in_streams() -> Resu
         [Value::test_custom_value(Box::new(
             test_plugin_custom_value(),
         ))]
-        .into_pipeline_data(Span::test_data(), None),
+        .into_pipeline_data(Span::test_data(), Signals::empty()),
     )?;
 
     let value = data
@@ -626,7 +642,7 @@ fn manager_prepare_pipeline_data_embeds_deserialization_errors_in_streams() -> R
     let span = Span::new(20, 30);
     let data = manager.prepare_pipeline_data(
         [Value::custom(Box::new(invalid_custom_value), span)]
-            .into_pipeline_data(Span::test_data(), None),
+            .into_pipeline_data(Span::test_data(), Signals::empty()),
     )?;
 
     let value = data
@@ -686,7 +702,7 @@ fn interface_write_response_with_value() -> Result<(), ShellError> {
             assert_eq!(33, id, "id");
             match response {
                 PluginCallResponse::PipelineData(header) => match header {
-                    PipelineDataHeader::Value(value) => assert_eq!(6, value.as_int()?),
+                    PipelineDataHeader::Value(value, _) => assert_eq!(6, value.as_int()?),
                     _ => panic!("unexpected pipeline data header: {header:?}"),
                 },
                 _ => panic!("unexpected response: {response:?}"),
@@ -709,7 +725,7 @@ fn interface_write_response_with_stream() -> Result<(), ShellError> {
     interface
         .write_response(Ok::<_, ShellError>(
             [Value::test_int(3), Value::test_int(4), Value::test_int(5)]
-                .into_pipeline_data(Span::test_data(), None),
+                .into_pipeline_data(Span::test_data(), Signals::empty()),
         ))?
         .write()?;
 
@@ -1028,8 +1044,8 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
         .eval_closure_with_stream(
             &Spanned {
                 item: Closure {
-                    block_id: 42,
-                    captures: vec![(0, Value::test_int(5))],
+                    block_id: BlockId::new(42),
+                    captures: vec![(VarId::new(0), Value::test_int(5))],
                 },
                 span: Span::test_data(),
             },
@@ -1052,10 +1068,14 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
                 redirect_stdout,
                 redirect_stderr,
             } => {
-                assert_eq!(42, closure.item.block_id, "closure.item.block_id");
+                assert_eq!(
+                    BlockId::new(42),
+                    closure.item.block_id,
+                    "closure.item.block_id"
+                );
                 assert_eq!(1, closure.item.captures.len(), "closure.item.captures.len");
                 assert_eq!(
-                    (0, Value::test_int(5)),
+                    (VarId::new(0), Value::test_int(5)),
                     closure.item.captures[0],
                     "closure.item.captures[0]"
                 );
@@ -1111,7 +1131,7 @@ fn interface_prepare_pipeline_data_serializes_custom_values_in_streams() -> Resu
         [Value::test_custom_value(Box::new(
             expected_test_custom_value(),
         ))]
-        .into_pipeline_data(Span::test_data(), None),
+        .into_pipeline_data(Span::test_data(), Signals::empty()),
         &(),
     )?;
 
@@ -1170,7 +1190,7 @@ fn interface_prepare_pipeline_data_embeds_serialization_errors_in_streams() -> R
     let span = Span::new(40, 60);
     let data = interface.prepare_pipeline_data(
         [Value::custom(Box::new(CantSerialize::BadVariant), span)]
-            .into_pipeline_data(Span::test_data(), None),
+            .into_pipeline_data(Span::test_data(), Signals::empty()),
         &(),
     )?;
 

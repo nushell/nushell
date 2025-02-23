@@ -2,7 +2,7 @@ use nu_engine::{
     command_prelude::*, get_eval_block, get_eval_expression, get_eval_expression_with_input,
 };
 use nu_protocol::{
-    engine::StateWorkingSet,
+    engine::{CommandType, StateWorkingSet},
     eval_const::{eval_const_subexpression, eval_constant, eval_constant_with_input},
 };
 
@@ -14,7 +14,7 @@ impl Command for If {
         "if"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Conditionally run a block."
     }
 
@@ -41,6 +41,15 @@ impl Command for If {
             .category(Category::Core)
     }
 
+    fn extra_description(&self) -> &str {
+        r#"This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"#
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
+    }
+
     fn is_const(&self) -> bool {
         true
     }
@@ -51,6 +60,9 @@ impl Command for If {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // This is compiled specially by the IR compiler. The code here is never used when
+        // running in IR mode.
+        let call = call.assert_ast_call()?;
         let cond = call.positional_nth(0).expect("checked through parser");
         let then_block = call
             .positional_nth(1)
@@ -90,6 +102,9 @@ impl Command for If {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // This is compiled specially by the IR compiler. The code here is never used when
+        // running in IR mode.
+        let call = call.assert_ast_call()?;
         let cond = call.positional_nth(0).expect("checked through parser");
         let then_block = call
             .positional_nth(1)
@@ -112,14 +127,17 @@ impl Command for If {
                     eval_block(engine_state, stack, block, input)
                 } else {
                     eval_expression_with_input(engine_state, stack, else_expr, input)
-                        .map(|res| res.0)
                 }
             } else {
-                eval_expression_with_input(engine_state, stack, else_case, input).map(|res| res.0)
+                eval_expression_with_input(engine_state, stack, else_case, input)
             }
         } else {
             Ok(PipelineData::empty())
         }
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["else", "conditional"]
     }
 
     fn examples(&self) -> Vec<Example> {

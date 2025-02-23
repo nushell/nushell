@@ -25,7 +25,7 @@ impl Command for FromOds {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse OpenDocument Spreadsheet(.ods) data and create table."
     }
 
@@ -46,7 +46,8 @@ impl Command for FromOds {
             vec![]
         };
 
-        from_ods(input, head, sel_sheets)
+        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        from_ods(input, head, sel_sheets).map(|pd| pd.set_metadata(metadata))
     }
 
     fn examples(&self) -> Vec<Example> {

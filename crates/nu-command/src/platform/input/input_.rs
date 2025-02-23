@@ -7,6 +7,7 @@ use crossterm::{
 };
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 
 use std::{io::Write, time::Duration};
 
@@ -18,7 +19,7 @@ impl Command for Input {
         "input"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get input from the user."
     }
 
@@ -43,6 +44,12 @@ impl Command for Input {
                 "number of characters to read; suppresses output",
                 Some('n'),
             )
+            .named(
+                "default",
+                SyntaxShape::String,
+                "default value if no input is provided",
+                Some('d'),
+            )
             .switch("suppress-output", "don't print keystroke values", Some('s'))
             .category(Category::Platform)
     }
@@ -63,6 +70,8 @@ impl Command for Input {
             span: call.head,
         });
 
+        let from_io_error = IoError::factory(call.head, None);
+
         if numchar.item < 1 {
             return Err(ShellError::UnsupportedInput {
                 msg: "Number of characters to read has to be positive".to_string(),
@@ -72,18 +81,22 @@ impl Command for Input {
             });
         }
 
+        let default_val: Option<String> = call.get_flag(engine_state, stack, "default")?;
         if let Some(prompt) = &prompt {
-            print!("{prompt}");
+            match &default_val {
+                None => print!("{prompt}"),
+                Some(val) => print!("{prompt} (default: {val})"),
+            }
             let _ = std::io::stdout().flush();
         }
 
         let mut buf = String::new();
 
-        crossterm::terminal::enable_raw_mode()?;
+        crossterm::terminal::enable_raw_mode().map_err(&from_io_error)?;
         // clear terminal events
-        while crossterm::event::poll(Duration::from_secs(0))? {
+        while crossterm::event::poll(Duration::from_secs(0)).map_err(&from_io_error)? {
             // If there's an event, read it to remove it from the queue
-            let _ = crossterm::event::read()?;
+            let _ = crossterm::event::read().map_err(&from_io_error)?;
         }
 
         loop {
@@ -100,10 +113,14 @@ impl Command for Input {
                                     || k.modifiers == KeyModifiers::CONTROL
                                 {
                                     if k.modifiers == KeyModifiers::CONTROL && c == 'c' {
-                                        crossterm::terminal::disable_raw_mode()?;
-                                        return Err(ShellError::IOError {
-                                            msg: "SIGINT".to_string(),
-                                        });
+                                        crossterm::terminal::disable_raw_mode()
+                                            .map_err(&from_io_error)?;
+                                        return Err(IoError::new(
+                                            std::io::ErrorKind::Interrupted,
+                                            call.head,
+                                            None,
+                                        )
+                                        .into());
                                     }
                                     continue;
                                 }
@@ -128,8 +145,8 @@ impl Command for Input {
                 },
                 Ok(_) => continue,
                 Err(event_error) => {
-                    crossterm::terminal::disable_raw_mode()?;
-                    return Err(event_error.into());
+                    crossterm::terminal::disable_raw_mode().map_err(&from_io_error)?;
+                    return Err(from_io_error(event_error).into());
                 }
             }
             if !suppress_output {
@@ -138,18 +155,23 @@ impl Command for Input {
                     std::io::stdout(),
                     terminal::Clear(ClearType::CurrentLine),
                     cursor::MoveToColumn(0),
-                )?;
+                )
+                .map_err(|err| IoError::new(err.kind(), call.head, None))?;
                 if let Some(prompt) = &prompt {
-                    execute!(std::io::stdout(), Print(prompt.to_string()))?;
+                    execute!(std::io::stdout(), Print(prompt.to_string()))
+                        .map_err(&from_io_error)?;
                 }
-                execute!(std::io::stdout(), Print(buf.to_string()))?;
+                execute!(std::io::stdout(), Print(buf.to_string())).map_err(&from_io_error)?;
             }
         }
-        crossterm::terminal::disable_raw_mode()?;
+        crossterm::terminal::disable_raw_mode().map_err(&from_io_error)?;
         if !suppress_output {
-            std::io::stdout().write_all(b"\n")?;
+            std::io::stdout().write_all(b"\n").map_err(&from_io_error)?;
         }
-        Ok(Value::string(buf, call.head).into_pipeline_data())
+        match default_val {
+            Some(val) if buf.is_empty() => Ok(Value::string(val, call.head).into_pipeline_data()),
+            _ => Ok(Value::string(buf, call.head).into_pipeline_data()),
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -162,6 +184,11 @@ impl Command for Input {
             Example {
                 description: "Get two characters from the user, and assign to a variable",
                 example: "let user_input = (input --numchar 2)",
+                result: None,
+            },
+            Example {
+                description: "Get input from the user with default value, and assign to a variable",
+                example: "let user_input = (input --default 10)",
                 result: None,
             },
         ]

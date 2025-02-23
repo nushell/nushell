@@ -29,7 +29,7 @@ impl Command for Join {
         Signature::build("join")
             .required(
                 "right-table",
-                SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                SyntaxShape::Table([].into()),
                 "The right table in the join.",
             )
             .required(
@@ -50,7 +50,7 @@ impl Command for Join {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Join two tables."
     }
 

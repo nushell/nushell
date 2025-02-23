@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct Hide;
@@ -20,19 +21,23 @@ impl Command for Hide {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Hide definitions in the current scope."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Definitions are hidden by priority: First aliases, then custom commands.
 
 This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["unset"]
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(

@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::ByteStreamSource;
 
 #[derive(Clone)]
 pub struct Print;
@@ -22,14 +23,19 @@ impl Command for Print {
                 Some('n'),
             )
             .switch("stderr", "print to stderr instead of stdout", Some('e'))
+            .switch(
+                "raw",
+                "print without formatting (including binary data)",
+                Some('r'),
+            )
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Print the given values to stdout."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Unlike `echo`, this command does not return any value (`print | describe` will return "nothing").
 Since this command has no output, there is no point in piping it with other commands.
 
@@ -45,20 +51,39 @@ Since this command has no output, there is no point in piping it with other comm
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
         let to_stderr = call.has_flag(engine_state, stack, "stderr")?;
+        let raw = call.has_flag(engine_state, stack, "raw")?;
 
         // This will allow for easy printing of pipelines as well
         if !args.is_empty() {
             for arg in args {
-                arg.into_pipeline_data()
-                    .print(engine_state, stack, no_newline, to_stderr)?;
+                if raw {
+                    arg.into_pipeline_data()
+                        .print_raw(engine_state, no_newline, to_stderr)?;
+                } else {
+                    arg.into_pipeline_data().print_table(
+                        engine_state,
+                        stack,
+                        no_newline,
+                        to_stderr,
+                    )?;
+                }
             }
         } else if !input.is_nothing() {
-            input.print(engine_state, stack, no_newline, to_stderr)?;
+            if let PipelineData::ByteStream(stream, _) = &mut input {
+                if let ByteStreamSource::Child(child) = stream.source_mut() {
+                    child.ignore_error(true);
+                }
+            }
+            if raw {
+                input.print_raw(engine_state, no_newline, to_stderr)?;
+            } else {
+                input.print_table(engine_state, stack, no_newline, to_stderr)?;
+            }
         }
 
         Ok(PipelineData::empty())
@@ -74,6 +99,11 @@ Since this command has no output, there is no point in piping it with other comm
             Example {
                 description: "Print the sum of 2 and 3",
                 example: r#"print (2 + 3)"#,
+                result: None,
+            },
+            Example {
+                description: "Print 'ABC' from binary data",
+                example: r#"0x[41 42 43] | print --raw"#,
                 result: None,
             },
         ]

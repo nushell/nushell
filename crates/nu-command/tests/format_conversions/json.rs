@@ -97,6 +97,32 @@ fn from_json_text_recognizing_objects_independently_to_table() {
 }
 
 #[test]
+fn from_json_text_objects_is_stream() {
+    Playground::setup("filter_from_json_test_2_is_stream", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "katz.txt",
+            r#"
+                {"name":   "Yehuda", "rusty_luck": 1}
+                {"name": "JT", "rusty_luck": 1}
+                {"name":   "Andres", "rusty_luck": 1}
+                {"name":"GorbyPuff", "rusty_luck": 3}
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open katz.txt
+                | from json -o
+                | describe -n
+            "#
+        ));
+
+        assert_eq!(actual.out, "stream");
+    })
+}
+
+#[test]
 fn from_json_text_recognizing_objects_independently_to_table_strict() {
     Playground::setup("filter_from_json_test_2_strict", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(

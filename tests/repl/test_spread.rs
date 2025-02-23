@@ -30,7 +30,7 @@ fn not_spread() -> TestResult {
     run_test(r#"def ... [x] { $x }; ... ..."#, "...").unwrap();
     run_test(
         r#"let a = 4; [... $a ... [1] ... (5) ...bare ...] | to nuon"#,
-        "[..., 4, ..., [1], ..., 5, ...bare, ...]",
+        r#"["...", 4, "...", [1], "...", 5, "...bare", "..."]"#,
     )
 }
 
@@ -65,6 +65,7 @@ fn spread_type_list() -> TestResult {
 
 #[test]
 fn spread_in_record() -> TestResult {
+    run_test(r#"{...{} ...{}, a: 1} | to nuon"#, "{a: 1}").unwrap();
     run_test(r#"{...{...{...{}}}} | to nuon"#, "{}").unwrap();
     run_test(
         r#"{foo: bar ...{a: {x: 1}} b: 3} | to nuon"#,
@@ -183,17 +184,14 @@ fn explain_spread_args() -> TestResult {
 
 #[test]
 fn disallow_implicit_spread_for_externals() -> TestResult {
-    fail_test(
-        r#"nu --testbin cococo [1 2]"#,
-        "Lists are not automatically spread",
-    )
+    fail_test(r#"^echo [1 2]"#, "Lists are not automatically spread")
 }
 
 #[test]
 fn respect_shape() -> TestResult {
     fail_test(
         "def foo [...rest] { ...$rest }; foo bar baz",
-        "executable was not found",
+        "Command `...$rest` not found",
     )
     .unwrap();
     fail_test("module foo { ...$bar }", "expected_keyword").unwrap();

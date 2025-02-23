@@ -1,8 +1,9 @@
 use indexmap::{indexmap, IndexMap};
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::StateWorkingSet;
-use once_cell::sync::Lazy;
-use std::sync::{atomic::AtomicBool, Arc};
+
+use nu_protocol::Signals;
+use std::collections::HashSet;
+use std::sync::LazyLock;
 
 // Character used to separate directories in a Path Environment variable on windows is ";"
 #[cfg(target_family = "windows")]
@@ -11,14 +12,24 @@ const ENV_PATH_SEPARATOR_CHAR: char = ';';
 #[cfg(not(target_family = "windows"))]
 const ENV_PATH_SEPARATOR_CHAR: char = ':';
 
+// Character used to separate directories in a Path Environment variable on windows is ";"
+#[cfg(target_family = "windows")]
+const LINE_SEPARATOR_CHAR: &str = "\r\n";
+// Character used to separate directories in a Path Environment variable on linux/mac/unix is ":"
+#[cfg(not(target_family = "windows"))]
+const LINE_SEPARATOR_CHAR: char = '\n';
+
 #[derive(Clone)]
 pub struct Char;
 
-static CHAR_MAP: Lazy<IndexMap<&'static str, String>> = Lazy::new(|| {
+static CHAR_MAP: LazyLock<IndexMap<&'static str, String>> = LazyLock::new(|| {
     indexmap! {
         // These are some regular characters that either can't be used or
         // it's just easier to use them like this.
 
+        "nul" => '\x00'.to_string(),                                // nul character, 0x00
+        "null_byte" => '\x00'.to_string(),                          // nul character, 0x00
+        "zero_byte" => '\x00'.to_string(),                          // nul character, 0x00
         // This are the "normal" characters section
         "newline" => '\n'.to_string(),
         "enter" => '\n'.to_string(),
@@ -55,6 +66,9 @@ static CHAR_MAP: Lazy<IndexMap<&'static str, String>> = Lazy::new(|| {
         "path_sep" => std::path::MAIN_SEPARATOR.to_string(),
         "psep" => std::path::MAIN_SEPARATOR.to_string(),
         "separator" => std::path::MAIN_SEPARATOR.to_string(),
+        "eol" => LINE_SEPARATOR_CHAR.to_string(),
+        "lsep" => LINE_SEPARATOR_CHAR.to_string(),
+        "line_sep" => LINE_SEPARATOR_CHAR.to_string(),
         "esep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
         "env_sep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
         "tilde" => '~'.to_string(),                                // ~
@@ -146,6 +160,27 @@ static CHAR_MAP: Lazy<IndexMap<&'static str, String>> = Lazy::new(|| {
     }
 });
 
+static NO_OUTPUT_CHARS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
+    [
+        // If the character is in the this set, we don't output it to prevent
+        // the broken of `char --list` command table format and alignment.
+        "newline",
+        "enter",
+        "nl",
+        "line_feed",
+        "lf",
+        "cr",
+        "crlf",
+        "bel",
+        "backspace",
+        "lsep",
+        "line_sep",
+        "eol",
+    ]
+    .into_iter()
+    .collect()
+});
+
 impl Command for Char {
     fn name(&self) -> &str {
         "char"
@@ -171,7 +206,7 @@ impl Command for Char {
         true
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Output special characters (e.g., 'newline')."
     }
 
@@ -226,11 +261,13 @@ impl Command for Char {
         let list = call.has_flag_const(working_set, "list")?;
         let integer = call.has_flag_const(working_set, "integer")?;
         let unicode = call.has_flag_const(working_set, "unicode")?;
-        let ctrlc = working_set.permanent().ctrlc.clone();
 
         // handle -l flag
         if list {
-            return Ok(generate_character_list(ctrlc, call.head));
+            return Ok(generate_character_list(
+                working_set.permanent().signals().clone(),
+                call.head,
+            ));
         }
 
         // handle -i flag
@@ -261,11 +298,13 @@ impl Command for Char {
         let list = call.has_flag(engine_state, stack, "list")?;
         let integer = call.has_flag(engine_state, stack, "integer")?;
         let unicode = call.has_flag(engine_state, stack, "unicode")?;
-        let ctrlc = engine_state.ctrlc.clone();
 
         // handle -l flag
         if list {
-            return Ok(generate_character_list(ctrlc, call_span));
+            return Ok(generate_character_list(
+                engine_state.signals().clone(),
+                call_span,
+            ));
         }
 
         // handle -i flag
@@ -286,10 +325,15 @@ impl Command for Char {
     }
 }
 
-fn generate_character_list(ctrlc: Option<Arc<AtomicBool>>, call_span: Span) -> PipelineData {
+fn generate_character_list(signals: Signals, call_span: Span) -> PipelineData {
     CHAR_MAP
         .iter()
         .map(move |(name, s)| {
+            let character = if NO_OUTPUT_CHARS.contains(name) {
+                Value::string("", call_span)
+            } else {
+                Value::string(s, call_span)
+            };
             let unicode = Value::string(
                 s.chars()
                     .map(|c| format!("{:x}", c as u32))
@@ -299,13 +343,13 @@ fn generate_character_list(ctrlc: Option<Arc<AtomicBool>>, call_span: Span) -> P
             );
             let record = record! {
                 "name" => Value::string(*name, call_span),
-                "character" => Value::string(s, call_span),
+                "character" => character,
                 "unicode" => unicode,
             };
 
             Value::record(record, call_span)
         })
-        .into_pipeline_data(call_span, ctrlc)
+        .into_pipeline_data(call_span, signals)
 }
 
 fn handle_integer_flag(

@@ -93,10 +93,24 @@ fn du_with_multiple_path() {
 
     // report errors if one path not exists
     let actual = nu!(cwd: "tests/fixtures", "du cp asdf | get path | path basename");
-    assert!(actual.err.contains("directory not found"));
+    assert!(actual.err.contains("nu::shell::io::not_found"));
     assert!(!actual.status.success());
 
     // du with spreading empty list should returns nothing.
     let actual = nu!(cwd: "tests/fixtures", "du ...[] | length");
     assert_eq!(actual.out, "0");
+}
+
+#[test]
+fn test_du_output_columns() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "du -m 1 | columns | str join ','"
+    );
+    assert_eq!(actual.out, "path,apparent,physical");
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "du -m 1 -l | columns | str join ','"
+    );
+    assert_eq!(actual.out, "path,apparent,physical,directories,files");
 }

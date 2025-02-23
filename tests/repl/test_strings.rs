@@ -3,7 +3,7 @@ use crate::repl::tests::{fail_test, run_test, TestResult};
 #[test]
 fn cjk_in_substrings() -> TestResult {
     run_test(
-        r#"let s = '[Rust 程序设计语言](title-page.md)'; let start = ($s | str index-of '('); let end = ($s | str index-of ')'); $s | str substring ($start + 1)..($end)"#,
+        r#"let s = '[Rust 程序设计语言](title-page.md)'; let start = ($s | str index-of '('); let end = ($s | str index-of ')'); $s | str substring ($start + 1)..<($end)"#,
         "title-page.md",
     )
 }
@@ -20,7 +20,7 @@ fn string_in_string() -> TestResult {
 
 #[test]
 fn non_string_in_string() -> TestResult {
-    fail_test(r#"42 in 'abc'"#, "is not supported")
+    fail_test(r#"42 in 'abc'"#, "nu::parser::operator_incompatible_types")
 }
 
 #[test]
@@ -32,8 +32,14 @@ fn string_in_record() -> TestResult {
 fn non_string_in_record() -> TestResult {
     fail_test(
         r#"4 in ('{ "a": 13, "b": 14 }' | from json)"#,
-        "mismatch during operation",
+        "nu::shell::operator_incompatible_types",
     )
+}
+
+#[test]
+fn unbalance_string() -> TestResult {
+    fail_test(r#""aaaab"cc"#, "invalid characters")?;
+    fail_test(r#"'aaaab'cc"#, "invalid characters")
 }
 
 #[test]

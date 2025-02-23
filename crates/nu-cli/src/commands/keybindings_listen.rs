@@ -2,6 +2,7 @@ use crossterm::{
     event::Event, event::KeyCode, event::KeyEvent, execute, terminal, QueueableCommand,
 };
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 use std::io::{stdout, Write};
 
 #[derive(Clone)]
@@ -12,11 +13,11 @@ impl Command for KeybindingsListen {
         "keybindings listen"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get input from the user."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This is an internal debugging tool. For better output, try `input listen --types [key]`"
     }
 
@@ -39,7 +40,13 @@ impl Command for KeybindingsListen {
         match print_events(engine_state) {
             Ok(v) => Ok(v.into_pipeline_data()),
             Err(e) => {
-                terminal::disable_raw_mode()?;
+                terminal::disable_raw_mode().map_err(|err| {
+                    IoError::new_internal(
+                        err.kind(),
+                        "Could not disable raw mode",
+                        nu_protocol::location!(),
+                    )
+                })?;
                 Err(ShellError::GenericError {
                     error: "Error with input".into(),
                     msg: "".into(),
@@ -63,8 +70,20 @@ impl Command for KeybindingsListen {
 pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
     let config = engine_state.get_config();
 
-    stdout().flush()?;
-    terminal::enable_raw_mode()?;
+    stdout().flush().map_err(|err| {
+        IoError::new_internal(
+            err.kind(),
+            "Could not flush stdout",
+            nu_protocol::location!(),
+        )
+    })?;
+    terminal::enable_raw_mode().map_err(|err| {
+        IoError::new_internal(
+            err.kind(),
+            "Could not enable raw mode",
+            nu_protocol::location!(),
+        )
+    })?;
 
     if config.use_kitty_protocol {
         if let Ok(false) = crossterm::terminal::supports_keyboard_enhancement() {
@@ -94,7 +113,9 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
     let mut stdout = std::io::BufWriter::new(std::io::stderr());
 
     loop {
-        let event = crossterm::event::read()?;
+        let event = crossterm::event::read().map_err(|err| {
+            IoError::new_internal(err.kind(), "Could not read event", nu_protocol::location!())
+        })?;
         if event == Event::Key(KeyCode::Esc.into()) {
             break;
         }
@@ -113,9 +134,25 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
 
             _ => "".to_string(),
         };
-        stdout.queue(crossterm::style::Print(o))?;
-        stdout.queue(crossterm::style::Print("\r\n"))?;
-        stdout.flush()?;
+        stdout.queue(crossterm::style::Print(o)).map_err(|err| {
+            IoError::new_internal(
+                err.kind(),
+                "Could not print output record",
+                nu_protocol::location!(),
+            )
+        })?;
+        stdout
+            .queue(crossterm::style::Print("\r\n"))
+            .map_err(|err| {
+                IoError::new_internal(
+                    err.kind(),
+                    "Could not print linebreak",
+                    nu_protocol::location!(),
+                )
+            })?;
+        stdout.flush().map_err(|err| {
+            IoError::new_internal(err.kind(), "Could not flush", nu_protocol::location!())
+        })?;
     }
 
     if config.use_kitty_protocol {
@@ -125,7 +162,13 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
         );
     }
 
-    terminal::disable_raw_mode()?;
+    terminal::disable_raw_mode().map_err(|err| {
+        IoError::new_internal(
+            err.kind(),
+            "Could not disable raw mode",
+            nu_protocol::location!(),
+        )
+    })?;
 
     Ok(Value::nothing(Span::unknown()))
 }

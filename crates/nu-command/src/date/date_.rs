@@ -14,11 +14,11 @@ impl Command for Date {
             .input_output_types(vec![(Type::Nothing, Type::String)])
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Date-related commands."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "You must use one of the following subcommands. Using this command as-is will only produce this help message."
     }
 
@@ -42,26 +42,6 @@ impl Command for Date {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        date(engine_state, stack, call)
+        Ok(Value::string(get_full_help(self, engine_state, stack), call.head).into_pipeline_data())
     }
-}
-
-fn date(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-) -> Result<PipelineData, ShellError> {
-    let head = call.head;
-
-    Ok(Value::string(
-        get_full_help(
-            &Date.signature(),
-            &Date.examples(),
-            engine_state,
-            stack,
-            false,
-        ),
-        head,
-    )
-    .into_pipeline_data())
 }

@@ -1,5 +1,6 @@
-use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression_with_input};
-use std::time::Instant;
+use nu_engine::{command_prelude::*, ClosureEvalOnce};
+use nu_protocol::engine::Closure;
+use web_time::Instant;
 
 #[derive(Clone)]
 pub struct TimeIt;
@@ -9,17 +10,19 @@ impl Command for TimeIt {
         "timeit"
     }
 
-    fn usage(&self) -> &str {
-        "Time the running time of a block."
+    fn description(&self) -> &str {
+        "Time how long it takes a closure to run."
+    }
+
+    fn extra_description(&self) -> &str {
+        "Any pipeline input given to this command is passed to the closure. Note that streaming inputs may affect timing results, and it is recommended to add a `collect` command before this if the input is a stream.
+
+This command will bubble up any errors encountered when running the closure. The return pipeline of the closure is collected into a value and then discarded."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("timeit")
-            .required(
-                "command",
-                SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
-                "The command or block to run.",
-            )
+            .required("command", SyntaxShape::Closure(None), "The closure to run.")
             .input_output_types(vec![
                 (Type::Any, Type::Duration),
                 (Type::Nothing, Type::Duration),
@@ -32,6 +35,10 @@ impl Command for TimeIt {
         vec!["timing", "timer", "benchmark", "measure"]
     }
 
+    fn requires_ast_for_arguments(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -39,52 +46,41 @@ impl Command for TimeIt {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let command_to_run = call.positional_nth(0);
+        // reset outdest, so the command can write to stdout and stderr.
+        let stack = &mut stack.push_redirection(None, None);
+
+        let closure: Closure = call.req(engine_state, stack, 0)?;
+        let closure = ClosureEvalOnce::new_preserve_out_dest(engine_state, stack, closure);
 
         // Get the start time after all other computation has been done.
         let start_time = Instant::now();
+        closure.run_with_input(input)?.into_value(call.head)?;
+        let time = start_time.elapsed();
 
-        // reset outdest, so the command can write to stdout and stderr.
-        let stack = &mut stack.push_redirection(None, None);
-        if let Some(command_to_run) = command_to_run {
-            if let Some(block_id) = command_to_run.as_block() {
-                let eval_block = get_eval_block(engine_state);
-                let block = engine_state.get_block(block_id);
-                eval_block(engine_state, stack, block, input)?
-            } else {
-                let eval_expression_with_input = get_eval_expression_with_input(engine_state);
-                eval_expression_with_input(engine_state, stack, command_to_run, input)?.0
-            }
-        } else {
-            PipelineData::empty()
-        }
-        .into_value(call.head)?;
-
-        let end_time = Instant::now();
-
-        let output = Value::duration(
-            end_time.saturating_duration_since(start_time).as_nanos() as i64,
-            call.head,
-        );
-
+        let output = Value::duration(time.as_nanos() as i64, call.head);
         Ok(output.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Times a command within a closure",
+                description: "Time a closure containing one command",
                 example: "timeit { sleep 500ms }",
                 result: None,
             },
             Example {
-                description: "Times a command using an existing input",
-                example: "http get https://www.nushell.sh/book/ | timeit { split chars }",
+                description: "Time a closure with an input value",
+                example: "'A really long string' | timeit { split chars }",
                 result: None,
             },
             Example {
-                description: "Times a command invocation",
-                example: "timeit ls -la",
+                description: "Time a closure with an input stream",
+                example: "open some_file.txt | collect | timeit { split chars }",
+                result: None,
+            },
+            Example {
+                description: "Time a closure containing a pipeline",
+                example: "timeit { open some_file.txt | split chars }",
                 result: None,
             },
         ]

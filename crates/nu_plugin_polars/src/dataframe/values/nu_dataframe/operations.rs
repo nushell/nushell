@@ -1,5 +1,5 @@
 use nu_protocol::{ast::Operator, ShellError, Span, Spanned, Value};
-use polars::prelude::{DataFrame, Series};
+use polars::prelude::{Column as PolarsColumn, DataFrame};
 
 use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
@@ -126,7 +126,7 @@ impl NuDataFrame {
                     .iter()
                     .chain(other.df.get_columns())
                     .map(|s| {
-                        let name = if columns.contains(&s.name()) {
+                        let name = if columns.contains(&s.name().as_str()) {
                             format!("{}_{}", s.name(), "x")
                         } else {
                             columns.push(s.name());
@@ -134,10 +134,10 @@ impl NuDataFrame {
                         };
 
                         let mut series = s.clone();
-                        series.rename(&name);
+                        series.rename(name.into());
                         series
                     })
-                    .collect::<Vec<Series>>();
+                    .collect::<Vec<PolarsColumn>>();
 
                 let df_new = DataFrame::new(new_cols).map_err(|e| ShellError::GenericError {
                     error: "Error creating dataframe".into(),
@@ -147,7 +147,7 @@ impl NuDataFrame {
                     inner: vec![],
                 })?;
 
-                Ok(NuDataFrame::new(df_new))
+                Ok(NuDataFrame::new(false, df_new))
             }
             Axis::Column => {
                 if self.df.width() != other.df.width() {
@@ -195,7 +195,7 @@ impl NuDataFrame {
                             }),
                         }
                     })
-                    .collect::<Result<Vec<Series>, ShellError>>()?;
+                    .collect::<Result<Vec<PolarsColumn>, ShellError>>()?;
 
                 let df_new = DataFrame::new(new_cols).map_err(|e| ShellError::GenericError {
                     error: "Error appending dataframe".into(),
@@ -205,7 +205,7 @@ impl NuDataFrame {
                     inner: vec![],
                 })?;
 
-                Ok(NuDataFrame::new(df_new))
+                Ok(NuDataFrame::new(false, df_new))
             }
         }
     }

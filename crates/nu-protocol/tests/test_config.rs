@@ -1,58 +1,49 @@
 use nu_test_support::{nu, nu_repl_code};
 
 #[test]
-fn filesize_metric_true() {
+fn filesize_mb() {
     let code = &[
-        r#"$env.config = { filesize: { metric: true, format:"mb" } }"#,
-        r#"20mib | into string"#,
+        r#"$env.config = { filesize: { unit: MB } }"#,
+        r#"20MB | into string"#,
     ];
     let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, "21.0 MB");
+    assert_eq!(actual.out, "20.0 MB");
 }
 
 #[test]
-fn filesize_metric_false() {
+fn filesize_mib() {
     let code = &[
-        r#"$env.config = { filesize: { metric: false, format:"mib" } }"#,
-        r#"20mib | into string"#,
-    ];
-    let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, "20.0 MiB");
-}
-
-#[test]
-fn filesize_metric_overrides_format() {
-    let code = &[
-        r#"$env.config = { filesize: { metric: false, format:"mb" } }"#,
-        r#"20mib | into string"#,
+        r#"$env.config = { filesize: { unit: MiB } }"#,
+        r#"20MiB | into string"#,
     ];
     let actual = nu!(nu_repl_code(code));
     assert_eq!(actual.out, "20.0 MiB");
 }
 
 #[test]
-fn filesize_format_auto_metric_true() {
+fn filesize_format_decimal() {
     let code = &[
-        r#"$env.config = { filesize: { metric: true, format:"auto" } }"#,
-        r#"[2mb 2gb 2tb] | into string | to nuon"#,
+        r#"$env.config = { filesize: { unit: metric } }"#,
+        r#"[2MB 2GB 2TB] | into string | to nuon"#,
     ];
     let actual = nu!(nu_repl_code(code));
     assert_eq!(actual.out, r#"["2.0 MB", "2.0 GB", "2.0 TB"]"#);
 }
 
 #[test]
-fn filesize_format_auto_metric_false() {
+fn filesize_format_binary() {
     let code = &[
-        r#"$env.config = { filesize: { metric: false, format:"auto" } }"#,
-        r#"[2mb 2gb 2tb] | into string | to nuon"#,
+        r#"$env.config = { filesize: { unit: binary } }"#,
+        r#"[2MiB 2GiB 2TiB] | into string | to nuon"#,
     ];
     let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, r#"["1.9 MiB", "1.9 GiB", "1.8 TiB"]"#);
+    assert_eq!(actual.out, r#"["2.0 MiB", "2.0 GiB", "2.0 TiB"]"#);
 }
 
 #[test]
 fn fancy_default_errors() {
-    let actual = nu!(nu_repl_code(&[
+    let code = nu_repl_code(&[
+        "$env.config.use_ansi_coloring = true",
         r#"def force_error [x] {
         error make {
             msg: "oh no!"
@@ -62,18 +53,20 @@ fn fancy_default_errors() {
             }
         }
     }"#,
-        r#"force_error "My error""#
-    ]));
+        r#"force_error "My error""#,
+    ]);
+
+    let actual = nu!(format!("try {{ {code} }}"));
 
     assert_eq!(
         actual.err,
-        "Error:   \u{1b}[31m×\u{1b}[0m oh no!\n   ╭─[\u{1b}[36;1;4mline1\u{1b}[0m:1:13]\n \u{1b}[2m1\u{1b}[0m │ force_error \"My error\"\n   · \u{1b}[35;1m            ─────┬────\u{1b}[0m\n   ·                  \u{1b}[35;1m╰── \u{1b}[35;1mhere's the error\u{1b}[0m\u{1b}[0m\n   ╰────\n\n\n"
+        "Error:   \u{1b}[31m×\u{1b}[0m oh no!\n   ╭─[\u{1b}[36;1;4mline2:1:13\u{1b}[0m]\n \u{1b}[2m1\u{1b}[0m │ force_error \"My error\"\n   · \u{1b}[35;1m            ─────┬────\u{1b}[0m\n   ·                  \u{1b}[35;1m╰── \u{1b}[35;1mhere's the error\u{1b}[0m\u{1b}[0m\n   ╰────\n\n"
     );
 }
 
 #[test]
 fn narratable_errors() {
-    let actual = nu!(nu_repl_code(&[
+    let code = nu_repl_code(&[
         r#"$env.config = { error_style: "plain" }"#,
         r#"def force_error [x] {
         error make {
@@ -85,7 +78,9 @@ fn narratable_errors() {
         }
     }"#,
         r#"force_error "my error""#,
-    ]));
+    ]);
+
+    let actual = nu!(format!("try {{ {code} }}"));
 
     assert_eq!(
         actual.err,

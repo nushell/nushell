@@ -36,6 +36,31 @@ fn bit_shl() -> TestResult {
 }
 
 #[test]
+fn bit_shr_overflow() -> TestResult {
+    fail_test("16 bit-shr 10000", "exceeds available bits")
+}
+
+#[test]
+fn bit_shl_overflow() -> TestResult {
+    fail_test("5 bit-shl 10000000", "exceeds available bits")
+}
+
+#[test]
+fn bit_shl_neg_operand() -> TestResult {
+    // This would overflow the `u32` in the right hand side to 2
+    fail_test(
+        "9 bit-shl -9_223_372_036_854_775_806",
+        "exceeds available bits",
+    )
+}
+
+#[test]
+fn bit_shr_neg_operand() -> TestResult {
+    // This would overflow the `u32` in the right hand side
+    fail_test("9 bit-shr -2", "exceeds available bits")
+}
+
+#[test]
 fn bit_shl_add() -> TestResult {
     run_test("2 bit-shl 1 + 2", "16")
 }

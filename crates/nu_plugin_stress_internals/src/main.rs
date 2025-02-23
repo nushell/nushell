@@ -136,7 +136,21 @@ fn handle_message(
 ) -> Result<(), Box<dyn Error>> {
     if let Some(plugin_call) = message.get("Call") {
         let (id, plugin_call) = (&plugin_call[0], &plugin_call[1]);
-        if plugin_call.as_str() == Some("Signature") {
+        if plugin_call.as_str() == Some("Metadata") {
+            write(
+                output,
+                &json!({
+                    "CallResponse": [
+                        id,
+                        {
+                            "Metadata": {
+                                "version": env!("CARGO_PKG_VERSION"),
+                            }
+                        }
+                    ]
+                }),
+            )
+        } else if plugin_call.as_str() == Some("Signature") {
             write(
                 output,
                 &json!({
@@ -164,7 +178,7 @@ fn handle_message(
                             id,
                             {
                                 "PipelineData": {
-                                    "Value": return_value
+                                    "Value": [return_value, null]
                                 }
                             }
                         ]
@@ -187,8 +201,8 @@ fn signatures() -> Vec<Value> {
     vec![json!({
         "sig": {
             "name": "stress_internals",
-            "usage": "Used to test behavior of plugin protocol",
-            "extra_usage": "",
+            "description": "Used to test behavior of plugin protocol",
+            "extra_description": "",
             "search_terms": [],
             "required_positional": [],
             "optional_positional": [],

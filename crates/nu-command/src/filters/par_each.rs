@@ -1,6 +1,6 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
-use nu_protocol::engine::Closure;
+use nu_protocol::{engine::Closure, Signals};
 use rayon::prelude::*;
 
 #[derive(Clone)]
@@ -11,7 +11,7 @@ impl Command for ParEach {
         "par-each"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Run a closure on each row of the input list in parallel, creating a new list with the results."
     }
 
@@ -38,7 +38,7 @@ impl Command for ParEach {
             )
             .required(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run.",
             )
             .allow_variants_without_examples(true)
@@ -158,12 +158,11 @@ impl Command for ParEach {
                             })
                             .collect::<Vec<_>>();
 
-                        apply_order(vec).into_pipeline_data(span, engine_state.ctrlc.clone())
+                        apply_order(vec).into_pipeline_data(span, engine_state.signals().clone())
                     })),
                     Value::Range { val, .. } => Ok(create_pool(max_threads)?.install(|| {
-                        let ctrlc = engine_state.ctrlc.clone();
                         let vec = val
-                            .into_range_iter(span, ctrlc.clone())
+                            .into_range_iter(span, Signals::empty())
                             .enumerate()
                             .par_bridge()
                             .map(move |(index, value)| {
@@ -184,7 +183,7 @@ impl Command for ParEach {
                             })
                             .collect::<Vec<_>>();
 
-                        apply_order(vec).into_pipeline_data(span, ctrlc)
+                        apply_order(vec).into_pipeline_data(span, engine_state.signals().clone())
                     })),
                     // This match allows non-iterables to be accepted,
                     // which is currently considered undesirable (Nov 2022).
@@ -212,7 +211,7 @@ impl Command for ParEach {
                     })
                     .collect::<Vec<_>>();
 
-                apply_order(vec).into_pipeline_data(head, engine_state.ctrlc.clone())
+                apply_order(vec).into_pipeline_data(head, engine_state.signals().clone())
             })),
             PipelineData::ByteStream(stream, ..) => {
                 if let Some(chunks) = stream.chunks() {
@@ -236,14 +235,14 @@ impl Command for ParEach {
                             })
                             .collect::<Vec<_>>();
 
-                        apply_order(vec).into_pipeline_data(head, engine_state.ctrlc.clone())
+                        apply_order(vec).into_pipeline_data(head, engine_state.signals().clone())
                     }))
                 } else {
                     Ok(PipelineData::empty())
                 }
             }
         }
-        .and_then(|x| x.filter(|v| !v.is_nothing(), engine_state.ctrlc.clone()))
+        .and_then(|x| x.filter(|v| !v.is_nothing(), engine_state.signals()))
         .map(|data| data.set_metadata(metadata))
     }
 }

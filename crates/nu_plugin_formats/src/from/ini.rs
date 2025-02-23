@@ -1,4 +1,4 @@
-use crate::FromCmds;
+use crate::FormatCmdsPlugin;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
@@ -8,13 +8,13 @@ use nu_protocol::{
 pub struct FromIni;
 
 impl SimplePluginCommand for FromIni {
-    type Plugin = FromCmds;
+    type Plugin = FormatCmdsPlugin;
 
     fn name(&self) -> &str {
         "from ini"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse text as .ini and create table."
     }
 
@@ -30,7 +30,7 @@ impl SimplePluginCommand for FromIni {
 
     fn run(
         &self,
-        _plugin: &FromCmds,
+        _plugin: &FormatCmdsPlugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
@@ -101,5 +101,5 @@ b=2' | from ini",
 fn test_examples() -> Result<(), nu_protocol::ShellError> {
     use nu_plugin_test_support::PluginTest;
 
-    PluginTest::new("formats", crate::FromCmds.into())?.test_command_examples(&FromIni)
+    PluginTest::new("formats", crate::FormatCmdsPlugin.into())?.test_command_examples(&FromIni)
 }

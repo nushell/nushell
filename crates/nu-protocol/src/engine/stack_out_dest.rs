@@ -62,8 +62,8 @@ pub(crate) struct StackOutDest {
 impl StackOutDest {
     pub(crate) fn new() -> Self {
         Self {
-            pipe_stdout: None,
-            pipe_stderr: None,
+            pipe_stdout: Some(OutDest::Print),
+            pipe_stderr: Some(OutDest::Print),
             stdout: OutDest::Inherit,
             stderr: OutDest::Inherit,
             parent_stdout: None,
@@ -153,7 +153,7 @@ impl<'a> StackIoGuard<'a> {
     }
 }
 
-impl<'a> Deref for StackIoGuard<'a> {
+impl Deref for StackIoGuard<'_> {
     type Target = Stack;
 
     fn deref(&self) -> &Self::Target {
@@ -161,7 +161,7 @@ impl<'a> Deref for StackIoGuard<'a> {
     }
 }
 
-impl<'a> DerefMut for StackIoGuard<'a> {
+impl DerefMut for StackIoGuard<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.stack
     }
@@ -184,15 +184,15 @@ impl Drop for StackIoGuard<'_> {
     }
 }
 
-pub struct StackCaptureGuard<'a> {
+pub struct StackCollectValueGuard<'a> {
     stack: &'a mut Stack,
     old_pipe_stdout: Option<OutDest>,
     old_pipe_stderr: Option<OutDest>,
 }
 
-impl<'a> StackCaptureGuard<'a> {
+impl<'a> StackCollectValueGuard<'a> {
     pub(crate) fn new(stack: &'a mut Stack) -> Self {
-        let old_pipe_stdout = mem::replace(&mut stack.out_dest.pipe_stdout, Some(OutDest::Capture));
+        let old_pipe_stdout = mem::replace(&mut stack.out_dest.pipe_stdout, Some(OutDest::Value));
         let old_pipe_stderr = stack.out_dest.pipe_stderr.take();
         Self {
             stack,
@@ -202,7 +202,7 @@ impl<'a> StackCaptureGuard<'a> {
     }
 }
 
-impl<'a> Deref for StackCaptureGuard<'a> {
+impl Deref for StackCollectValueGuard<'_> {
     type Target = Stack;
 
     fn deref(&self) -> &Self::Target {
@@ -210,13 +210,13 @@ impl<'a> Deref for StackCaptureGuard<'a> {
     }
 }
 
-impl<'a> DerefMut for StackCaptureGuard<'a> {
+impl DerefMut for StackCollectValueGuard<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.stack
     }
 }
 
-impl Drop for StackCaptureGuard<'_> {
+impl Drop for StackCollectValueGuard<'_> {
     fn drop(&mut self) {
         self.out_dest.pipe_stdout = self.old_pipe_stdout.take();
         self.out_dest.pipe_stderr = self.old_pipe_stderr.take();
@@ -233,7 +233,7 @@ pub struct StackCallArgGuard<'a> {
 
 impl<'a> StackCallArgGuard<'a> {
     pub(crate) fn new(stack: &'a mut Stack) -> Self {
-        let old_pipe_stdout = mem::replace(&mut stack.out_dest.pipe_stdout, Some(OutDest::Capture));
+        let old_pipe_stdout = mem::replace(&mut stack.out_dest.pipe_stdout, Some(OutDest::Value));
         let old_pipe_stderr = stack.out_dest.pipe_stderr.take();
 
         let old_stdout = stack
@@ -258,7 +258,7 @@ impl<'a> StackCallArgGuard<'a> {
     }
 }
 
-impl<'a> Deref for StackCallArgGuard<'a> {
+impl Deref for StackCallArgGuard<'_> {
     type Target = Stack;
 
     fn deref(&self) -> &Self::Target {
@@ -266,7 +266,7 @@ impl<'a> Deref for StackCallArgGuard<'a> {
     }
 }
 
-impl<'a> DerefMut for StackCallArgGuard<'a> {
+impl DerefMut for StackCallArgGuard<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.stack
     }

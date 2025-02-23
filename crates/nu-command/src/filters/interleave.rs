@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
-use nu_protocol::engine::Closure;
+use nu_protocol::{engine::Closure, shell_error::io::IoError};
 use std::{sync::mpsc, thread};
 
 #[derive(Clone)]
@@ -10,11 +10,11 @@ impl Command for Interleave {
         "interleave"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Read multiple streams in parallel and combine them into one stream."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This combinator is useful for reading output from multiple commands.
 
 If input is provided to `interleave`, the input will be combined with the
@@ -137,17 +137,14 @@ interleave
                             }
                         })
                         .map(|_| ())
-                        .map_err(|err| ShellError::IOErrorSpanned {
-                            msg: err.to_string(),
-                            span: head,
-                        })
+                        .map_err(|err| IoError::new(err.kind(), head, None).into())
                 })
             })?;
 
         // Now that threads are writing to the channel, we just return it as a stream
         Ok(rx
             .into_iter()
-            .into_pipeline_data(head, engine_state.ctrlc.clone()))
+            .into_pipeline_data(head, engine_state.signals().clone()))
     }
 }
 

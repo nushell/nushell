@@ -1,45 +1,12 @@
 use nu_parser::*;
 use nu_protocol::{
-    ast::{Argument, Call, Expr, ExternalArgument, PathMember, Range},
+    ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    DeclId, ParseError, Signature, Span, SyntaxShape, Type,
 };
 use rstest::rstest;
 
-#[cfg(test)]
-#[derive(Clone)]
-pub struct Let;
-
-#[cfg(test)]
-impl Command for Let {
-    fn name(&self) -> &str {
-        "let"
-    }
-
-    fn usage(&self) -> &str {
-        "Create a variable and give it a value."
-    }
-
-    fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("let")
-            .required("var_name", SyntaxShape::VarWithOptType, "variable name")
-            .required(
-                "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
-                "equals sign followed by value",
-            )
-    }
-
-    fn run(
-        &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        _call: &Call,
-        _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        todo!()
-    }
-}
+use mock::{Alias, AttrEcho, Def, Let, Mut, ToCustom};
 
 fn test_int(
     test_tag: &str,     // name of sub-test
@@ -182,7 +149,7 @@ pub fn multi_test_parse_int() {
         Test(
             "ranges or relative paths not confused for int",
             b"./a/b",
-            Expr::String("./a/b".into()),
+            Expr::GlobPattern("./a/b".into(), false),
             None,
         ),
         Test(
@@ -543,7 +510,7 @@ pub fn parse_call() {
     assert!(element.redirection.is_none());
 
     if let Expr::Call(call) = &element.expr.expr {
-        assert_eq!(call.decl_id, 0);
+        assert_eq!(call.decl_id, DeclId::new(0));
     }
 }
 
@@ -597,7 +564,7 @@ pub fn parse_call_short_flag_batch_arg_allowed() {
     assert!(element.redirection.is_none());
 
     if let Expr::Call(call) = &element.expr.expr {
-        assert_eq!(call.decl_id, 0);
+        assert_eq!(call.decl_id, DeclId::new(0));
         assert_eq!(call.arguments.len(), 2);
         matches!(call.arguments[0], Argument::Named((_, None, None)));
         matches!(call.arguments[1], Argument::Named((_, None, Some(_))));
@@ -695,6 +662,598 @@ pub fn parse_call_missing_req_flag() {
 }
 
 #[test]
+pub fn parse_attribute_block_check_spans() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let source = br#"
+    @foo a 1 2
+    @bar b 3 4
+    echo baz
+    "#;
+    let block = parse(&mut working_set, None, source, true);
+
+    // There SHOULD be errors here, we're using nonexistent commands
+    assert!(!working_set.parse_errors.is_empty());
+
+    assert_eq!(block.len(), 1);
+
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+
+    let Expr::AttributeBlock(ab) = &element.expr.expr else {
+        panic!("Couldn't parse attribute block");
+    };
+
+    assert_eq!(
+        working_set.get_span_contents(ab.attributes[0].expr.span),
+        b"foo a 1 2"
+    );
+    assert_eq!(
+        working_set.get_span_contents(ab.attributes[1].expr.span),
+        b"bar b 3 4"
+    );
+    assert_eq!(working_set.get_span_contents(ab.item.span), b"echo baz");
+}
+
+#[test]
+pub fn parse_attributes_check_values() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let source = br#"
+    @echo "hello world"
+    @echo 42
+    def foo [] {}
+    "#;
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let decl_id = working_set.find_decl(b"foo").unwrap();
+    let cmd = working_set.get_decl(decl_id);
+    let attributes = cmd.attributes();
+
+    let (name, val) = &attributes[0];
+    assert_eq!(name, "echo");
+    assert_eq!(val.as_str(), Ok("hello world"));
+
+    let (name, val) = &attributes[1];
+    assert_eq!(name, "echo");
+    assert_eq!(val.as_int(), Ok(42));
+}
+
+#[test]
+pub fn parse_attributes_alias() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(Alias));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let source = br#"
+    alias "attr test" = attr echo
+
+    @test null
+    def foo [] {}
+    "#;
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let decl_id = working_set.find_decl(b"foo").unwrap();
+    let cmd = working_set.get_decl(decl_id);
+    let attributes = cmd.attributes();
+
+    let (name, val) = &attributes[0];
+    assert_eq!(name, "test");
+    assert!(val.is_nothing());
+}
+
+#[test]
+pub fn parse_attributes_external_alias() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(Alias));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let source = br#"
+    alias "attr test" = ^echo
+
+    @test null
+    def foo [] {}
+    "#;
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(!working_set.parse_errors.is_empty());
+
+    let ParseError::LabeledError(shell_error, parse_error, _span) = &working_set.parse_errors[0]
+    else {
+        panic!("Expected LabeledError");
+    };
+
+    assert!(shell_error.contains("nu::shell::not_a_const_command"));
+    assert!(parse_error.contains("Encountered error during parse-time evaluation"));
+}
+
+fn test_external_call(input: &str, tag: &str, f: impl FnOnce(&Expression, &[ExternalArgument])) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, input.as_bytes(), true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{tag}: errors: {:?}",
+        working_set.parse_errors
+    );
+
+    let pipeline = &block.pipelines[0];
+    assert_eq!(1, pipeline.len());
+    let element = &pipeline.elements[0];
+    match &element.expr.expr {
+        Expr::ExternalCall(name, args) => f(name, args),
+        other => {
+            panic!("{tag}: Unexpected expression in pipeline: {other:?}");
+        }
+    }
+}
+
+fn check_external_call_interpolation(
+    tag: &str,
+    subexpr_count: usize,
+    quoted: bool,
+    expr: &Expression,
+) -> bool {
+    match &expr.expr {
+        Expr::StringInterpolation(exprs) => {
+            assert!(quoted, "{tag}: quoted");
+            assert_eq!(expr.ty, Type::String, "{tag}: expr.ty");
+            assert_eq!(subexpr_count, exprs.len(), "{tag}: subexpr_count");
+            true
+        }
+        Expr::GlobInterpolation(exprs, is_quoted) => {
+            assert_eq!(quoted, *is_quoted, "{tag}: quoted");
+            assert_eq!(expr.ty, Type::Glob, "{tag}: expr.ty");
+            assert_eq!(subexpr_count, exprs.len(), "{tag}: subexpr_count");
+            true
+        }
+        _ => false,
+    }
+}
+
+#[rstest]
+#[case("foo-external-call", "foo-external-call", "bare word")]
+#[case("^foo-external-call", "foo-external-call", "bare word with caret")]
+#[case(
+    "foo/external-call",
+    "foo/external-call",
+    "bare word with forward slash"
+)]
+#[case(
+    "^foo/external-call",
+    "foo/external-call",
+    "bare word with forward slash and caret"
+)]
+#[case(r"foo\external-call", r"foo\external-call", "bare word with backslash")]
+#[case(
+    r"^foo\external-call",
+    r"foo\external-call",
+    "bare word with backslash and caret"
+)]
+#[case("`foo external call`", "foo external call", "backtick quote")]
+#[case(
+    "^`foo external call`",
+    "foo external call",
+    "backtick quote with caret"
+)]
+#[case(
+    "`foo/external call`",
+    "foo/external call",
+    "backtick quote with forward slash"
+)]
+#[case(
+    "^`foo/external call`",
+    "foo/external call",
+    "backtick quote with forward slash and caret"
+)]
+#[case(
+    r"`foo\external call`",
+    r"foo\external call",
+    "backtick quote with backslash"
+)]
+#[case(
+    r"^`foo\external call`",
+    r"foo\external call",
+    "backtick quote with backslash and caret"
+)]
+pub fn test_external_call_head_glob(
+    #[case] input: &str,
+    #[case] expected: &str,
+    #[case] tag: &str,
+) {
+    test_external_call(input, tag, |name, args| {
+        match &name.expr {
+            Expr::GlobPattern(string, is_quoted) => {
+                assert_eq!(expected, string, "{tag}: incorrect name");
+                assert!(!*is_quoted);
+            }
+            other => {
+                panic!("{tag}: Unexpected expression in command name position: {other:?}");
+            }
+        }
+        assert_eq!(0, args.len());
+    })
+}
+
+#[rstest]
+#[case(
+    r##"^r#'foo-external-call'#"##,
+    "foo-external-call",
+    "raw string with caret"
+)]
+#[case(
+    r##"^r#'foo/external-call'#"##,
+    "foo/external-call",
+    "raw string with forward slash and caret"
+)]
+#[case(
+    r##"^r#'foo\external-call'#"##,
+    r"foo\external-call",
+    "raw string with backslash and caret"
+)]
+pub fn test_external_call_head_raw_string(
+    #[case] input: &str,
+    #[case] expected: &str,
+    #[case] tag: &str,
+) {
+    test_external_call(input, tag, |name, args| {
+        match &name.expr {
+            Expr::RawString(string) => {
+                assert_eq!(expected, string, "{tag}: incorrect name");
+            }
+            other => {
+                panic!("{tag}: Unexpected expression in command name position: {other:?}");
+            }
+        }
+        assert_eq!(0, args.len());
+    })
+}
+
+#[rstest]
+#[case("^'foo external call'", "foo external call", "single quote with caret")]
+#[case(
+    "^'foo/external call'",
+    "foo/external call",
+    "single quote with forward slash and caret"
+)]
+#[case(
+    r"^'foo\external call'",
+    r"foo\external call",
+    "single quote with backslash and caret"
+)]
+#[case(
+    r#"^"foo external call""#,
+    r#"foo external call"#,
+    "double quote with caret"
+)]
+#[case(
+    r#"^"foo/external call""#,
+    r#"foo/external call"#,
+    "double quote with forward slash and caret"
+)]
+#[case(
+    r#"^"foo\\external call""#,
+    r#"foo\external call"#,
+    "double quote with backslash and caret"
+)]
+pub fn test_external_call_head_string(
+    #[case] input: &str,
+    #[case] expected: &str,
+    #[case] tag: &str,
+) {
+    test_external_call(input, tag, |name, args| {
+        match &name.expr {
+            Expr::String(string) => {
+                assert_eq!(expected, string);
+            }
+            other => {
+                panic!("{tag}: Unexpected expression in command name position: {other:?}");
+            }
+        }
+        assert_eq!(0, args.len());
+    })
+}
+
+#[rstest]
+#[case(r"~/.foo/(1)", 2, false, "unquoted interpolated string")]
+#[case(
+    r"~\.foo(2)\(1)",
+    4,
+    false,
+    "unquoted interpolated string with backslash"
+)]
+#[case(r"^~/.foo/(1)", 2, false, "unquoted interpolated string with caret")]
+#[case(r#"^$"~/.foo/(1)""#, 2, true, "quoted interpolated string with caret")]
+pub fn test_external_call_head_interpolated_string(
+    #[case] input: &str,
+    #[case] subexpr_count: usize,
+    #[case] quoted: bool,
+    #[case] tag: &str,
+) {
+    test_external_call(input, tag, |name, args| {
+        if !check_external_call_interpolation(tag, subexpr_count, quoted, name) {
+            panic!("{tag}: Unexpected expression in command name position: {name:?}");
+        }
+        assert_eq!(0, args.len());
+    })
+}
+
+#[rstest]
+#[case("^foo foo-external-call", "foo-external-call", "bare word")]
+#[case(
+    "^foo foo/external-call",
+    "foo/external-call",
+    "bare word with forward slash"
+)]
+#[case(
+    r"^foo foo\external-call",
+    r"foo\external-call",
+    "bare word with backslash"
+)]
+#[case(
+    "^foo `foo external call`",
+    "foo external call",
+    "backtick quote with caret"
+)]
+#[case(
+    "^foo `foo/external call`",
+    "foo/external call",
+    "backtick quote with forward slash"
+)]
+#[case(
+    r"^foo `foo\external call`",
+    r"foo\external call",
+    "backtick quote with backslash"
+)]
+#[case(
+    r#"^foo --flag="value""#,
+    r#"--flag=value"#,
+    "flag value with double quote"
+)]
+#[case(
+    r#"^foo --flag='value'"#,
+    r#"--flag=value"#,
+    "flag value with single quote"
+)]
+#[case(
+    r#"^foo {a:1,b:'c',c:'d'}"#,
+    r#"{a:1,b:c,c:d}"#,
+    "value with many inner single quotes"
+)]
+#[case(
+    r#"^foo {a:1,b:"c",c:"d"}"#,
+    r#"{a:1,b:c,c:d}"#,
+    "value with many double quotes"
+)]
+#[case(
+    r#"^foo {a:1,b:'c',c:"d"}"#,
+    r#"{a:1,b:c,c:d}"#,
+    "value with single quote and double quote"
+)]
+#[case(
+    r#"^foo `hello world`"#,
+    r#"hello world"#,
+    "value is surrounded by backtick quote"
+)]
+#[case(
+    r#"^foo `"hello world"`"#,
+    "\"hello world\"",
+    "value is surrounded by backtick quote, with inner double quote"
+)]
+#[case(
+    r#"^foo `'hello world'`"#,
+    "'hello world'",
+    "value is surrounded by backtick quote, with inner single quote"
+)]
+pub fn test_external_call_arg_glob(#[case] input: &str, #[case] expected: &str, #[case] tag: &str) {
+    test_external_call(input, tag, |name, args| {
+        match &name.expr {
+            Expr::GlobPattern(string, _) => {
+                assert_eq!("foo", string, "{tag}: incorrect name");
+            }
+            other => {
+                panic!("{tag}: Unexpected expression in command name position: {other:?}");
+            }
+        }
+        assert_eq!(1, args.len());
+        match &args[0] {
+            ExternalArgument::Regular(expr) => match &expr.expr {
+                Expr::GlobPattern(string, is_quoted) => {
+                    assert_eq!(expected, string, "{tag}: incorrect arg");
+                    assert!(!*is_quoted);
+                }
+                other => {
+                    panic!("Unexpected expression in command arg position: {other:?}")
+                }
+            },
+            other @ ExternalArgument::Spread(..) => {
+                panic!("Unexpected external spread argument in command arg position: {other:?}")
+            }
+        }
+    })
+}
+
+#[rstest]
+#[case(r##"^foo r#'foo-external-call'#"##, "foo-external-call", "raw string")]
+#[case(
+    r##"^foo r#'foo/external-call'#"##,
+    "foo/external-call",
+    "raw string with forward slash"
+)]
+#[case(
+    r##"^foo r#'foo\external-call'#"##,
+    r"foo\external-call",
+    "raw string with backslash"
+)]
+pub fn test_external_call_arg_raw_string(
+    #[case] input: &str,
+    #[case] expected: &str,
+    #[case] tag: &str,
+) {
+    test_external_call(input, tag, |name, args| {
+        match &name.expr {
+            Expr::GlobPattern(string, _) => {
+                assert_eq!("foo", string, "{tag}: incorrect name");
+            }
+            other => {
+                panic!("{tag}: Unexpected expression in command name position: {other:?}");
+            }
+        }
+        assert_eq!(1, args.len());
+        match &args[0] {
+            ExternalArgument::Regular(expr) => match &expr.expr {
+                Expr::RawString(string) => {
+                    assert_eq!(expected, string, "{tag}: incorrect arg");
+                }
+                other => {
+                    panic!("Unexpected expression in command arg position: {other:?}")
+                }
+            },
+            other @ ExternalArgument::Spread(..) => {
+                panic!("Unexpected external spread argument in command arg position: {other:?}")
+            }
+        }
+    })
+}
+
+#[rstest]
+#[case("^foo 'foo external call'", "foo external call", "single quote")]
+#[case(
+    "^foo 'foo/external call'",
+    "foo/external call",
+    "single quote with forward slash"
+)]
+#[case(
+    r"^foo 'foo\external call'",
+    r"foo\external call",
+    "single quote with backslash"
+)]
+#[case(r#"^foo "foo external call""#, r#"foo external call"#, "double quote")]
+#[case(
+    r#"^foo "foo/external call""#,
+    r#"foo/external call"#,
+    "double quote with forward slash"
+)]
+#[case(
+    r#"^foo "foo\\external call""#,
+    r#"foo\external call"#,
+    "double quote with backslash"
+)]
+pub fn test_external_call_arg_string(
+    #[case] input: &str,
+    #[case] expected: &str,
+    #[case] tag: &str,
+) {
+    test_external_call(input, tag, |name, args| {
+        match &name.expr {
+            Expr::GlobPattern(string, _) => {
+                assert_eq!("foo", string, "{tag}: incorrect name");
+            }
+            other => {
+                panic!("{tag}: Unexpected expression in command name position: {other:?}");
+            }
+        }
+        assert_eq!(1, args.len());
+        match &args[0] {
+            ExternalArgument::Regular(expr) => match &expr.expr {
+                Expr::String(string) => {
+                    assert_eq!(expected, string, "{tag}: incorrect arg");
+                }
+                other => {
+                    panic!("{tag}: Unexpected expression in command arg position: {other:?}")
+                }
+            },
+            other @ ExternalArgument::Spread(..) => {
+                panic!(
+                    "{tag}: Unexpected external spread argument in command arg position: {other:?}"
+                )
+            }
+        }
+    })
+}
+
+#[rstest]
+#[case(r"^foo ~/.foo/(1)", 2, false, "unquoted interpolated string")]
+#[case(r#"^foo $"~/.foo/(1)""#, 2, true, "quoted interpolated string")]
+pub fn test_external_call_arg_interpolated_string(
+    #[case] input: &str,
+    #[case] subexpr_count: usize,
+    #[case] quoted: bool,
+    #[case] tag: &str,
+) {
+    test_external_call(input, tag, |name, args| {
+        match &name.expr {
+            Expr::GlobPattern(string, _) => {
+                assert_eq!("foo", string, "{tag}: incorrect name");
+            }
+            other => {
+                panic!("{tag}: Unexpected expression in command name position: {other:?}");
+            }
+        }
+        assert_eq!(1, args.len());
+        match &args[0] {
+            ExternalArgument::Regular(expr) => {
+                if !check_external_call_interpolation(tag, subexpr_count, quoted, expr) {
+                    panic!("Unexpected expression in command arg position: {expr:?}")
+                }
+            }
+            other @ ExternalArgument::Spread(..) => {
+                panic!("Unexpected external spread argument in command arg position: {other:?}")
+            }
+        }
+    })
+}
+
+#[test]
+fn test_external_call_argument_spread() {
+    let input = r"^foo ...[a b c]";
+    let tag = "spread";
+
+    test_external_call(input, tag, |name, args| {
+        match &name.expr {
+            Expr::GlobPattern(string, _) => {
+                assert_eq!("foo", string, "incorrect name");
+            }
+            other => {
+                panic!("Unexpected expression in command name position: {other:?}");
+            }
+        }
+        assert_eq!(1, args.len());
+        match &args[0] {
+            ExternalArgument::Spread(expr) => match &expr.expr {
+                Expr::List(items) => {
+                    assert_eq!(3, items.len());
+                    // that's good enough, don't really need to go so deep into it...
+                }
+                other => {
+                    panic!("Unexpected expression in command arg position: {other:?}")
+                }
+            },
+            other @ ExternalArgument::Regular(..) => {
+                panic!("Unexpected external regular argument in command arg position: {other:?}")
+            }
+        }
+    })
+}
+
+#[test]
 fn test_nothing_comparison_eq() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
@@ -711,19 +1270,88 @@ fn test_nothing_comparison_eq() {
 }
 
 #[rstest]
+#[case(b"let a o> file = 1")]
+#[case(b"mut a o> file = 1")]
+fn test_redirection_inside_letmut_no_panic(#[case] phase: &[u8]) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(Let));
+    working_set.add_decl(Box::new(Mut));
+
+    parse(&mut working_set, None, phase, true);
+}
+
+#[rstest]
 #[case(b"let a = 1 err> /dev/null")]
 #[case(b"let a = 1 out> /dev/null")]
+#[case(b"let a = 1 out+err> /dev/null")]
 #[case(b"mut a = 1 err> /dev/null")]
 #[case(b"mut a = 1 out> /dev/null")]
-#[case(b"let a = 1 out+err> /dev/null")]
 #[case(b"mut a = 1 out+err> /dev/null")]
 fn test_redirection_with_letmut(#[case] phase: &[u8]) {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
-    let _block = parse(&mut working_set, None, phase, true);
+    working_set.add_decl(Box::new(Let));
+    working_set.add_decl(Box::new(Mut));
+
+    let block = parse(&mut working_set, None, phase, true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "parse errors: {:?}",
+        working_set.parse_errors
+    );
+    assert_eq!(1, block.pipelines[0].elements.len());
+
+    let element = &block.pipelines[0].elements[0];
+    assert!(element.redirection.is_none()); // it should be in the let block, not here
+
+    if let Expr::Call(call) = &element.expr.expr {
+        let arg = call.positional_nth(1).expect("no positional args");
+        let block_id = arg.as_block().expect("arg 1 is not a block");
+        let block = working_set.get_block(block_id);
+        let inner_element = &block.pipelines[0].elements[0];
+        assert!(inner_element.redirection.is_some());
+    } else {
+        panic!("expected Call: {:?}", block.pipelines[0].elements[0])
+    }
+}
+
+#[rstest]
+#[case(b"o>")]
+#[case(b"o>>")]
+#[case(b"e>")]
+#[case(b"e>>")]
+#[case(b"o+e>")]
+#[case(b"o+e>>")]
+#[case(b"e>|")]
+#[case(b"o+e>|")]
+#[case(b"|o>")]
+#[case(b"|o>>")]
+#[case(b"|e>")]
+#[case(b"|e>>")]
+#[case(b"|o+e>")]
+#[case(b"|o+e>>")]
+#[case(b"|e>|")]
+#[case(b"|o+e>|")]
+#[case(b"e> file")]
+#[case(b"e>> file")]
+#[case(b"o> file")]
+#[case(b"o>> file")]
+#[case(b"o+e> file")]
+#[case(b"o+e>> file")]
+#[case(b"|e> file")]
+#[case(b"|e>> file")]
+#[case(b"|o> file")]
+#[case(b"|o>> file")]
+#[case(b"|o+e> file")]
+#[case(b"|o+e>> file")]
+fn test_redirecting_nothing(#[case] text: &[u8]) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(&mut working_set, None, text, true);
     assert!(matches!(
         working_set.parse_errors.first(),
-        Some(ParseError::RedirectingBuiltinCommand(_, _, _))
+        Some(ParseError::UnexpectedRedirection { .. })
     ));
 }
 
@@ -876,6 +1504,44 @@ mod string {
 
             assert_eq!(subexprs.len(), 1);
             assert_eq!(subexprs[0], &Expr::String("(1 + 3)(7 - 5)".to_string()));
+        }
+
+        #[test]
+        pub fn parse_string_interpolation_bare() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let block = parse(
+                &mut working_set,
+                None,
+                b"\"\" ++ foo(1 + 3)bar(7 - 5)",
+                true,
+            );
+
+            assert!(working_set.parse_errors.is_empty());
+
+            assert_eq!(block.len(), 1);
+            let pipeline = &block.pipelines[0];
+            assert_eq!(pipeline.len(), 1);
+            let element = &pipeline.elements[0];
+            assert!(element.redirection.is_none());
+
+            let subexprs: Vec<&Expr> = match &element.expr.expr {
+                Expr::BinaryOp(_, _, rhs) => match &rhs.expr {
+                    Expr::StringInterpolation(expressions) => {
+                        expressions.iter().map(|e| &e.expr).collect()
+                    }
+                    _ => panic!("Expected an `Expr::StringInterpolation`"),
+                },
+                _ => panic!("Expected an `Expr::BinaryOp`"),
+            };
+
+            assert_eq!(subexprs.len(), 4);
+
+            assert_eq!(subexprs[0], &Expr::String("foo".to_string()));
+            assert!(matches!(subexprs[1], &Expr::FullCellPath(..)));
+            assert_eq!(subexprs[2], &Expr::String("bar".to_string()));
+            assert!(matches!(subexprs[3], &Expr::FullCellPath(..)));
         }
 
         #[test]
@@ -1248,16 +1914,126 @@ mod range {
 
         assert!(working_set.parse_errors.is_empty());
     }
+
+    #[rstest]
+    #[case("(to-custom)..")]
+    #[case("..(to-custom)")]
+    #[case("(to-custom)..0")]
+    #[case("..(to-custom)..0")]
+    #[case("(to-custom)..0..")]
+    #[case("(to-custom)..0..1")]
+    #[case("0..(to-custom)")]
+    #[case("0..(to-custom)..")]
+    #[case("0..(to-custom)..1")]
+    #[case("..1..(to-custom)")]
+    #[case("0..1..(to-custom)")]
+    fn type_mismatch_errors(#[case] code: &str) {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(ToCustom));
+
+        let _ = parse(&mut working_set, None, code.as_bytes(), true);
+
+        assert!(matches!(
+            &working_set.parse_errors[..],
+            [ParseError::OperatorUnsupportedType { .. }]
+        ),);
+    }
+
+    #[test]
+    fn dont_mess_with_external_calls() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(ToCustom));
+
+        let result = parse(&mut working_set, None, b"../foo", true);
+
+        assert!(
+            working_set.parse_errors.is_empty(),
+            "Errors: {:?}",
+            working_set.parse_errors
+        );
+        let expr = &result.pipelines[0].elements[0].expr.expr;
+        assert!(
+            matches!(expr, Expr::ExternalCall(..)),
+            "Should've been parsed as a call"
+        );
+    }
 }
 
 #[cfg(test)]
-mod input_types {
+mod mock {
     use super::*;
+    use nu_engine::CallExt;
     use nu_protocol::{
-        ast::{Argument, Call},
-        Category, PipelineData, ShellError, Type,
+        engine::Call, Category, IntoPipelineData, PipelineData, ShellError, Type, Value,
     };
 
+    #[derive(Clone)]
+    pub struct Let;
+
+    impl Command for Let {
+        fn name(&self) -> &str {
+            "let"
+        }
+
+        fn description(&self) -> &str {
+            "Create a variable and give it a value."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("let")
+                .required("var_name", SyntaxShape::VarWithOptType, "variable name")
+                .required(
+                    "initial_value",
+                    SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                    "equals sign followed by value",
+                )
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct Mut;
+
+    impl Command for Mut {
+        fn name(&self) -> &str {
+            "mut"
+        }
+
+        fn description(&self) -> &str {
+            "Mock mut command."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("mut")
+                .required("var_name", SyntaxShape::VarWithOptType, "variable name")
+                .required(
+                    "initial_value",
+                    SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                    "equals sign followed by value",
+                )
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
     #[derive(Clone)]
     pub struct LsTest;
 
@@ -1266,7 +2042,7 @@ mod input_types {
             "ls"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock ls command."
         }
 
@@ -1293,7 +2069,7 @@ mod input_types {
             "def"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock def command."
         }
 
@@ -1318,6 +2094,87 @@ mod input_types {
     }
 
     #[derive(Clone)]
+    pub struct Alias;
+
+    impl Command for Alias {
+        fn name(&self) -> &str {
+            "alias"
+        }
+
+        fn description(&self) -> &str {
+            "Mock alias command."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("alias")
+                .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+                .required("name", SyntaxShape::String, "Name of the alias.")
+                .required(
+                    "initial_value",
+                    SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                    "Equals sign followed by value.",
+                )
+                .category(Category::Core)
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct AttrEcho;
+
+    impl Command for AttrEcho {
+        fn name(&self) -> &str {
+            "attr echo"
+        }
+
+        fn signature(&self) -> Signature {
+            Signature::build("attr echo").required(
+                "value",
+                SyntaxShape::Any,
+                "Value to store as an attribute",
+            )
+        }
+
+        fn description(&self) -> &str {
+            "Add an arbitrary value as an attribute to a command"
+        }
+
+        fn run(
+            &self,
+            engine_state: &EngineState,
+            stack: &mut Stack,
+            call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            let value: Value = call.req(engine_state, stack, 0)?;
+            Ok(value.into_pipeline_data())
+        }
+
+        fn is_const(&self) -> bool {
+            true
+        }
+
+        fn run_const(
+            &self,
+            working_set: &StateWorkingSet,
+            call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            let value: Value = call.req_const(working_set, 0)?;
+            Ok(value.into_pipeline_data())
+        }
+    }
+
+    #[derive(Clone)]
     pub struct GroupBy;
 
     impl Command for GroupBy {
@@ -1325,7 +2182,7 @@ mod input_types {
             "group-by"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock group-by command."
         }
 
@@ -1354,7 +2211,7 @@ mod input_types {
             "to-custom"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock converter command."
         }
 
@@ -1383,7 +2240,7 @@ mod input_types {
             "group-by"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom group-by command."
         }
 
@@ -1414,7 +2271,7 @@ mod input_types {
             "agg"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom agg command."
         }
 
@@ -1444,7 +2301,7 @@ mod input_types {
             "min"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom min command."
         }
 
@@ -1471,7 +2328,7 @@ mod input_types {
             "with-column"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom with-column command."
         }
 
@@ -1501,7 +2358,7 @@ mod input_types {
             "collect"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom collect command."
         }
 
@@ -1530,7 +2387,7 @@ mod input_types {
             "if"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock if command."
         }
 
@@ -1566,6 +2423,13 @@ mod input_types {
             todo!()
         }
     }
+}
+
+#[cfg(test)]
+mod input_types {
+    use super::*;
+    use mock::*;
+    use nu_protocol::ast::Argument;
 
     fn add_declarations(engine_state: &mut EngineState) {
         let delta = {
@@ -1737,7 +2601,7 @@ mod input_types {
         add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
-        parse(
+        let block = parse(
             &mut working_set,
             None,
             b"if false { 'a' } else { $foo }",
@@ -1748,6 +2612,30 @@ mod input_types {
             working_set.parse_errors.first(),
             Some(ParseError::VariableNotFound(_, _))
         ));
+
+        let element = &block
+            .pipelines
+            .first()
+            .unwrap()
+            .elements
+            .first()
+            .unwrap()
+            .expr;
+        let Expr::Call(call) = &element.expr else {
+            eprintln!("{:?}", element.expr);
+            panic!("Expected Expr::Call");
+        };
+        let Expr::Keyword(else_kwd) = &call
+            .arguments
+            .get(2)
+            .expect("This call of `if` should have 3 arguments")
+            .expr()
+            .unwrap()
+            .expr
+        else {
+            panic!("Expected Expr::Keyword");
+        };
+        assert!(!matches!(else_kwd.expr.expr, Expr::Garbage))
     }
 
     #[test]
@@ -1771,6 +2659,7 @@ mod input_types {
 
     #[rstest]
     #[case::input_output(b"def q []: int -> int {1}", false)]
+    #[case::input_output(b"def q [x: bool]: int -> int {2}", false)]
     #[case::input_output(b"def q []: string -> string {'qwe'}", false)]
     #[case::input_output(b"def q []: nothing -> nothing {null}", false)]
     #[case::input_output(b"def q []: list<string> -> list<string> {[]}", false)]
@@ -1790,6 +2679,42 @@ mod input_types {
     #[case::input_output(b"def q []: nothing -> record<c: int e: int {{c: 1 e: 1}}", true)]
     #[case::input_output(b"def q []: record<c: int e: int -> record<a: int> {{a: 1}}", true)]
     #[case::input_output(b"def q []: nothing -> record<a: record<a: int> {{a: {a: 1}}}", true)]
+    #[case::input_output(b"def q []: int []}", true)]
+    #[case::input_output(b"def q []: bool {[]", true)]
+    // Type signature variants with whitespace between inputs and `:`
+    #[case::input_output(b"def q [] : int -> int {1}", false)]
+    #[case::input_output(b"def q [x: bool] : int -> int {2}", false)]
+    #[case::input_output(b"def q []\t   : string -> string {'qwe'}", false)]
+    #[case::input_output(b"def q []  \t : nothing -> nothing {null}", false)]
+    #[case::input_output(b"def q [] \t: list<string> -> list<string> {[]}", false)]
+    #[case::input_output(
+        b"def q []\t: record<a: int b: int> -> record<c: int e: int> {{c: 1 e: 1}}",
+        false
+    )]
+    #[case::input_output(
+        b"def q [] : table<a: int b: int> -> table<c: int e: int> {[{c: 1 e: 1}]}",
+        false
+    )]
+    #[case::input_output(
+        b"def q [] : nothing -> record<c: record<a: int b: int> e: int> {{c: {a: 1 b: 2} e: 1}}",
+        false
+    )]
+    #[case::input_output(b"def q [] : nothing -> list<string {[]}", true)]
+    #[case::input_output(b"def q [] : nothing -> record<c: int e: int {{c: 1 e: 1}}", true)]
+    #[case::input_output(b"def q [] : record<c: int e: int -> record<a: int> {{a: 1}}", true)]
+    #[case::input_output(b"def q [] : nothing -> record<a: record<a: int> {{a: {a: 1}}}", true)]
+    #[case::input_output(b"def q [] : int []}", true)]
+    #[case::input_output(b"def q [] : bool {[]", true)]
+    // No input-output type signature
+    #[case::input_output(b"def qq [] {[]}", false)]
+    #[case::input_output(b"def q [] []}", true)]
+    #[case::input_output(b"def q [] {", true)]
+    #[case::input_output(b"def q []: []}", true)]
+    #[case::input_output(b"def q [] int {}", true)]
+    #[case::input_output(b"def q [x: string, y: int] {{c: 1 e: 1}}", false)]
+    #[case::input_output(b"def q [x: string, y: int]: {}", true)]
+    #[case::input_output(b"def q [x: string, y: int] {a: {a: 1}}", true)]
+    #[case::input_output(b"def foo {3}", true)]
     #[case::vardecl(b"let a: int = 1", false)]
     #[case::vardecl(b"let a: string = 'qwe'", false)]
     #[case::vardecl(b"let a: nothing = null", false)]
@@ -1839,5 +2764,58 @@ mod operator {
             0,
             "{test_tag}: expected to be parsed successfully, but failed."
         );
+    }
+}
+
+mod record {
+    use super::*;
+
+    use nu_protocol::ast::RecordItem;
+
+    #[rstest]
+    #[case(b"{ :: x }", "Invalid literal")] // Key is bare colon
+    #[case(b"{ a: x:y }", "Invalid literal")] // Value is bare word with colon
+    #[case(b"{ a: x('y'):z }", "Invalid literal")] // Value is bare string interpolation with colon
+    #[case(b"{ ;: x }", "Parse mismatch during operation.")] // Key is a non-item token
+    #[case(b"{ a: || }", "Parse mismatch during operation.")] // Value is a non-item token
+    fn refuse_confusing_record(#[case] expr: &[u8], #[case] error: &str) {
+        dbg!(String::from_utf8_lossy(expr));
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        parse(&mut working_set, None, expr, false);
+        assert_eq!(
+            working_set.parse_errors.first().map(|e| e.to_string()),
+            Some(error.to_string())
+        );
+    }
+
+    #[rstest]
+    #[case(b"{ a: 2024-07-23T22:54:54.532100627+02:00 b:xy }")]
+    fn parse_datetime_in_record(#[case] expr: &[u8]) {
+        dbg!(String::from_utf8_lossy(expr));
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let block = parse(&mut working_set, None, expr, false);
+        assert!(working_set.parse_errors.is_empty());
+        let pipeline_el_expr = &block
+            .pipelines
+            .first()
+            .unwrap()
+            .elements
+            .first()
+            .unwrap()
+            .expr
+            .expr;
+        dbg!(pipeline_el_expr);
+        match pipeline_el_expr {
+            Expr::FullCellPath(v) => match &v.head.expr {
+                Expr::Record(fields) => assert!(matches!(
+                    fields[0],
+                    RecordItem::Pair(_, Expression { ty: Type::Date, .. })
+                )),
+                _ => panic!("Expected record head"),
+            },
+            _ => panic!("Expected full cell path"),
+        }
     }
 }

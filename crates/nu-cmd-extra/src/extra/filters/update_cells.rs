@@ -16,7 +16,7 @@ impl Command for UpdateCells {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "the closure to run an update for each cell",
+                "The closure to run an update for each cell.",
             )
             .named(
                 "columns",
@@ -27,7 +27,7 @@ impl Command for UpdateCells {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Update the table cells."
     }
 
@@ -108,7 +108,7 @@ impl Command for UpdateCells {
             columns,
             span: head,
         }
-        .into_pipeline_data(head, engine_state.ctrlc.clone())
+        .into_pipeline_data(head, engine_state.signals().clone())
         .set_metadata(metadata))
     }
 }

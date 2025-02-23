@@ -35,7 +35,7 @@ impl Command for SubCommand {
             .category(Category::Platform)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Add a link (using OSC 8 escape sequence) to the given string."
     }
 
@@ -91,12 +91,12 @@ fn operate(
     if column_paths.is_empty() {
         input.map(
             move |v| process_value(&v, text.as_deref()),
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
     } else {
         input.map(
             move |v| process_each_path(v, &column_paths, text.as_deref(), command_span),
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
     }
 }

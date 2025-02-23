@@ -10,11 +10,11 @@ impl Command for Filter {
         "filter"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Filter values based on a predicate closure."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command works similar to 'where' but allows reading the predicate closure from
 a variable. On the other hand, the "row condition" syntax is not supported."#
     }
@@ -30,7 +30,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
             ])
             .required(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "Predicate closure.",
             )
             .category(Category::Filters)
@@ -72,7 +72,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                             }
                         }
                     })
-                    .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                    .into_pipeline_data(head, engine_state.signals().clone()))
             }
             PipelineData::ByteStream(stream, ..) => {
                 if let Some(chunks) = stream.chunks() {
@@ -97,7 +97,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                                 }
                             }
                         })
-                        .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                        .into_pipeline_data(head, engine_state.signals().clone()))
                 } else {
                     Ok(PipelineData::Empty)
                 }
@@ -117,7 +117,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         Some(Value::error(err, span))
                     }
                 }
-                .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                .into_pipeline_data(head, engine_state.signals().clone()))
             }
         }
         .map(|data| data.set_metadata(metadata))

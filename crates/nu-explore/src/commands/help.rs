@@ -1,5 +1,5 @@
 use super::ViewCommand;
-use crate::views::Preview;
+use crate::views::{Preview, ViewConfig};
 use anyhow::Result;
 use nu_ansi_term::Color;
 use nu_protocol::{
@@ -7,7 +7,7 @@ use nu_protocol::{
     Value,
 };
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 #[derive(Debug, Default, Clone)]
 pub struct HelpCmd {}
@@ -19,7 +19,7 @@ impl HelpCmd {
     }
 }
 
-static HELP_MESSAGE: Lazy<String> = Lazy::new(|| {
+static HELP_MESSAGE: LazyLock<String> = LazyLock::new(|| {
     let title = nu_ansi_term::Style::new().bold().underline();
     let code = nu_ansi_term::Style::new().bold().fg(Color::Blue);
 
@@ -33,13 +33,14 @@ Launch Explore by piping data into it: {}
 
                    Move around:  Use the cursor keys
 Drill down into records+tables:  Press <Enter> to select a cell, move around with cursor keys, press <Enter> again
-            Go back/up a level:  Press <Esc>
+            Go back/up a level:  Press <Esc> or "q"
  Transpose (flip rows+columns):  Press "t"
  Expand (show all nested data):  Press "e"
           Open this help page :  Type ":help" then <Enter>
       Open an interactive REPL:  Type ":try" then <Enter>
-                Scroll up/down:  Use the "Page Up" and "Page Down" keys
-                  Exit Explore:  Type ":q" then <Enter>, or Ctrl+D. Alternately, press <Esc> until Explore exits
+                     Scroll up:  Press "Page Up", Ctrl+B, or Alt+V
+                   Scroll down:  Press "Page Down", Ctrl+F, or Ctrl+V
+                  Exit Explore:  Type ":q" then <Enter>, or Ctrl+D. Alternately, press <Esc> or "q" until Explore exits
 
 {}
 Most commands support search via regular expressions.
@@ -91,7 +92,7 @@ impl ViewCommand for HelpCmd {
         Self::NAME
     }
 
-    fn usage(&self) -> &'static str {
+    fn description(&self) -> &'static str {
         ""
     }
 
@@ -99,7 +100,13 @@ impl ViewCommand for HelpCmd {
         Ok(())
     }
 
-    fn spawn(&mut self, _: &EngineState, _: &mut Stack, _: Option<Value>) -> Result<Self::View> {
+    fn spawn(
+        &mut self,
+        _: &EngineState,
+        _: &mut Stack,
+        _: Option<Value>,
+        _: &ViewConfig,
+    ) -> Result<Self::View> {
         Ok(HelpCmd::view())
     }
 }

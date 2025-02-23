@@ -9,14 +9,15 @@ use std::{
     thread,
 };
 
-use nu_engine::documentation::get_flags_section;
+use nu_engine::documentation::{get_flags_section, HelpStyle};
 use nu_plugin_core::{
     ClientCommunicationIo, CommunicationMode, InterfaceManager, PluginEncoder, PluginRead,
     PluginWrite,
 };
 use nu_plugin_protocol::{CallInfo, CustomValueOp, PluginCustomValue, PluginInput, PluginOutput};
 use nu_protocol::{
-    ast::Operator, CustomValue, IntoSpanned, LabeledError, PipelineData, ShellError, Spanned, Value,
+    ast::Operator, CustomValue, IntoSpanned, LabeledError, PipelineData, PluginMetadata,
+    ShellError, Spanned, Value,
 };
 use thiserror::Error;
 
@@ -37,7 +38,7 @@ pub(crate) const OUTPUT_BUFFER_SIZE: usize = 16384;
 /// The API for a Nushell plugin
 ///
 /// A plugin defines multiple commands, which are added to the engine when the user calls
-/// `register`.
+/// `plugin add`.
 ///
 /// The plugin must be able to be safely shared between threads, so that multiple invocations can
 /// be run in parallel. If interior mutability is desired, consider synchronization primitives such
@@ -52,6 +53,10 @@ pub(crate) const OUTPUT_BUFFER_SIZE: usize = 16384;
 /// struct Hello;
 ///
 /// impl Plugin for HelloPlugin {
+///     fn version(&self) -> String {
+///         env!("CARGO_PKG_VERSION").into()
+///     }
+///
 ///     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin=Self>>> {
 ///         vec![Box::new(Hello)]
 ///     }
@@ -64,7 +69,7 @@ pub(crate) const OUTPUT_BUFFER_SIZE: usize = 16384;
 ///         "hello"
 ///     }
 ///
-///     fn usage(&self) -> &str {
+///     fn description(&self) -> &str {
 ///         "Every programmer's favorite greeting"
 ///     }
 ///
@@ -89,6 +94,23 @@ pub(crate) const OUTPUT_BUFFER_SIZE: usize = 16384;
 /// # }
 /// ```
 pub trait Plugin: Sync {
+    /// The version of the plugin.
+    ///
+    /// The recommended implementation, which will use the version from your crate's `Cargo.toml`
+    /// file:
+    ///
+    /// ```no_run
+    /// # use nu_plugin::{Plugin, PluginCommand};
+    /// # struct MyPlugin;
+    /// # impl Plugin for MyPlugin {
+    /// fn version(&self) -> String {
+    ///     env!("CARGO_PKG_VERSION").into()
+    /// }
+    /// # fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> { vec![] }
+    /// # }
+    /// ```
+    fn version(&self) -> String;
+
     /// The commands supported by the plugin
     ///
     /// Each [`PluginCommand`] contains both the signature of the command and the functionality it
@@ -216,6 +238,7 @@ pub trait Plugin: Sync {
 /// # struct MyPlugin;
 /// # impl MyPlugin { fn new() -> Self { Self }}
 /// # impl Plugin for MyPlugin {
+/// #     fn version(&self) -> String { "0.0.0".into() }
 /// #     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin=Self>>> {todo!();}
 /// # }
 /// fn main() {
@@ -364,7 +387,7 @@ pub enum ServePluginError {
 impl From<ShellError> for ServePluginError {
     fn from(error: ShellError) -> Self {
         match error {
-            ShellError::IOError { .. } => ServePluginError::IOError(error),
+            ShellError::Io(_) => ServePluginError::IOError(error),
             ShellError::PluginFailedToLoad { .. } => ServePluginError::Incompatible(error),
             _ => ServePluginError::UnreportedError(error),
         }
@@ -504,6 +527,12 @@ where
             }
 
             match plugin_call {
+                // Send metadata back to nushell so it can be stored with the plugin signatures
+                ReceivedPluginCall::Metadata { engine } => {
+                    engine
+                        .write_metadata(PluginMetadata::new().with_version(plugin.version()))
+                        .try_to_report(&engine)?;
+                }
                 // Sending the signature back to nushell to create the declaration definition
                 ReceivedPluginCall::Signature { engine } => {
                     let sigs = commands
@@ -626,22 +655,36 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
 
     println!("Nushell Plugin");
     println!("Encoder: {}", encoder.name());
+    println!("Version: {}", plugin.version());
+
+    // Determine the plugin name
+    let exe = std::env::current_exe().ok();
+    let plugin_name: String = exe
+        .as_ref()
+        .map(|stem| stem.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "(unknown)".into());
+    println!("Plugin file path: {}", plugin_name);
 
     let mut help = String::new();
+    let help_style = HelpStyle::default();
 
     plugin.commands().into_iter().for_each(|command| {
         let signature = command.signature();
         let res = write!(help, "\nCommand: {}", command.name())
-            .and_then(|_| writeln!(help, "\nUsage:\n > {}", command.usage()))
+            .and_then(|_| writeln!(help, "\nDescription:\n > {}", command.description()))
             .and_then(|_| {
-                if !command.extra_usage().is_empty() {
-                    writeln!(help, "\nExtra usage:\n > {}", command.extra_usage())
+                if !command.extra_description().is_empty() {
+                    writeln!(
+                        help,
+                        "\nExtra description:\n > {}",
+                        command.extra_description()
+                    )
                 } else {
                     Ok(())
                 }
             })
             .and_then(|_| {
-                let flags = get_flags_section(None, &signature, |v| format!("{:#?}", v));
+                let flags = get_flags_section(&signature, &help_style, |v| format!("{:#?}", v));
                 write!(help, "{flags}")
             })
             .and_then(|_| writeln!(help, "\nParameters:"))

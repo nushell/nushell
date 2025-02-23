@@ -20,11 +20,11 @@ impl Command for DebugInfo {
         "debug info"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "View process memory info."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This command is meant for debugging purposes.\nIt shows you the process information and system memory information."
     }
 
@@ -54,7 +54,7 @@ impl Command for DebugInfo {
 }
 
 fn all_columns(span: Span) -> Value {
-    let rk = RefreshKind::new()
+    let rk = RefreshKind::nothing()
         .with_processes(ProcessRefreshKind::everything())
         .with_memory(MemoryRefreshKind::everything());
 
@@ -101,7 +101,7 @@ fn all_columns(span: Span) -> Value {
         let environment = {
             let mut env_rec = Record::new();
             for val in p.environ() {
-                if let Some((key, value)) = val.split_once('=') {
+                if let Some((key, value)) = val.to_string_lossy().split_once('=') {
                     let is_env_var_a_list = {
                         {
                             #[cfg(target_family = "windows")]
@@ -146,8 +146,8 @@ fn all_columns(span: Span) -> Value {
                 "root" => root,
                 "cwd" => cwd,
                 "exe_path" => exe_path,
-                "command" => Value::string(p.cmd().join(" "), span),
-                "name" => Value::string(p.name(), span),
+                "command" => Value::string(p.cmd().join(std::ffi::OsStr::new(" ")).to_string_lossy(), span),
+                "name" => Value::string(p.name().to_string_lossy(), span),
                 "environment" => environment,
             },
             span,
@@ -176,5 +176,10 @@ fn get_thread_id() -> u64 {
     #[cfg(unix)]
     {
         nix::sys::pthread::pthread_self() as u64
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        // wasm doesn't have any threads accessible, so we return 0 as a fallback
+        0
     }
 }

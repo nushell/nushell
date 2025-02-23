@@ -27,13 +27,13 @@ impl NuCmd {
 }
 
 impl ViewCommand for NuCmd {
-    type View = NuView<'static>;
+    type View = NuView;
 
     fn name(&self) -> &'static str {
         Self::NAME
     }
 
-    fn usage(&self) -> &'static str {
+    fn description(&self) -> &'static str {
         ""
     }
 
@@ -48,6 +48,7 @@ impl ViewCommand for NuCmd {
         engine_state: &EngineState,
         stack: &mut Stack,
         value: Option<Value>,
+        config: &ViewConfig,
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
 
@@ -62,22 +63,22 @@ impl ViewCommand for NuCmd {
             return Ok(NuView::Preview(Preview::new(&text)));
         }
 
-        let mut view = RecordView::new(columns, values);
+        let mut view = RecordView::new(columns, values, config.explore_config.clone());
 
         if is_record {
-            view.set_orientation_current(Orientation::Left);
+            view.set_top_layer_orientation(Orientation::Left);
         }
 
-        Ok(NuView::Records(view))
+        Ok(NuView::Records(Box::new(view)))
     }
 }
 
-pub enum NuView<'a> {
-    Records(RecordView<'a>),
+pub enum NuView {
+    Records(Box<RecordView>),
     Preview(Preview),
 }
 
-impl View for NuView<'_> {
+impl View for NuView {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         match self {
             NuView::Records(v) => v.draw(f, area, cfg, layout),
@@ -92,7 +93,7 @@ impl View for NuView<'_> {
         layout: &Layout,
         info: &mut crate::pager::ViewInfo,
         key: crossterm::event::KeyEvent,
-    ) -> Option<crate::pager::Transition> {
+    ) -> crate::pager::Transition {
         match self {
             NuView::Records(v) => v.handle_input(engine_state, stack, layout, info, key),
             NuView::Preview(v) => v.handle_input(engine_state, stack, layout, info, key),
@@ -117,13 +118,6 @@ impl View for NuView<'_> {
         match self {
             NuView::Records(v) => v.exit(),
             NuView::Preview(v) => v.exit(),
-        }
-    }
-
-    fn setup(&mut self, config: ViewConfig<'_>) {
-        match self {
-            NuView::Records(v) => v.setup(config),
-            NuView::Preview(v) => v.setup(config),
         }
     }
 }

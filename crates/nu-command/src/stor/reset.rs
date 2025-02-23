@@ -1,5 +1,6 @@
 use crate::database::{SQLiteDatabase, MEMORY_DB};
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 
 #[derive(Clone)]
 pub struct StorReset;
@@ -16,7 +17,7 @@ impl Command for StorReset {
             .category(Category::Database)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Reset the in-memory database by dropping all tables."
     }
 
@@ -42,12 +43,31 @@ impl Command for StorReset {
         let span = call.head;
 
         // Open the in-mem database
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
 
         if let Ok(conn) = db.open_connection() {
+            conn.execute("PRAGMA foreign_keys = OFF", [])
+                .map_err(|err| ShellError::GenericError {
+                    error: "Failed to turn off foreign_key protections for reset".into(),
+                    msg: err.to_string(),
+                    span: Some(Span::test_data()),
+                    help: None,
+                    inner: vec![],
+                })?;
             db.drop_all_tables(&conn)
                 .map_err(|err| ShellError::GenericError {
-                    error: "Failed to open SQLite connection in memory from reset".into(),
+                    error: "Failed to drop all tables in memory from reset".into(),
+                    msg: err.to_string(),
+                    span: Some(Span::test_data()),
+                    help: None,
+                    inner: vec![],
+                })?;
+            conn.execute("PRAGMA foreign_keys = ON", [])
+                .map_err(|err| ShellError::GenericError {
+                    error: "Failed to turn on foreign_key protections for reset".into(),
                     msg: err.to_string(),
                     span: Some(Span::test_data()),
                     help: None,

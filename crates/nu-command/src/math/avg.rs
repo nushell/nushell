@@ -30,7 +30,7 @@ impl Command for SubCommand {
             .category(Category::Math)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns the average of a list of numbers."
     }
 
@@ -38,10 +38,23 @@ impl Command for SubCommand {
         vec!["average", "mean", "statistics"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        run_with_function(call, input, average)
+    }
+
+    fn run_const(
+        &self,
+        _working_set: &StateWorkingSet,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -77,7 +90,7 @@ pub fn average(values: &[Value], span: Span, head: Span) -> Result<Value, ShellE
     let total = &sum(Value::int(0, head), values.to_vec(), span, head)?;
     let span = total.span();
     match total {
-        Value::Filesize { val, .. } => Ok(Value::filesize(val / values.len() as i64, span)),
+        Value::Filesize { val, .. } => Ok(Value::filesize(val.get() / values.len() as i64, span)),
         Value::Duration { val, .. } => Ok(Value::duration(val / values.len() as i64, span)),
         _ => total.div(head, &Value::int(values.len() as i64, head), head),
     }

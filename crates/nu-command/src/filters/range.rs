@@ -1,6 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::Range as NumRange;
-use std::ops::Bound;
+use nu_protocol::{report_parse_warning, ParseWarning};
 
 #[derive(Clone)]
 pub struct Range;
@@ -17,15 +16,15 @@ impl Command for Range {
                 Type::List(Box::new(Type::Any)),
             )])
             .required("rows", SyntaxShape::Range, "Range of rows to return.")
-            .category(Category::Filters)
+            .category(Category::Deprecated)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Return only the selected rows."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["filter", "head", "tail"]
+        vec!["filter", "head", "tail", "slice"]
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -65,69 +64,16 @@ impl Command for Range {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let metadata = input.metadata();
-        let rows: Spanned<NumRange> = call.req(engine_state, stack, 0)?;
-
-        match rows.item {
-            NumRange::IntRange(range) => {
-                let start = range.start();
-                let end = match range.end() {
-                    Bound::Included(end) => end,
-                    Bound::Excluded(end) => end - 1,
-                    Bound::Unbounded => {
-                        if range.step() < 0 {
-                            i64::MIN
-                        } else {
-                            i64::MAX
-                        }
-                    }
-                };
-
-                // only collect the input if we have any negative indices
-                if start < 0 || end < 0 {
-                    let v: Vec<_> = input.into_iter().collect();
-                    let vlen: i64 = v.len() as i64;
-
-                    let from = if start < 0 {
-                        (vlen + start) as usize
-                    } else {
-                        start as usize
-                    };
-
-                    let to = if end < 0 {
-                        (vlen + end) as usize
-                    } else if end > v.len() as i64 {
-                        v.len()
-                    } else {
-                        end as usize
-                    };
-
-                    if from > to {
-                        Ok(PipelineData::Value(Value::nothing(head), None))
-                    } else {
-                        let iter = v.into_iter().skip(from).take(to - from + 1);
-                        Ok(iter.into_pipeline_data(head, engine_state.ctrlc.clone()))
-                    }
-                } else {
-                    let from = start as usize;
-                    let to = end as usize;
-
-                    if from > to {
-                        Ok(PipelineData::Value(Value::nothing(head), None))
-                    } else {
-                        let iter = input.into_iter().skip(from).take(to - from + 1);
-                        Ok(iter.into_pipeline_data(head, engine_state.ctrlc.clone()))
-                    }
-                }
-                .map(|x| x.set_metadata(metadata))
-            }
-            NumRange::FloatRange(_) => Err(ShellError::UnsupportedInput {
-                msg: "float range".into(),
-                input: "value originates from here".into(),
-                msg_span: call.head,
-                input_span: rows.span,
-            }),
-        }
+        report_parse_warning(
+            &StateWorkingSet::new(engine_state),
+            &ParseWarning::DeprecatedWarning {
+                old_command: "range".into(),
+                new_suggestion: "use `slice`".into(),
+                span: head,
+                url: "`help slice`".into(),
+            },
+        );
+        super::Slice::run(&super::Slice, engine_state, stack, call, input)
     }
 }
 

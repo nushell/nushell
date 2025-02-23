@@ -24,11 +24,11 @@ impl Command for FromXml {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse text as .xml and create record."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Every XML entry is represented via a record with tag, attribute and content fields.
 To represent different types of entries different values are written to this fields:
 1. Tag entry: `{tag: <tag name> attrs: {<attr name>: "<string value>" ...} content: [<entries>]}`
@@ -206,7 +206,9 @@ fn from_xml(input: PipelineData, info: &ParsingInfo) -> Result<PipelineData, She
     let (concat_string, span, metadata) = input.collect_string_strict(info.span)?;
 
     match from_xml_string_to_value(&concat_string, info) {
-        Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
+        Ok(x) => {
+            Ok(x.into_pipeline_data_with_metadata(metadata.map(|md| md.with_content_type(None))))
+        }
         Err(err) => Err(process_xml_parse_error(err, span)),
     }
 }
@@ -322,10 +324,14 @@ fn make_cant_convert_error(help: impl Into<String>, span: Span) -> ShellError {
 
 #[cfg(test)]
 mod tests {
+    use crate::Metadata;
+    use crate::MetadataSet;
+
     use super::*;
 
     use indexmap::indexmap;
     use indexmap::IndexMap;
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
     fn string(input: impl Into<String>) -> Value {
         Value::test_string(input)
@@ -479,5 +485,37 @@ mod tests {
         use crate::test_examples;
 
         test_examples(FromXml {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(FromXml {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(MetadataSet {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = r#"'<?xml version="1.0" encoding="UTF-8"?>
+<note>
+  <remember>Event</remember>
+</note>' | metadata set --content-type 'application/xml' --datasource-ls | from xml | metadata | $in"#;
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("source" => Value::test_string("ls"))),
+            result.expect("There should be a result")
+        )
     }
 }

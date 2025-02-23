@@ -5,12 +5,12 @@ use std::{
     error::Error,
     io::{self, Cursor, ErrorKind},
     string::FromUtf8Error,
-    sync::{atomic::AtomicBool, Arc},
 };
 
 use byteorder::{BigEndian, ReadBytesExt};
 use chrono::{TimeZone, Utc};
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 use rmp::decode::{self as mp, ValueReadError};
 
 /// Max recursion depth
@@ -31,11 +31,11 @@ impl Command for FromMsgpack {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert MessagePack data into Nu values."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"
 Not all values are representable as MessagePack.
 
@@ -111,9 +111,10 @@ MessagePack: https://msgpack.org/
         let opts = Opts {
             span: call.head,
             objects,
-            ctrlc: engine_state.ctrlc.clone(),
+            signals: engine_state.signals().clone(),
         };
-        match input {
+        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        let out = match input {
             // Deserialize from a byte buffer
             PipelineData::Value(Value::Binary { val: bytes, .. }, _) => {
                 read_msgpack(Cursor::new(bytes), opts)
@@ -136,7 +137,8 @@ MessagePack: https://msgpack.org/
                 dst_span: call.head,
                 src_span: input.span().unwrap_or(call.head),
             }),
-        }
+        };
+        out.map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -227,7 +229,7 @@ impl From<ReadError> for ShellError {
 pub(crate) struct Opts {
     pub span: Span,
     pub objects: bool,
-    pub ctrlc: Option<Arc<AtomicBool>>,
+    pub signals: Signals,
 }
 
 /// Read single or multiple values into PipelineData
@@ -238,7 +240,7 @@ pub(crate) fn read_msgpack(
     let Opts {
         span,
         objects,
-        ctrlc,
+        signals,
     } = opts;
     if objects {
         // Make an iterator that reads multiple values from the reader
@@ -262,7 +264,7 @@ pub(crate) fn read_msgpack(
                 None
             }
         })
-        .into_pipeline_data(span, ctrlc))
+        .into_pipeline_data(span, signals))
     } else {
         // Read a single value and then make sure it's EOF
         let result = read_value(&mut input, span, 0)?;
@@ -510,6 +512,10 @@ fn assert_eof(input: &mut impl io::Read, span: Span) -> Result<(), ShellError> {
 
 #[cfg(test)]
 mod test {
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::{Metadata, MetadataSet, ToMsgpack};
+
     use super::*;
 
     #[test]
@@ -517,5 +523,35 @@ mod test {
         use crate::test_examples;
 
         test_examples(FromMsgpack {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(ToMsgpack {}));
+            working_set.add_decl(Box::new(FromMsgpack {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(MetadataSet {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = r#"{a: 1 b: 2} | to msgpack | metadata set --datasource-ls | from msgpack | metadata | $in"#;
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("source" => Value::test_string("ls"))),
+            result.expect("There should be a result")
+        )
     }
 }

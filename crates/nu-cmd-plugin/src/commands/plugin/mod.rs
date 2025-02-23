@@ -26,7 +26,7 @@ impl Command for PluginCommand {
             .category(Category::Plugin)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Commands for managing plugins."
     }
 
@@ -37,17 +37,7 @@ impl Command for PluginCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::string(
-            get_full_help(
-                &PluginCommand.signature(),
-                &PluginCommand.examples(),
-                engine_state,
-                stack,
-                self.is_parser_keyword(),
-            ),
-            call.head,
-        )
-        .into_pipeline_data())
+        Ok(Value::string(get_full_help(self, engine_state, stack), call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

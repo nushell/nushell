@@ -12,7 +12,18 @@ fn plugin_list_shows_installed_plugins() {
         plugins: [("nu_plugin_inc"), ("nu_plugin_custom_values")],
         r#"(plugin list).name | str join ','"#
     );
-    assert_eq!("inc,custom_values", out.out);
+    assert_eq!("custom_values,inc", out.out);
+    assert!(out.status.success());
+}
+
+#[test]
+fn plugin_list_shows_installed_plugin_version() {
+    let out = nu_with_plugins!(
+        cwd: ".",
+        plugin: ("nu_plugin_inc"),
+        r#"(plugin list).version.0"#
+    );
+    assert_eq!(env!("CARGO_PKG_VERSION"), out.out);
     assert!(out.status.success());
 }
 
@@ -23,15 +34,15 @@ fn plugin_keeps_running_after_calling_it() {
         plugin: ("nu_plugin_inc"),
         r#"
             plugin stop inc
-            (plugin list).0.is_running | print
+            (plugin list).0.status == running | print
             print ";"
             "2.0.0" | inc -m | ignore
-            (plugin list).0.is_running | print
+            (plugin list).0.status == running | print
         "#
     );
     assert_eq!(
         "false;true", out.out,
-        "plugin list didn't show is_running = true"
+        "plugin list didn't show status = running"
     );
     assert!(out.status.success());
 }
@@ -233,7 +244,7 @@ fn plugin_gc_can_be_configured_to_stop_plugins_immediately() {
             $env.config.plugin_gc = { default: { stop_after: 0sec } }
             "2.3.0" | inc -M
             sleep 100ms
-            (plugin list | where name == inc).0.is_running
+            (plugin list | where name == inc).0.status == running
         "#
     );
     assert!(out.status.success());
@@ -250,7 +261,7 @@ fn plugin_gc_can_be_configured_to_stop_plugins_immediately() {
             }
             "2.3.0" | inc -M
             sleep 100ms
-            (plugin list | where name == inc).0.is_running
+            (plugin list | where name == inc).0.status == running
         "#
     );
     assert!(out.status.success());
@@ -270,7 +281,7 @@ fn plugin_gc_can_be_configured_to_stop_plugins_after_delay() {
             while $cond {
                 sleep 100ms
                 $cond = (
-                    (plugin list | where name == inc).0.is_running and
+                    (plugin list | where name == inc).0.status == running and
                     ((date now) - $start) < 5sec
                 )
             }
@@ -299,7 +310,7 @@ fn plugin_gc_can_be_configured_to_stop_plugins_after_delay() {
             while $cond {
                 sleep 100ms
                 $cond = (
-                    (plugin list | where name == inc).0.is_running and
+                    (plugin list | where name == inc).0.status == running and
                     ((date now) - $start) < 5sec
                 )
             }
@@ -322,7 +333,7 @@ fn plugin_gc_can_be_configured_as_disabled() {
         r#"
             $env.config.plugin_gc = { default: { enabled: false, stop_after: 0sec } }
             "2.3.0" | inc -M
-            (plugin list | where name == inc).0.is_running
+            (plugin list | where name == inc).0.status == running
         "#
     );
     assert!(out.status.success());
@@ -339,7 +350,7 @@ fn plugin_gc_can_be_configured_as_disabled() {
                 }
             }
             "2.3.0" | inc -M
-            (plugin list | where name == inc).0.is_running
+            (plugin list | where name == inc).0.status == running
         "#
     );
     assert!(out.status.success());
@@ -356,7 +367,7 @@ fn plugin_gc_can_be_disabled_by_plugin() {
             $env.config.plugin_gc = { default: { stop_after: 0sec } }
             example one 1 foo | ignore # ensure we've run the plugin with the new config
             sleep 100ms
-            (plugin list | where name == example).0.is_running
+            (plugin list | where name == example).0.status == running
         "#
     );
     assert!(out.status.success());

@@ -1,11 +1,12 @@
 use std::io::Write;
 
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 
 use super::msgpack::write_value;
 
 const BUFFER_SIZE: usize = 65536;
-const DEFAULT_QUALITY: u32 = 1;
+const DEFAULT_QUALITY: u32 = 3; // 1 can be very bad
 const DEFAULT_WINDOW_SIZE: u32 = 20;
 
 #[derive(Clone)]
@@ -22,7 +23,7 @@ impl Command for ToMsgpackz {
             .named(
                 "quality",
                 SyntaxShape::Int,
-                "Quality of brotli compression (default 1)",
+                "Quality of brotli compression (default 3)",
                 Some('q'),
             )
             .named(
@@ -34,11 +35,11 @@ impl Command for ToMsgpackz {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert Nu values into brotli-compressed MessagePack."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This is the format used by the plugin registry file ($nu.plugin-path)."
     }
 
@@ -80,7 +81,8 @@ impl Command for ToMsgpackz {
         );
 
         write_value(&mut out, &value, 0)?;
-        out.flush().err_span(call.head)?;
+        out.flush()
+            .map_err(|err| IoError::new(err.kind(), call.head, None))?;
         drop(out);
 
         Ok(Value::binary(out_buf, call.head).into_pipeline_data())

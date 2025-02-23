@@ -47,6 +47,12 @@ pub enum SyntaxShape {
     /// A general expression, eg `1 + 2` or `foo --bar`
     Expression,
 
+    /// A (typically) string argument that follows external command argument parsing rules.
+    ///
+    /// Filepaths are expanded if unquoted, globs are allowed, and quotes embedded within unknown
+    /// args are unquoted.
+    ExternalArgument,
+
     /// A filepath is allowed
     Filepath,
 
@@ -137,7 +143,7 @@ impl SyntaxShape {
 
         match self {
             SyntaxShape::Any => Type::Any,
-            SyntaxShape::Block => Type::Block,
+            SyntaxShape::Block => Type::Any,
             SyntaxShape::Closure(_) => Type::Closure,
             SyntaxShape::Binary => Type::Binary,
             SyntaxShape::CellPath => Type::Any,
@@ -145,6 +151,7 @@ impl SyntaxShape {
             SyntaxShape::DateTime => Type::Date,
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Any,
+            SyntaxShape::ExternalArgument => Type::Any,
             SyntaxShape::Filepath => Type::String,
             SyntaxShape::Directory => Type::String,
             SyntaxShape::Float => Type::Float,
@@ -169,7 +176,7 @@ impl SyntaxShape {
             SyntaxShape::Record(entries) => Type::Record(mk_ty(entries)),
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Boolean => Type::Bool,
-            SyntaxShape::Signature => Type::Signature,
+            SyntaxShape::Signature => Type::Any,
             SyntaxShape::String => Type::String,
             SyntaxShape::Table(columns) => Type::Table(mk_ty(columns)),
             SyntaxShape::VarWithOptType => Type::Any,
@@ -238,6 +245,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Signature => write!(f, "signature"),
             SyntaxShape::MatchBlock => write!(f, "match-block"),
             SyntaxShape::Expression => write!(f, "expression"),
+            SyntaxShape::ExternalArgument => write!(f, "external-argument"),
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),
             SyntaxShape::CompleterWrapper(x, _) => write!(f, "completable<{x}>"),

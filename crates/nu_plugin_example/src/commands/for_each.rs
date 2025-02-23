@@ -13,17 +13,17 @@ impl PluginCommand for ForEach {
         "example for-each"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Example execution of a closure with a stream"
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Prints each value the closure returns to stderr"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(Type::ListStream, Type::Nothing)
+            .input_output_type(Type::list(Type::Any), Type::Nothing)
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),

@@ -21,7 +21,18 @@ pub fn ensure_plugins_built() {
     }
 
     let cargo_path = env!("CARGO");
-    let mut arguments = vec!["build", "--package", "nu_plugin_*", "--quiet"];
+    let mut arguments = vec![
+        "build",
+        "--workspace",
+        "--bins",
+        // Don't build nu, so that we only build the plugins
+        "--exclude",
+        "nu",
+        // Exclude nu_plugin_polars, because it's not needed at this stage, and is a large build
+        "--exclude",
+        "nu_plugin_polars",
+        "--quiet",
+    ];
 
     let profile = std::env::var("NUSHELL_CARGO_PROFILE");
     if let Ok(profile) = &profile {

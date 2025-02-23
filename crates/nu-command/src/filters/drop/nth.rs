@@ -13,10 +13,11 @@ impl Command for DropNth {
 
     fn signature(&self) -> Signature {
         Signature::build("drop nth")
-            .input_output_types(vec![(
-                Type::List(Box::new(Type::Any)),
-                Type::List(Box::new(Type::Any)),
-            )])
+            .input_output_types(vec![
+                (Type::Range, Type::list(Type::Number)),
+                (Type::list(Type::Any), Type::list(Type::Any)),
+            ])
+            .allow_variants_without_examples(true)
             .required(
                 "row number or row range",
                 // FIXME: we can make this accept either Int or Range when we can compose SyntaxShapes
@@ -27,12 +28,12 @@ impl Command for DropNth {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Drop the selected rows."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["delete"]
+        vec!["delete", "remove", "index"]
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -156,7 +157,7 @@ impl Command for DropNth {
                             .take(start)
                             .into_pipeline_data_with_metadata(
                                 head,
-                                engine_state.ctrlc.clone(),
+                                engine_state.signals().clone(),
                                 metadata,
                             ))
                     }
@@ -177,7 +178,7 @@ impl Command for DropNth {
             rows,
             current: 0,
         }
-        .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
+        .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }
 

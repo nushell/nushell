@@ -1,11 +1,10 @@
+use crate::{ast::RedirectionSource, did_you_mean, Span, Type};
+use miette::Diagnostic;
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
     str::{from_utf8, Utf8Error},
 };
-
-use crate::{ast::RedirectionSource, did_you_mean, Span, Type};
-use miette::Diagnostic;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
@@ -16,6 +15,13 @@ pub enum ParseError {
     #[error("Extra tokens in code.")]
     #[diagnostic(code(nu::parser::extra_tokens), help("Try removing them."))]
     ExtraTokens(#[label = "extra tokens"] Span),
+
+    #[error("Invalid characters after closing delimiter")]
+    #[diagnostic(
+        code(nu::parser::extra_token_after_closing_delimiter),
+        help("Try removing them.")
+    )]
+    ExtraTokensAfterClosingDelimiter(#[label = "invalid characters"] Span),
 
     #[error("Extra positional argument.")]
     #[diagnostic(code(nu::parser::extra_positional), help("Usage: {0}"))]
@@ -48,13 +54,21 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::parse_mismatch_with_full_string_msg))]
     ExpectedWithStringMsg(String, #[label("expected {0}")] Span),
 
+    #[error("Parse mismatch during operation.")]
+    #[diagnostic(code(nu::parser::parse_mismatch_with_did_you_mean))]
+    ExpectedWithDidYouMean(&'static str, DidYouMean, #[label("expected {0}. {1}")] Span),
+
     #[error("Command does not support {0} input.")]
     #[diagnostic(code(nu::parser::input_type_mismatch))]
     InputMismatch(Type, #[label("command doesn't support {0} input")] Span),
 
     #[error("Command output doesn't match {0}.")]
     #[diagnostic(code(nu::parser::output_type_mismatch))]
-    OutputMismatch(Type, #[label("command doesn't output {0}")] Span),
+    OutputMismatch(
+        Type,
+        Type,
+        #[label("expected {0}, but command outputs {1}")] Span,
+    ),
 
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
@@ -93,25 +107,43 @@ pub enum ParseError {
         #[label = "second redirection"] Span,
     ),
 
-    #[error("{0} is not supported on values of type {3}")]
-    #[diagnostic(code(nu::parser::unsupported_operation))]
-    UnsupportedOperationLHS(
-        String,
-        #[label = "doesn't support this value"] Span,
-        #[label("{3}")] Span,
-        Type,
-    ),
+    #[error("Unexpected redirection.")]
+    #[diagnostic(code(nu::parser::unexpected_redirection))]
+    UnexpectedRedirection {
+        #[label = "redirecting nothing"]
+        span: Span,
+    },
 
-    #[error("{0} is not supported between {3} and {5}.")]
-    #[diagnostic(code(nu::parser::unsupported_operation))]
-    UnsupportedOperationRHS(
-        String,
-        #[label = "doesn't support these values"] Span,
-        #[label("{3}")] Span,
-        Type,
-        #[label("{5}")] Span,
-        Type,
-    ),
+    /// One or more of the values have types not supported by the operator.
+    #[error("The '{op}' operator does not work on values of type '{unsupported}'.")]
+    #[diagnostic(code(nu::parser::operator_unsupported_type))]
+    OperatorUnsupportedType {
+        op: &'static str,
+        unsupported: Type,
+        #[label = "does not support '{unsupported}'"]
+        op_span: Span,
+        #[label("{unsupported}")]
+        unsupported_span: Span,
+        #[help]
+        help: Option<&'static str>,
+    },
+
+    /// The operator supports the types of both values, but not the specific combination of their types.
+    #[error("Types '{lhs}' and '{rhs}' are not compatible for the '{op}' operator.")]
+    #[diagnostic(code(nu::parser::operator_incompatible_types))]
+    OperatorIncompatibleTypes {
+        op: &'static str,
+        lhs: Type,
+        rhs: Type,
+        #[label = "does not operate between '{lhs}' and '{rhs}'"]
+        op_span: Span,
+        #[label("{lhs}")]
+        lhs_span: Span,
+        #[label("{rhs}")]
+        rhs_span: Span,
+        #[help]
+        help: Option<&'static str>,
+    },
 
     #[error("Capture of mutable variable.")]
     #[diagnostic(code(nu::parser::expected_keyword))]
@@ -484,6 +516,37 @@ pub enum ParseError {
         help("To spread arguments, the command needs to define a multi-positional parameter in its signature, such as ...rest")
     )]
     UnexpectedSpreadArg(String, #[label = "unexpected spread argument"] Span),
+
+    /// Invalid assignment left-hand side
+    ///
+    /// ## Resolution
+    ///
+    /// Assignment requires that you assign to a mutable variable or cell path.
+    #[error("Assignment to an immutable variable.")]
+    #[diagnostic(
+        code(nu::parser::assignment_requires_mutable_variable),
+        help("declare the variable with `mut`, or shadow it again with `let`")
+    )]
+    AssignmentRequiresMutableVar(#[label("needs to be a mutable variable")] Span),
+
+    /// Invalid assignment left-hand side
+    ///
+    /// ## Resolution
+    ///
+    /// Assignment requires that you assign to a variable or variable cell path.
+    #[error("Assignment operations require a variable.")]
+    #[diagnostic(
+        code(nu::parser::assignment_requires_variable),
+        help("try assigning to a variable or a cell path of a variable")
+    )]
+    AssignmentRequiresVar(#[label("needs to be a variable")] Span),
+
+    #[error("Attributes must be followed by a definition.")]
+    #[diagnostic(
+        code(nu::parser::attribute_requires_definition),
+        help("try following this line with a `def` or `extern` definition")
+    )]
+    AttributeRequiresDefinition(#[label("must be followed by a definition")] Span),
 }
 
 impl ParseError {
@@ -496,9 +559,10 @@ impl ParseError {
             ParseError::Unbalanced(_, _, s) => *s,
             ParseError::Expected(_, s) => *s,
             ParseError::ExpectedWithStringMsg(_, s) => *s,
+            ParseError::ExpectedWithDidYouMean(_, _, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
-            ParseError::UnsupportedOperationLHS(_, _, s, _) => *s,
-            ParseError::UnsupportedOperationRHS(_, _, _, _, s, _) => *s,
+            ParseError::OperatorUnsupportedType { op_span, .. } => *op_span,
+            ParseError::OperatorIncompatibleTypes { op_span, .. } => *op_span,
             ParseError::ExpectedKeyword(_, s) => *s,
             ParseError::UnexpectedKeyword(_, s) => *s,
             ParseError::CantAliasKeyword(_, s) => *s,
@@ -540,7 +604,7 @@ impl ParseError {
             ParseError::TypeMismatch(_, _, s) => *s,
             ParseError::TypeMismatchHelp(_, _, s, _) => *s,
             ParseError::InputMismatch(_, s) => *s,
-            ParseError::OutputMismatch(_, s) => *s,
+            ParseError::OutputMismatch(_, _, s) => *s,
             ParseError::MissingRequiredFlag(_, s) => *s,
             ParseError::IncompleteMathExpression(s) => *s,
             ParseError::UnknownState(_, s) => *s,
@@ -564,11 +628,16 @@ impl ParseError {
             ParseError::ShellErrRedirect(s) => *s,
             ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::MultipleRedirections(_, _, s) => *s,
+            ParseError::UnexpectedRedirection { span } => *span,
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
             ParseError::RedirectingBuiltinCommand(_, s, _) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,
+            ParseError::ExtraTokensAfterClosingDelimiter(s) => *s,
+            ParseError::AssignmentRequiresVar(s) => *s,
+            ParseError::AssignmentRequiresMutableVar(s) => *s,
+            ParseError::AttributeRequiresDefinition(s) => *s,
         }
     }
 }

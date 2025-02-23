@@ -1,18 +1,26 @@
 use super::Expression;
 use crate::Span;
+use nu_utils::{escape_quote_string, needs_quoting};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display};
 
+/// One level of access of a [`CellPath`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PathMember {
+    /// Accessing a member by string (i.e. columns of a table or [`Record`](crate::Record))
     String {
         val: String,
         span: Span,
+        /// If marked as optional don't throw an error if not found but perform default handling
+        /// (e.g. return `Value::Nothing`)
         optional: bool,
     },
+    /// Accessing a member by index (i.e. row of a table or item in a list)
     Int {
         val: usize,
         span: Span,
+        /// If marked as optional don't throw an error if not found but perform default handling
+        /// (e.g. return `Value::Nothing`)
         optional: bool,
     },
 }
@@ -58,6 +66,13 @@ impl PathMember {
             PathMember::Int {
                 ref mut optional, ..
             } => *optional = true,
+        }
+    }
+
+    pub fn span(&self) -> Span {
+        match self {
+            PathMember::String { span, .. } => *span,
+            PathMember::Int { span, .. } => *span,
         }
     }
 }
@@ -143,6 +158,18 @@ impl PartialOrd for PathMember {
     }
 }
 
+/// Represents the potentially nested access to fields/cells of a container type
+///
+/// In our current implementation for table access the order of row/column is commutative.
+/// This limits the number of possible rows to select in one [`CellPath`] to 1 as it could
+/// otherwise be ambiguous
+///
+/// ```nushell
+/// col1.0
+/// 0.col1
+/// col2
+/// 42
+/// ```
 #[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct CellPath {
     pub members: Vec<PathMember>,
@@ -154,17 +181,47 @@ impl CellPath {
             member.make_optional();
         }
     }
+
+    // Formats the cell-path as a column name, i.e. without quoting and optional markers ('?').
+    pub fn to_column_name(&self) -> String {
+        let mut s = String::new();
+
+        for member in &self.members {
+            match member {
+                PathMember::Int { val, .. } => {
+                    s += &val.to_string();
+                }
+                PathMember::String { val, .. } => {
+                    s += val;
+                }
+            }
+
+            s.push('.');
+        }
+
+        s.pop(); // Easier than checking whether to insert the '.' on every iteration.
+        s
+    }
 }
 
 impl Display for CellPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (idx, elem) in self.members.iter().enumerate() {
-            if idx > 0 {
-                write!(f, ".")?;
-            }
-            match elem {
-                PathMember::Int { val, .. } => write!(f, "{val}")?,
-                PathMember::String { val, .. } => write!(f, "{val}")?,
+        write!(f, "$")?;
+        for member in self.members.iter() {
+            match member {
+                PathMember::Int { val, optional, .. } => {
+                    let question_mark = if *optional { "?" } else { "" };
+                    write!(f, ".{val}{question_mark}")?
+                }
+                PathMember::String { val, optional, .. } => {
+                    let question_mark = if *optional { "?" } else { "" };
+                    let val = if needs_quoting(val) {
+                        &escape_quote_string(val)
+                    } else {
+                        val
+                    };
+                    write!(f, ".{val}{question_mark}")?
+                }
             }
         }
         Ok(())

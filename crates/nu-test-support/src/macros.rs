@@ -143,7 +143,7 @@ macro_rules! nu_with_std {
         cwd: $value:expr,
         $($rest:tt)*
     ) => {
-        nu!(@options [ $($options)* cwd => $crate::fs::in_directory($value) ; ] $($rest)*)
+        nu_with_std!(@options [ $($options)* cwd => $crate::fs::in_directory($value) ; ] $($rest)*)
     };
     // For all other options, we call `.into()` on the `$value` and hope for the best. ;)
     (
@@ -151,7 +151,7 @@ macro_rules! nu_with_std {
         $field:ident : $value:expr,
         $($rest:tt)*
     ) => {
-        nu!(@options [ $($options)* $field => $value.into() ; ] $($rest)*)
+        nu_with_std!(@options [ $($options)* $field => $value.into() ; ] $($rest)*)
     };
 
     // When the `$field: $value,` pairs are all parsed, the next tokens are the `$path` and any
@@ -163,11 +163,11 @@ macro_rules! nu_with_std {
         $(,)*
     ) => {{
         // Here we parse the options into a `NuOpts` struct
-        let opts = nu!(@nu_opts $($options)*);
+        let opts = nu_with_std!(@nu_opts $($options)*);
         // and format the `$path` using the `$part`s
-        let path = nu!(@format_path $path, $($part),*);
+        let path = nu_with_std!(@format_path $path, $($part),*);
         // Then finally we go to the `@main` phase, where the actual work is done.
-        nu!(@main opts, path)
+        nu_with_std!(@main opts, path)
     }};
 
     // Create the NuOpts struct from the `field => value ;` pairs
@@ -196,7 +196,7 @@ macro_rules! nu_with_std {
 
     // This is the entrypoint for this macro.
     ($($token:tt)*) => {{
-        nu!(@options [ ] $($token)*)
+        nu_with_std!(@options [ ] $($token)*)
     }};
 }
 
@@ -234,34 +234,33 @@ macro_rules! nu_with_plugins {
 }
 
 use crate::{Outcome, NATIVE_PATH_ENV_VAR};
-use std::ffi::OsStr;
+use nu_path::{AbsolutePath, AbsolutePathBuf, Path, PathBuf};
+use nu_utils::escape_quote_string;
 use std::{
-    path::Path,
+    ffi::OsStr,
     process::{Command, Stdio},
 };
 use tempfile::tempdir;
 
 #[derive(Default)]
 pub struct NuOpts {
-    pub cwd: Option<String>,
+    pub cwd: Option<AbsolutePathBuf>,
     pub locale: Option<String>,
+    pub envs: Option<Vec<(String, String)>>,
     pub collapse_output: Option<bool>,
+    // Note: At the time this was added, passing in a file path was more convenient. However,
+    // passing in file contents seems like a better API - consider this when adding new uses of
+    // this field.
+    pub env_config: Option<PathBuf>,
 }
 
 pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> Outcome {
-    let test_bins = crate::fs::binaries();
-
-    let cwd = std::env::current_dir().expect("Could not get current working directory.");
-    let test_bins = nu_path::canonicalize_with(&test_bins, cwd).unwrap_or_else(|e| {
-        panic!(
-            "Couldn't canonicalize dummy binaries path {}: {:?}",
-            test_bins.display(),
-            e
-        )
-    });
+    let test_bins = crate::fs::binaries()
+        .canonicalize()
+        .expect("Could not canonicalize dummy binaries path");
 
     let mut paths = crate::shell_os_paths();
-    paths.insert(0, test_bins);
+    paths.insert(0, test_bins.into());
 
     let commands = commands.as_ref().lines().collect::<Vec<_>>().join("; ");
 
@@ -270,7 +269,7 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         Err(_) => panic!("Couldn't join paths for PATH var."),
     };
 
-    let target_cwd = opts.cwd.unwrap_or(".".to_string());
+    let target_cwd = opts.cwd.unwrap_or_else(crate::fs::root);
     let locale = opts.locale.unwrap_or("en_US.UTF-8".to_string());
     let executable_path = crate::fs::executable_path();
 
@@ -278,11 +277,24 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
     command
         .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
         .env(NATIVE_PATH_ENV_VAR, paths_joined);
-    // Ensure that the user's config doesn't interfere with the tests
-    command.arg("--no-config-file");
+
+    if let Some(envs) = opts.envs {
+        command.envs(envs);
+    }
+
+    match opts.env_config {
+        Some(path) => command.arg("--env-config").arg(path),
+        // TODO: This seems unnecessary: the code that runs for integration tests
+        // (run_commands) loads startup configs only if they are specified via flags explicitly or
+        // the shell is started as logging shell (which it is not in this case).
+        None => command.arg("--no-config-file"),
+    };
+
     if !with_std {
         command.arg("--no-std-lib");
     }
+    // Use plain errors to help make error text matching more consistent
+    command.args(["--error-style", "plain"]);
     command
         .arg(format!("-c {}", escape_quote_string(&commands)))
         .stdout(Stdio::piped())
@@ -365,10 +377,13 @@ where
     if !executable_path.exists() {
         executable_path = crate::fs::installed_nu_path();
     }
+
     let process = match setup_command(&executable_path, &target_cwd)
         .envs(envs)
         .arg("--commands")
         .arg(command)
+        // Use plain errors to help make error text matching more consistent
+        .args(["--error-style", "plain"])
         .arg("--config")
         .arg(temp_config_file)
         .arg("--env-config")
@@ -397,21 +412,6 @@ where
     Outcome::new(out, err.into_owned(), output.status)
 }
 
-fn escape_quote_string(input: &str) -> String {
-    let mut output = String::with_capacity(input.len() + 2);
-    output.push('"');
-
-    for c in input.chars() {
-        if c == '"' || c == '\\' {
-            output.push('\\');
-        }
-        output.push(c);
-    }
-
-    output.push('"');
-    output
-}
-
 fn with_exe(name: &str) -> String {
     #[cfg(windows)]
     {
@@ -429,7 +429,7 @@ fn collapse_output(out: &str) -> String {
     out.replace('\n', "")
 }
 
-fn setup_command(executable_path: &Path, target_cwd: &str) -> Command {
+fn setup_command(executable_path: &AbsolutePath, target_cwd: &AbsolutePath) -> Command {
     let mut command = Command::new(executable_path);
 
     command

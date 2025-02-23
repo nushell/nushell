@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener};
 
@@ -22,7 +23,7 @@ impl Command for SubCommand {
             .category(Category::Network)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get a free port from system."
     }
 
@@ -61,12 +62,14 @@ fn get_free_port(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
+    let from_io_error = IoError::factory(call.head, None);
+
     let start_port: Option<Spanned<usize>> = call.opt(engine_state, stack, 0)?;
     let end_port: Option<Spanned<usize>> = call.opt(engine_state, stack, 1)?;
 
     let listener = if start_port.is_none() && end_port.is_none() {
         // get free port from system.
-        TcpListener::bind("127.0.0.1:0")?
+        TcpListener::bind("127.0.0.1:0").map_err(&from_io_error)?
     } else {
         let (start_port, start_span) = match start_port {
             Some(p) => (p.item, Some(p.span)),
@@ -118,20 +121,25 @@ fn get_free_port(
             });
         }
 
-        // try given port one by one.
-        match (start_port..=end_port)
-            .map(|port| SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port)))
-            .find_map(|addr| TcpListener::bind(addr).ok())
-        {
-            Some(listener) => listener,
-            None => {
-                return Err(ShellError::IOError {
-                    msg: "Every port has been tried, but no valid one was found".to_string(),
-                })
+        'search: {
+            let mut last_err = None;
+            for port in start_port..=end_port {
+                let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port));
+                match TcpListener::bind(addr) {
+                    Ok(listener) => break 'search Ok(listener),
+                    Err(err) => last_err = Some(err),
+                }
             }
-        }
+
+            Err(IoError::new_with_additional_context(
+                last_err.expect("range not empty, validated before").kind(),
+                range_span,
+                None,
+                "Every port has been tried, but no valid one was found",
+            ))
+        }?
     };
 
-    let free_port = listener.local_addr()?.port();
+    let free_port = listener.local_addr().map_err(&from_io_error)?.port();
     Ok(Value::int(free_port as i64, call.head).into_pipeline_data())
 }

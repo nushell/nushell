@@ -95,6 +95,16 @@ fn range_iteration2() -> TestResult {
 }
 
 #[test]
+fn range_ends_with_duration_suffix_variable_name() -> TestResult {
+    run_test("let runs = 10; 1..$runs | math sum", "55")
+}
+
+#[test]
+fn range_ends_with_filesize_suffix_variable_name() -> TestResult {
+    run_test("let sizekb = 10; 1..$sizekb | math sum", "55")
+}
+
+#[test]
 fn simple_value_iteration() -> TestResult {
     run_test("4 | each { |it| $it + 10 }", "14")
 }
@@ -170,13 +180,55 @@ fn comment_skipping_in_pipeline_3() -> TestResult {
 }
 
 #[test]
+fn still_string_if_hashtag_is_middle_of_string() -> TestResult {
+    run_test(r#"echo test#testing"#, "test#testing")
+}
+
+#[test]
+fn non_comment_hashtag_in_comment_does_not_stop_comment() -> TestResult {
+    run_test(r#"# command_bar_text: { fg: '#C4C9C6' },"#, "")
+}
+
+#[test]
+fn non_comment_hashtag_in_comment_does_not_stop_comment_in_block() -> TestResult {
+    run_test(
+        r#"{
+        explore: {
+            # command_bar_text: { fg: '#C4C9C6' },
+        }
+    } | get explore | is-empty"#,
+        "true",
+    )
+}
+
+#[test]
+fn still_string_if_hashtag_is_middle_of_string_inside_each() -> TestResult {
+    run_test(
+        r#"1..1 | each {echo test#testing } | get 0"#,
+        "test#testing",
+    )
+}
+
+#[test]
+fn still_string_if_hashtag_is_middle_of_string_inside_each_also_with_dot() -> TestResult {
+    run_test(r#"1..1 | each {echo '.#testing' } | get 0"#, ".#testing")
+}
+
+#[test]
 fn bad_var_name() -> TestResult {
     fail_test(r#"let $"foo bar" = 4"#, "can't contain")
 }
 
 #[test]
 fn bad_var_name2() -> TestResult {
-    fail_test(r#"let $foo-bar = 4"#, "valid variable")
+    fail_test(r#"let $foo-bar = 4"#, "valid variable")?;
+    fail_test(r#"foo-bar=4 true"#, "Command `foo-bar=4` not found")
+}
+
+#[test]
+fn bad_var_name3() -> TestResult {
+    fail_test(r#"let $=foo = 4"#, "valid variable")?;
+    fail_test(r#"=foo=4 true"#, "Command `=foo=4` not found")
 }
 
 #[test]
@@ -189,7 +241,31 @@ fn assignment_with_no_var() -> TestResult {
         "mut = 'foo' | $in; $x | describe",
     ];
 
-    let expected = "valid variable";
+    let expecteds = [
+        "missing var_name",
+        "missing var_name",
+        "missing const_name",
+        "missing var_name",
+        "missing var_name",
+    ];
+
+    for (case, expected) in std::iter::zip(cases, expecteds) {
+        fail_test(case, expected)?;
+    }
+
+    Ok(())
+}
+
+#[test]
+fn too_few_arguments() -> TestResult {
+    // Test for https://github.com/nushell/nushell/issues/9072
+    let cases = [
+        "def a [b: bool, c: bool, d: float, e: float, f: float] {}; a true true 1 1",
+        "def a [b: bool, c: bool, d: float, e: float, f: float, g: float] {}; a true true 1 1",
+        "def a [b: bool, c: bool, d: float, e: float, f: float, g: float, h: float] {}; a true true 1 1",
+    ];
+
+    let expected = "missing f";
 
     for case in cases {
         fail_test(case, expected)?;
@@ -244,20 +320,69 @@ fn string_interp_with_equals() -> TestResult {
 }
 
 #[test]
+fn raw_string_with_equals() -> TestResult {
+    run_test(
+        r#"let query_prefix = r#'https://api.github.com/search/issues?q=repo:nushell/'#; $query_prefix"#,
+        "https://api.github.com/search/issues?q=repo:nushell/",
+    )
+}
+
+#[test]
+fn raw_string_with_hashtag() -> TestResult {
+    run_test(r#"r##' one # two '##"#, "one # two")
+}
+
+#[test]
+fn list_quotes_with_equals() -> TestResult {
+    run_test(
+        r#"["https://api.github.com/search/issues?q=repo:nushell/"] | get 0"#,
+        "https://api.github.com/search/issues?q=repo:nushell/",
+    )
+}
+
+#[test]
+fn record_quotes_with_equals() -> TestResult {
+    run_test(r#"{"a=":b} | get a="#, "b")?;
+    run_test(r#"{"=a":b} | get =a"#, "b")?;
+
+    run_test(r#"{a:"=b"} | get a"#, "=b")?;
+    run_test(r#"{a:"b="} | get a"#, "b=")?;
+
+    run_test(r#"{a:b,"=c":d} | get =c"#, "d")?;
+    run_test(r#"{a:b,"c=":d} | get c="#, "d")
+}
+
+#[test]
 fn recursive_parse() -> TestResult {
     run_test(r#"def c [] { c }; echo done"#, "done")
 }
 
 #[test]
-fn commands_have_usage() -> TestResult {
+fn commands_have_description() -> TestResult {
     run_test_contains(
         r#"
     # This is a test
     #
-    # To see if I have cool usage
+    # To see if I have cool description
     def foo [] {}
     help foo"#,
-        "cool usage",
+        "cool description",
+    )
+}
+
+#[test]
+fn commands_from_crlf_source_have_short_description() -> TestResult {
+    run_test_contains(
+        "# This is a test\r\n#\r\n# To see if I have cool description\r\ndef foo [] {}\r\nscope commands | where name == foo | get description.0",
+        "This is a test",
+    )
+}
+
+#[test]
+fn commands_from_crlf_source_have_extra_description() -> TestResult {
+    run_test_contains(
+        "# This is a test\r\n#\r\n# To see if I have cool description\r\ndef foo [] {}\r\nscope commands | where name == foo | get extra_description.0",
+        "To see if I have cool description",
     )
 }
 
@@ -277,6 +402,48 @@ fn assign_expressions() -> TestResult {
         "Foobar",
         &env,
     )
+}
+
+#[test]
+fn assign_takes_pipeline() -> TestResult {
+    run_test(
+        r#"mut foo = 'bar'; $foo = $foo | str upcase | str reverse; $foo"#,
+        "RAB",
+    )
+}
+
+#[test]
+fn append_assign_takes_pipeline() -> TestResult {
+    run_test(
+        r#"mut foo = 'bar'; $foo ++= $foo | str upcase; $foo"#,
+        "barBAR",
+    )
+}
+
+#[test]
+fn assign_bare_external_fails() {
+    let result = nu!("$env.FOO = nu --testbin cococo");
+    assert!(!result.status.success());
+    assert!(result.err.contains("must be explicit"));
+}
+
+#[test]
+fn assign_bare_external_with_caret() {
+    let result = nu!("$env.FOO = ^nu --testbin cococo");
+    assert!(result.status.success());
+}
+
+#[test]
+fn assign_backtick_quoted_external_fails() {
+    let result = nu!("$env.FOO = `nu` --testbin cococo");
+    assert!(!result.status.success());
+    assert!(result.err.contains("must be explicit"));
+}
+
+#[test]
+fn assign_backtick_quoted_external_with_caret() {
+    let result = nu!("$env.FOO = ^`nu` --testbin cococo");
+    assert!(result.status.success());
 }
 
 #[test]
@@ -506,7 +673,7 @@ fn comment_in_multiple_pipelines() -> TestResult {
 
 #[test]
 fn date_literal() -> TestResult {
-    run_test(r#"2022-09-10 | date to-record | get day"#, "10")
+    run_test(r#"2022-09-10 | into record | get day"#, "10")
 }
 
 #[test]
@@ -554,39 +721,6 @@ fn unbalanced_parens1() -> TestResult {
 #[test]
 fn unbalanced_parens2() -> TestResult {
     fail_test(r#"("("))"#, "unbalanced ( and )")
-}
-
-#[test]
-fn register_with_string_literal() -> TestResult {
-    fail_test(r#"register 'nu-plugin-math'"#, "File not found")
-}
-
-#[test]
-fn register_with_string_constant() -> TestResult {
-    let input = "\
-const file = 'nu-plugin-math'
-register $file
-";
-    // should not fail with `not a constant`
-    fail_test(input, "File not found")
-}
-
-#[test]
-fn register_with_string_variable() -> TestResult {
-    let input = "\
-let file = 'nu-plugin-math'
-register $file
-";
-    fail_test(input, "Value is not a parse-time constant")
-}
-
-#[test]
-fn register_with_non_string_constant() -> TestResult {
-    let input = "\
-const file = 6
-register $file
-";
-    fail_test(input, "expected string, found int")
 }
 
 #[test]
@@ -647,7 +781,7 @@ fn duration_with_underscores_2() -> TestResult {
 
 #[test]
 fn duration_with_underscores_3() -> TestResult {
-    fail_test("1_000_d_ay", "executable was not found")
+    fail_test("1_000_d_ay", "Command `1_000_d_ay` not found")
 }
 
 #[test]
@@ -657,17 +791,17 @@ fn duration_with_faulty_number() -> TestResult {
 
 #[test]
 fn filesize_with_underscores_1() -> TestResult {
-    run_test("420_mb", "400.5 MiB")
+    run_test("420_MB", "420.0 MB")
 }
 
 #[test]
 fn filesize_with_underscores_2() -> TestResult {
-    run_test("1_000_000B", "976.6 KiB")
+    run_test("1_000_000B", "1.0 MB")
 }
 
 #[test]
 fn filesize_with_underscores_3() -> TestResult {
-    fail_test("42m_b", "executable was not found")
+    fail_test("42m_b", "Command `42m_b` not found")
 }
 
 #[test]

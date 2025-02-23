@@ -8,12 +8,12 @@ pub use operations::Axis;
 
 use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
-use polars::{
-    chunked_array::ops::SortMultipleOptions,
-    prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series},
+use polars::prelude::{
+    Column as PolarsColumn, DataFrame, DataType, IntoLazy, PolarsObject, Series,
 };
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::{TotalEq, TotalHash};
+use std::fmt;
 use std::{
     cmp::Ordering,
     collections::HashSet,
@@ -104,6 +104,7 @@ impl PolarsObject for DataFrameValue {
 pub struct NuDataFrame {
     pub id: Uuid,
     pub df: Arc<DataFrame>,
+    pub from_lazy: bool,
 }
 
 impl AsRef<DataFrame> for NuDataFrame {
@@ -114,16 +115,23 @@ impl AsRef<DataFrame> for NuDataFrame {
 
 impl From<DataFrame> for NuDataFrame {
     fn from(df: DataFrame) -> Self {
-        Self::new(df)
+        Self::new(false, df)
+    }
+}
+
+impl fmt::Display for NuDataFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.df)
     }
 }
 
 impl NuDataFrame {
-    pub fn new(df: DataFrame) -> Self {
+    pub fn new(from_lazy: bool, df: DataFrame) -> Self {
         let id = Uuid::new_v4();
         Self {
             id,
             df: Arc::new(df),
+            from_lazy,
         }
     }
 
@@ -132,12 +140,12 @@ impl NuDataFrame {
     }
 
     pub fn lazy(&self) -> NuLazyFrame {
-        NuLazyFrame::new(self.to_polars().lazy())
+        NuLazyFrame::new(true, self.to_polars().lazy())
     }
 
     pub fn try_from_series(series: Series, span: Span) -> Result<Self, ShellError> {
-        match DataFrame::new(vec![series]) {
-            Ok(dataframe) => Ok(NuDataFrame::new(dataframe)),
+        match DataFrame::new(vec![series.into()]) {
+            Ok(dataframe) => Ok(NuDataFrame::new(false, dataframe)),
             Err(e) => Err(ShellError::GenericError {
                 error: "Error creating dataframe".into(),
                 msg: e.to_string(),
@@ -180,7 +188,7 @@ impl NuDataFrame {
                 }
                 _ => {
                     let key = "0".to_string();
-                    conversion::insert_value(value, key, &mut column_values, &maybe_schema)?
+                    conversion::insert_value(value, key.into(), &mut column_values, &maybe_schema)?
                 }
             }
         }
@@ -190,15 +198,18 @@ impl NuDataFrame {
     }
 
     pub fn try_from_series_vec(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
-        let dataframe = DataFrame::new(columns).map_err(|e| ShellError::GenericError {
-            error: "Error creating dataframe".into(),
-            msg: format!("Unable to create DataFrame: {e}"),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        })?;
+        let columns_converted: Vec<PolarsColumn> = columns.into_iter().map(Into::into).collect();
 
-        Ok(Self::new(dataframe))
+        let dataframe =
+            DataFrame::new(columns_converted).map_err(|e| ShellError::GenericError {
+                error: "Error creating dataframe".into(),
+                msg: format!("Unable to create DataFrame: {e}"),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            })?;
+
+        Ok(Self::new(false, dataframe))
     }
 
     pub fn try_from_columns(
@@ -208,7 +219,7 @@ impl NuDataFrame {
         let mut column_values: ColumnMap = IndexMap::new();
 
         for column in columns {
-            let name = column.name().to_string();
+            let name = column.name().clone();
             for value in column {
                 conversion::insert_value(value, name.clone(), &mut column_values, &maybe_schema)?;
             }
@@ -272,7 +283,7 @@ impl NuDataFrame {
             inner: vec![],
         })?;
 
-        Ok(Self::new(df))
+        Ok(Self::new(false, df))
     }
 
     pub fn is_series(&self) -> bool {
@@ -294,14 +305,15 @@ impl NuDataFrame {
             .df
             .get_columns()
             .first()
-            .expect("We have already checked that the width is 1");
+            .expect("We have already checked that the width is 1")
+            .as_materialized_series();
 
         Ok(series.clone())
     }
 
     pub fn get_value(&self, row: usize, span: Span) -> Result<Value, ShellError> {
         let series = self.as_series(span)?;
-        let column = conversion::create_column(&series, row, row + 1, span)?;
+        let column = conversion::create_column_from_series(&series, row, row + 1, span)?;
 
         if column.len() == 0 {
             Err(ShellError::AccessEmptyContent { span })
@@ -322,22 +334,22 @@ impl NuDataFrame {
     }
 
     // Print is made out a head and if the dataframe is too large, then a tail
-    pub fn print(&self, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn print(&self, include_index: bool, span: Span) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
         let size: usize = 20;
 
         if df.height() > size {
             let sample_size = size / 2;
-            let mut values = self.head(Some(sample_size), span)?;
+            let mut values = self.head(Some(sample_size), include_index, span)?;
             conversion::add_separator(&mut values, df, self.has_index(), span);
             let remaining = df.height() - sample_size;
             let tail_size = remaining.min(sample_size);
-            let mut tail_values = self.tail(Some(tail_size), span)?;
+            let mut tail_values = self.tail(Some(tail_size), include_index, span)?;
             values.append(&mut tail_values);
 
             Ok(values)
         } else {
-            Ok(self.head(Some(size), span)?)
+            Ok(self.head(Some(size), include_index, span)?)
         }
     }
 
@@ -345,26 +357,38 @@ impl NuDataFrame {
         self.df.height()
     }
 
-    pub fn head(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn head(
+        &self,
+        rows: Option<usize>,
+        include_index: bool,
+        span: Span,
+    ) -> Result<Vec<Value>, ShellError> {
         let to_row = rows.unwrap_or(5);
-        let values = self.to_rows(0, to_row, span)?;
+        let values = self.to_rows(0, to_row, include_index, span)?;
         Ok(values)
     }
 
-    pub fn tail(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn tail(
+        &self,
+        rows: Option<usize>,
+        include_index: bool,
+        span: Span,
+    ) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
         let to_row = df.height();
         let size = rows.unwrap_or(DEFAULT_ROWS);
         let from_row = to_row.saturating_sub(size);
 
-        let values = self.to_rows(from_row, to_row, span)?;
+        let values = self.to_rows(from_row, to_row, include_index, span)?;
         Ok(values)
     }
 
+    /// Converts the dataframe to a nushell list of values
     pub fn to_rows(
         &self,
         from_row: usize,
         to_row: usize,
+        include_index: bool,
         span: Span,
     ) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
@@ -396,7 +420,7 @@ impl NuDataFrame {
             .map(|i| {
                 let mut record = Record::new();
 
-                if !has_index {
+                if !has_index && include_index {
                     record.push("index", Value::int((i + from_row) as i64, span));
                 }
 
@@ -413,84 +437,18 @@ impl NuDataFrame {
 
     // Dataframes are considered equal if they have the same shape, column name and values
     pub fn is_equal(&self, other: &Self) -> Option<Ordering> {
-        if self.as_ref().width() == 0 {
-            // checking for empty dataframe
-            return None;
+        let polars_self = self.to_polars();
+        let polars_other = other.to_polars();
+
+        if polars_self == polars_other {
+            Some(Ordering::Equal)
+        } else {
+            None
         }
-
-        if self.as_ref().get_column_names() != other.as_ref().get_column_names() {
-            // checking both dataframes share the same names
-            return None;
-        }
-
-        if self.as_ref().height() != other.as_ref().height() {
-            // checking both dataframes have the same row size
-            return None;
-        }
-
-        // sorting dataframe by the first column
-        let column_names = self.as_ref().get_column_names();
-        let first_col = column_names
-            .first()
-            .expect("already checked that dataframe is different than 0");
-
-        // if unable to sort, then unable to compare
-        let lhs = match self
-            .as_ref()
-            .sort(vec![*first_col], SortMultipleOptions::default())
-        {
-            Ok(df) => df,
-            Err(_) => return None,
-        };
-
-        let rhs = match other
-            .as_ref()
-            .sort(vec![*first_col], SortMultipleOptions::default())
-        {
-            Ok(df) => df,
-            Err(_) => return None,
-        };
-
-        for name in self.as_ref().get_column_names() {
-            let self_series = lhs.column(name).expect("name from dataframe names");
-
-            let other_series = rhs
-                .column(name)
-                .expect("already checked that name in other");
-
-            // Casting needed to compare other numeric types with nushell numeric type.
-            // In nushell we only have i64 integer numeric types and any array created
-            // with nushell untagged primitives will be of type i64
-            let self_series = match self_series.dtype() {
-                DataType::UInt32 | DataType::Int32 if *other_series.dtype() == DataType::Int64 => {
-                    match self_series.cast(&DataType::Int64) {
-                        Ok(series) => series,
-                        Err(_) => return None,
-                    }
-                }
-                _ => self_series.clone(),
-            };
-
-            let other_series = match other_series.dtype() {
-                DataType::UInt32 | DataType::Int32 if *self_series.dtype() == DataType::Int64 => {
-                    match other_series.cast(&DataType::Int64) {
-                        Ok(series) => series,
-                        Err(_) => return None,
-                    }
-                }
-                _ => other_series.clone(),
-            };
-
-            if !self_series.equals(&other_series) {
-                return None;
-            }
-        }
-
-        Some(Ordering::Equal)
     }
 
     pub fn schema(&self) -> NuSchema {
-        NuSchema::new(self.df.schema())
+        NuSchema::new(Arc::clone(self.df.schema()))
     }
 
     /// This differs from try_from_value as it will attempt to coerce the type into a NuDataFrame.
@@ -546,10 +504,9 @@ fn add_missing_columns(
             })
             .collect();
 
-        // todo - fix
         let missing_exprs: Vec<Expr> = missing
             .iter()
-            .map(|(name, dtype)| lit(Null {}).cast((*dtype).to_owned()).alias(name))
+            .map(|(name, dtype)| lit(Null {}).cast((*dtype).to_owned()).alias(*name))
             .collect();
 
         let df = if !missing.is_empty() {
@@ -598,7 +555,7 @@ impl CustomValueSupport for NuDataFrame {
     }
 
     fn base_value(self, span: Span) -> Result<Value, ShellError> {
-        let vals = self.print(span)?;
+        let vals = self.print(true, span)?;
         Ok(Value::list(vals, span))
     }
 

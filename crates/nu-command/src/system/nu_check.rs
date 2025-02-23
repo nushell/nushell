@@ -1,7 +1,10 @@
-use nu_engine::{command_prelude::*, env::get_config, find_in_dirs_env, get_dirs_var_from_call};
+use nu_engine::{command_prelude::*, find_in_dirs_env, get_dirs_var_from_call};
 use nu_parser::{parse, parse_module_block, parse_module_file_or_dir, unescape_unquote_string};
-use nu_protocol::engine::{FileStack, StateWorkingSet};
-use std::path::Path;
+use nu_protocol::{
+    engine::{FileStack, StateWorkingSet},
+    shell_error::io::IoError,
+};
+use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
 pub struct NuCheck;
@@ -14,9 +17,12 @@ impl Command for NuCheck {
     fn signature(&self) -> Signature {
         Signature::build("nu-check")
             .input_output_types(vec![
+                (Type::Nothing, Type::Bool),
                 (Type::String, Type::Bool),
-                (Type::ListStream, Type::Bool),
                 (Type::List(Box::new(Type::Any)), Type::Bool),
+                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
+                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
+                (Type::Any, Type::Bool),
             ])
             // type is string to avoid automatically canonicalizing the path
             .optional("path", SyntaxShape::String, "File path to parse.")
@@ -25,7 +31,7 @@ impl Command for NuCheck {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Validate and parse input content."
     }
 
@@ -59,7 +65,7 @@ impl Command for NuCheck {
                 }
             }
             PipelineData::ListStream(stream, ..) => {
-                let config = get_config(engine_state, stack);
+                let config = stack.get_config(engine_state);
                 let list_stream = stream.into_string("\n", &config);
                 let contents = Vec::from(list_stream);
 
@@ -87,19 +93,17 @@ impl Command for NuCheck {
                         &path_str.item,
                         engine_state,
                         stack,
-                        get_dirs_var_from_call(call),
+                        get_dirs_var_from_call(stack, call),
                     ) {
-                        Ok(path) => {
-                            if let Some(path) = path {
-                                path
-                            } else {
-                                return Err(ShellError::FileNotFound {
-                                    file: path_str.item,
-                                    span: path_span,
-                                });
-                            }
+                        Ok(Some(path)) => path,
+                        Ok(None) => {
+                            return Err(ShellError::Io(IoError::new(
+                                ErrorKind::FileNotFound,
+                                path_span,
+                                PathBuf::from(path_str.item),
+                            )))
                         }
-                        Err(error) => return Err(error),
+                        Err(err) => return Err(err),
                     };
 
                     let result = if as_module || path.is_dir() {
@@ -162,16 +166,6 @@ impl Command for NuCheck {
             Example {
                 description: "Parse a string as script",
                 example: "$'two(char nl)lines' | nu-check ",
-                result: None,
-            },
-            Example {
-                description: "Heuristically parse which begins with script first, if it sees a failure, try module afterwards",
-                example: "nu-check -a script.nu",
-                result: None,
-            },
-            Example {
-                description: "Heuristically parse by showing error message",
-                example: "open foo.nu | lines | nu-check --all --debug",
                 result: None,
             },
         ]
@@ -258,13 +252,13 @@ fn parse_file_script(
 ) -> Result<PipelineData, ShellError> {
     let filename = check_path(working_set, path_span, call_head)?;
 
-    if let Ok(contents) = std::fs::read(path) {
-        parse_script(working_set, Some(&filename), &contents, is_debug, call_head)
-    } else {
-        Err(ShellError::IOErrorSpanned {
-            msg: "Could not read path".to_string(),
-            span: path_span,
-        })
+    match std::fs::read(path) {
+        Ok(contents) => parse_script(working_set, Some(&filename), &contents, is_debug, call_head),
+        Err(err) => Err(ShellError::Io(IoError::new(
+            err.kind().not_found_as(NotFound::File),
+            path_span,
+            PathBuf::from(path),
+        ))),
     }
 }
 

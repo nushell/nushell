@@ -1,6 +1,7 @@
 mod query;
 mod query_json;
 mod query_web;
+mod query_webpage_info;
 mod query_xml;
 mod web_tables;
 

@@ -1,6 +1,7 @@
 use crate::repl::tests::{fail_test, run_test, run_test_contains, TestResult};
 use nu_test_support::nu;
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 
 #[test]
 fn no_scope_leak1() -> TestResult {
@@ -73,10 +74,21 @@ fn custom_switch1() -> TestResult {
     )
 }
 
-#[test]
-fn custom_flag_with_type_checking() -> TestResult {
+#[rstest]
+fn custom_flag_with_type_checking(
+    #[values(
+        ("int", "\"3\""),
+        ("int", "null"),
+        ("record<i: int>", "{i: \"\"}"),
+        ("list<int>", "[\"\"]")
+    )]
+    type_sig_value: (&str, &str),
+    #[values("--dry-run", "-d")] flag: &str,
+) -> TestResult {
+    let (type_sig, value) = type_sig_value;
+
     fail_test(
-        r#"def florb [--dry-run: int] { $dry_run }; let y = "3"; florb --dry-run=$y"#,
+        &format!("def florb [{flag}: {type_sig}] {{}}; let y = {value}; florb {flag} $y"),
         "type_mismatch",
     )
 }
@@ -186,8 +198,12 @@ fn help_present_in_def() -> TestResult {
 #[test]
 fn help_not_present_in_extern() -> TestResult {
     run_test(
-        "module test {export extern \"git fetch\" []}; use test `git fetch`; help git fetch | ansi strip",
-        "Usage:\n  > git fetch",
+        r#"
+            module test {export extern "git fetch" []};
+            use test `git fetch`;
+            help git fetch | find help | to text | ansi strip
+        "#,
+        "",
     )
 }
 

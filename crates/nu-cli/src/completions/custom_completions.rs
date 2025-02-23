@@ -1,45 +1,45 @@
 use crate::completions::{
-    completer::map_value_completions, Completer, CompletionOptions, MatchAlgorithm,
-    SemanticSuggestion, SortBy,
+    completer::map_value_completions, Completer, CompletionOptions, SemanticSuggestion,
 };
 use nu_engine::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{Stack, StateWorkingSet},
-    PipelineData, Span, Type, Value,
+    DeclId, PipelineData, Span, Type, Value,
 };
-use nu_utils::IgnoreCaseExt;
 use std::collections::HashMap;
 
-pub struct CustomCompletion {
+use super::completion_options::NuMatcher;
+
+pub struct CustomCompletion<T: Completer> {
     stack: Stack,
-    decl_id: usize,
+    decl_id: DeclId,
     line: String,
-    sort_by: SortBy,
+    fallback: T,
 }
 
-impl CustomCompletion {
-    pub fn new(stack: Stack, decl_id: usize, line: String) -> Self {
+impl<T: Completer> CustomCompletion<T> {
+    pub fn new(stack: Stack, decl_id: DeclId, line: String, fallback: T) -> Self {
         Self {
             stack,
             decl_id,
             line,
-            sort_by: SortBy::None,
+            fallback,
         }
     }
 }
 
-impl Completer for CustomCompletion {
+impl<T: Completer> Completer for CustomCompletion<T> {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
-        _stack: &Stack,
-        prefix: Vec<u8>,
+        stack: &Stack,
+        prefix: &[u8],
         span: Span,
         offset: usize,
         pos: usize,
-        completion_options: &CompletionOptions,
+        orig_options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         // Line position
         let line_pos = pos - offset;
@@ -52,30 +52,28 @@ impl Completer for CustomCompletion {
                 decl_id: self.decl_id,
                 head: span,
                 arguments: vec![
-                    Argument::Positional(Expression {
-                        span: Span::unknown(),
-                        ty: Type::String,
-                        expr: Expr::String(self.line.clone()),
-                        custom_completion: None,
-                    }),
-                    Argument::Positional(Expression {
-                        span: Span::unknown(),
-                        ty: Type::Int,
-                        expr: Expr::Int(line_pos as i64),
-                        custom_completion: None,
-                    }),
+                    Argument::Positional(Expression::new_unknown(
+                        Expr::String(self.line.clone()),
+                        Span::unknown(),
+                        Type::String,
+                    )),
+                    Argument::Positional(Expression::new_unknown(
+                        Expr::Int(line_pos as i64),
+                        Span::unknown(),
+                        Type::Int,
+                    )),
                 ],
                 parser_info: HashMap::new(),
             },
             PipelineData::empty(),
         );
 
-        let mut custom_completion_options = None;
+        let mut completion_options = orig_options.clone();
+        let mut should_sort = true;
 
         // Parse result
-        let suggestions = result
-            .and_then(|data| data.into_value(span))
-            .map(|value| match &value {
+        let suggestions = match result.and_then(|data| data.into_value(span)) {
+            Ok(value) => match &value {
                 Value::Record { val, .. } => {
                     let completions = val
                         .get("completions")
@@ -88,81 +86,70 @@ impl Completer for CustomCompletion {
                     let options = val.get("options");
 
                     if let Some(Value::Record { val: options, .. }) = &options {
-                        let should_sort = options
-                            .get("sort")
-                            .and_then(|val| val.as_bool().ok())
-                            .unwrap_or(false);
-
-                        if should_sort {
-                            self.sort_by = SortBy::Ascending;
+                        if let Some(sort) = options.get("sort").and_then(|val| val.as_bool().ok()) {
+                            should_sort = sort;
                         }
 
-                        custom_completion_options = Some(CompletionOptions {
-                            case_sensitive: options
-                                .get("case_sensitive")
-                                .and_then(|val| val.as_bool().ok())
-                                .unwrap_or(true),
-                            positional: options
-                                .get("positional")
-                                .and_then(|val| val.as_bool().ok())
-                                .unwrap_or(true),
-                            match_algorithm: match options.get("completion_algorithm") {
-                                Some(option) => option
-                                    .coerce_string()
-                                    .ok()
-                                    .and_then(|option| option.try_into().ok())
-                                    .unwrap_or(MatchAlgorithm::Prefix),
-                                None => completion_options.match_algorithm,
-                            },
-                        });
+                        if let Some(case_sensitive) = options
+                            .get("case_sensitive")
+                            .and_then(|val| val.as_bool().ok())
+                        {
+                            completion_options.case_sensitive = case_sensitive;
+                        }
+                        if let Some(positional) =
+                            options.get("positional").and_then(|val| val.as_bool().ok())
+                        {
+                            completion_options.positional = positional;
+                        }
+                        if let Some(algorithm) = options
+                            .get("completion_algorithm")
+                            .and_then(|option| option.coerce_string().ok())
+                            .and_then(|option| option.try_into().ok())
+                        {
+                            completion_options.match_algorithm = algorithm;
+                        }
                     }
 
                     completions
                 }
                 Value::List { vals, .. } => map_value_completions(vals.iter(), span, offset),
-                _ => vec![],
-            })
-            .unwrap_or_default();
-
-        if let Some(custom_completion_options) = custom_completion_options {
-            filter(&prefix, suggestions, &custom_completion_options)
-        } else {
-            filter(&prefix, suggestions, completion_options)
-        }
-    }
-
-    fn get_sort_by(&self) -> SortBy {
-        self.sort_by
-    }
-}
-
-fn filter(
-    prefix: &[u8],
-    items: Vec<SemanticSuggestion>,
-    options: &CompletionOptions,
-) -> Vec<SemanticSuggestion> {
-    items
-        .into_iter()
-        .filter(|it| match options.match_algorithm {
-            MatchAlgorithm::Prefix => match (options.case_sensitive, options.positional) {
-                (true, true) => it.suggestion.value.as_bytes().starts_with(prefix),
-                (true, false) => it
-                    .suggestion
-                    .value
-                    .contains(std::str::from_utf8(prefix).unwrap_or("")),
-                (false, positional) => {
-                    let value = it.suggestion.value.to_folded_case();
-                    let prefix = std::str::from_utf8(prefix).unwrap_or("").to_folded_case();
-                    if positional {
-                        value.starts_with(&prefix)
-                    } else {
-                        value.contains(&prefix)
-                    }
+                Value::Nothing { .. } => {
+                    return self.fallback.fetch(
+                        working_set,
+                        stack,
+                        prefix,
+                        span,
+                        offset,
+                        pos,
+                        orig_options,
+                    );
+                }
+                _ => {
+                    log::error!(
+                        "Custom completer returned invalid value of type {}",
+                        value.get_type().to_string()
+                    );
+                    return vec![];
                 }
             },
-            MatchAlgorithm::Fuzzy => options
-                .match_algorithm
-                .matches_u8(it.suggestion.value.as_bytes(), prefix),
-        })
-        .collect()
+            Err(e) => {
+                log::error!("Error getting custom completions: {e}");
+                return vec![];
+            }
+        };
+
+        let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), completion_options);
+
+        if should_sort {
+            for sugg in suggestions {
+                matcher.add_semantic_suggestion(sugg);
+            }
+            matcher.results()
+        } else {
+            suggestions
+                .into_iter()
+                .filter(|sugg| matcher.matches(&sugg.suggestion.value))
+                .collect()
+        }
+    }
 }

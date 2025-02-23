@@ -1,3 +1,5 @@
+use std::{thread, time::Duration};
+
 use mockito::Server;
 use nu_test_support::{nu, pipeline};
 
@@ -272,4 +274,66 @@ fn http_get_self_signed_fails() {
 fn http_get_self_signed_override() {
     let actual = nu!("http get --insecure https://self-signed.badssl.com/");
     assert!(actual.out.contains("<html>"));
+}
+
+#[test]
+fn http_get_with_invalid_mime_type() {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/foo.nuon")
+        .with_status(200)
+        // `what&ever` is not a parseable MIME type
+        .with_header("content-type", "what&ever")
+        .with_body("[1 2 3]")
+        .create();
+
+    // but `from nuon` is a known command in nu, so we take `foo.{ext}` and pass it to `from {ext}`
+    let actual = nu!(pipeline(
+        format!(
+            r#"http get {url}/foo.nuon | to json --raw"#,
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert_eq!(actual.out, "[1,2,3]");
+}
+
+#[test]
+fn http_get_with_unknown_mime_type() {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/foo")
+        .with_status(200)
+        // `application/nuon` is not an IANA-registered MIME type
+        .with_header("content-type", "application/nuon")
+        .with_body("[1 2 3]")
+        .create();
+
+    // but `from nuon` is a known command in nu, so we take `{garbage}/{whatever}` and pass it to `from {whatever}`
+    let actual = nu!(pipeline(
+        format!(r#"http get {url}/foo | to json --raw"#, url = server.url()).as_str()
+    ));
+
+    assert_eq!(actual.out, "[1,2,3]");
+}
+
+#[test]
+fn http_get_timeout() {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/")
+        .with_chunked_body(|w| {
+            thread::sleep(Duration::from_secs(10));
+            w.write_all(b"Delayed response!")
+        })
+        .create();
+
+    let actual = nu!(pipeline(
+        format!("http get --max-time 100ms {url}", url = server.url()).as_str()
+    ));
+
+    assert!(&actual.err.contains("nu::shell::io::timed_out"));
+    assert!(&actual.err.contains("Timed out"));
 }

@@ -1,8 +1,8 @@
 use chrono::{DateTime, FixedOffset};
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{Filesize, ShellError, Span, Value};
 use std::hash::{Hash, Hasher};
 
-/// A subset of [`Value`](crate::Value), which is hashable.
+/// A subset of [`Value`], which is hashable.
 /// And it means that we can put the value into something like
 /// [`HashMap`](std::collections::HashMap) or [`HashSet`](std::collections::HashSet) for further
 /// usage like value statistics.
@@ -30,7 +30,7 @@ pub enum HashableValue {
         span: Span,
     },
     Filesize {
-        val: i64,
+        val: Filesize,
         span: Span,
     },
     Duration {
@@ -183,6 +183,7 @@ mod test {
     use nu_protocol::{
         ast::{CellPath, PathMember},
         engine::Closure,
+        BlockId,
     };
     use std::collections::HashSet;
 
@@ -197,7 +198,10 @@ mod test {
             (Value::int(1, span), HashableValue::Int { val: 1, span }),
             (
                 Value::filesize(1, span),
-                HashableValue::Filesize { val: 1, span },
+                HashableValue::Filesize {
+                    val: 1.into(),
+                    span,
+                },
             ),
             (
                 Value::duration(1, span),
@@ -244,7 +248,7 @@ mod test {
             Value::list(vec![Value::bool(true, span)], span),
             Value::closure(
                 Closure {
-                    block_id: 0,
+                    block_id: BlockId::new(0),
                     captures: Vec::new(),
                 },
                 span,

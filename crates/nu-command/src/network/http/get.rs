@@ -5,6 +5,8 @@ use crate::network::http::client::{
 };
 use nu_engine::command_prelude::*;
 
+use super::client::HttpBody;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -36,8 +38,8 @@ impl Command for SubCommand {
             )
             .named(
                 "max-time",
-                SyntaxShape::Int,
-                "timeout period in seconds",
+                SyntaxShape::Duration,
+                "max duration before timeout occurs",
                 Some('m'),
             )
             .named(
@@ -76,11 +78,11 @@ impl Command for SubCommand {
             .category(Category::Network)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Fetch the contents from a URL."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Performs HTTP GET operation."
     }
 
@@ -169,7 +171,6 @@ fn helper(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
-    let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
@@ -180,7 +181,14 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request.clone(), None, None, ctrl_c);
+    let response = send_request(
+        engine_state,
+        request.clone(),
+        HttpBody::None,
+        None,
+        call.head,
+        engine_state.signals(),
+    );
 
     let request_flags = RequestFlags {
         raw: args.raw,

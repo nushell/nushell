@@ -4,7 +4,7 @@ use nu_engine::command_prelude::*;
 
 use quick_xml::{
     escape,
-    events::{BytesEnd, BytesStart, BytesText, Event},
+    events::{BytesEnd, BytesPI, BytesStart, BytesText, Event},
 };
 use std::{borrow::Cow, io::Cursor};
 
@@ -38,7 +38,7 @@ impl Command for ToXml {
             .category(Category::Formats)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Every XML entry is represented via a record with tag, attribute and content fields.
 To represent different types of entries different values must be written to this fields:
 1. Tag entry: `{tag: <tag name> attributes: {<attr name>: "<string value>" ...} content: [<entries>]}`
@@ -89,7 +89,7 @@ Additionally any field which is: empty record, empty list or null, can be omitte
         ]
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert special record structure into .xml text."
     }
 
@@ -132,6 +132,10 @@ impl Job {
     }
 
     fn run(mut self, input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+        let metadata = input
+            .metadata()
+            .unwrap_or_default()
+            .with_content_type(Some("application/xml".into()));
         let value = input.into_value(head)?;
 
         self.write_xml_entry(value, true).and_then(|_| {
@@ -141,7 +145,7 @@ impl Job {
             } else {
                 return Err(ShellError::NonUtf8 { span: head });
             };
-            Ok(Value::string(s, head).into_pipeline_data())
+            Ok(Value::string(s, head).into_pipeline_data_with_metadata(Some(metadata)))
         })
     }
 
@@ -402,7 +406,7 @@ impl Job {
         let content_text = format!("{} {}", tag, content);
         // PI content must NOT be escaped
         // https://www.w3.org/TR/xml/#sec-pi
-        let pi_content = BytesText::from_escaped(content_text.as_str());
+        let pi_content = BytesPI::new(content_text.as_str());
 
         self.writer
             .write_event(Event::PI(pi_content))
@@ -508,6 +512,10 @@ impl Job {
 
 #[cfg(test)]
 mod test {
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::{Get, Metadata};
+
     use super::*;
 
     #[test]
@@ -515,5 +523,36 @@ mod test {
         use crate::test_examples;
 
         test_examples(ToXml {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            // Base functions that are needed for testing
+            // Try to keep this working set small to keep tests running as fast as possible
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(ToXml {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = "{tag: note attributes: {} content : [{tag: remember attributes: {} content : [{tag: null attributes: null content : Event}]}]} | to xml | metadata | get content_type";
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("content_type" => Value::test_string("application/xml"))),
+            result.expect("There should be a result")
+        );
     }
 }

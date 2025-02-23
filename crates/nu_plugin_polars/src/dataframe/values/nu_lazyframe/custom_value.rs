@@ -27,7 +27,7 @@ impl CustomValue for NuLazyFrameCustomValue {
     }
 
     fn type_name(&self) -> String {
-        "NuLazyFrameCustomValue".into()
+        "NuLazyFrame".into()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {

@@ -89,7 +89,7 @@ impl Command for SubCommand {
             .category(Category::Conversions)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert value to integer."
     }
 
@@ -158,7 +158,7 @@ impl Command for SubCommand {
             signed,
             cell_paths,
         };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -253,13 +253,13 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 convert_int(input, span, radix)
             }
         }
-        Value::Filesize { val, .. } => Value::int(*val, span),
+        Value::Filesize { val, .. } => Value::int(val.get(), span),
         Value::Float { val, .. } => Value::int(
             {
                 if radix == 10 {
                     *val as i64
                 } else {
-                    match convert_int(&Value::int(*val as i64, span), span, radix).as_i64() {
+                    match convert_int(&Value::int(*val as i64, span), span, radix).as_int() {
                         Ok(v) => v,
                         _ => {
                             return Value::error(

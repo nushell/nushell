@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, LabeledError, PipelineData, Signature,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, LabeledError, PipelineData, Signals,
+    Signature, SyntaxShape, Type, Value,
 };
 
 use crate::ExamplePlugin;
@@ -16,17 +16,17 @@ impl PluginCommand for Generate {
         "example generate"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Example execution of a closure to produce a stream"
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "See the builtin `generate` command"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(Type::Nothing, Type::ListStream)
+            .input_output_type(Type::Nothing, Type::list(Type::Any))
             .required(
                 "initial",
                 SyntaxShape::Any,
@@ -85,7 +85,7 @@ impl PluginCommand for Generate {
                 })
                 .map(|result| result.unwrap_or_else(|err| Value::error(err, head)))
         })
-        .into_pipeline_data(head, None))
+        .into_pipeline_data(head, Signals::empty()))
     }
 }
 

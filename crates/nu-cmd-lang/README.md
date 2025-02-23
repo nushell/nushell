@@ -8,7 +8,6 @@ top of including:
 
 * nu-command
 * nu-cli
-* nu-cmd-dataframe
 * nu-cmd-extra
 
 As time goes on and the nu language develops further in parallel with nushell we will be adding other command crates to the system.

@@ -1,5 +1,3 @@
-// #![no_std]
-
 //! A Rust library providing pretty hex dump.
 //!
 //! A `simple_hex()` way renders one-line hex dump, and a `pretty_hex()` way renders
@@ -58,9 +56,6 @@
 //! 0010:   89 d5 cf 90 23 67 4b 48   ....#gKH
 //! 0018:   db b1 bc 35 bf ee         ...5..
 //! ```
-
-#[cfg(feature = "alloc")]
-extern crate alloc;
 
 mod pretty_hex;
 pub use pretty_hex::*;

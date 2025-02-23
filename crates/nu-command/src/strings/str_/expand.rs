@@ -8,11 +8,11 @@ impl Command for SubCommand {
         "str expand"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Generates all possible combinations defined in brace expansion syntax."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This syntax may seem familiar with `glob {A,B}.C`. The difference is glob relies on filesystem, but str expand is not. Inside braces, we put variants. Then basically we're creating all possible outcomes."
     }
 
@@ -175,8 +175,31 @@ impl Command for SubCommand {
                     ],
                     Span::test_data()
                 )),
+            },
+
+            Example {
+                description: "Supports zero padding in numeric ranges.",
+                example: "\"A{08..10}B{11..013}C\" | str expand",
+                result: Some(Value::list(
+                    vec![
+                        Value::test_string("A08B011C"),
+                        Value::test_string("A08B012C"),
+                        Value::test_string("A08B013C"),
+                        Value::test_string("A09B011C"),
+                        Value::test_string("A09B012C"),
+                        Value::test_string("A09B013C"),
+                        Value::test_string("A10B011C"),
+                        Value::test_string("A10B012C"),
+                        Value::test_string("A10B013C"),
+                    ],
+                    Span::test_data()
+                )),
             }
         ]
+    }
+
+    fn is_const(&self) -> bool {
+        true
     }
 
     fn run(
@@ -186,32 +209,51 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
-        if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty { dst_span: span });
-        }
         let is_path = call.has_flag(engine_state, stack, "path")?;
-        input.map(
-            move |v| {
-                let value_span = v.span();
-                match v.coerce_into_string() {
-                    Ok(s) => {
-                        let contents = if is_path { s.replace('\\', "\\\\") } else { s };
-                        str_expand(&contents, span, value_span)
-                    }
-                    Err(_) => Value::error(
-                        ShellError::PipelineMismatch {
-                            exp_input_type: "string".into(),
-                            dst_span: span,
-                            src_span: value_span,
-                        },
-                        span,
-                    ),
-                }
-            },
-            engine_state.ctrlc.clone(),
-        )
+        run(call, input, is_path, engine_state)
     }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let is_path = call.has_flag_const(working_set, "path")?;
+        run(call, input, is_path, working_set.permanent())
+    }
+}
+
+fn run(
+    call: &Call,
+    input: PipelineData,
+    is_path: bool,
+    engine_state: &EngineState,
+) -> Result<PipelineData, ShellError> {
+    let span = call.head;
+    if matches!(input, PipelineData::Empty) {
+        return Err(ShellError::PipelineEmpty { dst_span: span });
+    }
+    input.map(
+        move |v| {
+            let value_span = v.span();
+            match v.coerce_into_string() {
+                Ok(s) => {
+                    let contents = if is_path { s.replace('\\', "\\\\") } else { s };
+                    str_expand(&contents, span, value_span)
+                }
+                Err(_) => Value::error(
+                    ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: span,
+                        src_span: value_span,
+                    },
+                    span,
+                ),
+            }
+        },
+        engine_state.signals(),
+    )
 }
 
 fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
@@ -283,6 +325,20 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_outer_single_item() {
+        assert_eq!(
+            str_expand("{W{x,y}}", Span::test_data(), Span::test_data()),
+            Value::list(
+                vec![
+                    Value::string(String::from("Wx"), Span::test_data(),),
+                    Value::string(String::from("Wy"), Span::test_data(),)
+                ],
+                Span::test_data(),
+            )
+        );
+    }
 
     #[test]
     fn dots() {

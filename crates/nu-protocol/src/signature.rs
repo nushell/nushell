@@ -1,11 +1,17 @@
 use crate::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    BlockId, PipelineData, ShellError, SyntaxShape, Type, Value, VarId,
+    engine::{Call, Command, CommandType, EngineState, Stack},
+    BlockId, Example, PipelineData, ShellError, SyntaxShape, Type, Value, VarId,
 };
+use nu_derive_value::FromValue;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
+// Make nu_protocol available in this namespace, consumers of this crate will
+// have this without such an export.
+// The `FromValue` derive macro fully qualifies paths to "nu_protocol".
+use crate as nu_protocol;
+
+/// The signature definition of a named flag that either accepts a value or acts as a toggle flag
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Flag {
     pub long: String,
@@ -19,6 +25,7 @@ pub struct Flag {
     pub default_value: Option<Value>,
 }
 
+/// The signature definition for a positional argument
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PositionalArg {
     pub name: String,
@@ -30,6 +37,7 @@ pub struct PositionalArg {
     pub default_value: Option<Value>,
 }
 
+/// Command categories
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Category {
     Bits,
@@ -42,6 +50,7 @@ pub enum Category {
     Date,
     Debug,
     Default,
+    Deprecated,
     Removed,
     Env,
     Experimental,
@@ -77,6 +86,7 @@ impl std::fmt::Display for Category {
             Category::Date => "date",
             Category::Debug => "debug",
             Category::Default => "default",
+            Category::Deprecated => "deprecated",
             Category::Removed => "removed",
             Category::Env => "env",
             Category::Experimental => "experimental",
@@ -103,11 +113,49 @@ impl std::fmt::Display for Category {
     }
 }
 
+pub fn category_from_string(category: &str) -> Category {
+    match category {
+        "bits" => Category::Bits,
+        "bytes" => Category::Bytes,
+        "chart" => Category::Chart,
+        "conversions" => Category::Conversions,
+        // Let's protect our own "core" commands by preventing scripts from having this category.
+        "core" => Category::Custom("custom_core".to_string()),
+        "database" => Category::Database,
+        "date" => Category::Date,
+        "debug" => Category::Debug,
+        "default" => Category::Default,
+        "deprecated" => Category::Deprecated,
+        "removed" => Category::Removed,
+        "env" => Category::Env,
+        "experimental" => Category::Experimental,
+        "filesystem" => Category::FileSystem,
+        "filter" => Category::Filters,
+        "formats" => Category::Formats,
+        "generators" => Category::Generators,
+        "hash" => Category::Hash,
+        "history" => Category::History,
+        "math" => Category::Math,
+        "misc" => Category::Misc,
+        "network" => Category::Network,
+        "path" => Category::Path,
+        "platform" => Category::Platform,
+        "plugin" => Category::Plugin,
+        "random" => Category::Random,
+        "shells" => Category::Shells,
+        "strings" => Category::Strings,
+        "system" => Category::System,
+        "viewers" => Category::Viewers,
+        _ => Category::Custom(category.to_string()),
+    }
+}
+
+/// Signature information of a [`Command`]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Signature {
     pub name: String,
-    pub usage: String,
-    pub extra_usage: String,
+    pub description: String,
+    pub extra_description: String,
     pub search_terms: Vec<String>,
     pub required_positional: Vec<PositionalArg>,
     pub optional_positional: Vec<PositionalArg>,
@@ -125,7 +173,7 @@ pub struct Signature {
 impl PartialEq for Signature {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
-            && self.usage == other.usage
+            && self.description == other.description
             && self.required_positional == other.required_positional
             && self.optional_positional == other.optional_positional
             && self.rest_positional == other.rest_positional
@@ -139,8 +187,8 @@ impl Signature {
     pub fn new(name: impl Into<String>) -> Signature {
         Signature {
             name: name.into(),
-            usage: String::new(),
-            extra_usage: String::new(),
+            description: String::new(),
+            extra_description: String::new(),
             search_terms: vec![],
             required_positional: vec![],
             optional_positional: vec![],
@@ -217,14 +265,19 @@ impl Signature {
     }
 
     /// Add a description to the signature
-    pub fn usage(mut self, msg: impl Into<String>) -> Signature {
-        self.usage = msg.into();
+    ///
+    /// This should be a single sentence as it is the part shown for example in the completion
+    /// menu.
+    pub fn description(mut self, msg: impl Into<String>) -> Signature {
+        self.description = msg.into();
         self
     }
 
-    /// Add an extra description to the signature
-    pub fn extra_usage(mut self, msg: impl Into<String>) -> Signature {
-        self.extra_usage = msg.into();
+    /// Add an extra description to the signature.
+    ///
+    /// Here additional documentation can be added
+    pub fn extra_description(mut self, msg: impl Into<String>) -> Signature {
+        self.extra_description = msg.into();
         self
     }
 
@@ -241,8 +294,8 @@ impl Signature {
             .into_iter()
             .map(|term| term.to_string())
             .collect();
-        self.extra_usage = command.extra_usage().to_string();
-        self.usage = command.usage().to_string();
+        self.extra_description = command.extra_description().to_string();
+        self.description = command.description().to_string();
         self
     }
 
@@ -464,13 +517,12 @@ impl Signature {
     /// Checks if short or long are already present
     /// Panics if one of them is found
     fn check_names(&self, name: impl Into<String>, short: Option<char>) -> (String, Option<char>) {
-        let s = short.map(|c| {
+        let s = short.inspect(|c| {
             assert!(
-                !self.get_shorts().contains(&c),
+                !self.get_shorts().contains(c),
                 "There may be duplicate short flags for '-{}'",
                 c
             );
-            c
         });
 
         let name = {
@@ -486,15 +538,14 @@ impl Signature {
         (name, s)
     }
 
-    pub fn get_positional(&self, position: usize) -> Option<PositionalArg> {
+    pub fn get_positional(&self, position: usize) -> Option<&PositionalArg> {
         if position < self.required_positional.len() {
-            self.required_positional.get(position).cloned()
+            self.required_positional.get(position)
         } else if position < (self.required_positional.len() + self.optional_positional.len()) {
             self.optional_positional
                 .get(position - self.required_positional.len())
-                .cloned()
         } else {
-            self.rest_positional.clone()
+            self.rest_positional.as_ref()
         }
     }
 
@@ -511,27 +562,6 @@ impl Signature {
             if let SyntaxShape::Keyword(..) = positional.shape {
                 // Keywords have a required argument, so account for that
                 total += 1;
-            }
-        }
-        total
-    }
-
-    pub fn num_positionals_after(&self, idx: usize) -> usize {
-        let mut total = 0;
-
-        for (curr, positional) in self.required_positional.iter().enumerate() {
-            match positional.shape {
-                SyntaxShape::Keyword(..) => {
-                    // Keywords have a required argument, so account for that
-                    if curr > idx {
-                        total += 2;
-                    }
-                }
-                _ => {
-                    if curr > idx {
-                        total += 1;
-                    }
-                }
             }
         }
         total
@@ -573,10 +603,17 @@ impl Signature {
     }
 
     /// Combines a signature and a block into a runnable block
-    pub fn into_block_command(self, block_id: BlockId) -> Box<dyn Command> {
+    pub fn into_block_command(
+        self,
+        block_id: BlockId,
+        attributes: Vec<(String, Value)>,
+        examples: Vec<CustomExample>,
+    ) -> Box<dyn Command> {
         Box::new(BlockCommand {
             signature: self,
             block_id,
+            attributes,
+            examples,
         })
     }
 
@@ -626,12 +663,12 @@ impl Command for Predeclaration {
         self.signature.clone()
     }
 
-    fn usage(&self) -> &str {
-        &self.signature.usage
+    fn description(&self) -> &str {
+        &self.signature.description
     }
 
-    fn extra_usage(&self) -> &str {
-        &self.signature.extra_usage
+    fn extra_description(&self) -> &str {
+        &self.signature.extra_description
     }
 
     fn run(
@@ -664,10 +701,29 @@ fn get_positional_short_name(arg: &PositionalArg, is_required: bool) -> String {
     }
 }
 
+#[derive(Clone, FromValue)]
+pub struct CustomExample {
+    pub example: String,
+    pub description: String,
+    pub result: Option<Value>,
+}
+
+impl CustomExample {
+    pub fn to_example(&self) -> Example<'_> {
+        Example {
+            example: self.example.as_str(),
+            description: self.description.as_str(),
+            result: self.result.clone(),
+        }
+    }
+}
+
 #[derive(Clone)]
 struct BlockCommand {
     signature: Signature,
     block_id: BlockId,
+    attributes: Vec<(String, Value)>,
+    examples: Vec<CustomExample>,
 }
 
 impl Command for BlockCommand {
@@ -679,12 +735,12 @@ impl Command for BlockCommand {
         self.signature.clone()
     }
 
-    fn usage(&self) -> &str {
-        &self.signature.usage
+    fn description(&self) -> &str {
+        &self.signature.description
     }
 
-    fn extra_usage(&self) -> &str {
-        &self.signature.extra_usage
+    fn extra_description(&self) -> &str {
+        &self.signature.extra_description
     }
 
     fn run(
@@ -703,7 +759,30 @@ impl Command for BlockCommand {
         })
     }
 
-    fn get_block_id(&self) -> Option<BlockId> {
+    fn command_type(&self) -> CommandType {
+        CommandType::Custom
+    }
+
+    fn block_id(&self) -> Option<BlockId> {
         Some(self.block_id)
+    }
+
+    fn attributes(&self) -> Vec<(String, Value)> {
+        self.attributes.clone()
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        self.examples
+            .iter()
+            .map(CustomExample::to_example)
+            .collect()
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        self.signature
+            .search_terms
+            .iter()
+            .map(String::as_str)
+            .collect()
     }
 }

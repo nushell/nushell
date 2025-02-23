@@ -1,13 +1,15 @@
+use std::sync::Arc;
+
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::{into_code, Config};
+use nu_protocol::{shell_error::into_code, Config};
 use nu_utils::get_system_locale;
 use num_format::ToFormattedString;
 
 struct Arguments {
     decimals_value: Option<i64>,
     cell_paths: Option<Vec<CellPath>>,
-    config: Config,
+    config: Arc<Config>,
 }
 
 impl CmdArgument for Arguments {
@@ -36,6 +38,7 @@ impl Command for SubCommand {
                 (Type::Filesize, Type::String),
                 (Type::Date, Type::String),
                 (Type::Duration, Type::String),
+                (Type::Range, Type::String),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::String)),
@@ -58,7 +61,7 @@ impl Command for SubCommand {
             .category(Category::Conversions)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert value to string."
     }
 
@@ -125,8 +128,8 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert filesize to string",
-                example: "1KiB | into string",
-                result: Some(Value::test_string("1.0 KiB")),
+                example: "1kB | into string",
+                result: Some(Value::test_string("1.0 kB")),
             },
             Example {
                 description: "convert duration to string",
@@ -156,17 +159,31 @@ fn string_helper(
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-    if let PipelineData::ByteStream(stream, ..) = input {
-        // TODO: in the future, we may want this to stream out, converting each to bytes
-        Ok(Value::string(stream.into_string()?, head).into_pipeline_data())
+    if let PipelineData::ByteStream(stream, metadata) = input {
+        // Just set the type - that should be good enough. There is no guarantee that the data
+        // within a string stream is actually valid UTF-8. But refuse to do it if it was already set
+        // to binary
+        if stream.type_().is_string_coercible() {
+            Ok(PipelineData::ByteStream(
+                stream.with_type(ByteStreamType::String),
+                metadata,
+            ))
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: "binary".into(),
+                span: stream.span(),
+                help: Some("try using the `decode` command".into()),
+            })
+        }
     } else {
-        let config = engine_state.get_config().clone();
+        let config = stack.get_config(engine_state);
         let args = Arguments {
             decimals_value,
             cell_paths,
             config,
         };
-        operate(action, args, input, head, engine_state.ctrlc.clone())
+        operate(action, args, input, head, engine_state.signals())
     }
 }
 

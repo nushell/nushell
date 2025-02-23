@@ -6,6 +6,7 @@ use crate::{
     plugin_custom_value_with_source::WithSource, test_util::*, PluginCustomValueWithSource,
     PluginSource,
 };
+use nu_engine::command_prelude::IoError;
 use nu_plugin_core::{interface_test_util::TestCase, Interface, InterfaceManager};
 use nu_plugin_protocol::{
     test_util::{expected_test_custom_value, test_plugin_custom_value},
@@ -17,8 +18,9 @@ use nu_plugin_protocol::{
 use nu_protocol::{
     ast::{Math, Operator},
     engine::Closure,
-    CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData, PluginSignature,
-    ShellError, Span, Spanned, Value,
+    BlockId, ByteStreamType, CustomValue, DataSource, IntoInterruptiblePipelineData, IntoSpanned,
+    PipelineData, PipelineMetadata, PluginMetadata, PluginSignature, ShellError, Signals, Span,
+    Spanned, Value,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -52,11 +54,8 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
 
     // Create a stream...
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ListStream(ListStreamInfo {
-            id: 0,
-            span: Span::test_data(),
-        }),
-        None,
+        PipelineDataHeader::list_stream(ListStreamInfo::new(0, Span::test_data())),
+        &Signals::empty(),
     )?;
 
     // and an interface...
@@ -88,9 +87,12 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
 }
 
 fn test_io_error() -> ShellError {
-    ShellError::IOError {
-        msg: "test io error".into(),
-    }
+    ShellError::Io(IoError::new_with_additional_context(
+        std::io::ErrorKind::Other,
+        Span::test_data(),
+        None,
+        "test io error",
+    ))
 }
 
 fn check_test_io_error(error: &ShellError) {
@@ -108,11 +110,8 @@ fn manager_consume_all_propagates_io_error_to_readers() -> Result<(), ShellError
     test.set_read_error(test_io_error());
 
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ListStream(ListStreamInfo {
-            id: 0,
-            span: Span::test_data(),
-        }),
-        None,
+        PipelineDataHeader::list_stream(ListStreamInfo::new(0, Span::test_data())),
+        &Signals::empty(),
     )?;
 
     manager
@@ -154,11 +153,12 @@ fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), Shell
     test.add(invalid_output());
 
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ByteStream(ByteStreamInfo {
-            id: 0,
-            span: Span::test_data(),
-        }),
-        None,
+        PipelineDataHeader::byte_stream(ByteStreamInfo::new(
+            0,
+            Span::test_data(),
+            ByteStreamType::Unknown,
+        )),
+        &Signals::empty(),
     )?;
 
     manager
@@ -189,7 +189,7 @@ fn fake_plugin_call(
         PluginCallState {
             sender: Some(tx),
             dont_send_response: false,
-            ctrlc: None,
+            signals: Signals::empty(),
             context_rx: None,
             span: None,
             keep_plugin_custom_values: mpsc::channel(),
@@ -330,10 +330,10 @@ fn manager_consume_call_response_forwards_to_subscriber_with_pipeline_data(
 
     manager.consume(PluginOutput::CallResponse(
         0,
-        PluginCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo {
-            id: 0,
-            span: Span::test_data(),
-        })),
+        PluginCallResponse::PipelineData(PipelineDataHeader::list_stream(ListStreamInfo::new(
+            0,
+            Span::test_data(),
+        ))),
     ))?;
 
     for i in 0..2 {
@@ -374,17 +374,18 @@ fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
     // Check list streams, byte streams
     manager.consume(PluginOutput::CallResponse(
         0,
-        PluginCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo {
-            id: 0,
-            span: Span::test_data(),
-        })),
+        PluginCallResponse::PipelineData(PipelineDataHeader::list_stream(ListStreamInfo::new(
+            0,
+            Span::test_data(),
+        ))),
     ))?;
     manager.consume(PluginOutput::CallResponse(
         1,
-        PluginCallResponse::PipelineData(PipelineDataHeader::ByteStream(ByteStreamInfo {
-            id: 1,
-            span: Span::test_data(),
-        })),
+        PluginCallResponse::PipelineData(PipelineDataHeader::byte_stream(ByteStreamInfo::new(
+            1,
+            Span::test_data(),
+            ByteStreamType::Unknown,
+        ))),
     ))?;
 
     // ListStream should have one
@@ -434,16 +435,13 @@ fn manager_consume_engine_call_forwards_to_subscriber_with_pipeline_data() -> Re
         call: EngineCall::EvalClosure {
             closure: Spanned {
                 item: Closure {
-                    block_id: 0,
+                    block_id: BlockId::new(0),
                     captures: vec![],
                 },
                 span: Span::test_data(),
             },
             positional: vec![],
-            input: PipelineDataHeader::ListStream(ListStreamInfo {
-                id: 2,
-                span: Span::test_data(),
-            }),
+            input: PipelineDataHeader::list_stream(ListStreamInfo::new(2, Span::test_data())),
             redirect_stdout: false,
             redirect_stderr: false,
         },
@@ -491,7 +489,7 @@ fn manager_handle_engine_call_after_response_received() -> Result<(), ShellError
         PluginCallState {
             sender: None,
             dont_send_response: false,
-            ctrlc: None,
+            signals: Signals::empty(),
             context_rx: Some(context_rx),
             span: None,
             keep_plugin_custom_values: mpsc::channel(),
@@ -557,7 +555,7 @@ fn manager_send_plugin_call_response_removes_context_only_if_no_streams_to_read(
             PluginCallState {
                 sender: None,
                 dont_send_response: false,
-                ctrlc: None,
+                signals: Signals::empty(),
                 context_rx: None,
                 span: None,
                 keep_plugin_custom_values: mpsc::channel(),
@@ -593,7 +591,7 @@ fn manager_consume_stream_end_removes_context_only_if_last_stream() -> Result<()
             PluginCallState {
                 sender: None,
                 dont_send_response: false,
-                ctrlc: None,
+                signals: Signals::empty(),
                 context_rx: None,
                 span: None,
                 keep_plugin_custom_values: mpsc::channel(),
@@ -676,7 +674,7 @@ fn manager_prepare_pipeline_data_adds_source_to_list_streams() -> Result<(), She
         [Value::test_custom_value(Box::new(
             test_plugin_custom_value(),
         ))]
-        .into_pipeline_data(Span::test_data(), None),
+        .into_pipeline_data(Span::test_data(), Signals::empty()),
     )?;
 
     let value = data
@@ -804,6 +802,11 @@ fn interface_write_plugin_call_writes_run_with_value_input() -> Result<(), Shell
     let manager = test.plugin("test");
     let interface = manager.get_interface();
 
+    let metadata0 = PipelineMetadata {
+        data_source: DataSource::None,
+        content_type: Some("baz".into()),
+    };
+
     let result = interface.write_plugin_call(
         PluginCall::Run(CallInfo {
             name: "foo".into(),
@@ -812,7 +815,7 @@ fn interface_write_plugin_call_writes_run_with_value_input() -> Result<(), Shell
                 positional: vec![],
                 named: vec![],
             },
-            input: PipelineData::Value(Value::test_int(-1), None),
+            input: PipelineData::Value(Value::test_int(-1), Some(metadata0.clone())),
         }),
         None,
     )?;
@@ -824,7 +827,10 @@ fn interface_write_plugin_call_writes_run_with_value_input() -> Result<(), Shell
             PluginCall::Run(CallInfo { name, input, .. }) => {
                 assert_eq!("foo", name);
                 match input {
-                    PipelineDataHeader::Value(value) => assert_eq!(-1, value.as_int()?),
+                    PipelineDataHeader::Value(value, metadata) => {
+                        assert_eq!(-1, value.as_int()?);
+                        assert_eq!(metadata0, metadata.expect("there should be metadata"));
+                    }
                     _ => panic!("unexpected input header: {input:?}"),
                 }
             }
@@ -850,7 +856,9 @@ fn interface_write_plugin_call_writes_run_with_stream_input() -> Result<(), Shel
                 positional: vec![],
                 named: vec![],
             },
-            input: values.clone().into_pipeline_data(Span::test_data(), None),
+            input: values
+                .clone()
+                .into_pipeline_data(Span::test_data(), Signals::empty()),
         }),
         None,
     )?;
@@ -1018,6 +1026,25 @@ fn start_fake_plugin_call_responder(
 }
 
 #[test]
+fn interface_get_metadata() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.plugin("test");
+    let interface = manager.get_interface();
+
+    start_fake_plugin_call_responder(manager, 1, |_| {
+        vec![ReceivedPluginCallMessage::Response(
+            PluginCallResponse::Metadata(PluginMetadata::new().with_version("test")),
+        )]
+    });
+
+    let metadata = interface.get_metadata()?;
+
+    assert_eq!(Some("test"), metadata.version.as_deref());
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
 fn interface_get_signature() -> Result<(), ShellError> {
     let test = TestCase::new();
     let manager = test.plugin("test");
@@ -1127,7 +1154,9 @@ fn interface_prepare_pipeline_data_accepts_normal_streams() -> Result<(), ShellE
     let values = normal_values(&interface);
     let state = CurrentCallState::default();
     let data = interface.prepare_pipeline_data(
-        values.clone().into_pipeline_data(Span::test_data(), None),
+        values
+            .clone()
+            .into_pipeline_data(Span::test_data(), Signals::empty()),
         &state,
     )?;
 
@@ -1190,7 +1219,9 @@ fn interface_prepare_pipeline_data_rejects_bad_custom_value_in_a_stream() -> Res
     let values = bad_custom_values();
     let state = CurrentCallState::default();
     let data = interface.prepare_pipeline_data(
-        values.clone().into_pipeline_data(Span::test_data(), None),
+        values
+            .clone()
+            .into_pipeline_data(Span::test_data(), Signals::empty()),
         &state,
     )?;
 
@@ -1458,7 +1489,7 @@ fn prepare_plugin_call_custom_value_op() {
                     span,
                 },
                 CustomValueOp::Operation(
-                    Operator::Math(Math::Append).into_spanned(span),
+                    Operator::Math(Math::Concatenate).into_spanned(span),
                     cv_ok_val.clone(),
                 ),
             ),
@@ -1471,7 +1502,7 @@ fn prepare_plugin_call_custom_value_op() {
                     span,
                 },
                 CustomValueOp::Operation(
-                    Operator::Math(Math::Append).into_spanned(span),
+                    Operator::Math(Math::Concatenate).into_spanned(span),
                     cv_bad_val.clone(),
                 ),
             ),

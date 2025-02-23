@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::engine::Closure;
+use nu_protocol::engine::{Closure, CommandType};
 
 #[derive(Clone)]
 pub struct Where;
@@ -9,14 +9,18 @@ impl Command for Where {
         "where"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Filter values based on a row condition."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command works similar to 'filter' but allows extra shorthands for working with
 tables, known as "row conditions". On the other hand, reading the condition from a variable is
 not supported."#
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -66,7 +70,7 @@ not supported."#
                     Err(err) => Some(Value::error(err, head)),
                 }
             })
-            .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
+            .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 
     fn examples(&self) -> Vec<Example> {

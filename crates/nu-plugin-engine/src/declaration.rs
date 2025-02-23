@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_expression};
 use nu_plugin_protocol::{CallInfo, EvaluatedCall};
-use nu_protocol::{PluginIdentity, PluginSignature};
+use nu_protocol::{engine::CommandType, PluginIdentity, PluginSignature};
 use std::sync::Arc;
 
 use crate::{GetPlugin, PluginExecutionCommandContext, PluginSource};
@@ -32,12 +32,12 @@ impl Command for PluginDeclaration {
         self.signature.sig.clone()
     }
 
-    fn usage(&self) -> &str {
-        self.signature.sig.usage.as_str()
+    fn description(&self) -> &str {
+        self.signature.sig.description.as_str()
     }
 
-    fn extra_usage(&self) -> &str {
-        self.signature.sig.extra_usage.as_str()
+    fn extra_description(&self) -> &str {
+        self.signature.sig.extra_description.as_str()
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -76,7 +76,7 @@ impl Command for PluginDeclaration {
             EvaluatedCall::try_from_call(call, engine_state, stack, eval_expression)?;
 
         // Get the engine config
-        let engine_config = nu_engine::get_config(engine_state, stack);
+        let engine_config = stack.get_config(engine_state);
 
         // Get, or start, the plugin.
         let plugin = self
@@ -116,8 +116,8 @@ impl Command for PluginDeclaration {
         )
     }
 
-    fn is_plugin(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Plugin
     }
 
     fn plugin_identity(&self) -> Option<&PluginIdentity> {

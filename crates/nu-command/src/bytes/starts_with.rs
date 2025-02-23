@@ -1,5 +1,7 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
+use std::io::Read;
 
 struct Arguments {
     pattern: Vec<u8>,
@@ -38,7 +40,7 @@ impl Command for BytesStartsWith {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Check if bytes starts with a pattern."
     }
 
@@ -53,20 +55,33 @@ impl Command for BytesStartsWith {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let pattern: Vec<u8> = call.req(engine_state, stack, 0)?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let arg = Arguments {
-            pattern,
-            cell_paths,
-        };
-        operate(
-            starts_with,
-            arg,
-            input,
-            call.head,
-            engine_state.ctrlc.clone(),
-        )
+
+        if let PipelineData::ByteStream(stream, ..) = input {
+            let span = stream.span();
+            if pattern.is_empty() {
+                return Ok(Value::bool(true, head).into_pipeline_data());
+            }
+            let Some(reader) = stream.reader() else {
+                return Ok(Value::bool(false, head).into_pipeline_data());
+            };
+            let mut start = Vec::with_capacity(pattern.len());
+            reader
+                .take(pattern.len() as u64)
+                .read_to_end(&mut start)
+                .map_err(|err| IoError::new(err.kind(), span, None))?;
+
+            Ok(Value::bool(start == pattern, head).into_pipeline_data())
+        } else {
+            let arg = Arguments {
+                pattern,
+                cell_paths,
+            };
+            operate(starts_with, arg, input, head, engine_state.signals())
+        }
     }
 
     fn examples(&self) -> Vec<Example> {

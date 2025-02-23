@@ -1,28 +1,66 @@
-use log::info;
+#[cfg(windows)]
+use crossterm_winapi::{ConsoleMode, Handle};
 use lscolors::LsColors;
-use std::io::{Result, Write};
+use std::io::{self, Result, Write};
 
 pub fn enable_vt_processing() -> Result<()> {
     #[cfg(windows)]
     {
-        use crossterm_winapi::{ConsoleMode, Handle};
+        let console_out_mode = ConsoleMode::from(Handle::current_out_handle()?);
+        let old_out_mode = console_out_mode.mode()?;
+        let console_in_mode = ConsoleMode::from(Handle::current_in_handle()?);
+        let old_in_mode = console_in_mode.mode()?;
 
-        pub const ENABLE_PROCESSED_OUTPUT: u32 = 0x0001;
-        pub const ENABLE_VIRTUAL_TERMINAL_PROCESSING: u32 = 0x0004;
-        let mask = ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-
-        let console_mode = ConsoleMode::from(Handle::current_out_handle()?);
-        let old_mode = console_mode.mode()?;
-
-        // researching odd ansi behavior in windows terminal repo revealed that
-        // enable_processed_output and enable_virtual_terminal_processing should be used
-
-        if old_mode & mask == 0 {
-            console_mode
-                .set_mode(old_mode | ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING)?
-        }
+        enable_vt_processing_input(console_in_mode, old_in_mode)?;
+        enable_vt_processing_output(console_out_mode, old_out_mode)?;
     }
     Ok(())
+}
+
+#[cfg(windows)]
+fn enable_vt_processing_input(console_in_mode: ConsoleMode, mode: u32) -> Result<()> {
+    //
+    // Input Mode flags:
+    //
+    // #define ENABLE_PROCESSED_INPUT              0x0001
+    // #define ENABLE_LINE_INPUT                   0x0002
+    // #define ENABLE_ECHO_INPUT                   0x0004
+    // #define ENABLE_WINDOW_INPUT                 0x0008
+    // #define ENABLE_MOUSE_INPUT                  0x0010
+    // #define ENABLE_INSERT_MODE                  0x0020
+    // #define ENABLE_QUICK_EDIT_MODE              0x0040
+    // #define ENABLE_EXTENDED_FLAGS               0x0080
+    // #define ENABLE_AUTO_POSITION                0x0100
+    // #define ENABLE_VIRTUAL_TERMINAL_INPUT       0x0200
+
+    const ENABLE_PROCESSED_INPUT: u32 = 0x0001;
+    const ENABLE_LINE_INPUT: u32 = 0x0002;
+    const ENABLE_ECHO_INPUT: u32 = 0x0004;
+    const ENABLE_VIRTUAL_TERMINAL_INPUT: u32 = 0x0200;
+
+    console_in_mode.set_mode(
+        mode | ENABLE_VIRTUAL_TERMINAL_INPUT
+            & ENABLE_ECHO_INPUT
+            & ENABLE_LINE_INPUT
+            & ENABLE_PROCESSED_INPUT,
+    )
+}
+
+#[cfg(windows)]
+fn enable_vt_processing_output(console_out_mode: ConsoleMode, mode: u32) -> Result<()> {
+    //
+    // Output Mode flags:
+    //
+    // #define ENABLE_PROCESSED_OUTPUT             0x0001
+    // #define ENABLE_WRAP_AT_EOL_OUTPUT           0x0002
+    // #define ENABLE_VIRTUAL_TERMINAL_PROCESSING  0x0004
+    // #define DISABLE_NEWLINE_AUTO_RETURN         0x0008
+    // #define ENABLE_LVB_GRID_WORLDWIDE           0x0010
+
+    pub const ENABLE_PROCESSED_OUTPUT: u32 = 0x0001;
+    pub const ENABLE_VIRTUAL_TERMINAL_PROCESSING: u32 = 0x0004;
+
+    console_out_mode.set_mode(mode | ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING)
 }
 
 pub fn stdout_write_all_and_flush<T>(output: T) -> Result<()>
@@ -47,12 +85,29 @@ where
     ret
 }
 
+// See default_files/README.md for a description of these files
 pub fn get_default_env() -> &'static str {
-    include_str!("sample_config/default_env.nu")
+    include_str!("default_files/default_env.nu")
+}
+
+pub fn get_scaffold_env() -> &'static str {
+    include_str!("default_files/scaffold_env.nu")
+}
+
+pub fn get_doc_env() -> &'static str {
+    include_str!("default_files/doc_env.nu")
 }
 
 pub fn get_default_config() -> &'static str {
-    include_str!("sample_config/default_config.nu")
+    include_str!("default_files/default_config.nu")
+}
+
+pub fn get_scaffold_config() -> &'static str {
+    include_str!("default_files/scaffold_config.nu")
+}
+
+pub fn get_doc_config() -> &'static str {
+    include_str!("default_files/doc_config.nu")
 }
 
 pub fn get_ls_colors(lscolors_env_string: Option<String>) -> LsColors {
@@ -117,6 +172,8 @@ pub fn get_ls_colors(lscolors_env_string: Option<String>) -> LsColors {
                 "*.rb=0;38;5;48",
                 "*.md=0;38;5;185",
                 "*.js=0;38;5;48",
+                "*.cjs=0;38;5;48",
+                "*.mjs=0;38;5;48",
                 "*.go=0;38;5;48",
                 "*.vb=0;38;5;48",
                 "*.hi=0;38;5;243",
@@ -393,31 +450,41 @@ pub fn get_ls_colors(lscolors_env_string: Option<String>) -> LsColors {
 }
 
 // Log some performance metrics (green text with yellow timings)
-pub fn perf(
-    msg: &str,
-    dur: std::time::Instant,
-    file: &str,
-    line: u32,
-    column: u32,
-    use_color: bool,
-) {
-    if use_color {
-        info!(
-            "perf: {}:{}:{} \x1b[32m{}\x1b[0m took \x1b[33m{:?}\x1b[0m",
-            file,
-            line,
-            column,
-            msg,
-            dur.elapsed(),
-        );
-    } else {
-        info!(
-            "perf: {}:{}:{} {} took {:?}",
-            file,
-            line,
-            column,
-            msg,
-            dur.elapsed(),
-        );
-    }
+#[macro_export]
+macro_rules! perf {
+    ($msg:expr, $dur:expr, $use_color:expr) => {
+        if $use_color {
+            log::info!(
+                "perf: {}:{}:{} \x1b[32m{}\x1b[0m took \x1b[33m{:?}\x1b[0m",
+                file!(),
+                line!(),
+                column!(),
+                $msg,
+                $dur.elapsed(),
+            );
+        } else {
+            log::info!(
+                "perf: {}:{}:{} {} took {:?}",
+                file!(),
+                line!(),
+                column!(),
+                $msg,
+                $dur.elapsed(),
+            );
+        }
+    };
+}
+
+/// Returns the terminal size (columns, rows).
+///
+/// This utility variant allows getting a fallback value when compiling for wasm32 without having
+/// to rearrange other bits of the codebase.
+///
+/// See [`crossterm::terminal::size`].
+pub fn terminal_size() -> io::Result<(u16, u16)> {
+    #[cfg(feature = "os")]
+    return crossterm::terminal::size();
+
+    #[cfg(not(feature = "os"))]
+    return Err(io::Error::from(io::ErrorKind::Unsupported));
 }

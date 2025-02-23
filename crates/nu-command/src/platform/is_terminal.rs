@@ -18,7 +18,7 @@ impl Command for IsTerminal {
             .category(Category::Platform)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Check if stdin, stdout, or stderr is a terminal."
     }
 
@@ -58,7 +58,7 @@ impl Command for IsTerminal {
             _ => {
                 return Err(ShellError::IncompatibleParametersSingle {
                     msg: "Only one stream may be checked".into(),
-                    span: Span::merge_many(call.arguments.iter().map(|arg| arg.span())),
+                    span: call.arguments_span(),
                 });
             }
         };

@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct Return;
@@ -8,8 +9,8 @@ impl Command for Return {
         "return"
     }
 
-    fn usage(&self) -> &str {
-        "Return early from a function."
+    fn description(&self) -> &str {
+        "Return early from a custom command."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -23,13 +24,13 @@ impl Command for Return {
             .category(Category::Core)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(

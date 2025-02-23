@@ -15,7 +15,7 @@ impl Command for Sleep {
         "sleep"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Delay for a specified amount of time."
     }
 
@@ -56,12 +56,7 @@ impl Command for Sleep {
                 break;
             }
             thread::sleep(CTRL_C_CHECK_INTERVAL.min(time_until_deadline));
-            // exit early if Ctrl+C was pressed
-            if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-                return Err(ShellError::InterruptedByUser {
-                    span: Some(call.head),
-                });
-            }
+            engine_state.signals().check(call.head)?;
         }
 
         Ok(Value::nothing(call.head).into_pipeline_data())
@@ -75,8 +70,8 @@ impl Command for Sleep {
                 result: Some(Value::nothing(Span::test_data())),
             },
             Example {
-                description: "Sleep for 3sec",
-                example: "sleep 1sec 1sec 1sec",
+                description: "Use multiple arguments to write a duration with multiple units, which is unsupported by duration literals",
+                example: "sleep 1min 30sec",
                 result: None,
             },
             Example {

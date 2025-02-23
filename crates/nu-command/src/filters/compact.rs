@@ -27,7 +27,7 @@ impl Command for Compact {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates a table with non-empty rows."
     }
 
@@ -140,7 +140,7 @@ pub fn compact(
                     _ => true,
                 }
             },
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
         .map(|m| m.set_metadata(metadata))
 }

@@ -1,10 +1,11 @@
 use crate::{
     engine::{
-        EngineState, Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackOutDest,
-        DEFAULT_OVERLAY_NAME,
+        ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
+        StackCollectValueGuard, StackIoGuard, StackOutDest, DEFAULT_OVERLAY_NAME,
     },
-    OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
+    Config, IntoValue, OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
+use nu_utils::IgnoreCaseExt;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
@@ -36,15 +37,21 @@ pub struct Stack {
     /// Variables
     pub vars: Vec<(VarId, Value)>,
     /// Environment variables arranged as a stack to be able to recover values from parent scopes
-    pub env_vars: Vec<EnvVars>,
+    pub env_vars: Vec<Arc<EnvVars>>,
     /// Tells which environment variables from engine state are hidden, per overlay.
-    pub env_hidden: HashMap<String, HashSet<String>>,
+    pub env_hidden: Arc<HashMap<String, HashSet<String>>>,
     /// List of active overlays
     pub active_overlays: Vec<String>,
+    /// Argument stack for IR evaluation
+    pub arguments: ArgumentStack,
+    /// Error handler stack for IR evaluation
+    pub error_handlers: ErrorHandlerStack,
     pub recursion_count: u64,
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
     pub parent_deletions: Vec<VarId>,
+    /// Locally updated config. Use [`.get_config()`](Self::get_config) to access correctly.
+    pub config: Option<Arc<Config>>,
     pub(crate) out_dest: StackOutDest,
 }
 
@@ -60,17 +67,20 @@ impl Stack {
     /// stdout and stderr will be set to [`OutDest::Inherit`]. So, if the last command is an external command,
     /// then its output will be forwarded to the terminal/stdio streams.
     ///
-    /// Use [`Stack::capture`] afterwards if you need to evaluate an expression to a [`Value`](crate::Value)
+    /// Use [`Stack::collect_value`] afterwards if you need to evaluate an expression to a [`Value`]
     /// (as opposed to a [`PipelineData`](crate::PipelineData)).
     pub fn new() -> Self {
         Self {
             vars: Vec::new(),
             env_vars: Vec::new(),
-            env_hidden: HashMap::new(),
+            env_hidden: Arc::new(HashMap::new()),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
+            arguments: ArgumentStack::new(),
+            error_handlers: ErrorHandlerStack::new(),
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
+            config: None,
             out_dest: StackOutDest::new(),
         }
     }
@@ -85,9 +95,12 @@ impl Stack {
             env_vars: parent.env_vars.clone(),
             env_hidden: parent.env_hidden.clone(),
             active_overlays: parent.active_overlays.clone(),
+            arguments: ArgumentStack::new(),
+            error_handlers: ErrorHandlerStack::new(),
             recursion_count: parent.recursion_count,
             vars: vec![],
             parent_deletions: vec![],
+            config: parent.config.clone(),
             out_dest: parent.out_dest.clone(),
             parent_stack: Some(parent),
         }
@@ -114,13 +127,14 @@ impl Stack {
         unique_stack.env_vars = child.env_vars;
         unique_stack.env_hidden = child.env_hidden;
         unique_stack.active_overlays = child.active_overlays;
+        unique_stack.config = child.config;
         unique_stack
     }
 
     pub fn with_env(
         &mut self,
-        env_vars: &[EnvVars],
-        env_hidden: &HashMap<String, HashSet<String>>,
+        env_vars: &[Arc<EnvVars>],
+        env_hidden: &Arc<HashMap<String, HashSet<String>>>,
     ) {
         // Do not clone the environment if it hasn't changed
         if self.env_vars.iter().any(|scope| !scope.is_empty()) {
@@ -180,6 +194,37 @@ impl Stack {
         }
     }
 
+    /// Get the local config if set, otherwise the config from the engine state.
+    ///
+    /// This is the canonical way to get [`Config`] when [`Stack`] is available.
+    pub fn get_config(&self, engine_state: &EngineState) -> Arc<Config> {
+        self.config
+            .clone()
+            .unwrap_or_else(|| engine_state.config.clone())
+    }
+
+    /// Update the local config with the config stored in the `config` environment variable. Run
+    /// this after assigning to `$env.config`.
+    ///
+    /// The config will be updated with successfully parsed values even if an error occurs.
+    pub fn update_config(&mut self, engine_state: &EngineState) -> Result<(), ShellError> {
+        if let Some(value) = self.get_env_var(engine_state, "config") {
+            let old = self.get_config(engine_state);
+            let mut config = (*old).clone();
+            let error = config.update_from_value(&old, value);
+            // The config value is modified by the update, so we should add it again
+            self.add_env_var("config".into(), config.clone().into_value(value.span()));
+            self.config = Some(config.into());
+            match error {
+                None => Ok(()),
+                Some(err) => Err(err),
+            }
+        } else {
+            self.config = None;
+            Ok(())
+        }
+    }
+
     pub fn add_var(&mut self, var_id: VarId, value: Value) {
         //self.vars.insert(var_id, value);
         for (id, val) in &mut self.vars {
@@ -207,27 +252,40 @@ impl Stack {
 
     pub fn add_env_var(&mut self, var: String, value: Value) {
         if let Some(last_overlay) = self.active_overlays.last() {
-            if let Some(env_hidden) = self.env_hidden.get_mut(last_overlay) {
+            if let Some(env_hidden) = Arc::make_mut(&mut self.env_hidden).get_mut(last_overlay) {
                 // if the env var was hidden, let's activate it again
                 env_hidden.remove(&var);
             }
 
             if let Some(scope) = self.env_vars.last_mut() {
+                let scope = Arc::make_mut(scope);
                 if let Some(env_vars) = scope.get_mut(last_overlay) {
                     env_vars.insert(var, value);
                 } else {
                     scope.insert(last_overlay.into(), [(var, value)].into_iter().collect());
                 }
             } else {
-                self.env_vars.push(
+                self.env_vars.push(Arc::new(
                     [(last_overlay.into(), [(var, value)].into_iter().collect())]
                         .into_iter()
                         .collect(),
-                );
+                ));
             }
         } else {
             // TODO: Remove panic
             panic!("internal error: no active overlay");
+        }
+    }
+
+    pub fn set_last_exit_code(&mut self, code: i32, span: Span) {
+        self.add_env_var("LAST_EXIT_CODE".into(), Value::int(code.into(), span));
+    }
+
+    pub fn set_last_error(&mut self, error: &ShellError) {
+        if let Some(code) = error.external_exit_code() {
+            self.set_last_exit_code(code.item, code.span);
+        } else if let Some(code) = error.exit_code() {
+            self.set_last_exit_code(code, Span::unknown());
         }
     }
 
@@ -241,28 +299,31 @@ impl Stack {
     }
 
     pub fn captures_to_stack(&self, captures: Vec<(VarId, Value)>) -> Stack {
-        self.captures_to_stack_preserve_out_dest(captures).capture()
+        self.captures_to_stack_preserve_out_dest(captures)
+            .collect_value()
     }
 
     pub fn captures_to_stack_preserve_out_dest(&self, captures: Vec<(VarId, Value)>) -> Stack {
-        // FIXME: this is probably slow
         let mut env_vars = self.env_vars.clone();
-        env_vars.push(HashMap::new());
+        env_vars.push(Arc::new(HashMap::new()));
 
         Stack {
             vars: captures,
             env_vars,
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
+            arguments: ArgumentStack::new(),
+            error_handlers: ErrorHandlerStack::new(),
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
+            config: self.config.clone(),
             out_dest: self.out_dest.clone(),
         }
     }
 
     pub fn gather_captures(&self, engine_state: &EngineState, captures: &[VarId]) -> Stack {
-        let mut vars = vec![];
+        let mut vars = Vec::with_capacity(captures.len());
 
         let fake_span = Span::new(0, 0);
 
@@ -277,16 +338,19 @@ impl Stack {
         }
 
         let mut env_vars = self.env_vars.clone();
-        env_vars.push(HashMap::new());
+        env_vars.push(Arc::new(HashMap::new()));
 
         Stack {
             vars,
             env_vars,
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
+            arguments: ArgumentStack::new(),
+            error_handlers: ErrorHandlerStack::new(),
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
+            config: self.config.clone(),
             out_dest: self.out_dest.clone(),
         }
     }
@@ -383,12 +447,16 @@ impl Stack {
         result
     }
 
-    pub fn get_env_var(&self, engine_state: &EngineState, name: &str) -> Option<Value> {
+    pub fn get_env_var<'a>(
+        &'a self,
+        engine_state: &'a EngineState,
+        name: &str,
+    ) -> Option<&'a Value> {
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get(active_overlay) {
                     if let Some(v) = env_vars.get(name) {
-                        return Some(v.clone());
+                        return Some(v);
                     }
                 }
             }
@@ -404,7 +472,45 @@ impl Stack {
             if !is_hidden {
                 if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
                     if let Some(v) = env_vars.get(name) {
-                        return Some(v.clone());
+                        return Some(v);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    // Case-Insensitive version of get_env_var
+    // Returns Some((name, value)) if found, None otherwise.
+    // When updating environment variables, make sure to use
+    // the same case (from the returned "name") as the original
+    // environment variable name.
+    pub fn get_env_var_insensitive<'a>(
+        &'a self,
+        engine_state: &'a EngineState,
+        name: &str,
+    ) -> Option<(&'a String, &'a Value)> {
+        for scope in self.env_vars.iter().rev() {
+            for active_overlay in self.active_overlays.iter().rev() {
+                if let Some(env_vars) = scope.get(active_overlay) {
+                    if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
+                        return Some((v.0, v.1));
+                    }
+                }
+            }
+        }
+
+        for active_overlay in self.active_overlays.iter().rev() {
+            let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
+                env_hidden.iter().any(|k| k.eq_ignore_case(name))
+            } else {
+                false
+            };
+
+            if !is_hidden {
+                if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
+                    if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
+                        return Some((v.0, v.1));
                     }
                 }
             }
@@ -444,6 +550,7 @@ impl Stack {
 
     pub fn remove_env_var(&mut self, engine_state: &EngineState, name: &str) -> bool {
         for scope in self.env_vars.iter_mut().rev() {
+            let scope = Arc::make_mut(scope);
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get_mut(active_overlay) {
                     if env_vars.remove(name).is_some() {
@@ -456,10 +563,11 @@ impl Stack {
         for active_overlay in self.active_overlays.iter().rev() {
             if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
                 if env_vars.get(name).is_some() {
-                    if let Some(env_hidden) = self.env_hidden.get_mut(active_overlay) {
-                        env_hidden.insert(name.into());
+                    let env_hidden = Arc::make_mut(&mut self.env_hidden);
+                    if let Some(env_hidden_in_overlay) = env_hidden.get_mut(active_overlay) {
+                        env_hidden_in_overlay.insert(name.into());
                     } else {
-                        self.env_hidden
+                        env_hidden
                             .insert(active_overlay.into(), [name.into()].into_iter().collect());
                     }
 
@@ -522,11 +630,11 @@ impl Stack {
         self.out_dest.pipe_stderr.as_ref()
     }
 
-    /// Temporarily set the pipe stdout redirection to [`OutDest::Capture`].
+    /// Temporarily set the pipe stdout redirection to [`OutDest::Value`].
     ///
     /// This is used before evaluating an expression into a `Value`.
-    pub fn start_capture(&mut self) -> StackCaptureGuard {
-        StackCaptureGuard::new(self)
+    pub fn start_collect_value(&mut self) -> StackCollectValueGuard {
+        StackCollectValueGuard::new(self)
     }
 
     /// Temporarily use the output redirections in the parent scope.
@@ -545,14 +653,14 @@ impl Stack {
         StackIoGuard::new(self, stdout, stderr)
     }
 
-    /// Mark stdout for the last command as [`OutDest::Capture`].
+    /// Mark stdout for the last command as [`OutDest::Value`].
     ///
     /// This will irreversibly alter the output redirections, and so it only makes sense to use this on an owned `Stack`
     /// (which is why this function does not take `&mut self`).
     ///
-    /// See [`Stack::start_capture`] which can temporarily set stdout as [`OutDest::Capture`] for a mutable `Stack` reference.
-    pub fn capture(mut self) -> Self {
-        self.out_dest.pipe_stdout = Some(OutDest::Capture);
+    /// See [`Stack::start_collect_value`] which can temporarily set stdout as [`OutDest::Value`] for a mutable `Stack` reference.
+    pub fn collect_value(mut self) -> Self {
+        self.out_dest.pipe_stdout = Some(OutDest::Value);
         self.out_dest.pipe_stderr = None;
         self
     }
@@ -666,102 +774,119 @@ impl Stack {
 mod test {
     use std::sync::Arc;
 
-    use crate::{engine::EngineState, Span, Value};
+    use crate::{engine::EngineState, Span, Value, VarId};
 
     use super::Stack;
-
-    const ZERO_SPAN: Span = Span { start: 0, end: 0 };
-    fn string_value(s: &str) -> Value {
-        Value::String {
-            val: s.to_string(),
-            internal_span: ZERO_SPAN,
-        }
-    }
 
     #[test]
     fn test_children_see_inner_values() {
         let mut original = Stack::new();
-        original.add_var(0, string_value("hello"));
+        original.add_var(VarId::new(0), Value::test_string("hello"));
 
         let cloned = Stack::with_parent(Arc::new(original));
-        assert_eq!(cloned.get_var(0, ZERO_SPAN), Ok(string_value("hello")));
+        assert_eq!(
+            cloned.get_var(VarId::new(0), Span::test_data()),
+            Ok(Value::test_string("hello"))
+        );
     }
 
     #[test]
     fn test_children_dont_see_deleted_values() {
         let mut original = Stack::new();
-        original.add_var(0, string_value("hello"));
+        original.add_var(VarId::new(0), Value::test_string("hello"));
 
         let mut cloned = Stack::with_parent(Arc::new(original));
-        cloned.remove_var(0);
+        cloned.remove_var(VarId::new(0));
 
         assert_eq!(
-            cloned.get_var(0, ZERO_SPAN),
-            Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
+            cloned.get_var(VarId::new(0), Span::test_data()),
+            Err(crate::ShellError::VariableNotFoundAtRuntime {
+                span: Span::test_data()
+            })
         );
     }
 
     #[test]
     fn test_children_changes_override_parent() {
         let mut original = Stack::new();
-        original.add_var(0, string_value("hello"));
+        original.add_var(VarId::new(0), Value::test_string("hello"));
 
         let mut cloned = Stack::with_parent(Arc::new(original));
-        cloned.add_var(0, string_value("there"));
-        assert_eq!(cloned.get_var(0, ZERO_SPAN), Ok(string_value("there")));
+        cloned.add_var(VarId::new(0), Value::test_string("there"));
+        assert_eq!(
+            cloned.get_var(VarId::new(0), Span::test_data()),
+            Ok(Value::test_string("there"))
+        );
 
-        cloned.remove_var(0);
+        cloned.remove_var(VarId::new(0));
         // the underlying value shouldn't magically re-appear
         assert_eq!(
-            cloned.get_var(0, ZERO_SPAN),
-            Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
+            cloned.get_var(VarId::new(0), Span::test_data()),
+            Err(crate::ShellError::VariableNotFoundAtRuntime {
+                span: Span::test_data()
+            })
         );
     }
     #[test]
     fn test_children_changes_persist_in_offspring() {
         let mut original = Stack::new();
-        original.add_var(0, string_value("hello"));
+        original.add_var(VarId::new(0), Value::test_string("hello"));
 
         let mut cloned = Stack::with_parent(Arc::new(original));
-        cloned.add_var(1, string_value("there"));
+        cloned.add_var(VarId::new(1), Value::test_string("there"));
 
-        cloned.remove_var(0);
+        cloned.remove_var(VarId::new(0));
         let cloned = Stack::with_parent(Arc::new(cloned));
 
         assert_eq!(
-            cloned.get_var(0, ZERO_SPAN),
-            Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
+            cloned.get_var(VarId::new(0), Span::test_data()),
+            Err(crate::ShellError::VariableNotFoundAtRuntime {
+                span: Span::test_data()
+            })
         );
 
-        assert_eq!(cloned.get_var(1, ZERO_SPAN), Ok(string_value("there")));
+        assert_eq!(
+            cloned.get_var(VarId::new(1), Span::test_data()),
+            Ok(Value::test_string("there"))
+        );
     }
 
     #[test]
     fn test_merging_children_back_to_parent() {
         let mut original = Stack::new();
         let engine_state = EngineState::new();
-        original.add_var(0, string_value("hello"));
+        original.add_var(VarId::new(0), Value::test_string("hello"));
 
         let original_arc = Arc::new(original);
         let mut cloned = Stack::with_parent(original_arc.clone());
-        cloned.add_var(1, string_value("there"));
+        cloned.add_var(VarId::new(1), Value::test_string("there"));
 
-        cloned.remove_var(0);
+        cloned.remove_var(VarId::new(0));
 
-        cloned.add_env_var("ADDED_IN_CHILD".to_string(), string_value("New Env Var"));
+        cloned.add_env_var(
+            "ADDED_IN_CHILD".to_string(),
+            Value::test_string("New Env Var"),
+        );
 
         let original = Stack::with_changes_from_child(original_arc, cloned);
 
         assert_eq!(
-            original.get_var(0, ZERO_SPAN),
-            Err(crate::ShellError::VariableNotFoundAtRuntime { span: ZERO_SPAN })
+            original.get_var(VarId::new(0), Span::test_data()),
+            Err(crate::ShellError::VariableNotFoundAtRuntime {
+                span: Span::test_data()
+            })
         );
 
-        assert_eq!(original.get_var(1, ZERO_SPAN), Ok(string_value("there")));
+        assert_eq!(
+            original.get_var(VarId::new(1), Span::test_data()),
+            Ok(Value::test_string("there"))
+        );
 
         assert_eq!(
-            original.get_env_var(&engine_state, "ADDED_IN_CHILD"),
-            Some(string_value("New Env Var")),
+            original
+                .get_env_var(&engine_state, "ADDED_IN_CHILD")
+                .cloned(),
+            Some(Value::test_string("New Env Var")),
         );
     }
 }

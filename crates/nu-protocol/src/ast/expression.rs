@@ -1,65 +1,38 @@
 use crate::{
     ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchPattern, RecordItem},
     engine::StateWorkingSet,
-    BlockId, DeclId, Signature, Span, Type, VarId, IN_VARIABLE_ID,
+    BlockId, DeclId, GetSpan, Signature, Span, SpanId, Type, VarId, IN_VARIABLE_ID,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+use super::ListItem;
+
+/// Wrapper around [`Expr`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Expression {
     pub expr: Expr,
     pub span: Span,
+    pub span_id: SpanId,
     pub ty: Type,
     pub custom_completion: Option<DeclId>,
 }
 
 impl Expression {
-    pub fn garbage(span: Span) -> Expression {
+    pub fn garbage(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+        let span_id = working_set.add_span(span);
         Expression {
             expr: Expr::Garbage,
             span,
+            span_id,
             ty: Type::Any,
             custom_completion: None,
         }
     }
 
-    pub fn precedence(&self) -> usize {
+    pub fn precedence(&self) -> u8 {
         match &self.expr {
-            Expr::Operator(operator) => {
-                use super::operator::*;
-                // Higher precedence binds tighter
-
-                match operator {
-                    Operator::Math(Math::Pow) => 100,
-                    Operator::Math(Math::Multiply)
-                    | Operator::Math(Math::Divide)
-                    | Operator::Math(Math::Modulo)
-                    | Operator::Math(Math::FloorDivision) => 95,
-                    Operator::Math(Math::Plus) | Operator::Math(Math::Minus) => 90,
-                    Operator::Bits(Bits::ShiftLeft) | Operator::Bits(Bits::ShiftRight) => 85,
-                    Operator::Comparison(Comparison::NotRegexMatch)
-                    | Operator::Comparison(Comparison::RegexMatch)
-                    | Operator::Comparison(Comparison::StartsWith)
-                    | Operator::Comparison(Comparison::EndsWith)
-                    | Operator::Comparison(Comparison::LessThan)
-                    | Operator::Comparison(Comparison::LessThanOrEqual)
-                    | Operator::Comparison(Comparison::GreaterThan)
-                    | Operator::Comparison(Comparison::GreaterThanOrEqual)
-                    | Operator::Comparison(Comparison::Equal)
-                    | Operator::Comparison(Comparison::NotEqual)
-                    | Operator::Comparison(Comparison::In)
-                    | Operator::Comparison(Comparison::NotIn)
-                    | Operator::Math(Math::Append) => 80,
-                    Operator::Bits(Bits::BitAnd) => 75,
-                    Operator::Bits(Bits::BitXor) => 70,
-                    Operator::Bits(Bits::BitOr) => 60,
-                    Operator::Boolean(Boolean::And) => 50,
-                    Operator::Boolean(Boolean::Xor) => 45,
-                    Operator::Boolean(Boolean::Or) => 40,
-                    Operator::Assignment(_) => 10,
-                }
-            }
+            Expr::Operator(operator) => operator.precedence(),
             _ => 0,
         }
     }
@@ -131,41 +104,19 @@ impl Expression {
 
     pub fn has_in_variable(&self, working_set: &StateWorkingSet) -> bool {
         match &self.expr {
+            Expr::AttributeBlock(ab) => ab.item.has_in_variable(working_set),
             Expr::BinaryOp(left, _, right) => {
                 left.has_in_variable(working_set) || right.has_in_variable(working_set)
             }
             Expr::UnaryNot(expr) => expr.has_in_variable(working_set),
-            Expr::Block(block_id) => {
+            Expr::Block(block_id) | Expr::Closure(block_id) => {
                 let block = working_set.get_block(*block_id);
-
-                if block.captures.contains(&IN_VARIABLE_ID) {
-                    return true;
-                }
-
-                if let Some(pipeline) = block.pipelines.first() {
-                    match pipeline.elements.first() {
-                        Some(element) => element.has_in_variable(working_set),
-                        None => false,
-                    }
-                } else {
-                    false
-                }
-            }
-            Expr::Closure(block_id) => {
-                let block = working_set.get_block(*block_id);
-
-                if block.captures.contains(&IN_VARIABLE_ID) {
-                    return true;
-                }
-
-                if let Some(pipeline) = block.pipelines.first() {
-                    match pipeline.elements.first() {
-                        Some(element) => element.has_in_variable(working_set),
-                        None => false,
-                    }
-                } else {
-                    false
-                }
+                block.captures.contains(&IN_VARIABLE_ID)
+                    || block
+                        .pipelines
+                        .iter()
+                        .flat_map(|pipeline| pipeline.elements.first())
+                        .any(|element| element.has_in_variable(working_set))
             }
             Expr::Binary(_) => false,
             Expr::Bool(_) => false,
@@ -229,7 +180,7 @@ impl Expression {
                 }
                 false
             }
-            Expr::StringInterpolation(items) => {
+            Expr::StringInterpolation(items) | Expr::GlobInterpolation(items, _) => {
                 for i in items {
                     if i.has_in_variable(working_set) {
                         return true;
@@ -280,6 +231,9 @@ impl Expression {
             Expr::Signature(_) => false,
             Expr::String(_) => false,
             Expr::RawString(_) => false,
+            // A `$in` variable found within a `Collect` is local, as it's already been wrapped
+            // This is probably unlikely to happen anyway - the expressions are wrapped depth-first
+            Expr::Collect(_, _) => false,
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 
@@ -327,6 +281,7 @@ impl Expression {
             self.span = new_span;
         }
         match &mut self.expr {
+            Expr::AttributeBlock(ab) => ab.item.replace_span(working_set, replaced, new_span),
             Expr::BinaryOp(left, _, right) => {
                 left.replace_span(working_set, replaced, new_span);
                 right.replace_span(working_set, replaced, new_span);
@@ -438,11 +393,12 @@ impl Expression {
             Expr::Signature(_) => {}
             Expr::String(_) => {}
             Expr::RawString(_) => {}
-            Expr::StringInterpolation(items) => {
+            Expr::StringInterpolation(items) | Expr::GlobInterpolation(items, _) => {
                 for i in items {
                     i.replace_span(working_set, replaced, new_span)
                 }
             }
+            Expr::Collect(_, expr) => expr.replace_span(working_set, replaced, new_span),
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let mut block = (**working_set.get_block(*block_id)).clone();
 
@@ -470,5 +426,184 @@ impl Expression {
             Expr::Var(_) => {}
             Expr::VarDecl(_) => {}
         }
+    }
+
+    pub fn replace_in_variable(&mut self, working_set: &mut StateWorkingSet, new_var_id: VarId) {
+        match &mut self.expr {
+            Expr::AttributeBlock(ab) => ab.item.replace_in_variable(working_set, new_var_id),
+            Expr::Bool(_) => {}
+            Expr::Int(_) => {}
+            Expr::Float(_) => {}
+            Expr::Binary(_) => {}
+            Expr::Range(range) => {
+                if let Some(from) = &mut range.from {
+                    from.replace_in_variable(working_set, new_var_id);
+                }
+                if let Some(next) = &mut range.next {
+                    next.replace_in_variable(working_set, new_var_id);
+                }
+                if let Some(to) = &mut range.to {
+                    to.replace_in_variable(working_set, new_var_id);
+                }
+            }
+            Expr::Var(var_id) | Expr::VarDecl(var_id) => {
+                if *var_id == IN_VARIABLE_ID {
+                    *var_id = new_var_id;
+                }
+            }
+            Expr::Call(call) => {
+                for arg in call.arguments.iter_mut() {
+                    match arg {
+                        Argument::Positional(expr)
+                        | Argument::Unknown(expr)
+                        | Argument::Named((_, _, Some(expr)))
+                        | Argument::Spread(expr) => {
+                            expr.replace_in_variable(working_set, new_var_id)
+                        }
+                        Argument::Named((_, _, None)) => {}
+                    }
+                }
+                for expr in call.parser_info.values_mut() {
+                    expr.replace_in_variable(working_set, new_var_id)
+                }
+            }
+            Expr::ExternalCall(head, args) => {
+                head.replace_in_variable(working_set, new_var_id);
+                for arg in args.iter_mut() {
+                    match arg {
+                        ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) => {
+                            expr.replace_in_variable(working_set, new_var_id)
+                        }
+                    }
+                }
+            }
+            Expr::Operator(_) => {}
+            // `$in` in `Collect` has already been handled, so we don't need to check further
+            Expr::Collect(_, _) => {}
+            Expr::Block(block_id)
+            | Expr::Closure(block_id)
+            | Expr::RowCondition(block_id)
+            | Expr::Subexpression(block_id) => {
+                let mut block = Block::clone(working_set.get_block(*block_id));
+                block.replace_in_variable(working_set, new_var_id);
+                *working_set.get_block_mut(*block_id) = block;
+            }
+            Expr::UnaryNot(expr) => {
+                expr.replace_in_variable(working_set, new_var_id);
+            }
+            Expr::BinaryOp(lhs, op, rhs) => {
+                for expr in [lhs, op, rhs] {
+                    expr.replace_in_variable(working_set, new_var_id);
+                }
+            }
+            Expr::MatchBlock(match_patterns) => {
+                for (_, expr) in match_patterns.iter_mut() {
+                    expr.replace_in_variable(working_set, new_var_id);
+                }
+            }
+            Expr::List(items) => {
+                for item in items.iter_mut() {
+                    match item {
+                        ListItem::Item(expr) | ListItem::Spread(_, expr) => {
+                            expr.replace_in_variable(working_set, new_var_id)
+                        }
+                    }
+                }
+            }
+            Expr::Table(table) => {
+                for col_expr in table.columns.iter_mut() {
+                    col_expr.replace_in_variable(working_set, new_var_id);
+                }
+                for row in table.rows.iter_mut() {
+                    for row_expr in row.iter_mut() {
+                        row_expr.replace_in_variable(working_set, new_var_id);
+                    }
+                }
+            }
+            Expr::Record(items) => {
+                for item in items.iter_mut() {
+                    match item {
+                        RecordItem::Pair(key, val) => {
+                            key.replace_in_variable(working_set, new_var_id);
+                            val.replace_in_variable(working_set, new_var_id);
+                        }
+                        RecordItem::Spread(_, expr) => {
+                            expr.replace_in_variable(working_set, new_var_id)
+                        }
+                    }
+                }
+            }
+            Expr::Keyword(kw) => kw.expr.replace_in_variable(working_set, new_var_id),
+            Expr::ValueWithUnit(value_with_unit) => value_with_unit
+                .expr
+                .replace_in_variable(working_set, new_var_id),
+            Expr::DateTime(_) => {}
+            Expr::Filepath(_, _) => {}
+            Expr::Directory(_, _) => {}
+            Expr::GlobPattern(_, _) => {}
+            Expr::String(_) => {}
+            Expr::RawString(_) => {}
+            Expr::CellPath(_) => {}
+            Expr::FullCellPath(full_cell_path) => {
+                full_cell_path
+                    .head
+                    .replace_in_variable(working_set, new_var_id);
+            }
+            Expr::ImportPattern(_) => {}
+            Expr::Overlay(_) => {}
+            Expr::Signature(_) => {}
+            Expr::StringInterpolation(exprs) | Expr::GlobInterpolation(exprs, _) => {
+                for expr in exprs.iter_mut() {
+                    expr.replace_in_variable(working_set, new_var_id);
+                }
+            }
+            Expr::Nothing => {}
+            Expr::Garbage => {}
+        }
+    }
+
+    pub fn new(working_set: &mut StateWorkingSet, expr: Expr, span: Span, ty: Type) -> Expression {
+        let span_id = working_set.add_span(span);
+        Expression {
+            expr,
+            span,
+            span_id,
+            ty,
+            custom_completion: None,
+        }
+    }
+
+    pub fn new_existing(expr: Expr, span: Span, span_id: SpanId, ty: Type) -> Expression {
+        Expression {
+            expr,
+            span,
+            span_id,
+            ty,
+            custom_completion: None,
+        }
+    }
+
+    pub fn new_unknown(expr: Expr, span: Span, ty: Type) -> Expression {
+        Expression {
+            expr,
+            span,
+            span_id: SpanId::new(0),
+            ty,
+            custom_completion: None,
+        }
+    }
+
+    pub fn with_span_id(self, span_id: SpanId) -> Expression {
+        Expression {
+            expr: self.expr,
+            span: self.span,
+            span_id,
+            ty: self.ty,
+            custom_completion: self.custom_completion,
+        }
+    }
+
+    pub fn span(&self, state: &impl GetSpan) -> Span {
+        state.get_span(self.span_id)
     }
 }

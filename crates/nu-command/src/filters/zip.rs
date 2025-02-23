@@ -8,7 +8,7 @@ impl Command for Zip {
         "zip"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Combine a stream with the input."
     }
 
@@ -112,7 +112,7 @@ impl Command for Zip {
             .into_iter()
             .zip(other)
             .map(move |(x, y)| Value::list(vec![x, y], head))
-            .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
+            .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }
 

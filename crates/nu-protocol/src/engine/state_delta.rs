@@ -1,10 +1,10 @@
 use crate::{
     ast::Block,
     engine::{
-        usage::Usage, CachedFile, Command, EngineState, OverlayFrame, ScopeFrame, Variable,
-        VirtualPath,
+        description::Doccomments, CachedFile, Command, EngineState, OverlayFrame, ScopeFrame,
+        Variable, VirtualPath,
     },
-    Module,
+    Module, Span,
 };
 use std::sync::Arc;
 
@@ -14,6 +14,7 @@ use crate::{PluginRegistryItem, RegisteredPlugin};
 /// A delta (or change set) between the current global state and a possible future global state. Deltas
 /// can be applied to the global state to update it to contain both previous state and the state held
 /// within the delta.
+#[derive(Clone)]
 pub struct StateDelta {
     pub(super) files: Vec<CachedFile>,
     pub(super) virtual_paths: Vec<(String, VirtualPath)>,
@@ -21,7 +22,8 @@ pub struct StateDelta {
     pub(super) decls: Vec<Box<dyn Command>>, // indexed by DeclId
     pub blocks: Vec<Arc<Block>>,             // indexed by BlockId
     pub(super) modules: Vec<Arc<Module>>,    // indexed by ModuleId
-    pub(super) usage: Usage,
+    pub spans: Vec<Span>,                    // indexed by SpanId
+    pub(super) doccomments: Doccomments,
     pub scope: Vec<ScopeFrame>,
     #[cfg(feature = "plugin")]
     pub(super) plugins: Vec<Arc<dyn RegisteredPlugin>>,
@@ -45,8 +47,9 @@ impl StateDelta {
             decls: vec![],
             blocks: vec![],
             modules: vec![],
+            spans: vec![],
             scope: vec![scope_frame],
-            usage: Usage::new(),
+            doccomments: Doccomments::new(),
             #[cfg(feature = "plugin")]
             plugins: vec![],
             #[cfg(feature = "plugin")]
@@ -60,6 +63,10 @@ impl StateDelta {
 
     pub fn num_virtual_paths(&self) -> usize {
         self.virtual_paths.len()
+    }
+
+    pub fn num_vars(&self) -> usize {
+        self.vars.len()
     }
 
     pub fn num_decls(&self) -> usize {
@@ -96,7 +103,7 @@ impl StateDelta {
             Some(
                 &mut last_scope
                     .overlays
-                    .get_mut(*last_overlay_id)
+                    .get_mut(last_overlay_id.get())
                     .expect("internal error: missing required overlay")
                     .1,
             )
@@ -115,7 +122,7 @@ impl StateDelta {
             Some(
                 &last_scope
                     .overlays
-                    .get(*last_overlay_id)
+                    .get(last_overlay_id.get())
                     .expect("internal error: missing required overlay")
                     .1,
             )

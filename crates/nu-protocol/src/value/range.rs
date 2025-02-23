@@ -1,25 +1,15 @@
 //! A Range is an iterator over integers or floats.
 
+use crate::{ast::RangeInclusion, ShellError, Signals, Span, Value};
 use serde::{Deserialize, Serialize};
-use std::{
-    cmp::Ordering,
-    fmt::Display,
-    sync::{atomic::AtomicBool, Arc},
-};
-
-use crate::{ast::RangeInclusion, ShellError, Span, Value};
+use std::{cmp::Ordering, fmt::Display};
 
 mod int_range {
-    use std::{
-        cmp::Ordering,
-        fmt::Display,
-        ops::Bound,
-        sync::{atomic::AtomicBool, Arc},
-    };
-
+    use crate::{ast::RangeInclusion, FromValue, ShellError, Signals, Span, Value};
     use serde::{Deserialize, Serialize};
+    use std::{cmp::Ordering, fmt::Display, ops::Bound};
 
-    use crate::{ast::RangeInclusion, ShellError, Span, Value};
+    use super::Range;
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct IntRange {
@@ -93,8 +83,57 @@ mod int_range {
             self.start
         }
 
+        // Resolves the absolute start position given the length of the input value
+        pub fn absolute_start(&self, len: u64) -> u64 {
+            match self.start {
+                start if start < 0 => len.saturating_sub(start.unsigned_abs()),
+                start => len.min(start.unsigned_abs()),
+            }
+        }
+
+        /// Returns the distance between the start and end of the range
+        /// The result will always be 0 or positive
+        pub fn distance(&self) -> Bound<u64> {
+            match self.end {
+                Bound::Unbounded => Bound::Unbounded,
+                Bound::Included(end) | Bound::Excluded(end) if self.start > end => {
+                    Bound::Excluded(0)
+                }
+                Bound::Included(end) => Bound::Included((end - self.start) as u64),
+                Bound::Excluded(end) => Bound::Excluded((end - self.start) as u64),
+            }
+        }
+
         pub fn end(&self) -> Bound<i64> {
             self.end
+        }
+
+        pub fn absolute_end(&self, len: u64) -> Bound<u64> {
+            match self.end {
+                Bound::Unbounded => Bound::Unbounded,
+                Bound::Included(i) => match i {
+                    _ if len == 0 => Bound::Excluded(0),
+                    i if i < 0 => Bound::Excluded(len.saturating_sub((i + 1).unsigned_abs())),
+                    i => Bound::Included((len.saturating_sub(1)).min(i.unsigned_abs())),
+                },
+                Bound::Excluded(i) => Bound::Excluded(match i {
+                    i if i < 0 => len.saturating_sub(i.unsigned_abs()),
+                    i => len.min(i.unsigned_abs()),
+                }),
+            }
+        }
+
+        pub fn absolute_bounds(&self, len: usize) -> (usize, Bound<usize>) {
+            let start = self.absolute_start(len as u64) as usize;
+            let end = self.absolute_end(len as u64).map(|e| e as usize);
+            match end {
+                Bound::Excluded(end) | Bound::Included(end) if end < start => {
+                    (start, Bound::Excluded(start))
+                }
+                Bound::Excluded(end) => (start, Bound::Excluded(end)),
+                Bound::Included(end) => (start, Bound::Included(end)),
+                Bound::Unbounded => (start, Bound::Unbounded),
+            }
         }
 
         pub fn step(&self) -> i64 {
@@ -105,30 +144,52 @@ mod int_range {
             self.end == Bound::Unbounded
         }
 
-        pub fn contains(&self, value: i64) -> bool {
-            if self.step < 0 {
-                value <= self.start
-                    && match self.end {
-                        Bound::Included(end) => value >= end,
-                        Bound::Excluded(end) => value > end,
-                        Bound::Unbounded => true,
-                    }
-            } else {
-                self.start <= value
-                    && match self.end {
-                        Bound::Included(end) => value <= end,
-                        Bound::Excluded(end) => value < end,
-                        Bound::Unbounded => true,
-                    }
+        pub fn is_relative(&self) -> bool {
+            self.is_start_relative() || self.is_end_relative()
+        }
+
+        pub fn is_start_relative(&self) -> bool {
+            self.start < 0
+        }
+
+        pub fn is_end_relative(&self) -> bool {
+            match self.end {
+                Bound::Included(end) | Bound::Excluded(end) => end < 0,
+                _ => false,
             }
         }
 
-        pub fn into_range_iter(self, ctrlc: Option<Arc<AtomicBool>>) -> Iter {
+        pub fn contains(&self, value: i64) -> bool {
+            if self.step < 0 {
+                // Decreasing range
+                if value > self.start {
+                    return false;
+                }
+                match self.end {
+                    Bound::Included(end) if value < end => return false,
+                    Bound::Excluded(end) if value <= end => return false,
+                    _ => {}
+                };
+            } else {
+                // Increasing range
+                if value < self.start {
+                    return false;
+                }
+                match self.end {
+                    Bound::Included(end) if value > end => return false,
+                    Bound::Excluded(end) if value >= end => return false,
+                    _ => {}
+                };
+            }
+            (value - self.start) % self.step == 0
+        }
+
+        pub fn into_range_iter(self, signals: Signals) -> Iter {
             Iter {
                 current: Some(self.start),
                 step: self.step,
                 end: self.end,
-                ctrlc,
+                signals,
             }
         }
     }
@@ -188,12 +249,28 @@ mod int_range {
 
     impl Display for IntRange {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            // what about self.step?
-            let start = self.start;
+            write!(f, "{}..", self.start)?;
+            if self.step != 1 {
+                write!(f, "{}..", self.start + self.step)?;
+            }
             match self.end {
-                Bound::Included(end) => write!(f, "{start}..{end}"),
-                Bound::Excluded(end) => write!(f, "{start}..<{end}"),
-                Bound::Unbounded => write!(f, "{start}.."),
+                Bound::Included(end) => write!(f, "{end}"),
+                Bound::Excluded(end) => write!(f, "<{end}"),
+                Bound::Unbounded => Ok(()),
+            }
+        }
+    }
+
+    impl FromValue for IntRange {
+        fn from_value(v: Value) -> Result<Self, ShellError> {
+            let span = v.span();
+            let range = Range::from_value(v)?;
+            match range {
+                Range::IntRange(v) => Ok(v),
+                Range::FloatRange(_) => Err(ShellError::TypeMismatch {
+                    err_message: "expected an int range".into(),
+                    span,
+                }),
             }
         }
     }
@@ -202,7 +279,7 @@ mod int_range {
         current: Option<i64>,
         step: i64,
         end: Bound<i64>,
-        ctrlc: Option<Arc<AtomicBool>>,
+        signals: Signals,
     }
 
     impl Iterator for Iter {
@@ -218,7 +295,7 @@ mod int_range {
                     (_, Bound::Unbounded) => true, // will stop once integer overflows
                 };
 
-                if not_end && !nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+                if not_end && !self.signals.interrupted() {
                     self.current = current.checked_add(self.step);
                     Some(current)
                 } else {
@@ -233,16 +310,12 @@ mod int_range {
 }
 
 mod float_range {
-    use std::{
-        cmp::Ordering,
-        fmt::Display,
-        ops::Bound,
-        sync::{atomic::AtomicBool, Arc},
+    use crate::{
+        ast::RangeInclusion, format::ObviousFloat, IntRange, Range, ShellError, Signals, Span,
+        Value,
     };
-
     use serde::{Deserialize, Serialize};
-
-    use crate::{ast::RangeInclusion, IntRange, Range, ShellError, Span, Value};
+    use std::{cmp::Ordering, fmt::Display, ops::Bound};
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct FloatRange {
@@ -349,29 +422,36 @@ mod float_range {
 
         pub fn contains(&self, value: f64) -> bool {
             if self.step < 0.0 {
-                value <= self.start
-                    && match self.end {
-                        Bound::Included(end) => value >= end,
-                        Bound::Excluded(end) => value > end,
-                        Bound::Unbounded => true,
-                    }
+                // Decreasing range
+                if value > self.start {
+                    return false;
+                }
+                match self.end {
+                    Bound::Included(end) if value <= end => return false,
+                    Bound::Excluded(end) if value < end => return false,
+                    _ => {}
+                };
             } else {
-                self.start <= value
-                    && match self.end {
-                        Bound::Included(end) => value <= end,
-                        Bound::Excluded(end) => value < end,
-                        Bound::Unbounded => true,
-                    }
+                // Increasing range
+                if value < self.start {
+                    return false;
+                }
+                match self.end {
+                    Bound::Included(end) if value >= end => return false,
+                    Bound::Excluded(end) if value > end => return false,
+                    _ => {}
+                };
             }
+            ((value - self.start) % self.step).abs() < f64::EPSILON
         }
 
-        pub fn into_range_iter(self, ctrlc: Option<Arc<AtomicBool>>) -> Iter {
+        pub fn into_range_iter(self, signals: Signals) -> Iter {
             Iter {
                 start: self.start,
                 step: self.step,
                 end: self.end,
                 iter: Some(0),
-                ctrlc,
+                signals,
             }
         }
     }
@@ -439,12 +519,14 @@ mod float_range {
 
     impl Display for FloatRange {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            // what about self.step?
-            let start = self.start;
+            write!(f, "{}..", ObviousFloat(self.start))?;
+            if self.step != 1f64 {
+                write!(f, "{}..", ObviousFloat(self.start + self.step))?;
+            }
             match self.end {
-                Bound::Included(end) => write!(f, "{start}..{end}"),
-                Bound::Excluded(end) => write!(f, "{start}..<{end}"),
-                Bound::Unbounded => write!(f, "{start}.."),
+                Bound::Included(end) => write!(f, "{}", ObviousFloat(end)),
+                Bound::Excluded(end) => write!(f, "<{}", ObviousFloat(end)),
+                Bound::Unbounded => Ok(()),
             }
         }
     }
@@ -477,7 +559,7 @@ mod float_range {
         step: f64,
         end: Bound<f64>,
         iter: Option<u64>,
-        ctrlc: Option<Arc<AtomicBool>>,
+        signals: Signals,
     }
 
     impl Iterator for Iter {
@@ -495,7 +577,7 @@ mod float_range {
                     (_, Bound::Unbounded) => current.is_finite(),
                 };
 
-                if not_end && !nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+                if not_end && !self.signals.interrupted() {
                     self.iter = iter.checked_add(1);
                     Some(current)
                 } else {
@@ -549,10 +631,10 @@ impl Range {
         }
     }
 
-    pub fn into_range_iter(self, span: Span, ctrlc: Option<Arc<AtomicBool>>) -> Iter {
+    pub fn into_range_iter(self, span: Span, signals: Signals) -> Iter {
         match self {
-            Range::IntRange(range) => Iter::IntIter(range.into_range_iter(ctrlc), span),
-            Range::FloatRange(range) => Iter::FloatIter(range.into_range_iter(ctrlc), span),
+            Range::IntRange(range) => Iter::IntIter(range.into_range_iter(signals), span),
+            Range::FloatRange(range) => Iter::FloatIter(range.into_range_iter(signals), span),
         }
     }
 }

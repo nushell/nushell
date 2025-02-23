@@ -1,5 +1,6 @@
 use crate::database::{values_to_sql, SQLiteDatabase, MEMORY_DB};
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 use rusqlite::params_from_iter;
 
 #[derive(Clone)]
@@ -12,14 +13,21 @@ impl Command for StorInsert {
 
     fn signature(&self) -> Signature {
         Signature::build("stor insert")
-            .input_output_types(vec![(Type::Nothing, Type::table())])
+            .input_output_types(vec![
+                (Type::Nothing, Type::table()),
+                (Type::record(), Type::table()),
+                (Type::table(), Type::table()),
+                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
+                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
+                (Type::Any, Type::table()),
+            ])
             .required_named(
                 "table-name",
                 SyntaxShape::String,
                 "name of the table you want to insert into",
                 Some('t'),
             )
-            .required_named(
+            .named(
                 "data-record",
                 SyntaxShape::Record(vec![]),
                 "a record of column names and column values to insert into the specified table",
@@ -29,7 +37,7 @@ impl Command for StorInsert {
             .category(Category::Database)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Insert information into a specified table in the in-memory sqlite database."
     }
 
@@ -39,10 +47,26 @@ impl Command for StorInsert {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Insert data the in-memory sqlite database using a data-record of column-name and column-value pairs",
-            example: "stor insert --table-name nudb --data-record {bool1: true, int1: 5, float1: 1.1, str1: fdncred, datetime1: 2023-04-17}",
-            result: None,
-        }]
+                description: "Insert data in the in-memory sqlite database using a data-record of column-name and column-value pairs",
+                example: "stor insert --table-name nudb --data-record {bool1: true, int1: 5, float1: 1.1, str1: fdncred, datetime1: 2023-04-17}",
+                result: None,
+            },
+            Example {
+                description: "Insert data through pipeline input as a record of column-name and column-value pairs",
+                example: "{bool1: true, int1: 5, float1: 1.1, str1: fdncred, datetime1: 2023-04-17} | stor insert --table-name nudb",
+                result: None,
+            },
+            Example {
+                description: "Insert data through pipeline input as a table literal",
+                example: "[[bool1 int1 float1]; [true 5 1.1], [false 8 3.14]] | stor insert --table-name nudb",
+                result: None,
+            },
+            Example {
+                description: "Insert ls entries",
+                example: "ls | stor insert --table-name files",
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -50,25 +74,86 @@ impl Command for StorInsert {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let table_name: Option<String> = call.get_flag(engine_state, stack, "table-name")?;
-        let columns: Option<Record> = call.get_flag(engine_state, stack, "data-record")?;
-        // let config = engine_state.get_config();
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let data_record: Option<Record> = call.get_flag(engine_state, stack, "data-record")?;
+        // let config = stack.get_config(engine_state);
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
 
-        process(table_name, span, &db, columns)?;
+        let records = handle(span, data_record, input)?;
+
+        for record in records {
+            process(table_name.clone(), span, &db, record)?;
+        }
 
         Ok(Value::custom(db, span).into_pipeline_data())
     }
+}
+
+fn handle(
+    span: Span,
+    data_record: Option<Record>,
+    input: PipelineData,
+) -> Result<Vec<Record>, ShellError> {
+    // Check for conflicting use of both pipeline input and flag
+    if let Some(record) = data_record {
+        if !matches!(input, PipelineData::Empty) {
+            return Err(ShellError::GenericError {
+                error: "Pipeline and Flag both being used".into(),
+                msg: "Use either pipeline input or '--data-record' parameter".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            });
+        }
+        return Ok(vec![record]);
+    }
+
+    // Handle the input types
+    let values = match input {
+        PipelineData::Empty => {
+            return Err(ShellError::MissingParameter {
+                param_name: "requires a table or a record".into(),
+                span,
+            })
+        }
+        PipelineData::ListStream(stream, ..) => stream.into_iter().collect::<Vec<_>>(),
+        PipelineData::Value(Value::List { vals, .. }, ..) => vals,
+        PipelineData::Value(val, ..) => vec![val],
+        _ => {
+            return Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "list or record".into(),
+                wrong_type: "".into(),
+                dst_span: span,
+                src_span: span,
+            })
+        }
+    };
+
+    values
+        .into_iter()
+        .map(|val| match val {
+            Value::Record { val, .. } => Ok(val.into_owned()),
+            other => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "record".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: Span::unknown(),
+                src_span: other.span(),
+            }),
+        })
+        .collect()
 }
 
 fn process(
     table_name: Option<String>,
     span: Span,
     db: &SQLiteDatabase,
-    columns: Option<Record>,
+    record: Record,
 ) -> Result<(), ShellError> {
     if table_name.is_none() {
         return Err(ShellError::MissingParameter {
@@ -77,54 +162,41 @@ fn process(
         });
     }
     let new_table_name = table_name.unwrap_or("table".into());
+
     if let Ok(conn) = db.open_connection() {
-        match columns {
-            Some(record) => {
-                let mut create_stmt = format!("INSERT INTO {} ( ", new_table_name);
-                let cols = record.columns();
-                cols.for_each(|col| {
-                    create_stmt.push_str(&format!("{}, ", col));
-                });
-                if create_stmt.ends_with(", ") {
-                    create_stmt.pop();
-                    create_stmt.pop();
-                }
+        let mut create_stmt = format!("INSERT INTO {} (", new_table_name);
+        let mut column_placeholders: Vec<String> = Vec::new();
 
-                // Values are set as placeholders.
-                create_stmt.push_str(") VALUES ( ");
-                for (index, _) in record.columns().enumerate() {
-                    create_stmt.push_str(&format!("?{}, ", index + 1));
-                }
+        let cols = record.columns();
+        cols.for_each(|col| {
+            column_placeholders.push(col.to_string());
+        });
 
-                if create_stmt.ends_with(", ") {
-                    create_stmt.pop();
-                    create_stmt.pop();
-                }
+        create_stmt.push_str(&column_placeholders.join(", "));
 
-                create_stmt.push(')');
+        // Values are set as placeholders.
+        create_stmt.push_str(") VALUES (");
+        let mut value_placeholders: Vec<String> = Vec::new();
+        for (index, _) in record.columns().enumerate() {
+            value_placeholders.push(format!("?{}", index + 1));
+        }
+        create_stmt.push_str(&value_placeholders.join(", "));
+        create_stmt.push(')');
 
-                // dbg!(&create_stmt);
+        // dbg!(&create_stmt);
 
-                // Get the params from the passed values
-                let params = values_to_sql(record.values().cloned())?;
+        // Get the params from the passed values
+        let params = values_to_sql(record.values().cloned())?;
 
-                conn.execute(&create_stmt, params_from_iter(params))
-                    .map_err(|err| ShellError::GenericError {
-                        error: "Failed to open SQLite connection in memory from insert".into(),
-                        msg: err.to_string(),
-                        span: Some(Span::test_data()),
-                        help: None,
-                        inner: vec![],
-                    })?;
-            }
-            None => {
-                return Err(ShellError::MissingParameter {
-                    param_name: "requires at least one column".into(),
-                    span,
-                });
-            }
-        };
-    }
+        conn.execute(&create_stmt, params_from_iter(params))
+            .map_err(|err| ShellError::GenericError {
+                error: "Failed to open SQLite connection in memory from insert".into(),
+                msg: err.to_string(),
+                span: Some(Span::test_data()),
+                help: None,
+                inner: vec![],
+            })?;
+    };
     // dbg!(db.clone());
     Ok(())
 }
@@ -144,7 +216,10 @@ mod test {
 
     #[test]
     fn test_process_with_simple_parameters() {
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
         let create_stmt = "CREATE TABLE test_process_with_simple_parameters (
             int_column INTEGER,
             real_column REAL,
@@ -176,14 +251,17 @@ mod test {
             ),
         );
 
-        let result = process(table_name, span, &db, Some(columns));
+        let result = process(table_name, span, &db, columns);
 
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_process_string_with_space() {
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
         let create_stmt = "CREATE TABLE test_process_string_with_space (
             str_column VARCHAR(255)
         )";
@@ -201,14 +279,17 @@ mod test {
             Value::test_string("String With Spaces".to_string()),
         );
 
-        let result = process(table_name, span, &db, Some(columns));
+        let result = process(table_name, span, &db, columns);
 
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_no_errors_when_string_too_long() {
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
         let create_stmt = "CREATE TABLE test_errors_when_string_too_long (
             str_column VARCHAR(8)
         )";
@@ -226,14 +307,17 @@ mod test {
             Value::test_string("ThisIsALongString".to_string()),
         );
 
-        let result = process(table_name, span, &db, Some(columns));
+        let result = process(table_name, span, &db, columns);
         // SQLite uses dynamic typing, making any length acceptable for a varchar column
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_no_errors_when_param_is_wrong_type() {
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
         let create_stmt = "CREATE TABLE test_errors_when_param_is_wrong_type (
             int_column INT
         )";
@@ -251,14 +335,17 @@ mod test {
             Value::test_string("ThisIsTheWrongType".to_string()),
         );
 
-        let result = process(table_name, span, &db, Some(columns));
+        let result = process(table_name, span, &db, columns);
         // SQLite uses dynamic typing, making any type acceptable for a column
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_errors_when_column_doesnt_exist() {
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
         let create_stmt = "CREATE TABLE test_errors_when_column_doesnt_exist (
             int_column INT
         )";
@@ -276,14 +363,17 @@ mod test {
             Value::test_string("ThisIsALongString".to_string()),
         );
 
-        let result = process(table_name, span, &db, Some(columns));
+        let result = process(table_name, span, &db, columns);
 
         assert!(result.is_err());
     }
 
     #[test]
     fn test_errors_when_table_doesnt_exist() {
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
 
         let table_name = Some("test_errors_when_table_doesnt_exist".to_string());
         let span = Span::unknown();
@@ -293,7 +383,7 @@ mod test {
             Value::test_string("ThisIsALongString".to_string()),
         );
 
-        let result = process(table_name, span, &db, Some(columns));
+        let result = process(table_name, span, &db, columns);
 
         assert!(result.is_err());
     }

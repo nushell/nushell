@@ -1,10 +1,7 @@
 use itertools::Itertools;
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, compile};
 use nu_protocol::{
-    ast::Block,
-    debugger::WithoutDebug,
-    engine::{StateDelta, StateWorkingSet},
-    Range,
+    ast::Block, debugger::WithoutDebug, engine::StateWorkingSet, report_shell_error, Range,
 };
 use std::{
     sync::Arc,
@@ -22,24 +19,24 @@ pub fn check_example_input_and_output_types_match_command_signature(
 
     // Skip tests that don't have results to compare to
     if let Some(example_output) = example.result.as_ref() {
-        if let Some(example_input_type) =
+        if let Some(example_input) =
             eval_pipeline_without_terminal_expression(example.example, cwd, engine_state)
         {
-            let example_input_type = example_input_type.get_type();
-            let example_output_type = example_output.get_type();
-
             let example_matches_signature =
                 signature_input_output_types
                     .iter()
                     .any(|(sig_in_type, sig_out_type)| {
-                        example_input_type.is_subtype(sig_in_type)
-                            && example_output_type.is_subtype(sig_out_type)
+                        example_input.is_subtype_of(sig_in_type)
+                            && example_output.is_subtype_of(sig_out_type)
                             && {
                                 witnessed_type_transformations
                                     .insert((sig_in_type.clone(), sig_out_type.clone()));
                                 true
                             }
                     });
+
+            let example_input_type = example_input.get_type();
+            let example_output_type = example_output.get_type();
 
             // The example type checks as a cell path operation if both:
             // 1. The command is declared to operate on cell paths.
@@ -72,21 +69,30 @@ pub fn check_example_input_and_output_types_match_command_signature(
     witnessed_type_transformations
 }
 
-fn eval_pipeline_without_terminal_expression(
+pub fn eval_pipeline_without_terminal_expression(
     src: &str,
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
 ) -> Option<Value> {
-    let (mut block, delta) = parse(src, engine_state);
+    let (mut block, mut working_set) = parse(src, engine_state);
     if block.pipelines.len() == 1 {
         let n_expressions = block.pipelines[0].elements.len();
-        Arc::make_mut(&mut block).pipelines[0]
-            .elements
-            .truncate(&n_expressions - 1);
+        // Modify the block to remove the last element and recompile it
+        {
+            let mut_block = Arc::make_mut(&mut block);
+            mut_block.pipelines[0].elements.truncate(n_expressions - 1);
+            mut_block.ir_block = Some(compile(&working_set, mut_block).expect(
+                "failed to compile block modified by eval_pipeline_without_terminal_expression",
+            ));
+        }
+        working_set.add_block(block.clone());
+        engine_state
+            .merge_delta(working_set.render())
+            .expect("failed to merge delta");
 
         if !block.pipelines[0].elements.is_empty() {
             let empty_input = PipelineData::empty();
-            Some(eval_block(block, empty_input, cwd, engine_state, delta))
+            Some(eval_block(block, empty_input, cwd, engine_state))
         } else {
             Some(Value::nothing(Span::test_data()))
         }
@@ -96,49 +102,55 @@ fn eval_pipeline_without_terminal_expression(
     }
 }
 
-pub fn parse(contents: &str, engine_state: &EngineState) -> (Arc<Block>, StateDelta) {
+pub fn parse<'engine>(
+    contents: &str,
+    engine_state: &'engine EngineState,
+) -> (Arc<Block>, StateWorkingSet<'engine>) {
     let mut working_set = StateWorkingSet::new(engine_state);
     let output = nu_parser::parse(&mut working_set, None, contents.as_bytes(), false);
 
     if let Some(err) = working_set.parse_errors.first() {
-        panic!("test parse error in `{contents}`: {err:?}")
+        panic!("test parse error in `{contents}`: {err:?}");
     }
 
-    (output, working_set.render())
+    if let Some(err) = working_set.compile_errors.first() {
+        panic!("test compile error in `{contents}`: {err:?}");
+    }
+
+    (output, working_set)
 }
 
 pub fn eval_block(
     block: Arc<Block>,
     input: PipelineData,
     cwd: &std::path::Path,
-    engine_state: &mut Box<EngineState>,
-    delta: StateDelta,
+    engine_state: &EngineState,
 ) -> Value {
-    engine_state
-        .merge_delta(delta)
-        .expect("Error merging delta");
-
-    let mut stack = Stack::new().capture();
+    let mut stack = Stack::new().collect_value();
 
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
     nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input)
         .and_then(|data| data.into_value(Span::test_data()))
-        .unwrap_or_else(|err| panic!("test eval error in `{}`: {:?}", "TODO", err))
+        .unwrap_or_else(|err| {
+            report_shell_error(engine_state, &err);
+            panic!("test eval error in `{}`: {:?}", "TODO", err)
+        })
 }
 
 pub fn check_example_evaluates_to_expected_output(
+    cmd_name: &str,
     example: &Example,
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
 ) {
-    let mut stack = Stack::new().capture();
+    let mut stack = Stack::new().collect_value();
 
     // Set up PWD
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
     engine_state
-        .merge_env(&mut stack, cwd)
+        .merge_env(&mut stack)
         .expect("Error merging environment");
 
     let empty_input = PipelineData::empty();
@@ -148,11 +160,17 @@ pub fn check_example_evaluates_to_expected_output(
     // If the command you are testing requires to compare another case, then
     // you need to define its equality in the Value struct
     if let Some(expected) = example.result.as_ref() {
+        let expected = DebuggableValue(expected);
+        let result = DebuggableValue(&result);
         assert_eq!(
-            DebuggableValue(&result),
-            DebuggableValue(expected),
-            "The example result differs from the expected value",
-        )
+            result,
+            expected,
+            "Error: The result of example '{}' for the command '{}' differs from the expected value.\n\nExpected: {:?}\nActual:   {:?}\n",
+            example.description,
+            cmd_name,
+            expected,
+            result,
+        );
     }
 }
 
@@ -188,8 +206,11 @@ fn eval(
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
 ) -> Value {
-    let (block, delta) = parse(contents, engine_state);
-    eval_block(block, input, cwd, engine_state, delta)
+    let (block, working_set) = parse(contents, engine_state);
+    engine_state
+        .merge_delta(working_set.render())
+        .expect("failed to merge delta");
+    eval_block(block, input, cwd, engine_state)
 }
 
 pub struct DebuggableValue<'a>(pub &'a Value);
@@ -200,7 +221,7 @@ impl PartialEq for DebuggableValue<'_> {
     }
 }
 
-impl<'a> std::fmt::Debug for DebuggableValue<'a> {
+impl std::fmt::Debug for DebuggableValue<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {
             Value::Bool { val, .. } => {

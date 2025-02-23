@@ -9,7 +9,7 @@ impl Command for Describe {
         "describe"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Describe the type and structure of the value(s) piped in."
     }
 
@@ -70,7 +70,7 @@ impl Command for Describe {
             Example {
                 description: "Describe the type of a record in a detailed way",
                 example:
-                    "{shell:'true', uwu:true, features: {bugs:false, multiplatform:true, speed: 10}, fib: [1 1 2 3 5 8], on_save: {|x| print $'Saving ($x)'}, first_commit: 2019-05-10, my_duration: (4min + 20sec)} | describe -d",
+                    "{shell:'true', uwu:true, features: {bugs:false, multiplatform:true, speed: 10}, fib: [1 1 2 3 5 8], on_save: {|x| $'Saving ($x)'}, first_commit: 2019-05-10, my_duration: (4min + 20sec)} | describe -d",
                 result: Some(Value::test_record(record!(
                     "type" => Value::test_string("record"),
                     "columns" => Value::test_record(record!(
@@ -163,23 +163,26 @@ fn run(
 
     let description = match input {
         PipelineData::ByteStream(stream, ..) => {
+            let type_ = stream.type_().describe();
+
             let description = if options.detailed {
                 let origin = match stream.source() {
                     ByteStreamSource::Read(_) => "unknown",
                     ByteStreamSource::File(_) => "file",
+                    #[cfg(feature = "os")]
                     ByteStreamSource::Child(_) => "external",
                 };
 
                 Value::record(
                     record! {
-                        "type" => Value::string("byte stream", head),
+                        "type" => Value::string(type_, head),
                         "origin" => Value::string(origin, head),
                         "metadata" => metadata_to_value(metadata, head),
                     },
                     head,
                 )
             } else {
-                Value::string("byte stream", head)
+                Value::string(type_, head)
             };
 
             if !options.no_collect {

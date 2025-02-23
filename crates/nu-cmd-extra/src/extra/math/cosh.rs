@@ -21,7 +21,7 @@ impl Command for SubCommand {
             .category(Category::Math)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns the hyperbolic cosine of the number."
     }
 
@@ -41,10 +41,7 @@ impl Command for SubCommand {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-        input.map(
-            move |value| operate(value, head),
-            engine_state.ctrlc.clone(),
-        )
+        input.map(move |value| operate(value, head), engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -2,24 +2,11 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Range, ShellError, Span, Value,
 };
-use std::{ops::Bound, path::PathBuf};
-
-pub fn get_init_cwd() -> PathBuf {
-    std::env::current_dir().unwrap_or_else(|_| {
-        std::env::var("PWD")
-            .map(Into::into)
-            .unwrap_or_else(|_| nu_path::home_dir().unwrap_or_default())
-    })
-}
-
-pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf {
-    engine_state
-        .cwd(Some(stack))
-        .unwrap_or(crate::util::get_init_cwd())
-}
+use std::ops::Bound;
 
 type MakeRangeError = fn(&str, Span) -> ShellError;
 
+/// Returns a inclusive pair of boundary in given `range`.
 pub fn process_range(range: &Range) -> Result<(isize, isize), MakeRangeError> {
     match range {
         Range::IntRange(range) => {
@@ -91,10 +78,10 @@ pub fn get_editor(
         get_editor_commandline(&config.buffer_editor, "$env.config.buffer_editor")
     {
         Ok(buff_editor)
-    } else if let Some(value) = env_vars.get("EDITOR") {
-        get_editor_commandline(value, "$env.EDITOR")
     } else if let Some(value) = env_vars.get("VISUAL") {
         get_editor_commandline(value, "$env.VISUAL")
+    } else if let Some(value) = env_vars.get("EDITOR") {
+        get_editor_commandline(value, "$env.EDITOR")
     } else {
         Err(ShellError::GenericError {
             error: "No editor configured".into(),

@@ -1,10 +1,7 @@
-use super::support::Trusted;
-
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_repl_code};
+use nu_test_support::{nu, nu_repl_code, nu_with_std};
 use pretty_assertions::assert_eq;
-use serial_test::serial;
 
 #[test]
 fn env_shorthand() {
@@ -127,6 +124,15 @@ fn passes_with_env_env_var_to_external_process() {
 }
 
 #[test]
+fn hides_environment_from_child() {
+    let actual = nu!(r#"
+        $env.TEST = 1; ^$nu.current-exe -c "hide-env TEST; ^$nu.current-exe -c '$env.TEST'"
+    "#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.contains("column_not_found") || actual.err.contains("name_not_found"));
+}
+
+#[test]
 fn has_file_pwd() {
     Playground::setup("has_file_pwd", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent("spam.nu", "$env.FILE_PWD")]);
@@ -145,29 +151,6 @@ fn has_file_loc() {
         let actual = nu!(cwd: dirs.test(), "nu spam.nu");
 
         assert!(actual.out.ends_with("spam.nu"));
-    })
-}
-
-// FIXME: autoenv not currently implemented
-#[ignore]
-#[test]
-#[serial]
-fn passes_env_from_local_cfg_to_external_process() {
-    Playground::setup("autoenv_dir", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            ".nu-env",
-            r#"[env]
-            FOO = "foo"
-            "#,
-        )]);
-
-        let actual = Trusted::in_path(&dirs, || {
-            nu!(cwd: dirs.test(), "
-                nu --testbin echo_env FOO
-            ")
-        });
-
-        assert_eq!(actual.out, "foo");
     })
 }
 
@@ -205,4 +188,109 @@ fn env_var_case_insensitive() {
     ");
     assert!(actual.out.contains("111"));
     assert!(actual.out.contains("222"));
+}
+
+#[test]
+fn env_conversion_on_assignment() {
+    let actual = nu!(r#"
+        $env.FOO = "bar:baz:quox"
+        $env.ENV_CONVERSIONS = { FOO: { from_string: {|| split row ":"} } }
+        $env.FOO | to nuon
+    "#);
+    assert_eq!(actual.out, "[bar, baz, quox]");
+}
+
+#[test]
+fn std_log_env_vars_are_not_overridden() {
+    let actual = nu_with_std!(
+        envs: vec![
+            ("NU_LOG_FORMAT".to_string(), "%MSG%".to_string()),
+            ("NU_LOG_DATE_FORMAT".to_string(), "%Y".to_string()),
+        ],
+        r#"
+            use std/log
+            print -e $env.NU_LOG_FORMAT
+            print -e $env.NU_LOG_DATE_FORMAT
+            log error "err"
+        "#
+    );
+    assert_eq!(actual.err, "%MSG%\n%Y\nerr\n");
+}
+
+#[test]
+fn std_log_env_vars_have_defaults() {
+    let actual = nu_with_std!(
+        r#"
+            use std/log
+            print -e $env.NU_LOG_FORMAT
+            print -e $env.NU_LOG_DATE_FORMAT
+        "#
+    );
+    assert!(actual.err.contains("%MSG%"));
+    assert!(actual.err.contains("%Y-"));
+}
+
+#[test]
+fn env_shlvl_commandstring_does_not_increment() {
+    let actual = nu!("
+        $env.SHLVL = 5
+        nu -c 'print $env.SHLVL; exit'
+    ");
+
+    assert_eq!(actual.out, "5");
+}
+
+// Note: Do not use -i / --interactive in tests.
+// -i attempts to acquire a terminal, and if more than one
+// test tries to obtain a terminal at the same time, the
+// test run will likely hang, at least for some users.
+// Instead, use -e / --execute with an `exit` to test REPL
+// functionality as demonstrated below.
+#[test]
+fn env_shlvl_in_repl() {
+    let actual = nu!("
+        $env.SHLVL = 5
+        nu --no-std-lib -n -e 'print $env.SHLVL; exit'
+    ");
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn env_shlvl_in_exec_repl() {
+    let actual = nu!(r#"
+        $env.SHLVL = 29
+        nu -c "exec nu --no-std-lib -n -e 'print $env.SHLVL; exit'"
+    "#);
+
+    assert_eq!(actual.out, "30");
+}
+
+#[test]
+fn path_is_a_list_in_repl() {
+    let actual = nu!(r#"
+        nu -c "exec nu --no-std-lib -n -e 'print ($env.pATh | describe); exit'"
+    "#);
+
+    assert_eq!(actual.out, "list<string>");
+}
+
+#[test]
+fn path_is_a_list() {
+    let actual = nu!("
+        print ($env.path | describe)
+    ");
+
+    assert_eq!(actual.out, "list<string>");
+}
+
+#[test]
+fn path_is_a_list_in_script() {
+    Playground::setup("has_file_pwd", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("checkpath.nu", "$env.path | describe")]);
+
+        let actual = nu!(cwd: dirs.test(), "nu checkpath.nu");
+
+        assert!(actual.out.ends_with("list<string>"));
+    })
 }

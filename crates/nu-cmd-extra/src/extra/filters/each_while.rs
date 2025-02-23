@@ -9,7 +9,7 @@ impl Command for EachWhile {
         "each while"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Run a closure on each row of the input list until a null is found, then create a new list with the results."
     }
 
@@ -25,8 +25,8 @@ impl Command for EachWhile {
             )])
             .required(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "the closure to run",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "The closure to run.",
             )
             .category(Category::Filters)
     }
@@ -89,7 +89,7 @@ impl Command for EachWhile {
                         }
                     })
                     .fuse()
-                    .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                    .into_pipeline_data(head, engine_state.signals().clone()))
             }
             PipelineData::ByteStream(stream, ..) => {
                 let span = stream.span();
@@ -107,7 +107,7 @@ impl Command for EachWhile {
                             }
                         })
                         .fuse()
-                        .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                        .into_pipeline_data(head, engine_state.signals().clone()))
                 } else {
                     Ok(PipelineData::Empty)
                 }

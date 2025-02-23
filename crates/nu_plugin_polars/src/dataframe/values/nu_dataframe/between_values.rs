@@ -5,8 +5,8 @@ use nu_protocol::{
 };
 use num::Zero;
 use polars::prelude::{
-    BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,
-    NumOpsDispatchChecked, PolarsError, Series, StringNameSpaceImpl,
+    BooleanType, ChunkCompareEq, ChunkCompareIneq, ChunkedArray, DataType, Float64Type, Int64Type,
+    IntoSeries, NumOpsDispatchChecked, PolarsError, Series, StringNameSpaceImpl,
 };
 use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 
@@ -18,15 +18,15 @@ pub(super) fn between_dataframes(
     rhs: &NuDataFrame,
 ) -> Result<NuDataFrame, ShellError> {
     match operator.item {
-        Operator::Math(Math::Plus) => {
+        Operator::Math(Math::Add) => {
             lhs.append_df(rhs, Axis::Row, Span::merge(left.span(), right.span()))
         }
-        _ => Err(ShellError::OperatorMismatch {
+        op => Err(ShellError::OperatorUnsupportedType {
+            op,
+            unsupported: left.get_type(),
             op_span: operator.span,
-            lhs_ty: left.get_type().to_string(),
-            lhs_span: left.span(),
-            rhs_ty: right.get_type().to_string(),
-            rhs_span: right.span(),
+            unsupported_span: left.span(),
+            help: None,
         }),
     }
 }
@@ -40,22 +40,40 @@ pub(super) fn compute_between_series(
 ) -> Result<NuDataFrame, ShellError> {
     let operation_span = Span::merge(left.span(), right.span());
     match operator.item {
-        Operator::Math(Math::Plus) => {
-            let mut res = lhs + rhs;
+        Operator::Math(Math::Add) => {
+            let mut res = (lhs + rhs).map_err(|e| ShellError::GenericError {
+                error: format!("Addition error: {e}"),
+                msg: "".into(),
+                span: Some(operation_span),
+                help: None,
+                inner: vec![],
+            })?;
             let name = format!("sum_{}_{}", lhs.name(), rhs.name());
-            res.rename(&name);
+            res.rename(name.into());
             NuDataFrame::try_from_series(res, operation_span)
         }
-        Operator::Math(Math::Minus) => {
-            let mut res = lhs - rhs;
+        Operator::Math(Math::Subtract) => {
+            let mut res = (lhs - rhs).map_err(|e| ShellError::GenericError {
+                error: format!("Subtraction error: {e}"),
+                msg: "".into(),
+                span: Some(operation_span),
+                help: None,
+                inner: vec![],
+            })?;
             let name = format!("sub_{}_{}", lhs.name(), rhs.name());
-            res.rename(&name);
+            res.rename(name.into());
             NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Math(Math::Multiply) => {
-            let mut res = lhs * rhs;
+            let mut res = (lhs * rhs).map_err(|e| ShellError::GenericError {
+                error: format!("Multiplication error: {e}"),
+                msg: "".into(),
+                span: Some(operation_span),
+                help: None,
+                inner: vec![],
+            })?;
             let name = format!("mul_{}_{}", lhs.name(), rhs.name());
-            res.rename(&name);
+            res.rename(name.into());
             NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Math(Math::Divide) => {
@@ -63,7 +81,7 @@ pub(super) fn compute_between_series(
             match res {
                 Ok(mut res) => {
                     let name = format!("div_{}_{}", lhs.name(), rhs.name());
-                    res.rename(&name);
+                    res.rename(name.into());
                     NuDataFrame::try_from_series(res, operation_span)
                 }
                 Err(e) => Err(ShellError::GenericError {
@@ -114,7 +132,7 @@ pub(super) fn compute_between_series(
                     (Ok(l), Ok(r)) => {
                         let mut res = l.bitand(r).into_series();
                         let name = format!("and_{}_{}", lhs.name(), rhs.name());
-                        res.rename(&name);
+                        res.rename(name.into());
                         NuDataFrame::try_from_series(res, operation_span)
                     }
                     _ => Err(ShellError::GenericError {
@@ -143,7 +161,7 @@ pub(super) fn compute_between_series(
                     (Ok(l), Ok(r)) => {
                         let mut res = l.bitor(r).into_series();
                         let name = format!("or_{}_{}", lhs.name(), rhs.name());
-                        res.rename(&name);
+                        res.rename(name.into());
                         NuDataFrame::try_from_series(res, operation_span)
                     }
                     _ => Err(ShellError::GenericError {
@@ -163,12 +181,12 @@ pub(super) fn compute_between_series(
                 span: operation_span,
             }),
         },
-        _ => Err(ShellError::OperatorMismatch {
+        op => Err(ShellError::OperatorUnsupportedType {
+            op,
+            unsupported: left.get_type(),
             op_span: operator.span,
-            lhs_ty: left.get_type().to_string(),
-            lhs_span: left.span(),
-            rhs_ty: right.get_type().to_string(),
-            rhs_span: right.span(),
+            unsupported_span: left.span(),
+            help: None,
         }),
     }
 }
@@ -193,7 +211,7 @@ where
         })?
         .into_series();
 
-    res.rename(name);
+    res.rename(name.into());
     Ok(res)
 }
 
@@ -204,12 +222,12 @@ pub(super) fn compute_series_single_value(
     right: &Value,
 ) -> Result<NuDataFrame, ShellError> {
     if !lhs.is_series() {
-        return Err(ShellError::OperatorMismatch {
+        return Err(ShellError::OperatorUnsupportedType {
+            op: operator.item,
+            unsupported: left.get_type(),
             op_span: operator.span,
-            lhs_ty: left.get_type().to_string(),
-            lhs_span: left.span(),
-            rhs_ty: right.get_type().to_string(),
-            rhs_span: right.span(),
+            unsupported_span: left.span(),
+            help: None,
         });
     }
 
@@ -217,7 +235,7 @@ pub(super) fn compute_series_single_value(
     let lhs = lhs.as_series(lhs_span)?;
 
     match operator.item {
-        Operator::Math(Math::Plus) => match &right {
+        Operator::Math(Math::Add) => match &right {
             Value::Int { val, .. } => {
                 compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::add, lhs_span)
             }
@@ -225,27 +243,27 @@ pub(super) fn compute_series_single_value(
                 compute_series_float(&lhs, *val, <ChunkedArray<Float64Type>>::add, lhs_span)
             }
             Value::String { val, .. } => add_string_to_series(&lhs, val, lhs_span),
-            _ => Err(ShellError::OperatorMismatch {
+            _ => Err(ShellError::OperatorUnsupportedType {
+                op: operator.item,
+                unsupported: right.get_type(),
                 op_span: operator.span,
-                lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span(),
-                rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span(),
+                unsupported_span: right.span(),
+                help: None,
             }),
         },
-        Operator::Math(Math::Minus) => match &right {
+        Operator::Math(Math::Subtract) => match &right {
             Value::Int { val, .. } => {
                 compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::sub, lhs_span)
             }
             Value::Float { val, .. } => {
                 compute_series_float(&lhs, *val, <ChunkedArray<Float64Type>>::sub, lhs_span)
             }
-            _ => Err(ShellError::OperatorMismatch {
+            _ => Err(ShellError::OperatorUnsupportedType {
+                op: operator.item,
+                unsupported: right.get_type(),
                 op_span: operator.span,
-                lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span(),
-                rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span(),
+                unsupported_span: right.span(),
+                help: None,
             }),
         },
         Operator::Math(Math::Multiply) => match &right {
@@ -255,12 +273,12 @@ pub(super) fn compute_series_single_value(
             Value::Float { val, .. } => {
                 compute_series_float(&lhs, *val, <ChunkedArray<Float64Type>>::mul, lhs_span)
             }
-            _ => Err(ShellError::OperatorMismatch {
+            _ => Err(ShellError::OperatorUnsupportedType {
+                op: operator.item,
+                unsupported: right.get_type(),
                 op_span: operator.span,
-                lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span(),
-                rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span(),
+                unsupported_span: right.span(),
+                help: None,
             }),
         },
         Operator::Math(Math::Divide) => {
@@ -280,12 +298,12 @@ pub(super) fn compute_series_single_value(
                         compute_series_float(&lhs, *val, <ChunkedArray<Float64Type>>::div, lhs_span)
                     }
                 }
-                _ => Err(ShellError::OperatorMismatch {
+                _ => Err(ShellError::OperatorUnsupportedType {
+                    op: operator.item,
+                    unsupported: right.get_type(),
                     op_span: operator.span,
-                    lhs_ty: left.get_type().to_string(),
-                    lhs_span: left.span(),
-                    rhs_ty: right.get_type().to_string(),
-                    rhs_span: right.span(),
+                    unsupported_span: right.span(),
+                    help: None,
                 }),
             }
         }
@@ -301,12 +319,12 @@ pub(super) fn compute_series_single_value(
             Value::Date { val, .. } => {
                 compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::equal, lhs_span)
             }
-            _ => Err(ShellError::OperatorMismatch {
+            _ => Err(ShellError::OperatorUnsupportedType {
+                op: operator.item,
+                unsupported: right.get_type(),
                 op_span: operator.span,
-                lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span(),
-                rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span(),
+                unsupported_span: right.span(),
+                help: None,
             }),
         },
         Operator::Comparison(Comparison::NotEqual) => match &right {
@@ -316,18 +334,22 @@ pub(super) fn compute_series_single_value(
             Value::Float { val, .. } => {
                 compare_series_float(&lhs, *val, ChunkedArray::not_equal, lhs_span)
             }
+            Value::String { val, .. } => {
+                let equal_pattern = format!("^{}$", fancy_regex::escape(val));
+                contains_series_pat(&lhs, &equal_pattern, lhs_span)
+            }
             Value::Date { val, .. } => compare_series_i64(
                 &lhs,
                 val.timestamp_millis(),
                 ChunkedArray::not_equal,
                 lhs_span,
             ),
-            _ => Err(ShellError::OperatorMismatch {
+            _ => Err(ShellError::OperatorUnsupportedType {
+                op: operator.item,
+                unsupported: right.get_type(),
                 op_span: operator.span,
-                lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span(),
-                rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span(),
+                unsupported_span: right.span(),
+                help: None,
             }),
         },
         Operator::Comparison(Comparison::LessThan) => match &right {
@@ -338,12 +360,12 @@ pub(super) fn compute_series_single_value(
             Value::Date { val, .. } => {
                 compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::lt, lhs_span)
             }
-            _ => Err(ShellError::OperatorMismatch {
+            _ => Err(ShellError::OperatorUnsupportedType {
+                op: operator.item,
+                unsupported: right.get_type(),
                 op_span: operator.span,
-                lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span(),
-                rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span(),
+                unsupported_span: right.span(),
+                help: None,
             }),
         },
         Operator::Comparison(Comparison::LessThanOrEqual) => match &right {
@@ -354,12 +376,12 @@ pub(super) fn compute_series_single_value(
             Value::Date { val, .. } => {
                 compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::lt_eq, lhs_span)
             }
-            _ => Err(ShellError::OperatorMismatch {
+            _ => Err(ShellError::OperatorUnsupportedType {
+                op: operator.item,
+                unsupported: right.get_type(),
                 op_span: operator.span,
-                lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span(),
-                rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span(),
+                unsupported_span: right.span(),
+                help: None,
             }),
         },
         Operator::Comparison(Comparison::GreaterThan) => match &right {
@@ -370,12 +392,12 @@ pub(super) fn compute_series_single_value(
             Value::Date { val, .. } => {
                 compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::gt, lhs_span)
             }
-            _ => Err(ShellError::OperatorMismatch {
+            _ => Err(ShellError::OperatorUnsupportedType {
+                op: operator.item,
+                unsupported: right.get_type(),
                 op_span: operator.span,
-                lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span(),
-                rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span(),
+                unsupported_span: right.span(),
+                help: None,
             }),
         },
         Operator::Comparison(Comparison::GreaterThanOrEqual) => match &right {
@@ -386,23 +408,23 @@ pub(super) fn compute_series_single_value(
             Value::Date { val, .. } => {
                 compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::gt_eq, lhs_span)
             }
-            _ => Err(ShellError::OperatorMismatch {
+            _ => Err(ShellError::OperatorUnsupportedType {
+                op: operator.item,
+                unsupported: right.get_type(),
                 op_span: operator.span,
-                lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span(),
-                rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span(),
+                unsupported_span: right.span(),
+                help: None,
             }),
         },
         // TODO: update this to do a regex match instead of a simple contains?
         Operator::Comparison(Comparison::RegexMatch) => match &right {
             Value::String { val, .. } => contains_series_pat(&lhs, val, lhs_span),
-            _ => Err(ShellError::OperatorMismatch {
+            _ => Err(ShellError::OperatorUnsupportedType {
+                op: operator.item,
+                unsupported: right.get_type(),
                 op_span: operator.span,
-                lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span(),
-                rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span(),
+                unsupported_span: right.span(),
+                help: None,
             }),
         },
         Operator::Comparison(Comparison::StartsWith) => match &right {
@@ -410,12 +432,12 @@ pub(super) fn compute_series_single_value(
                 let starts_with_pattern = format!("^{}", fancy_regex::escape(val));
                 contains_series_pat(&lhs, &starts_with_pattern, lhs_span)
             }
-            _ => Err(ShellError::OperatorMismatch {
+            _ => Err(ShellError::OperatorUnsupportedType {
+                op: operator.item,
+                unsupported: right.get_type(),
                 op_span: operator.span,
-                lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span(),
-                rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span(),
+                unsupported_span: right.span(),
+                help: None,
             }),
         },
         Operator::Comparison(Comparison::EndsWith) => match &right {
@@ -423,20 +445,20 @@ pub(super) fn compute_series_single_value(
                 let ends_with_pattern = format!("{}$", fancy_regex::escape(val));
                 contains_series_pat(&lhs, &ends_with_pattern, lhs_span)
             }
-            _ => Err(ShellError::OperatorMismatch {
+            _ => Err(ShellError::OperatorUnsupportedType {
+                op: operator.item,
+                unsupported: right.get_type(),
                 op_span: operator.span,
-                lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span(),
-                rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span(),
+                unsupported_span: right.span(),
+                help: None,
             }),
         },
-        _ => Err(ShellError::OperatorMismatch {
+        _ => Err(ShellError::OperatorUnsupportedType {
+            op: operator.item,
+            unsupported: left.get_type(),
             op_span: operator.span,
-            lhs_ty: left.get_type().to_string(),
-            lhs_span: left.span(),
-            rhs_ty: right.get_type().to_string(),
-            rhs_span: right.span(),
+            unsupported_span: left.span(),
+            help: None,
         }),
     }
 }
@@ -797,7 +819,7 @@ mod test {
 
     #[test]
     fn test_compute_between_series_comparisons() {
-        let series = Series::new("c", &[1, 2]);
+        let series = Series::new("c".into(), &[1, 2]);
         let df = NuDataFrame::try_from_series_vec(vec![series], Span::test_data())
             .expect("should be able to create a simple dataframe");
 
@@ -830,7 +852,7 @@ mod test {
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
-        assert_eq!(result, Series::new("neq_c_c", &[false, false]));
+        assert_eq!(result, Series::new("neq_c_c".into(), &[false, false]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::Equal),
@@ -841,7 +863,7 @@ mod test {
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
-        assert_eq!(result, Series::new("eq_c_c", &[true, true]));
+        assert_eq!(result, Series::new("eq_c_c".into(), &[true, true]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::LessThan),
@@ -852,7 +874,7 @@ mod test {
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
-        assert_eq!(result, Series::new("lt_c_c", &[false, false]));
+        assert_eq!(result, Series::new("lt_c_c".into(), &[false, false]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::LessThanOrEqual),
@@ -863,7 +885,7 @@ mod test {
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
-        assert_eq!(result, Series::new("lte_c_c", &[true, true]));
+        assert_eq!(result, Series::new("lte_c_c".into(), &[true, true]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::GreaterThan),
@@ -874,7 +896,7 @@ mod test {
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
-        assert_eq!(result, Series::new("gt_c_c", &[false, false]));
+        assert_eq!(result, Series::new("gt_c_c".into(), &[false, false]));
 
         let op = Spanned {
             item: Operator::Comparison(Comparison::GreaterThanOrEqual),
@@ -885,6 +907,6 @@ mod test {
         let result = result
             .as_series(Span::test_data())
             .expect("should be convert to a series");
-        assert_eq!(result, Series::new("gte_c_c", &[true, true]));
+        assert_eq!(result, Series::new("gte_c_c".into(), &[true, true]));
     }
 }

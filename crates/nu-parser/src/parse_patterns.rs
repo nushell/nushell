@@ -1,3 +1,5 @@
+#![allow(clippy::byte_char_slices)]
+
 use crate::{
     lex, lite_parse,
     parser::{is_variable, parse_value},
@@ -7,7 +9,6 @@ use nu_protocol::{
     engine::StateWorkingSet,
     ParseError, Span, SyntaxShape, Type, VarId,
 };
-
 pub fn garbage(span: Span) -> MatchPattern {
     MatchPattern {
         pattern: Pattern::Garbage,
@@ -39,7 +40,7 @@ pub fn parse_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPatt
         let value = parse_value(working_set, span, &SyntaxShape::Any);
 
         MatchPattern {
-            pattern: Pattern::Value(value),
+            pattern: Pattern::Expression(Box::new(value)),
             guard: None,
             span,
         }
@@ -98,7 +99,7 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
         working_set.error(err);
     }
 
-    let (output, err) = lite_parse(&output);
+    let (output, err) = lite_parse(&output, working_set);
     if let Some(err) = err {
         working_set.error(err);
     }

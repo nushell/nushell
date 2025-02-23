@@ -1,6 +1,5 @@
-use super::utils::gen_command;
-use nu_cmd_base::util::get_editor;
-use nu_engine::{command_prelude::*, env_to_strings};
+use nu_engine::command_prelude::*;
+use nu_protocol::PipelineMetadata;
 
 #[derive(Clone)]
 pub struct ConfigNu;
@@ -16,31 +15,36 @@ impl Command for ConfigNu {
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .switch(
                 "default",
-                "Print default `config.nu` file instead.",
+                "Print the internal default `config.nu` file instead.",
                 Some('d'),
             )
-        // TODO: Signature narrower than what run actually supports theoretically
+            .switch(
+                "doc",
+                "Print a commented `config.nu` with documentation instead.",
+                Some('s'),
+            )
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Edit nu configurations."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "allow user to open and update nu config",
+                description: "open user's config.nu in the default editor",
                 example: "config nu",
                 result: None,
             },
             Example {
-                description: "allow user to print default `config.nu` file",
-                example: "config nu --default,",
+                description: "pretty-print a commented `config.nu` that explains common settings",
+                example: "config nu --doc | nu-highlight",
                 result: None,
             },
             Example {
-                description: "allow saving the default `config.nu` locally",
-                example: "config nu --default | save -f ~/.config/nushell/default_config.nu",
+                description:
+                    "pretty-print the internal `config.nu` file which is loaded before user's config",
+                example: "config nu --default | nu-highlight",
                 result: None,
             },
         ]
@@ -51,35 +55,39 @@ impl Command for ConfigNu {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // `--default` flag handling
-        if call.has_flag(engine_state, stack, "default")? {
-            let head = call.head;
-            return Ok(Value::string(nu_utils::get_default_config(), head).into_pipeline_data());
+        let default_flag = call.has_flag(engine_state, stack, "default")?;
+        let doc_flag = call.has_flag(engine_state, stack, "doc")?;
+        if default_flag && doc_flag {
+            return Err(ShellError::IncompatibleParameters {
+                left_message: "can't use `--default` at the same time".into(),
+                left_span: call.get_flag_span(stack, "default").expect("has flag"),
+                right_message: "because of `--doc`".into(),
+                right_span: call.get_flag_span(stack, "doc").expect("has flag"),
+            });
         }
 
-        let env_vars_str = env_to_strings(engine_state, stack)?;
-        let nu_config = match engine_state.get_config_path("config-path") {
-            Some(path) => path,
-            None => {
-                return Err(ShellError::GenericError {
-                    error: "Could not find $nu.config-path".into(),
-                    msg: "Could not find $nu.config-path".into(),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                });
-            }
-        };
+        // `--default` flag handling
+        if default_flag {
+            let head = call.head;
+            return Ok(Value::string(nu_utils::get_default_config(), head)
+                .into_pipeline_data_with_metadata(
+                    PipelineMetadata::default()
+                        .with_content_type("application/x-nuscript".to_string().into()),
+                ));
+        }
 
-        let (item, config_args) = get_editor(engine_state, stack, call.head)?;
+        // `--doc` flag handling
+        if doc_flag {
+            let head = call.head;
+            return Ok(Value::string(nu_utils::get_doc_config(), head)
+                .into_pipeline_data_with_metadata(
+                    PipelineMetadata::default()
+                        .with_content_type("application/x-nuscript".to_string().into()),
+                ));
+        }
 
-        gen_command(call.head, nu_config, item, config_args, env_vars_str).run_with_input(
-            engine_state,
-            stack,
-            input,
-            true,
-        )
+        super::config_::start_editor("config-path", engine_state, stack, call)
     }
 }

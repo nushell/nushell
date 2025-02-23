@@ -8,7 +8,7 @@ impl Command for FromNuon {
         "from nuon"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert from nuon to structured data."
     }
 
@@ -49,7 +49,8 @@ impl Command for FromNuon {
         let (string_input, _span, metadata) = input.collect_string_strict(head)?;
 
         match nuon::from_nuon(&string_input, Some(head)) {
-            Ok(result) => Ok(result.into_pipeline_data_with_metadata(metadata)),
+            Ok(result) => Ok(result
+                .into_pipeline_data_with_metadata(metadata.map(|md| md.with_content_type(None)))),
             Err(err) => Err(ShellError::GenericError {
                 error: "error when loading nuon text".into(),
                 msg: "could not load nuon text".into(),
@@ -63,6 +64,10 @@ impl Command for FromNuon {
 
 #[cfg(test)]
 mod test {
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::{Metadata, MetadataSet};
+
     use super::*;
 
     #[test]
@@ -70,5 +75,34 @@ mod test {
         use crate::test_examples;
 
         test_examples(FromNuon {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(FromNuon {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(MetadataSet {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = r#"'[[a, b]; [1, 2]]' | metadata set --content-type 'application/x-nuon' --datasource-ls | from nuon | metadata | $in"#;
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("source" => Value::test_string("ls"))),
+            result.expect("There should be a result")
+        )
     }
 }

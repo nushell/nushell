@@ -1,62 +1,73 @@
-use nu_engine::documentation::get_flags_section;
-use nu_protocol::{engine::EngineState, levenshtein_distance};
+use nu_engine::documentation::{get_flags_section, HelpStyle};
+use nu_protocol::{engine::EngineState, levenshtein_distance, Config};
 use nu_utils::IgnoreCaseExt;
 use reedline::{Completer, Suggestion};
 use std::{fmt::Write, sync::Arc};
 
-pub struct NuHelpCompleter(Arc<EngineState>);
+pub struct NuHelpCompleter {
+    engine_state: Arc<EngineState>,
+    config: Arc<Config>,
+}
 
 impl NuHelpCompleter {
-    pub fn new(engine_state: Arc<EngineState>) -> Self {
-        Self(engine_state)
+    pub fn new(engine_state: Arc<EngineState>, config: Arc<Config>) -> Self {
+        Self {
+            engine_state,
+            config,
+        }
     }
 
     fn completion_helper(&self, line: &str, pos: usize) -> Vec<Suggestion> {
-        let full_commands = self.0.get_signatures_with_examples(false);
         let folded_line = line.to_folded_case();
 
-        //Vec<(Signature, Vec<Example>, bool, bool)> {
-        let mut commands = full_commands
-            .iter()
-            .filter(|(sig, _, _, _, _)| {
-                sig.name.to_folded_case().contains(&folded_line)
-                    || sig.usage.to_folded_case().contains(&folded_line)
-                    || sig
-                        .search_terms
-                        .iter()
+        let mut help_style = HelpStyle::default();
+        help_style.update_from_config(&self.engine_state, &self.config);
+
+        let mut commands = self
+            .engine_state
+            .get_decls_sorted(false)
+            .into_iter()
+            .filter_map(|(_, decl_id)| {
+                let decl = self.engine_state.get_decl(decl_id);
+                (decl.name().to_folded_case().contains(&folded_line)
+                    || decl.description().to_folded_case().contains(&folded_line)
+                    || decl
+                        .search_terms()
+                        .into_iter()
                         .any(|term| term.to_folded_case().contains(&folded_line))
-                    || sig.extra_usage.to_folded_case().contains(&folded_line)
+                    || decl
+                        .extra_description()
+                        .to_folded_case()
+                        .contains(&folded_line))
+                .then_some(decl)
             })
             .collect::<Vec<_>>();
 
-        commands.sort_by(|(a, _, _, _, _), (b, _, _, _, _)| {
-            let a_distance = levenshtein_distance(line, &a.name);
-            let b_distance = levenshtein_distance(line, &b.name);
-            a_distance.cmp(&b_distance)
-        });
+        commands.sort_by_cached_key(|decl| levenshtein_distance(line, decl.name()));
 
         commands
             .into_iter()
-            .map(|(sig, examples, _, _, _)| {
+            .map(|decl| {
                 let mut long_desc = String::new();
 
-                let usage = &sig.usage;
-                if !usage.is_empty() {
-                    long_desc.push_str(usage);
+                let description = decl.description();
+                if !description.is_empty() {
+                    long_desc.push_str(description);
                     long_desc.push_str("\r\n\r\n");
                 }
 
-                let extra_usage = &sig.extra_usage;
-                if !extra_usage.is_empty() {
-                    long_desc.push_str(extra_usage);
+                let extra_desc = decl.extra_description();
+                if !extra_desc.is_empty() {
+                    long_desc.push_str(extra_desc);
                     long_desc.push_str("\r\n\r\n");
                 }
 
+                let sig = decl.signature();
                 let _ = write!(long_desc, "Usage:\r\n  > {}\r\n", sig.call_signature());
 
                 if !sig.named.is_empty() {
-                    long_desc.push_str(&get_flags_section(Some(&*self.0.clone()), sig, |v| {
-                        v.to_parsable_string(", ", &self.0.config)
+                    long_desc.push_str(&get_flags_section(&sig, &help_style, |v| {
+                        v.to_parsable_string(", ", &self.config)
                     }))
                 }
 
@@ -72,7 +83,7 @@ impl NuHelpCompleter {
                         let opt_suffix = if let Some(value) = &positional.default_value {
                             format!(
                                 " (optional, default: {})",
-                                &value.to_parsable_string(", ", &self.0.config),
+                                &value.to_parsable_string(", ", &self.config),
                             )
                         } else {
                             (" (optional)").to_string()
@@ -93,21 +104,21 @@ impl NuHelpCompleter {
                     }
                 }
 
-                let extra: Vec<String> = examples
+                let extra: Vec<String> = decl
+                    .examples()
                     .iter()
                     .map(|example| example.example.replace('\n', "\r\n"))
                     .collect();
 
                 Suggestion {
-                    value: sig.name.clone(),
+                    value: decl.name().into(),
                     description: Some(long_desc),
-                    style: None,
                     extra: Some(extra),
                     span: reedline::Span {
                         start: pos - line.len(),
                         end: pos,
                     },
-                    append_whitespace: false,
+                    ..Suggestion::default()
                 }
             })
             .collect()
@@ -138,7 +149,8 @@ mod test {
     ) {
         let engine_state =
             nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
-        let mut completer = NuHelpCompleter::new(engine_state.into());
+        let config = engine_state.get_config().clone();
+        let mut completer = NuHelpCompleter::new(engine_state.into(), config);
         let suggestions = completer.complete(line, end);
 
         assert_eq!(

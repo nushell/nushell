@@ -1,5 +1,6 @@
 use fancy_regex::Regex;
 use nu_engine::command_prelude::*;
+
 use std::collections::BTreeMap;
 use std::{fmt, str};
 use unicode_segmentation::UnicodeSegmentation;
@@ -21,12 +22,16 @@ impl Command for SubCommand {
             .input_output_types(vec![(Type::String, Type::record())])
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Gather word count statistics on the text."
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["count", "word", "character", "unicode", "wc"]
+    }
+
+    fn is_const(&self) -> bool {
+        true
     }
 
     fn run(
@@ -37,6 +42,15 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         stats(engine_state, call, input)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        stats(working_set.permanent(), call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -50,17 +64,19 @@ impl Command for SubCommand {
                         "bytes" =>     Value::test_int(38),
                         "chars" =>     Value::test_int(38),
                         "graphemes" => Value::test_int(38),
+                        "unicode-width" => Value::test_int(38),
                 })),
             },
             Example {
                 description: "Counts unicode characters",
-                example: r#"'今天天气真好' | str stats "#,
+                example: r#"'今天天气真好' | str stats"#,
                 result: Some(Value::test_record(record! {
                         "lines" =>     Value::test_int(1),
                         "words" =>     Value::test_int(6),
                         "bytes" =>     Value::test_int(18),
                         "chars" =>     Value::test_int(6),
                         "graphemes" => Value::test_int(6),
+                        "unicode-width" => Value::test_int(12),
                 })),
             },
             Example {
@@ -72,6 +88,7 @@ impl Command for SubCommand {
                         "bytes" =>     Value::test_int(15),
                         "chars" =>     Value::test_int(14),
                         "graphemes" => Value::test_int(13),
+                        "unicode-width" => Value::test_int(13),
                 })),
             },
         ]
@@ -108,7 +125,7 @@ fn stats(
                 ),
             }
         },
-        engine_state.ctrlc.clone(),
+        engine_state.signals(),
     )
 }
 
@@ -125,12 +142,13 @@ fn counter(contents: &str, span: Span) -> Value {
         "bytes" => get_count(&counts, Counter::Bytes, span),
         "chars" => get_count(&counts, Counter::CodePoints, span),
         "graphemes" => get_count(&counts, Counter::GraphemeClusters, span),
+        "unicode-width" => get_count(&counts, Counter::UnicodeWidth, span),
     };
 
     Value::record(record, span)
 }
 
-/// Take all the counts in `other_counts` and sum them into `accum`.
+// /// Take all the counts in `other_counts` and sum them into `accum`.
 // pub fn sum_counts(accum: &mut Counted, other_counts: &Counted) {
 //     for (counter, count) in other_counts {
 //         let entry = accum.entry(*counter).or_insert(0);
@@ -138,7 +156,7 @@ fn counter(contents: &str, span: Span) -> Value {
 //     }
 // }
 
-/// Sums all the `Counted` instances into a new one.
+// /// Sums all the `Counted` instances into a new one.
 // pub fn sum_all_counts<'a, I>(counts: I) -> Counted
 // where
 //     I: IntoIterator<Item = &'a Counted>,
@@ -194,6 +212,7 @@ impl Count for Counter {
             }
             Counter::Words => s.unicode_words().count(),
             Counter::CodePoints => s.chars().count(),
+            Counter::UnicodeWidth => unicode_width::UnicodeWidthStr::width(s),
         }
     }
 }
@@ -215,15 +234,19 @@ pub enum Counter {
 
     /// Counts unicode code points
     CodePoints,
+
+    /// Counts the width of the string
+    UnicodeWidth,
 }
 
 /// A convenience array of all counter types.
-pub const ALL_COUNTERS: [Counter; 5] = [
+pub const ALL_COUNTERS: [Counter; 6] = [
     Counter::GraphemeClusters,
     Counter::Bytes,
     Counter::Lines,
     Counter::Words,
     Counter::CodePoints,
+    Counter::UnicodeWidth,
 ];
 
 impl fmt::Display for Counter {
@@ -234,6 +257,7 @@ impl fmt::Display for Counter {
             Counter::Lines => "lines",
             Counter::Words => "words",
             Counter::CodePoints => "codepoints",
+            Counter::UnicodeWidth => "unicode-width",
         };
 
         write!(f, "{s}")
@@ -283,6 +307,7 @@ fn test_one_newline() {
     correct_counts.insert(Counter::GraphemeClusters, 1);
     correct_counts.insert(Counter::Bytes, 1);
     correct_counts.insert(Counter::CodePoints, 1);
+    correct_counts.insert(Counter::UnicodeWidth, 1);
 
     assert_eq!(correct_counts, counts);
 }
@@ -322,6 +347,7 @@ fn test_count_counts_lines() {
 
     // one more than grapheme clusters because of \r\n
     correct_counts.insert(Counter::CodePoints, 24);
+    correct_counts.insert(Counter::UnicodeWidth, 23);
 
     assert_eq!(correct_counts, counts);
 }
@@ -339,6 +365,7 @@ fn test_count_counts_words() {
     correct_counts.insert(Counter::Bytes, i_can_eat_glass.len());
     correct_counts.insert(Counter::Words, 9);
     correct_counts.insert(Counter::CodePoints, 50);
+    correct_counts.insert(Counter::UnicodeWidth, 50);
 
     assert_eq!(correct_counts, counts);
 }

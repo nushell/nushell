@@ -53,24 +53,63 @@ fn in_and_if_else() -> TestResult {
 }
 
 #[test]
-fn help_works_with_missing_requirements() -> TestResult {
-    let expected_length = "70";
-    run_test(r#"each --help | lines | length"#, expected_length)
+fn in_with_closure() -> TestResult {
+    // Can use $in twice
+    run_test(r#"3 | do { let x = $in; let y = $in; $x + $y }"#, "6")
 }
 
 #[test]
-fn scope_variable() -> TestResult {
+fn in_with_custom_command() -> TestResult {
+    // Can use $in twice
     run_test(
-        r#"let x = 3; scope variables | where name == "$x" | get type.0"#,
-        "int",
+        r#"def foo [] { let x = $in; let y = $in; $x + $y }; 3 | foo"#,
+        "6",
     )
 }
+
+#[test]
+fn in_used_twice_and_also_in_pipeline() -> TestResult {
+    run_test(
+        r#"3 | do { let x = $in; let y = $in; $x + $y | $in * 4 }"#,
+        "24",
+    )
+}
+
+// #13441
+#[test]
+fn in_used_in_range_from() -> TestResult {
+    run_test(r#"6 | $in..10 | math sum"#, "40")
+}
+#[test]
+fn in_used_in_range_to() -> TestResult {
+    run_test(r#"6 | 3..$in | math sum"#, "18")
+}
+
+#[test]
+fn help_works_with_missing_requirements() -> TestResult {
+    run_test(r#"each --help | lines | length"#, "72")
+}
+
+#[rstest]
+#[case("let x = 3", "$x", "int", "3")]
+#[case("const x = 3", "$x", "int", "3")]
+fn scope_variable(
+    #[case] var_decl: &str,
+    #[case] exp_name: &str,
+    #[case] exp_type: &str,
+    #[case] exp_value: &str,
+) -> TestResult {
+    let get_var_info =
+        format!(r#"{var_decl}; scope variables | where name == "{exp_name}" | first"#);
+    run_test(&format!(r#"{get_var_info} | get type"#), exp_type)?;
+    run_test(&format!(r#"{get_var_info} | get value"#), exp_value)
+}
+
 #[rstest]
 #[case("a", "<> nothing")]
 #[case("b", "<1.23> float")]
 #[case("flag1", "<> nothing")]
 #[case("flag2", "<4.56> float")]
-
 fn scope_command_defaults(#[case] var: &str, #[case] exp_result: &str) -> TestResult {
     run_test(
         &format!(
@@ -402,7 +441,7 @@ fn better_operator_spans() -> TestResult {
 
 #[test]
 fn range_right_exclusive() -> TestResult {
-    run_test(r#"[1, 4, 5, 8, 9] | range 1..<3 | math sum"#, "9")
+    run_test(r#"[1, 4, 5, 8, 9] | slice 1..<3 | math sum"#, "9")
 }
 
 /// Issue #7872

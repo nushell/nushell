@@ -1,10 +1,6 @@
 use nu_protocol::{ShellError, Span};
 
-pub mod eager;
-pub mod expressions;
-pub mod lazy;
-pub mod series;
-pub mod stub;
+pub mod command;
 mod utils;
 pub mod values;
 

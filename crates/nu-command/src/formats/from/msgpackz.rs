@@ -21,11 +21,11 @@ impl Command for FromMsgpackz {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert brotli-compressed MessagePack data into Nu values."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This is the format used by the plugin registry file ($nu.plugin-path)."
     }
 
@@ -41,9 +41,10 @@ impl Command for FromMsgpackz {
         let opts = Opts {
             span,
             objects,
-            ctrlc: engine_state.ctrlc.clone(),
+            signals: engine_state.signals().clone(),
         };
-        match input {
+        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        let out = match input {
             // Deserialize from a byte buffer
             PipelineData::Value(Value::Binary { val: bytes, .. }, _) => {
                 let reader = brotli::Decompressor::new(Cursor::new(bytes), BUFFER_SIZE);
@@ -68,6 +69,7 @@ impl Command for FromMsgpackz {
                 dst_span: call.head,
                 src_span: span,
             }),
-        }
+        };
+        out.map(|pd| pd.set_metadata(metadata))
     }
 }

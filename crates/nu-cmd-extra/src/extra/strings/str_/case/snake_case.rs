@@ -25,12 +25,12 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, convert strings at the given cell paths",
+                "For a data structure input, convert strings at the given cell paths.",
             )
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert a string to snake_case."
     }
 

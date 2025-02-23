@@ -1,10 +1,7 @@
 use filesize::file_real_size_fast;
 use nu_glob::Pattern;
-use nu_protocol::{record, ShellError, Span, Value};
-use std::{
-    path::PathBuf,
-    sync::{atomic::AtomicBool, Arc},
-};
+use nu_protocol::{record, shell_error::io::IoError, ShellError, Signals, Span, Value};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct DirBuilder {
@@ -12,7 +9,7 @@ pub struct DirBuilder {
     pub min: Option<u64>,
     pub deref: bool,
     pub exclude: Option<Pattern>,
-    pub all: bool,
+    pub long: bool,
 }
 
 impl DirBuilder {
@@ -21,14 +18,14 @@ impl DirBuilder {
         min: Option<u64>,
         deref: bool,
         exclude: Option<Pattern>,
-        all: bool,
+        long: bool,
     ) -> DirBuilder {
         DirBuilder {
             tag,
             min,
             deref,
             exclude,
-            all,
+            long,
         }
     }
 }
@@ -42,6 +39,7 @@ pub struct DirInfo {
     blocks: u64,
     path: PathBuf,
     tag: Span,
+    long: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -50,10 +48,16 @@ pub struct FileInfo {
     size: u64,
     blocks: Option<u64>,
     tag: Span,
+    long: bool,
 }
 
 impl FileInfo {
-    pub fn new(path: impl Into<PathBuf>, deref: bool, tag: Span) -> Result<Self, ShellError> {
+    pub fn new(
+        path: impl Into<PathBuf>,
+        deref: bool,
+        tag: Span,
+        long: bool,
+    ) -> Result<Self, ShellError> {
         let path = path.into();
         let m = if deref {
             std::fs::metadata(&path)
@@ -70,9 +74,10 @@ impl FileInfo {
                     blocks: block_size,
                     size: d.len(),
                     tag,
+                    long,
                 })
             }
-            Err(e) => Err(e.into()),
+            Err(e) => Err(IoError::new(e.kind(), tag, path).into()),
         }
     }
 }
@@ -82,9 +87,11 @@ impl DirInfo {
         path: impl Into<PathBuf>,
         params: &DirBuilder,
         depth: Option<u64>,
-        ctrl_c: Option<Arc<AtomicBool>>,
-    ) -> Self {
+        span: Span,
+        signals: &Signals,
+    ) -> Result<Self, ShellError> {
         let path = path.into();
+        let from_io_error = IoError::factory(span, path.as_path());
 
         let mut s = Self {
             dirs: Vec::new(),
@@ -93,7 +100,8 @@ impl DirInfo {
             size: 0,
             blocks: 0,
             tag: params.tag,
-            path,
+            path: path.clone(),
+            long: params.long,
         };
 
         match std::fs::metadata(&s.path) {
@@ -101,31 +109,29 @@ impl DirInfo {
                 s.size = d.len(); // dir entry size
                 s.blocks = file_real_size_fast(&s.path, &d).ok().unwrap_or(0);
             }
-            Err(e) => s = s.add_error(e.into()),
+            Err(e) => s = s.add_error(from_io_error(e).into()),
         };
 
         match std::fs::read_dir(&s.path) {
             Ok(d) => {
                 for f in d {
-                    if nu_utils::ctrl_c::was_pressed(&ctrl_c) {
-                        break;
-                    }
+                    signals.check(span)?;
 
                     match f {
                         Ok(i) => match i.file_type() {
                             Ok(t) if t.is_dir() => {
-                                s = s.add_dir(i.path(), depth, params, ctrl_c.clone())
+                                s = s.add_dir(i.path(), depth, params, span, signals)?
                             }
                             Ok(_t) => s = s.add_file(i.path(), params),
-                            Err(e) => s = s.add_error(e.into()),
+                            Err(e) => s = s.add_error(from_io_error(e).into()),
                         },
-                        Err(e) => s = s.add_error(e.into()),
+                        Err(e) => s = s.add_error(from_io_error(e).into()),
                     }
                 }
             }
-            Err(e) => s = s.add_error(e.into()),
+            Err(e) => s = s.add_error(from_io_error(e).into()),
         }
-        s
+        Ok(s)
     }
 
     fn add_dir(
@@ -133,21 +139,22 @@ impl DirInfo {
         path: impl Into<PathBuf>,
         mut depth: Option<u64>,
         params: &DirBuilder,
-        ctrl_c: Option<Arc<AtomicBool>>,
-    ) -> Self {
+        span: Span,
+        signals: &Signals,
+    ) -> Result<Self, ShellError> {
         if let Some(current) = depth {
             if let Some(new) = current.checked_sub(1) {
                 depth = Some(new);
             } else {
-                return self;
+                return Ok(self);
             }
         }
 
-        let d = DirInfo::new(path, params, depth, ctrl_c);
+        let d = DirInfo::new(path, params, depth, span, signals)?;
         self.size += d.size;
         self.blocks += d.blocks;
         self.dirs.push(d);
-        self
+        Ok(self)
     }
 
     fn add_file(mut self, f: impl Into<PathBuf>, params: &DirBuilder) -> Self {
@@ -157,13 +164,13 @@ impl DirInfo {
             .as_ref()
             .map_or(true, |x| !x.matches_path(&f));
         if include {
-            match FileInfo::new(f, params.deref, self.tag) {
+            match FileInfo::new(f, params.deref, self.tag, self.long) {
                 Ok(file) => {
                     let inc = params.min.map_or(true, |s| file.size >= s);
                     if inc {
                         self.size += file.size;
                         self.blocks += file.blocks.unwrap_or(0);
-                        if params.all {
+                        if params.long {
                             self.files.push(file);
                         }
                     }
@@ -200,16 +207,27 @@ impl From<DirInfo> for Value {
         //     })
         // }
 
-        Value::record(
-            record! {
-                "path" => Value::string(d.path.display().to_string(), d.tag),
-                "apparent" => Value::filesize(d.size as i64, d.tag),
-                "physical" => Value::filesize(d.blocks as i64, d.tag),
-                "directories" => value_from_vec(d.dirs, d.tag),
-                "files" => value_from_vec(d.files, d.tag)
-            },
-            d.tag,
-        )
+        if d.long {
+            Value::record(
+                record! {
+                    "path" => Value::string(d.path.display().to_string(), d.tag),
+                    "apparent" => Value::filesize(d.size as i64, d.tag),
+                    "physical" => Value::filesize(d.blocks as i64, d.tag),
+                    "directories" => value_from_vec(d.dirs, d.tag),
+                    "files" => value_from_vec(d.files, d.tag)
+                },
+                d.tag,
+            )
+        } else {
+            Value::record(
+                record! {
+                    "path" => Value::string(d.path.display().to_string(), d.tag),
+                    "apparent" => Value::filesize(d.size as i64, d.tag),
+                    "physical" => Value::filesize(d.blocks as i64, d.tag),
+                },
+                d.tag,
+            )
+        }
     }
 }
 
@@ -218,16 +236,27 @@ impl From<FileInfo> for Value {
         // cols.push("errors".into());
         // vals.push(Value::nothing(Span::unknown()));
 
-        Value::record(
-            record! {
-                "path" => Value::string(f.path.display().to_string(), f.tag),
-                "apparent" => Value::filesize(f.size as i64, f.tag),
-                "physical" => Value::filesize(f.blocks.unwrap_or(0) as i64, f.tag),
-                "directories" => Value::nothing(Span::unknown()),
-                "files" => Value::nothing(Span::unknown()),
-            },
-            f.tag,
-        )
+        if f.long {
+            Value::record(
+                record! {
+                    "path" => Value::string(f.path.display().to_string(), f.tag),
+                    "apparent" => Value::filesize(f.size as i64, f.tag),
+                    "physical" => Value::filesize(f.blocks.unwrap_or(0) as i64, f.tag),
+                    "directories" => Value::nothing(Span::unknown()),
+                    "files" => Value::nothing(Span::unknown()),
+                },
+                f.tag,
+            )
+        } else {
+            Value::record(
+                record! {
+                    "path" => Value::string(f.path.display().to_string(), f.tag),
+                    "apparent" => Value::filesize(f.size as i64, f.tag),
+                    "physical" => Value::filesize(f.blocks.unwrap_or(0) as i64, f.tag),
+                },
+                f.tag,
+            )
+        }
     }
 }
 

@@ -21,12 +21,12 @@ impl Command for Drop {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Remove items/rows from the end of the input list/table. Counterpart of `skip`. Opposite of `last`."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["delete"]
+        vec!["delete", "remove"]
     }
 
     fn examples(&self) -> Vec<Example> {

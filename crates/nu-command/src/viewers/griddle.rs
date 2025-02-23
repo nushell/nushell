@@ -1,11 +1,11 @@
-// use super::icons::{icon_for_file, iconify_style_ansi_to_nu};
-use super::icons::icon_for_file;
+use devicons::icon_for_file;
 use lscolors::Style;
+use nu_color_config::lookup_ansi_color_style;
 use nu_engine::{command_prelude::*, env_to_string};
 use nu_protocol::Config;
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
-use nu_utils::get_ls_colors;
-use terminal_size::{Height, Width};
+use nu_utils::{get_ls_colors, terminal_size};
+use std::path::Path;
 
 #[derive(Clone)]
 pub struct Griddle;
@@ -15,7 +15,7 @@ impl Command for Griddle {
         "grid"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Renders the output to a textual terminal grid."
     }
 
@@ -32,6 +32,11 @@ impl Command for Griddle {
                 Some('w'),
             )
             .switch("color", "draw output with color", Some('c'))
+            .switch(
+                "icons",
+                "draw output with icons (assumes nerd font is used)",
+                Some('i'),
+            )
             .named(
                 "separator",
                 SyntaxShape::String,
@@ -41,7 +46,7 @@ impl Command for Griddle {
             .category(Category::Viewers)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"grid was built to give a concise gridded layout for ls. however,
 it determines what to put in the grid by looking for a column named
 'name'. this works great for tables and records but for lists we
@@ -60,13 +65,15 @@ prints out the list properly."#
         let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
         let color_param: bool = call.has_flag(engine_state, stack, "color")?;
         let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
-        let config = engine_state.get_config();
+        let icons_param: bool = call.has_flag(engine_state, stack, "icons")?;
+        let config = &stack.get_config(engine_state);
         let env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
-            Some(v) => Some(env_to_string("LS_COLORS", &v, engine_state, stack)?),
+            Some(v) => Some(env_to_string("LS_COLORS", v, engine_state, stack)?),
             None => None,
         };
-        let use_grid_icons = config.use_grid_icons;
-        let use_color: bool = color_param && config.use_ansi_coloring;
+
+        let use_color: bool = color_param && config.use_ansi_coloring.get(engine_state);
+        let cwd = engine_state.cwd(Some(stack))?;
 
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
@@ -80,7 +87,8 @@ prints out the list properly."#
                         use_color,
                         separator_param,
                         env_str,
-                        use_grid_icons,
+                        icons_param,
+                        cwd.as_ref(),
                     )?)
                 } else {
                     Ok(PipelineData::empty())
@@ -97,7 +105,8 @@ prints out the list properly."#
                         use_color,
                         separator_param,
                         env_str,
-                        use_grid_icons,
+                        icons_param,
+                        cwd.as_ref(),
                     )?)
                 } else {
                     // dbg!(data);
@@ -119,7 +128,8 @@ prints out the list properly."#
                     use_color,
                     separator_param,
                     env_str,
-                    use_grid_icons,
+                    icons_param,
+                    cwd.as_ref(),
                 )?)
             }
             x => {
@@ -157,10 +167,16 @@ prints out the list properly."#
                 example: "[[name patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | grid",
                 result: Some(Value::test_string("0.1.0 │ 0.1.1 │ 0.2.0\n")),
             },
+            Example {
+                description: "Render a table with 'name' column in it to a grid with icons and colors",
+                example: "[[name patch]; [Cargo.toml false] [README.md true] [SECURITY.md false]] | grid --icons --color",
+                result: None,
+            },
         ]
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn create_grid_output(
     items: Vec<(usize, String, String)>,
     call: &Call,
@@ -168,13 +184,14 @@ fn create_grid_output(
     use_color: bool,
     separator_param: Option<String>,
     env_str: Option<String>,
-    use_grid_icons: bool,
+    icons_param: bool,
+    cwd: &Path,
 ) -> Result<PipelineData, ShellError> {
     let ls_colors = get_ls_colors(env_str);
 
     let cols = if let Some(col) = width_param {
         col as u16
-    } else if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
+    } else if let Ok((w, _h)) = terminal_size() {
         w
     } else {
         80u16
@@ -194,16 +211,12 @@ fn create_grid_output(
         // only output value if the header name is 'name'
         if header == "name" {
             if use_color {
-                if use_grid_icons {
+                if icons_param {
                     let no_ansi = nu_utils::strip_ansi_unlikely(&value);
-                    let path = std::path::Path::new(no_ansi.as_ref());
-                    let icon = icon_for_file(path, call.head)?;
+                    let path = cwd.join(no_ansi.as_ref());
+                    let file_icon = icon_for_file(&path, &None);
                     let ls_colors_style = ls_colors.style_for_path(path);
-
-                    let icon_style = match ls_colors_style {
-                        Some(c) => c.to_nu_ansi_term_style(),
-                        None => nu_ansi_term::Style::default(),
-                    };
+                    let icon_style = lookup_ansi_color_style(file_icon.color);
 
                     let ansi_style = ls_colors_style
                         .map(Style::to_nu_ansi_term_style)
@@ -211,7 +224,7 @@ fn create_grid_output(
 
                     let item = format!(
                         "{} {}",
-                        icon_style.paint(String::from(icon)),
+                        icon_style.paint(String::from(file_icon.icon)),
                         ansi_style.paint(value)
                     );
 
@@ -219,12 +232,22 @@ fn create_grid_output(
                     cell.alignment = Alignment::Left;
                     grid.add(cell);
                 } else {
-                    let style = ls_colors.style_for_path(value.clone());
+                    let no_ansi = nu_utils::strip_ansi_unlikely(&value);
+                    let path = cwd.join(no_ansi.as_ref());
+                    let style = ls_colors.style_for_path(path.clone());
                     let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
                     let mut cell = Cell::from(ansi_style.paint(value).to_string());
                     cell.alignment = Alignment::Left;
                     grid.add(cell);
                 }
+            } else if icons_param {
+                let no_ansi = nu_utils::strip_ansi_unlikely(&value);
+                let path = cwd.join(no_ansi.as_ref());
+                let file_icon = icon_for_file(&path, &None);
+                let item = format!("{} {}", String::from(file_icon.icon), value);
+                let mut cell = Cell::from(item);
+                cell.alignment = Alignment::Left;
+                grid.add(cell);
             } else {
                 let mut cell = Cell::from(value);
                 cell.alignment = Alignment::Left;

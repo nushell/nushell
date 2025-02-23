@@ -1,7 +1,6 @@
-use std::{io::Write, path::PathBuf};
-
 use chrono::{DateTime, FixedOffset};
-use nu_protocol::{ast::PathMember, record, Span, Value};
+use nu_path::AbsolutePathBuf;
+use nu_protocol::{ast::PathMember, engine::EngineState, record, Span, Value};
 use nu_test_support::{
     fs::{line_ending, Stub},
     nu, pipeline,
@@ -13,6 +12,7 @@ use rand::{
     rngs::StdRng,
     Rng, SeedableRng,
 };
+use std::io::Write;
 
 #[test]
 fn into_sqlite_schema() {
@@ -298,6 +298,9 @@ fn into_sqlite_existing_db_append() {
 /// streaming pipeline instead of a simple value
 #[test]
 fn into_sqlite_big_insert() {
+    let engine_state = EngineState::new();
+    // don't serialize closures
+    let serialize_types = false;
     Playground::setup("big_insert", |dirs, playground| {
         const NUM_ROWS: usize = 10_000;
         const NUON_FILE_NAME: &str = "data.nuon";
@@ -330,7 +333,14 @@ fn into_sqlite_big_insert() {
                 )
                 .unwrap();
 
-            let nuon = nuon::to_nuon(&value, nuon::ToStyle::Raw, Some(Span::unknown())).unwrap()
+            let nuon = nuon::to_nuon(
+                &engine_state,
+                &value,
+                nuon::ToStyle::Raw,
+                Some(Span::unknown()),
+                serialize_types,
+            )
+            .unwrap()
                 + &line_ending();
 
             nuon_file.write_all(nuon.as_bytes()).unwrap();
@@ -395,7 +405,7 @@ impl From<TestRow> for Value {
     }
 }
 
-impl<'r> TryFrom<&rusqlite::Row<'r>> for TestRow {
+impl TryFrom<&rusqlite::Row<'_>> for TestRow {
     type Error = rusqlite::Error;
 
     fn try_from(row: &rusqlite::Row) -> Result<Self, Self::Error> {
@@ -453,7 +463,7 @@ impl Distribution<TestRow> for Standard {
     }
 }
 
-fn make_sqlite_db(dirs: &Dirs, nu_table: &str) -> PathBuf {
+fn make_sqlite_db(dirs: &Dirs, nu_table: &str) -> AbsolutePathBuf {
     let testdir = dirs.test();
     let testdb_path =
         testdir.join(testdir.file_name().unwrap().to_str().unwrap().to_owned() + ".db");

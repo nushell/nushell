@@ -4,7 +4,6 @@
 [![Nightly Build](https://github.com/nushell/nushell/actions/workflows/nightly-build.yml/badge.svg)](https://github.com/nushell/nushell/actions/workflows/nightly-build.yml)
 [![Discord](https://img.shields.io/discord/601130461678272522.svg?logo=discord)](https://discord.gg/NtAbbGn)
 [![The Changelog #363](https://img.shields.io/badge/The%20Changelog-%23363-61c192.svg)](https://changelog.com/podcast/363)
-[![@nu_shell](https://img.shields.io/badge/twitter-@nu_shell-1DA1F3?style=flat-square)](https://twitter.com/nu_shell)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/nushell/nushell)](https://github.com/nushell/nushell/graphs/commit-activity)
 [![GitHub contributors](https://img.shields.io/github/contributors/nushell/nushell)](https://github.com/nushell/nushell/graphs/contributors)
 
@@ -35,7 +34,7 @@ This project has reached a minimum-viable-product level of quality. Many people 
 
 The [Nushell book](https://www.nushell.sh/book/) is the primary source of Nushell documentation. You can find [a full list of Nu commands in the book](https://www.nushell.sh/commands/), and we have many examples of using Nu in our [cookbook](https://www.nushell.sh/cookbook/).
 
-We're also active on [Discord](https://discord.gg/NtAbbGn) and [Twitter](https://twitter.com/nu_shell); come and chat with us!
+We're also active on [Discord](https://discord.gg/NtAbbGn); come and chat with us!
 
 ## Installation
 
@@ -52,13 +51,13 @@ To use `Nu` in GitHub Action, check [setup-nu](https://github.com/marketplace/ac
 
 Detailed installation instructions can be found in the [installation chapter of the book](https://www.nushell.sh/book/installation.html). Nu is available via many package managers:
 
-[![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg)](https://repology.org/project/nushell/versions)
+[![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg?columns=3)](https://repology.org/project/nushell/versions)
 
 For details about which platforms the Nushell team actively supports, see [our platform support policy](devdocs/PLATFORM_SUPPORT.md).
 
 ## Configuration
 
-The default configurations can be found at [sample_config](crates/nu-utils/src/sample_config)
+The default configurations can be found at [sample_config](crates/nu-utils/src/default_files)
 which are the configuration files one gets when they startup Nushell for the first time.
 
 It sets all of the default configuration to run Nushell.  From here one can
@@ -95,44 +94,44 @@ Commands that work in the pipeline fit into one of three categories:
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 
 ```shell
-> ls | where type == "dir" | table
-╭────┬──────────┬──────┬─────────┬───────────────╮
-│ #  │   name   │ type │  size   │   modified    │
-├────┼──────────┼──────┼─────────┼───────────────┤
-│  0 │ .cargo   │ dir  │     0 B │ 9 minutes ago │
-│  1 │ assets   │ dir  │     0 B │ 2 weeks ago   │
-│  2 │ crates   │ dir  │ 4.0 KiB │ 2 weeks ago   │
-│  3 │ docker   │ dir  │     0 B │ 2 weeks ago   │
-│  4 │ docs     │ dir  │     0 B │ 2 weeks ago   │
-│  5 │ images   │ dir  │     0 B │ 2 weeks ago   │
-│  6 │ pkg_mgrs │ dir  │     0 B │ 2 weeks ago   │
-│  7 │ samples  │ dir  │     0 B │ 2 weeks ago   │
-│  8 │ src      │ dir  │ 4.0 KiB │ 2 weeks ago   │
-│  9 │ target   │ dir  │     0 B │ a day ago     │
-│ 10 │ tests    │ dir  │ 4.0 KiB │ 2 weeks ago   │
-│ 11 │ wix      │ dir  │     0 B │ 2 weeks ago   │
-╰────┴──────────┴──────┴─────────┴───────────────╯
+ls | where type == "dir" | table
+# => ╭────┬──────────┬──────┬─────────┬───────────────╮
+# => │ #  │   name   │ type │  size   │   modified    │
+# => ├────┼──────────┼──────┼─────────┼───────────────┤
+# => │  0 │ .cargo   │ dir  │     0 B │ 9 minutes ago │
+# => │  1 │ assets   │ dir  │     0 B │ 2 weeks ago   │
+# => │  2 │ crates   │ dir  │ 4.0 KiB │ 2 weeks ago   │
+# => │  3 │ docker   │ dir  │     0 B │ 2 weeks ago   │
+# => │  4 │ docs     │ dir  │     0 B │ 2 weeks ago   │
+# => │  5 │ images   │ dir  │     0 B │ 2 weeks ago   │
+# => │  6 │ pkg_mgrs │ dir  │     0 B │ 2 weeks ago   │
+# => │  7 │ samples  │ dir  │     0 B │ 2 weeks ago   │
+# => │  8 │ src      │ dir  │ 4.0 KiB │ 2 weeks ago   │
+# => │  9 │ target   │ dir  │     0 B │ a day ago     │
+# => │ 10 │ tests    │ dir  │ 4.0 KiB │ 2 weeks ago   │
+# => │ 11 │ wix      │ dir  │     0 B │ 2 weeks ago   │
+# => ╰────┴──────────┴──────┴─────────┴───────────────╯
 ```
 
 Because most of the time you'll want to see the output of a pipeline, `table` is assumed.
 We could have also written the above:
 
 ```shell
-> ls | where type == "dir"
+ls | where type == "dir"
 ```
 
 Being able to use the same commands and compose them differently is an important philosophy in Nu.
 For example, we could use the built-in `ps` command to get a list of the running processes, using the same `where` as above.
 
 ```shell
-> ps | where cpu > 0
-╭───┬───────┬───────────┬───────┬───────────┬───────────╮
-│ # │  pid  │   name    │  cpu  │    mem    │  virtual  │
-├───┼───────┼───────────┼───────┼───────────┼───────────┤
-│ 0 │  2240 │ Slack.exe │ 16.40 │ 178.3 MiB │ 232.6 MiB │
-│ 1 │ 16948 │ Slack.exe │ 16.32 │ 205.0 MiB │ 197.9 MiB │
-│ 2 │ 17700 │ nu.exe    │  3.77 │  26.1 MiB │   8.8 MiB │
-╰───┴───────┴───────────┴───────┴───────────┴───────────╯
+ps | where cpu > 0
+# => ╭───┬───────┬───────────┬───────┬───────────┬───────────╮
+# => │ # │  pid  │   name    │  cpu  │    mem    │  virtual  │
+# => ├───┼───────┼───────────┼───────┼───────────┼───────────┤
+# => │ 0 │  2240 │ Slack.exe │ 16.40 │ 178.3 MiB │ 232.6 MiB │
+# => │ 1 │ 16948 │ Slack.exe │ 16.32 │ 205.0 MiB │ 197.9 MiB │
+# => │ 2 │ 17700 │ nu.exe    │  3.77 │  26.1 MiB │   8.8 MiB │
+# => ╰───┴───────┴───────────┴───────┴───────────┴───────────╯
 ```
 
 ### Opening files
@@ -141,46 +140,46 @@ Nu can load file and URL contents as raw text or structured data (if it recogniz
 For example, you can load a .toml file as structured data and explore it:
 
 ```shell
-> open Cargo.toml
-╭──────────────────┬────────────────────╮
-│ bin              │ [table 1 row]      │
-│ dependencies     │ {record 25 fields} │
-│ dev-dependencies │ {record 8 fields}  │
-│ features         │ {record 10 fields} │
-│ package          │ {record 13 fields} │
-│ patch            │ {record 1 field}   │
-│ profile          │ {record 3 fields}  │
-│ target           │ {record 3 fields}  │
-│ workspace        │ {record 1 field}   │
-╰──────────────────┴────────────────────╯
+open Cargo.toml
+# => ╭──────────────────┬────────────────────╮
+# => │ bin              │ [table 1 row]      │
+# => │ dependencies     │ {record 25 fields} │
+# => │ dev-dependencies │ {record 8 fields}  │
+# => │ features         │ {record 10 fields} │
+# => │ package          │ {record 13 fields} │
+# => │ patch            │ {record 1 field}   │
+# => │ profile          │ {record 3 fields}  │
+# => │ target           │ {record 3 fields}  │
+# => │ workspace        │ {record 1 field}   │
+# => ╰──────────────────┴────────────────────╯
 ```
 
 We can pipe this into a command that gets the contents of one of the columns:
 
 ```shell
-> open Cargo.toml | get package
-╭───────────────┬────────────────────────────────────╮
-│ authors       │ [list 1 item]                      │
-│ default-run   │ nu                                 │
-│ description   │ A new type of shell                │
-│ documentation │ https://www.nushell.sh/book/       │
-│ edition       │ 2018                               │
-│ exclude       │ [list 1 item]                      │
-│ homepage      │ https://www.nushell.sh             │
-│ license       │ MIT                                │
-│ metadata      │ {record 1 field}                   │
-│ name          │ nu                                 │
-│ repository    │ https://github.com/nushell/nushell │
-│ rust-version  │ 1.60                               │
-│ version       │ 0.72.0                             │
-╰───────────────┴────────────────────────────────────╯
+open Cargo.toml | get package
+# => ╭───────────────┬────────────────────────────────────╮
+# => │ authors       │ [list 1 item]                      │
+# => │ default-run   │ nu                                 │
+# => │ description   │ A new type of shell                │
+# => │ documentation │ https://www.nushell.sh/book/       │
+# => │ edition       │ 2018                               │
+# => │ exclude       │ [list 1 item]                      │
+# => │ homepage      │ https://www.nushell.sh             │
+# => │ license       │ MIT                                │
+# => │ metadata      │ {record 1 field}                   │
+# => │ name          │ nu                                 │
+# => │ repository    │ https://github.com/nushell/nushell │
+# => │ rust-version  │ 1.60                               │
+# => │ version       │ 0.72.0                             │
+# => ╰───────────────┴────────────────────────────────────╯
 ```
 
 And if needed we can drill down further:
 
 ```shell
-> open Cargo.toml | get package.version
-0.72.0
+open Cargo.toml | get package.version
+# => 0.72.0
 ```
 
 ### Plugins
@@ -222,13 +221,14 @@ Please submit an issue or PR to be added to this list.
 -   [clap](https://github.com/clap-rs/clap/tree/master/clap_complete_nushell)
 -   [Dorothy](http://github.com/bevry/dorothy)
 -   [Direnv](https://github.com/direnv/direnv/blob/master/docs/hook.md#nushell)
+-   [x-cmd](https://x-cmd.com/mod/nu)
 
 ## Contributing
 
 See [Contributing](CONTRIBUTING.md) for details. Thanks to all the people who already contributed!
 
 <a href="https://github.com/nushell/nushell/graphs/contributors">
-  <img src="https://contributors-img.web.app/image?repo=nushell/nushell&max=750" />
+  <img src="https://contributors-img.web.app/image?repo=nushell/nushell&max=750&columns=20" />
 </a>
 
 ## License

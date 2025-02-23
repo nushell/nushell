@@ -1,5 +1,6 @@
 use crate::database::{SQLiteDatabase, MEMORY_DB};
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 
 #[derive(Clone)]
 pub struct StorImport;
@@ -22,7 +23,7 @@ impl Command for StorImport {
             .category(Category::Database)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Import a sqlite database file into the in-memory sqlite database."
     }
 
@@ -58,7 +59,10 @@ impl Command for StorImport {
         };
 
         // Open the in-mem database
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
 
         if let Ok(mut conn) = db.open_connection() {
             db.restore_database_from_file(&mut conn, file_name)

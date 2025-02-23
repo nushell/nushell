@@ -1,5 +1,8 @@
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
-use nu_protocol::{debugger::Profiler, engine::Closure};
+use nu_protocol::{
+    debugger::{DurationMode, Profiler, ProfilerOptions},
+    engine::Closure,
+};
 
 #[derive(Clone)]
 pub struct DebugProfile;
@@ -27,7 +30,12 @@ impl Command for DebugProfile {
                 "Collect pipeline element output values",
                 Some('v'),
             )
-            .switch("expr", "Collect expression types", Some('x'))
+            .switch("lines", "Collect line numbers", Some('l'))
+            .switch(
+                "duration-values",
+                "Report instruction duration as duration values rather than milliseconds",
+                Some('d'),
+            )
             .named(
                 "max-depth",
                 SyntaxShape::Int,
@@ -38,42 +46,57 @@ impl Command for DebugProfile {
             .category(Category::Debug)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Profile pipeline elements in a closure."
     }
 
-    fn extra_usage(&self) -> &str {
-        r#"The profiler profiles every evaluated pipeline element inside a closure, stepping into all
+    fn extra_description(&self) -> &str {
+        r#"The profiler profiles every evaluated instruction inside a closure, stepping into all
 commands calls and other blocks/closures.
 
 The output can be heavily customized. By default, the following columns are included:
-- depth       : Depth of the pipeline element. Each entered block adds one level of depth. How many
+- depth       : Depth of the instruction. Each entered block adds one level of depth. How many
                 blocks deep to step into is controlled with the --max-depth option.
-- id          : ID of the pipeline element
-- parent_id   : ID of the parent element
-- source      : Source code of the pipeline element. If the element has multiple lines, only the
-                first line is used and `...` is appended to the end. Full source code can be shown
-                with the  --expand-source flag.
-- duration_ms : How long it took to run the pipeline element in milliseconds.
-- (optional) span   : Span of the element. Can be viewed via the `view span` command. Enabled with
-                      the --spans flag.
-- (optional) expr   : The type of expression of the pipeline element. Enabled with the --expr flag.
-- (optional) output : The output value of the pipeline element. Enabled with the --values flag.
+- id          : ID of the instruction
+- parent_id   : ID of the instruction that created the parent scope
+- source      : Source code that generated the instruction. If the source code has multiple lines,
+                only the first line is used and `...` is appended to the end. Full source code can
+                be shown with the --expand-source flag.
+- pc          : The index of the instruction within the block.
+- instruction : The pretty printed instruction being evaluated.
+- duration    : How long it took to run the instruction.
+- (optional) span        : Span associated with the instruction. Can be viewed via the `view span`
+                           command. Enabled with the --spans flag.
+- (optional) output      : The output value of the instruction. Enabled with the --values flag.
 
-To illustrate the depth and IDs, consider `debug profile { if true { echo 'spam' } }`. There are
-three pipeline elements:
+To illustrate the depth and IDs, consider `debug profile { do { if true { echo 'spam' } } }`. A unique ID is generated each time an instruction is executed, and there are two levels of depth:
 
-depth  id  parent_id
-    0   0          0  debug profile { do { if true { 'spam' } } }
-    1   1          0  if true { 'spam' }
-    2   2          1  'spam'
+```
+depth   id   parent_id                    source                     pc            instruction                
+    0    0           0   debug profile { do { if true { 'spam' } } }  0   <start>                                   
+    1    1           0   { if true { 'spam' } }                       0   load-literal    %1, closure(2164)  
+    1    2           0   { if true { 'spam' } }                       1   push-positional %1                 
+    1    3           0   { do { if true { 'spam' } } }                2   redirect-out    caller             
+    1    4           0   { do { if true { 'spam' } } }                3   redirect-err    caller             
+    1    5           0   do                                           4   call            decl 7 "do", %0    
+    2    6           5   true                                         0   load-literal    %1, bool(true)     
+    2    7           5   if                                           1   not             %1                 
+    2    8           5   if                                           2   branch-if       %1, 5              
+    2    9           5   'spam'                                       3   load-literal    %0, string("spam") 
+    2   10           5   if                                           4   jump            6                  
+    2   11           5   { if true { 'spam' } }                       6   return          %0                 
+    1   12           0   { do { if true { 'spam' } } }                5   return          %0                 
+```
 
 Each block entered increments depth by 1 and each block left decrements it by one. This way you can
-control the profiling granularity. Passing --max-depth=1 to the above would stop at
-`if true { 'spam' }`. The id is used to identify each element. The parent_id tells you that 'spam'
-was spawned from `if true { 'spam' }` which was spawned from the root `debug profile { ... }`.
+control the profiling granularity. Passing --max-depth=1 to the above would stop inside the `do`
+at `if true { 'spam' }`. The id is used to identify each element. The parent_id tells you that the
+instructions inside the block are being executed because of `do` (5), which in turn was spawned from
+the root `debug profile { ... }`.
 
-Note: In some cases, the ordering of piepeline elements might not be intuitive. For example,
+For a better understanding of how instructions map to source code, see the `view ir` command.
+
+Note: In some cases, the ordering of pipeline elements might not be intuitive. For example,
 `[ a bb cc ] | each { $in | str length }` involves some implicit collects and lazy evaluation
 confusing the id/parent_id hierarchy. The --expr flag is helpful for investigating these issues."#
     }
@@ -89,18 +112,28 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
         let collect_spans = call.has_flag(engine_state, stack, "spans")?;
         let collect_expanded_source = call.has_flag(engine_state, stack, "expanded-source")?;
         let collect_values = call.has_flag(engine_state, stack, "values")?;
-        let collect_exprs = call.has_flag(engine_state, stack, "expr")?;
+        let collect_lines = call.has_flag(engine_state, stack, "lines")?;
+        let duration_values = call.has_flag(engine_state, stack, "duration-values")?;
         let max_depth = call
             .get_flag(engine_state, stack, "max-depth")?
             .unwrap_or(2);
 
+        let duration_mode = match duration_values {
+            true => DurationMode::Value,
+            false => DurationMode::Milliseconds,
+        };
         let profiler = Profiler::new(
-            max_depth,
-            collect_spans,
-            true,
-            collect_expanded_source,
-            collect_values,
-            collect_exprs,
+            ProfilerOptions {
+                max_depth,
+                collect_spans,
+                collect_source: true,
+                collect_expanded_source,
+                collect_values,
+                collect_exprs: false,
+                collect_instructions: true,
+                collect_lines,
+                duration_mode,
+            },
             call.span(),
         );
 
@@ -118,14 +151,11 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
 
         let result = ClosureEvalOnce::new(engine_state, stack, closure).run_with_input(input);
 
-        // TODO: See eval_source()
-        match result {
-            Ok(pipeline_data) => {
-                let _ = pipeline_data.into_value(call.span());
-                // pipeline_data.print(engine_state, caller_stack, true, false)
-            }
-            Err(_e) => (), // TODO: Report error
-        }
+        // Return potential errors
+        let pipeline_data = result?;
+
+        // Collect the output
+        let _ = pipeline_data.into_value(call.span());
 
         Ok(engine_state
             .deactivate_debugger()

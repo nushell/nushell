@@ -1,8 +1,18 @@
+mod abs;
 mod avg;
+mod ceil;
+mod floor;
+mod log;
+mod max;
 mod median;
+mod min;
+mod mode;
+mod product;
 mod round;
 mod sqrt;
+mod stddev;
 mod sum;
+mod variance;
 
 use nu_test_support::{nu, pipeline};
 
@@ -259,58 +269,69 @@ fn modulo() {
 }
 
 #[test]
-fn unit_multiplication_math() {
-    let actual = nu!(pipeline(
-        r#"
-            1mb * 2
-        "#
-    ));
+fn floor_div_mod() {
+    let actual = nu!("let q = 8 // -3; let r = 8 mod -3; 8 == $q * -3 + $r");
+    assert_eq!(actual.out, "true");
 
-    assert_eq!(actual.out, "1.9 MiB");
+    let actual = nu!("let q = -8 // 3; let r = -8 mod 3; -8 == $q * 3 + $r");
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn floor_div_mod_overflow() {
+    let actual = nu!(format!("{} // -1", i64::MIN));
+    assert!(actual.err.contains("overflow"));
+
+    let actual = nu!(format!("{} mod -1", i64::MIN));
+    assert!(actual.err.contains("overflow"));
+}
+
+#[test]
+fn floor_div_mod_zero() {
+    let actual = nu!("1 // 0");
+    assert!(actual.err.contains("zero"));
+
+    let actual = nu!("1 mod 0");
+    assert!(actual.err.contains("zero"));
+}
+
+#[test]
+fn floor_div_mod_large_num() {
+    let actual = nu!(format!("{} // {}", i64::MAX, i64::MAX / 2));
+    assert_eq!(actual.out, "2");
+
+    let actual = nu!(format!("{} mod {}", i64::MAX, i64::MAX / 2));
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn unit_multiplication_math() {
+    let actual = nu!("1MB * 2");
+    assert_eq!(actual.out, "2.0 MB");
 }
 
 #[test]
 fn unit_multiplication_float_math() {
-    let actual = nu!(pipeline(
-        r#"
-            1mb * 1.2
-        "#
-    ));
-
-    assert_eq!(actual.out, "1.1 MiB");
+    let actual = nu!("1MB * 1.2");
+    assert_eq!(actual.out, "1.2 MB");
 }
 
 #[test]
 fn unit_float_floor_division_math() {
-    let actual = nu!(pipeline(
-        r#"
-            1mb // 3.0
-        "#
-    ));
-
-    assert_eq!(actual.out, "325.5 KiB");
+    let actual = nu!("1MB // 3.0");
+    assert_eq!(actual.out, "333.3 kB");
 }
 
 #[test]
 fn unit_division_math() {
-    let actual = nu!(pipeline(
-        r#"
-            1mb / 4
-        "#
-    ));
-
-    assert_eq!(actual.out, "244.1 KiB");
+    let actual = nu!("1MB / 4");
+    assert_eq!(actual.out, "250.0 kB");
 }
 
 #[test]
 fn unit_float_division_math() {
-    let actual = nu!(pipeline(
-        r#"
-            1mb / 3.1
-        "#
-    ));
-
-    assert_eq!(actual.out, "315.0 KiB");
+    let actual = nu!("1MB / 3.2");
+    assert_eq!(actual.out, "312.5 kB");
 }
 
 #[test]
@@ -437,7 +458,7 @@ fn compound_where_paren() {
 // TODO: these ++ tests are not really testing *math* functionality, maybe find another place for them
 
 #[test]
-fn adding_lists() {
+fn concat_lists() {
     let actual = nu!(pipeline(
         r#"
             [1 3] ++ [5 6] | to nuon
@@ -448,29 +469,7 @@ fn adding_lists() {
 }
 
 #[test]
-fn adding_list_and_value() {
-    let actual = nu!(pipeline(
-        r#"
-            [1 3] ++ 5 | to nuon
-        "#
-    ));
-
-    assert_eq!(actual.out, "[1, 3, 5]");
-}
-
-#[test]
-fn adding_value_and_list() {
-    let actual = nu!(pipeline(
-        r#"
-            1 ++ [3 5] | to nuon
-        "#
-    ));
-
-    assert_eq!(actual.out, "[1, 3, 5]");
-}
-
-#[test]
-fn adding_tables() {
+fn concat_tables() {
     let actual = nu!(pipeline(
         r#"
             [[a b]; [1 2]] ++ [[c d]; [10 11]] | to nuon
@@ -480,7 +479,7 @@ fn adding_tables() {
 }
 
 #[test]
-fn append_strings() {
+fn concat_strings() {
     let actual = nu!(pipeline(
         r#"
             "foo" ++ "bar"
@@ -490,7 +489,7 @@ fn append_strings() {
 }
 
 #[test]
-fn append_binary_values() {
+fn concat_binary_values() {
     let actual = nu!(pipeline(
         r#"
             0x[01 02] ++ 0x[03 04] | to nuon

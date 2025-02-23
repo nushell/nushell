@@ -1,4 +1,4 @@
-use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -16,10 +16,16 @@ impl Command for SubCommand {
                 (Type::Number, Type::Bool),
                 (Type::String, Type::Bool),
                 (Type::Bool, Type::Bool),
+                (Type::Nothing, Type::Bool),
                 (Type::List(Box::new(Type::Any)), Type::table()),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
+            .switch(
+                "relaxed",
+                "Relaxes conversion to also allow null and any strings.",
+                None,
+            )
             .allow_variants_without_examples(true)
             .rest(
                 "rest",
@@ -29,7 +35,7 @@ impl Command for SubCommand {
             .category(Category::Conversions)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert value to boolean."
     }
 
@@ -44,7 +50,10 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        into_bool(engine_state, stack, call, input)
+        let relaxed = call
+            .has_flag(engine_state, stack, "relaxed")
+            .unwrap_or(false);
+        into_bool(engine_state, stack, call, input, relaxed)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -95,7 +104,28 @@ impl Command for SubCommand {
                 example: "'true' | into bool",
                 result: Some(Value::test_bool(true)),
             },
+            Example {
+                description: "interpret a null as false",
+                example: "null | into bool --relaxed",
+                result: Some(Value::test_bool(false)),
+            },
+            Example {
+                description: "interpret any non-false, non-zero string as true",
+                example: "'something' | into bool --relaxed",
+                result: Some(Value::test_bool(true)),
+            },
         ]
+    }
+}
+
+struct IntoBoolCmdArgument {
+    cell_paths: Option<Vec<CellPath>>,
+    relaxed: bool,
+}
+
+impl CmdArgument for IntoBoolCmdArgument {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
     }
 }
 
@@ -104,13 +134,17 @@ fn into_bool(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
+    relaxed: bool,
 ) -> Result<PipelineData, ShellError> {
-    let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-    let args = CellPathOnlyArgs::from(cell_paths);
-    operate(action, args, input, call.head, engine_state.ctrlc.clone())
+    let cell_paths = Some(call.rest(engine_state, stack, 0)?).filter(|v| !v.is_empty());
+    let args = IntoBoolCmdArgument {
+        cell_paths,
+        relaxed,
+    };
+    operate(action, args, input, call.head, engine_state.signals())
 }
 
-fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
+fn strict_string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
     match s.trim().to_ascii_lowercase().as_str() {
         "true" => Ok(true),
         "false" => Ok(false),
@@ -132,26 +166,31 @@ fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
     }
 }
 
-fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
-    match input {
-        Value::Bool { .. } => input.clone(),
-        Value::Int { val, .. } => Value::bool(*val != 0, span),
-        Value::Float { val, .. } => Value::bool(val.abs() >= f64::EPSILON, span),
-        Value::String { val, .. } => match string_to_boolean(val, span) {
+fn action(input: &Value, args: &IntoBoolCmdArgument, span: Span) -> Value {
+    let err = || {
+        Value::error(
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "bool, int, float or string".into(),
+                wrong_type: input.get_type().to_string(),
+                dst_span: span,
+                src_span: input.span(),
+            },
+            span,
+        )
+    };
+
+    match (input, args.relaxed) {
+        (Value::Error { .. } | Value::Bool { .. }, _) => input.clone(),
+        // In strict mode is this an error, while in relaxed this is just `false`
+        (Value::Nothing { .. }, false) => err(),
+        (Value::String { val, .. }, false) => match strict_string_to_boolean(val, span) {
             Ok(val) => Value::bool(val, span),
             Err(error) => Value::error(error, span),
         },
-        // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => input.clone(),
-        other => Value::error(
-            ShellError::OnlySupportsThisInputType {
-                exp_input_type: "bool, int, float or string".into(),
-                wrong_type: other.get_type().to_string(),
-                dst_span: span,
-                src_span: other.span(),
-            },
-            span,
-        ),
+        _ => match input.coerce_bool() {
+            Ok(val) => Value::bool(val, span),
+            Err(_) => err(),
+        },
     }
 }
 
@@ -164,5 +203,33 @@ mod test {
         use crate::test_examples;
 
         test_examples(SubCommand {})
+    }
+
+    #[test]
+    fn test_strict_handling() {
+        let span = Span::test_data();
+        let args = IntoBoolCmdArgument {
+            cell_paths: vec![].into(),
+            relaxed: false,
+        };
+
+        assert!(action(&Value::test_nothing(), &args, span).is_error());
+        assert!(action(&Value::test_string("abc"), &args, span).is_error());
+        assert!(action(&Value::test_string("true"), &args, span).is_true());
+        assert!(action(&Value::test_string("FALSE"), &args, span).is_false());
+    }
+
+    #[test]
+    fn test_relaxed_handling() {
+        let span = Span::test_data();
+        let args = IntoBoolCmdArgument {
+            cell_paths: vec![].into(),
+            relaxed: true,
+        };
+
+        assert!(action(&Value::test_nothing(), &args, span).is_false());
+        assert!(action(&Value::test_string("abc"), &args, span).is_true());
+        assert!(action(&Value::test_string("true"), &args, span).is_true());
+        assert!(action(&Value::test_string("FALSE"), &args, span).is_false());
     }
 }

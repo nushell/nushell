@@ -1,10 +1,9 @@
 use crate::{color_record_to_nustyle, lookup_ansi_color_style, text_style::Alignment, TextStyle};
 use nu_ansi_term::{Color, Style};
-use nu_engine::{env::get_config, ClosureEvalOnce};
+use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
-    cli_error::CliError,
-    engine::{Closure, EngineState, Stack, StateWorkingSet},
-    Span, Value,
+    engine::{Closure, EngineState, Stack},
+    report_shell_error, Span, Value,
 };
 use std::{
     collections::HashMap,
@@ -70,14 +69,8 @@ impl<'a> StyleComputer<'a> {
                             _ => Style::default(),
                         }
                     }
-                    // This is basically a copy of nu_cli::report_error(), but that isn't usable due to
-                    // dependencies. While crudely spitting out a bunch of errors like this is not ideal,
-                    // currently hook closure errors behave roughly the same.
-                    Err(e) => {
-                        eprintln!(
-                            "Error: {:?}",
-                            CliError(&e, &StateWorkingSet::new(self.engine_state))
-                        );
+                    Err(err) => {
+                        report_shell_error(self.engine_state, &err);
                         Style::default()
                     }
                 }
@@ -114,7 +107,7 @@ impl<'a> StyleComputer<'a> {
 
     // The main constructor.
     pub fn from_config(engine_state: &'a EngineState, stack: &'a Stack) -> StyleComputer<'a> {
-        let config = get_config(engine_state, stack);
+        let config = stack.get_config(engine_state);
 
         // Create the hashmap
         #[rustfmt::skip]
@@ -176,7 +169,7 @@ impl<'a> StyleComputer<'a> {
 
 // Because EngineState doesn't have Debug (Dec 2022),
 // this incomplete representation must be used.
-impl<'a> Debug for StyleComputer<'a> {
+impl Debug for StyleComputer<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         f.debug_struct("StyleComputer")
             .field("map", &self.map)
@@ -230,7 +223,7 @@ fn test_computable_style_closure_basic() {
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
         assert_eq!(actual_repl.err, "");
-        assert_eq!(actual_repl.out, "[bell.obj, book.obj, candle.obj]");
+        assert_eq!(actual_repl.out, r#"["bell.obj", "book.obj", "candle.obj"]"#);
     });
 }
 
@@ -247,7 +240,9 @@ fn test_computable_style_closure_errors() {
     ];
     let actual_repl = nu!(nu_repl_code(&inp));
     // Check that the error was printed
-    assert!(actual_repl.err.contains("type mismatch for operator"));
+    assert!(actual_repl
+        .err
+        .contains("nu::shell::operator_incompatible_types"));
     // Check that the value was printed
     assert!(actual_repl.out.contains("bell"));
 }

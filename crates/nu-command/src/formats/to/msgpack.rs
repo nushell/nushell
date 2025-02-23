@@ -5,7 +5,7 @@ use std::io;
 
 use byteorder::{BigEndian, WriteBytesExt};
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, Spanned};
+use nu_protocol::{ast::PathMember, shell_error::io::IoError, Signals, Spanned};
 use rmp::encode as mp;
 
 /// Max recursion depth
@@ -25,11 +25,11 @@ impl Command for ToMsgpack {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert Nu values into MessagePack."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"
 Not all values are representable as MessagePack.
 
@@ -74,13 +74,18 @@ MessagePack: https://msgpack.org/
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let metadata = input
+            .metadata()
+            .unwrap_or_default()
+            .with_content_type(Some("application/x-msgpack".into()));
+
         let value_span = input.span().unwrap_or(call.head);
         let value = input.into_value(value_span)?;
         let mut out = vec![];
 
         write_value(&mut out, &value, 0)?;
 
-        Ok(Value::binary(out, call.head).into_pipeline_data())
+        Ok(Value::binary(out, call.head).into_pipeline_data_with_metadata(Some(metadata)))
     }
 }
 
@@ -133,7 +138,7 @@ impl From<WriteError> for ShellError {
                 help: None,
                 inner: vec![],
             },
-            WriteError::Io(err, span) => err.into_spanned(span).into(),
+            WriteError::Io(err, span) => ShellError::Io(IoError::new(err.kind(), span, None)),
             WriteError::Shell(err) => *err,
         }
     }
@@ -163,7 +168,7 @@ pub(crate) fn write_value(
             mp::write_f64(out, *val).err_span(span)?;
         }
         Value::Filesize { val, .. } => {
-            mp::write_sint(out, *val).err_span(span)?;
+            mp::write_sint(out, val.get()).err_span(span)?;
         }
         Value::Duration { val, .. } => {
             mp::write_sint(out, *val).err_span(span)?;
@@ -189,7 +194,7 @@ pub(crate) fn write_value(
             // Convert range to list
             write_value(
                 out,
-                &Value::list(val.into_range_iter(span, None).collect(), span),
+                &Value::list(val.into_range_iter(span, Signals::empty()).collect(), span),
                 depth,
             )?;
         }
@@ -268,6 +273,10 @@ where
 
 #[cfg(test)]
 mod test {
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::{Get, Metadata};
+
     use super::*;
 
     #[test]
@@ -275,5 +284,38 @@ mod test {
         use crate::test_examples;
 
         test_examples(ToMsgpack {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            // Base functions that are needed for testing
+            // Try to keep this working set small to keep tests running as fast as possible
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(ToMsgpack {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = "{a: 1 b: 2} | to msgpack | metadata | get content_type";
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(
+                record!("content_type" => Value::test_string("application/x-msgpack"))
+            ),
+            result.expect("There should be a result")
+        );
     }
 }

@@ -18,6 +18,13 @@ fn example_plugin_path() -> PathBuf {
     .expect("nu_plugin_example not found")
 }
 
+fn valid_plugin_item_data() -> PluginRegistryItemData {
+    PluginRegistryItemData::Valid {
+        metadata: Default::default(),
+        commands: vec![],
+    }
+}
+
 #[test]
 fn plugin_add_then_restart_nu() {
     let result = nu_with_plugins!(
@@ -30,7 +37,7 @@ fn plugin_add_then_restart_nu() {
                     --config $nu.config-path
                     --env-config $nu.env-path
                     --plugin-config $nu.plugin-path
-                    --commands 'plugin list | get name | to json --raw'
+                    --commands 'plugin list --engine | get name | to json --raw'
             )
         ", example_plugin_path().display())
     );
@@ -62,7 +69,7 @@ fn plugin_add_in_nu_plugin_dirs_const() {
                         --config $nu.config-path
                         --env-config $nu.env-path
                         --plugin-config $nu.plugin-path
-                        --commands 'plugin list | get name | to json --raw'
+                        --commands 'plugin list --engine | get name | to json --raw'
                 )
             "#,
             dirname.display(),
@@ -96,7 +103,7 @@ fn plugin_add_in_nu_plugin_dirs_env() {
                         --config $nu.config-path
                         --env-config $nu.env-path
                         --plugin-config $nu.plugin-path
-                        --commands 'plugin list | get name | to json --raw'
+                        --commands 'plugin list --engine | get name | to json --raw'
                 )
             "#,
             dirname.display(),
@@ -149,15 +156,15 @@ fn plugin_rm_then_restart_nu() {
             name: "example".into(),
             filename: example_plugin_path,
             shell: None,
-            data: PluginRegistryItemData::Valid { commands: vec![] },
+            data: valid_plugin_item_data(),
         });
 
         contents.upsert_plugin(PluginRegistryItem {
             name: "foo".into(),
             // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_foo"),
+            filename: dirs.test().join("nu_plugin_foo").into(),
             shell: None,
-            data: PluginRegistryItemData::Valid { commands: vec![] },
+            data: valid_plugin_item_data(),
         });
 
         contents
@@ -192,7 +199,7 @@ fn plugin_rm_then_restart_nu() {
                 "--plugin-config",
                 "test-plugin-file.msgpackz",
                 "--commands",
-                "plugin list | get name | to json --raw",
+                "plugin list --engine | get name | to json --raw",
             ])
             .assert()
             .success()
@@ -225,15 +232,15 @@ fn plugin_rm_from_custom_path() {
             name: "example".into(),
             filename: example_plugin_path,
             shell: None,
-            data: PluginRegistryItemData::Valid { commands: vec![] },
+            data: valid_plugin_item_data(),
         });
 
         contents.upsert_plugin(PluginRegistryItem {
             name: "foo".into(),
             // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_foo"),
+            filename: dirs.test().join("nu_plugin_foo").into(),
             shell: None,
-            data: PluginRegistryItemData::Valid { commands: vec![] },
+            data: valid_plugin_item_data(),
         });
 
         contents
@@ -273,15 +280,15 @@ fn plugin_rm_using_filename() {
             name: "example".into(),
             filename: example_plugin_path.clone(),
             shell: None,
-            data: PluginRegistryItemData::Valid { commands: vec![] },
+            data: valid_plugin_item_data(),
         });
 
         contents.upsert_plugin(PluginRegistryItem {
             name: "foo".into(),
             // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_foo"),
+            filename: dirs.test().join("nu_plugin_foo").into(),
             shell: None,
-            data: PluginRegistryItemData::Valid { commands: vec![] },
+            data: valid_plugin_item_data(),
         });
 
         contents
@@ -331,13 +338,13 @@ fn warning_on_invalid_plugin_item() {
             name: "example".into(),
             filename: example_plugin_path,
             shell: None,
-            data: PluginRegistryItemData::Valid { commands: vec![] },
+            data: valid_plugin_item_data(),
         });
 
         contents.upsert_plugin(PluginRegistryItem {
             name: "badtest".into(),
             // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_badtest"),
+            filename: dirs.test().join("nu_plugin_badtest").into(),
             shell: None,
             data: PluginRegistryItemData::Invalid,
         });
@@ -357,7 +364,7 @@ fn warning_on_invalid_plugin_item() {
                 "--plugin-config",
                 "test-plugin-file.msgpackz",
                 "--commands",
-                "plugin list | get name | to json --raw",
+                "plugin list --engine | get name | to json --raw",
             ])
             .output()
             .expect("failed to run nu");
@@ -406,6 +413,43 @@ fn plugin_use_error_not_found() {
 }
 
 #[test]
+fn plugin_shows_up_in_default_plugin_list_after_add() {
+    let example_plugin_path = example_plugin_path();
+    let result = nu_with_plugins!(
+        cwd: ".",
+        plugins: [],
+        &format!(r#"
+            plugin add '{}'
+            plugin list | get status | to json --raw
+        "#, example_plugin_path.display())
+    );
+    assert!(result.status.success());
+    assert_eq!(r#"["added"]"#, result.out);
+}
+
+#[test]
+fn plugin_shows_removed_after_removing() {
+    let example_plugin_path = example_plugin_path();
+    let result = nu_with_plugins!(
+        cwd: ".",
+        plugins: [],
+        &format!(r#"
+            plugin add '{}'
+            plugin list | get status | to json --raw
+            (
+                ^$nu.current-exe
+                    --config $nu.config-path
+                    --env-config $nu.env-path
+                    --plugin-config $nu.plugin-path
+                    --commands 'plugin rm example; plugin list | get status | to json --raw'
+            )
+        "#, example_plugin_path.display())
+    );
+    assert!(result.status.success());
+    assert_eq!(r#"["removed"]"#, result.out);
+}
+
+#[test]
 fn plugin_add_and_then_use() {
     let example_plugin_path = example_plugin_path();
     let result = nu_with_plugins!(
@@ -418,7 +462,7 @@ fn plugin_add_and_then_use() {
                     --config $nu.config-path
                     --env-config $nu.env-path
                     --plugin-config $nu.plugin-path
-                    --commands 'plugin use example; plugin list | get name | to json --raw'
+                    --commands 'plugin use example; plugin list --engine | get name | to json --raw'
             )
         "#, example_plugin_path.display())
     );
@@ -439,7 +483,7 @@ fn plugin_add_and_then_use_by_filename() {
                     --config $nu.config-path
                     --env-config $nu.env-path
                     --plugin-config $nu.plugin-path
-                    --commands 'plugin use '{0}'; plugin list | get name | to json --raw'
+                    --commands 'plugin use '{0}'; plugin list --engine | get name | to json --raw'
             )
         "#, example_plugin_path.display())
     );
@@ -464,7 +508,7 @@ fn plugin_add_then_use_with_custom_path() {
             cwd: dirs.test(),
             r#"
                 plugin use --plugin-config test-plugin-file.msgpackz example
-                plugin list | get name | to json --raw
+                plugin list --engine | get name | to json --raw
             "#
         );
 

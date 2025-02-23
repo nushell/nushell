@@ -17,7 +17,7 @@ impl PluginCommand for CacheRemove {
         "polars store-rm"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Removes a stored Dataframe or other object from the plugin cache."
     }
 
@@ -63,7 +63,7 @@ fn remove_cache_entry(
     let key = as_uuid(key, span)?;
     let msg = plugin
         .cache
-        .remove(Some(engine), &key, true)?
+        .remove(engine, &key, true)?
         .map(|_| format!("Removed: {key}"))
         .unwrap_or_else(|| format!("No value found for key: {key}"));
     Ok(Value::string(msg, span))
@@ -89,7 +89,7 @@ mod test {
 
     #[test]
     fn test_remove() -> Result<(), ShellError> {
-        let plugin = PolarsPlugin::new_test_mode().into();
+        let plugin = PolarsPlugin::new_test_mode()?.into();
         let pipeline_data = PluginTest::new("polars", plugin)?
             .add_decl(Box::new(First))?
             .add_decl(Box::new(Get))?

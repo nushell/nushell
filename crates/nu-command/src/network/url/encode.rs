@@ -32,7 +32,7 @@ impl Command for SubCommand {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts a string to a percent encoded web safe string."
     }
 
@@ -50,15 +50,9 @@ impl Command for SubCommand {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let args = CellPathOnlyArgs::from(cell_paths);
         if call.has_flag(engine_state, stack, "all")? {
-            operate(
-                action_all,
-                args,
-                input,
-                call.head,
-                engine_state.ctrlc.clone(),
-            )
+            operate(action_all, args, input, call.head, engine_state.signals())
         } else {
-            operate(action, args, input, call.head, engine_state.ctrlc.clone())
+            operate(action, args, input, call.head, engine_state.signals())
         }
     }
 

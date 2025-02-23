@@ -65,12 +65,16 @@ impl Command for SubCommand {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Find and replace text."
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["search", "shift", "switch", "regex"]
+    }
+
+    fn is_const(&self) -> bool {
+        true
     }
 
     fn run(
@@ -98,7 +102,40 @@ impl Command for SubCommand {
             no_regex,
             multiline,
         };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, engine_state.signals())
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let find: Spanned<String> = call.req_const(working_set, 0)?;
+        let replace: Spanned<String> = call.req_const(working_set, 1)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 2)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let literal_replace = call.has_flag_const(working_set, "no-expand")?;
+        let no_regex = !call.has_flag_const(working_set, "regex")?
+            && !call.has_flag_const(working_set, "multiline")?;
+        let multiline = call.has_flag_const(working_set, "multiline")?;
+
+        let args = Arguments {
+            all: call.has_flag_const(working_set, "all")?,
+            find,
+            replace,
+            cell_paths,
+            literal_replace,
+            no_regex,
+            multiline,
+        };
+        operate(
+            action,
+            args,
+            input,
+            call.head,
+            working_set.permanent().signals(),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -119,12 +156,17 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("my_library.nu")),
             },
             Example {
-                description: "Find and replace all occurrences of find string using regular expression",
+                description: "Find and replace contents with capture group using regular expression, with escapes",
+                example: "'hello=world' | str replace -r '\\$?(?<varname>.*)=(?<value>.*)' '$$$varname = $value'",
+                result: Some(Value::test_string("$hello = world")),
+            },
+            Example {
+                description: "Find and replace all occurrences of found string using regular expression",
                 example: "'abc abc abc' | str replace --all --regex 'b' 'z'",
                 result: Some(Value::test_string("azc azc azc")),
             },
             Example {
-                description: "Find and replace all occurrences of find string in table using regular expression",
+                description: "Find and replace all occurrences of found string in table using regular expression",
                 example:
                     "[[ColA ColB ColC]; [abc abc ads]] | str replace --all --regex 'b' 'z' ColA ColC",
                 result: Some(Value::test_list (
@@ -136,7 +178,7 @@ impl Command for SubCommand {
                 )),
             },
             Example {
-                description: "Find and replace all occurrences of find string in record using regular expression",
+                description: "Find and replace all occurrences of found string in record using regular expression",
                 example:
                     "{ KeyA: abc, KeyB: abc, KeyC: ads } | str replace --all --regex 'b' 'z' KeyA KeyC",
                 result: Some(Value::test_record(record! {

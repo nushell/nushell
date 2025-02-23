@@ -14,11 +14,11 @@ impl Command for PathCommand {
             .category(Category::Path)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Explore and manipulate paths."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"You must use one of the following subcommands. Using this command as-is will only produce this help message.
 
 There are three ways to represent a path:
@@ -42,16 +42,6 @@ the path literal."#
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::string(
-            get_full_help(
-                &PathCommand.signature(),
-                &PathCommand.examples(),
-                engine_state,
-                stack,
-                self.is_parser_keyword(),
-            ),
-            call.head,
-        )
-        .into_pipeline_data())
+        Ok(Value::string(get_full_help(self, engine_state, stack), call.head).into_pipeline_data())
     }
 }

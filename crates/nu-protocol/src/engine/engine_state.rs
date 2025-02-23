@@ -2,20 +2,24 @@ use crate::{
     ast::Block,
     debugger::{Debugger, NoopDebugger},
     engine::{
-        usage::{build_usage, Usage},
+        description::{build_desc, Doccomments},
         CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
     eval_const::create_nu_constant,
-    BlockId, Category, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, Type, Value, VarId, VirtualPathId,
+    shell_error::io::IoError,
+    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, Module, ModuleId,
+    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
+    VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
+use nu_path::AbsolutePathBuf;
+use nu_utils::IgnoreCaseExt;
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
         Arc, Mutex, MutexGuard, PoisonError,
@@ -81,15 +85,17 @@ pub struct EngineState {
     // especially long, so it helps
     pub(super) blocks: Arc<Vec<Arc<Block>>>,
     pub(super) modules: Arc<Vec<Arc<Module>>>,
-    usage: Usage,
+    pub spans: Vec<Span>,
+    doccomments: Doccomments,
     pub scope: ScopeFrame,
-    pub ctrlc: Option<Arc<AtomicBool>>,
+    signals: Signals,
+    pub signal_handlers: Option<Handlers>,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<String, Value>>,
     pub config: Arc<Config>,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
-    pub table_decl_id: Option<usize>,
+    pub table_decl_id: Option<DeclId>,
     #[cfg(feature = "plugin")]
     pub plugin_path: Option<PathBuf>,
     #[cfg(feature = "plugin")]
@@ -110,10 +116,13 @@ pub struct EngineState {
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
 const REGEX_CACHE_SIZE: usize = 100; // must be nonzero, otherwise will panic
 
-pub const NU_VARIABLE_ID: usize = 0;
-pub const IN_VARIABLE_ID: usize = 1;
-pub const ENV_VARIABLE_ID: usize = 2;
+pub const NU_VARIABLE_ID: VarId = VarId::new(0);
+pub const IN_VARIABLE_ID: VarId = VarId::new(1);
+pub const ENV_VARIABLE_ID: VarId = VarId::new(2);
 // NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
+
+// The first span is unknown span
+pub const UNKNOWN_SPAN_ID: SpanId = SpanId::new(0);
 
 impl EngineState {
     pub fn new() -> Self {
@@ -132,14 +141,16 @@ impl EngineState {
             modules: Arc::new(vec![Arc::new(Module::new(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
             ))]),
-            usage: Usage::new(),
+            spans: vec![Span::unknown()],
+            doccomments: Doccomments::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
-                0,
+                ModuleId::new(0),
                 false,
             ),
-            ctrlc: None,
+            signal_handlers: None,
+            signals: Signals::empty(),
             env_vars: Arc::new(
                 [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
                     .into_iter()
@@ -172,6 +183,21 @@ impl EngineState {
         }
     }
 
+    pub fn signals(&self) -> &Signals {
+        &self.signals
+    }
+
+    pub fn reset_signals(&mut self) {
+        self.signals.reset();
+        if let Some(ref handlers) = self.signal_handlers {
+            handlers.run(SignalAction::Reset);
+        }
+    }
+
+    pub fn set_signals(&mut self, signals: Signals) {
+        self.signals = signals;
+    }
+
     /// Merges a `StateDelta` onto the current state. These deltas come from a system, like the parser, that
     /// creates a new set of definitions and visible symbols in the current scope. We make this transactional
     /// as there are times when we want to run the parser and immediately throw away the results (namely:
@@ -184,7 +210,8 @@ impl EngineState {
         self.files.extend(delta.files);
         self.virtual_paths.extend(delta.virtual_paths);
         self.vars.extend(delta.vars);
-        self.usage.merge_with(delta.usage);
+        self.spans.extend(delta.spans);
+        self.doccomments.merge_with(delta.doccomments);
 
         // Avoid potentially cloning the Arcs if we aren't adding anything
         if !delta.decls.is_empty() {
@@ -249,8 +276,13 @@ impl EngineState {
 
         #[cfg(feature = "plugin")]
         if !delta.plugins.is_empty() {
-            // Replace plugins that overlap in identity.
             for plugin in std::mem::take(&mut delta.plugins) {
+                // Connect plugins to the signal handlers
+                if let Some(handlers) = &self.signal_handlers {
+                    plugin.clone().configure_signal_handler(handlers)?;
+                }
+
+                // Replace plugins that overlap in identity.
                 if let Some(existing) = self
                     .plugins
                     .iter_mut()
@@ -277,33 +309,12 @@ impl EngineState {
     }
 
     /// Merge the environment from the runtime Stack into the engine state
-    pub fn merge_env(
-        &mut self,
-        stack: &mut Stack,
-        cwd: impl AsRef<Path>,
-    ) -> Result<(), ShellError> {
-        let mut config_updated = false;
-
+    pub fn merge_env(&mut self, stack: &mut Stack) -> Result<(), ShellError> {
         for mut scope in stack.env_vars.drain(..) {
-            for (overlay_name, mut env) in scope.drain() {
+            for (overlay_name, mut env) in Arc::make_mut(&mut scope).drain() {
                 if let Some(env_vars) = Arc::make_mut(&mut self.env_vars).get_mut(&overlay_name) {
                     // Updating existing overlay
-                    for (k, v) in env.drain() {
-                        if k == "config" {
-                            // Don't insert the record as the "config" env var as-is.
-                            // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
-                            let mut new_record = v.clone();
-                            let (config, error) = new_record.parse_as_config(&self.config);
-                            self.config = Arc::new(config);
-                            config_updated = true;
-                            env_vars.insert(k, new_record);
-                            if let Some(e) = error {
-                                return Err(e);
-                            }
-                        } else {
-                            env_vars.insert(k, v);
-                        }
-                    }
+                    env_vars.extend(env.drain());
                 } else {
                     // Pushing a new overlay
                     Arc::make_mut(&mut self.env_vars).insert(overlay_name, env);
@@ -311,10 +322,15 @@ impl EngineState {
             }
         }
 
-        // TODO: better error
-        std::env::set_current_dir(cwd)?;
+        let cwd = self.cwd(Some(stack))?;
+        std::env::set_current_dir(cwd).map_err(|err| {
+            IoError::new_internal(err.kind(), "Could not set current dir", crate::location!())
+        })?;
 
-        if config_updated {
+        if let Some(config) = stack.config.take() {
+            // If config was updated in the stack, replace it.
+            self.config = config;
+
             // Make plugin GC config changes take effect immediately.
             #[cfg(feature = "plugin")]
             self.update_plugin_gc_configs(&self.config.plugin_gc);
@@ -333,7 +349,7 @@ impl EngineState {
     pub fn active_overlay_ids<'a, 'b>(
         &'b self,
         removed_overlays: &'a [Vec<u8>],
-    ) -> impl DoubleEndedIterator<Item = &OverlayId> + 'a
+    ) -> impl DoubleEndedIterator<Item = &'b OverlayId> + 'a
     where
         'b: 'a,
     {
@@ -347,7 +363,7 @@ impl EngineState {
     pub fn active_overlays<'a, 'b>(
         &'b self,
         removed_overlays: &'a [Vec<u8>],
-    ) -> impl DoubleEndedIterator<Item = &OverlayFrame> + 'a
+    ) -> impl DoubleEndedIterator<Item = &'b OverlayFrame> + 'a
     where
         'b: 'a,
     {
@@ -358,7 +374,7 @@ impl EngineState {
     pub fn active_overlay_names<'a, 'b>(
         &'b self,
         removed_overlays: &'a [Vec<u8>],
-    ) -> impl DoubleEndedIterator<Item = &[u8]> + 'a
+    ) -> impl DoubleEndedIterator<Item = &'b [u8]> + 'a
     where
         'b: 'a,
     {
@@ -371,7 +387,7 @@ impl EngineState {
         let other_names = other.active_overlays.iter().map(|other_id| {
             &other
                 .overlays
-                .get(*other_id)
+                .get(other_id.get())
                 .expect("internal error: missing overlay")
                 .0
         });
@@ -401,7 +417,7 @@ impl EngineState {
         &self
             .scope
             .overlays
-            .get(overlay_id)
+            .get(overlay_id.get())
             .expect("internal error: missing overlay")
             .0
     }
@@ -410,18 +426,18 @@ impl EngineState {
         &self
             .scope
             .overlays
-            .get(overlay_id)
+            .get(overlay_id.get())
             .expect("internal error: missing overlay")
             .1
     }
 
-    pub fn render_env_vars(&self) -> HashMap<&String, &Value> {
-        let mut result = HashMap::new();
+    pub fn render_env_vars(&self) -> HashMap<&str, &Value> {
+        let mut result: HashMap<&str, &Value> = HashMap::new();
 
         for overlay_name in self.active_overlay_names(&[]) {
             let name = String::from_utf8_lossy(overlay_name);
             if let Some(env_vars) = self.env_vars.get(name.as_ref()) {
-                result.extend(env_vars);
+                result.extend(env_vars.iter().map(|(k, v)| (k.as_str(), v)));
             }
         }
 
@@ -452,20 +468,16 @@ impl EngineState {
         None
     }
 
-    // Get the path environment variable in a platform agnostic way
-    pub fn get_path_env_var(&self) -> Option<&Value> {
-        let env_path_name_windows: &str = "Path";
-        let env_path_name_nix: &str = "PATH";
-
+    // Returns Some((name, value)) if found, None otherwise.
+    // When updating environment variables, make sure to use
+    // the same case (the returned "name") as the original
+    // environment variable name.
+    pub fn get_env_var_insensitive(&self, name: &str) -> Option<(&String, &Value)> {
         for overlay_id in self.scope.active_overlays.iter().rev() {
             let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
             if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
-                if let Some(val) = env_vars.get(env_path_name_nix) {
-                    return Some(val);
-                } else if let Some(val) = env_vars.get(env_path_name_windows) {
-                    return Some(val);
-                } else {
-                    return None;
+                if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
+                    return Some((v.0, v.1));
                 }
             }
         }
@@ -504,13 +516,12 @@ impl EngineState {
                 if err.kind() == std::io::ErrorKind::NotFound {
                     Ok(PluginRegistryFile::default())
                 } else {
-                    Err(ShellError::GenericError {
-                        error: "Failed to open plugin file".into(),
-                        msg: "".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![err.into()],
-                    })
+                    Err(ShellError::Io(IoError::new_internal_with_path(
+                        err.kind(),
+                        "Failed to open plugin file",
+                        crate::location!(),
+                        PathBuf::from(plugin_path),
+                    )))
                 }
             }
         }?;
@@ -521,14 +532,14 @@ impl EngineState {
         }
 
         // Write it to the same path
-        let plugin_file =
-            File::create(plugin_path.as_path()).map_err(|err| ShellError::GenericError {
-                error: "Failed to write plugin file".into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![err.into()],
-            })?;
+        let plugin_file = File::create(plugin_path.as_path()).map_err(|err| {
+            IoError::new_internal_with_path(
+                err.kind(),
+                "Failed to write plugin file",
+                crate::location!(),
+                PathBuf::from(plugin_path),
+            )
+        })?;
 
         contents.write_to(plugin_file, None)
     }
@@ -565,6 +576,9 @@ impl EngineState {
         self.modules.len()
     }
 
+    pub fn num_spans(&self) -> usize {
+        self.spans.len()
+    }
     pub fn print_vars(&self) {
         for var in self.vars.iter().enumerate() {
             println!("var{}: {:?}", var.0, var.1);
@@ -590,6 +604,9 @@ impl EngineState {
         }
     }
 
+    /// Find the [`DeclId`](crate::DeclId) corresponding to a declaration with `name`.
+    ///
+    /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
     pub fn find_decl(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<DeclId> {
         let mut visibility: Visibility = Visibility::new();
 
@@ -606,6 +623,9 @@ impl EngineState {
         None
     }
 
+    /// Find the name of the declaration corresponding to `decl_id`.
+    ///
+    /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
     pub fn find_decl_name(&self, decl_id: DeclId, removed_overlays: &[Vec<u8>]) -> Option<&[u8]> {
         let mut visibility: Visibility = Visibility::new();
 
@@ -624,8 +644,35 @@ impl EngineState {
         None
     }
 
+    /// Find the [`OverlayId`](crate::OverlayId) corresponding to `name`.
+    ///
+    /// Searches all overlays, not just active overlays. To search only in active overlays, use [`find_active_overlay`](EngineState::find_active_overlay)
+    pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
+        self.scope.find_overlay(name)
+    }
+
+    /// Find the [`OverlayId`](crate::OverlayId) of the active overlay corresponding to `name`.
+    ///
+    /// Searches only active overlays. To search in all overlays, use [`find_overlay`](EngineState::find_active_overlay)
+    pub fn find_active_overlay(&self, name: &[u8]) -> Option<OverlayId> {
+        self.scope.find_active_overlay(name)
+    }
+
+    /// Find the [`ModuleId`](crate::ModuleId) corresponding to `name`.
+    ///
+    /// Searches within active overlays, and filtering out overlays in `removed_overlays`.
+    pub fn find_module(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<ModuleId> {
+        for overlay_frame in self.active_overlays(removed_overlays).rev() {
+            if let Some(module_id) = overlay_frame.modules.get(name) {
+                return Some(*module_id);
+            }
+        }
+
+        None
+    }
+
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
-        self.usage.get_module_comments(module_id)
+        self.doccomments.get_module_comments(module_id)
     }
 
     #[cfg(feature = "plugin")]
@@ -645,16 +692,6 @@ impl EngineState {
         plugin_decls.into_iter().map(|(_, decl)| decl)
     }
 
-    pub fn find_module(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<ModuleId> {
-        for overlay_frame in self.active_overlays(removed_overlays).rev() {
-            if let Some(module_id) = overlay_frame.modules.get(name) {
-                return Some(*module_id);
-            }
-        }
-
-        None
-    }
-
     pub fn which_module_has_decl(
         &self,
         decl_name: &[u8],
@@ -672,17 +709,9 @@ impl EngineState {
         None
     }
 
-    pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
-        self.scope.find_overlay(name)
-    }
-
-    pub fn find_active_overlay(&self, name: &[u8]) -> Option<OverlayId> {
-        self.scope.find_active_overlay(name)
-    }
-
     pub fn find_commands_by_predicate(
         &self,
-        predicate: impl Fn(&[u8]) -> bool,
+        mut predicate: impl FnMut(&[u8]) -> bool,
         ignore_deprecated: bool,
     ) -> Vec<(Vec<u8>, Option<String>, CommandType)> {
         let mut output = vec![];
@@ -696,7 +725,7 @@ impl EngineState {
                     }
                     output.push((
                         decl.0.clone(),
-                        Some(command.usage().to_string()),
+                        Some(command.description().to_string()),
                         command.command_type(),
                     ));
                 }
@@ -716,24 +745,30 @@ impl EngineState {
         &[0u8; 0]
     }
 
-    pub fn get_config(&self) -> &Config {
+    /// Get the global config from the engine state.
+    ///
+    /// Use [`Stack::get_config()`] instead whenever the `Stack` is available, as it takes into
+    /// account local changes to `$env.config`.
+    pub fn get_config(&self) -> &Arc<Config> {
         &self.config
     }
 
-    pub fn set_config(&mut self, conf: Config) {
+    pub fn set_config(&mut self, conf: impl Into<Arc<Config>>) {
+        let conf = conf.into();
+
         #[cfg(feature = "plugin")]
         if conf.plugin_gc != self.config.plugin_gc {
             // Make plugin GC config changes take effect immediately.
             self.update_plugin_gc_configs(&conf.plugin_gc);
         }
 
-        self.config = Arc::new(conf);
+        self.config = conf;
     }
 
     /// Fetch the configuration for a plugin
     ///
-    /// The `plugin` must match the registered name of a plugin.  For `register nu_plugin_example`
-    /// the plugin name to use will be `"example"`
+    /// The `plugin` must match the registered name of a plugin.  For `plugin add
+    /// nu_plugin_example` the plugin name to use will be `"example"`
     pub fn get_plugin_config(&self, plugin: &str) -> Option<&Value> {
         self.config.plugins.get(plugin)
     }
@@ -745,7 +780,7 @@ impl EngineState {
 
     pub fn get_var(&self, var_id: VarId) -> &Variable {
         self.vars
-            .get(var_id)
+            .get(var_id.get())
             .expect("internal error: missing variable")
     }
 
@@ -755,21 +790,18 @@ impl EngineState {
     }
 
     pub fn generate_nu_constant(&mut self) {
-        self.vars[NU_VARIABLE_ID].const_val = Some(create_nu_constant(self, Span::unknown()));
+        self.vars[NU_VARIABLE_ID.get()].const_val = Some(create_nu_constant(self, Span::unknown()));
     }
 
     pub fn get_decl(&self, decl_id: DeclId) -> &dyn Command {
         self.decls
-            .get(decl_id)
+            .get(decl_id.get())
             .expect("internal error: missing declaration")
             .as_ref()
     }
 
     /// Get all commands within scope, sorted by the commands' names
-    pub fn get_decls_sorted(
-        &self,
-        include_hidden: bool,
-    ) -> impl Iterator<Item = (Vec<u8>, DeclId)> {
+    pub fn get_decls_sorted(&self, include_hidden: bool) -> Vec<(Vec<u8>, DeclId)> {
         let mut decls_map = HashMap::new();
 
         for overlay_frame in self.active_overlays(&[]) {
@@ -790,78 +822,53 @@ impl EngineState {
         let mut decls: Vec<(Vec<u8>, DeclId)> = decls_map.into_iter().collect();
 
         decls.sort_by(|a, b| a.0.cmp(&b.0));
-        decls.into_iter()
+        decls
     }
 
     pub fn get_signature(&self, decl: &dyn Command) -> Signature {
-        if let Some(block_id) = decl.get_block_id() {
-            *self.blocks[block_id].signature.clone()
+        if let Some(block_id) = decl.block_id() {
+            *self.blocks[block_id.get()].signature.clone()
         } else {
             decl.signature()
         }
     }
 
-    /// Get signatures of all commands within scope.
-    pub fn get_signatures(&self, include_hidden: bool) -> Vec<Signature> {
+    /// Get signatures of all commands within scope with their decl ids.
+    pub fn get_signatures_and_declids(&self, include_hidden: bool) -> Vec<(Signature, DeclId)> {
         self.get_decls_sorted(include_hidden)
+            .into_iter()
             .map(|(_, id)| {
                 let decl = self.get_decl(id);
 
-                self.get_signature(decl).update_from_command(decl)
-            })
-            .collect()
-    }
-
-    /// Get signatures of all commands within scope.
-    ///
-    /// In addition to signatures, it returns whether each command is:
-    ///     a) a plugin
-    ///     b) custom
-    pub fn get_signatures_with_examples(
-        &self,
-        include_hidden: bool,
-    ) -> Vec<(Signature, Vec<Example>, bool, bool, bool)> {
-        self.get_decls_sorted(include_hidden)
-            .map(|(_, id)| {
-                let decl = self.get_decl(id);
-
-                let signature = self.get_signature(decl).update_from_command(decl);
-
-                (
-                    signature,
-                    decl.examples(),
-                    decl.is_plugin(),
-                    decl.get_block_id().is_some(),
-                    decl.is_parser_keyword(),
-                )
+                (self.get_signature(decl).update_from_command(decl), id)
             })
             .collect()
     }
 
     pub fn get_block(&self, block_id: BlockId) -> &Arc<Block> {
         self.blocks
-            .get(block_id)
+            .get(block_id.get())
             .expect("internal error: missing block")
     }
 
     /// Optionally get a block by id, if it exists
     ///
-    /// Prefer to use [`.get_block()`] in most cases - `BlockId`s that don't exist are normally a
-    /// compiler error. This only exists to stop plugins from crashing the engine if they send us
-    /// something invalid.
+    /// Prefer to use [`.get_block()`](Self::get_block) in most cases - `BlockId`s that don't exist
+    /// are normally a compiler error. This only exists to stop plugins from crashing the engine if
+    /// they send us something invalid.
     pub fn try_get_block(&self, block_id: BlockId) -> Option<&Arc<Block>> {
-        self.blocks.get(block_id)
+        self.blocks.get(block_id.get())
     }
 
     pub fn get_module(&self, module_id: ModuleId) -> &Module {
         self.modules
-            .get(module_id)
+            .get(module_id.get())
             .expect("internal error: missing module")
     }
 
     pub fn get_virtual_path(&self, virtual_path_id: VirtualPathId) -> &(String, VirtualPath) {
         self.virtual_paths
-            .get(virtual_path_id)
+            .get(virtual_path_id.get())
             .expect("internal error: missing virtual path")
     }
 
@@ -873,7 +880,9 @@ impl EngineState {
         }
     }
 
-    pub fn files(&self) -> impl Iterator<Item = &CachedFile> {
+    pub fn files(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = &CachedFile> + ExactSizeIterator<Item = &CachedFile> {
         self.files.iter()
     }
 
@@ -889,7 +898,7 @@ impl EngineState {
             covered_span,
         });
 
-        self.num_files() - 1
+        FileId::new(self.num_files() - 1)
     }
 
     pub fn set_config_path(&mut self, key: &str, val: PathBuf) {
@@ -900,17 +909,17 @@ impl EngineState {
         self.config_path.get(key)
     }
 
-    pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
+    pub fn build_desc(&self, spans: &[Span]) -> (String, String) {
         let comment_lines: Vec<&[u8]> = spans
             .iter()
             .map(|span| self.get_span_contents(*span))
             .collect();
-        build_usage(&comment_lines)
+        build_desc(&comment_lines)
     }
 
-    pub fn build_module_usage(&self, module_id: ModuleId) -> Option<(String, String)> {
+    pub fn build_module_desc(&self, module_id: ModuleId) -> Option<(String, String)> {
         self.get_module_comments(module_id)
-            .map(|comment_spans| self.build_usage(comment_spans))
+            .map(|comment_spans| self.build_desc(comment_spans))
     }
 
     /// Returns the current working directory, which is guaranteed to be canonicalized.
@@ -929,58 +938,44 @@ impl EngineState {
     ///
     /// If `stack` is supplied, also considers modifications to the working
     /// directory on the stack that have yet to be merged into the engine state.
-    pub fn cwd(&self, stack: Option<&Stack>) -> Result<PathBuf, ShellError> {
+    pub fn cwd(&self, stack: Option<&Stack>) -> Result<AbsolutePathBuf, ShellError> {
         // Helper function to create a simple generic error.
-        fn error(msg: &str, cwd: impl AsRef<Path>) -> Result<PathBuf, ShellError> {
-            Err(ShellError::GenericError {
+        fn error(msg: &str, cwd: impl AsRef<nu_path::Path>) -> ShellError {
+            ShellError::GenericError {
                 error: msg.into(),
                 msg: format!("$env.PWD = {}", cwd.as_ref().display()),
                 span: None,
                 help: Some("Use `cd` to reset $env.PWD into a good state".into()),
                 inner: vec![],
-            })
-        }
-
-        // Helper function to check if a path is a root path.
-        fn is_root(path: &Path) -> bool {
-            path.parent().is_none()
-        }
-
-        // Helper function to check if a path has trailing slashes.
-        fn has_trailing_slash(path: &Path) -> bool {
-            nu_path::components(path).last()
-                == Some(std::path::Component::Normal(std::ffi::OsStr::new("")))
+            }
         }
 
         // Retrieve $env.PWD from the stack or the engine state.
         let pwd = if let Some(stack) = stack {
             stack.get_env_var(self, "PWD")
         } else {
-            self.get_env_var("PWD").map(ToOwned::to_owned)
+            self.get_env_var("PWD")
         };
 
-        if let Some(pwd) = pwd {
-            if let Value::String { val, .. } = pwd {
-                let path = PathBuf::from(val);
+        let pwd = pwd.ok_or_else(|| error("$env.PWD not found", ""))?;
 
-                // Technically, a root path counts as "having trailing slashes", but
-                // for the purpose of PWD, a root path is acceptable.
-                if !is_root(&path) && has_trailing_slash(&path) {
-                    error("$env.PWD contains trailing slashes", path)
-                } else if !path.is_absolute() {
-                    error("$env.PWD is not an absolute path", path)
-                } else if !path.exists() {
-                    error("$env.PWD points to a non-existent directory", path)
-                } else if !path.is_dir() {
-                    error("$env.PWD points to a non-directory", path)
-                } else {
-                    Ok(path)
-                }
+        if let Ok(pwd) = pwd.as_str() {
+            let path = AbsolutePathBuf::try_from(pwd)
+                .map_err(|_| error("$env.PWD is not an absolute path", pwd))?;
+
+            // Technically, a root path counts as "having trailing slashes", but
+            // for the purpose of PWD, a root path is acceptable.
+            if path.parent().is_some() && nu_path::has_trailing_slash(path.as_ref()) {
+                Err(error("$env.PWD contains trailing slashes", &path))
+            } else if !path.exists() {
+                Err(error("$env.PWD points to a non-existent directory", &path))
+            } else if !path.is_dir() {
+                Err(error("$env.PWD points to a non-directory", &path))
             } else {
-                error("$env.PWD is not a string", format!("{pwd:?}"))
+                Ok(path)
             }
         } else {
-            error("$env.PWD not found", "")
+            Err(error("$env.PWD is not a string", format!("{pwd:?}")))
         }
     }
 
@@ -1047,6 +1042,30 @@ impl EngineState {
             )));
         }
     }
+
+    /// Add new span and return its ID
+    pub fn add_span(&mut self, span: Span) -> SpanId {
+        self.spans.push(span);
+        SpanId::new(self.num_spans() - 1)
+    }
+
+    /// Find ID of a span (should be avoided if possible)
+    pub fn find_span_id(&self, span: Span) -> Option<SpanId> {
+        self.spans
+            .iter()
+            .position(|sp| sp == &span)
+            .map(SpanId::new)
+    }
+}
+
+impl GetSpan for &EngineState {
+    /// Get existing span
+    fn get_span(&self, span_id: SpanId) -> Span {
+        *self
+            .spans
+            .get(span_id.get())
+            .expect("internal error: missing span")
+    }
 }
 
 impl Default for EngineState {
@@ -1068,7 +1087,7 @@ mod engine_state_tests {
         let mut engine_state = StateWorkingSet::new(&engine_state);
         let id = engine_state.add_file("test.nu".into(), &[]);
 
-        assert_eq!(id, 0);
+        assert_eq!(id, FileId::new(0));
     }
 
     #[test]
@@ -1079,8 +1098,8 @@ mod engine_state_tests {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let working_set_id = working_set.add_file("child.nu".into(), &[]);
 
-        assert_eq!(parent_id, 0);
-        assert_eq!(working_set_id, 1);
+        assert_eq!(parent_id, FileId::new(0));
+        assert_eq!(working_set_id, FileId::new(1));
     }
 
     #[test]
@@ -1136,7 +1155,7 @@ mod engine_state_tests {
         let mut plugins = HashMap::new();
         plugins.insert("example".into(), Value::string("value", Span::test_data()));
 
-        let mut config = engine_state.get_config().clone();
+        let mut config = Config::clone(engine_state.get_config());
         config.plugins = plugins;
 
         engine_state.set_config(config);
@@ -1166,22 +1185,27 @@ mod test_cwd {
 
     use crate::{
         engine::{EngineState, Stack},
-        Span, Value,
+        Value,
     };
-    use nu_path::assert_path_eq;
-    use std::path::Path;
+    use nu_path::{assert_path_eq, AbsolutePath, Path};
     use tempfile::{NamedTempFile, TempDir};
 
     /// Creates a symlink. Works on both Unix and Windows.
     #[cfg(any(unix, windows))]
-    fn symlink(original: impl AsRef<Path>, link: impl AsRef<Path>) -> std::io::Result<()> {
+    fn symlink(
+        original: impl AsRef<AbsolutePath>,
+        link: impl AsRef<AbsolutePath>,
+    ) -> std::io::Result<()> {
+        let original = original.as_ref();
+        let link = link.as_ref();
+
         #[cfg(unix)]
         {
             std::os::unix::fs::symlink(original, link)
         }
         #[cfg(windows)]
         {
-            if original.as_ref().is_dir() {
+            if original.is_dir() {
                 std::os::windows::fs::symlink_dir(original, link)
             } else {
                 std::os::windows::fs::symlink_file(original, link)
@@ -1194,10 +1218,7 @@ mod test_cwd {
         let mut engine_state = EngineState::new();
         engine_state.add_env_var(
             "PWD".into(),
-            Value::String {
-                val: path.as_ref().to_string_lossy().to_string(),
-                internal_span: Span::unknown(),
-            },
+            Value::test_string(path.as_ref().to_str().unwrap()),
         );
         engine_state
     }
@@ -1207,10 +1228,7 @@ mod test_cwd {
         let mut stack = Stack::new();
         stack.add_env_var(
             "PWD".into(),
-            Value::String {
-                val: path.as_ref().to_string_lossy().to_string(),
-                internal_span: Span::unknown(),
-            },
+            Value::test_string(path.as_ref().to_str().unwrap()),
         );
         stack
     }
@@ -1230,14 +1248,7 @@ mod test_cwd {
     #[test]
     fn pwd_is_non_string_value() {
         let mut engine_state = EngineState::new();
-        engine_state.add_env_var(
-            "PWD".into(),
-            Value::Glob {
-                val: "*".into(),
-                no_expand: false,
-                internal_span: Span::unknown(),
-            },
-        );
+        engine_state.add_env_var("PWD".into(), Value::test_glob("*"));
         engine_state.cwd(None).unwrap_err();
     }
 
@@ -1288,9 +1299,12 @@ mod test_cwd {
     #[test]
     fn pwd_points_to_symlink_to_file() {
         let file = NamedTempFile::new().unwrap();
+        let temp_file = AbsolutePath::try_new(file.path()).unwrap();
         let dir = TempDir::new().unwrap();
-        let link = dir.path().join("link");
-        symlink(file.path(), &link).unwrap();
+        let temp = AbsolutePath::try_new(dir.path()).unwrap();
+
+        let link = temp.join("link");
+        symlink(temp_file, &link).unwrap();
         let engine_state = engine_state_with_pwd(&link);
 
         engine_state.cwd(None).unwrap_err();
@@ -1299,8 +1313,10 @@ mod test_cwd {
     #[test]
     fn pwd_points_to_symlink_to_directory() {
         let dir = TempDir::new().unwrap();
-        let link = dir.path().join("link");
-        symlink(dir.path(), &link).unwrap();
+        let temp = AbsolutePath::try_new(dir.path()).unwrap();
+
+        let link = temp.join("link");
+        symlink(temp, &link).unwrap();
         let engine_state = engine_state_with_pwd(&link);
 
         let cwd = engine_state.cwd(None).unwrap();
@@ -1310,10 +1326,15 @@ mod test_cwd {
     #[test]
     fn pwd_points_to_broken_symlink() {
         let dir = TempDir::new().unwrap();
-        let link = dir.path().join("link");
-        symlink(TempDir::new().unwrap().path(), &link).unwrap();
+        let temp = AbsolutePath::try_new(dir.path()).unwrap();
+        let other_dir = TempDir::new().unwrap();
+        let other_temp = AbsolutePath::try_new(other_dir.path()).unwrap();
+
+        let link = temp.join("link");
+        symlink(other_temp, &link).unwrap();
         let engine_state = engine_state_with_pwd(&link);
 
+        drop(other_dir);
         engine_state.cwd(None).unwrap_err();
     }
 
@@ -1356,12 +1377,14 @@ mod test_cwd {
 
     #[test]
     fn stack_pwd_points_to_normal_directory_with_symlink_components() {
-        // `/tmp/dir/link` points to `/tmp/dir`, then we set PWD to `/tmp/dir/link/foo`
         let dir = TempDir::new().unwrap();
-        let link = dir.path().join("link");
-        symlink(dir.path(), &link).unwrap();
+        let temp = AbsolutePath::try_new(dir.path()).unwrap();
+
+        // `/tmp/dir/link` points to `/tmp/dir`, then we set PWD to `/tmp/dir/link/foo`
+        let link = temp.join("link");
+        symlink(temp, &link).unwrap();
         let foo = link.join("foo");
-        std::fs::create_dir(dir.path().join("foo")).unwrap();
+        std::fs::create_dir(temp.join("foo")).unwrap();
         let engine_state = EngineState::new();
         let stack = stack_with_pwd(&foo);
 

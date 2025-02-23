@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, OutDest};
+use nu_protocol::{engine::StateWorkingSet, ByteStreamSource, OutDest};
 
 #[derive(Clone)]
 pub struct Ignore;
@@ -9,7 +9,7 @@ impl Command for Ignore {
         "ignore"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Ignore the output of the previous command in the pipeline."
     }
 
@@ -32,8 +32,14 @@ impl Command for Ignore {
         _engine_state: &EngineState,
         _stack: &mut Stack,
         _call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        if let PipelineData::ByteStream(stream, _) = &mut input {
+            #[cfg(feature = "os")]
+            if let ByteStreamSource::Child(child) = stream.source_mut() {
+                child.ignore_error(true);
+            }
+        }
         input.drain()?;
         Ok(PipelineData::empty())
     }

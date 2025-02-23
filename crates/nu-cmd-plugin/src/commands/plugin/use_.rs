@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct PluginUse;
@@ -8,7 +9,7 @@ impl Command for PluginUse {
         "plugin use"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Load a plugin from the plugin registry file into scope."
     }
 
@@ -24,12 +25,12 @@ impl Command for PluginUse {
             .required(
                 "name",
                 SyntaxShape::String,
-                "The name, or filename, of the plugin to load",
+                "The name, or filename, of the plugin to load.",
             )
             .category(Category::Plugin)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"
 This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html
@@ -52,8 +53,8 @@ it was already previously registered with `plugin add`.
         vec!["add", "register", "scope"]
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(

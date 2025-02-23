@@ -11,7 +11,7 @@ pub struct PluginSource {
     /// A weak reference to the persistent plugin that might hold an interface to the plugin.
     ///
     /// This is weak to avoid cyclic references, but it does mean we might fail to upgrade if
-    /// the engine state lost the [`PersistentPlugin`] at some point.
+    /// the engine state lost the [`PersistentPlugin`][crate::PersistentPlugin] at some point.
     pub(crate) persistent: Weak<dyn GetPlugin>,
 }
 
@@ -26,7 +26,7 @@ impl PluginSource {
 
     /// Create a new fake source with a fake identity, for testing
     ///
-    /// Warning: [`.persistent()`] will always return an error.
+    /// Warning: [`.persistent()`](Self::persistent) will always return an error.
     pub fn new_fake(name: &str) -> PluginSource {
         PluginSource {
             identity: PluginIdentity::new_fake(name).into(),

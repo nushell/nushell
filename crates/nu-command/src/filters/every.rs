@@ -27,7 +27,7 @@ impl Command for Every {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show (or skip) every n-th row, starting from the first one."
     }
 
@@ -78,7 +78,7 @@ impl Command for Every {
                     None
                 }
             })
-            .into_pipeline_data_with_metadata(call.head, engine_state.ctrlc.clone(), metadata))
+            .into_pipeline_data_with_metadata(call.head, engine_state.signals().clone(), metadata))
     }
 }
 

@@ -12,6 +12,7 @@ impl Command for Skip {
         Signature::build(self.name())
             .input_output_types(vec![
                 (Type::table(), Type::table()),
+                (Type::Binary, Type::Binary),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
@@ -21,11 +22,11 @@ impl Command for Skip {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Skip the first several rows of the input. Counterpart of `drop`. Opposite of `first`."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"To skip specific numbered rows, try `drop nth`. To skip specific named columns, try `reject`."#
     }
 
@@ -50,6 +51,11 @@ impl Command for Skip {
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "editions" => Value::test_int(2021),
                 })])),
+            },
+            Example {
+                description: "Skip 2 bytes of a binary value",
+                example: "0x[01 23 45 67] | skip 2",
+                result: Some(Value::test_binary(vec![0x45, 0x67])),
             },
         ]
     }
@@ -83,16 +89,24 @@ impl Command for Skip {
             }
             None => 1,
         };
-
-        let ctrlc = engine_state.ctrlc.clone();
         let input_span = input.span().unwrap_or(call.head);
         match input {
-            PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "list, binary or range".into(),
-                wrong_type: "byte stream".into(),
-                dst_span: call.head,
-                src_span: stream.span(),
-            }),
+            PipelineData::ByteStream(stream, metadata) => {
+                if stream.type_().is_binary_coercible() {
+                    let span = stream.span();
+                    Ok(PipelineData::ByteStream(
+                        stream.skip(span, n as u64)?,
+                        metadata,
+                    ))
+                } else {
+                    Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "list, binary or range".into(),
+                        wrong_type: stream.type_().describe().into(),
+                        dst_span: call.head,
+                        src_span: stream.span(),
+                    })
+                }
+            }
             PipelineData::Value(Value::Binary { val, .. }, metadata) => {
                 let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
                 Ok(Value::binary(bytes, input_span).into_pipeline_data_with_metadata(metadata))
@@ -100,7 +114,11 @@ impl Command for Skip {
             _ => Ok(input
                 .into_iter_strict(call.head)?
                 .skip(n)
-                .into_pipeline_data_with_metadata(input_span, ctrlc, metadata)),
+                .into_pipeline_data_with_metadata(
+                    input_span,
+                    engine_state.signals().clone(),
+                    metadata,
+                )),
         }
     }
 }

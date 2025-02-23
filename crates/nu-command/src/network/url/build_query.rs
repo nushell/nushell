@@ -1,5 +1,7 @@
 use nu_engine::command_prelude::*;
 
+use super::query::{record_to_query_string, table_to_query_string};
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -12,12 +14,15 @@ impl Command for SubCommand {
         Signature::build("url build-query")
             .input_output_types(vec![
                 (Type::record(), Type::String),
-                (Type::table(), Type::String),
+                (
+                    Type::Table([("key".into(), Type::Any), ("value".into(), Type::Any)].into()),
+                    Type::String,
+                ),
             ])
             .category(Category::Network)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts record or table into query string applying percent-encoding."
     }
 
@@ -33,14 +38,19 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("mode=normal&userid=31415")),
             },
             Example {
-                description: "Outputs a query string representing the contents of this 1-row table",
-                example: r#"[[foo bar]; ["1" "2"]] | url build-query"#,
-                result: Some(Value::test_string("foo=1&bar=2")),
-            },
-            Example {
-                description: "Outputs a query string representing the contents of this record",
+                description: "Outputs a query string representing the contents of this record, with a value that needs to be url-encoded",
                 example: r#"{a:"AT&T", b: "AT T"} | url build-query"#,
                 result: Some(Value::test_string("a=AT%26T&b=AT+T")),
+            },
+            Example {
+                description: "Outputs a query string representing the contents of this record, \"exploding\" the list into multiple parameters",
+                example: r#"{a: ["one", "two"], b: "three"} | url build-query"#,
+                result: Some(Value::test_string("a=one&a=two&b=three")),
+            },
+            Example {
+                description: "Outputs a query string representing the contents of this table containing key-value pairs",
+                example: r#"[[key, value]; [a, one], [a, two], [b, three], [a, four]] | url build-query"#,
+                result: Some(Value::test_string("a=one&a=two&b=three&a=four")),
             },
         ]
     }
@@ -53,57 +63,23 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        to_url(input, head)
+        let input_span = input.span().unwrap_or(head);
+        let value = input.into_value(input_span)?;
+        let span = value.span();
+        let output = match value {
+            Value::Record { ref val, .. } => record_to_query_string(val, span, head),
+            Value::List { ref vals, .. } => table_to_query_string(vals, span, head),
+            // Propagate existing errors
+            Value::Error { error, .. } => Err(*error),
+            other => Err(ShellError::UnsupportedInput {
+                msg: "Expected a record or table from pipeline".to_string(),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: other.span(),
+            }),
+        };
+        Ok(Value::string(output?, head).into_pipeline_data())
     }
-}
-
-fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let output: Result<String, ShellError> = input
-        .into_iter()
-        .map(move |value| {
-            let span = value.span();
-            match value {
-                Value::Record { ref val, .. } => {
-                    let mut row_vec = vec![];
-                    for (k, v) in val {
-                        match v.coerce_string() {
-                            Ok(s) => {
-                                row_vec.push((k.clone(), s));
-                            }
-                            _ => {
-                                return Err(ShellError::UnsupportedInput {
-                                    msg: "Expected a record with string values".to_string(),
-                                    input: "value originates from here".into(),
-                                    msg_span: head,
-                                    input_span: span,
-                                });
-                            }
-                        }
-                    }
-
-                    match serde_urlencoded::to_string(row_vec) {
-                        Ok(s) => Ok(s),
-                        _ => Err(ShellError::CantConvert {
-                            to_type: "URL".into(),
-                            from_type: value.get_type().to_string(),
-                            span: head,
-                            help: None,
-                        }),
-                    }
-                }
-                // Propagate existing errors
-                Value::Error { error, .. } => Err(*error),
-                other => Err(ShellError::UnsupportedInput {
-                    msg: "Expected a table from pipeline".to_string(),
-                    input: "value originates from here".into(),
-                    msg_span: head,
-                    input_span: other.span(),
-                }),
-            }
-        })
-        .collect();
-
-    Ok(Value::string(output?, head).into_pipeline_data())
 }
 
 #[cfg(test)]

@@ -1,3 +1,5 @@
+//! Types representing parsed Nushell code (the Abstract Syntax Tree)
+mod attribute;
 mod block;
 mod call;
 mod cell_path;
@@ -9,10 +11,12 @@ mod match_pattern;
 mod operator;
 mod pipeline;
 mod range;
-pub mod table;
+mod table;
+mod traverse;
 mod unit;
 mod value_with_unit;
 
+pub use attribute::*;
 pub use block::*;
 pub use call::*;
 pub use cell_path::*;
@@ -25,5 +29,6 @@ pub use operator::*;
 pub use pipeline::*;
 pub use range::*;
 pub use table::Table;
+pub use traverse::*;
 pub use unit::*;
 pub use value_with_unit::*;

@@ -378,32 +378,37 @@ fn glob_with_hidden_directory() {
 
 #[test]
 #[cfg(unix)]
-fn fails_with_ls_to_dir_without_permission() {
+fn fails_with_permission_denied() {
     Playground::setup("ls_test_1", |dirs, sandbox| {
         sandbox
             .within("dir_a")
             .with_files(&[EmptyFile("yehuda.11.txt"), EmptyFile("jt10.txt")]);
 
-        let actual = nu!(
+        let actual_with_path_arg = nu!(
             cwd: dirs.test(), pipeline(
             "
                 chmod 000 dir_a; ls dir_a
             "
         ));
 
-        let check_not_root = nu!(
+        let actual_in_cwd = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                chmod 100 dir_a; cd dir_a; ls
+            "
+        ));
+
+        let get_uid = nu!(
             cwd: dirs.test(), pipeline(
                 "
                     id -u
                 "
         ));
+        let is_root = get_uid.out == "0";
 
-        assert!(
-            actual
-                .err
-                .contains("The permissions of 0 do not allow access for this user")
-                || check_not_root.out == "0"
-        );
+        assert!(actual_with_path_arg.err.contains("Permission denied") || is_root);
+
+        assert!(actual_in_cwd.err.contains("Permission denied") || is_root);
     })
 }
 
@@ -605,7 +610,7 @@ fn can_list_system_folder() {
 fn list_a_directory_not_exists() {
     Playground::setup("ls_test_directory_not_exists", |dirs, _sandbox| {
         let actual = nu!(cwd: dirs.test(), "ls a_directory_not_exists");
-        assert!(actual.err.contains("directory not found"));
+        assert!(actual.err.contains("nu::shell::io::not_found"));
     })
 }
 
@@ -730,7 +735,7 @@ fn list_with_tilde() {
         assert!(actual.out.contains("f2.txt"));
         assert!(actual.out.contains("~tilde"));
         let actual = nu!(cwd: dirs.test(), "ls ~tilde");
-        assert!(actual.err.contains("does not exist"));
+        assert!(actual.err.contains("nu::shell::io::not_found"));
 
         // pass variable
         let actual = nu!(cwd: dirs.test(), "let f = '~tilde'; ls $f");
@@ -757,7 +762,7 @@ fn list_with_multiple_path() {
 
         // report errors if one path not exists
         let actual = nu!(cwd: dirs.test(), "ls asdf f1.txt");
-        assert!(actual.err.contains("directory not found"));
+        assert!(actual.err.contains("nu::shell::io::not_found"));
         assert!(!actual.status.success());
 
         // ls with spreading empty list should returns nothing.
@@ -807,4 +812,53 @@ fn list_inside_tilde_glob_metachars_dir() {
             assert!(actual.out.contains("test_file.txt"));
         },
     );
+}
+
+#[test]
+fn list_symlink_with_full_path() {
+    Playground::setup("list_symlink_with_full_path", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("test_file.txt")]);
+
+        #[cfg(unix)]
+        let _ = std::os::unix::fs::symlink("test_file.txt", dirs.test().join("test_link1"));
+        #[cfg(windows)]
+        let _ = std::os::windows::fs::symlink_file("test_file.txt", dirs.test().join("test_link1"));
+        let actual = nu!(
+            cwd: dirs.test(),
+            "ls -l test_link1 | get target.0"
+        );
+        assert_eq!(actual.out, "test_file.txt");
+        let actual = nu!(
+            cwd: dirs.test(),
+            "ls -lf test_link1 | get target.0"
+        );
+        assert_eq!(
+            actual.out,
+            dirs.test().join("test_file.txt").to_string_lossy()
+        );
+    })
+}
+
+#[test]
+fn consistent_list_order() {
+    Playground::setup("ls_test_order", |dirs, sandbox| {
+        sandbox.with_files(&[
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+        ]);
+
+        let no_arg = nu!(
+            cwd: dirs.test(), pipeline(
+            "ls"
+        ));
+
+        let with_arg = nu!(
+            cwd: dirs.test(), pipeline(
+            "ls ."
+        ));
+
+        assert_eq!(no_arg.out, with_arg.out);
+    })
 }

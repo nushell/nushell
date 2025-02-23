@@ -18,11 +18,11 @@ impl Command for SubCommand {
                 "set the current cursor position to the end of the buffer",
                 Some('e'),
             )
-            .optional("pos", SyntaxShape::Int, "Cursor position to be set")
+            .optional("pos", SyntaxShape::Int, "Cursor position to be set.")
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Set the current cursor position."
     }
 

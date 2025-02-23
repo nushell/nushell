@@ -1,33 +1,31 @@
 use crate::util::MutableCow;
 use nu_engine::{get_eval_block_with_early_return, get_full_help, ClosureEvalOnce};
+use nu_plugin_protocol::EvaluatedCall;
 use nu_protocol::{
-    ast::Call,
-    engine::{Closure, EngineState, Redirection, Stack},
-    Config, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
+    engine::{Call, Closure, EngineState, Redirection, Stack},
+    ir, Config, DeclId, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Signals,
+    Span, Spanned, Value,
 };
 use std::{
     borrow::Cow,
     collections::HashMap,
-    sync::{
-        atomic::{AtomicBool, AtomicU32},
-        Arc,
-    },
+    sync::{atomic::AtomicU32, Arc},
 };
 
 /// Object safe trait for abstracting operations required of the plugin context.
 pub trait PluginExecutionContext: Send + Sync {
     /// A span pointing to the command being executed
     fn span(&self) -> Span;
-    /// The interrupt signal, if present
-    fn ctrlc(&self) -> Option<&Arc<AtomicBool>>;
+    /// The [`Signals`] struct, if present
+    fn signals(&self) -> &Signals;
     /// The pipeline externals state, for tracking the foreground process group, if present
     fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>>;
     /// Get engine configuration
-    fn get_config(&self) -> Result<Config, ShellError>;
+    fn get_config(&self) -> Result<Arc<Config>, ShellError>;
     /// Get plugin configuration
     fn get_plugin_config(&self) -> Result<Option<Value>, ShellError>;
     /// Get an environment variable from `$env`
-    fn get_env_var(&self, name: &str) -> Result<Option<Value>, ShellError>;
+    fn get_env_var(&self, name: &str) -> Result<Option<&Value>, ShellError>;
     /// Get all environment variables
     fn get_env_vars(&self) -> Result<HashMap<String, Value>, ShellError>;
     /// Get current working directory
@@ -47,6 +45,17 @@ pub trait PluginExecutionContext: Send + Sync {
         redirect_stdout: bool,
         redirect_stderr: bool,
     ) -> Result<PipelineData, ShellError>;
+    /// Find a declaration by name
+    fn find_decl(&self, name: &str) -> Result<Option<DeclId>, ShellError>;
+    /// Call a declaration with arguments and input
+    fn call_decl(
+        &mut self,
+        decl_id: DeclId,
+        call: EvaluatedCall,
+        input: PipelineData,
+        redirect_stdout: bool,
+        redirect_stderr: bool,
+    ) -> Result<PipelineData, ShellError>;
     /// Create an owned version of the context with `'static` lifetime
     fn boxed(&self) -> Box<dyn PluginExecutionContext>;
 }
@@ -56,7 +65,7 @@ pub struct PluginExecutionCommandContext<'a> {
     identity: Arc<PluginIdentity>,
     engine_state: Cow<'a, EngineState>,
     stack: MutableCow<'a, Stack>,
-    call: Cow<'a, Call>,
+    call: Call<'a>,
 }
 
 impl<'a> PluginExecutionCommandContext<'a> {
@@ -64,39 +73,39 @@ impl<'a> PluginExecutionCommandContext<'a> {
         identity: Arc<PluginIdentity>,
         engine_state: &'a EngineState,
         stack: &'a mut Stack,
-        call: &'a Call,
+        call: &'a Call<'a>,
     ) -> PluginExecutionCommandContext<'a> {
         PluginExecutionCommandContext {
             identity,
             engine_state: Cow::Borrowed(engine_state),
             stack: MutableCow::Borrowed(stack),
-            call: Cow::Borrowed(call),
+            call: call.clone(),
         }
     }
 }
 
-impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
+impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
     fn span(&self) -> Span {
         self.call.head
     }
 
-    fn ctrlc(&self) -> Option<&Arc<AtomicBool>> {
-        self.engine_state.ctrlc.as_ref()
+    fn signals(&self) -> &Signals {
+        self.engine_state.signals()
     }
 
     fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>> {
         Some(&self.engine_state.pipeline_externals_state)
     }
 
-    fn get_config(&self) -> Result<Config, ShellError> {
-        Ok(nu_engine::get_config(&self.engine_state, &self.stack))
+    fn get_config(&self) -> Result<Arc<Config>, ShellError> {
+        Ok(self.stack.get_config(&self.engine_state))
     }
 
     fn get_plugin_config(&self) -> Result<Option<Value>, ShellError> {
         // Fetch the configuration for a plugin
         //
-        // The `plugin` must match the registered name of a plugin.  For
-        // `register nu_plugin_example` the plugin config lookup uses `"example"`
+        // The `plugin` must match the registered name of a plugin.  For `plugin add
+        // nu_plugin_example` the plugin config lookup uses `"example"`
         Ok(self
             .get_config()?
             .plugins
@@ -116,8 +125,11 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
             }))
     }
 
-    fn get_env_var(&self, name: &str) -> Result<Option<Value>, ShellError> {
-        Ok(self.stack.get_env_var(&self.engine_state, name))
+    fn get_env_var(&self, name: &str) -> Result<Option<&Value>, ShellError> {
+        Ok(self
+            .stack
+            .get_env_var_insensitive(&self.engine_state, name)
+            .map(|(_, value)| value))
     }
 
     fn get_env_vars(&self) -> Result<HashMap<String, Value>, ShellError> {
@@ -139,14 +151,10 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
     fn get_help(&self) -> Result<Spanned<String>, ShellError> {
         let decl = self.engine_state.get_decl(self.call.decl_id);
 
-        Ok(get_full_help(
-            &decl.signature(),
-            &decl.examples(),
-            &self.engine_state,
-            &mut self.stack.clone(),
-            false,
+        Ok(
+            get_full_help(decl, &self.engine_state, &mut self.stack.clone())
+                .into_spanned(self.call.head),
         )
-        .into_spanned(self.call.head))
     }
 
     fn get_span_contents(&self, span: Span) -> Result<Spanned<Vec<u8>>, ShellError> {
@@ -172,7 +180,7 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
                 error: "Plugin misbehaving".into(),
                 msg: format!(
                     "Tried to evaluate unknown block id: {}",
-                    closure.item.block_id
+                    closure.item.block_id.get()
                 ),
                 span: Some(closure.span),
                 help: None,
@@ -184,19 +192,10 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
             .captures_to_stack(closure.item.captures)
             .reset_pipes();
 
-        let stdout = if redirect_stdout {
-            Some(Redirection::Pipe(OutDest::Capture))
-        } else {
-            None
-        };
-
-        let stderr = if redirect_stderr {
-            Some(Redirection::Pipe(OutDest::Capture))
-        } else {
-            None
-        };
-
-        let stack = &mut stack.push_redirection(stdout, stderr);
+        let stack = &mut stack.push_redirection(
+            redirect_stdout.then_some(Redirection::Pipe(OutDest::PipeSeparate)),
+            redirect_stderr.then_some(Redirection::Pipe(OutDest::PipeSeparate)),
+        );
 
         // Set up the positional arguments
         for (idx, value) in positional.into_iter().enumerate() {
@@ -218,12 +217,60 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
         eval_block_with_early_return(&self.engine_state, stack, block, input)
     }
 
+    fn find_decl(&self, name: &str) -> Result<Option<DeclId>, ShellError> {
+        Ok(self.engine_state.find_decl(name.as_bytes(), &[]))
+    }
+
+    fn call_decl(
+        &mut self,
+        decl_id: DeclId,
+        call: EvaluatedCall,
+        input: PipelineData,
+        redirect_stdout: bool,
+        redirect_stderr: bool,
+    ) -> Result<PipelineData, ShellError> {
+        if decl_id.get() >= self.engine_state.num_decls() {
+            return Err(ShellError::GenericError {
+                error: "Plugin misbehaving".into(),
+                msg: format!("Tried to call unknown decl id: {}", decl_id.get()),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            });
+        }
+
+        let decl = self.engine_state.get_decl(decl_id);
+
+        let stack = &mut self.stack.push_redirection(
+            redirect_stdout.then_some(Redirection::Pipe(OutDest::PipeSeparate)),
+            redirect_stderr.then_some(Redirection::Pipe(OutDest::PipeSeparate)),
+        );
+
+        let mut call_builder = ir::Call::build(decl_id, call.head);
+
+        for positional in call.positional {
+            call_builder.add_positional(stack, positional.span(), positional);
+        }
+
+        for (name, value) in call.named {
+            if let Some(value) = value {
+                call_builder.add_named(stack, &name.item, "", name.span, value);
+            } else {
+                call_builder.add_flag(stack, &name.item, "", name.span);
+            }
+        }
+
+        call_builder.with(stack, |stack, call| {
+            decl.run(&self.engine_state, stack, call, input)
+        })
+    }
+
     fn boxed(&self) -> Box<dyn PluginExecutionContext + 'static> {
         Box::new(PluginExecutionCommandContext {
             identity: self.identity.clone(),
             engine_state: Cow::Owned(self.engine_state.clone().into_owned()),
             stack: self.stack.owned(),
-            call: Cow::Owned(self.call.clone().into_owned()),
+            call: self.call.to_owned(),
         })
     }
 }
@@ -238,15 +285,15 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
         Span::test_data()
     }
 
-    fn ctrlc(&self) -> Option<&Arc<AtomicBool>> {
-        None
+    fn signals(&self) -> &Signals {
+        &Signals::EMPTY
     }
 
     fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>> {
         None
     }
 
-    fn get_config(&self) -> Result<Config, ShellError> {
+    fn get_config(&self) -> Result<Arc<Config>, ShellError> {
         Err(ShellError::NushellFailed {
             msg: "get_config not implemented on bogus".into(),
         })
@@ -256,7 +303,7 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
         Ok(None)
     }
 
-    fn get_env_var(&self, _name: &str) -> Result<Option<Value>, ShellError> {
+    fn get_env_var(&self, _name: &str) -> Result<Option<&Value>, ShellError> {
         Err(ShellError::NushellFailed {
             msg: "get_env_var not implemented on bogus".into(),
         })
@@ -302,6 +349,25 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
     ) -> Result<PipelineData, ShellError> {
         Err(ShellError::NushellFailed {
             msg: "eval_closure not implemented on bogus".into(),
+        })
+    }
+
+    fn find_decl(&self, _name: &str) -> Result<Option<DeclId>, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "find_decl not implemented on bogus".into(),
+        })
+    }
+
+    fn call_decl(
+        &mut self,
+        _decl_id: DeclId,
+        _call: EvaluatedCall,
+        _input: PipelineData,
+        _redirect_stdout: bool,
+        _redirect_stderr: bool,
+    ) -> Result<PipelineData, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "call_decl not implemented on bogus".into(),
         })
     }
 

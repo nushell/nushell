@@ -32,7 +32,7 @@ impl Command for Fill {
         "fill"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Fill and Align."
     }
 
@@ -108,7 +108,7 @@ impl Command for Fill {
             },
             Example {
                 description:
-                    "Fill a filesize on the left side to a width of 5 with the character '0'",
+                    "Fill a filesize on both sides to a width of 10 with the character '0'",
                 example: "1kib | fill --alignment middle --character '0' --width 10",
                 result: Some(Value::string("0001024000", Span::test_data())),
             },
@@ -150,13 +150,9 @@ fn fill(
         FillAlignment::Left
     };
 
-    let width = if let Some(arg) = width_arg { arg } else { 1 };
+    let width = width_arg.unwrap_or(1);
 
-    let character = if let Some(arg) = character_arg {
-        arg
-    } else {
-        " ".to_string()
-    };
+    let character = character_arg.unwrap_or_else(|| " ".to_string());
 
     let arg = Arguments {
         width,
@@ -165,13 +161,13 @@ fn fill(
         cell_paths,
     };
 
-    operate(action, arg, input, call.head, engine_state.ctrlc.clone())
+    operate(action, arg, input, call.head, engine_state.signals())
 }
 
 fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     match input {
         Value::Int { val, .. } => fill_int(*val, args, span),
-        Value::Filesize { val, .. } => fill_int(*val, args, span),
+        Value::Filesize { val, .. } => fill_int(val.get(), args, span),
         Value::Float { val, .. } => fill_float(*val, args, span),
         Value::String { val, .. } => fill_string(val, args, span),
         // Propagate errors by explicitly matching them before the final case.

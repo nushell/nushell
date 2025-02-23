@@ -1,3 +1,5 @@
+use std::{thread, time::Duration};
+
 use mockito::Server;
 use nu_test_support::{nu, pipeline};
 
@@ -11,6 +13,25 @@ fn http_patch_is_success() {
         format!(
             r#"
         http patch {url} "foo"
+        "#,
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert!(actual.out.is_empty())
+}
+
+#[test]
+fn http_patch_is_success_pipeline() {
+    let mut server = Server::new();
+
+    let _mock = server.mock("PATCH", "/").match_body("foo").create();
+
+    let actual = nu!(pipeline(
+        format!(
+            r#"
+        "foo" | http patch {url}
         "#,
             url = server.url()
         )
@@ -55,7 +76,9 @@ fn http_patch_failed_due_to_missing_body() {
         .as_str()
     ));
 
-    assert!(actual.err.contains("Usage: http patch"))
+    assert!(actual
+        .err
+        .contains("Data must be provided either through pipeline or positional argument"))
 }
 
 #[test]
@@ -140,4 +163,27 @@ fn http_patch_redirect_mode_error() {
     assert!(&actual.err.contains(
         "Redirect encountered when redirect handling mode was 'error' (301 Moved Permanently)"
     ));
+}
+
+#[test]
+fn http_patch_timeout() {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("PATCH", "/")
+        .with_chunked_body(|w| {
+            thread::sleep(Duration::from_secs(10));
+            w.write_all(b"Delayed response!")
+        })
+        .create();
+
+    let actual = nu!(pipeline(
+        format!(
+            "http patch --max-time 100ms {url} patchbody",
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert!(&actual.err.contains("nu::shell::io::timed_out"));
+    assert!(&actual.err.contains("Timed out"));
 }

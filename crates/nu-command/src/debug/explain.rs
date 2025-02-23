@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_expression};
 use nu_protocol::{
-    ast::{Argument, Block, Expr, Expression},
+    ast::{self, Argument, Block, Expr, Expression},
     engine::Closure,
 };
 
@@ -12,7 +12,7 @@ impl Command for Explain {
         "explain"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Explain closure contents."
     }
 
@@ -106,7 +106,7 @@ pub fn get_pipeline_elements(
 fn get_arguments(
     engine_state: &EngineState,
     stack: &mut Stack,
-    call: &Call,
+    call: &ast::Call,
     eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
 ) -> Vec<Value> {
     let mut arg_value = vec![];
@@ -154,7 +154,8 @@ fn get_arguments(
                         eval_expression_fn,
                     );
                     let arg_type = "expr";
-                    let arg_value_name = debug_string_without_formatting(&evaluated_expression);
+                    let arg_value_name =
+                        debug_string_without_formatting(engine_state, &evaluated_expression);
                     let arg_value_type = &evaluated_expression.get_type().to_string();
                     let evaled_span = evaluated_expression.span();
                     let arg_value_name_span_start = evaled_span.start as i64;
@@ -174,7 +175,8 @@ fn get_arguments(
                 let arg_type = "positional";
                 let evaluated_expression =
                     get_expression_as_value(engine_state, stack, inner_expr, eval_expression_fn);
-                let arg_value_name = debug_string_without_formatting(&evaluated_expression);
+                let arg_value_name =
+                    debug_string_without_formatting(engine_state, &evaluated_expression);
                 let arg_value_type = &evaluated_expression.get_type().to_string();
                 let evaled_span = evaluated_expression.span();
                 let arg_value_name_span_start = evaled_span.start as i64;
@@ -193,7 +195,8 @@ fn get_arguments(
                 let arg_type = "unknown";
                 let evaluated_expression =
                     get_expression_as_value(engine_state, stack, inner_expr, eval_expression_fn);
-                let arg_value_name = debug_string_without_formatting(&evaluated_expression);
+                let arg_value_name =
+                    debug_string_without_formatting(engine_state, &evaluated_expression);
                 let arg_value_type = &evaluated_expression.get_type().to_string();
                 let evaled_span = evaluated_expression.span();
                 let arg_value_name_span_start = evaled_span.start as i64;
@@ -212,7 +215,8 @@ fn get_arguments(
                 let arg_type = "spread";
                 let evaluated_expression =
                     get_expression_as_value(engine_state, stack, inner_expr, eval_expression_fn);
-                let arg_value_name = debug_string_without_formatting(&evaluated_expression);
+                let arg_value_name =
+                    debug_string_without_formatting(engine_state, &evaluated_expression);
                 let arg_value_type = &evaluated_expression.get_type().to_string();
                 let evaled_span = evaluated_expression.span();
                 let arg_value_name_span_start = evaled_span.start as i64;
@@ -245,7 +249,7 @@ fn get_expression_as_value(
     }
 }
 
-pub fn debug_string_without_formatting(value: &Value) -> String {
+pub fn debug_string_without_formatting(engine_state: &EngineState, value: &Value) -> String {
     match value {
         Value::Bool { val, .. } => val.to_string(),
         Value::Int { val, .. } => val.to_string(),
@@ -259,19 +263,31 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
         Value::List { vals: val, .. } => format!(
             "[{}]",
             val.iter()
-                .map(debug_string_without_formatting)
+                .map(|v| debug_string_without_formatting(engine_state, v))
                 .collect::<Vec<_>>()
                 .join(" ")
         ),
         Value::Record { val, .. } => format!(
             "{{{}}}",
             val.iter()
-                .map(|(x, y)| format!("{}: {}", x, debug_string_without_formatting(y)))
+                .map(|(x, y)| format!(
+                    "{}: {}",
+                    x,
+                    debug_string_without_formatting(engine_state, y)
+                ))
                 .collect::<Vec<_>>()
                 .join(" ")
         ),
-        //TODO: It would be good to drill deeper into closures.
-        Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
+        Value::Closure { val, .. } => {
+            let block = engine_state.get_block(val.block_id);
+            if let Some(span) = block.span {
+                let contents_bytes = engine_state.get_span_contents(span);
+                let contents_string = String::from_utf8_lossy(contents_bytes);
+                contents_string.to_string()
+            } else {
+                String::new()
+            }
+        }
         Value::Nothing { .. } => String::new(),
         Value::Error { error, .. } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),
@@ -280,7 +296,7 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
         // that critical here
         Value::Custom { val, .. } => val
             .to_base_value(value.span())
-            .map(|val| debug_string_without_formatting(&val))
+            .map(|val| debug_string_without_formatting(engine_state, &val))
             .unwrap_or_else(|_| format!("<{}>", val.type_name())),
     }
 }

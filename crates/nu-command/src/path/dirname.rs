@@ -42,7 +42,7 @@ impl Command for SubCommand {
             .category(Category::Path)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get the parent directory of a path."
     }
 
@@ -69,7 +69,7 @@ impl Command for SubCommand {
         }
         input.map(
             move |value| super::operate(&get_dirname, &args, value, head),
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
     }
 
@@ -91,7 +91,7 @@ impl Command for SubCommand {
         }
         input.map(
             move |value| super::operate(&get_dirname, &args, value, head),
-            working_set.permanent().ctrlc.clone(),
+            working_set.permanent().signals(),
         )
     }
 

@@ -1,8 +1,9 @@
 use nu_test_support::{nu, pipeline};
 
+// Tests against table/structured data
 #[test]
 fn cal_full_year() {
-    let actual = nu!("cal -y --full-year 2010 | first | to json -r");
+    let actual = nu!("cal -t -y --full-year 2010 | first | to json -r");
 
     let first_week_2010_json =
         r#"{"year":2010,"su":null,"mo":null,"tu":null,"we":null,"th":null,"fr":1,"sa":2}"#;
@@ -14,7 +15,7 @@ fn cal_full_year() {
 fn cal_february_2020_leap_year() {
     let actual = nu!(pipeline(
         r#"
-        cal -ym --full-year 2020 --month-names | where month == "february" | to json -r
+        cal --as-table -ym --full-year 2020 --month-names | where month == "february" | to json -r
         "#
     ));
 
@@ -27,7 +28,7 @@ fn cal_february_2020_leap_year() {
 fn cal_fr_the_thirteenths_in_2015() {
     let actual = nu!(pipeline(
         r#"
-        cal --full-year 2015 | default 0 fr | where fr == 13 | length
+        cal --as-table --full-year 2015 | default 0 fr | where fr == 13 | length
         "#
     ));
 
@@ -38,7 +39,7 @@ fn cal_fr_the_thirteenths_in_2015() {
 fn cal_rows_in_2020() {
     let actual = nu!(pipeline(
         r#"
-        cal --full-year 2020 | length
+        cal --as-table --full-year 2020 | length
         "#
     ));
 
@@ -49,7 +50,7 @@ fn cal_rows_in_2020() {
 fn cal_week_day_start_mo() {
     let actual = nu!(pipeline(
         r#"
-        cal --full-year 2020 -m --month-names --week-start mo | where month == january | to json -r
+        cal --as-table --full-year 2020 -m --month-names --week-start mo | where month == january | to json -r
         "#
     ));
 
@@ -62,9 +63,43 @@ fn cal_week_day_start_mo() {
 fn cal_sees_pipeline_year() {
     let actual = nu!(pipeline(
         r#"
-        cal --full-year 1020 | get mo | first 4 | to json -r
+        cal --as-table --full-year 1020 | get mo | first 4 | to json -r
         "#
     ));
 
     assert_eq!(actual.out, "[null,3,10,17]");
+}
+
+// Tests against default string output
+#[test]
+fn cal_is_string() {
+    let actual = nu!(pipeline(
+        r#"
+        cal | describe
+        "#
+    ));
+
+    assert_eq!(actual.out, "string (stream)");
+}
+
+#[test]
+fn cal_year_num_lines() {
+    let actual = nu!(pipeline(
+        r#"
+        cal --full-year 2024 | lines | length
+        "#
+    ));
+
+    assert_eq!(actual.out, "68");
+}
+
+#[test]
+fn cal_week_start_string() {
+    let actual = nu!(pipeline(
+        r#"
+        cal --week-start fr | lines | get 1 | split row '│' | get 2 | ansi strip | str trim
+        "#
+    ));
+
+    assert_eq!(actual.out, "sa");
 }

@@ -19,6 +19,10 @@ impl Command for FormatDate {
                 (Type::Date, Type::String),
                 (Type::String, Type::String),
                 (Type::Nothing, Type::table()),
+                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
+                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
+                // only applicable for --list flag
+                (Type::Any, Type::table()),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .switch("list", "lists strftime cheatsheet", Some('l'))
@@ -27,45 +31,15 @@ impl Command for FormatDate {
                 SyntaxShape::String,
                 "The desired format date.",
             )
-            .category(Category::Date)
+            .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Format a given date using a format string."
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["fmt", "strftime"]
-    }
-
-    fn run(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
-        if call.has_flag(engine_state, stack, "list")? {
-            return Ok(PipelineData::Value(
-                generate_strftime_list(head, false),
-                None,
-            ));
-        }
-
-        let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
-
-        // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty { dst_span: head });
-        }
-        input.map(
-            move |value| match &format {
-                Some(format) => format_helper(value, format.item.as_str(), format.span, head),
-                None => format_helper_rfc2822(value, head),
-            },
-            engine_state.ctrlc.clone(),
-        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -104,29 +78,110 @@ impl Command for FormatDate {
             },
         ]
     }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let list = call.has_flag(engine_state, stack, "list")?;
+        let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
+
+        // get the locale first so we can use the proper get_env_var functions since this is a const command
+        // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
+        let locale = if let Some(loc) = engine_state
+            .get_env_var(LOCALE_OVERRIDE_ENV_VAR)
+            .or_else(|| engine_state.get_env_var("LC_TIME"))
+        {
+            let locale_str = loc.as_str()?.split('.').next().unwrap_or("en_US");
+            locale_str.try_into().unwrap_or(Locale::en_US)
+        } else {
+            get_system_locale_string()
+                .map(|l| l.replace('-', "_"))
+                .unwrap_or_else(|| String::from("en_US"))
+                .as_str()
+                .try_into()
+                .unwrap_or(Locale::en_US)
+        };
+
+        run(engine_state, call, input, list, format, locale)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let list = call.has_flag_const(working_set, "list")?;
+        let format = call.opt_const::<Spanned<String>>(working_set, 0)?;
+
+        // get the locale first so we can use the proper get_env_var functions since this is a const command
+        // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
+        let locale = if let Some(loc) = working_set
+            .get_env_var(LOCALE_OVERRIDE_ENV_VAR)
+            .or_else(|| working_set.get_env_var("LC_TIME"))
+        {
+            let locale_str = loc.as_str()?.split('.').next().unwrap_or("en_US");
+            locale_str.try_into().unwrap_or(Locale::en_US)
+        } else {
+            get_system_locale_string()
+                .map(|l| l.replace('-', "_"))
+                .unwrap_or_else(|| String::from("en_US"))
+                .as_str()
+                .try_into()
+                .unwrap_or(Locale::en_US)
+        };
+
+        run(working_set.permanent(), call, input, list, format, locale)
+    }
 }
 
-fn format_from<Tz: TimeZone>(date_time: DateTime<Tz>, formatter: &str, span: Span) -> Value
+fn run(
+    engine_state: &EngineState,
+    call: &Call,
+    input: PipelineData,
+    list: bool,
+    format: Option<Spanned<String>>,
+    locale: Locale,
+) -> Result<PipelineData, ShellError> {
+    let head = call.head;
+    if list {
+        return Ok(PipelineData::Value(
+            generate_strftime_list(head, false),
+            None,
+        ));
+    }
+
+    // This doesn't match explicit nulls
+    if matches!(input, PipelineData::Empty) {
+        return Err(ShellError::PipelineEmpty { dst_span: head });
+    }
+    input.map(
+        move |value| match &format {
+            Some(format) => format_helper(value, format.item.as_str(), format.span, head, locale),
+            None => format_helper_rfc2822(value, head),
+        },
+        engine_state.signals(),
+    )
+}
+
+fn format_from<Tz: TimeZone>(
+    date_time: DateTime<Tz>,
+    formatter: &str,
+    span: Span,
+    locale: Locale,
+) -> Value
 where
     Tz::Offset: Display,
 {
     let mut formatter_buf = String::new();
-    // Format using locale LC_TIME
-    let locale = if let Ok(l) =
-        std::env::var(LOCALE_OVERRIDE_ENV_VAR).or_else(|_| std::env::var("LC_TIME"))
-    {
-        let locale_str = l.split('.').next().unwrap_or("en_US");
-        locale_str.try_into().unwrap_or(Locale::en_US)
-    } else {
-        // LC_ALL > LC_CTYPE > LANG
-        // Not locale present, default to en_US
-        get_system_locale_string()
-            .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
-            .unwrap_or_else(|| String::from("en_US"))
-            .as_str()
-            .try_into()
-            .unwrap_or(Locale::en_US)
-    };
     let format = date_time.format_localized(formatter, locale);
 
     match formatter_buf.write_fmt(format_args!("{format}")) {
@@ -141,14 +196,20 @@ where
     }
 }
 
-fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span: Span) -> Value {
+fn format_helper(
+    value: Value,
+    formatter: &str,
+    formatter_span: Span,
+    head_span: Span,
+    locale: Locale,
+) -> Value {
     match value {
-        Value::Date { val, .. } => format_from(val, formatter, formatter_span),
+        Value::Date { val, .. } => format_from(val, formatter, formatter_span, locale),
         Value::String { val, .. } => {
             let dt = parse_date_from_string(&val, formatter_span);
 
             match dt {
-                Ok(x) => format_from(x, formatter, formatter_span),
+                Ok(x) => format_from(x, formatter, formatter_span, locale),
                 Err(e) => e,
             }
         }

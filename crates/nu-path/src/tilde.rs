@@ -60,6 +60,7 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn fallback_home_dir(username: &str) -> PathBuf {
     PathBuf::from_iter([FALLBACK_USER_HOME_BASE_DIR, username])
 }
@@ -77,7 +78,7 @@ fn user_home_dir(username: &str) -> PathBuf {
 fn user_home_dir(username: &str) -> PathBuf {
     use std::path::Component;
 
-    match dirs_next::home_dir() {
+    match dirs::home_dir() {
         None => {
             // Termux always has the same home directory
             #[cfg(target_os = "android")]
@@ -110,6 +111,13 @@ fn user_home_dir(username: &str) -> PathBuf {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+fn user_home_dir(_: &str) -> PathBuf {
+    // if WASI is used, we try to get a home dir via HOME env, otherwise we don't have a home dir
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    PathBuf::from(home)
+}
+
 /// Returns true if the shell is running inside the Termux terminal emulator
 /// app.
 #[cfg(target_os = "android")]
@@ -118,10 +126,10 @@ fn is_termux() -> bool {
 }
 
 fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
-    return match path.to_str() {
+    match path.to_str() {
         Some(file_path) => {
             let mut file = file_path.to_string();
-            match file_path.find(|c| c == '/' || c == '\\') {
+            match file_path.find(['/', '\\']) {
                 None => {
                     file.remove(0);
                     user_home_dir(&file)
@@ -139,13 +147,12 @@ fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
             }
         }
         None => path.to_path_buf(),
-    };
+    }
 }
 
 /// Expand tilde ("~") into a home directory if it is the first path component
 pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
-    // TODO: Extend this to work with "~user" style of home paths
-    expand_tilde_with_home(path, dirs_next::home_dir())
+    expand_tilde_with_home(path, dirs::home_dir())
 }
 
 #[cfg(test)]

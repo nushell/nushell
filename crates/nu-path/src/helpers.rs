@@ -1,41 +1,36 @@
-#[cfg(windows)]
-use omnipath::WinPathExt;
 use std::path::PathBuf;
 
-pub fn home_dir() -> Option<PathBuf> {
-    dirs_next::home_dir()
+use crate::AbsolutePathBuf;
+
+pub fn home_dir() -> Option<AbsolutePathBuf> {
+    dirs::home_dir().and_then(|home| AbsolutePathBuf::try_from(home).ok())
 }
 
-pub fn config_dir() -> Option<PathBuf> {
-    match std::env::var("XDG_CONFIG_HOME").map(PathBuf::from) {
-        Ok(xdg_config) if xdg_config.is_absolute() => {
-            Some(canonicalize(&xdg_config).unwrap_or(xdg_config))
-        }
-        _ => config_dir_old(),
-    }
+/// Return the data directory for the current platform or XDG_DATA_HOME if specified.
+pub fn data_dir() -> Option<AbsolutePathBuf> {
+    configurable_dir_path("XDG_DATA_HOME", dirs::data_dir)
 }
 
-/// Get the old default config directory. Outside of Linux, this will ignore `XDG_CONFIG_HOME`
-pub fn config_dir_old() -> Option<PathBuf> {
-    let path = dirs_next::config_dir()?;
-    Some(canonicalize(&path).unwrap_or(path))
+/// Return the cache directory for the current platform or XDG_CACHE_HOME if specified.
+pub fn cache_dir() -> Option<AbsolutePathBuf> {
+    configurable_dir_path("XDG_CACHE_HOME", dirs::cache_dir)
 }
 
-#[cfg(windows)]
-pub fn canonicalize(path: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
-    path.canonicalize()?.to_winuser_path()
-}
-#[cfg(not(windows))]
-pub fn canonicalize(path: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
-    path.canonicalize()
+/// Return the nushell config directory.
+pub fn nu_config_dir() -> Option<AbsolutePathBuf> {
+    configurable_dir_path("XDG_CONFIG_HOME", dirs::config_dir).map(|mut p| {
+        p.push("nushell");
+        p
+    })
 }
 
-#[cfg(windows)]
-pub fn simiplified(path: &std::path::Path) -> PathBuf {
-    path.to_winuser_path()
-        .unwrap_or_else(|_| path.to_path_buf())
-}
-#[cfg(not(windows))]
-pub fn simiplified(path: &std::path::Path) -> PathBuf {
-    path.to_path_buf()
+fn configurable_dir_path(
+    name: &'static str,
+    dir: impl FnOnce() -> Option<PathBuf>,
+) -> Option<AbsolutePathBuf> {
+    std::env::var(name)
+        .ok()
+        .and_then(|path| AbsolutePathBuf::try_from(path).ok())
+        .or_else(|| dir().and_then(|path| AbsolutePathBuf::try_from(path).ok()))
+        .map(|path| path.canonicalize().map(Into::into).unwrap_or(path))
 }

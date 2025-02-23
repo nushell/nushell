@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct Const;
@@ -8,7 +9,7 @@ impl Command for Const {
         "const"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Create a parse-time constant."
     }
 
@@ -25,13 +26,13 @@ impl Command for Const {
             .category(Category::Core)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -45,6 +46,9 @@ impl Command for Const {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // This is compiled specially by the IR compiler. The code here is never used when
+        // running in IR mode.
+        let call = call.assert_ast_call()?;
         let var_id = if let Some(id) = call.positional_nth(0).and_then(|pos| pos.as_var()) {
             id
         } else {
@@ -66,6 +70,19 @@ impl Command for Const {
                 span: call.head,
             })
         }
+    }
+
+    fn run_const(
+        &self,
+        _working_set: &StateWorkingSet,
+        _call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        Ok(PipelineData::empty())
+    }
+
+    fn is_const(&self) -> bool {
+        true
     }
 
     fn examples(&self) -> Vec<Example> {

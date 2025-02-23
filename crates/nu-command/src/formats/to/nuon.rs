@@ -28,10 +28,15 @@ impl Command for ToNuon {
                 "specify indentation tab quantity",
                 Some('t'),
             )
+            .switch(
+                "serialize",
+                "serialize nushell types that cannot be deserialized",
+                Some('s'),
+            )
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts table data into Nuon (Nushell Object Notation) text."
     }
 
@@ -42,6 +47,12 @@ impl Command for ToNuon {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let metadata = input
+            .metadata()
+            .unwrap_or_default()
+            .with_content_type(Some("application/x-nuon".into()));
+
+        let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
         let style = if call.has_flag(engine_state, stack, "raw")? {
             nuon::ToStyle::Raw
         } else if let Some(t) = call.get_flag(engine_state, stack, "tabs")? {
@@ -55,10 +66,9 @@ impl Command for ToNuon {
         let span = call.head;
         let value = input.into_value(span)?;
 
-        match nuon::to_nuon(&value, style, Some(span)) {
-            Ok(serde_nuon_string) => {
-                Ok(Value::string(serde_nuon_string, span).into_pipeline_data())
-            }
+        match nuon::to_nuon(engine_state, &value, style, Some(span), serialize_types) {
+            Ok(serde_nuon_string) => Ok(Value::string(serde_nuon_string, span)
+                .into_pipeline_data_with_metadata(Some(metadata))),
             _ => Ok(Value::error(
                 ShellError::CantConvert {
                     to_type: "NUON".into(),
@@ -68,7 +78,7 @@ impl Command for ToNuon {
                 },
                 span,
             )
-            .into_pipeline_data()),
+            .into_pipeline_data_with_metadata(Some(metadata))),
         }
     }
 
@@ -100,10 +110,46 @@ impl Command for ToNuon {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::{Get, Metadata};
+
     #[test]
     fn test_examples() {
         use super::ToNuon;
         use crate::test_examples;
         test_examples(ToNuon {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            // Base functions that are needed for testing
+            // Try to keep this working set small to keep tests running as fast as possible
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(ToNuon {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = "{a: 1 b: 2} | to nuon | metadata | get content_type";
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("content_type" => Value::test_string("application/x-nuon"))),
+            result.expect("There should be a result")
+        );
     }
 }

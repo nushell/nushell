@@ -1,9 +1,8 @@
-use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::fs::Stub::{EmptyFile, FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use pretty_assertions::assert_eq;
 
-#[cfg(feature = "which-support")]
 #[test]
 fn shows_error_for_command_not_found() {
     let actual = nu!("ferris_is_not_here.exe");
@@ -11,7 +10,6 @@ fn shows_error_for_command_not_found() {
     assert!(!actual.err.is_empty());
 }
 
-#[cfg(feature = "which-support")]
 #[test]
 fn shows_error_for_command_not_found_in_pipeline() {
     let actual = nu!("ferris_is_not_here.exe | echo done");
@@ -20,7 +18,6 @@ fn shows_error_for_command_not_found_in_pipeline() {
 }
 
 #[ignore] // jt: we can't test this using the -c workaround currently
-#[cfg(feature = "which-support")]
 #[test]
 fn automatically_change_directory() {
     use nu_test_support::playground::Playground;
@@ -62,6 +59,13 @@ fn automatically_change_directory_with_trailing_slash_and_same_name_as_command()
 }
 
 #[test]
+fn pass_dot_as_external_arguments() {
+    let actual = nu!("nu --testbin cococo .");
+
+    assert_eq!(actual.out, ".");
+}
+
+#[test]
 fn correctly_escape_external_arguments() {
     let actual = nu!("^nu --testbin cococo '$0'");
 
@@ -72,7 +76,9 @@ fn correctly_escape_external_arguments() {
 fn escape_also_escapes_equals() {
     let actual = nu!("^MYFOONAME=MYBARVALUE");
 
-    assert!(actual.err.contains("executable was not found"));
+    assert!(actual
+        .err
+        .contains("Command `MYFOONAME=MYBARVALUE` not found"));
 }
 
 #[test]
@@ -121,13 +127,22 @@ fn command_not_found_error_suggests_typo_fix() {
     assert!(actual.err.contains("timeit"));
 }
 
+#[cfg(not(windows))]
+#[test]
+fn command_not_found_error_recognizes_non_executable_file() {
+    let actual = nu!("./Cargo.toml");
+    assert!(actual.err.contains(
+        "refers to a file that is not executable. Did you forget to set execute permissions?"
+    ));
+}
+
 #[test]
 fn command_not_found_error_shows_not_found_1() {
     let actual = nu!(r#"
             export extern "foo" [];
             foo
         "#);
-    assert!(actual.err.contains("'foo' was not found"));
+    assert!(actual.err.contains("Command `foo` not found"));
 }
 
 #[test]
@@ -143,26 +158,28 @@ fn command_substitution_wont_output_extra_newline() {
     assert_eq!(actual.out, "bar");
 }
 
-#[test]
-fn basic_err_pipe_works() {
-    let actual =
-        nu!(r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr FOO e>| str length }"#);
+#[rstest::rstest]
+#[case("err>|")]
+#[case("e>|")]
+fn basic_err_pipe_works(#[case] redirection: &str) {
+    let actual = nu!(
+        r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr FOO {redirection} str length }"#
+            .replace("{redirection}", redirection)
+    );
     assert_eq!(actual.out, "3");
 }
 
-#[test]
-fn basic_outerr_pipe_works() {
+#[rstest::rstest]
+#[case("out+err>|")]
+#[case("err+out>|")]
+#[case("o+e>|")]
+#[case("e+o>|")]
+fn basic_outerr_pipe_works(#[case] redirection: &str) {
     let actual = nu!(
-        r#"with-env { FOO: "bar" } { nu --testbin echo_env_mixed out-err FOO FOO o+e>| str length }"#
+        r#"with-env { FOO: "bar" } { nu --testbin echo_env_mixed out-err FOO FOO {redirection} str length }"#
+            .replace("{redirection}", redirection)
     );
     assert_eq!(actual.out, "7");
-}
-
-#[test]
-fn err_pipe_with_failed_external_works() {
-    let actual =
-        nu!(r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr_fail FOO e>| str length }"#);
-    assert_eq!(actual.out, "3");
 }
 
 #[test]
@@ -192,6 +209,12 @@ fn run_glob_if_pass_variable_to_external() {
         assert!(actual.out.contains("jt_likes_cake.txt"));
         assert!(actual.out.contains("andres_likes_arepas.txt"));
     })
+}
+
+#[test]
+fn subexpression_does_not_implicitly_capture() {
+    let actual = nu!("(nu --testbin cococo); null");
+    assert_eq!(actual.out, "cococo");
 }
 
 mod it_evaluation {
@@ -581,4 +604,116 @@ mod external_command_arguments {
 
         assert_eq!(actual.out, "a;&$(hello)");
     }
+
+    #[test]
+    fn remove_quotes_in_shell_arguments() {
+        let actual = nu!("nu --testbin cococo expression='-r -w'");
+        assert_eq!(actual.out, "expression=-r -w");
+        let actual = nu!(r#"nu --testbin cococo expression="-r -w""#);
+        assert_eq!(actual.out, "expression=-r -w");
+        let actual = nu!("nu --testbin cococo expression='-r -w'");
+        assert_eq!(actual.out, "expression=-r -w");
+        let actual = nu!(r#"nu --testbin cococo expression="-r\" -w""#);
+        assert_eq!(actual.out, r#"expression=-r" -w"#);
+        let actual = nu!(r#"nu --testbin cococo expression='-r\" -w'"#);
+        assert_eq!(actual.out, r#"expression=-r\" -w"#);
+    }
+}
+
+#[test]
+fn exit_code_stops_execution_closure() {
+    let actual = nu!("[1 2] | each {|x| nu -c $'exit ($x)'; print $x }");
+    assert!(actual.out.is_empty());
+    assert!(actual.err.contains("exited with code 1"));
+}
+
+#[test]
+fn exit_code_stops_execution_custom_command() {
+    let actual = nu!("def cmd [] { nu -c 'exit 42'; 'ok1' }; cmd; print 'ok2'");
+    assert!(actual.out.is_empty());
+    assert!(!actual.err.contains("exited with code 42"));
+}
+
+#[test]
+fn exit_code_stops_execution_for_loop() {
+    let actual = nu!("for x in [0 1] { nu -c 'exit 42'; print $x }");
+    assert!(actual.out.is_empty());
+    assert!(!actual.err.contains("exited with code 42"));
+}
+
+#[test]
+fn display_error_with_exit_code_stops() {
+    Playground::setup("errexit", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "tmp_env.nu",
+            "$env.config.display_errors.exit_code = true",
+        )]);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            "def cmd [] { nu -c 'exit 42'; 'ok1' }; cmd; print 'ok2'",
+        );
+        assert!(actual.err.contains("exited with code"));
+        assert_eq!(actual.out, "");
+    });
+}
+
+#[test]
+fn display_error_exit_code_stops_execution_for_loop() {
+    Playground::setup("errexit", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "tmp_env.nu",
+            "$env.config.display_errors.exit_code = true",
+        )]);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            "for x in [0 1] { nu -c 'exit 42'; print $x }",
+        );
+        assert!(actual.err.contains("exited with code"));
+        assert_eq!(actual.out, "");
+    });
+}
+
+#[test]
+fn arg_dont_run_subcommand_if_surrounded_with_quote() {
+    let actual = nu!("nu --testbin cococo `(echo aa)`");
+    assert_eq!(actual.out, "(echo aa)");
+    let actual = nu!("nu --testbin cococo \"(echo aa)\"");
+    assert_eq!(actual.out, "(echo aa)");
+    let actual = nu!("nu --testbin cococo '(echo aa)'");
+    assert_eq!(actual.out, "(echo aa)");
+}
+
+#[test]
+fn external_error_with_backtrace() {
+    Playground::setup("external error with backtrace", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_BACKTRACE = 1")]);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"def a [x] { if $x == 3 { nu --testbin --fail }};def b [] {a 1; a 3; a 2}; b"#);
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        assert_eq!(chained_error_cnt.len(), 1);
+        assert!(actual.err.contains("non_zero_exit_code"));
+        let eval_with_input_cnt: Vec<&str> = actual.err.matches("eval_block_with_input").collect();
+        assert_eq!(eval_with_input_cnt.len(), 1);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"nu --testbin --fail"#);
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        // run error make directly, show no backtrace is available
+        assert_eq!(chained_error_cnt.len(), 0);
+    });
 }

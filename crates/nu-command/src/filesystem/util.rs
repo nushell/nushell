@@ -1,6 +1,4 @@
 use dialoguer::Input;
-use nu_engine::{command_prelude::*, get_eval_expression};
-use nu_protocol::{ast::Expr, FromValue, NuGlob};
 use std::{
     error::Error,
     path::{Path, PathBuf},
@@ -88,46 +86,4 @@ pub fn is_older(src: &Path, dst: &Path) -> Option<bool> {
             .unwrap_or(u64::MAX);
         Some(src_ctime <= dst_ctime)
     }
-}
-
-/// Get rest arguments from given `call`, starts with `starting_pos`.
-///
-/// It's similar to `call.rest`, except that it always returns NuGlob.  And if input argument has
-/// Type::Glob, the NuGlob is unquoted, which means it's required to expand.
-pub fn get_rest_for_glob_pattern(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    starting_pos: usize,
-) -> Result<Vec<Spanned<NuGlob>>, ShellError> {
-    let mut output = vec![];
-    let eval_expression = get_eval_expression(engine_state);
-
-    for result in call.rest_iter_flattened(starting_pos, |expr| {
-        let result = eval_expression(engine_state, stack, expr);
-        match result {
-            Err(e) => Err(e),
-            Ok(result) => {
-                let span = result.span();
-                // convert from string to quoted string if expr is a variable
-                // or string interpolation
-                match result {
-                    Value::String { val, .. }
-                        if matches!(
-                            &expr.expr,
-                            Expr::FullCellPath(_) | Expr::StringInterpolation(_)
-                        ) =>
-                    {
-                        // should not expand if given input type is not glob.
-                        Ok(Value::glob(val, expr.ty != Type::Glob, span))
-                    }
-                    other => Ok(other),
-                }
-            }
-        }
-    })? {
-        output.push(FromValue::from_value(result)?);
-    }
-
-    Ok(output)
 }

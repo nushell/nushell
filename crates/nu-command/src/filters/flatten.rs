@@ -28,7 +28,7 @@ impl Command for Flatten {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Flatten the table."
     }
 
@@ -127,7 +127,7 @@ fn flatten(
     input
         .flat_map(
             move |item| flat_value(&columns, item, flatten_all),
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
         .map(|x| x.set_metadata(metadata))
 }
@@ -156,8 +156,8 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
             let mut out = IndexMap::<String, Value>::new();
             let mut inner_table = None;
 
-            for (column_index, (column, value)) in val.into_iter().enumerate() {
-                let column_requested = columns.iter().find(|c| c.to_string() == column);
+            for (column_index, (column, value)) in val.into_owned().into_iter().enumerate() {
+                let column_requested = columns.iter().find(|c| c.to_column_name() == column);
                 let need_flatten = { columns.is_empty() || column_requested.is_some() };
                 let span = value.span();
 

@@ -32,18 +32,8 @@ pub fn max(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
         .clone();
 
     for value in &data {
-        if let Some(result) = value.partial_cmp(&biggest) {
-            if result == Ordering::Greater {
-                biggest = value.clone();
-            }
-        } else {
-            return Err(ShellError::OperatorMismatch {
-                op_span: head,
-                lhs_ty: biggest.get_type().to_string(),
-                lhs_span: biggest.span(),
-                rhs_ty: value.get_type().to_string(),
-                rhs_span: value.span(),
-            });
+        if value.partial_cmp(&biggest) == Some(Ordering::Greater) {
+            biggest = value.clone();
         }
     }
     Ok(biggest)
@@ -61,18 +51,8 @@ pub fn min(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
         .clone();
 
     for value in &data {
-        if let Some(result) = value.partial_cmp(&smallest) {
-            if result == Ordering::Less {
-                smallest = value.clone();
-            }
-        } else {
-            return Err(ShellError::OperatorMismatch {
-                op_span: head,
-                lhs_ty: smallest.get_type().to_string(),
-                lhs_span: smallest.span(),
-                rhs_ty: value.get_type().to_string(),
-                rhs_span: value.span(),
-            });
+        if value.partial_cmp(&smallest) == Some(Ordering::Less) {
+            smallest = value.clone();
         }
     }
     Ok(smallest)
@@ -111,8 +91,8 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
             Value::Error { error, .. } => return Err(*error.clone()),
             other => {
                 return Err(ShellError::UnsupportedInput {
-                    msg: "Attempted to compute the sum of a value that cannot be summed"
-                        .to_string(),
+                    msg: format!("Attempted to compute the sum of a value '{}' that cannot be summed with a type of `{}`.",
+                        other.coerce_string()?, other.get_type()),
                     input: "value originates from here".into(),
                     msg_span: head,
                     input_span: other.span(),
@@ -150,8 +130,8 @@ pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellE
             Value::Error { error, .. } => return Err(*error.clone()),
             other => {
                 return Err(ShellError::UnsupportedInput {
-                    msg: "Attempted to compute the product of a value that cannot be multiplied"
-                        .to_string(),
+                    msg: format!("Attempted to compute the product of a value '{}' that cannot be multiplied with a type of `{}`.",
+                        other.coerce_string()?, other.get_type()),
                     input: "value originates from here".into(),
                     msg_span: head,
                     input_span: other.span(),

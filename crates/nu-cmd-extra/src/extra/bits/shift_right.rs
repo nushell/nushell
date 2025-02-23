@@ -1,13 +1,10 @@
 use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
-use itertools::Itertools;
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
-use std::iter;
-
 struct Arguments {
     signed: bool,
-    bits: usize,
+    bits: Spanned<usize>,
     number_size: NumberBytes,
 }
 
@@ -40,7 +37,7 @@ impl Command for BitsShr {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .required("bits", SyntaxShape::Int, "number of bits to shift right")
+            .required("bits", SyntaxShape::Int, "Number of bits to shift right.")
             .switch(
                 "signed",
                 "always treat input number as a signed number",
@@ -55,7 +52,7 @@ impl Command for BitsShr {
             .category(Category::Bits)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Bitwise shift right for ints or binary values."
     }
 
@@ -71,7 +68,9 @@ impl Command for BitsShr {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let bits: usize = call.req(engine_state, stack, 0)?;
+        // This restricts to a positive shift value (our underlying operations do not
+        // permit them)
+        let bits: Spanned<usize> = call.req(engine_state, stack, 0)?;
         let signed = call.has_flag(engine_state, stack, "signed")?;
         let number_bytes: Option<Spanned<usize>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
@@ -88,7 +87,7 @@ impl Command for BitsShr {
             bits,
         };
 
-        operate(action, args, input, head, engine_state.ctrlc.clone())
+        operate(action, args, input, head, engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -121,6 +120,8 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         number_size,
         bits,
     } = *args;
+    let bits_span = bits.span;
+    let bits = bits.item;
 
     match input {
         Value::Int { val, .. } => {
@@ -129,6 +130,19 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let bits = bits as u32;
             let input_num_type = get_input_num_type(val, signed, number_size);
 
+            if !input_num_type.is_permitted_bit_shift(bits) {
+                return Value::error(
+                    ShellError::IncorrectValue {
+                        msg: format!(
+                            "Trying to shift by more than the available bits (permitted < {})",
+                            input_num_type.num_bits()
+                        ),
+                        val_span: bits_span,
+                        call_span: span,
+                    },
+                    span,
+                );
+            }
             let int = match input_num_type {
                 One => ((val as u8) >> bits) as i64,
                 Two => ((val as u16) >> bits) as i64,
@@ -147,21 +161,27 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let bit_shift = bits % 8;
 
             let len = val.len();
-            use itertools::Position::*;
-            let bytes = iter::repeat(0)
-                .take(byte_shift)
-                .chain(
-                    val.iter()
-                        .copied()
-                        .circular_tuple_windows::<(u8, u8)>()
-                        .with_position()
-                        .map(|(pos, (lhs, rhs))| match pos {
-                            First | Only => lhs >> bit_shift,
-                            _ => (lhs >> bit_shift) | (rhs << bit_shift),
-                        })
-                        .take(len - byte_shift),
-                )
-                .collect::<Vec<u8>>();
+            // This check is done for symmetry with the int case and the previous
+            // implementation would overflow byte indices leading to unexpected output
+            // lengths
+            if bits > len * 8 {
+                return Value::error(
+                    ShellError::IncorrectValue {
+                        msg: format!(
+                            "Trying to shift by more than the available bits ({})",
+                            len * 8
+                        ),
+                        val_span: bits_span,
+                        call_span: span,
+                    },
+                    span,
+                );
+            }
+            let bytes = if bit_shift == 0 {
+                shift_bytes_right(val, byte_shift)
+            } else {
+                shift_bytes_and_bits_right(val, byte_shift, bit_shift)
+            };
 
             Value::binary(bytes, span)
         }
@@ -177,6 +197,35 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             span,
         ),
     }
+}
+fn shift_bytes_right(data: &[u8], byte_shift: usize) -> Vec<u8> {
+    let len = data.len();
+    let mut output = vec![0; len];
+    output[byte_shift..].copy_from_slice(&data[..len - byte_shift]);
+    output
+}
+
+fn shift_bytes_and_bits_right(data: &[u8], byte_shift: usize, bit_shift: usize) -> Vec<u8> {
+    debug_assert!(
+        bit_shift > 0 && bit_shift < 8,
+        "bit_shift should be in the range (0, 8)"
+    );
+    let len = data.len();
+    let mut output = vec![0; len];
+
+    for i in byte_shift..len {
+        let shifted_bits = data[i - byte_shift] >> bit_shift;
+        let carried_bits = if i > byte_shift {
+            data[i - byte_shift - 1] << (8 - bit_shift)
+        } else {
+            0
+        };
+        let shifted_byte = shifted_bits | carried_bits;
+
+        output[i] = shifted_byte;
+    }
+
+    output
 }
 
 #[cfg(test)]

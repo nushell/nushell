@@ -1,6 +1,6 @@
-use super::util::get_rest_for_glob_pattern;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
+use nu_protocol::{shell_error::io::IoError, NuGlob};
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
 
@@ -20,7 +20,7 @@ impl Command for UCp {
         "cp"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Copy files using uutils/coreutils cp."
     }
 
@@ -86,17 +86,22 @@ impl Command for UCp {
             },
             Example {
                 description: "Copy only if source file is newer than target file",
-                example: "cp -u a b",
+                example: "cp -u myfile newfile",
                 result: None,
             },
             Example {
                 description: "Copy file preserving mode and timestamps attributes",
-                example: "cp --preserve [ mode timestamps ] a b",
+                example: "cp --preserve [ mode timestamps ] myfile newfile",
                 result: None,
             },
             Example {
                 description: "Copy file erasing all attributes",
-                example: "cp --preserve [] a b",
+                example: "cp --preserve [] myfile newfile",
+                result: None,
+            },
+            Example {
+                description: "Copy file to a directory three levels above its current location",
+                example: "cp myfile ....",
                 result: None,
             },
         ]
@@ -137,21 +142,11 @@ impl Command for UCp {
         } else {
             uu_cp::OverwriteMode::Clobber(uu_cp::ClobberMode::Standard)
         };
-        #[cfg(any(
-            target_os = "linux",
-            target_os = "freebsd",
-            target_os = "android",
-            target_os = "macos"
-        ))]
+        #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
         let reflink_mode = uu_cp::ReflinkMode::Auto;
-        #[cfg(not(any(
-            target_os = "linux",
-            target_os = "freebsd",
-            target_os = "android",
-            target_os = "macos"
-        )))]
+        #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos")))]
         let reflink_mode = uu_cp::ReflinkMode::Never;
-        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
@@ -202,10 +197,11 @@ impl Command for UCp {
                     .map(|f| f.1)?
                     .collect();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound {
-                    file: p.item.to_string(),
-                    span: p.span,
-                });
+                return Err(ShellError::Io(IoError::new(
+                    std::io::ErrorKind::NotFound,
+                    p.span,
+                    PathBuf::from(p.item.to_string()),
+                )));
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
@@ -235,7 +231,7 @@ impl Command for UCp {
         for (sources, need_expand_tilde) in sources.iter_mut() {
             for src in sources.iter_mut() {
                 if !src.is_absolute() {
-                    *src = nu_path::expand_path_with(&src, &cwd, *need_expand_tilde);
+                    *src = nu_path::expand_path_with(&*src, &cwd, *need_expand_tilde);
                 }
             }
         }

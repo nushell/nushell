@@ -1,4 +1,5 @@
-use super::helpers;
+#[cfg(windows)]
+use omnipath::WinPathExt;
 use std::path::{Component, Path, PathBuf};
 
 /// Normalize the path, expanding occurrences of n-dots.
@@ -59,11 +60,45 @@ pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
             Component::CurDir if last_component_is_normal(&result) => {
                 // no-op
             }
-            _ => result.push(component),
+            _ => {
+                let prev_component = result.components().last();
+                if prev_component == Some(Component::RootDir) && component == Component::ParentDir {
+                    continue;
+                }
+                result.push(component)
+            }
         }
     }
 
-    helpers::simiplified(&result)
+    simiplified(&result)
+}
+
+/// Expand ndots, but only if it looks like it probably contains them, because there is some lossy
+/// path normalization that happens.
+pub fn expand_ndots_safe(path: impl AsRef<Path>) -> PathBuf {
+    let string = path.as_ref().to_string_lossy();
+
+    // Use ndots if it contains at least `...`, since that's the minimum trigger point.
+    // Don't use it if it contains ://, because that looks like a URL scheme and the path normalization
+    // will mess with that.
+    // Don't use it if it starts with `./`, as to not break golang wildcard syntax
+    // (since generally you're probably not using `./` with ndots)
+    if string.contains("...") && !string.contains("://") && !string.starts_with("./") {
+        expand_ndots(path)
+    } else {
+        path.as_ref().to_owned()
+    }
+}
+
+#[cfg(windows)]
+fn simiplified(path: &std::path::Path) -> PathBuf {
+    path.to_winuser_path()
+        .unwrap_or_else(|_| path.to_path_buf())
+}
+
+#[cfg(not(windows))]
+fn simiplified(path: &std::path::Path) -> PathBuf {
+    path.to_path_buf()
 }
 
 #[cfg(test)]
@@ -140,6 +175,23 @@ mod test_expand_ndots {
         };
         assert_path_eq!(expand_ndots(path), expected);
     }
+
+    #[test]
+    fn trailing_dots() {
+        let path = Path::new("/foo/bar/..");
+        let expected = if cfg!(windows) {
+            r"\foo\bar\.."
+        } else {
+            "/foo/bar/.."
+        };
+        assert_path_eq!(expand_ndots(path), expected);
+    }
+
+    #[test]
+    fn leading_dot_slash() {
+        let path = Path::new("./...");
+        assert_path_eq!(expand_ndots_safe(path), "./...");
+    }
 }
 
 #[cfg(test)]
@@ -192,11 +244,7 @@ mod test_expand_dots {
     #[test]
     fn backtrack_to_root() {
         let path = Path::new("/foo/bar/../../../../baz");
-        let expected = if cfg!(windows) {
-            r"\..\..\baz"
-        } else {
-            "/../../baz"
-        };
+        let expected = if cfg!(windows) { r"\baz" } else { "/baz" };
         assert_path_eq!(expand_dots(path), expected);
     }
 }

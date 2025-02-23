@@ -1,5 +1,6 @@
 use dialoguer::{console::Term, FuzzySelect, MultiSelect, Select};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 
 use std::fmt::{Display, Formatter};
 
@@ -54,11 +55,11 @@ impl Command for InputList {
             .category(Category::Platform)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Interactive list selection."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Abort with esc or q."
     }
 
@@ -79,6 +80,7 @@ impl Command for InputList {
         let fuzzy = call.has_flag(engine_state, stack, "fuzzy")?;
         let index = call.has_flag(engine_state, stack, "index")?;
         let display_path: Option<CellPath> = call.get_flag(engine_state, stack, "display")?;
+        let config = stack.get_config(engine_state);
 
         let options: Vec<Options> = match input {
             PipelineData::Value(Value::Range { .. }, ..)
@@ -89,9 +91,9 @@ impl Command for InputList {
                     let display_value = if let Some(ref cellpath) = display_path {
                         val.clone()
                             .follow_cell_path(&cellpath.members, false)?
-                            .to_expanded_string(", ", engine_state.get_config())
+                            .to_expanded_string(", ", &config)
                     } else {
-                        val.to_expanded_string(", ", engine_state.get_config())
+                        val.to_expanded_string(", ", &config)
                     };
                     Ok(Options {
                         name: display_value,
@@ -140,8 +142,13 @@ impl Command for InputList {
                 .items(&options)
                 .report(false)
                 .interact_on_opt(&Term::stderr())
-                .map_err(|err| ShellError::IOError {
-                    msg: format!("{}: {}", INTERACT_ERROR, err),
+                .map_err(|dialoguer::Error::IO(err)| {
+                    IoError::new_with_additional_context(
+                        err.kind(),
+                        call.head,
+                        None,
+                        INTERACT_ERROR,
+                    )
                 })?,
             )
         } else if fuzzy {
@@ -157,8 +164,13 @@ impl Command for InputList {
                 .default(0)
                 .report(false)
                 .interact_on_opt(&Term::stderr())
-                .map_err(|err| ShellError::IOError {
-                    msg: format!("{}: {}", INTERACT_ERROR, err),
+                .map_err(|dialoguer::Error::IO(err)| {
+                    IoError::new_with_additional_context(
+                        err.kind(),
+                        call.head,
+                        None,
+                        INTERACT_ERROR,
+                    )
                 })?,
             )
         } else {
@@ -173,8 +185,13 @@ impl Command for InputList {
                 .default(0)
                 .report(false)
                 .interact_on_opt(&Term::stderr())
-                .map_err(|err| ShellError::IOError {
-                    msg: format!("{}: {}", INTERACT_ERROR, err),
+                .map_err(|dialoguer::Error::IO(err)| {
+                    IoError::new_with_additional_context(
+                        err.kind(),
+                        call.head,
+                        None,
+                        INTERACT_ERROR,
+                    )
                 })?,
             )
         };

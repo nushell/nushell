@@ -3,9 +3,7 @@ use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code, pipeline};
 use pretty_assertions::assert_eq;
 
-#[cfg(feature = "which-support")]
 mod environment;
-
 mod pipeline;
 mod repl;
 
@@ -276,7 +274,7 @@ fn run_in_noninteractive_mode() {
 #[test]
 fn run_with_no_newline() {
     let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
-        .args(["--no-newline", "-c", "\"hello world\""])
+        .args(["-n", "--no-newline", "-c", "\"hello world\""])
         .output()
         .expect("failed to run nu");
 
@@ -334,5 +332,116 @@ fn source_empty_file() {
 
         let actual = nu!(cwd: dirs.test(), pipeline("nu empty.nu"));
         assert!(actual.out.is_empty());
+    })
+}
+
+#[test]
+fn source_use_null() {
+    let actual = nu!(r#"source null"#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+
+    let actual = nu!(r#"source-env null"#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+
+    let actual = nu!(r#"use null"#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+
+    let actual = nu!(r#"overlay use null"#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn source_use_file_named_null() {
+    Playground::setup("source_file_named_null", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "null",
+            r#"export-env { print "hello world" }"#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), r#"source "null""#);
+        assert!(actual.out.contains("hello world"));
+        assert!(actual.err.is_empty());
+
+        let actual = nu!(cwd: dirs.test(), r#"source-env "null""#);
+        assert!(actual.out.contains("hello world"));
+        assert!(actual.err.is_empty());
+
+        let actual = nu!(cwd: dirs.test(), r#"use "null""#);
+        assert!(actual.out.contains("hello world"));
+        assert!(actual.err.is_empty());
+
+        let actual = nu!(cwd: dirs.test(), r#"overlay use "null""#);
+        assert!(actual.out.contains("hello world"));
+        assert!(actual.err.is_empty());
+    })
+}
+
+#[test]
+fn main_script_help_uses_script_name1() {
+    // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
+    Playground::setup("main_filename", |dirs, sandbox| {
+        sandbox.mkdir("main_filename");
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def main [] {}
+            "#,
+        )]);
+        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu --help"));
+        assert!(actual.out.contains("> script.nu"));
+        assert!(!actual.out.contains("> main"));
+    })
+}
+
+#[test]
+fn main_script_help_uses_script_name2() {
+    // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
+    Playground::setup("main_filename", |dirs, sandbox| {
+        sandbox.mkdir("main_filename");
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def main [foo: string] {}
+            "#,
+        )]);
+        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu"));
+        assert!(actual.err.contains("Usage: script.nu"));
+        assert!(!actual.err.contains("Usage: main"));
+    })
+}
+
+#[test]
+fn main_script_subcommand_help_uses_script_name1() {
+    // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
+    Playground::setup("main_filename", |dirs, sandbox| {
+        sandbox.mkdir("main_filename");
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def main [] {}
+            def 'main foo' [] {}
+            "#,
+        )]);
+        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu foo --help"));
+        assert!(actual.out.contains("> script.nu foo"));
+        assert!(!actual.out.contains("> main foo"));
+    })
+}
+
+#[test]
+fn main_script_subcommand_help_uses_script_name2() {
+    // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
+    Playground::setup("main_filename", |dirs, sandbox| {
+        sandbox.mkdir("main_filename");
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def main [] {}
+            def 'main foo' [bar: string] {}
+            "#,
+        )]);
+        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu foo"));
+        assert!(actual.err.contains("Usage: script.nu foo"));
+        assert!(!actual.err.contains("Usage: main foo"));
     })
 }

@@ -15,7 +15,7 @@ impl Command for SubCommand {
             .category(Category::Date)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "List supported time zones."
     }
 
@@ -40,7 +40,7 @@ impl Command for SubCommand {
                     head,
                 )
             })
-            .into_pipeline_data(head, engine_state.ctrlc.clone()))
+            .into_pipeline_data(head, engine_state.signals().clone()))
     }
 
     fn examples(&self) -> Vec<Example> {

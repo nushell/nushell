@@ -48,3 +48,19 @@ fn convert_dict_to_yaml_with_integer_floats_key() {
     assert!(actual.out.contains("2.11"));
     assert!(actual.err.is_empty());
 }
+
+#[test]
+#[ignore]
+fn convert_bool_to_yaml_in_yaml_spec_1_2() {
+    let actual = nu!(pipeline(
+        r#"
+            [y n no On OFF True true false] | to yaml
+        "#
+    ));
+
+    assert_eq!(
+        actual.out,
+        "- 'y'- 'n'- 'no'- 'On'- 'OFF'- 'True'- true- false"
+    );
+    assert!(actual.err.is_empty());
+}

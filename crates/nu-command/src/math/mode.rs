@@ -54,7 +54,7 @@ impl Command for SubCommand {
             .category(Category::Math)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns the most frequent element(s) from a list of numbers or tables."
     }
 
@@ -62,10 +62,23 @@ impl Command for SubCommand {
         vec!["common", "often"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        run_with_function(call, input, mode)
+    }
+
+    fn run_const(
+        &self,
+        _working_set: &StateWorkingSet,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -98,29 +111,12 @@ impl Command for SubCommand {
 }
 
 pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellError> {
-    if let Some(Err(values)) = values
-        .windows(2)
-        .map(|elem| {
-            if elem[0].partial_cmp(&elem[1]).is_none() {
-                return Err(ShellError::OperatorMismatch {
-                    op_span: head,
-                    lhs_ty: elem[0].get_type().to_string(),
-                    lhs_span: elem[0].span(),
-                    rhs_ty: elem[1].get_type().to_string(),
-                    rhs_span: elem[1].span(),
-                });
-            }
-            Ok(elem[0].partial_cmp(&elem[1]).unwrap_or(Ordering::Equal))
-        })
-        .find(|elem| elem.is_err())
-    {
-        return Err(values);
-    }
     //In e-q, Value doesn't implement Hash or Eq, so we have to get the values inside
     // But f64 doesn't implement Hash, so we get the binary representation to use as
     // key in the HashMap
     let hashable_values = values
         .iter()
+        .filter(|x| !x.as_float().is_ok_and(f64::is_nan))
         .map(|val| match val {
             Value::Int { val, .. } => Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Int)),
             Value::Duration { val, .. } => {
@@ -129,9 +125,10 @@ pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellErr
             Value::Float { val, .. } => {
                 Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Float))
             }
-            Value::Filesize { val, .. } => {
-                Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Filesize))
-            }
+            Value::Filesize { val, .. } => Ok(HashableType::new(
+                val.get().to_ne_bytes(),
+                NumberTypes::Filesize,
+            )),
             Value::Error { error, .. } => Err(*error.clone()),
             other => Err(ShellError::UnsupportedInput {
                 msg: "Unable to give a result with this input".to_string(),

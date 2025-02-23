@@ -1,4 +1,5 @@
-use std *
+use std/testing *
+use std/assert
 
 def run [
     system_level,
@@ -6,9 +7,9 @@ def run [
     --short
 ] {
     if $short {
-        ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) --short "test message"'
+        ^$nu.current-exe --no-config-file --commands $'use std; use std/log; NU_LOG_LEVEL=($system_level) log ($message_level) --short "test message"'
     } else {
-        ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) "test message"'
+        ^$nu.current-exe --no-config-file --commands $'use std; use std/log; NU_LOG_LEVEL=($system_level) log ($message_level) "test message"'
     }
     | complete | get --ignore-errors stderr
 }
@@ -41,57 +42,57 @@ def "assert message short" [
     assert str contains $output "test message"
 }
 
-#[test]
+@test
 def critical [] {
     assert no message 99 critical
     assert message CRITICAL critical CRT
 }
 
-#[test]
+@test
 def critical_short [] {
     assert message short CRITICAL critical C
 }
 
-#[test]
+@test
 def error [] {
     assert no message CRITICAL error
     assert message ERROR error ERR
 }
 
-#[test]
+@test
 def error_short [] {
     assert message short ERROR error E
 }
 
-#[test]
+@test
 def warning [] {
     assert no message ERROR warning
     assert message WARNING warning WRN
 }
 
-#[test]
+@test
 def warning_short [] {
     assert message short WARNING warning W
 }
 
-#[test]
+@test
 def info [] {
     assert no message WARNING info
     assert message INFO info "INF" # INF has to be quoted, otherwise it is the `inf` float
 }
 
-#[test]
+@test
 def info_short [] {
     assert message short INFO info I
 }
 
-#[test]
+@test
 def debug [] {
     assert no message INFO debug
     assert message DEBUG debug DBG
 }
 
-#[test]
+@test
 def debug_short [] {
     assert message short DEBUG debug D
 }

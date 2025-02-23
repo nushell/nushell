@@ -41,12 +41,12 @@ impl Command for Uniq {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Return the distinct values in the input."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["distinct", "deduplicate"]
+        vec!["distinct", "deduplicate", "count"]
     }
 
     fn run(
@@ -212,9 +212,15 @@ fn sort_attributes(val: Value) -> Value {
     }
 }
 
-fn generate_key(item: &ValueCounter) -> Result<String, ShellError> {
+fn generate_key(engine_state: &EngineState, item: &ValueCounter) -> Result<String, ShellError> {
     let value = sort_attributes(item.val_to_compare.clone()); //otherwise, keys could be different for Records
-    nuon::to_nuon(&value, nuon::ToStyle::Raw, Some(Span::unknown()))
+    nuon::to_nuon(
+        engine_state,
+        &value,
+        nuon::ToStyle::Raw,
+        Some(Span::unknown()),
+        false,
+    )
 }
 
 fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Vec<Value> {
@@ -240,18 +246,18 @@ pub fn uniq(
     item_mapper: Box<dyn Fn(ItemMapperState) -> ValueCounter>,
     metadata: Option<PipelineMetadata>,
 ) -> Result<PipelineData, ShellError> {
-    let ctrlc = engine_state.ctrlc.clone();
     let head = call.head;
     let flag_show_count = call.has_flag(engine_state, stack, "count")?;
     let flag_show_repeated = call.has_flag(engine_state, stack, "repeated")?;
     let flag_ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
     let flag_only_uniques = call.has_flag(engine_state, stack, "unique")?;
 
+    let signals = engine_state.signals().clone();
     let uniq_values = input
         .into_iter()
         .enumerate()
         .map_while(|(index, item)| {
-            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            if signals.interrupted() {
                 return None;
             }
             Some(item_mapper(ItemMapperState {
@@ -263,7 +269,7 @@ pub fn uniq(
         .try_fold(
             HashMap::<String, ValueCounter>::new(),
             |mut counter, item| {
-                let key = generate_key(&item);
+                let key = generate_key(engine_state, &item);
 
                 match key {
                     Ok(key) => {

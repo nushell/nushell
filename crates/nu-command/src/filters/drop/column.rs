@@ -24,12 +24,12 @@ impl Command for DropColumn {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Remove N columns at the right-hand end of the input table. To remove columns by name, use `reject`."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["delete"]
+        vec!["delete", "remove"]
     }
 
     fn run(
@@ -102,7 +102,11 @@ fn drop_cols(
                             Err(e) => Value::error(e, head),
                         }
                     }))
-                    .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
+                    .into_pipeline_data_with_metadata(
+                        head,
+                        engine_state.signals().clone(),
+                        metadata,
+                    ))
             } else {
                 Ok(PipelineData::Empty)
             }
@@ -135,7 +139,7 @@ fn drop_cols(
         PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "table or record".into(),
-            wrong_type: "byte stream".into(),
+            wrong_type: stream.type_().describe().into(),
             dst_span: head,
             src_span: stream.span(),
         }),

@@ -107,14 +107,16 @@ fn error_reduce_fold_type_mismatch() {
         "echo a b c | reduce --fold 0 { |it, acc| $acc + $it }"
     ));
 
-    assert!(actual.err.contains("mismatch"));
+    assert!(actual
+        .err
+        .contains("nu::shell::operator_incompatible_types"));
 }
 
 #[test]
 fn error_reduce_empty() {
     let actual = nu!(pipeline("reduce { |it, acc| $acc + $it }"));
 
-    assert!(actual.err.contains("needs input"));
+    assert!(actual.err.contains("no input value was piped in"));
 }
 
 #[test]

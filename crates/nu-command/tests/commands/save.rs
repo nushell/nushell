@@ -84,7 +84,7 @@ fn save_append_will_not_overwrite_content() {
 }
 
 #[test]
-fn save_stderr_and_stdout_to_afame_file() {
+fn save_stderr_and_stdout_to_same_file() {
     Playground::setup("save_test_5", |dirs, sandbox| {
         sandbox.with_files(&[]);
 
@@ -415,7 +415,7 @@ fn save_with_custom_converter() {
 
         nu!(cwd: dirs.test(), pipeline(
             r#"
-                def "to ndjson" []: any -> string { each { to json --raw } | to text } ;
+                def "to ndjson" []: any -> string { each { to json --raw } | to text --no-newline } ;
                 {a: 1, b: 2} | save test.ndjson
             "#
         ));
@@ -423,4 +423,114 @@ fn save_with_custom_converter() {
         let actual = file_contents(file);
         assert_eq!(actual, r#"{"a":1,"b":2}"#);
     })
+}
+
+#[test]
+fn save_same_file_with_collect() {
+    Playground::setup("save_test_20", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline("
+                echo 'world'
+                | save hello;
+                open hello
+                | prepend 'hello'
+                | collect
+                | save --force hello;
+                open hello
+            ")
+        );
+        assert!(actual.status.success());
+        assert_eq!("helloworld", actual.out);
+    })
+}
+
+#[test]
+fn save_same_file_with_collect_and_filter() {
+    Playground::setup("save_test_21", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline("
+                echo 'world'
+                | save hello;
+                open hello
+                | prepend 'hello'
+                | collect
+                | filter { true }
+                | save --force hello;
+                open hello
+            ")
+        );
+        assert!(actual.status.success());
+        assert_eq!("helloworld", actual.out);
+    })
+}
+
+#[test]
+fn save_from_child_process_dont_sink_stderr() {
+    Playground::setup("save_test_22", |dirs, sandbox| {
+        sandbox.with_files(&[
+            Stub::FileWithContent("log.txt", "Old"),
+            Stub::FileWithContent("err.txt", "Old Err"),
+        ]);
+
+        let expected_file = dirs.test().join("log.txt");
+        let expected_stderr_file = dirs.test().join("err.txt");
+
+        let actual = nu!(
+            cwd: dirs.root(),
+            r#"
+            $env.FOO = " New";
+            $env.BAZ = " New Err";
+            do -i {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -a -r save_test_22/log.txt"#,
+        );
+        assert_eq!(actual.err.trim_end(), " New Err");
+
+        let actual = file_contents(expected_file);
+        assert_eq!(actual.trim_end(), "Old New");
+
+        let actual = file_contents(expected_stderr_file);
+        assert_eq!(actual.trim_end(), "Old Err");
+    })
+}
+
+#[test]
+fn parent_redirection_doesnt_affect_save() {
+    Playground::setup("save_test_23", |dirs, sandbox| {
+        sandbox.with_files(&[
+            Stub::FileWithContent("log.txt", "Old"),
+            Stub::FileWithContent("err.txt", "Old Err"),
+        ]);
+
+        let expected_file = dirs.test().join("log.txt");
+        let expected_stderr_file = dirs.test().join("err.txt");
+
+        let actual = nu!(
+            cwd: dirs.root(),
+            r#"
+            $env.FOO = " New";
+            $env.BAZ = " New Err";
+            def tttt [] {
+                do -i {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -a -r save_test_23/log.txt
+            };
+            tttt e> ("save_test_23" | path join empty_file)"#
+        );
+        assert_eq!(actual.err.trim_end(), " New Err");
+
+        let actual = file_contents(expected_file);
+        assert_eq!(actual.trim_end(), "Old New");
+
+        let actual = file_contents(expected_stderr_file);
+        assert_eq!(actual.trim_end(), "Old Err");
+
+        let actual = file_contents(dirs.test().join("empty_file"));
+        assert_eq!(actual.trim_end(), "");
+    })
+}
+
+#[test]
+fn force_save_to_dir() {
+    let actual = nu!(cwd: "crates/nu-command/tests/commands", r#"
+        "aaa" | save -f ..
+        "#);
+
+    assert!(actual.err.contains("nu::shell::io::is_a_directory"));
 }

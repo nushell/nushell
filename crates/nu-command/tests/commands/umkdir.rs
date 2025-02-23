@@ -1,7 +1,9 @@
 use nu_test_support::fs::files_exist_at;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
-use std::path::Path;
+
+#[cfg(not(windows))]
+use uucore::mode;
 
 #[test]
 fn creates_directory() {
@@ -25,10 +27,7 @@ fn accepts_and_creates_directories() {
             "mkdir dir_1 dir_2 dir_3"
         );
 
-        assert!(files_exist_at(
-            vec![Path::new("dir_1"), Path::new("dir_2"), Path::new("dir_3")],
-            dirs.test()
-        ));
+        assert!(files_exist_at(&["dir_1", "dir_2", "dir_3"], dirs.test()));
     })
 }
 
@@ -70,10 +69,7 @@ fn print_created_paths() {
             pipeline("mkdir -v dir_1 dir_2 dir_3")
         );
 
-        assert!(files_exist_at(
-            vec![Path::new("dir_1"), Path::new("dir_2"), Path::new("dir_3")],
-            dirs.test()
-        ));
+        assert!(files_exist_at(&["dir_1", "dir_2", "dir_3"], dirs.test()));
 
         assert!(actual.out.contains("dir_1"));
         assert!(actual.out.contains("dir_2"));
@@ -152,10 +148,13 @@ fn mkdir_umask_permission() {
             .permissions()
             .mode();
 
+        let umask = mode::get_umask();
+        let default_mode = 0o40777;
+        let expected: u32 = default_mode & !umask;
+
         assert_eq!(
-            actual, 0o40755,
-            "Most *nix systems have 0o00022 as the umask. \
-            So directory permission should be 0o40755 = 0o40777 & (!0o00022)"
+            actual, expected,
+            "Umask should have been applied to created folder"
         );
     })
 }
@@ -165,11 +164,11 @@ fn mkdir_with_tilde() {
     Playground::setup("mkdir with tilde", |dirs, _| {
         let actual = nu!(cwd: dirs.test(), "mkdir '~tilde'");
         assert!(actual.err.is_empty());
-        assert!(files_exist_at(vec![Path::new("~tilde")], dirs.test()));
+        assert!(files_exist_at(&["~tilde"], dirs.test()));
 
         // pass variable
         let actual = nu!(cwd: dirs.test(), "let f = '~tilde2'; mkdir $f");
         assert!(actual.err.is_empty());
-        assert!(files_exist_at(vec![Path::new("~tilde2")], dirs.test()));
+        assert!(files_exist_at(&["~tilde2"], dirs.test()));
     })
 }

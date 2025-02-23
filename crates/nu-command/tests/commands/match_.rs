@@ -65,6 +65,12 @@ fn match_list_rest() {
 }
 
 #[test]
+fn match_list_rest_empty() {
+    let actual = nu!(r#"match [1] { [1 ..$rest] => { $rest == [] } }"#);
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
 fn match_constant_1() {
     let actual = nu!(
         r#"match 2 { 1 => { print "failure"}, 2 => { print "success" }, 3 => { print "failure" }}"#
@@ -129,6 +135,15 @@ fn match_constant_7() {
     let actual = nu!(
         r#"match 1kib { 1kb => { print "failure"}, 1kib => { print "success" }, 2kb => { print "failure" }}"#
     );
+    // Make sure we don't see any of these values in the output
+    // As we do not auto-print loops anymore
+    assert_eq!(actual.out, "success");
+}
+
+#[test]
+fn match_constant_8() {
+    let actual =
+        nu!(r#"match "foo" { r#'foo'# => { print "success" }, _ => { print "failure" } }"#);
     // Make sure we don't see any of these values in the output
     // As we do not auto-print loops anymore
     assert_eq!(actual.out, "success");

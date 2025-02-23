@@ -1,5 +1,4 @@
 use nu_engine::command_prelude::*;
-
 use rand::{
     distributions::{Alphanumeric, Distribution},
     thread_rng,
@@ -19,12 +18,17 @@ impl Command for SubCommand {
         Signature::build("random chars")
             .input_output_types(vec![(Type::Nothing, Type::String)])
             .allow_variants_without_examples(true)
-            .named("length", SyntaxShape::Int, "Number of chars", Some('l'))
+            .named(
+                "length",
+                SyntaxShape::OneOf(vec![SyntaxShape::Int, SyntaxShape::Filesize]),
+                "Number of chars (default 25)",
+                Some('l'),
+            )
             .category(Category::Random)
     }
 
-    fn usage(&self) -> &str {
-        "Generate random chars."
+    fn description(&self) -> &str {
+        "Generate random chars uniformly distributed over ASCII letters and numbers: a-z, A-Z and 0-9."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -44,13 +48,18 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Generate random chars",
+                description: "Generate a string with 25 random chars",
                 example: "random chars",
                 result: None,
             },
             Example {
                 description: "Generate random chars with specified length",
                 example: "random chars --length 20",
+                result: None,
+            },
+            Example {
+                description: "Generate one kilobyte of random chars",
+                example: "random chars --length 1kb",
                 result: None,
             },
         ]
@@ -63,14 +72,36 @@ fn chars(
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    let length: Option<usize> = call.get_flag(engine_state, stack, "length")?;
+    let length: Option<Value> = call.get_flag(engine_state, stack, "length")?;
+    let length = if let Some(length_val) = length {
+        match length_val {
+            Value::Int { val, .. } => usize::try_from(val).map_err(|_| ShellError::InvalidValue {
+                valid: "a non-negative int or filesize".into(),
+                actual: val.to_string(),
+                span: length_val.span(),
+            }),
+            Value::Filesize { val, .. } => {
+                usize::try_from(val).map_err(|_| ShellError::InvalidValue {
+                    valid: "a non-negative int or filesize".into(),
+                    actual: engine_state.get_config().filesize.display(val).to_string(),
+                    span: length_val.span(),
+                })
+            }
+            val => Err(ShellError::RuntimeTypeMismatch {
+                expected: Type::custom("int or filesize"),
+                actual: val.get_type(),
+                span: val.span(),
+            }),
+        }?
+    } else {
+        DEFAULT_CHARS_LENGTH
+    };
 
-    let chars_length = length.unwrap_or(DEFAULT_CHARS_LENGTH);
     let mut rng = thread_rng();
 
     let random_string = Alphanumeric
         .sample_iter(&mut rng)
-        .take(chars_length)
+        .take(length)
         .map(char::from)
         .collect::<String>();
 

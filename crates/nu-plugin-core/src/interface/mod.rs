@@ -1,16 +1,19 @@
 //! Implements the stream multiplexing interface for both the plugin side and the engine side.
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
-use nu_protocol::{ByteStream, IntoSpanned, ListStream, PipelineData, Reader, ShellError};
+use nu_protocol::{
+    engine::Sequence, shell_error::io::IoError, ByteStream, ListStream, PipelineData, Reader,
+    ShellError, Signals,
+};
 use std::{
     io::{Read, Write},
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::Mutex,
     thread,
 };
 
 pub mod stream;
 
-use crate::{util::Sequence, Encoder};
+use crate::Encoder;
 
 use self::stream::{StreamManager, StreamManagerHandle, StreamWriter, WriteStreamMessage};
 
@@ -77,8 +80,12 @@ where
     }
 
     fn flush(&self) -> Result<(), ShellError> {
-        self.0.lock().flush().map_err(|err| ShellError::IOError {
-            msg: err.to_string(),
+        self.0.lock().flush().map_err(|err| {
+            ShellError::Io(IoError::new_internal(
+                err.kind(),
+                "PluginWrite could not flush",
+                nu_protocol::location!(),
+            ))
         })
     }
 
@@ -103,8 +110,12 @@ where
         let mut lock = self.0.lock().map_err(|_| ShellError::NushellFailed {
             msg: "writer mutex poisoned".into(),
         })?;
-        lock.flush().map_err(|err| ShellError::IOError {
-            msg: err.to_string(),
+        lock.flush().map_err(|err| {
+            ShellError::Io(IoError::new_internal(
+                err.kind(),
+                "PluginWrite could not flush",
+                nu_protocol::location!(),
+            ))
         })
     }
 }
@@ -145,7 +156,7 @@ pub trait InterfaceManager {
 
     /// Consume an input message.
     ///
-    /// When implementing, call [`.consume_stream_message()`] for any encapsulated
+    /// When implementing, call [`.consume_stream_message()`](Self::consume_stream_message) for any encapsulated
     /// [`StreamMessage`]s received.
     fn consume(&mut self, input: Self::Input) -> Result<(), ShellError>;
 
@@ -170,20 +181,23 @@ pub trait InterfaceManager {
     fn read_pipeline_data(
         &self,
         header: PipelineDataHeader,
-        ctrlc: Option<&Arc<AtomicBool>>,
+        signals: &Signals,
     ) -> Result<PipelineData, ShellError> {
         self.prepare_pipeline_data(match header {
             PipelineDataHeader::Empty => PipelineData::Empty,
-            PipelineDataHeader::Value(value) => PipelineData::Value(value, None),
+            PipelineDataHeader::Value(value, metadata) => PipelineData::Value(value, metadata),
             PipelineDataHeader::ListStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
-                ListStream::new(reader, info.span, ctrlc.cloned()).into()
+                let ls = ListStream::new(reader, info.span, signals.clone());
+                PipelineData::ListStream(ls, info.metadata)
             }
             PipelineDataHeader::ByteStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
-                ByteStream::from_result_iter(reader, info.span, ctrlc.cloned()).into()
+                let bs =
+                    ByteStream::from_result_iter(reader, info.span, signals.clone(), info.type_);
+                PipelineData::ByteStream(bs, info.metadata)
             }
         })
     }
@@ -245,25 +259,33 @@ pub trait Interface: Clone + Send {
             Ok::<_, ShellError>((id, writer))
         };
         match self.prepare_pipeline_data(data, context)? {
-            PipelineData::Value(value, ..) => {
-                Ok((PipelineDataHeader::Value(value), PipelineDataWriter::None))
-            }
+            PipelineData::Value(value, metadata) => Ok((
+                PipelineDataHeader::Value(value, metadata),
+                PipelineDataWriter::None,
+            )),
             PipelineData::Empty => Ok((PipelineDataHeader::Empty, PipelineDataWriter::None)),
-            PipelineData::ListStream(stream, ..) => {
+            PipelineData::ListStream(stream, metadata) => {
                 let (id, writer) = new_stream(LIST_STREAM_HIGH_PRESSURE)?;
                 Ok((
                     PipelineDataHeader::ListStream(ListStreamInfo {
                         id,
                         span: stream.span(),
+                        metadata,
                     }),
                     PipelineDataWriter::ListStream(writer, stream),
                 ))
             }
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineData::ByteStream(stream, metadata) => {
                 let span = stream.span();
+                let type_ = stream.type_();
                 if let Some(reader) = stream.reader() {
                     let (id, writer) = new_stream(RAW_STREAM_HIGH_PRESSURE)?;
-                    let header = PipelineDataHeader::ByteStream(ByteStreamInfo { id, span });
+                    let header = PipelineDataHeader::ByteStream(ByteStreamInfo {
+                        id,
+                        span,
+                        type_,
+                        metadata,
+                    });
                     Ok((header, PipelineDataWriter::ByteStream(writer, reader)))
                 } else {
                     Ok((PipelineDataHeader::Empty, PipelineDataWriter::None))
@@ -318,7 +340,7 @@ where
                 writer.write_all(std::iter::from_fn(move || match reader.read(buf) {
                     Ok(0) => None,
                     Ok(len) => Some(Ok(buf[..len].to_vec())),
-                    Err(err) => Some(Err(ShellError::from(err.into_spanned(span)))),
+                    Err(err) => Some(Err(ShellError::from(IoError::new(err.kind(), span, None)))),
                 }))?;
                 Ok(())
             }
@@ -343,6 +365,13 @@ where
                             log::warn!("Error while writing pipeline in background: {err}");
                         }
                         result
+                    })
+                    .map_err(|err| {
+                        IoError::new_internal(
+                            err.kind(),
+                            "Could not spawn plugin stream background writer",
+                            nu_protocol::location!(),
+                        )
                     })?,
             )),
         }

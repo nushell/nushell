@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 
+use nu_protocol::shell_error::io::IoError;
 use windows::{core::PCWSTR, Win32::System::Environment::ExpandEnvironmentStringsW};
 use winreg::{enums::*, types::FromRegValue, RegKey};
 
@@ -42,11 +43,11 @@ impl Command for RegistryQuery {
             .category(Category::System)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Query the Windows registry."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Currently supported only on Windows systems."
     }
 
@@ -90,7 +91,9 @@ fn registry_query(
     let registry_value: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
 
     let reg_hive = get_reg_hive(engine_state, stack, call)?;
-    let reg_key = reg_hive.open_subkey(registry_key.item)?;
+    let reg_key = reg_hive
+        .open_subkey(registry_key.item)
+        .map_err(|err| IoError::new(err.kind(), *registry_key_span, None))?;
 
     if registry_value.is_none() {
         let mut reg_values = vec![];
@@ -106,7 +109,7 @@ fn registry_query(
                 *registry_key_span,
             ))
         }
-        Ok(reg_values.into_pipeline_data(call_span, engine_state.ctrlc.clone()))
+        Ok(reg_values.into_pipeline_data(call_span, engine_state.signals().clone()))
     } else {
         match registry_value {
             Some(value) => {

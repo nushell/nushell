@@ -1,7 +1,7 @@
 use nu_ansi_term::{Color, Style};
 use nu_color_config::TextStyle;
-use nu_table::{NuTable, NuTableConfig, TableTheme};
-use tabled::grid::records::vec_records::CellInfo;
+use nu_table::{NuTable, TableTheme};
+use tabled::grid::records::vec_records::Text;
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
@@ -28,15 +28,11 @@ fn main() {
 
     table.set_data_style(TextStyle::basic_left());
     table.set_header_style(TextStyle::basic_center().style(Style::new().on(Color::Blue)));
-
-    let table_cfg = NuTableConfig {
-        theme: TableTheme::rounded(),
-        with_header: true,
-        ..Default::default()
-    };
+    table.set_theme(TableTheme::rounded());
+    table.set_structure(false, true, false);
 
     let output_table = table
-        .draw(table_cfg, width)
+        .draw(width)
         .unwrap_or_else(|| format!("Couldn't fit table into {width} columns!"));
 
     println!("{output_table}")
@@ -80,10 +76,10 @@ fn make_table_data() -> (Vec<&'static str>, Vec<&'static str>) {
     (table_headers, row_data)
 }
 
-fn to_cell_info_vec(data: &[&str]) -> Vec<CellInfo<String>> {
+fn to_cell_info_vec(data: &[&str]) -> Vec<Text<String>> {
     let mut v = vec![];
     for x in data {
-        v.push(CellInfo::new(String::from(*x)));
+        v.push(Text::new(String::from(*x)));
     }
 
     v

@@ -38,7 +38,7 @@ impl Command for SubCommand {
             .rest(
                 "cell path",
                 SyntaxShape::CellPath,
-                "for a data structure input, add a gradient to strings at the given cell paths",
+                "For a data structure input, add a gradient to strings at the given cell paths.",
             )
             .input_output_types(vec![
                 (Type::String, Type::String),
@@ -53,7 +53,7 @@ impl Command for SubCommand {
             .category(Category::Platform)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Add a color gradient (using ANSI color codes) to the given string."
     }
 
@@ -140,7 +140,7 @@ fn operate(
                 ret
             }
         },
-        engine_state.ctrlc.clone(),
+        engine_state.signals(),
     )
 }
 

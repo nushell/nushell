@@ -1,8 +1,11 @@
-use super::util::get_rest_for_glob_pattern;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, get_eval_block};
-use nu_protocol::{ByteStream, DataSource, NuGlob, PipelineMetadata};
-use std::path::Path;
+use nu_protocol::{
+    ast,
+    shell_error::{self, io::IoError},
+    DataSource, NuGlob, PipelineMetadata,
+};
+use std::path::{Path, PathBuf};
 
 #[cfg(feature = "sqlite")]
 use crate::database::SQLiteDatabase;
@@ -18,11 +21,11 @@ impl Command for Open {
         "open"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Load a file into a cell, converting to table if possible (avoid by appending '--raw')."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Support to automatically parse files with an extension `.xyz` can be provided by a `from xyz` command in scope."
     }
 
@@ -32,7 +35,13 @@ impl Command for Open {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
-            .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::Any),
+                (Type::String, Type::Any),
+                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
+                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
+                (Type::Any, Type::Any),
+            ])
             .rest(
                 "files",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
@@ -51,13 +60,12 @@ impl Command for Open {
     ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag(engine_state, stack, "raw")?;
         let call_span = call.head;
-        let ctrlc = engine_state.ctrlc.clone();
         #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
-        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         let eval_block = get_eval_block(engine_state);
 
-        if paths.is_empty() && call.rest_iter(0).next().is_none() {
+        if paths.is_empty() && !call.has_positional_args(stack, 0) {
             // try to use path from pipeline input if there were no positional or spread args
             let (filename, span) = match input {
                 PipelineData::Value(val, ..) => {
@@ -89,10 +97,11 @@ impl Command for Open {
 
             for path in nu_engine::glob_from(&path, &cwd, call_span, None)
                 .map_err(|err| match err {
-                    ShellError::DirectoryNotFound { span, .. } => ShellError::FileNotFound {
-                        file: path.item.to_string(),
-                        span,
-                    },
+                    ShellError::Io(mut err) => {
+                        err.kind = err.kind.not_found_as(NotFound::File);
+                        err.span = arg_span;
+                        err.into()
+                    }
                     _ => err,
                 })?
                 .1
@@ -101,52 +110,63 @@ impl Command for Open {
                 let path = Path::new(&path);
 
                 if permission_denied(path) {
+                    let err = IoError::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        arg_span,
+                        PathBuf::from(path),
+                    );
+
                     #[cfg(unix)]
-                    let error_msg = match path.metadata() {
-                        Ok(md) => format!(
-                            "The permissions of {:o} does not allow access for this user",
-                            md.permissions().mode() & 0o0777
-                        ),
-                        Err(e) => e.to_string(),
+                    let err = {
+                        let mut err = err;
+                        err.additional_context = Some(
+                            match path.metadata() {
+                                Ok(md) => format!(
+                                    "The permissions of {:o} does not allow access for this user",
+                                    md.permissions().mode() & 0o0777
+                                ),
+                                Err(e) => e.to_string(),
+                            }
+                            .into(),
+                        );
+                        err
                     };
 
-                    #[cfg(not(unix))]
-                    let error_msg = String::from("Permission denied");
-                    return Err(ShellError::GenericError {
-                        error: "Permission denied".into(),
-                        msg: error_msg,
-                        span: Some(arg_span),
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(err.into());
                 } else {
                     #[cfg(feature = "sqlite")]
                     if !raw {
-                        let res = SQLiteDatabase::try_from_path(path, arg_span, ctrlc.clone())
-                            .map(|db| db.into_value(call.head).into_pipeline_data());
+                        let res = SQLiteDatabase::try_from_path(
+                            path,
+                            arg_span,
+                            engine_state.signals().clone(),
+                        )
+                        .map(|db| db.into_value(call.head).into_pipeline_data());
 
                         if res.is_ok() {
                             return res;
                         }
                     }
 
-                    let file = match std::fs::File::open(path) {
-                        Ok(file) => file,
-                        Err(err) => {
-                            return Err(ShellError::GenericError {
-                                error: "Permission denied".into(),
-                                msg: err.to_string(),
-                                span: Some(arg_span),
-                                help: None,
-                                inner: vec![],
-                            });
-                        }
-                    };
+                    if path.is_dir() {
+                        // At least under windows this check ensures that we don't get a
+                        // permission denied error on directories
+                        return Err(ShellError::Io(IoError::new(
+                            shell_error::io::ErrorKind::Std(std::io::ErrorKind::IsADirectory),
+                            arg_span,
+                            PathBuf::from(path),
+                        )));
+                    }
 
+                    let file = std::fs::File::open(path)
+                        .map_err(|err| IoError::new(err.kind(), arg_span, PathBuf::from(path)))?;
+
+                    // No content_type by default - Is added later if no converter is found
                     let stream = PipelineData::ByteStream(
-                        ByteStream::file(file, call_span, ctrlc.clone()),
+                        ByteStream::file(file, call_span, engine_state.signals().clone()),
                         Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),
+                            content_type: None,
                         }),
                     );
 
@@ -172,11 +192,12 @@ impl Command for Open {
                     match converter {
                         Some((converter_id, ext)) => {
                             let decl = engine_state.get_decl(converter_id);
-                            let command_output = if let Some(block_id) = decl.get_block_id() {
+                            let command_output = if let Some(block_id) = decl.block_id() {
                                 let block = engine_state.get_block(block_id);
                                 eval_block(engine_state, stack, block, stream)
                             } else {
-                                decl.run(engine_state, stack, &Call::new(call_span), stream)
+                                let call = ast::Call::new(call_span);
+                                decl.run(engine_state, stack, &(&call).into(), stream)
                             };
                             output.push(command_output.map_err(|inner| {
                                     ShellError::GenericError{
@@ -188,7 +209,20 @@ impl Command for Open {
                                 }
                                 })?);
                         }
-                        None => output.push(stream),
+                        None => {
+                            // If no converter was found, add content-type metadata
+                            let content_type = path
+                                .extension()
+                                .map(|ext| ext.to_string_lossy().to_string())
+                                .and_then(|ref s| detect_content_type(s));
+
+                            let stream_with_content_type =
+                                stream.set_metadata(Some(PipelineMetadata {
+                                    data_source: DataSource::FilePath(path.to_path_buf()),
+                                    content_type,
+                                }));
+                            output.push(stream_with_content_type);
+                        }
                     }
                 }
             }
@@ -202,7 +236,7 @@ impl Command for Open {
             Ok(output
                 .into_iter()
                 .flatten()
-                .into_pipeline_data(call_span, ctrlc))
+                .into_pipeline_data(call_span, engine_state.signals().clone()))
         }
     }
 
@@ -262,4 +296,26 @@ fn extract_extensions(filename: &str) -> Vec<String> {
     extensions.reverse();
 
     extensions
+}
+
+fn detect_content_type(extension: &str) -> Option<String> {
+    // This will allow the overriding of metadata to be consistent with
+    // the content type
+    match extension {
+        // Per RFC-9512, application/yaml should be used
+        "yaml" | "yml" => Some("application/yaml".to_string()),
+        "nu" => Some("application/x-nuscript".to_string()),
+        "json" | "jsonl" | "ndjson" => Some("application/json".to_string()),
+        "nuon" => Some("application/x-nuon".to_string()),
+        _ => mime_guess::from_ext(extension)
+            .first()
+            .map(|mime| mime.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    #[test]
+    fn test_content_type() {}
 }
