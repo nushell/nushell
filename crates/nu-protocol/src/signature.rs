@@ -1,10 +1,10 @@
 use crate::{
     engine::{Call, Command, CommandType, EngineState, Stack},
-    BlockId, Example, PipelineData, ShellError, SyntaxShape, Type, Value, VarId,
+    BlockId, Example, PipelineData, PipelineType, ShellError, SyntaxShape, Type, Value, VarId,
 };
 use nu_derive_value::FromValue;
 use serde::{Deserialize, Serialize};
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 
 // Make nu_protocol available in this namespace, consumers of this crate will
 // have this without such an export.
@@ -73,7 +73,7 @@ pub enum Category {
     Viewers,
 }
 
-impl std::fmt::Display for Category {
+impl Display for Category {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg = match self {
             Category::Bits => "bits",
@@ -161,7 +161,7 @@ pub struct Signature {
     pub optional_positional: Vec<PositionalArg>,
     pub rest_positional: Option<PositionalArg>,
     pub named: Vec<Flag>,
-    pub input_output_types: Vec<(Type, Type)>,
+    pub input_output_types: Vec<(PipelineType, PipelineType)>,
     pub allow_variants_without_examples: bool,
     pub is_filter: bool,
     pub creates_scope: bool,
@@ -204,9 +204,9 @@ impl Signature {
     }
 
     // Gets the input type from the signature
-    pub fn get_input_type(&self) -> Type {
+    pub fn get_input_type(&self) -> PipelineType {
         match self.input_output_types.len() {
-            0 => Type::Any,
+            0 => Type::Any.into(),
             1 => self.input_output_types[0].0.clone(),
             _ => {
                 let first = &self.input_output_types[0].0;
@@ -217,16 +217,16 @@ impl Signature {
                 {
                     first.clone()
                 } else {
-                    Type::Any
+                    Type::Any.into()
                 }
             }
         }
     }
 
     // Gets the output type from the signature
-    pub fn get_output_type(&self) -> Type {
+    pub fn get_output_type(&self) -> PipelineType {
         match self.input_output_types.len() {
-            0 => Type::Any,
+            0 => Type::Any.into(),
             1 => self.input_output_types[0].1.clone(),
             _ => {
                 let first = &self.input_output_types[0].1;
@@ -237,7 +237,7 @@ impl Signature {
                 {
                     first.clone()
                 } else {
-                    Type::Any
+                    Type::Any.into()
                 }
             }
         }
@@ -443,14 +443,26 @@ impl Signature {
     }
 
     /// Changes the input type of the command signature
-    pub fn input_output_type(mut self, input_type: Type, output_type: Type) -> Signature {
-        self.input_output_types.push((input_type, output_type));
+    pub fn input_output_type(
+        mut self,
+        input_type: impl Into<PipelineType>,
+        output_type: impl Into<PipelineType>,
+    ) -> Signature {
+        self.input_output_types
+            .push((input_type.into(), output_type.into()));
         self
     }
 
     /// Set the input-output type signature variants of the command
-    pub fn input_output_types(mut self, input_output_types: Vec<(Type, Type)>) -> Signature {
-        self.input_output_types = input_output_types;
+    pub fn input_output_types(
+        mut self,
+        input_output_types: Vec<(impl Into<PipelineType>, impl Into<PipelineType>)>,
+    ) -> Signature {
+        // TODO(rose): this might be slow
+        self.input_output_types = input_output_types
+            .into_iter()
+            .map(|(in_type, out_type)| (in_type.into(), out_type.into()))
+            .collect();
         self
     }
 

@@ -211,6 +211,48 @@ impl Display for Type {
     }
 }
 
+/// Types corresponding to pipeline input/output types.
+///
+/// Can be thought of as representing the type of [`PipelineData`](crate::PipelineData).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum PipelineType {
+    Empty,
+    Type(Type),
+}
+
+impl PipelineType {
+    /// Convert PipelineType to string representation, using SyntaxShape's ToString for Type variants
+    pub fn to_shape_string(&self) -> String {
+        match self {
+            PipelineType::Empty => "empty".to_string(),
+            PipelineType::Type(ty) => ty.to_shape().to_string(),
+        }
+    }
+
+    /// Collapse into a [`Type`] value
+    pub fn into_type(self) -> Type {
+        match self {
+            PipelineType::Empty => Type::Nothing,
+            PipelineType::Type(ty) => ty,
+        }
+    }
+}
+
+impl From<Type> for PipelineType {
+    fn from(value: Type) -> Self {
+        Self::Type(value)
+    }
+}
+
+impl Display for PipelineType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PipelineType::Empty => write!(f, "empty"),
+            PipelineType::Type(ty) => ty.fmt(f),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Type;

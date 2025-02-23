@@ -1,7 +1,7 @@
 #![allow(clippy::byte_char_slices)]
 
 use crate::{lex::lex_signature, parser::parse_value, trim_quotes, TokenContents};
-use nu_protocol::{engine::StateWorkingSet, ParseError, Span, SyntaxShape, Type};
+use nu_protocol::{engine::StateWorkingSet, ParseError, PipelineType, Span, SyntaxShape, Type};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ShapeDescriptorUse {
@@ -9,6 +9,17 @@ pub enum ShapeDescriptorUse {
     Argument,
     /// Used to define the type of a variable or input/output types
     Type,
+}
+
+pub fn parse_pipeline_type(
+    working_set: &mut StateWorkingSet,
+    bytes: &[u8],
+    span: Span,
+) -> PipelineType {
+    match bytes {
+        b"empty" => PipelineType::Empty,
+        _ => PipelineType::Type(parse_type(working_set, bytes, span)),
+    }
 }
 
 /// equivalent to [`parse_shape_name`] with [`ShapeDescriptorUse::Type`] converting the

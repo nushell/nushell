@@ -748,7 +748,7 @@ fn parse_def_inner(
                 block
                     .signature
                     .input_output_types
-                    .push((Type::Any, Type::Any));
+                    .push((Type::Any.into(), Type::Any.into()));
             }
 
             let block = working_set.get_block(block_id);

@@ -10,8 +10,8 @@ use nu_protocol::{
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     shell_error::io::IoError,
     DataSource, DeclId, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData,
-    PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals, Signature, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    PipelineMetadata, PipelineType, PositionalArg, Range, Record, RegId, ShellError, Signals,
+    Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
@@ -1287,11 +1287,6 @@ fn check_input_types(
         return Ok(());
     }
 
-    // If a command only has a nothing input type, then allow any input data
-    if io_types.iter().all(|(intype, _)| intype == &Type::Nothing) {
-        return Ok(());
-    }
-
     match input {
         // early return error directly if detected
         PipelineData::Value(Value::Error { error, .. }, ..) => return Err(*error.clone()),
@@ -1300,14 +1295,17 @@ fn check_input_types(
         _ => (),
     }
 
-    // Check if the input type is compatible with *any* of the command's possible input types
-    if io_types
-        .iter()
-        .any(|(command_type, _)| input.is_subtype_of(command_type))
-    {
-        return Ok(());
+    for in_type in io_types.iter().map(|(in_type, _)| in_type) {
+        match in_type {
+            // Empty pipeline input type found, so allow regardless of input data type
+            PipelineType::Empty => return Ok(()),
+            // Check if input is compatible with this command input types
+            PipelineType::Type(ty) if input.is_subtype_of(&ty) => return Ok(()),
+            _ => (),
+        }
     }
 
+    // Cold path: create an error
     let mut input_types = io_types
         .iter()
         .map(|(input, _)| input.to_string())
