@@ -29,32 +29,19 @@ fn operator_to_item<T: EnumMessage + AsRef<str>>(op: T) -> OperatorItem {
 }
 
 fn common_comparison_ops() -> Vec<OperatorItem> {
-    Comparison::iter()
-        .filter(|op| {
-            matches!(
-                op,
-                Comparison::In | Comparison::NotIn | Comparison::Equal | Comparison::NotEqual
-            )
-        })
-        .map(operator_to_item)
-        .collect()
+    vec![
+        operator_to_item(Comparison::In),
+        operator_to_item(Comparison::NotIn),
+        operator_to_item(Comparison::Equal),
+        operator_to_item(Comparison::NotEqual),
+    ]
 }
 
 fn collection_comparison_ops() -> Vec<OperatorItem> {
-    Comparison::iter()
-        .filter(|op| {
-            matches!(
-                op,
-                Comparison::Has
-                    | Comparison::NotHas
-                    | Comparison::In
-                    | Comparison::NotIn
-                    | Comparison::Equal
-                    | Comparison::NotEqual
-            )
-        })
-        .map(operator_to_item)
-        .collect()
+    let mut ops = common_comparison_ops();
+    ops.push(operator_to_item(Comparison::Has));
+    ops.push(operator_to_item(Comparison::NotHas));
+    ops
 }
 
 fn number_comparison_ops() -> Vec<OperatorItem> {
