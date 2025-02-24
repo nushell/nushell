@@ -681,8 +681,8 @@ impl LanguageServer {
                             .map(|kind| match kind {
                                 SuggestionKind::Type(t) => t.to_string(),
                                 SuggestionKind::Command(cmd) => cmd.to_string(),
-                                SuggestionKind::Module => "".to_string(),
-                                SuggestionKind::Operator => "".to_string(),
+                                SuggestionKind::Module => "module".to_string(),
+                                SuggestionKind::Operator => "operator".to_string(),
                             })
                             .map(|s| CompletionItemLabelDetails {
                                 detail: None,
