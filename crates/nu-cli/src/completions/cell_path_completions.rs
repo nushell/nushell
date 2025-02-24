@@ -1,7 +1,7 @@
 use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
-    ast::{Expr, FullCellPath, PathMember},
+    ast::{Expr, Expression, FullCellPath, PathMember},
     engine::{Stack, StateWorkingSet},
     eval_const::eval_constant,
     Span, Value,
@@ -42,37 +42,50 @@ impl Completer for CellPathCompletion<'_> {
         };
 
         let mut matcher = NuMatcher::new(prefix_str, options);
-
-        // evaluate the head expression to get its value
-        let value = if let Expr::Var(var_id) = self.full_cell_path.head.expr {
-            working_set
-                .get_variable(var_id)
-                .const_val
-                .to_owned()
-                .or_else(|| eval_variable(working_set.permanent_state, stack, var_id, span).ok())
-        } else {
-            eval_constant(working_set, &self.full_cell_path.head).ok()
-        }
+        let value = eval_cell_path(
+            working_set,
+            stack,
+            &self.full_cell_path.head,
+            path_members,
+            span,
+        )
         .unwrap_or_default();
 
-        for suggestion in nested_suggestions(&value, path_members, current_span) {
+        for suggestion in get_suggestions_by_value(&value, current_span) {
             matcher.add_semantic_suggestion(suggestion);
         }
         matcher.results()
     }
 }
 
-// Find recursively the values for cell_path
-fn nested_suggestions(
-    val: &Value,
+/// Follow cell path to get the value
+/// NOTE: This is a relatively lightweight implementation,
+/// so it may fail to get the exact value when the expression is complicated.
+/// One failing example would be `[$foo].0`
+pub(crate) fn eval_cell_path(
+    working_set: &StateWorkingSet,
+    stack: &Stack,
+    head: &Expression,
     path_members: &[PathMember],
+    span: Span,
+) -> Option<Value> {
+    // evaluate the head expression to get its value
+    let head_value = if let Expr::Var(var_id) = head.expr {
+        working_set
+            .get_variable(var_id)
+            .const_val
+            .to_owned()
+            .or_else(|| eval_variable(working_set.permanent_state, stack, var_id, span).ok())
+    } else {
+        eval_constant(working_set, head).ok()
+    }?;
+    head_value.follow_cell_path(path_members, false).ok()
+}
+
+fn get_suggestions_by_value(
+    value: &Value,
     current_span: reedline::Span,
 ) -> Vec<SemanticSuggestion> {
-    let value = val
-        .clone()
-        .follow_cell_path(path_members, false)
-        .unwrap_or_default();
-
     let kind = SuggestionKind::Type(value.get_type());
     let str_to_suggestion = |s: String| SemanticSuggestion {
         suggestion: Suggestion {

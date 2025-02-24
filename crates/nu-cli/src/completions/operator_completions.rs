@@ -2,117 +2,262 @@ use crate::completions::{
     completion_options::NuMatcher, Completer, CompletionOptions, SemanticSuggestion, SuggestionKind,
 };
 use nu_protocol::{
-    ast::{Expr, Expression},
+    ast::{self, Comparison, Expr, Expression},
     engine::{Stack, StateWorkingSet},
-    Span, Type,
+    Span, Type, Value,
 };
 use reedline::Suggestion;
+use strum::{EnumMessage, IntoEnumIterator};
+
+use super::cell_path_completions::eval_cell_path;
 
 #[derive(Clone)]
 pub struct OperatorCompletion<'a> {
     pub left_hand_side: &'a Expression,
 }
 
+struct OperatorItem {
+    pub symbols: String,
+    pub description: String,
+}
+
+fn operator_to_str<T: EnumMessage + AsRef<str>>(op: T) -> OperatorItem {
+    OperatorItem {
+        symbols: op.as_ref().into(),
+        description: op.get_message().unwrap_or_default().into(),
+    }
+}
+
+fn common_comparison_ops() -> Vec<OperatorItem> {
+    Comparison::iter()
+        .filter(|op| {
+            matches!(
+                op,
+                Comparison::In | Comparison::NotIn | Comparison::Equal | Comparison::NotEqual
+            )
+        })
+        .map(operator_to_str)
+        .collect()
+}
+
+fn collection_comparison_ops() -> Vec<OperatorItem> {
+    Comparison::iter()
+        .filter(|op| {
+            matches!(
+                op,
+                Comparison::Has
+                    | Comparison::NotHas
+                    | Comparison::In
+                    | Comparison::NotIn
+                    | Comparison::Equal
+                    | Comparison::NotEqual
+            )
+        })
+        .map(operator_to_str)
+        .collect()
+}
+
+fn number_comparison_ops() -> Vec<OperatorItem> {
+    Comparison::iter()
+        .filter(|op| {
+            !matches!(
+                op,
+                Comparison::RegexMatch
+                    | Comparison::NotRegexMatch
+                    | Comparison::StartsWith
+                    | Comparison::EndsWith
+                    | Comparison::Has
+                    | Comparison::NotHas
+            )
+        })
+        .map(operator_to_str)
+        .collect()
+}
+
+fn math_ops() -> Vec<OperatorItem> {
+    ast::Math::iter()
+        .filter(|op| !matches!(op, ast::Math::Concatenate | ast::Math::Pow))
+        .map(operator_to_str)
+        .collect()
+}
+
+fn bit_ops() -> Vec<OperatorItem> {
+    ast::Bits::iter().map(operator_to_str).collect()
+}
+
+fn numeric_assignment_ops() -> Vec<OperatorItem> {
+    ast::Assignment::iter()
+        .filter(|op| !matches!(op, ast::Assignment::ConcatenateAssign))
+        .map(operator_to_str)
+        .collect()
+}
+
+fn concat_assigment_ops() -> Vec<OperatorItem> {
+    vec![
+        operator_to_str(ast::Assignment::Assign),
+        operator_to_str(ast::Assignment::ConcatenateAssign),
+    ]
+}
+
+fn valid_int_ops() -> Vec<OperatorItem> {
+    let mut ops = valid_float_ops();
+    ops.extend(bit_ops());
+    ops
+}
+
+fn valid_float_ops() -> Vec<OperatorItem> {
+    let mut ops = valid_value_with_unit_ops();
+    ops.push(operator_to_str(ast::Math::Pow));
+    ops
+}
+
+fn valid_string_ops() -> Vec<OperatorItem> {
+    let mut ops: Vec<OperatorItem> = Comparison::iter().map(operator_to_str).collect();
+    ops.push(operator_to_str(ast::Math::Concatenate));
+    ops.push(OperatorItem {
+        symbols: "like".into(),
+        description: Comparison::RegexMatch
+            .get_message()
+            .unwrap_or_default()
+            .into(),
+    });
+    ops.push(OperatorItem {
+        symbols: "not-like".into(),
+        description: Comparison::NotRegexMatch
+            .get_message()
+            .unwrap_or_default()
+            .into(),
+    });
+    ops
+}
+
+fn valid_list_ops() -> Vec<OperatorItem> {
+    let mut ops = collection_comparison_ops();
+    ops.push(operator_to_str(ast::Math::Concatenate));
+    ops
+}
+
+fn valid_binary_ops() -> Vec<OperatorItem> {
+    let mut ops = number_comparison_ops();
+    ops.extend(bit_ops());
+    ops.push(operator_to_str(ast::Math::Concatenate));
+    ops
+}
+
+fn valid_bool_ops() -> Vec<OperatorItem> {
+    let mut ops: Vec<OperatorItem> = ast::Boolean::iter().map(operator_to_str).collect();
+    ops.extend(common_comparison_ops());
+    ops
+}
+
+fn valid_value_with_unit_ops() -> Vec<OperatorItem> {
+    let mut ops = number_comparison_ops();
+    ops.extend(math_ops());
+    ops
+}
+
+fn ops_by_value(value: &Value, mutable: bool) -> Vec<OperatorItem> {
+    let mut ops = match value {
+        Value::Int { .. } => valid_int_ops(),
+        Value::Float { .. } => valid_float_ops(),
+        Value::String { .. } => valid_string_ops(),
+        Value::Binary { .. } => valid_binary_ops(),
+        Value::Bool { .. } => valid_bool_ops(),
+        Value::Date { .. } => number_comparison_ops(),
+        Value::Filesize { .. } | Value::Duration { .. } => valid_value_with_unit_ops(),
+        Value::Range { .. } | Value::Record { .. } => collection_comparison_ops(),
+        Value::List { .. } => valid_list_ops(),
+        Value::Error { .. } => vec![],
+        _ => common_comparison_ops(),
+    };
+    if mutable {
+        ops.extend(match value {
+            Value::Int { .. }
+            | Value::Float { .. }
+            | Value::Filesize { .. }
+            | Value::Duration { .. } => numeric_assignment_ops(),
+            Value::String { .. } | Value::Binary { .. } | Value::List { .. } => {
+                concat_assigment_ops()
+            }
+            _ => vec![operator_to_str(ast::Assignment::Assign)],
+        })
+    }
+    ops
+}
+
+fn is_expression_mutable(expr: &Expr, working_set: &StateWorkingSet) -> bool {
+    let Expr::FullCellPath(path) = expr else {
+        return false;
+    };
+    let Expr::Var(id) = path.head.expr else {
+        return false;
+    };
+    let var = working_set.get_variable(id);
+    var.mutable
+}
+
 impl Completer for OperatorCompletion<'_> {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
-        _stack: &Stack,
+        stack: &Stack,
         prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        //Check if int, float, or string
-        let possible_operations = match &self.left_hand_side.expr {
-            Expr::Int(_) => vec![
-                ("+", "Add (Plus)"),
-                ("-", "Subtract (Minus)"),
-                ("*", "Multiply"),
-                ("/", "Divide"),
-                ("==", "Equal to"),
-                ("!=", "Not equal to"),
-                ("//", "Floor division"),
-                ("<", "Less than"),
-                (">", "Greater than"),
-                ("<=", "Less than or equal to"),
-                (">=", "Greater than or equal to"),
-                ("mod", "Floor division remainder (Modulo)"),
-                ("**", "Power of"),
-                ("bit-or", "Bitwise OR"),
-                ("bit-xor", "Bitwise exclusive OR"),
-                ("bit-and", "Bitwise AND"),
-                ("bit-shl", "Bitwise shift left"),
-                ("bit-shr", "Bitwise shift right"),
-                ("in", "Is a member of (doesn't use regex)"),
-                ("not-in", "Is not a member of (doesn't use regex)"),
-            ],
-            Expr::String(_) => vec![
-                ("=~", "Contains regex match"),
-                ("like", "Contains regex match"),
-                ("!~", "Does not contain regex match"),
-                ("not-like", "Does not contain regex match"),
-                (
-                    "++",
-                    "Concatenates two lists, two strings, or two binary values",
-                ),
-                ("in", "Is a member of (doesn't use regex)"),
-                ("not-in", "Is not a member of (doesn't use regex)"),
-                ("starts-with", "Starts with"),
-                ("ends-with", "Ends with"),
-            ],
-            Expr::Float(_) => vec![
-                ("+", "Add (Plus)"),
-                ("-", "Subtract (Minus)"),
-                ("*", "Multiply"),
-                ("/", "Divide"),
-                ("==", "Equal to"),
-                ("!=", "Not equal to"),
-                ("//", "Floor division"),
-                ("<", "Less than"),
-                (">", "Greater than"),
-                ("<=", "Less than or equal to"),
-                (">=", "Greater than or equal to"),
-                ("mod", "Floor division remainder (Modulo)"),
-                ("**", "Power of"),
-                ("in", "Is a member of (doesn't use regex)"),
-                ("not-in", "Is not a member of (doesn't use regex)"),
-            ],
-            Expr::Bool(_) => vec![
-                (
-                    "and",
-                    "Both values are true (short-circuits when first value is false)",
-                ),
-                (
-                    "or",
-                    "Either value is true (short-circuits when first value is true)",
-                ),
-                ("xor", "One value is true and the other is false"),
-                ("not", "Negates a value or expression"),
-                ("in", "Is a member of (doesn't use regex)"),
-                ("not-in", "Is not a member of (doesn't use regex)"),
-            ],
-            Expr::FullCellPath(path) => match path.head.expr {
-                Expr::List(_) => vec![
-                    (
-                        "++",
-                        "Concatenates two lists, two strings, or two binary values",
-                    ),
-                    ("has", "Contains a value of (doesn't use regex)"),
-                    ("not-has", "Does not contain a value of (doesn't use regex)"),
-                ],
-                Expr::Var(id) => get_variable_completions(id, working_set),
-                _ => vec![],
+        let mut needs_assignment_ops = true;
+        // Complete according expression type
+        // TODO: type inference on self.left_hand_side to get more accurate completions
+        let mut possible_operations: Vec<OperatorItem> = match &self.left_hand_side.ty {
+            Type::Int | Type::Number => valid_int_ops(),
+            Type::Float => valid_float_ops(),
+            Type::String => valid_string_ops(),
+            Type::Binary => valid_binary_ops(),
+            Type::Bool => valid_bool_ops(),
+            Type::Date => number_comparison_ops(),
+            Type::Filesize | Type::Duration => valid_value_with_unit_ops(),
+            Type::Record(_) | Type::Range => collection_comparison_ops(),
+            Type::List(_) | Type::Table(_) => valid_list_ops(),
+            // Unknown type, resort to evaluated values
+            Type::Any => match &self.left_hand_side.expr {
+                Expr::FullCellPath(path) => {
+                    let value =
+                        eval_cell_path(working_set, stack, &path.head, &path.tail, path.head.span);
+                    if let Some(value) = value {
+                        let mutable = is_expression_mutable(&self.left_hand_side.expr, working_set);
+                        // to avoid duplication
+                        needs_assignment_ops = false;
+                        ops_by_value(&value, mutable)
+                    } else {
+                        vec![]
+                    }
+                }
+                _ => common_comparison_ops(),
             },
-            _ => vec![],
+            Type::Error => vec![],
+            _ => common_comparison_ops(),
         };
+        // If the left hand side is a variable, add assignment operators if mutable
+        if needs_assignment_ops && is_expression_mutable(&self.left_hand_side.expr, working_set) {
+            possible_operations.extend(match &self.left_hand_side.ty {
+                Type::Int | Type::Float | Type::Number => numeric_assignment_ops(),
+                Type::Filesize | Type::Duration => numeric_assignment_ops(),
+                Type::String | Type::Binary | Type::List(_) => concat_assigment_ops(),
+                _ => vec![operator_to_str(ast::Assignment::Assign)],
+            });
+        }
 
         let mut matcher = NuMatcher::new(prefix, options);
-        for (symbol, desc) in possible_operations.into_iter() {
+        for OperatorItem {
+            symbols,
+            description,
+        } in possible_operations
+        {
             matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {
-                    value: symbol.to_string(),
-                    description: Some(desc.to_string()),
+                    value: symbols.to_owned(),
+                    description: Some(description.to_owned()),
                     span: reedline::Span::new(span.start - offset, span.end - offset),
                     append_whitespace: true,
                     ..Suggestion::default()
@@ -123,34 +268,5 @@ impl Completer for OperatorCompletion<'_> {
             });
         }
         matcher.results()
-    }
-}
-
-pub fn get_variable_completions<'a>(
-    id: nu_protocol::Id<nu_protocol::marker::Var>,
-    working_set: &StateWorkingSet,
-) -> Vec<(&'a str, &'a str)> {
-    let var = working_set.get_variable(id);
-    if !var.mutable {
-        return vec![];
-    }
-
-    match var.ty {
-        Type::List(_) | Type::String | Type::Binary => vec![
-            (
-                "++=",
-                "Concatenates two lists, two strings, or two binary values",
-            ),
-            ("=", "Assigns a value to a variable."),
-        ],
-
-        Type::Int | Type::Float => vec![
-            ("=", "Assigns a value to a variable."),
-            ("+=", "Adds a value to a variable."),
-            ("-=", "Subtracts a value from a variable."),
-            ("*=", "Multiplies a variable by a value"),
-            ("/=", "Divides a variable by a value."),
-        ],
-        _ => vec![],
     }
 }
