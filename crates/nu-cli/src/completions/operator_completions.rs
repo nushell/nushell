@@ -262,9 +262,7 @@ impl Completer for OperatorCompletion<'_> {
                     append_whitespace: true,
                     ..Suggestion::default()
                 },
-                kind: Some(SuggestionKind::Command(
-                    nu_protocol::engine::CommandType::Builtin,
-                )),
+                kind: Some(SuggestionKind::Operator),
             });
         }
         matcher.results()

@@ -2252,3 +2252,177 @@ fn deeply_nested_block(mut completer: NuCompleter) {
     let expected: Vec<String> = vec!["--help".into(), "--mod".into(), "-h".into(), "-s".into()];
     match_suggestions(&expected, &suggestions);
 }
+
+#[rstest]
+fn operator_completions(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("1 ", 2);
+    // == != > < >= <= in not-in
+    // + - * / // mod **
+    // 5 bit-xxx
+    assert_eq!(20, suggestions.len());
+    let suggestions = custom_completer.complete("1 bit-s", 7);
+    let expected: Vec<String> = vec!["bit-shl".into(), "bit-shr".into()];
+    match_suggestions(&expected, &suggestions);
+
+    let suggestions = custom_completer.complete("'str' ", 6);
+    // == != > < >= <= in not-in
+    // has not-has starts-with ends-with
+    // =~ !~ like not-like ++
+    assert_eq!(17, suggestions.len());
+    let suggestions = custom_completer.complete("'str' +", 7);
+    let expected: Vec<String> = vec!["++".into()];
+    match_suggestions(&expected, &suggestions);
+
+    let suggestions = custom_completer.complete("1ms ", 4);
+    // == != > < >= <= in not-in
+    // + - * / // mod
+    assert_eq!(14, suggestions.len());
+    let suggestions = custom_completer.complete("1ms /", 5);
+    let expected: Vec<String> = vec!["/".into(), "//".into()];
+    match_suggestions(&expected, &suggestions);
+
+    let suggestions = custom_completer.complete("..2 ", 4);
+    // == != in not-in has not-has
+    assert_eq!(6, suggestions.len());
+    let suggestions = custom_completer.complete("..2 h", 5);
+    let expected: Vec<String> = vec!["has".into()];
+    match_suggestions(&expected, &suggestions);
+
+    let suggestions = custom_completer.complete("[[];[]] ", 8);
+    // == != in not-in has not-has ++
+    assert_eq!(7, suggestions.len());
+    let suggestions = custom_completer.complete("[[];[]] h", 9);
+    let expected: Vec<String> = vec!["has".into()];
+    match_suggestions(&expected, &suggestions);
+
+    let suggestions = custom_completer.complete("(date now) ", 11);
+    // == != > < >= <= in not-in
+    assert_eq!(8, suggestions.len());
+    let suggestions = custom_completer.complete("(date now) <", 12);
+    let expected: Vec<String> = vec!["<".into(), "<=".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn cell_path_operator_completions(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("[1].0 ", 6);
+    // == != > < >= <= in not-in
+    // + - * / // mod **
+    // 5 bit-xxx
+    assert_eq!(20, suggestions.len());
+    let suggestions = custom_completer.complete("[1].0 bit-s", 11);
+    let expected: Vec<String> = vec!["bit-shl".into(), "bit-shr".into()];
+    match_suggestions(&expected, &suggestions);
+
+    let suggestions = custom_completer.complete("{'foo': [1, 1kb]}.foo.1 ", 24);
+    // == != > < >= <= in not-in
+    // + - * / // mod
+    assert_eq!(14, suggestions.len());
+    let suggestions = custom_completer.complete("{'foo': [1, 1kb]}.foo.1 mo", 26);
+    let expected: Vec<String> = vec!["mod".into()];
+    match_suggestions(&expected, &suggestions);
+
+    let suggestions = custom_completer.complete("const f = {'foo': [1, '1']}; $f.foo.1 ", 38);
+    // == != > < >= <= in not-in
+    // has not-has starts-with ends-with
+    // =~ !~ like not-like ++
+    assert_eq!(17, suggestions.len());
+    let suggestions = custom_completer.complete("const f = {'foo': [1, '1']}; $f.foo.1 ++", 40);
+    let expected: Vec<String> = vec!["++".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn assignment_operator_completions(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("mut foo = ''; $foo ", 19);
+    // == != > < >= <= in not-in
+    // has not-has starts-with ends-with
+    // =~ !~ like not-like ++
+    // = ++=
+    assert_eq!(19, suggestions.len());
+    let suggestions = custom_completer.complete("mut foo = ''; $foo ++", 21);
+    let expected: Vec<String> = vec!["++".into(), "++=".into()];
+    match_suggestions(&expected, &suggestions);
+
+    // == != > < >= <= in not-in
+    // =
+    let suggestions = custom_completer.complete("mut foo = date now; $foo ", 25);
+    assert_eq!(9, suggestions.len());
+    let suggestions = custom_completer.complete("mut foo = date now; $foo =", 26);
+    let expected: Vec<String> = vec!["=".into(), "==".into()];
+    match_suggestions(&expected, &suggestions);
+
+    let suggestions = custom_completer.complete("mut foo = date now; $foo ", 25);
+    // == != > < >= <= in not-in
+    // =
+    assert_eq!(9, suggestions.len());
+    let suggestions = custom_completer.complete("mut foo = date now; $foo =", 26);
+    let expected: Vec<String> = vec!["=".into(), "==".into()];
+    match_suggestions(&expected, &suggestions);
+
+    let suggestions = custom_completer.complete("mut foo = 1ms; $foo ", 20);
+    // == != > < >= <= in not-in
+    // + - * / // mod
+    // = += -= *= /=
+    assert_eq!(19, suggestions.len());
+    let suggestions = custom_completer.complete("mut foo = 1ms; $foo +", 21);
+    let expected: Vec<String> = vec!["+".into(), "+=".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn cellpath_assignment_operator_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"mut foo = {'foo': [1, '1']}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "$foo.foo.1 ";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    // == != > < >= <= in not-in
+    // has not-has starts-with ends-with
+    // =~ !~ like not-like ++
+    // = ++=
+    assert_eq!(19, suggestions.len());
+    let completion_str = "$foo.foo.1 ++";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<String> = vec!["++".into(), "++=".into()];
+    match_suggestions(&expected, &suggestions);
+
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"mut foo = {'foo': [1, (date now)]}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "$foo.foo.1 ";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    // == != > < >= <= in not-in
+    // =
+    assert_eq!(9, suggestions.len());
+    let completion_str = "$foo.foo.1 =";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<String> = vec!["=".into(), "==".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
+// TODO: type inference
+#[ignore]
+#[rstest]
+fn type_inferenced_operator_completions(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("let f = {'foo': [1, '1']}; $f.foo.1 ", 36);
+    // == != > < >= <= in not-in
+    // has not-has starts-with ends-with
+    // =~ !~ like not-like ++
+    assert_eq!(17, suggestions.len());
+    let suggestions = custom_completer.complete("const f = {'foo': [1, '1']}; $f.foo.1 ++", 38);
+    let expected: Vec<String> = vec!["++".into()];
+    match_suggestions(&expected, &suggestions);
+
+    let suggestions = custom_completer.complete("mut foo = [(date now)]; $foo.0 ", 31);
+    // == != > < >= <= in not-in
+    // =
+    assert_eq!(9, suggestions.len());
+    let suggestions = custom_completer.complete("mut foo = [(date now)]; $foo.0 =", 32);
+    let expected: Vec<String> = vec!["=".into(), "==".into()];
+    match_suggestions(&expected, &suggestions);
+}
