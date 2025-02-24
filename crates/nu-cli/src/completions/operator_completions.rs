@@ -21,7 +21,7 @@ struct OperatorItem {
     pub description: String,
 }
 
-fn operator_to_str<T: EnumMessage + AsRef<str>>(op: T) -> OperatorItem {
+fn operator_to_item<T: EnumMessage + AsRef<str>>(op: T) -> OperatorItem {
     OperatorItem {
         symbols: op.as_ref().into(),
         description: op.get_message().unwrap_or_default().into(),
@@ -36,7 +36,7 @@ fn common_comparison_ops() -> Vec<OperatorItem> {
                 Comparison::In | Comparison::NotIn | Comparison::Equal | Comparison::NotEqual
             )
         })
-        .map(operator_to_str)
+        .map(operator_to_item)
         .collect()
 }
 
@@ -53,7 +53,7 @@ fn collection_comparison_ops() -> Vec<OperatorItem> {
                     | Comparison::NotEqual
             )
         })
-        .map(operator_to_str)
+        .map(operator_to_item)
         .collect()
 }
 
@@ -70,32 +70,32 @@ fn number_comparison_ops() -> Vec<OperatorItem> {
                     | Comparison::NotHas
             )
         })
-        .map(operator_to_str)
+        .map(operator_to_item)
         .collect()
 }
 
 fn math_ops() -> Vec<OperatorItem> {
     ast::Math::iter()
         .filter(|op| !matches!(op, ast::Math::Concatenate | ast::Math::Pow))
-        .map(operator_to_str)
+        .map(operator_to_item)
         .collect()
 }
 
 fn bit_ops() -> Vec<OperatorItem> {
-    ast::Bits::iter().map(operator_to_str).collect()
+    ast::Bits::iter().map(operator_to_item).collect()
 }
 
 fn numeric_assignment_ops() -> Vec<OperatorItem> {
     ast::Assignment::iter()
         .filter(|op| !matches!(op, ast::Assignment::ConcatenateAssign))
-        .map(operator_to_str)
+        .map(operator_to_item)
         .collect()
 }
 
-fn concat_assigment_ops() -> Vec<OperatorItem> {
+fn concat_assignment_ops() -> Vec<OperatorItem> {
     vec![
-        operator_to_str(ast::Assignment::Assign),
-        operator_to_str(ast::Assignment::ConcatenateAssign),
+        operator_to_item(ast::Assignment::Assign),
+        operator_to_item(ast::Assignment::ConcatenateAssign),
     ]
 }
 
@@ -107,13 +107,13 @@ fn valid_int_ops() -> Vec<OperatorItem> {
 
 fn valid_float_ops() -> Vec<OperatorItem> {
     let mut ops = valid_value_with_unit_ops();
-    ops.push(operator_to_str(ast::Math::Pow));
+    ops.push(operator_to_item(ast::Math::Pow));
     ops
 }
 
 fn valid_string_ops() -> Vec<OperatorItem> {
-    let mut ops: Vec<OperatorItem> = Comparison::iter().map(operator_to_str).collect();
-    ops.push(operator_to_str(ast::Math::Concatenate));
+    let mut ops: Vec<OperatorItem> = Comparison::iter().map(operator_to_item).collect();
+    ops.push(operator_to_item(ast::Math::Concatenate));
     ops.push(OperatorItem {
         symbols: "like".into(),
         description: Comparison::RegexMatch
@@ -133,19 +133,19 @@ fn valid_string_ops() -> Vec<OperatorItem> {
 
 fn valid_list_ops() -> Vec<OperatorItem> {
     let mut ops = collection_comparison_ops();
-    ops.push(operator_to_str(ast::Math::Concatenate));
+    ops.push(operator_to_item(ast::Math::Concatenate));
     ops
 }
 
 fn valid_binary_ops() -> Vec<OperatorItem> {
     let mut ops = number_comparison_ops();
     ops.extend(bit_ops());
-    ops.push(operator_to_str(ast::Math::Concatenate));
+    ops.push(operator_to_item(ast::Math::Concatenate));
     ops
 }
 
 fn valid_bool_ops() -> Vec<OperatorItem> {
-    let mut ops: Vec<OperatorItem> = ast::Boolean::iter().map(operator_to_str).collect();
+    let mut ops: Vec<OperatorItem> = ast::Boolean::iter().map(operator_to_item).collect();
     ops.extend(common_comparison_ops());
     ops
 }
@@ -177,9 +177,9 @@ fn ops_by_value(value: &Value, mutable: bool) -> Vec<OperatorItem> {
             | Value::Filesize { .. }
             | Value::Duration { .. } => numeric_assignment_ops(),
             Value::String { .. } | Value::Binary { .. } | Value::List { .. } => {
-                concat_assigment_ops()
+                concat_assignment_ops()
             }
-            _ => vec![operator_to_str(ast::Assignment::Assign)],
+            _ => vec![operator_to_item(ast::Assignment::Assign)],
         })
     }
     ops
@@ -243,8 +243,8 @@ impl Completer for OperatorCompletion<'_> {
             possible_operations.extend(match &self.left_hand_side.ty {
                 Type::Int | Type::Float | Type::Number => numeric_assignment_ops(),
                 Type::Filesize | Type::Duration => numeric_assignment_ops(),
-                Type::String | Type::Binary | Type::List(_) => concat_assigment_ops(),
-                _ => vec![operator_to_str(ast::Assignment::Assign)],
+                Type::String | Type::Binary | Type::List(_) => concat_assignment_ops(),
+                _ => vec![operator_to_item(ast::Assignment::Assign)],
             });
         }
 
