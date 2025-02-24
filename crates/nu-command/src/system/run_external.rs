@@ -206,17 +206,29 @@ impl Command for External {
             );
             command.stderr(writer);
             Some(reader)
-        } else if engine_state.is_background_job() {
-            command.stdout(Stdio::null());
-            command.stderr(Stdio::null());
-            None
         } else {
-            command.stdout(
-                Stdio::try_from(stdout).map_err(|err| IoError::new(err.kind(), call.head, None))?,
-            );
-            command.stderr(
-                Stdio::try_from(stderr).map_err(|err| IoError::new(err.kind(), call.head, None))?,
-            );
+            if engine_state.is_background_job()
+                && matches!(stdout, OutDest::Inherit | OutDest::Print)
+            {
+                command.stdout(Stdio::null());
+            } else {
+                command.stdout(
+                    Stdio::try_from(stdout)
+                        .map_err(|err| IoError::new(err.kind(), call.head, None))?,
+                );
+            }
+
+            if engine_state.is_background_job()
+                && matches!(stderr, OutDest::Inherit | OutDest::Print)
+            {
+                command.stderr(Stdio::null());
+            } else {
+                command.stderr(
+                    Stdio::try_from(stderr)
+                        .map_err(|err| IoError::new(err.kind(), call.head, None))?,
+                );
+            }
+
             None
         };
 

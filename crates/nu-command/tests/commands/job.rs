@@ -182,3 +182,36 @@ fn jobs_get_group_id_right() {
 
     assert_eq!(actual.out, "[true, true, true]");
 }
+
+#[test]
+fn job_extern_output_is_silent() {
+    let actual = nu!(r#" job spawn { nu -c "'hi'" }; sleep 1sec"#);
+    assert_eq!(actual.out, "");
+    assert_eq!(actual.err, "");
+}
+
+#[test]
+fn job_print_is_not_silent() {
+    let actual = nu!(r#" job spawn { print "hi" }; sleep 1sec"#);
+    assert_eq!(actual.out, "hi");
+    assert_eq!(actual.err, "");
+}
+
+#[test]
+fn job_extern_into_value_is_not_silent() {
+    let actual = nu!(r#" job spawn { print (nu -c "'hi'") }; sleep 1sec"#);
+    assert_eq!(actual.out, "hi");
+    assert_eq!(actual.err, "");
+}
+
+#[test]
+fn job_extern_into_pipe_is_not_silent() {
+    let actual = nu!(r#"
+        job spawn { 
+            print (nu -c "10" | nu --stdin -c "($in | into int) + 1")
+        }
+        sleep 1sec"#);
+
+    assert_eq!(actual.out, "11");
+    assert_eq!(actual.err, "");
+}
