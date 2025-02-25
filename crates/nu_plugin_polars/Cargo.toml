@@ -54,6 +54,7 @@ url.workspace = true
 [dependencies.polars]
 features = [
     "arg_where",
+    "bigidx",
     "checked_arithmetic",
     "cloud",
     "concat_str",
