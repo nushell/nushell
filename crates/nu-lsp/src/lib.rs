@@ -6,7 +6,8 @@ use lsp_types::{
     CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionParams,
     CompletionResponse, CompletionTextEdit, Documentation, Hover, HoverContents, HoverParams,
     InlayHint, Location, MarkupContent, MarkupKind, OneOf, Position, Range, ReferencesOptions,
-    RenameOptions, ServerCapabilities, TextDocumentSyncKind, TextEdit, Uri,
+    RenameOptions, SemanticToken, SemanticTokenType, SemanticTokensLegend, SemanticTokensOptions,
+    SemanticTokensServerCapabilities, ServerCapabilities, TextDocumentSyncKind, TextEdit, Uri,
     WorkDoneProgressOptions, WorkspaceFolder, WorkspaceFoldersServerCapabilities,
     WorkspaceServerCapabilities,
 };
@@ -33,6 +34,7 @@ mod diagnostics;
 mod goto;
 mod hints;
 mod notification;
+mod semantic_tokens;
 mod symbols;
 mod workspace;
 
@@ -53,6 +55,7 @@ pub struct LanguageServer {
     initial_engine_state: EngineState,
     symbol_cache: SymbolCache,
     inlay_hints: BTreeMap<Uri, Vec<InlayHint>>,
+    semantic_tokens: BTreeMap<Uri, Vec<SemanticToken>>,
     workspace_folders: BTreeMap<String, WorkspaceFolder>,
     /// for workspace wide requests
     occurrences: BTreeMap<Uri, Vec<Range>>,
@@ -106,6 +109,7 @@ impl LanguageServer {
             initial_engine_state: engine_state,
             symbol_cache: SymbolCache::new(),
             inlay_hints: BTreeMap::new(),
+            semantic_tokens: BTreeMap::new(),
             workspace_folders: BTreeMap::new(),
             occurrences: BTreeMap::new(),
             channels: None,
@@ -143,6 +147,17 @@ impl LanguageServer {
                 ..Default::default()
             }),
             workspace_symbol_provider: Some(OneOf::Left(true)),
+            semantic_tokens_provider: Some(
+                SemanticTokensServerCapabilities::SemanticTokensOptions(SemanticTokensOptions {
+                    // NOTE: only internal command names with space supported for now
+                    legend: SemanticTokensLegend {
+                        token_types: vec![SemanticTokenType::FUNCTION],
+                        token_modifiers: vec![],
+                    },
+                    full: Some(lsp_types::SemanticTokensFullOptions::Bool(true)),
+                    ..Default::default()
+                }),
+            ),
             ..Default::default()
         })
         .expect("Must be serializable");
@@ -201,6 +216,11 @@ impl LanguageServer {
                         }
                         request::InlayHintRequest::METHOD => {
                             Self::handle_lsp_request(request, |params| self.get_inlay_hints(params))
+                        }
+                        request::SemanticTokensFullRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| {
+                                self.get_semantic_tokens(params)
+                            })
                         }
                         request::PrepareRenameRequest::METHOD => {
                             let id = request.id.clone();
@@ -336,7 +356,7 @@ impl LanguageServer {
         &mut self,
         engine_state: &'a mut EngineState,
         uri: &Uri,
-        need_hints: bool,
+        need_extra_info: bool,
     ) -> Option<(Arc<Block>, Span, StateWorkingSet<'a>)> {
         let mut working_set = StateWorkingSet::new(engine_state);
         let docs = self.docs.lock().ok()?;
@@ -347,10 +367,14 @@ impl LanguageServer {
         let _ = working_set.files.push(file_path.clone(), Span::unknown());
         let block = nu_parser::parse(&mut working_set, Some(file_path_str), contents, false);
         let span = working_set.get_span_for_filename(file_path_str)?;
-        if need_hints {
+        if need_extra_info {
             let file_inlay_hints =
                 Self::extract_inlay_hints(&working_set, &block, span.start, file);
             self.inlay_hints.insert(uri.clone(), file_inlay_hints);
+            let file_semantic_tokens =
+                Self::extract_semantic_tokens(&working_set, &block, span.start, file);
+            self.semantic_tokens
+                .insert(uri.clone(), file_semantic_tokens);
         }
         if self.need_parse {
             // TODO: incremental parsing
