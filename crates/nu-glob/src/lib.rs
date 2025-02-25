@@ -29,7 +29,7 @@
 //! ```rust,no_run
 //! use nu_glob::glob;
 //!
-//! for entry in glob("/media/**/*.jpg").expect("Failed to read glob pattern") {
+//! for entry in glob("/media/**/*.jpg", None).expect("Failed to read glob pattern") {
 //!     match entry {
 //!         Ok(path) => println!("{:?}", path.display()),
 //!         Err(e) => println!("{:?}", e),
@@ -44,6 +44,7 @@
 //! ```rust,no_run
 //! use nu_glob::glob_with;
 //! use nu_glob::MatchOptions;
+//! use nu_protocol::Signals;
 //!
 //! let options = MatchOptions {
 //!     case_sensitive: false,
@@ -51,7 +52,7 @@
 //!     require_literal_leading_dot: false,
 //!     recursive_match_hidden_dir: true,
 //! };
-//! for entry in glob_with("local/*a*", options).unwrap() {
+//! for entry in glob_with("local/*a*", options, Signals::empty()).unwrap() {
 //!     if let Ok(path) = entry {
 //!         println!("{:?}", path.display())
 //!     }
@@ -72,6 +73,7 @@ extern crate doc_comment;
 #[cfg(test)]
 doctest!("../README.md");
 
+use nu_protocol::Signals;
 use std::cmp;
 use std::cmp::Ordering;
 use std::error::Error;
@@ -102,6 +104,7 @@ pub struct Paths {
     options: MatchOptions,
     todo: Vec<Result<(PathBuf, usize), GlobError>>,
     scope: Option<PathBuf>,
+    signals: Signals,
 }
 
 impl Paths {
@@ -113,6 +116,7 @@ impl Paths {
             options: MatchOptions::default(),
             todo: vec![Ok((path.to_path_buf(), 0))],
             scope: Some(relative_to.into()),
+            signals: Signals::empty(),
         }
     }
 }
@@ -144,7 +148,7 @@ impl Paths {
 /// ```rust,no_run
 /// use nu_glob::glob;
 ///
-/// for entry in glob("/media/pictures/*.jpg").unwrap() {
+/// for entry in glob("/media/pictures/*.jpg", None).unwrap() {
 ///     match entry {
 ///         Ok(path) => println!("{:?}", path.display()),
 ///
@@ -169,13 +173,17 @@ impl Paths {
 /// use nu_glob::glob;
 /// use std::result::Result;
 ///
-/// for path in glob("/media/pictures/*.jpg").unwrap().filter_map(Result::ok) {
+/// for path in glob("/media/pictures/*.jpg", None).unwrap().filter_map(Result::ok) {
 ///     println!("{}", path.display());
 /// }
 /// ```
 /// Paths are yielded in alphabetical order.
-pub fn glob(pattern: &str) -> Result<Paths, PatternError> {
-    glob_with(pattern, MatchOptions::default())
+pub fn glob(pattern: &str, signals: Option<Signals>) -> Result<Paths, PatternError> {
+    glob_with(
+        pattern,
+        MatchOptions::default(),
+        signals.unwrap_or(Signals::empty()),
+    )
 }
 
 /// Return an iterator that produces all the `Path`s that match the given
@@ -191,7 +199,11 @@ pub fn glob(pattern: &str) -> Result<Paths, PatternError> {
 /// passed to this function.
 ///
 /// Paths are yielded in alphabetical order.
-pub fn glob_with(pattern: &str, options: MatchOptions) -> Result<Paths, PatternError> {
+pub fn glob_with(
+    pattern: &str,
+    options: MatchOptions,
+    signals: Signals,
+) -> Result<Paths, PatternError> {
     #[cfg(windows)]
     fn check_windows_verbatim(p: &Path) -> bool {
         match p.components().next() {
@@ -253,6 +265,7 @@ pub fn glob_with(pattern: &str, options: MatchOptions) -> Result<Paths, PatternE
             options,
             todo: Vec::new(),
             scope: None,
+            signals,
         });
     }
 
@@ -284,6 +297,7 @@ pub fn glob_with(pattern: &str, options: MatchOptions) -> Result<Paths, PatternE
         options,
         todo,
         scope: Some(scope),
+        signals,
     })
 }
 
@@ -298,8 +312,9 @@ pub fn glob_with_parent(
     pattern: &str,
     options: MatchOptions,
     parent: &Path,
+    signals: Signals,
 ) -> Result<Paths, PatternError> {
-    match glob_with(pattern, options) {
+    match glob_with(pattern, options, signals) {
         Ok(mut p) => {
             p.scope = match p.scope {
                 None => Some(parent.to_path_buf()),
@@ -408,7 +423,14 @@ impl Iterator for Paths {
 
                 // if there's one prefilled result, take it, otherwise fill the todo buffer
                 if self.todo.len() != 1 {
-                    fill_todo(&mut self.todo, &self.dir_patterns, 0, &scope, self.options);
+                    fill_todo(
+                        &mut self.todo,
+                        &self.dir_patterns,
+                        0,
+                        &scope,
+                        self.options,
+                        &self.signals,
+                    );
                 }
             }
         }
@@ -465,6 +487,7 @@ impl Iterator for Paths {
                         next,
                         &path,
                         self.options,
+                        &self.signals,
                     );
 
                     if next == self.dir_patterns.len() - 1 {
@@ -516,6 +539,7 @@ impl Iterator for Paths {
                         idx + 1,
                         &path,
                         self.options,
+                        &self.signals,
                     );
                 }
             }
@@ -905,6 +929,7 @@ fn fill_todo(
     idx: usize,
     path: &Path,
     options: MatchOptions,
+    signals: &Signals,
 ) {
     // convert a pattern that's just many Char(_) to a string
     fn pattern_as_str(pattern: &Pattern) -> Option<String> {
@@ -926,7 +951,7 @@ fn fill_todo(
             // . or .. globs since these never show up as path components.
             todo.push(Ok((next_path, !0)));
         } else {
-            fill_todo(todo, patterns, idx + 1, &next_path, options);
+            fill_todo(todo, patterns, idx + 1, &next_path, options, signals);
         }
     };
 
@@ -957,6 +982,9 @@ fn fill_todo(
         None if is_dir => {
             let dirs = fs::read_dir(path).and_then(|d| {
                 d.map(|e| {
+                    if signals.interrupted() {
+                        return Err(io::Error::from(io::ErrorKind::Interrupted));
+                    }
                     e.map(|e| {
                         if curdir {
                             PathBuf::from(
@@ -1113,8 +1141,14 @@ impl Default for MatchOptions {
 
 #[cfg(test)]
 mod test {
-    use super::{glob, MatchOptions, Pattern};
+    use crate::{Paths, PatternError};
+
+    use super::{glob as glob_with_signals, MatchOptions, Pattern};
     use std::path::Path;
+
+    fn glob(pattern: &str) -> Result<Paths, PatternError> {
+        glob_with_signals(pattern, None)
+    }
 
     #[test]
     fn test_pattern_from_str() {

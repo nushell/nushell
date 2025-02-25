@@ -260,6 +260,7 @@ fn rm(
                 require_literal_leading_dot: true,
                 ..Default::default()
             }),
+            engine_state.signals().clone(),
         ) {
             Ok(files) => {
                 for file in files.1 {

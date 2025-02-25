@@ -285,7 +285,10 @@ fn ls_for_one_pattern(
                 nu_path::expand_path_with(pat.item.as_ref(), &cwd, pat.item.is_expand());
             // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
             if !directory && tmp_expanded.is_dir() {
-                if read_dir(tmp_expanded, p_tag, use_threads)?.next().is_none() {
+                if read_dir(tmp_expanded, p_tag, use_threads, signals.clone())?
+                    .next()
+                    .is_none()
+                {
                     return Ok(Value::test_nothing().into_pipeline_data());
                 }
                 just_read_dir = !(pat.item.is_expand() && nu_glob::is_glob(pat.item.as_ref()));
@@ -304,7 +307,10 @@ fn ls_for_one_pattern(
             // Avoid pushing "*" to the default path when directory (do not show contents) flag is true
             if directory {
                 (NuGlob::Expand(".".to_string()), false)
-            } else if read_dir(cwd.clone(), p_tag, use_threads)?.next().is_none() {
+            } else if read_dir(cwd.clone(), p_tag, use_threads, signals.clone())?
+                .next()
+                .is_none()
+            {
                 return Ok(Value::test_nothing().into_pipeline_data());
             } else {
                 (NuGlob::Expand("*".to_string()), false)
@@ -317,7 +323,7 @@ fn ls_for_one_pattern(
     let path = pattern_arg.into_spanned(p_tag);
     let (prefix, paths) = if just_read_dir {
         let expanded = nu_path::expand_path_with(path.item.as_ref(), &cwd, path.item.is_expand());
-        let paths = read_dir(expanded.clone(), p_tag, use_threads)?;
+        let paths = read_dir(expanded.clone(), p_tag, use_threads, signals.clone())?;
         // just need to read the directory, so prefix is path itself.
         (Some(expanded), paths)
     } else {
@@ -330,11 +336,13 @@ fn ls_for_one_pattern(
             };
             Some(glob_options)
         };
-        glob_from(&path, &cwd, call_span, glob_options)?
+        glob_from(&path, &cwd, call_span, glob_options, signals.clone())?
     };
 
     let mut paths_peek = paths.peekable();
-    if paths_peek.peek().is_none() {
+    let no_matches = paths_peek.peek().is_none();
+    signals.check(call_span)?;
+    if no_matches {
         return Err(ShellError::GenericError {
             error: format!("No matches found for {:?}", path.item),
             msg: "Pattern, file or folder not found".into(),
@@ -959,17 +967,21 @@ fn read_dir(
     f: PathBuf,
     span: Span,
     use_threads: bool,
+    signals: Signals,
 ) -> Result<Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send>, ShellError> {
+    let signals_clone = signals.clone();
     let items = f
         .read_dir()
         .map_err(|err| IoError::new(err.kind(), span, f.clone()))?
         .map(move |d| {
+            signals_clone.check(span)?;
             d.map(|r| r.path())
                 .map_err(|err| IoError::new(err.kind(), span, f.clone()))
                 .map_err(ShellError::from)
         });
     if !use_threads {
         let mut collected = items.collect::<Vec<_>>();
+        signals.check(span)?;
         collected.sort_by(|a, b| match (a, b) {
             (Ok(a), Ok(b)) => a.cmp(b),
             (Ok(_), Err(_)) => Ordering::Greater,
