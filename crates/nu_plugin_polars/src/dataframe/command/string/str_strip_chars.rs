@@ -12,6 +12,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
+use polars::prelude::Expr;
 
 #[derive(Clone)]
 pub struct StrStripChars;
@@ -29,7 +30,11 @@ impl PluginCommand for StrStripChars {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("pattern", SyntaxShape::String, "Characters to strip")
+            .required(
+                "pattern",
+                SyntaxShape::Any,
+                "Characters to strip as either a string or polars expression",
+            )
             .switch("start", "Strip from start of strings only", Some('s'))
             .switch("end", "Strip from end of strings only", Some('e'))
             .input_output_types(vec![(
@@ -44,6 +49,26 @@ impl PluginCommand for StrStripChars {
             Example {
                 description: "Strip characters from both ends of strings in a column",
                 example: r#"[[text]; ["!!!hello!!!"] ["!!!world!!!"] ["!!!test!!!"]] | polars into-df | polars select (polars col text | polars str-strip-chars "!") | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "text".to_string(),
+                            vec![
+                                Value::test_string("hello"),
+                                Value::test_string("world"),
+                                Value::test_string("test"),
+                            ],
+                        )],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description:
+                    "Strip characters from both ends of strings in a column using an expression",
+                example: r#"[[text]; ["!!!hello!!!"] ["!!!world!!!"] ["!!!test!!!"]] | polars into-df | polars select (polars col text | polars str-strip-chars (polars lit "!")) | polars collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
@@ -123,11 +148,16 @@ fn command_expr(
     call: &EvaluatedCall,
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    let pattern: String = call.req(0)?;
+    let pattern_expr: Expr = call
+        .req::<Value>(0)
+        .and_then(|ref v| NuExpression::try_from_value(plugin, v))
+        .or(call
+            .req::<String>(0)
+            .map(polars::prelude::lit)
+            .map(NuExpression::from))?
+        .into_polars();
     let strip_start = call.has_flag("start")?;
     let strip_end = call.has_flag("end")?;
-
-    let pattern_expr = polars::prelude::lit(pattern);
 
     let res: NuExpression = if strip_start {
         // Use strip_chars_start when --start flag is provided
