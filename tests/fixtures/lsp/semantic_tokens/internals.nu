@@ -5,9 +5,11 @@ str substring 1..
 export def "foo bar" [] {
   # inside a block
   (
-    echo "🤔🤖🐘"
-    | str substring 1..
+    # same line
+    "🤔🤖🐘" | str substring 1.. | ansi strip
   )
 }
 
 foo bar
+
+overlay use foo

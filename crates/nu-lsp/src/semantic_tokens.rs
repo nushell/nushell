@@ -26,6 +26,7 @@ fn extract_semantic_tokens_from_expression(
             let command_name_bytes = working_set.get_span_contents(call.head);
             let head_span = if command_name_bytes.contains(&b' ')
                 && !command_name_bytes.starts_with(b"export")
+                && !command_name_bytes.starts_with(b"overlay")
             {
                 vec![call.head]
             } else {
@@ -152,15 +153,15 @@ mod tests {
 
         assert_json_eq!(
             result_from_message(resp),
-            serde_json::json!([
-                { "data": [
-                    // delta_line, delta_start, length, token_type, token_modifiers_bitset
-                    0, 0, 13, 0, 0,
-                    1, 2, 10, 0, 0,
-                    7, 6, 13, 0, 0,
-                    4, 0, 7, 0, 0
-                ] }
-            ])
+            serde_json::json!(
+            { "data": [
+                // delta_line, delta_start, length, token_type, token_modifiers_bitset
+                0, 0, 13, 0, 0,
+                1, 2, 10, 0, 0,
+                7, 15, 13, 0, 0,
+                0, 20, 10, 0, 0,
+                4, 0, 7, 0, 0
+            ]})
         );
     }
 }
