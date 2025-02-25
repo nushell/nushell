@@ -1,7 +1,8 @@
 use itertools::Itertools;
 use nu_engine::{command_prelude::*, compile};
 use nu_protocol::{
-    ast::Block, debugger::WithoutDebug, engine::StateWorkingSet, report_shell_error, Range,
+    ast::Block, debugger::WithoutDebug, engine::StateWorkingSet, report_shell_error, PipelineType,
+    Range,
 };
 use std::{
     sync::Arc,
@@ -176,7 +177,7 @@ pub fn check_example_evaluates_to_expected_output(
 
 pub fn check_all_signature_input_output_types_entries_have_examples(
     signature: Signature,
-    witnessed_type_transformations: HashSet<(Type, Type)>,
+    witnessed_type_transformations: HashSet<(PipelineType, PipelineType)>,
 ) {
     let declared_type_transformations = HashSet::from_iter(signature.input_output_types);
     assert!(

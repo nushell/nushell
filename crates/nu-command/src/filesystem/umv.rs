@@ -53,7 +53,7 @@ impl Command for UMv {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("mv")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .switch("force", "do not prompt before overwriting", Some('f'))
             .switch("verbose", "explain what is being done.", Some('v'))
             .switch("progress", "display a progress bar", Some('p'))

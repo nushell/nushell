@@ -15,11 +15,8 @@ impl Command for LoadEnv {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("load-env")
             .input_output_types(vec![
-                (Type::record(), Type::Nothing),
-                (Type::Nothing, Type::Nothing),
-                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
-                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
-                (Type::Any, Type::Nothing),
+                (Type::record().into(), PipelineType::Empty),
+                (PipelineType::Empty, PipelineType::Empty),
             ])
             .allow_variants_without_examples(true)
             .optional(

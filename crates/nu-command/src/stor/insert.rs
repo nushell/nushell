@@ -14,12 +14,9 @@ impl Command for StorInsert {
     fn signature(&self) -> Signature {
         Signature::build("stor insert")
             .input_output_types(vec![
-                (Type::Nothing, Type::table()),
-                (Type::record(), Type::table()),
-                (Type::table(), Type::table()),
-                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
-                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
-                (Type::Any, Type::table()),
+                (PipelineType::Empty, Type::table()),
+                (Type::record().into(), Type::table()),
+                (Type::table().into(), Type::table()),
             ])
             .required_named(
                 "table-name",

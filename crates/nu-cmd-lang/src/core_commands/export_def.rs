@@ -15,7 +15,7 @@ impl Command for ExportDef {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("export def")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .required("def_name", SyntaxShape::String, "Command name.")
             .required("params", SyntaxShape::Signature, "Parameters.")
             .required("block", SyntaxShape::Block, "Body of the definition.")

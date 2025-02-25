@@ -11,7 +11,7 @@ impl Command for HideEnv {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("hide-env")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .rest(
                 "name",
                 SyntaxShape::String,

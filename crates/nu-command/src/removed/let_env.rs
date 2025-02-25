@@ -10,7 +10,7 @@ impl Command for LetEnv {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .allow_variants_without_examples(true)
             .optional("var_name", SyntaxShape::String, "Variable name.")
             .optional(

@@ -5,7 +5,8 @@ use crate::{
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, PipelineType, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 use polars::prelude::when;
 
@@ -36,14 +37,11 @@ impl PluginCommand for ExprWhen {
                 "expression that will be applied when predicate is true",
             )
             .input_output_types(vec![
-                (Type::Nothing, Type::Custom("expression".into())),
+                (PipelineType::Empty, Type::Custom("expression".into())),
                 (
-                    Type::Custom("expression".into()),
+                    Type::Custom("expression".into()).into(),
                     Type::Custom("expression".into()),
                 ),
-                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
-                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
-                (Type::Any, Type::Custom("expression".into())),
             ])
             .category(Category::Custom("expression".into()))
     }

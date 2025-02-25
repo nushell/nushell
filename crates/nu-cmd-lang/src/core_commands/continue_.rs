@@ -15,7 +15,7 @@ impl Command for Continue {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("continue")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .category(Category::Core)
     }
 

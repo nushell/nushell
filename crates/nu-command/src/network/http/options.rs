@@ -16,7 +16,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("http options")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(PipelineType::Empty, Type::Any)])
             .allow_variants_without_examples(true)
             .required(
                 "URL",

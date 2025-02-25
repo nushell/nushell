@@ -1,4 +1,4 @@
-use crate::{ast::RedirectionSource, did_you_mean, Span, Type};
+use crate::{ast::RedirectionSource, did_you_mean, PipelineType, Span, Type};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -60,13 +60,16 @@ pub enum ParseError {
 
     #[error("Command does not support {0} input.")]
     #[diagnostic(code(nu::parser::input_type_mismatch))]
-    InputMismatch(Type, #[label("command doesn't support {0} input")] Span),
+    InputMismatch(
+        PipelineType,
+        #[label("command doesn't support {0} input")] Span,
+    ),
 
     #[error("Command output doesn't match {0}.")]
     #[diagnostic(code(nu::parser::output_type_mismatch))]
     OutputMismatch(
-        Type,
-        Type,
+        PipelineType,
+        PipelineType,
         #[label("expected {0}, but command outputs {1}")] Span,
     ),
 

@@ -24,7 +24,7 @@ impl Command for KeybindingsListen {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Platform)
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .allow_variants_without_examples(true)
     }
 

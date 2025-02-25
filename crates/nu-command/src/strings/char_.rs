@@ -188,7 +188,7 @@ impl Command for Char {
 
     fn signature(&self) -> Signature {
         Signature::build("char")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(PipelineType::Empty, Type::Any)])
             .optional(
                 "character",
                 SyntaxShape::Any,

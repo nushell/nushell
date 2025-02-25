@@ -5,7 +5,7 @@ use crate::{
     lite_parser::{lite_parse, LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget},
     parse_keywords::*,
     parse_patterns::parse_pattern,
-    parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
+    parse_shape_specs::{parse_pipeline_type, parse_shape_name, parse_type, ShapeDescriptorUse},
     type_check::{self, check_range_types, math_result_type, type_compatible},
     Token, TokenContents,
 };
@@ -14,8 +14,8 @@ use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean,
-    FilesizeUnit, Flag, ParseError, PositionalArg, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    FilesizeUnit, Flag, ParseError, PipelineType, PositionalArg, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -1268,7 +1268,7 @@ pub fn parse_internal_call(
 
     ParsedInternalCall {
         call: Box::new(call),
-        output,
+        output: output.into_type(),
     }
 }
 
@@ -3444,7 +3444,7 @@ pub fn expand_to_cell_path(
 pub fn parse_input_output_types(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
-) -> Vec<(Type, Type)> {
+) -> Vec<(PipelineType, PipelineType)> {
     let mut full_span = Span::concat(spans);
 
     let mut bytes = working_set.get_span_contents(full_span);
@@ -3471,7 +3471,7 @@ pub fn parse_input_output_types(
     let mut idx = 0;
     while idx < tokens.len() {
         let type_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
-        let input_type = parse_type(working_set, &type_bytes, tokens[idx].span);
+        let input_type = parse_pipeline_type(working_set, &type_bytes, tokens[idx].span);
 
         idx += 1;
         if idx >= tokens.len() {
@@ -3497,7 +3497,7 @@ pub fn parse_input_output_types(
         }
 
         let type_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
-        let output_type = parse_type(working_set, &type_bytes, tokens[idx].span);
+        let output_type = parse_pipeline_type(working_set, &type_bytes, tokens[idx].span);
 
         output.push((input_type, output_type));
 

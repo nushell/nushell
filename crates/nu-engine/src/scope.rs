@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Expr,
     engine::{Command, EngineState, Stack, Visibility},
-    record, DeclId, ModuleId, Signature, Span, SyntaxShape, Type, Value, VarId,
+    record, DeclId, ModuleId, PipelineType, Signature, Span, SyntaxShape, Type, Value, VarId,
 };
 use std::{cmp::Ordering, collections::HashMap};
 
@@ -151,7 +151,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             .iter()
             .map(|(input_type, output_type)| {
                 (
-                    input_type.to_shape().to_string(),
+                    input_type.to_shape_string(),
                     Value::list(
                         self.collect_signature_entries(input_type, output_type, signature, span),
                         span,
@@ -165,9 +165,9 @@ impl<'e, 's> ScopeData<'e, 's> {
         // a little bit better. If sigs is empty, we're pretty sure that we're dealing
         // with a custom command.
         if sigs.is_empty() {
-            let any_type = &Type::Any;
+            let any_type = &PipelineType::Type(Type::Any);
             sigs.push((
-                any_type.to_shape().to_string(),
+                any_type.to_shape_string(),
                 Value::list(
                     self.collect_signature_entries(any_type, any_type, signature, span),
                     span,
@@ -189,8 +189,8 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     fn collect_signature_entries(
         &self,
-        input_type: &Type,
-        output_type: &Type,
+        input_type: &PipelineType,
+        output_type: &PipelineType,
         signature: &Signature,
         span: Span,
     ) -> Vec<Value> {
@@ -201,7 +201,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             record! {
                 "parameter_name" => Value::nothing(span),
                 "parameter_type" => Value::string("input", span),
-                "syntax_shape" => Value::string(input_type.to_shape().to_string(), span),
+                "syntax_shape" => Value::string(input_type.to_shape_string(), span),
                 "is_optional" => Value::bool(false, span),
                 "short_flag" => Value::nothing(span),
                 "description" => Value::nothing(span),
@@ -327,7 +327,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             record! {
                 "parameter_name" => Value::nothing(span),
                 "parameter_type" => Value::string("output", span),
-                "syntax_shape" => Value::string(output_type.to_shape().to_string(), span),
+                "syntax_shape" => Value::string(output_type.to_shape_string(), span),
                 "is_optional" => Value::bool(false, span),
                 "short_flag" => Value::nothing(span),
                 "description" => Value::nothing(span),

@@ -59,17 +59,14 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into datetime")
         .input_output_types(vec![
-            (Type::Date, Type::Date),
-            (Type::Int, Type::Date),
-            (Type::String, Type::Date),
-            (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Date))),
-            (Type::table(), Type::table()),
-            (Type::record(), Type::record()),
-            (Type::Nothing, Type::table()),
-            // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
-            // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
+            (Type::Date.into(), Type::Date),
+            (Type::Int.into(), Type::Date),
+            (Type::String.into(), Type::Date),
+            (Type::List(Box::new(Type::String)).into(), Type::List(Box::new(Type::Date))),
+            (Type::table().into(), Type::table()),
+            (Type::record().into(), Type::record()),
             // only applicable for --list flag
-            (Type::Any, Type::table()),
+            (PipelineType::Empty, Type::table()),
         ])
         .allow_variants_without_examples(true)
         .named(

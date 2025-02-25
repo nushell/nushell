@@ -22,7 +22,7 @@ impl Command for PluginCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("plugin")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(PipelineType::Empty, PipelineType::Empty)])
             .category(Category::Plugin)
     }
 
