@@ -25,6 +25,7 @@ fn extract_semantic_tokens_from_expression(
         Expr::Call(call) => {
             let command_name_bytes = working_set.get_span_contents(call.head);
             let head_span = if command_name_bytes.contains(&b' ')
+                // Some keywords that are already highlighted properly, e.g. by tree-sitter-nu
                 && !command_name_bytes.starts_with(b"export")
                 && !command_name_bytes.starts_with(b"overlay")
             {
