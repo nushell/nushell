@@ -2,10 +2,13 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{dots::expand_ndots_safe, expand_tilde, AbsolutePath};
 use nu_protocol::{
-    did_you_mean, process::ChildProcess, shell_error::io::IoError, ByteStream, NuGlob, OutDest,
-    Signals, UseAnsiColoring,
+    did_you_mean,
+    engine::{FrozenJob, Job},
+    process::{ChildProcess, PostWaitCallback},
+    shell_error::io::IoError,
+    ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
 };
-use nu_system::ForegroundChild;
+use nu_system::{kill_by_pid, ForegroundChild, ForegroundWaitStatus};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -204,12 +207,28 @@ impl Command for External {
             command.stderr(writer);
             Some(reader)
         } else {
-            command.stdout(
-                Stdio::try_from(stdout).map_err(|err| IoError::new(err.kind(), call.head, None))?,
-            );
-            command.stderr(
-                Stdio::try_from(stderr).map_err(|err| IoError::new(err.kind(), call.head, None))?,
-            );
+            if engine_state.is_background_job()
+                && matches!(stdout, OutDest::Inherit | OutDest::Print)
+            {
+                command.stdout(Stdio::null());
+            } else {
+                command.stdout(
+                    Stdio::try_from(stdout)
+                        .map_err(|err| IoError::new(err.kind(), call.head, None))?,
+                );
+            }
+
+            if engine_state.is_background_job()
+                && matches!(stderr, OutDest::Inherit | OutDest::Print)
+            {
+                command.stderr(Stdio::null());
+            } else {
+                command.stderr(
+                    Stdio::try_from(stderr)
+                        .map_err(|err| IoError::new(err.kind(), call.head, None))?,
+                );
+            }
+
             None
         };
 
@@ -248,6 +267,7 @@ impl Command for External {
         let child = ForegroundChild::spawn(
             command,
             engine_state.is_interactive,
+            engine_state.is_background_job(),
             &engine_state.pipeline_externals_state,
         );
 
@@ -258,6 +278,18 @@ impl Command for External {
                 nu_protocol::location!(),
             )
         })?;
+
+        if let Some(thread_job) = &engine_state.current_thread_job {
+            if !thread_job.try_add_pid(child.pid()) {
+                kill_by_pid(child.pid().into()).map_err(|err| {
+                    ShellError::Io(IoError::new_internal(
+                        err.kind(),
+                        "Could not spawn external stdin worker",
+                        nu_protocol::location!(),
+                    ))
+                })?;
+            }
+        }
 
         // If we need to copy data into the child process, do it now.
         if let Some(data) = data_to_copy_into_stdin {
@@ -279,12 +311,28 @@ impl Command for External {
                 })?;
         }
 
+        let jobs = engine_state.jobs.clone();
+        let this_job = engine_state.current_thread_job.clone();
+        let child_pid = child.pid();
+
         // Wrap the output into a `PipelineData::ByteStream`.
         let mut child = ChildProcess::new(
             child,
             merged_stream,
             matches!(stderr, OutDest::Pipe),
             call.head,
+            // handle wait statuses for job control
+            Some(PostWaitCallback(Box::new(move |status| {
+                if let Some(this_job) = this_job {
+                    this_job.remove_pid(child_pid);
+                }
+
+                if let ForegroundWaitStatus::Frozen(unfreeze) = status {
+                    let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
+
+                    jobs.add_job(Job::Frozen(FrozenJob { unfreeze }));
+                }
+            }))),
         )?;
 
         if matches!(stdout, OutDest::Pipe | OutDest::PipeSeparate)

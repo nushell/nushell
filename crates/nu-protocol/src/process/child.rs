@@ -1,5 +1,6 @@
 use crate::{byte_stream::convert_file, shell_error::io::IoError, ShellError, Span};
-use nu_system::{ExitStatus, ForegroundChild};
+use nu_system::{ExitStatus, ForegroundChild, ForegroundWaitStatus};
+
 use os_pipe::PipeReader;
 use std::{
     fmt::Debug,
@@ -8,7 +9,7 @@ use std::{
     thread,
 };
 
-fn check_ok(status: ExitStatus, ignore_error: bool, span: Span) -> Result<(), ShellError> {
+pub fn check_ok(status: ExitStatus, ignore_error: bool, span: Span) -> Result<(), ShellError> {
     match status {
         ExitStatus::Exited(exit_code) => {
             if ignore_error {
@@ -165,12 +166,21 @@ pub struct ChildProcess {
     span: Span,
 }
 
+pub struct PostWaitCallback(pub Box<dyn FnOnce(ForegroundWaitStatus) + Send>);
+
+impl Debug for PostWaitCallback {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<wait_callback>")
+    }
+}
+
 impl ChildProcess {
     pub fn new(
         mut child: ForegroundChild,
         reader: Option<PipeReader>,
         swap: bool,
         span: Span,
+        callback: Option<PostWaitCallback>,
     ) -> Result<Self, ShellError> {
         let (stdout, stderr) = if let Some(combined) = reader {
             (Some(combined), None)
@@ -190,7 +200,32 @@ impl ChildProcess {
 
         thread::Builder::new()
             .name("exit status waiter".into())
-            .spawn(move || exit_status_sender.send(child.wait()))
+            .spawn(move || {
+                let matched = match child.wait() {
+                    // there are two possible outcomes when we `wait` for a process to finish:
+                    // 1. the process finishes as usual
+                    // 2. (unix only) the process gets signaled with SIGTSTP
+                    //
+                    // in the second case, although the process may still be alive in a
+                    // cryonic state, we explicitly treat as it has finished with exit code 0
+                    // for the sake of the current pipeline
+                    Ok(wait_status) => {
+                        let next = match &wait_status {
+                            ForegroundWaitStatus::Frozen(_) => ExitStatus::Exited(0),
+                            ForegroundWaitStatus::Finished(exit_status) => *exit_status,
+                        };
+
+                        if let Some(callback) = callback {
+                            (callback.0)(wait_status);
+                        }
+
+                        Ok(next)
+                    }
+                    Err(err) => Err(err),
+                };
+
+                exit_status_sender.send(matched)
+            })
             .map_err(|err| {
                 IoError::new_with_additional_context(
                     err.kind(),

@@ -448,7 +448,16 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Experimental
         bind_command! {
             IsAdmin,
+            JobSpawn,
+            JobList,
+            JobKill,
+            Job,
         };
+
+        #[cfg(unix)]
+        bind_command! {
+            JobUnfreeze,
+        }
 
         // Removed
         bind_command! {
