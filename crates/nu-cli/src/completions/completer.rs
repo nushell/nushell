@@ -164,7 +164,13 @@ impl NuCompleter {
             return vec![];
         };
 
-        self.complete_by_expression(&working_set, element_expression, offset, pos, line)
+        // line of element_expression
+        let start_offset = element_expression.span.start - offset;
+        if let Some(line) = line.get(start_offset..) {
+            self.complete_by_expression(&working_set, element_expression, offset, pos, line)
+        } else {
+            vec![]
+        }
     }
 
     /// Complete given the expression of interest
@@ -173,7 +179,7 @@ impl NuCompleter {
     /// # Arguments
     /// * `offset` - start offset of current working_set span
     /// * `pos` - cursor position, should be > offset
-    /// * `prefix_str` - all the text before the cursor
+    /// * `prefix_str` - all the text before the cursor, within the `element_expression`
     pub fn complete_by_expression(
         &self,
         working_set: &StateWorkingSet,

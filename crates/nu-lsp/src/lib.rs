@@ -727,6 +727,7 @@ impl LanguageServer {
             SuggestionKind::Command(c) => match c {
                 nu_protocol::engine::CommandType::Keyword => Some(CompletionItemKind::KEYWORD),
                 nu_protocol::engine::CommandType::Builtin => Some(CompletionItemKind::FUNCTION),
+                nu_protocol::engine::CommandType::External => Some(CompletionItemKind::INTERFACE),
                 _ => None,
             },
             SuggestionKind::Module => Some(CompletionItemKind::MODULE),

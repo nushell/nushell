@@ -353,7 +353,7 @@ fn external_commands_only() {
         Arc::new(engine),
         Arc::new(nu_protocol::engine::Stack::new()),
     );
-    let completion_str = "^sleep";
+    let completion_str = "ls; ^sleep";
     let suggestions = completer.complete(completion_str, completion_str.len());
     #[cfg(windows)]
     let expected: Vec<String> = vec!["sleep.exe".into()];
