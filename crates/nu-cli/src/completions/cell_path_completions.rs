@@ -77,7 +77,7 @@ pub(crate) fn eval_cell_path(
             .to_owned()
             .map_or_else(
                 || eval_variable(working_set.permanent_state, stack, var_id, span),
-                |v| Ok(v),
+                Ok,
             )
     } else {
         eval_constant(working_set, head)
