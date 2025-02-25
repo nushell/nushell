@@ -698,7 +698,7 @@ impl FromValue for Range {
 impl FromValue for Record {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
-            Value::Record { val, .. } => Ok(val.into_owned()),
+            Value::Record { val, .. } => Ok(val),
             v => Err(ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
                 from_type: v.get_type().to_string(),

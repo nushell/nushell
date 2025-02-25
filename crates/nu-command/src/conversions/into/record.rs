@@ -134,7 +134,7 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
                         if matches!(expected_type, None | Some(ExpectedType::Record)) =>
                     {
                         // Don't use .extend() unless that gets changed to check for duplicate keys
-                        for (key, val) in val.into_owned() {
+                        for (key, val) in val {
                             record.insert(key, val);
                         }
                         expected_type = Some(ExpectedType::Record);
