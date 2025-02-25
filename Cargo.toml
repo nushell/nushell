@@ -155,6 +155,8 @@ serde_urlencoded = "0.7.1"
 serde_yaml = "0.9.33"
 sha2 = "0.10"
 strip-ansi-escapes = "0.2.0"
+strum = "0.26"
+strum_macros = "0.26"
 syn = "2.0"
 sysinfo = "0.33"
 tabled = { version = "0.17.0", default-features = false }

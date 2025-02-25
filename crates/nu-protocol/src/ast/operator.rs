@@ -2,22 +2,37 @@ use super::{Expr, Expression};
 use crate::{ShellError, Span};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use strum_macros::{EnumIter, EnumMessage};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, EnumMessage)]
 pub enum Comparison {
+    #[strum(message = "Equal to")]
     Equal,
+    #[strum(message = "Not equal to")]
     NotEqual,
+    #[strum(message = "Less than")]
     LessThan,
+    #[strum(message = "Greater than")]
     GreaterThan,
+    #[strum(message = "Less than or equal to")]
     LessThanOrEqual,
+    #[strum(message = "Greater than or equal to")]
     GreaterThanOrEqual,
+    #[strum(message = "Contains regex match")]
     RegexMatch,
+    #[strum(message = "Does not contain regex match")]
     NotRegexMatch,
+    #[strum(message = "Is a member of (doesn't use regex)")]
     In,
+    #[strum(message = "Is not a member of (doesn't use regex)")]
     NotIn,
+    #[strum(message = "Contains a value of (doesn't use regex)")]
     Has,
+    #[strum(message = "Does not contain a value of (doesn't use regex)")]
     NotHas,
+    #[strum(message = "Starts with")]
     StartsWith,
+    #[strum(message = "Ends with")]
     EndsWith,
 }
 
@@ -42,21 +57,35 @@ impl Comparison {
     }
 }
 
+impl AsRef<str> for Comparison {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl fmt::Display for Comparison {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, EnumMessage)]
 pub enum Math {
+    #[strum(message = "Add (Plus)")]
     Add,
+    #[strum(message = "Subtract (Minus)")]
     Subtract,
+    #[strum(message = "Multiply")]
     Multiply,
+    #[strum(message = "Divide")]
     Divide,
+    #[strum(message = "Floor division")]
     FloorDivide,
+    #[strum(message = "Floor division remainder (Modulo)")]
     Modulo,
+    #[strum(message = "Power of")]
     Pow,
+    #[strum(message = "Concatenates two lists, two strings, or two binary values")]
     Concatenate,
 }
 
@@ -75,16 +104,25 @@ impl Math {
     }
 }
 
+impl AsRef<str> for Math {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl fmt::Display for Math {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, EnumMessage)]
 pub enum Boolean {
+    #[strum(message = "Either value is true (short-circuits when first value is true)")]
     Or,
+    #[strum(message = "One value is true and the other is false")]
     Xor,
+    #[strum(message = "Both values are true (short-circuits when first value is false)")]
     And,
 }
 
@@ -98,19 +136,36 @@ impl Boolean {
     }
 }
 
+impl AsRef<str> for Boolean {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl fmt::Display for Boolean {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, EnumMessage)]
 pub enum Bits {
+    #[strum(message = "Bitwise OR")]
     BitOr,
+    #[strum(message = "Bitwise exclusive OR")]
     BitXor,
+    #[strum(message = "Bitwise AND")]
     BitAnd,
+    #[strum(message = "Bitwise shift left")]
     ShiftLeft,
+    #[strum(message = "Bitwise shift right")]
     ShiftRight,
+}
+
+impl AsRef<str> for Bits {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
 }
 
 impl Bits {
@@ -131,14 +186,26 @@ impl fmt::Display for Bits {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, EnumMessage)]
 pub enum Assignment {
+    #[strum(message = "Assigns a value to a variable.")]
     Assign,
+    #[strum(message = "Adds a value to a variable.")]
     AddAssign,
+    #[strum(message = "Subtracts a value from a variable.")]
     SubtractAssign,
+    #[strum(message = "Multiplies a variable by a value")]
     MultiplyAssign,
+    #[strum(message = "Divides a variable by a value.")]
     DivideAssign,
+    #[strum(message = "Concatenates a variable with a list, string or binary.")]
     ConcatenateAssign,
+}
+
+impl AsRef<str> for Assignment {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
 }
 
 impl Assignment {
@@ -221,7 +288,7 @@ impl fmt::Display for Operator {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, EnumIter)]
 pub enum RangeInclusion {
     Inclusive,
     RightExclusive,
