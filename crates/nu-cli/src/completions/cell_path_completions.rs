@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::{Expr, Expression, FullCellPath, PathMember},
     engine::{Stack, StateWorkingSet},
     eval_const::eval_constant,
-    Span, Value,
+    ShellError, Span, Value,
 };
 use reedline::Suggestion;
 
@@ -68,18 +68,21 @@ pub(crate) fn eval_cell_path(
     head: &Expression,
     path_members: &[PathMember],
     span: Span,
-) -> Option<Value> {
+) -> Result<Value, ShellError> {
     // evaluate the head expression to get its value
     let head_value = if let Expr::Var(var_id) = head.expr {
         working_set
             .get_variable(var_id)
             .const_val
             .to_owned()
-            .or_else(|| eval_variable(working_set.permanent_state, stack, var_id, span).ok())
+            .map_or_else(
+                || eval_variable(working_set.permanent_state, stack, var_id, span),
+                |v| Ok(v),
+            )
     } else {
-        eval_constant(working_set, head).ok()
+        eval_constant(working_set, head)
     }?;
-    head_value.follow_cell_path(path_members, false).ok()
+    head_value.follow_cell_path(path_members, false)
 }
 
 fn get_suggestions_by_value(

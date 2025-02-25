@@ -154,7 +154,6 @@ fn ops_by_value(value: &Value, mutable: bool) -> Vec<OperatorItem> {
         Value::Filesize { .. } | Value::Duration { .. } => valid_value_with_unit_ops(),
         Value::Range { .. } | Value::Record { .. } => collection_comparison_ops(),
         Value::List { .. } => valid_list_ops(),
-        Value::Error { .. } => vec![],
         _ => common_comparison_ops(),
     };
     if mutable {
@@ -209,20 +208,20 @@ impl Completer for OperatorCompletion<'_> {
             // Unknown type, resort to evaluated values
             Type::Any => match &self.left_hand_side.expr {
                 Expr::FullCellPath(path) => {
-                    let value =
-                        eval_cell_path(working_set, stack, &path.head, &path.tail, path.head.span);
-                    if let Some(value) = value {
-                        let mutable = is_expression_mutable(&self.left_hand_side.expr, working_set);
-                        // to avoid duplication
-                        needs_assignment_ops = false;
-                        ops_by_value(&value, mutable)
-                    } else {
-                        vec![]
+                    // for `$ <tab>`
+                    if matches!(path.head.expr, Expr::Garbage) {
+                        return vec![];
                     }
+                    let value =
+                        eval_cell_path(working_set, stack, &path.head, &path.tail, path.head.span)
+                            .unwrap_or_default();
+                    let mutable = is_expression_mutable(&self.left_hand_side.expr, working_set);
+                    // to avoid duplication
+                    needs_assignment_ops = false;
+                    ops_by_value(&value, mutable)
                 }
                 _ => common_comparison_ops(),
             },
-            Type::Error => vec![],
             _ => common_comparison_ops(),
         };
         // If the left hand side is a variable, add assignment operators if mutable
