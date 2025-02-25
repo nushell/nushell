@@ -6969,7 +6969,7 @@ dependencies = [
 [[package]]
 name = "tabled"
 version = "0.18.0"
-source = "git+https://github.com/zhiburt/tabled?rev=69479aa1b9b71eef23da0d5f0faecc2be343f95a#69479aa1b9b71eef23da0d5f0faecc2be343f95a"
+source = "git+https://github.com/zhiburt/tabled?rev=2c2a2c02e3a37ac5087b93a576d6c87a67ea0b62#2c2a2c02e3a37ac5087b93a576d6c87a67ea0b62"
 dependencies = [
  "ansi-str 0.9.0",
  "ansitok 0.3.0",
