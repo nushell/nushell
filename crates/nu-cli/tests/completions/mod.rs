@@ -2301,6 +2301,13 @@ fn operator_completions(mut custom_completer: NuCompleter) {
     let suggestions = custom_completer.complete("(date now) <", 12);
     let expected: Vec<String> = vec!["<".into(), "<=".into()];
     match_suggestions(&expected, &suggestions);
+
+    // default operators for all types
+    let expected: Vec<String> = vec!["!=".into(), "==".into(), "in".into(), "not-in".into()];
+    let suggestions = custom_completer.complete("{1} ", 4);
+    match_suggestions(&expected, &suggestions);
+    let suggestions = custom_completer.complete("null ", 5);
+    match_suggestions(&expected, &suggestions);
 }
 
 #[rstest]
@@ -2367,6 +2374,17 @@ fn assignment_operator_completions(mut custom_completer: NuCompleter) {
     assert_eq!(19, suggestions.len());
     let suggestions = custom_completer.complete("mut foo = 1ms; $foo +", 21);
     let expected: Vec<String> = vec!["+".into(), "+=".into()];
+    match_suggestions(&expected, &suggestions);
+
+    // default operators for all mutables
+    let expected: Vec<String> = vec![
+        "!=".into(),
+        "=".into(),
+        "==".into(),
+        "in".into(),
+        "not-in".into(),
+    ];
+    let suggestions = custom_completer.complete("mut foo = null; $foo ", 21);
     match_suggestions(&expected, &suggestions);
 }
 
