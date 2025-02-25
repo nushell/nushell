@@ -5,7 +5,7 @@ use crate::{
     SuggestionKind,
 };
 use nu_protocol::{
-    engine::{Stack, StateWorkingSet},
+    engine::{CommandType, Stack, StateWorkingSet},
     Span,
 };
 use reedline::Suggestion;
@@ -75,8 +75,7 @@ impl CommandCompletion {
                                             append_whitespace: true,
                                             ..Default::default()
                                         },
-                                        // TODO: is there a way to create a test?
-                                        kind: None,
+                                        kind: Some(SuggestionKind::Command(CommandType::External)),
                                     },
                                 );
                             }
