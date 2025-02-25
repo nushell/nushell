@@ -12,43 +12,12 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into float")
             .input_output_types(vec![
-                (Type::String, Type::Float),
                 (Type::Int, Type::Float),
-                (Type::Number, Type::Float),
+                (Type::String, Type::Float),
                 (Type::Bool, Type::Float),
                 (Type::Float, Type::Float),
-                (Type::Duration, Type::Float),
-                (Type::Filesize, Type::Float),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
-                (
-                    Type::List(Box::new(Type::String)),
-                    Type::List(Box::new(Type::Float)),
-                ),
-                (
-                    Type::List(Box::new(Type::Int)),
-                    Type::List(Box::new(Type::Float)),
-                ),
-                (
-                    Type::List(Box::new(Type::Number)),
-                    Type::List(Box::new(Type::Float)),
-                ),
-                (
-                    Type::List(Box::new(Type::Bool)),
-                    Type::List(Box::new(Type::Float)),
-                ),
-                (
-                    Type::List(Box::new(Type::Float)),
-                    Type::List(Box::new(Type::Float)),
-                ),
-                (
-                    Type::List(Box::new(Type::Duration)),
-                    Type::List(Box::new(Type::Float)),
-                ),
-                (
-                    Type::List(Box::new(Type::Filesize)),
-                    Type::List(Box::new(Type::Float)),
-                ),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Float)),
@@ -142,13 +111,11 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
             },
             span,
         ),
-        Value::Duration { val, .. } => Value::float(*val as f64, span),
-        Value::Filesize { val, .. } => Value::float(val.get() as f64, span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "float, string, int, bool, duration, or filesize".into(),
+                exp_input_type: "string, int or bool".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),
