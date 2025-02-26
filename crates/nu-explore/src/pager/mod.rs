@@ -344,7 +344,7 @@ fn draw_frame(
     layout: &mut Layout,
     info: ViewInfo,
 ) {
-    let area = f.size();
+    let area = f.area();
     let available_area = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
 
     if let Some(page) = view {
@@ -359,7 +359,7 @@ fn draw_frame(
 }
 
 fn draw_info(f: &mut Frame, pager: &mut Pager<'_>, info: ViewInfo) {
-    let area = f.size();
+    let area = f.area();
 
     if let Some(report) = info.status {
         let last_2nd_line = area.bottom().saturating_sub(2);
@@ -453,14 +453,14 @@ fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
         let next_pos = (pager.cmd_buf.buf_cmd2.len() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
-            f.set_cursor(next_pos, area.height - 1);
+            f.set_cursor_position((next_pos, area.height - 1));
         }
     } else if pager.search_buf.is_search_input {
         // todo: deal with a situation where we exceed the bar width
         let next_pos = (pager.search_buf.buf_cmd_input.len() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
-            f.set_cursor(next_pos, area.height - 1);
+            f.set_cursor_position((next_pos, area.height - 1));
         }
     }
 }
