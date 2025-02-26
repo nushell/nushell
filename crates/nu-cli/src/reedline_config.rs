@@ -1009,8 +1009,8 @@ fn event_from_record(
         "submitornewline" => ReedlineEvent::SubmitOrNewline,
         "esc" | "escape" => ReedlineEvent::Esc,
         "mouse" => ReedlineEvent::Mouse,
-        // resize
-        // edit
+        // TODO: resize
+        // TODO: edit
         "repaint" => ReedlineEvent::Repaint,
         "previoushistory" => ReedlineEvent::PreviousHistory,
         "up" => ReedlineEvent::Up,
@@ -1019,8 +1019,8 @@ fn event_from_record(
         "left" => ReedlineEvent::Left,
         "nexthistory" => ReedlineEvent::NextHistory,
         "searchhistory" => ReedlineEvent::SearchHistory,
-        // multiple
-        // untilfound
+        // TODO: multiple
+        // TODO: untilfound
         "menu" => {
             let menu = extract_value("name", record, span)?;
             ReedlineEvent::Menu(menu.to_expanded_string("", config))
@@ -1148,7 +1148,7 @@ fn edit_from_record(
             let char = extract_char(value)?;
             EditCommand::ReplaceChar(char)
         }
-        // TODO: not sure how to write replace chars
+        // TODO: not sure how to write replacechars
         "backspace" => EditCommand::Backspace,
         "delete" => EditCommand::Delete,
         "cutchar" => EditCommand::CutChar,
