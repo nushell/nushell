@@ -230,7 +230,7 @@ impl NuCompleter {
     /// * `offset` - start offset of current working_set span
     /// * `pos` - cursor position, should be > offset
     /// * `prefix_str` - all the text before the cursor, within the `element_expression`
-    /// * `stip` - whether to strip the extra placeholder from a span
+    /// * `strip` - whether to strip the extra placeholder from a span
     fn complete_by_expression(
         &self,
         working_set: &StateWorkingSet,
