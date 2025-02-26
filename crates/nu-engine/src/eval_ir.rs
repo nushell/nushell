@@ -1023,8 +1023,6 @@ fn eval_call<D: DebugContext>(
     let args_len = caller_stack.arguments.get_len(*args_base);
     let decl = engine_state.get_decl(decl_id);
 
-    check_input_types(&input, decl.signature(), head)?;
-
     // Set up redirect modes
     let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
 
@@ -1033,6 +1031,9 @@ fn eval_call<D: DebugContext>(
     if let Some(block_id) = decl.block_id() {
         // If the decl is a custom command
         let block = engine_state.get_block(block_id);
+
+        // check types after acquiring block to avoid unneccessarily cloning Signature
+        check_input_types(&input, &block.signature, head)?;
 
         // Set up a callee stack with the captures and move arguments from the stack into variables
         let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
@@ -1058,6 +1059,8 @@ fn eval_call<D: DebugContext>(
             redirect_env(engine_state, &mut caller_stack, &callee_stack);
         }
     } else {
+        check_input_types(&input, &decl.signature(), head)?;
+
         // FIXME: precalculate this and save it somewhere
         let span = Span::merge_many(
             std::iter::once(head).chain(
@@ -1277,10 +1280,10 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
 /// Type check pipeline input against command's input types
 fn check_input_types(
     input: &PipelineData,
-    signature: Signature,
+    signature: &Signature,
     head: Span,
 ) -> Result<(), ShellError> {
-    let io_types = signature.input_output_types;
+    let io_types = &signature.input_output_types;
 
     // If a command doesn't have any input/output types, then treat command input type as any
     if io_types.is_empty() {
