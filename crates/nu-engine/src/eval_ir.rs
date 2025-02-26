@@ -1032,7 +1032,7 @@ fn eval_call<D: DebugContext>(
         // If the decl is a custom command
         let block = engine_state.get_block(block_id);
 
-        // check types after acquiring block to avoid unneccessarily cloning Signature
+        // check types after acquiring block to avoid unnecessarily cloning Signature
         check_input_types(&input, &block.signature, head)?;
 
         // Set up a callee stack with the captures and move arguments from the stack into variables
