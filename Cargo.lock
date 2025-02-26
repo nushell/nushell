@@ -2817,15 +2817,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
@@ -5841,13 +5832,13 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.38.0"
-source = "git+https://github.com/nushell/reedline?branch=main#4ca1ed960f8b3a1c9c28e1b5dbfd9e2fd6ae3907"
+source = "git+https://github.com/nushell/reedline?branch=main#f12c4f16aaeff9fd62ca8b2c75606b40e32489c7"
 dependencies = [
  "arboard",
  "chrono",
  "crossterm",
  "fd-lock",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "nu-ansi-term",
  "rusqlite",
  "serde",
@@ -8073,7 +8064,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
