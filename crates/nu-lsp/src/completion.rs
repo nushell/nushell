@@ -202,13 +202,17 @@ mod tests {
         open_unchecked(&client_connection, script.clone());
         let resp = send_complete_request(&client_connection, script.clone(), 0, 8);
 
+        #[cfg(not(windows))]
+        let detail_str = "detail";
+        #[cfg(windows)]
+        let detail_str = "detail\r";
         assert_json_include!(
             actual: result_from_message(resp),
             expected: serde_json::json!([
                 // defined after the cursor
                 {
                     "label": "config n foo bar",
-                    "detail": "detail",
+                    "detail": detail_str,
                     "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 8 }, },
                         "newText": "config n foo bar"
                     },
