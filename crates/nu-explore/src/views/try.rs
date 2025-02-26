@@ -109,7 +109,7 @@ impl View for TryView {
             let cur_w = area.x + 1 + 1 + 1 + max_cmd_len;
             let cur_w_max = area.x + 1 + 1 + 1 + area.width - 2 - 1 - 1 - 1 - 1;
             if cur_w < cur_w_max {
-                f.set_cursor(area.x + 1 + 1 + 1 + max_cmd_len, area.y + 1);
+                f.set_cursor_position((area.x + 1 + 1 + 1 + max_cmd_len, area.y + 1));
             }
         }
 
