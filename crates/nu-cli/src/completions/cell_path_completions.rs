@@ -12,6 +12,7 @@ use super::completion_options::NuMatcher;
 
 pub struct CellPathCompletion<'a> {
     pub full_cell_path: &'a FullCellPath,
+    pub need_strip: bool,
 }
 
 impl Completer for CellPathCompletion<'_> {
@@ -32,13 +33,16 @@ impl Completer for CellPathCompletion<'_> {
             PathMember::String { val, span, .. } => (val.clone(), span),
             PathMember::Int { val, span, .. } => (val.to_string(), span),
         };
+        let mut span = span.to_owned();
         // strip the placeholder
-        prefix_str.pop();
-        let true_end = std::cmp::max(span.start, span.end - 1);
-        let span = Span::new(span.start, true_end);
+        if self.need_strip {
+            prefix_str.pop();
+            let true_end = std::cmp::max(span.start, span.end - 1);
+            span = Span::new(span.start, true_end);
+        }
         let current_span = reedline::Span {
             start: span.start - offset,
-            end: true_end - offset,
+            end: span.end - offset,
         };
 
         let mut matcher = NuMatcher::new(prefix_str, options);

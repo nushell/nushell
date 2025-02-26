@@ -10,7 +10,7 @@ use nu_protocol::{
 
 use crate::{span_to_range, LanguageServer};
 
-/// Important for keep spans in increasing order,
+/// Important to keep spans in increasing order,
 /// since `SemanticToken`s are created by relative positions
 /// to one's previous token
 ///

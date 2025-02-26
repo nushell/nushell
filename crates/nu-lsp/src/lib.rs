@@ -329,6 +329,16 @@ impl LanguageServer {
         engine_state
     }
 
+    fn cache_parsed_block(&mut self, working_set: &mut StateWorkingSet, block: Arc<Block>) {
+        if self.need_parse {
+            // TODO: incremental parsing
+            // add block to working_set for later references
+            working_set.add_block(block.clone());
+            self.cached_state_delta = Some(working_set.delta.clone());
+            self.need_parse = false;
+        }
+    }
+
     pub(crate) fn parse_and_find<'a>(
         &mut self,
         engine_state: &'a mut EngineState,
@@ -376,13 +386,8 @@ impl LanguageServer {
             self.semantic_tokens
                 .insert(uri.clone(), file_semantic_tokens);
         }
-        if self.need_parse {
-            // TODO: incremental parsing
-            // add block to working_set for later references
-            working_set.add_block(block.clone());
-            self.cached_state_delta = Some(working_set.delta.clone());
-            self.need_parse = false;
-        }
+        drop(docs);
+        self.cache_parsed_block(&mut working_set, block.clone());
         Some((block, span, working_set))
     }
 
@@ -680,12 +685,35 @@ impl LanguageServer {
         let path_uri = params.text_document_position.text_document.uri.to_owned();
         let docs = self.docs.lock().ok()?;
         let file = docs.get_document(&path_uri)?;
-
-        let engine_state = Arc::new(self.initial_engine_state.clone());
-        let mut completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
-
         let location = file.offset_at(params.text_document_position.position) as usize;
-        let results = completer.fetch_completions_at(&file.get_content(None)[..location], location);
+        let file_text = file.get_content(None).to_owned();
+        drop(docs);
+        // fallback to default completer where
+        // the text is truncated to `location` and
+        // an extra placeholder token is inserted for correct parsing
+        let need_fallback = location == 0
+            || file_text
+                .get(location - 1..location)
+                .and_then(|s| s.chars().next())
+                .is_some_and(|c| c.is_whitespace() || "|(){}[]<>,:;".contains(c));
+
+        let (results, engine_state) = if need_fallback {
+            let engine_state = Arc::new(self.initial_engine_state.clone());
+            let completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
+            (
+                completer.fetch_completions_at(&file_text[..location], location),
+                engine_state,
+            )
+        } else {
+            let engine_state = Arc::new(self.new_engine_state());
+            let completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
+            let file_path = uri_to_path(&path_uri);
+            let filename = file_path.to_str()?;
+
+            let results = completer.fetch_completions_within_file(filename, location, &file_text);
+            (results, engine_state)
+        };
+
         (!results.is_empty()).then_some(CompletionResponse::Array(
             results
                 .into_iter()
