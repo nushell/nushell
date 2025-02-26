@@ -1,7 +1,9 @@
 use crate::Query;
 use gjson::Value as gjValue;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{Category, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value,
+};
 
 pub struct QueryJson;
 
@@ -16,10 +18,58 @@ impl SimplePluginCommand for QueryJson {
         "execute json query on json file (open --raw <file> | query json 'query string')"
     }
 
+    fn extra_description(&self) -> &str {
+        "query json uses the gjson crate https://github.com/tidwall/gjson.rs to query json data. The query syntax is available at https://github.com/tidwall/gjson/blob/master/SYNTAX.md."
+    }
+
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("query", SyntaxShape::String, "json query")
             .category(Category::Filters)
+    }
+
+    fn examples(&self) -> Vec<nu_protocol::Example> {
+        vec![
+            Example {
+                description: "Get a list of children from a json object",
+                example: r#"'{"children": ["Sara","Alex","Jack"]}' | query json children"#,
+                result: Some(Value::test_list(vec![
+                    Value::test_string("Sara"),
+                    Value::test_string("Alex"),
+                    Value::test_string("Jack"),
+                ])),
+            },
+            Example {
+                description: "Get a list of first names of the friends from a json object",
+                example: r#"'{
+  "friends": [
+    {"first": "Dale", "last": "Murphy", "age": 44, "nets": ["ig", "fb", "tw"]},
+    {"first": "Roger", "last": "Craig", "age": 68, "nets": ["fb", "tw"]},
+    {"first": "Jane", "last": "Murphy", "age": 47, "nets": ["ig", "tw"]}
+  ]
+}' | query json friends.#.first"#,
+                result: Some(Value::test_list(vec![
+                    Value::test_string("Dale"),
+                    Value::test_string("Roger"),
+                    Value::test_string("Jane"),
+                ])),
+            },
+            Example {
+                description: "Get the key named last of the name from a json object",
+                example: r#"'{"name": {"first": "Tom", "last": "Anderson"}}' | query json name.last"#,
+                result: Some(Value::test_string("Anderson")),
+            },
+            Example {
+                description: "Get the count of children from a json object",
+                example: r#"'{"children": ["Sara","Alex","Jack"]}' | query json children.#"#,
+                result: Some(Value::test_int(3)),
+            },
+            Example {
+                description: "Get the first child from the children array in reverse the order using the @reverse modifier from a json object",
+                example: r#"'{"children": ["Sara","Alex","Jack"]}' | query json "children|@reverse|0""#,
+                result: Some(Value::test_string("Jack")),
+            },
+        ]
     }
 
     fn run(
