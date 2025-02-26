@@ -38,9 +38,10 @@ impl LanguageServer {
             let completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
             let file_path = uri_to_path(&path_uri);
             let filename = file_path.to_str()?;
-
-            let results = completer.fetch_completions_within_file(filename, location, &file_text);
-            (results, engine_state)
+            (
+                completer.fetch_completions_within_file(filename, location, &file_text),
+                engine_state,
+            )
         };
 
         (!results.is_empty()).then_some(CompletionResponse::Array(
@@ -189,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    fn complete_command_with_space() {
+    fn complete_command() {
         let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
@@ -199,11 +200,19 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_complete_request(&client_connection, script, 0, 8);
+        let resp = send_complete_request(&client_connection, script.clone(), 0, 8);
 
         assert_json_include!(
             actual: result_from_message(resp),
             expected: serde_json::json!([
+                // defined after the cursor
+                {
+                    "label": "config n foo bar",
+                    "detail": "detail",
+                    "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 8 }, },
+                        "newText": "config n foo bar"
+                    },
+                },
                 {
                     "label": "config nu",
                     "detail": "Edit nu configurations.",
@@ -211,9 +220,113 @@ mod tests {
                         "newText": "config nu"
                     },
                     "kind": 3
+                },
+            ])
+        );
+
+        // short flag
+        let resp = send_complete_request(&client_connection, script.clone(), 1, 18);
+        assert!(result_from_message(resp).as_array().unwrap().contains(
+            &serde_json::json!({
+                "label": "-s",
+                "detail": "test flag",
+                "textEdit": { "range": { "start": { "line": 1, "character": 17 }, "end": { "line": 1, "character": 18 }, },
+                    "newText": "-s"
+                },
+            })
+        ));
+
+        // long flag
+        let resp = send_complete_request(&client_connection, script.clone(), 2, 22);
+        assert!(result_from_message(resp).as_array().unwrap().contains(
+            &serde_json::json!({
+                "label": "--long",
+                "detail": "test flag",
+                "textEdit": { "range": { "start": { "line": 2, "character": 19 }, "end": { "line": 2, "character": 22 }, },
+                    "newText": "--long"
+                },
+            })
+        ));
+
+        // file path
+        let resp = send_complete_request(&client_connection, script.clone(), 2, 18);
+        assert!(result_from_message(resp).as_array().unwrap().contains(
+            &serde_json::json!({
+                "label": "LICENSE",
+                "textEdit": { "range": { "start": { "line": 2, "character": 17 }, "end": { "line": 2, "character": 18 }, },
+                    "newText": "LICENSE"
+                },
+            })
+        ));
+
+        // inside parenthesis
+        let resp = send_complete_request(&client_connection, script, 10, 34);
+        assert!(result_from_message(resp).as_array().unwrap().contains(
+            &serde_json::json!({
+                "label": "-g",
+                "detail": "count indexes and split using grapheme clusters (all visible chars have length 1)",
+                "textEdit": { "range": { "start": { "line": 10, "character": 33 }, "end": { "line": 10, "character": 34 }, },
+                    "newText": "-g"
+                },
+            })
+        ));
+    }
+
+    #[test]
+    fn fallback_completion() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("completion");
+        script.push("fallback.nu");
+        let script = path_to_uri(&script);
+        open_unchecked(&client_connection, script.clone());
+
+        // at the very beginning of a file
+        let resp = send_complete_request(&client_connection, script.clone(), 0, 0);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "alias",
+                    "labelDetails": { "description": "keyword" },
+                    "detail": "Alias a command (with optional flags) to a new name.",
+                    "textEdit": {
+                        "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 0 }, },
+                        "newText": "alias"
+                    },
+                    "kind": 14
                 }
             ])
         );
+        // after a white space character
+        let resp = send_complete_request(&client_connection, script.clone(), 3, 2);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "alias",
+                    "labelDetails": { "description": "keyword" },
+                    "detail": "Alias a command (with optional flags) to a new name.",
+                    "textEdit": {
+                        "range": { "start": { "line": 3, "character": 2 }, "end": { "line": 3, "character": 2 }, },
+                        "newText": "alias"
+                    },
+                    "kind": 14
+                }
+            ])
+        );
+        // fallback file path completion
+        let resp = send_complete_request(&client_connection, script, 5, 4);
+        assert!(result_from_message(resp).as_array().unwrap().contains(
+            &serde_json::json!({
+                "label": "LICENSE",
+                "textEdit": { "range": { "start": { "line": 5, "character": 3 }, "end": { "line": 5, "character": 4 }, },
+                    "newText": "LICENSE"
+                },
+            })
+        ));
     }
 
     #[test]

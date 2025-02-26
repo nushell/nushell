@@ -360,16 +360,21 @@ impl NuCompleter {
                         let (new_span, prefix) =
                             strip_placeholder_if_any(working_set, &span, strip);
                         let ctx = Context::new(working_set, new_span, prefix, offset);
+                        let flag_completion_helper = || {
+                            let mut flag_completions = FlagCompletion {
+                                decl_id: call.decl_id,
+                            };
+                            self.process_completion(&mut flag_completions, &ctx)
+                        };
                         suggestions.extend(match arg {
                             // flags
                             Argument::Named(_) | Argument::Unknown(_)
                                 if prefix.starts_with(b"-") =>
                             {
-                                let mut flag_completions = FlagCompletion {
-                                    decl_id: call.decl_id,
-                                };
-                                self.process_completion(&mut flag_completions, &ctx)
+                                flag_completion_helper()
                             }
+                            // only when `strip` == false
+                            Argument::Positional(_) if prefix == b"-" => flag_completion_helper(),
                             // complete according to expression type and command head
                             Argument::Positional(expr) => {
                                 let command_head = working_set.get_span_contents(call.head);
