@@ -196,6 +196,8 @@ impl NuCompleter {
         contents: &str,
         extra_placeholder: bool,
     ) -> Vec<SemanticSuggestion> {
+        // Adjust offset so that the spans of the suggestions will start at the right
+        // place even with `only_buffer_difference: true`
         let mut pos_to_search = pos + offset;
         if !extra_placeholder {
             pos_to_search = pos_to_search.saturating_sub(1);
@@ -211,8 +213,6 @@ impl NuCompleter {
         let Some(text) = contents.get(start_offset..pos) else {
             return vec![];
         };
-        // Adjust offset so that the spans of the suggestions will start at the right
-        // place even with `only_buffer_difference: true`
         self.complete_by_expression(
             working_set,
             element_expression,
