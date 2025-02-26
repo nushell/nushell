@@ -253,7 +253,8 @@ impl NuCompleter {
             }
             Expr::FullCellPath(full_cell_path) => {
                 // e.g. `$e<tab>` parsed as FullCellPath
-                if full_cell_path.tail.is_empty() {
+                // but `$e.<tab>` without placeholder should be taken as cell_path
+                if full_cell_path.tail.is_empty() && !prefix_str.ends_with('.') {
                     return self.variable_names_completion_helper(
                         working_set,
                         element_expression.span,
@@ -263,7 +264,7 @@ impl NuCompleter {
                 } else {
                     let mut cell_path_completer = CellPathCompletion {
                         full_cell_path,
-                        need_strip: strip,
+                        position: if strip { pos - 1 } else { pos },
                     };
                     let ctx = Context::new(working_set, Span::unknown(), &[], offset);
                     return self.process_completion(&mut cell_path_completer, &ctx);
@@ -425,18 +426,17 @@ impl NuCompleter {
                                         String::from_utf8_lossy(bytes).to_string()
                                     })
                                     .collect();
+                            let mut new_span = span;
                             // strip the placeholder
                             if strip {
                                 if let Some(last) = text_spans.last_mut() {
                                     last.pop();
+                                    new_span = Span::new(span.start, span.end.saturating_sub(1));
                                 }
                             }
-                            if let Some(external_result) = self.external_completion(
-                                closure,
-                                &text_spans,
-                                offset,
-                                Span::new(span.start, span.end.saturating_sub(1)),
-                            ) {
+                            if let Some(external_result) =
+                                self.external_completion(closure, &text_spans, offset, new_span)
+                            {
                                 suggestions.extend(external_result);
                                 return suggestions;
                             }

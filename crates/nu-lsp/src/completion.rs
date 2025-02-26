@@ -391,4 +391,46 @@ mod tests {
             ])
         );
     }
+
+    #[test]
+    fn complete_cell_path() {
+        let (client_connection, _recv) = initialize_language_server(None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("completion");
+        script.push("cell_path.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+        let resp = send_complete_request(&client_connection, script.clone(), 1, 5);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "1",
+                    "labelDetails": { "description": "record<1: string, 🤔🐘: table<baz: int>>" },
+                    "textEdit": {
+                        "newText": "1",
+                        "range": { "start": { "line": 1, "character": 5 }, "end": { "line": 1, "character": 5 } }
+                    },
+                },
+            ])
+        );
+
+        let resp = send_complete_request(&client_connection, script, 1, 10);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "baz",
+                    "labelDetails": { "description": "table<baz: int>" },
+                    "textEdit": {
+                        "newText": "baz",
+                        "range": { "start": { "line": 1, "character": 10 }, "end": { "line": 1, "character": 10 } }
+                    },
+                },
+            ])
+        );
+    }
 }
