@@ -6862,9 +6862,6 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: Expression) -
 fn check_block_pipes_in(working_set: &mut StateWorkingSet, block: &Block) {
     if let Some(elements) = block.pipelines.first().map(|pipeline| &pipeline.elements) {
         // only warn if we're also piping into something
-        if elements.len() < 2 {
-            return;
-        }
         let element = match elements.len() {
             ..2 => return,
             2.. => elements.first().expect("at least two elements"),
