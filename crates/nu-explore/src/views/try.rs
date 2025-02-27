@@ -238,7 +238,7 @@ impl View for TryView {
     }
 
     fn show_data(&mut self, i: usize) -> bool {
-        self.table.as_mut().map_or(false, |v| v.show_data(i))
+        self.table.as_mut().is_some_and(|v| v.show_data(i))
     }
 }
 

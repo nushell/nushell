@@ -247,7 +247,7 @@ pub(crate) fn setup_config(
         &config_file, &env_file, is_login_shell
     );
 
-    let create_scaffold = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
+    let create_scaffold = nu_path::nu_config_dir().is_some_and(|p| !p.exists());
 
     let result = catch_unwind(AssertUnwindSafe(|| {
         #[cfg(feature = "plugin")]
