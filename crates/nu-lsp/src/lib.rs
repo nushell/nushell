@@ -3,8 +3,8 @@ use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
     request::{self, Request},
-    Hover, HoverContents, HoverParams, InlayHint, Location, MarkupContent, MarkupKind, OneOf,
-    Position, Range, ReferencesOptions, RenameOptions, SemanticToken, SemanticTokenType,
+    Hover, HoverContents, HoverParams, InlayHint, MarkupContent, MarkupKind, OneOf, Position,
+    Range, ReferencesOptions, RenameOptions, SemanticToken, SemanticTokenType,
     SemanticTokensLegend, SemanticTokensOptions, SemanticTokensServerCapabilities,
     ServerCapabilities, TextDocumentSyncKind, Uri, WorkDoneProgressOptions, WorkspaceFolder,
     WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
@@ -12,7 +12,7 @@ use lsp_types::{
 use miette::{miette, IntoDiagnostic, Result};
 use nu_protocol::{
     ast::{Block, PathMember},
-    engine::{CachedFile, Command, EngineState, StateDelta, StateWorkingSet},
+    engine::{Command, EngineState, StateDelta, StateWorkingSet},
     DeclId, ModuleId, Span, Type, VarId,
 };
 use std::{
@@ -387,40 +387,6 @@ impl LanguageServer {
         drop(docs);
         self.cache_parsed_block(&mut working_set, block.clone());
         Some((block, span, working_set))
-    }
-
-    fn get_location_by_span<'a>(
-        &self,
-        files: impl Iterator<Item = &'a CachedFile>,
-        span: &Span,
-    ) -> Option<Location> {
-        for cached_file in files.into_iter() {
-            if cached_file.covered_span.contains(span.start) {
-                let path = Path::new(&*cached_file.name);
-                if !path.is_file() {
-                    return None;
-                }
-                let target_uri = path_to_uri(path);
-                if let Some(file) = self.docs.lock().ok()?.get_document(&target_uri) {
-                    return Some(Location {
-                        uri: target_uri,
-                        range: span_to_range(span, file, cached_file.covered_span.start),
-                    });
-                } else {
-                    // in case where the document is not opened yet, typically included by `nu -I`
-                    let temp_doc = FullTextDocument::new(
-                        "nu".to_string(),
-                        0,
-                        String::from_utf8_lossy(cached_file.content.as_ref()).to_string(),
-                    );
-                    return Some(Location {
-                        uri: target_uri,
-                        range: span_to_range(span, &temp_doc, cached_file.covered_span.start),
-                    });
-                }
-            }
-        }
-        None
     }
 
     fn handle_lsp_request<P, H, R>(req: lsp_server::Request, mut param_handler: H) -> Response

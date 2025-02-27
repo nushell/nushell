@@ -1,9 +1,46 @@
-use crate::{Id, LanguageServer};
-use lsp_types::{GotoDefinitionParams, GotoDefinitionResponse};
-use nu_protocol::engine::StateWorkingSet;
+use std::path::Path;
+
+use crate::{path_to_uri, span_to_range, Id, LanguageServer};
+use lsp_textdocument::FullTextDocument;
+use lsp_types::{GotoDefinitionParams, GotoDefinitionResponse, Location};
+use nu_protocol::engine::{CachedFile, StateWorkingSet};
 use nu_protocol::Span;
 
 impl LanguageServer {
+    fn get_location_by_span<'a>(
+        &self,
+        files: impl Iterator<Item = &'a CachedFile>,
+        span: &Span,
+    ) -> Option<Location> {
+        for cached_file in files.into_iter() {
+            if cached_file.covered_span.contains(span.start) {
+                let path = Path::new(&*cached_file.name);
+                if !path.is_file() {
+                    return None;
+                }
+                let target_uri = path_to_uri(path);
+                if let Some(file) = self.docs.lock().ok()?.get_document(&target_uri) {
+                    return Some(Location {
+                        uri: target_uri,
+                        range: span_to_range(span, file, cached_file.covered_span.start),
+                    });
+                } else {
+                    // in case where the document is not opened yet, typically included by `nu -I`
+                    let temp_doc = FullTextDocument::new(
+                        "nu".to_string(),
+                        0,
+                        String::from_utf8_lossy(cached_file.content.as_ref()).to_string(),
+                    );
+                    return Some(Location {
+                        uri: target_uri,
+                        range: span_to_range(span, &temp_doc, cached_file.covered_span.start),
+                    });
+                }
+            }
+        }
+        None
+    }
+
     pub(crate) fn find_definition_span_by_id(
         working_set: &StateWorkingSet,
         id: &Id,
