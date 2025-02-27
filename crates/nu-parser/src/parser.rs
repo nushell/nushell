@@ -2452,7 +2452,7 @@ pub fn parse_full_cell_path(
 
             // Creating a Type scope to parse the new block. This will keep track of
             // the previous input type found in that block
-            let output = parse_block(working_set, &output, span, true, true);
+            let output = parse_block(working_set, &output, span, true, true, false);
 
             let ty = output.output_type();
 
@@ -4596,7 +4596,14 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
         _ => (None, 0),
     };
 
-    let mut output = parse_block(working_set, &output[amt_to_skip..], span, false, false);
+    let mut output = parse_block(
+        working_set,
+        &output[amt_to_skip..],
+        span,
+        false,
+        false,
+        false,
+    );
 
     if let Some(signature) = signature {
         output.signature = signature.0;
@@ -4919,7 +4926,14 @@ pub fn parse_closure_expression(
         }
     }
 
-    let mut output = parse_block(working_set, &output[amt_to_skip..], span, false, false);
+    let mut output = parse_block(
+        working_set,
+        &output[amt_to_skip..],
+        span,
+        false,
+        false,
+        true,
+    );
 
     if let Some(signature) = signature {
         output.signature = signature.0;
@@ -5217,7 +5231,7 @@ pub fn parse_assignment_expression(
     working_set.parse_errors.extend(rhs_error);
 
     trace!("parsing: assignment right-hand side subexpression");
-    let rhs_block = parse_block(working_set, &rhs_tokens, rhs_span, false, true);
+    let rhs_block = parse_block(working_set, &rhs_tokens, rhs_span, false, true, false);
     let rhs_ty = rhs_block.output_type();
 
     // TEMP: double-check that if the RHS block starts with an external call, it must start with a
@@ -6293,6 +6307,7 @@ pub fn parse_block(
     span: Span,
     scoped: bool,
     is_subexpression: bool,
+    is_closure: bool,
 ) -> Block {
     let (lite_block, err) = lite_parse(tokens, working_set);
     if let Some(err) = err {
@@ -6330,7 +6345,9 @@ pub fn parse_block(
             .flat_map(|pipeline| pipeline.elements.first())
             .any(|element| element.has_in_variable(working_set))
     {
-        check_block_pipes_in(working_set, &block);
+        if is_closure {
+            check_block_pipes_in(working_set, &block);
+        }
 
         // Move the block out to prepare it to become a subexpression
         let inner_block = std::mem::take(&mut block);
@@ -6912,7 +6929,14 @@ pub fn parse(
                 working_set.error(err)
             }
 
-            Arc::new(parse_block(working_set, &output, new_span, scoped, false))
+            Arc::new(parse_block(
+                working_set,
+                &output,
+                new_span,
+                scoped,
+                false,
+                false,
+            ))
         }
     };
 

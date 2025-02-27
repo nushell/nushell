@@ -11,8 +11,14 @@ fn quickcheck_parse(data: String) -> bool {
             let mut working_set = StateWorkingSet::new(&context);
             let _ = working_set.add_file("quickcheck".into(), data.as_bytes());
 
-            let _ =
-                nu_parser::parse_block(&mut working_set, &tokens, Span::new(0, 0), false, false);
+            let _ = nu_parser::parse_block(
+                &mut working_set,
+                &tokens,
+                Span::new(0, 0),
+                false,
+                false,
+                false,
+            );
         }
     }
     true
