@@ -573,9 +573,10 @@ mod tests {
         let mut script = fixtures();
         script.push("lsp");
         script.push("workspace");
-        let (client_connection, _recv) = initialize_language_server(Some(
-            serde_json::json!({ "workspaceFolders": serde_json::Value::Null }),
-        ));
+        let (client_connection, _recv) = initialize_language_server(
+            None,
+            Some(serde_json::json!({ "workspaceFolders": serde_json::Value::Null })),
+        );
         script.push("foo.nu");
         let script = path_to_uri(&script);
 
@@ -588,6 +589,7 @@ mod tests {
         script.push("lsp");
         script.push("workspace");
         let (client_connection, _recv) = initialize_language_server(
+            None,
             serde_json::to_value(InitializeParams {
                 workspace_folders: Some(vec![WorkspaceFolder {
                     uri: path_to_uri(&script),
@@ -638,6 +640,7 @@ mod tests {
         script.push("lsp");
         script.push("workspace");
         let (client_connection, _recv) = initialize_language_server(
+            None,
             serde_json::to_value(InitializeParams {
                 workspace_folders: Some(vec![WorkspaceFolder {
                     uri: path_to_uri(&script),
@@ -688,6 +691,7 @@ mod tests {
         script.push("lsp");
         script.push("workspace");
         let (client_connection, _recv) = initialize_language_server(
+            None,
             serde_json::to_value(InitializeParams {
                 workspace_folders: Some(vec![WorkspaceFolder {
                     uri: path_to_uri(&script),
@@ -766,6 +770,7 @@ mod tests {
         script.push("lsp");
         script.push("workspace");
         let (client_connection, _recv) = initialize_language_server(
+            None,
             serde_json::to_value(InitializeParams {
                 workspace_folders: Some(vec![WorkspaceFolder {
                     uri: path_to_uri(&script),
@@ -834,6 +839,7 @@ mod tests {
         script.push("lsp");
         script.push("workspace");
         let (client_connection, _recv) = initialize_language_server(
+            None,
             serde_json::to_value(InitializeParams {
                 workspace_folders: Some(vec![WorkspaceFolder {
                     uri: path_to_uri(&script),
@@ -927,7 +933,7 @@ mod tests {
         script.push("foo.nu");
         let script = path_to_uri(&script);
 
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
         open_unchecked(&client_connection, script.clone());
 
         let message = send_document_highlight_request(&client_connection, script.clone(), 3, 5);

@@ -659,17 +659,33 @@ mod tests {
         TextDocumentContentChangeEvent, TextDocumentIdentifier, TextDocumentItem,
         TextDocumentPositionParams, WorkDoneProgressParams,
     };
+    use nu_protocol::{debugger::WithoutDebug, engine::Stack, PipelineData, ShellError, Value};
     use nu_test_support::fs::fixtures;
-    use std::sync::mpsc::Receiver;
+    use std::sync::mpsc::{self, Receiver};
     use std::time::Duration;
 
+    /// Initialize the language server for test purposes
+    ///
+    /// # Arguments
+    /// - `nu_config_code`: Optional user defined `config.nu` that is loaded on start
+    /// - `params`: Optional client side capability parameters
     pub(crate) fn initialize_language_server(
+        nu_config_code: Option<&str>,
         params: Option<serde_json::Value>,
     ) -> (Connection, Receiver<Result<()>>) {
-        use std::sync::mpsc;
-        let (client_connection, server_connection) = Connection::memory();
         let engine_state = nu_cmd_lang::create_default_context();
-        let engine_state = nu_command::add_shell_command_context(engine_state);
+        let mut engine_state = nu_command::add_shell_command_context(engine_state);
+        engine_state.generate_nu_constant();
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        engine_state.add_env_var(
+            "PWD".into(),
+            nu_protocol::Value::test_string(cwd.to_string_lossy()),
+        );
+        if let Some(code) = nu_config_code {
+            assert!(merge_input(code.as_bytes(), &mut engine_state, &mut Stack::new()).is_ok());
+        }
+
+        let (client_connection, server_connection) = Connection::memory();
         let lsp_server =
             LanguageServer::initialize_connection(server_connection, None, engine_state).unwrap();
 
@@ -700,9 +716,40 @@ mod tests {
         (client_connection, recv)
     }
 
+    /// merge_input executes the given input into the engine
+    /// and merges the state
+    fn merge_input(
+        input: &[u8],
+        engine_state: &mut EngineState,
+        stack: &mut Stack,
+    ) -> Result<(), ShellError> {
+        let (block, delta) = {
+            let mut working_set = StateWorkingSet::new(engine_state);
+
+            let block = nu_parser::parse(&mut working_set, None, input, false);
+
+            assert!(working_set.parse_errors.is_empty());
+
+            (block, working_set.render())
+        };
+
+        engine_state.merge_delta(delta)?;
+
+        assert!(nu_engine::eval_block::<WithoutDebug>(
+            engine_state,
+            stack,
+            &block,
+            PipelineData::Value(Value::nothing(Span::unknown()), None),
+        )
+        .is_ok());
+
+        // Merge environment into the permanent state
+        engine_state.merge_env(stack)
+    }
+
     #[test]
     fn shutdown_on_request() {
-        let (client_connection, recv) = initialize_language_server(None);
+        let (client_connection, recv) = initialize_language_server(None, None);
 
         client_connection
             .sender
@@ -840,7 +887,7 @@ mod tests {
 
     #[test]
     fn hover_on_variable() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -859,7 +906,7 @@ mod tests {
 
     #[test]
     fn hover_on_cell_path() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -893,7 +940,7 @@ mod tests {
 
     #[test]
     fn hover_on_custom_command() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -917,7 +964,7 @@ mod tests {
 
     #[test]
     fn hover_on_external_command() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -943,7 +990,7 @@ mod tests {
 
     #[test]
     fn hover_on_str_join() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -967,7 +1014,7 @@ mod tests {
 
     #[test]
     fn hover_on_module() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");

@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn semantic_token_internals() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");

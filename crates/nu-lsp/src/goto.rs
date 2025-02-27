@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn goto_definition_for_none_existing_file() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut none_existent_path = root();
         none_existent_path.push("none-existent.nu");
@@ -154,7 +154,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_cell_path() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_command() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -229,7 +229,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_command_unicode() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -254,7 +254,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_command_parameter() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -279,7 +279,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable_in_else_block() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -304,7 +304,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable_in_match_guard() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -329,7 +329,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable_in_each() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -354,7 +354,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_module() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -379,7 +379,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_module_in_another_file() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -404,7 +404,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_module_in_hide() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -429,7 +429,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_module_in_overlay() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");

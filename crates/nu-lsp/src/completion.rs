@@ -162,7 +162,7 @@ mod tests {
 
     #[test]
     fn complete_on_variable() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -191,7 +191,7 @@ mod tests {
 
     #[test]
     fn complete_command() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -278,7 +278,7 @@ mod tests {
 
     #[test]
     fn fallback_completion() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -335,7 +335,7 @@ mod tests {
 
     #[test]
     fn complete_command_with_line() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -365,7 +365,7 @@ mod tests {
 
     #[test]
     fn complete_keyword() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -394,7 +394,7 @@ mod tests {
 
     #[test]
     fn complete_cell_path() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -429,6 +429,52 @@ mod tests {
                         "newText": "baz",
                         "range": { "start": { "line": 1, "character": 10 }, "end": { "line": 1, "character": 10 } }
                     },
+                },
+            ])
+        );
+    }
+
+    #[test]
+    fn complete_with_external_completer() {
+        let config = "$env.config.completions.external.completer = {|spans| ['--background']}";
+        let (client_connection, _recv) = initialize_language_server(Some(config), None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("completion");
+        script.push("external.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+        let resp = send_complete_request(&client_connection, script.clone(), 0, 11);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "--background",
+                    "labelDetails": { "description": "string" },
+                    "textEdit": {
+                        "newText": "--background",
+                        "range": { "start": { "line": 0, "character": 5 }, "end": { "line": 0, "character": 11 } }
+                    },
+                },
+            ])
+        );
+
+        // fallback completer, special argument treatment for `sudo`/`doas`
+        let resp = send_complete_request(&client_connection, script, 0, 5);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "alias",
+                    "labelDetails": { "description": "keyword" },
+                    "detail": "Alias a command (with optional flags) to a new name.",
+                    "textEdit": {
+                        "range": { "start": { "line": 0, "character": 5 }, "end": { "line": 0, "character": 5 }, },
+                        "newText": "alias"
+                    },
+                    "kind": 14
                 },
             ])
         );
