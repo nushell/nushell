@@ -23,7 +23,7 @@ fn catch_can_access_error() {
 
 #[test]
 fn catch_can_access_error_as_dollar_in() {
-    let output = nu!("try { foobarbaz } catch { $in | get raw }");
+    let output = nu!("try { foobarbaz } catch { get raw }");
 
     assert!(output.err.contains("External command failed"));
 }

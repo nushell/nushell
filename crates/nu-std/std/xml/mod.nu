@@ -95,7 +95,7 @@ def xupdate-string-step [ step: string rest: list updater: closure ] {
 }
 
 def xupdate-int-step [ step: int rest: list updater: closure ] {
-    $in | enumerate | each {|it|
+    enumerate | each {|it|
         let item = $it.item
         let idx = $it.index
 
@@ -108,7 +108,7 @@ def xupdate-int-step [ step: int rest: list updater: closure ] {
 }
 
 def xupdate-closure-step [ step: closure rest: list updater: closure ] {
-    $in | each {|it|
+    each {|it|
         if (do $step $it) {
             [ $it ] | xupdate-internal $rest $updater | get 0
         } else {
@@ -194,7 +194,7 @@ export def xinsert [
                     # position is greater than number of elements) in content of all entries of input matched by
                     # path. If not specified inserts at the end.
 ] {
-    $in | xupdate $path {|entry|
+    xupdate $path {|entry|
         match ($entry | xtype) {
             'tag' => {
                 let new_content = if $position == null {
