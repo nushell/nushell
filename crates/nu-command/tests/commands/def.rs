@@ -329,9 +329,9 @@ fn def_recursive_func_should_work() {
 def recursive [c: int] {
     if ($c == 0) { return }
     if ($c mod 2 > 0) {
-        $in | recursive ($c - 1)
-    } else {
         recursive ($c - 1)
+    } else {
+        ignore | recursive ($c - 1)
     }
 }"#);
     assert!(actual.err.is_empty());
@@ -346,9 +346,9 @@ fn export_def_recursive_func_should_work() {
 export def recursive [c: int] {
     if ($c == 0) { return }
     if ($c mod 2 > 0) {
-        $in | recursive ($c - 1)
-    } else {
         recursive ($c - 1)
+    } else {
+        ignore | recursive ($c - 1)
     }
 }"#);
     assert!(actual.err.is_empty());
