@@ -14,12 +14,20 @@ pub enum ParseWarning {
         span: Span,
         url: String,
     },
+
+    #[error("Found $in at the start of a command.")]
+    #[diagnostic(help("Using $in at the start of a command collects the pipeline input.\nIf you did mean to collect the pipeline input, replace this with the `collect` command."))]
+    UnnecessaryInVariable {
+        #[label("try removing this")]
+        span: Span,
+    },
 }
 
 impl ParseWarning {
     pub fn span(&self) -> Span {
         match self {
             ParseWarning::DeprecatedWarning { span, .. } => *span,
+            ParseWarning::UnnecessaryInVariable { span, .. } => *span,
         }
     }
 }

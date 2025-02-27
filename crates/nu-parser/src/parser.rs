@@ -14,8 +14,8 @@ use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean,
-    FilesizeUnit, Flag, ParseError, PositionalArg, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    FilesizeUnit, Flag, ParseError, ParseWarning, PositionalArg, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -6330,6 +6330,8 @@ pub fn parse_block(
             .flat_map(|pipeline| pipeline.elements.first())
             .any(|element| element.has_in_variable(working_set))
     {
+        check_block_pipes_in(working_set, &block);
+
         // Move the block out to prepare it to become a subexpression
         let inner_block = std::mem::take(&mut block);
         block.span = inner_block.span;
@@ -6837,6 +6839,39 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: Expression) -
         // We can expect it to have the same result type
         ty,
     )
+}
+
+// Report a warning if the first pipeline element of a block is `$in` followed by a pipe
+fn check_block_pipes_in(working_set: &mut StateWorkingSet, block: &Block) {
+    if let Some(elements) = block.pipelines.first().map(|pipeline| &pipeline.elements) {
+        // only warn if we're also piping into something
+        if elements.len() < 2 {
+            return;
+        }
+        let element = match elements.len() {
+            ..2 => return,
+            2.. => elements.first().expect("at least two elements"),
+        };
+
+        if let Expr::FullCellPath(cell_path) = &element.expr.expr {
+            if matches!(
+                **cell_path,
+                FullCellPath {
+                    head: Expression {
+                        expr: Expr::Var(id),
+                        ..
+                    },
+                    ..
+                } if id == IN_VARIABLE_ID
+            ) {
+                working_set
+                    .parse_warnings
+                    .push(ParseWarning::UnnecessaryInVariable {
+                        span: element.expr.span(working_set),
+                    })
+            }
+        }
+    }
 }
 
 // Parses a vector of u8 to create an AST Block. If a file name is given, then
