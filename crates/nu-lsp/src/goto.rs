@@ -25,7 +25,8 @@ impl LanguageServer {
                         range: span_to_range(span, file, cached_file.covered_span.start),
                     });
                 } else {
-                    // in case where the document is not opened yet, typically included by `nu -I`
+                    // in case where the document is not opened yet,
+                    // typically included by the `use/source` command
                     let temp_doc = FullTextDocument::new(
                         "nu".to_string(),
                         0,
