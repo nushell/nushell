@@ -3538,6 +3538,7 @@ dependencies = [
  "percent-encoding",
  "reedline",
  "rstest",
+ "strum",
  "sysinfo",
  "tempfile",
  "unicode-segmentation",

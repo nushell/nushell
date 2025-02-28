@@ -40,6 +40,7 @@ miette = { workspace = true, features = ["fancy-no-backtrace"] }
 nucleo-matcher = { workspace = true }
 percent-encoding = { workspace = true }
 sysinfo = { workspace = true }
+strum = { workspace = true }
 unicode-segmentation = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 which = { workspace = true }
