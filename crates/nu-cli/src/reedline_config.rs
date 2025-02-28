@@ -1284,14 +1284,14 @@ fn edit_from_record(
         #[cfg(feature = "system-clipboard")]
         "pastesystem" => EditCommand::PasteSystem,
         "cutinside" => {
-            let value = extract_value("value", record, span)?;
+            let value = extract_value("left", record, span)?;
             let left = extract_char(value)?;
             let value = extract_value("right", record, span)?;
             let right = extract_char(value)?;
             EditCommand::CutInside { left, right }
         }
-        "yankinsider" => {
-            let value = extract_value("value", record, span)?;
+        "yankinside" => {
+            let value = extract_value("left", record, span)?;
             let left = extract_char(value)?;
             let value = extract_value("right", record, span)?;
             let right = extract_char(value)?;
