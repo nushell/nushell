@@ -4,7 +4,7 @@ use crate::completions::{
 use nu_protocol::{
     ast::{self, Comparison, Expr, Expression},
     engine::{Stack, StateWorkingSet},
-    Span, Type, Value,
+    Span, Type, Value, ENV_VARIABLE_ID,
 };
 use reedline::Suggestion;
 use strum::{EnumMessage, IntoEnumIterator};
@@ -178,6 +178,9 @@ fn is_expression_mutable(expr: &Expr, working_set: &StateWorkingSet) -> bool {
     let Expr::Var(id) = path.head.expr else {
         return false;
     };
+    if id == ENV_VARIABLE_ID {
+        return true;
+    }
     let var = working_set.get_variable(id);
     var.mutable
 }

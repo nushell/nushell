@@ -118,11 +118,11 @@ impl fmt::Display for Math {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, EnumMessage)]
 pub enum Boolean {
-    #[strum(message = "Either value is true (short-circuits when first value is true)")]
+    #[strum(message = "Logical OR (short-circuiting)")]
     Or,
-    #[strum(message = "One value is true and the other is false")]
+    #[strum(message = "Logical XOR")]
     Xor,
-    #[strum(message = "Both values are true (short-circuits when first value is false)")]
+    #[strum(message = "Logical AND (short-circuiting)")]
     And,
 }
 

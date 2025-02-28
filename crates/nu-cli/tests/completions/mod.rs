@@ -2335,6 +2335,16 @@ fn assignment_operator_completions(mut custom_completer: NuCompleter) {
     let expected: Vec<_> = vec!["!=", "=", "==", "in", "not-in"];
     let suggestions = custom_completer.complete("mut foo = null; $foo ", 21);
     match_suggestions(&expected, &suggestions);
+
+    // $env should be considered mutable
+    let suggestions = custom_completer.complete("$env.config.keybindings ", 24);
+    // == != in not-in
+    // has not-has ++=
+    // = ++=
+    assert_eq!(9, suggestions.len());
+    let expected: Vec<_> = vec!["++", "++="];
+    let suggestions = custom_completer.complete("$env.config.keybindings +", 25);
+    match_suggestions(&expected, &suggestions);
 }
 
 #[test]
