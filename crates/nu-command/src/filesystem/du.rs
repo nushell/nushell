@@ -118,7 +118,7 @@ impl Command for Du {
                     min_size,
                 };
                 Ok(
-                    du_for_one_pattern(args, &current_dir, tag, engine_state.signals())?
+                    du_for_one_pattern(args, &current_dir, tag, engine_state.signals().clone())?
                         .into_pipeline_data(tag, engine_state.signals().clone()),
                 )
             }
@@ -137,7 +137,7 @@ impl Command for Du {
                         args,
                         &current_dir,
                         tag,
-                        engine_state.signals(),
+                        engine_state.signals().clone(),
                     )?)
                 }
 
@@ -163,9 +163,8 @@ fn du_for_one_pattern(
     args: DuArgs,
     current_dir: &Path,
     span: Span,
-    signals: &Signals,
+    signals: Signals,
 ) -> Result<impl Iterator<Item = Value> + Send, ShellError> {
-    let signals_clone = signals.clone();
     let exclude = args.exclude.map_or(Ok(None), move |x| {
         Pattern::new(x.item.as_ref())
             .map(Some)
@@ -176,7 +175,8 @@ fn du_for_one_pattern(
     })?;
 
     let paths = match args.path {
-        Some(p) => nu_engine::glob_from(&p, current_dir, span, None),
+        Some(p) => nu_engine::glob_from(&p, current_dir, span, None, signals.clone()),
+
         // The * pattern should never fail.
         None => nu_engine::glob_from(
             &Spanned {
@@ -186,6 +186,7 @@ fn du_for_one_pattern(
             current_dir,
             span,
             None,
+            signals.clone(),
         ),
     }
     .map(|f| f.1)?;
@@ -206,7 +207,7 @@ fn du_for_one_pattern(
     Ok(paths.filter_map(move |p| match p {
         Ok(a) => {
             if a.is_dir() {
-                match DirInfo::new(a, &params, max_depth, span, &signals_clone) {
+                match DirInfo::new(a, &params, max_depth, span, &signals) {
                     Ok(v) => Some(Value::from(v)),
                     Err(_) => None,
                 }
