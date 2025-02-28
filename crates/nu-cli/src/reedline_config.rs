@@ -1008,9 +1008,15 @@ fn event_from_record(
         "submit" => ReedlineEvent::Submit,
         "submitornewline" => ReedlineEvent::SubmitOrNewline,
         "esc" | "escape" => ReedlineEvent::Esc,
-        "mouse" => ReedlineEvent::Mouse,
-        // TODO: resize
-        // TODO: edit
+        // Non-sensical for user configuration:
+        //
+        // `ReedlineEvent::Mouse` - itself a no-op
+        // `ReedlineEvent::Resize` - requires size info specifically from the ANSI resize
+        // event
+        //
+        // Handled above in `parse_event`:
+        //
+        // `ReedlineEvent::Edit`
         "repaint" => ReedlineEvent::Repaint,
         "previoushistory" => ReedlineEvent::PreviousHistory,
         "up" => ReedlineEvent::Up,
@@ -1019,8 +1025,10 @@ fn event_from_record(
         "left" => ReedlineEvent::Left,
         "nexthistory" => ReedlineEvent::NextHistory,
         "searchhistory" => ReedlineEvent::SearchHistory,
-        // TODO: multiple
-        // TODO: untilfound
+        // Handled above in `parse_event`:
+        //
+        // `ReedlineEvent::Multiple`
+        // `ReedlineEvent::UntilFound`
         "menu" => {
             let menu = extract_value("name", record, span)?;
             ReedlineEvent::Menu(menu.to_expanded_string("", config))
@@ -1148,7 +1156,8 @@ fn edit_from_record(
             let char = extract_char(value)?;
             EditCommand::ReplaceChar(char)
         }
-        // TODO: not sure how to write replacechars
+        // `EditCommand::ReplaceChars` - Internal hack not sanely implementable as a
+        // standalone binding
         "backspace" => EditCommand::Backspace,
         "delete" => EditCommand::Delete,
         "cutchar" => EditCommand::CutChar,
