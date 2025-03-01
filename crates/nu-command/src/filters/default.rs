@@ -23,6 +23,11 @@ impl Command for Default {
                 SyntaxShape::String,
                 "The name of the column.",
             )
+            .switch(
+                "empty",
+                "also compact empty items like \"\", {}, and []",
+                Some('e'),
+            )
             .category(Category::Filters)
     }
 
@@ -37,7 +42,8 @@ impl Command for Default {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        default(engine_state, stack, call, input)
+        let empty = call.has_flag(engine_state, stack, "empty")?;
+        default(engine_state, stack, call, input, empty)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -89,6 +95,7 @@ fn default(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
+    default_when_empty: bool,
 ) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata();
     let value: Value = call.req(engine_state, stack, 0)?;
@@ -104,7 +111,9 @@ fn default(
                     } => {
                         let record = record.to_mut();
                         if let Some(val) = record.get_mut(&column.item) {
-                            if matches!(val, Value::Nothing { .. }) {
+                            if matches!(val, Value::Nothing { .. })
+                                || (default_when_empty && val.is_empty())
+                            {
                                 *val = value.clone();
                             }
                         } else {
@@ -118,7 +127,12 @@ fn default(
                 engine_state.signals(),
             )
             .map(|x| x.set_metadata(metadata))
-    } else if input.is_nothing() {
+    } else if input.is_nothing()
+        || (default_when_empty
+            && (matches!(input, PipelineData::Value(Value::String { ref val, .. }, _) if val.is_empty())
+                || matches!(input, PipelineData::Value(Value::Record { ref val, .. }, _) if val.is_empty())
+                || matches!(input, PipelineData::Value(Value::List { ref vals, .. }, _) if vals.is_empty())))
+    {
         Ok(value.into_pipeline_data())
     } else {
         Ok(input)
