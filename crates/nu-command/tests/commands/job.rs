@@ -208,7 +208,7 @@ fn job_extern_into_value_is_not_silent() {
 fn job_extern_into_pipe_is_not_silent() {
     let actual = nu!(r#"
         job spawn { 
-            print (nu -c "10" | nu --stdin -c "($in | into int) + 1")
+            print (nu -c "10" | nu -c "($in | into int) + 1")
         }
         sleep 1sec"#);
 

@@ -33,7 +33,7 @@ use nu_std::load_standard_library;
 use nu_utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
-use std::{path::PathBuf, str::FromStr, sync::Arc};
+use std::{io::IsTerminal, path::PathBuf, str::FromStr, sync::Arc};
 
 /// Get the directory where the Nushell executable is located.
 fn current_exe_directory() -> PathBuf {
@@ -392,9 +392,9 @@ fn main() -> Result<()> {
     perf!("run test_bins", start_time, use_color);
 
     start_time = std::time::Instant::now();
-    let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
+    let input = if !std::io::stdin().is_terminal() {
         trace!("redirecting stdin");
-        PipelineData::ByteStream(ByteStream::stdin(redirect_stdin.span)?, None)
+        PipelineData::ByteStream(ByteStream::stdin(Span::unknown())?, None)
     } else {
         trace!("not redirecting stdin");
         PipelineData::empty()

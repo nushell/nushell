@@ -3,7 +3,7 @@ use nu_parser::{escape_for_script_arg, parse};
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::StateWorkingSet,
-    report_parse_error,
+    report_parse_error, report_parse_warning, ParseWarning,
 };
 use nu_utils::{escape_quote_string, stdout_write_all_and_flush};
 
@@ -221,8 +221,19 @@ pub(crate) fn parse_commandline_args(
                 std::process::exit(0);
             }
 
+            if let Some(redirect_stdin) = redirect_stdin {
+                report_parse_warning(
+                    &StateWorkingSet::new(engine_state),
+                    &ParseWarning::CustomDeprecatedWarning {
+                        old: "--stdin flag".into(),
+                        label: "remove this".into(),
+                        span: redirect_stdin.span,
+                        help: "Redirecting stdin is now the default behavior. The --stdin flag will be removed in a future release.".into(),
+                    },
+                );
+            }
+
             return Ok(NushellCliArgs {
-                redirect_stdin,
                 login_shell,
                 interactive_shell,
                 commands,
@@ -263,7 +274,6 @@ pub(crate) fn parse_commandline_args(
 
 #[derive(Clone)]
 pub(crate) struct NushellCliArgs {
-    pub(crate) redirect_stdin: Option<Spanned<String>>,
     pub(crate) login_shell: Option<Spanned<String>>,
     pub(crate) interactive_shell: Option<Spanned<String>>,
     pub(crate) commands: Option<Spanned<String>>,

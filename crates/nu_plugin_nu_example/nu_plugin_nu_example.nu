@@ -1,4 +1,4 @@
-#!/usr/bin/env -S nu --stdin
+#!/usr/bin/env nu
 # Example of using a Nushell script as a Nushell plugin
 #
 # This is a port of the nu_plugin_python_example plugin to Nushell itself. There is probably not
