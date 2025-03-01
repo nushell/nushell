@@ -86,6 +86,20 @@ impl Command for Default {
                     }),
                 ])),
             },
+            Example {
+                description: r#"Replace the empty string in the "a" column of a list"#,
+                example: "[{a:1 b:2} {a:'' b:1}] | default -e 'N/A' a",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" => Value::test_int(1),
+                        "b" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_string("N/A"),
+                        "b" => Value::test_int(1),
+                    }),
+                ])),
+            },
         ]
     }
 }
