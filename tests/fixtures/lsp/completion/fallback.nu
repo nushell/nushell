@@ -4,3 +4,5 @@ echo $gre
 | st
 
 ls l
+
+$greeting not-h

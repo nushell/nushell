@@ -56,6 +56,11 @@ impl Completer for CellPathCompletion<'_> {
         };
 
         let mut matcher = NuMatcher::new(prefix_str, options);
+        let path_members = self
+            .full_cell_path
+            .tail
+            .get(0..path_member_num_before_pos)
+            .unwrap_or_default();
         let value = eval_cell_path(
             working_set,
             stack,
@@ -65,11 +70,6 @@ impl Completer for CellPathCompletion<'_> {
         )
         .unwrap_or_default();
 
-        let path_members = self
-            .full_cell_path
-            .tail
-            .get(0..path_member_num_before_pos)
-            .unwrap_or_default();
         for suggestion in get_suggestions_by_value(&value, current_span) {
             matcher.add_semantic_suggestion(suggestion);
         }

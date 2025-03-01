@@ -63,7 +63,8 @@ impl LanguageServer {
                             .map(|kind| match kind {
                                 SuggestionKind::Type(t) => t.to_string(),
                                 SuggestionKind::Command(cmd) => cmd.to_string(),
-                                SuggestionKind::Module => "".to_string(),
+                                SuggestionKind::Module => "module".to_string(),
+                                SuggestionKind::Operator => "operator".to_string(),
                             })
                             .map(|s| CompletionItemLabelDetails {
                                 detail: None,
@@ -113,6 +114,7 @@ impl LanguageServer {
                 _ => None,
             },
             SuggestionKind::Module => Some(CompletionItemKind::MODULE),
+            SuggestionKind::Operator => Some(CompletionItemKind::OPERATOR),
         })
     }
 }
@@ -476,6 +478,51 @@ mod tests {
                     },
                     "kind": 14
                 },
+            ])
+        );
+    }
+
+    #[test]
+    fn complete_operators() {
+        let (client_connection, _recv) = initialize_language_server(None, None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("completion");
+        script.push("fallback.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+        // fallback completer
+        let resp = send_complete_request(&client_connection, script.clone(), 7, 10);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "!=",
+                    "labelDetails": { "description": "operator" },
+                    "textEdit": {
+                        "newText": "!=",
+                        "range": { "start": { "character": 10, "line": 7 }, "end": { "character": 10, "line": 7 } }
+                    },
+                    "kind": 24 // operator kind
+                }
+            ])
+        );
+
+        let resp = send_complete_request(&client_connection, script.clone(), 7, 15);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "not-has",
+                    "labelDetails": { "description": "operator" },
+                    "textEdit": {
+                        "newText": "not-has",
+                        "range": { "start": { "character": 10, "line": 7 }, "end": { "character": 15, "line": 7 } }
+                    },
+                    "kind": 24 // operator kind
+                }
             ])
         );
     }
