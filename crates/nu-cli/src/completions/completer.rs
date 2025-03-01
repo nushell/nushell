@@ -7,7 +7,7 @@ use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse};
 use nu_protocol::{
-    ast::{Argument, Expr, Expression, FindMapResult, Traverse},
+    ast::{Argument, Block, Expr, Expression, FindMapResult, Traverse},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
     PipelineData, Span, Value,
@@ -21,7 +21,7 @@ use super::base::{SemanticSuggestion, SuggestionKind};
 ///
 /// returns the inner-most pipeline_element of interest
 /// i.e. the one that contains given position and needs completion
-pub fn find_pipeline_element_by_position<'a>(
+fn find_pipeline_element_by_position<'a>(
     expr: &'a Expression,
     working_set: &'a StateWorkingSet,
     pos: usize,
@@ -76,9 +76,17 @@ pub fn find_pipeline_element_by_position<'a>(
 
 /// Before completion, an additional character `a` is added to the source as a placeholder for correct parsing results.
 /// This function helps to strip it
-fn strip_placeholder<'a>(working_set: &'a StateWorkingSet, span: &Span) -> (Span, &'a [u8]) {
-    let new_end = std::cmp::max(span.end - 1, span.start);
-    let new_span = Span::new(span.start, new_end);
+fn strip_placeholder_if_any<'a>(
+    working_set: &'a StateWorkingSet,
+    span: &Span,
+    strip: bool,
+) -> (Span, &'a [u8]) {
+    let new_span = if strip {
+        let new_end = std::cmp::max(span.end - 1, span.start);
+        Span::new(span.start, new_end)
+    } else {
+        span.to_owned()
+    };
     let prefix = working_set.get_span_contents(new_span);
     (new_span, prefix)
 }
@@ -90,6 +98,7 @@ fn strip_placeholder_with_rsplit<'a>(
     working_set: &'a StateWorkingSet,
     span: &Span,
     predicate: impl FnMut(&u8) -> bool,
+    strip: bool,
 ) -> (Span, &'a [u8]) {
     let span_content = working_set.get_span_contents(*span);
     let mut prefix = span_content
@@ -97,7 +106,7 @@ fn strip_placeholder_with_rsplit<'a>(
         .next()
         .unwrap_or(span_content);
     let start = span.end.saturating_sub(prefix.len());
-    if !prefix.is_empty() {
+    if strip && !prefix.is_empty() {
         prefix = &prefix[..prefix.len() - 1];
     }
     let end = start + prefix.len();
@@ -142,15 +151,11 @@ impl NuCompleter {
         }
     }
 
-    pub fn fetch_completions_at(&mut self, line: &str, pos: usize) -> Vec<SemanticSuggestion> {
+    pub fn fetch_completions_at(&self, line: &str, pos: usize) -> Vec<SemanticSuggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
         // TODO: Callers should be trimming the line themselves
         let line = if line.len() > pos { &line[..pos] } else { line };
-        // Adjust offset so that the spans of the suggestions will start at the right
-        // place even with `only_buffer_difference: true`
-        let pos = offset + pos;
-
         let block = parse(
             &mut working_set,
             Some("completer"),
@@ -158,19 +163,64 @@ impl NuCompleter {
             format!("{}a", line).as_bytes(),
             false,
         );
-        let Some(element_expression) = block.find_map(&working_set, &|expr: &Expression| {
-            find_pipeline_element_by_position(expr, &working_set, pos)
+        self.fetch_completions_by_block(block, &working_set, pos, offset, line, true)
+    }
+
+    /// For completion in LSP server.
+    /// We don't truncate the contents in order
+    /// to complete the definitions after the cursor.
+    ///
+    /// And we avoid the placeholder to reuse the parsed blocks
+    /// cached while handling other LSP requests, e.g. diagnostics
+    pub fn fetch_completions_within_file(
+        &self,
+        filename: &str,
+        pos: usize,
+        contents: &str,
+    ) -> Vec<SemanticSuggestion> {
+        let mut working_set = StateWorkingSet::new(&self.engine_state);
+        let block = parse(&mut working_set, Some(filename), contents.as_bytes(), false);
+        let Some(file_span) = working_set.get_span_for_filename(filename) else {
+            return vec![];
+        };
+        let offset = file_span.start;
+        self.fetch_completions_by_block(block.clone(), &working_set, pos, offset, contents, false)
+    }
+
+    fn fetch_completions_by_block(
+        &self,
+        block: Arc<Block>,
+        working_set: &StateWorkingSet,
+        pos: usize,
+        offset: usize,
+        contents: &str,
+        extra_placeholder: bool,
+    ) -> Vec<SemanticSuggestion> {
+        // Adjust offset so that the spans of the suggestions will start at the right
+        // place even with `only_buffer_difference: true`
+        let mut pos_to_search = pos + offset;
+        if !extra_placeholder {
+            pos_to_search = pos_to_search.saturating_sub(1);
+        }
+        let Some(element_expression) = block.find_map(working_set, &|expr: &Expression| {
+            find_pipeline_element_by_position(expr, working_set, pos_to_search)
         }) else {
             return vec![];
         };
 
-        // line of element_expression
+        // text of element_expression
         let start_offset = element_expression.span.start - offset;
-        if let Some(line) = line.get(start_offset..) {
-            self.complete_by_expression(&working_set, element_expression, offset, pos, line)
-        } else {
-            vec![]
-        }
+        let Some(text) = contents.get(start_offset..pos) else {
+            return vec![];
+        };
+        self.complete_by_expression(
+            working_set,
+            element_expression,
+            offset,
+            pos_to_search,
+            text,
+            extra_placeholder,
+        )
     }
 
     /// Complete given the expression of interest
@@ -180,13 +230,15 @@ impl NuCompleter {
     /// * `offset` - start offset of current working_set span
     /// * `pos` - cursor position, should be > offset
     /// * `prefix_str` - all the text before the cursor, within the `element_expression`
-    pub fn complete_by_expression(
+    /// * `strip` - whether to strip the extra placeholder from a span
+    fn complete_by_expression(
         &self,
         working_set: &StateWorkingSet,
         element_expression: &Expression,
         offset: usize,
         pos: usize,
         prefix_str: &str,
+        strip: bool,
     ) -> Vec<SemanticSuggestion> {
         let mut suggestions: Vec<SemanticSuggestion> = vec![];
 
@@ -196,18 +248,24 @@ impl NuCompleter {
                     working_set,
                     element_expression.span,
                     offset,
+                    strip,
                 );
             }
             Expr::FullCellPath(full_cell_path) => {
                 // e.g. `$e<tab>` parsed as FullCellPath
-                if full_cell_path.tail.is_empty() {
+                // but `$e.<tab>` without placeholder should be taken as cell_path
+                if full_cell_path.tail.is_empty() && !prefix_str.ends_with('.') {
                     return self.variable_names_completion_helper(
                         working_set,
                         element_expression.span,
                         offset,
+                        strip,
                     );
                 } else {
-                    let mut cell_path_completer = CellPathCompletion { full_cell_path };
+                    let mut cell_path_completer = CellPathCompletion {
+                        full_cell_path,
+                        position: if strip { pos - 1 } else { pos },
+                    };
                     let ctx = Context::new(working_set, Span::unknown(), &[], offset);
                     return self.process_completion(&mut cell_path_completer, &ctx);
                 }
@@ -217,7 +275,7 @@ impl NuCompleter {
                     let mut operator_completions = OperatorCompletion {
                         left_hand_side: lhs.as_ref(),
                     };
-                    let (new_span, prefix) = strip_placeholder(working_set, &op.span);
+                    let (new_span, prefix) = strip_placeholder_if_any(working_set, &op.span, strip);
                     let ctx = Context::new(working_set, new_span, prefix, offset);
                     let results = self.process_completion(&mut operator_completions, &ctx);
                     if !results.is_empty() {
@@ -230,13 +288,13 @@ impl NuCompleter {
                     let span = attr.expr.span;
                     span.contains(pos).then_some(span)
                 }) {
-                    let (new_span, prefix) = strip_placeholder(working_set, &span);
+                    let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
                     let ctx = Context::new(working_set, new_span, prefix, offset);
                     return self.process_completion(&mut AttributeCompletion, &ctx);
                 };
                 let span = ab.item.span;
                 if span.contains(pos) {
-                    let (new_span, prefix) = strip_placeholder(working_set, &span);
+                    let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
                     let ctx = Context::new(working_set, new_span, prefix, offset);
                     return self.process_completion(&mut AttributableCompletion, &ctx);
                 }
@@ -258,6 +316,7 @@ impl NuCompleter {
                     offset,
                     need_internals,
                     need_externals,
+                    strip,
                 ))
             }
             _ => (),
@@ -276,11 +335,14 @@ impl NuCompleter {
                         if let Some(decl_id) = arg.expr().and_then(|e| e.custom_completion) {
                             // for `--foo <tab>` and `--foo=<tab>`, the arg span should be trimmed
                             let (new_span, prefix) = if matches!(arg, Argument::Named(_)) {
-                                strip_placeholder_with_rsplit(working_set, &span, |b| {
-                                    *b == b'=' || *b == b' '
-                                })
+                                strip_placeholder_with_rsplit(
+                                    working_set,
+                                    &span,
+                                    |b| *b == b'=' || *b == b' ',
+                                    strip,
+                                )
                             } else {
-                                strip_placeholder(working_set, &span)
+                                strip_placeholder_if_any(working_set, &span, strip)
                             };
                             let ctx = Context::new(working_set, new_span, prefix, offset);
 
@@ -296,18 +358,24 @@ impl NuCompleter {
                         }
 
                         // normal arguments completion
-                        let (new_span, prefix) = strip_placeholder(working_set, &span);
+                        let (new_span, prefix) =
+                            strip_placeholder_if_any(working_set, &span, strip);
                         let ctx = Context::new(working_set, new_span, prefix, offset);
+                        let flag_completion_helper = || {
+                            let mut flag_completions = FlagCompletion {
+                                decl_id: call.decl_id,
+                            };
+                            self.process_completion(&mut flag_completions, &ctx)
+                        };
                         suggestions.extend(match arg {
                             // flags
                             Argument::Named(_) | Argument::Unknown(_)
                                 if prefix.starts_with(b"-") =>
                             {
-                                let mut flag_completions = FlagCompletion {
-                                    decl_id: call.decl_id,
-                                };
-                                self.process_completion(&mut flag_completions, &ctx)
+                                flag_completion_helper()
                             }
+                            // only when `strip` == false
+                            Argument::Positional(_) if prefix == b"-" => flag_completion_helper(),
                             // complete according to expression type and command head
                             Argument::Positional(expr) => {
                                 let command_head = working_set.get_span_contents(call.head);
@@ -339,6 +407,7 @@ impl NuCompleter {
                                     offset,
                                     true,
                                     true,
+                                    strip,
                                 );
                                 // flags of sudo/doas can still be completed by external completer
                                 if !commands.is_empty() {
@@ -357,16 +426,17 @@ impl NuCompleter {
                                         String::from_utf8_lossy(bytes).to_string()
                                     })
                                     .collect();
+                            let mut new_span = span;
                             // strip the placeholder
-                            if let Some(last) = text_spans.last_mut() {
-                                last.pop();
+                            if strip {
+                                if let Some(last) = text_spans.last_mut() {
+                                    last.pop();
+                                    new_span = Span::new(span.start, span.end.saturating_sub(1));
+                                }
                             }
-                            if let Some(external_result) = self.external_completion(
-                                closure,
-                                &text_spans,
-                                offset,
-                                Span::new(span.start, span.end.saturating_sub(1)),
-                            ) {
+                            if let Some(external_result) =
+                                self.external_completion(closure, &text_spans, offset, new_span)
+                            {
                                 suggestions.extend(external_result);
                                 return suggestions;
                             }
@@ -380,10 +450,12 @@ impl NuCompleter {
 
         // if no suggestions yet, fallback to file completion
         if suggestions.is_empty() {
-            let (new_span, prefix) =
-                strip_placeholder_with_rsplit(working_set, &element_expression.span, |c| {
-                    *c == b' '
-                });
+            let (new_span, prefix) = strip_placeholder_with_rsplit(
+                working_set,
+                &element_expression.span,
+                |c| *c == b' ',
+                strip,
+            );
             let ctx = Context::new(working_set, new_span, prefix, offset);
             suggestions.extend(self.process_completion(&mut FileCompletion, &ctx));
         }
@@ -395,8 +467,9 @@ impl NuCompleter {
         working_set: &StateWorkingSet,
         span: Span,
         offset: usize,
+        strip: bool,
     ) -> Vec<SemanticSuggestion> {
-        let (new_span, prefix) = strip_placeholder(working_set, &span);
+        let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
         if !prefix.starts_with(b"$") {
             return vec![];
         }
@@ -411,12 +484,13 @@ impl NuCompleter {
         offset: usize,
         internals: bool,
         externals: bool,
+        strip: bool,
     ) -> Vec<SemanticSuggestion> {
         let mut command_completions = CommandCompletion {
             internals,
             externals,
         };
-        let (new_span, prefix) = strip_placeholder(working_set, &span);
+        let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
         let ctx = Context::new(working_set, new_span, prefix, offset);
         self.process_completion(&mut command_completions, &ctx)
     }
@@ -644,7 +718,7 @@ mod completer_tests {
             result.err().unwrap()
         );
 
-        let mut completer = NuCompleter::new(engine_state.into(), Arc::new(Stack::new()));
+        let completer = NuCompleter::new(engine_state.into(), Arc::new(Stack::new()));
         let dataset = [
             ("1 bit-sh", true, "b", vec!["bit-shl", "bit-shr"]),
             ("1.0 bit-sh", false, "b", vec![]),

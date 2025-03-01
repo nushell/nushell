@@ -10,7 +10,7 @@ use nu_protocol::{
 
 use crate::{span_to_range, LanguageServer};
 
-/// Important for keep spans in increasing order,
+/// Important to keep spans in increasing order,
 /// since `SemanticToken`s are created by relative positions
 /// to one's previous token
 ///
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn semantic_token_internals() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");

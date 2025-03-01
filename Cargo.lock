@@ -3814,6 +3814,7 @@ dependencies = [
  "nu-cli",
  "nu-cmd-lang",
  "nu-command",
+ "nu-engine",
  "nu-glob",
  "nu-parser",
  "nu-protocol",

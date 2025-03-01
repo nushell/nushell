@@ -12,6 +12,19 @@ use super::completion_options::NuMatcher;
 
 pub struct CellPathCompletion<'a> {
     pub full_cell_path: &'a FullCellPath,
+    pub position: usize,
+}
+
+fn prefix_from_path_member(member: &PathMember, pos: usize) -> (String, Span) {
+    let (prefix_str, start) = match member {
+        PathMember::String { val, span, .. } => (val.clone(), span.start),
+        PathMember::Int { val, span, .. } => (val.to_string(), span.start),
+    };
+    let prefix_str = prefix_str
+        .get(..pos + 1 - start)
+        .map(str::to_string)
+        .unwrap_or(prefix_str);
+    (prefix_str, Span::new(start, pos + 1))
 }
 
 impl Completer for CellPathCompletion<'_> {
@@ -24,24 +37,30 @@ impl Completer for CellPathCompletion<'_> {
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        // empty tail is already handled as variable names completion
-        let Some((prefix_member, path_members)) = self.full_cell_path.tail.split_last() else {
-            return vec![];
-        };
-        let (mut prefix_str, span) = match prefix_member {
-            PathMember::String { val, span, .. } => (val.clone(), span),
-            PathMember::Int { val, span, .. } => (val.to_string(), span),
-        };
-        // strip the placeholder
-        prefix_str.pop();
-        let true_end = std::cmp::max(span.start, span.end - 1);
-        let span = Span::new(span.start, true_end);
+        let mut prefix_str = String::new();
+        // position at dots, e.g. `$env.config.<TAB>`
+        let mut span = Span::new(self.position + 1, self.position + 1);
+        let mut path_member_num_before_pos = 0;
+        for member in self.full_cell_path.tail.iter() {
+            if member.span().end <= self.position {
+                path_member_num_before_pos += 1;
+            } else if member.span().contains(self.position) {
+                (prefix_str, span) = prefix_from_path_member(member, self.position);
+                break;
+            }
+        }
+
         let current_span = reedline::Span {
             start: span.start - offset,
-            end: true_end - offset,
+            end: span.end - offset,
         };
 
         let mut matcher = NuMatcher::new(prefix_str, options);
+        let path_members = self
+            .full_cell_path
+            .tail
+            .get(0..path_member_num_before_pos)
+            .unwrap_or_default();
         let value = eval_cell_path(
             working_set,
             stack,
