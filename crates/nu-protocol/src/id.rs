@@ -108,12 +108,6 @@ pub type VirtualPathId = Id<marker::VirtualPath>;
 pub type SpanId = Id<marker::Span>;
 pub type JobId = Id<marker::Job>;
 
-impl Display for JobId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.get())
-    }
-}
-
 /// An ID for an [IR](crate::ir) register.
 ///
 /// `%n` is a common shorthand for `RegId(n)`.

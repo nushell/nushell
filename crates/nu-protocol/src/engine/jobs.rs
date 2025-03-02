@@ -48,7 +48,6 @@ impl Jobs {
 
     fn assign_last_frozen_id_if_frozen(&mut self, id: JobId, job: &Job) {
         if let Job::Frozen(_) = job {
-            println!("Job {id} has been frozen");
             self.last_frozen_job_id = Some(id);
         }
     }

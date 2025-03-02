@@ -313,6 +313,7 @@ impl Command for External {
 
         let jobs = engine_state.jobs.clone();
         let this_job = engine_state.current_thread_job.clone();
+        let is_interactive = engine_state.is_interactive;
         let child_pid = child.pid();
 
         // Wrap the output into a `PipelineData::ByteStream`.
@@ -330,7 +331,10 @@ impl Command for External {
                 if let ForegroundWaitStatus::Frozen(unfreeze) = status {
                     let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
 
-                    jobs.add_job(Job::Frozen(FrozenJob { unfreeze }));
+                    let job_id = jobs.add_job(Job::Frozen(FrozenJob { unfreeze }));
+                    if is_interactive {
+                        println!("Job {} is frozen", job_id.get());
+                    }
                 }
             }))),
         )?;
