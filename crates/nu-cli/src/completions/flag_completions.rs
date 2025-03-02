@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 
-use super::SemanticSuggestion;
+use super::{SemanticSuggestion, SuggestionKind};
 
 #[derive(Clone)]
 pub struct FlagCompletion {
@@ -35,8 +35,7 @@ impl Completer for FlagCompletion {
                     append_whitespace: true,
                     ..Suggestion::default()
                 },
-                // TODO????
-                kind: None,
+                kind: Some(SuggestionKind::Flag),
             });
         };
 

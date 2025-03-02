@@ -9,7 +9,7 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::path::Path;
 
-use super::{completion_common::FileSuggestion, SemanticSuggestion};
+use super::{completion_common::FileSuggestion, SemanticSuggestion, SuggestionKind};
 
 pub struct FileCompletion;
 
@@ -50,8 +50,7 @@ impl Completer for FileCompletion {
                 },
                 ..Suggestion::default()
             },
-            // TODO????
-            kind: None,
+            kind: Some(SuggestionKind::File),
         })
         .collect();
 
