@@ -6,8 +6,8 @@ use lsp_types::{
     Hover, HoverContents, HoverParams, InlayHint, MarkupContent, MarkupKind, OneOf, Position,
     Range, ReferencesOptions, RenameOptions, SemanticToken, SemanticTokenType,
     SemanticTokensLegend, SemanticTokensOptions, SemanticTokensServerCapabilities,
-    ServerCapabilities, TextDocumentSyncKind, Uri, WorkDoneProgressOptions, WorkspaceFolder,
-    WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
+    ServerCapabilities, SignatureHelpOptions, TextDocumentSyncKind, Uri, WorkDoneProgressOptions,
+    WorkspaceFolder, WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
 };
 use miette::{miette, IntoDiagnostic, Result};
 use nu_protocol::{
@@ -33,6 +33,7 @@ mod goto;
 mod hints;
 mod notification;
 mod semantic_tokens;
+mod signature;
 mod symbols;
 mod workspace;
 
@@ -156,6 +157,7 @@ impl LanguageServer {
                     ..Default::default()
                 }),
             ),
+            signature_help_provider: Some(SignatureHelpOptions::default()),
             ..Default::default()
         })
         .expect("Must be serializable");
@@ -206,6 +208,9 @@ impl LanguageServer {
                                 self.document_highlight(params)
                             })
                         }
+                        request::DocumentSymbolRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| self.document_symbol(params))
+                        }
                         request::GotoDefinition::METHOD => {
                             Self::handle_lsp_request(request, |params| self.goto_definition(params))
                         }
@@ -214,11 +219,6 @@ impl LanguageServer {
                         }
                         request::InlayHintRequest::METHOD => {
                             Self::handle_lsp_request(request, |params| self.get_inlay_hints(params))
-                        }
-                        request::SemanticTokensFullRequest::METHOD => {
-                            Self::handle_lsp_request(request, |params| {
-                                self.get_semantic_tokens(params)
-                            })
                         }
                         request::PrepareRenameRequest::METHOD => {
                             let id = request.id.clone();
@@ -235,8 +235,15 @@ impl LanguageServer {
                         request::Rename::METHOD => {
                             Self::handle_lsp_request(request, |params| self.rename(params))
                         }
-                        request::DocumentSymbolRequest::METHOD => {
-                            Self::handle_lsp_request(request, |params| self.document_symbol(params))
+                        request::SemanticTokensFullRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| {
+                                self.get_semantic_tokens(params)
+                            })
+                        }
+                        request::SignatureHelpRequest::METHOD => {
+                            Self::handle_lsp_request(request, |params| {
+                                self.get_signature_help(params)
+                            })
                         }
                         request::WorkspaceSymbolRequest::METHOD => {
                             Self::handle_lsp_request(request, |params| {
@@ -433,19 +440,7 @@ impl LanguageServer {
         // Usage
         description.push_str("---\n### Usage \n```nu\n");
         let signature = decl.signature();
-        description.push_str(&format!("  {}", signature.name));
-        if !signature.named.is_empty() {
-            description.push_str(" {flags}");
-        }
-        for required_arg in &signature.required_positional {
-            description.push_str(&format!(" <{}>", required_arg.name));
-        }
-        for optional_arg in &signature.optional_positional {
-            description.push_str(&format!(" <{}?>", optional_arg.name));
-        }
-        if let Some(arg) = &signature.rest_positional {
-            description.push_str(&format!(" <...{}>", arg.name));
-        }
+        description.push_str(&Self::get_signature_label(&signature));
         description.push_str("\n```\n");
 
         // Flags
