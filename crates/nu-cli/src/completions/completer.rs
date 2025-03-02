@@ -10,7 +10,7 @@ use nu_protocol::{
     ast::{Argument, Block, Expr, Expression, FindMapResult, Traverse},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Value,
+    PipelineData, Span, Type, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::{str, sync::Arc};
@@ -639,7 +639,7 @@ pub fn map_value_completions<'a>(
                     },
                     ..Suggestion::default()
                 },
-                kind: Some(SuggestionKind::Type(x.get_type())),
+                kind: Some(SuggestionKind::Value(x.get_type())),
             });
         }
 
@@ -653,41 +653,41 @@ pub fn map_value_completions<'a>(
                 },
                 ..Suggestion::default()
             };
+            let mut value_type = Type::String;
 
             // Iterate the cols looking for `value` and `description`
-            record.iter().for_each(|it| {
-                // Match `value` column
-                if it.0 == "value" {
-                    // Convert the value to string
-                    if let Ok(val_str) = it.1.coerce_string() {
-                        // Update the suggestion value
-                        suggestion.value = val_str;
+            record.iter().for_each(|(key, value)| {
+                match key.as_str() {
+                    "value" => {
+                        value_type = value.get_type();
+                        // Convert the value to string
+                        if let Ok(val_str) = value.coerce_string() {
+                            // Update the suggestion value
+                            suggestion.value = val_str;
+                        }
                     }
-                }
-
-                // Match `description` column
-                if it.0 == "description" {
-                    // Convert the value to string
-                    if let Ok(desc_str) = it.1.coerce_string() {
-                        // Update the suggestion value
-                        suggestion.description = Some(desc_str);
+                    "description" => {
+                        // Convert the value to string
+                        if let Ok(desc_str) = value.coerce_string() {
+                            // Update the suggestion value
+                            suggestion.description = Some(desc_str);
+                        }
                     }
-                }
-
-                // Match `style` column
-                if it.0 == "style" {
-                    // Convert the value to string
-                    suggestion.style = match it.1 {
-                        Value::String { val, .. } => Some(lookup_ansi_color_style(val)),
-                        Value::Record { .. } => Some(color_record_to_nustyle(it.1)),
-                        _ => None,
-                    };
+                    "style" => {
+                        // Convert the value to string
+                        suggestion.style = match value {
+                            Value::String { val, .. } => Some(lookup_ansi_color_style(val)),
+                            Value::Record { .. } => Some(color_record_to_nustyle(value)),
+                            _ => None,
+                        };
+                    }
+                    _ => (),
                 }
             });
 
             return Some(SemanticSuggestion {
                 suggestion,
-                kind: Some(SuggestionKind::Type(x.get_type())),
+                kind: Some(SuggestionKind::Value(value_type)),
             });
         }
 

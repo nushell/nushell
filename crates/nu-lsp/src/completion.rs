@@ -61,10 +61,13 @@ impl LanguageServer {
                             .kind
                             .clone()
                             .map(|kind| match kind {
-                                SuggestionKind::Type(t) => t.to_string(),
+                                SuggestionKind::Value(t) => t.to_string(),
                                 SuggestionKind::Command(cmd) => cmd.to_string(),
                                 SuggestionKind::Module => "module".to_string(),
                                 SuggestionKind::Operator => "operator".to_string(),
+                                SuggestionKind::Variable => "variable".to_string(),
+                                SuggestionKind::Flag => "flag".to_string(),
+                                _ => String::new(),
                             })
                             .map(|s| CompletionItemLabelDetails {
                                 detail: None,
@@ -103,18 +106,23 @@ impl LanguageServer {
         suggestion_kind: Option<SuggestionKind>,
     ) -> Option<CompletionItemKind> {
         suggestion_kind.and_then(|suggestion_kind| match suggestion_kind {
-            SuggestionKind::Type(t) => match t {
-                nu_protocol::Type::String => Some(CompletionItemKind::VARIABLE),
+            SuggestionKind::Value(t) => match t {
+                nu_protocol::Type::String => Some(CompletionItemKind::VALUE),
                 _ => None,
             },
+            SuggestionKind::CellPath => Some(CompletionItemKind::PROPERTY),
             SuggestionKind::Command(c) => match c {
                 nu_protocol::engine::CommandType::Keyword => Some(CompletionItemKind::KEYWORD),
                 nu_protocol::engine::CommandType::Builtin => Some(CompletionItemKind::FUNCTION),
                 nu_protocol::engine::CommandType::External => Some(CompletionItemKind::INTERFACE),
                 _ => None,
             },
+            SuggestionKind::Directory => Some(CompletionItemKind::FOLDER),
+            SuggestionKind::File => Some(CompletionItemKind::FILE),
+            SuggestionKind::Flag => Some(CompletionItemKind::FIELD),
             SuggestionKind::Module => Some(CompletionItemKind::MODULE),
             SuggestionKind::Operator => Some(CompletionItemKind::OPERATOR),
+            SuggestionKind::Variable => Some(CompletionItemKind::VARIABLE),
         })
     }
 }
@@ -180,7 +188,7 @@ mod tests {
             expected: serde_json::json!([
                 {
                     "label": "$greeting",
-                    "labelDetails": { "description": "string" },
+                    "labelDetails": { "description": "variable" },
                     "textEdit": {
                         "newText": "$greeting",
                         "range": { "start": { "character": 5, "line": 2 }, "end": { "character": 9, "line": 2 } }
@@ -236,9 +244,11 @@ mod tests {
             &serde_json::json!({
                 "label": "-s",
                 "detail": "test flag",
+                "labelDetails": { "description": "flag" },
                 "textEdit": { "range": { "start": { "line": 1, "character": 17 }, "end": { "line": 1, "character": 18 }, },
                     "newText": "-s"
                 },
+                "kind": 5
             })
         ));
 
@@ -248,9 +258,11 @@ mod tests {
             &serde_json::json!({
                 "label": "--long",
                 "detail": "test flag",
+                "labelDetails": { "description": "flag" },
                 "textEdit": { "range": { "start": { "line": 2, "character": 19 }, "end": { "line": 2, "character": 22 }, },
                     "newText": "--long"
                 },
+                "kind": 5
             })
         ));
 
@@ -259,9 +271,11 @@ mod tests {
         assert!(result_from_message(resp).as_array().unwrap().contains(
             &serde_json::json!({
                 "label": "LICENSE",
+                "labelDetails": { "description": "" },
                 "textEdit": { "range": { "start": { "line": 2, "character": 17 }, "end": { "line": 2, "character": 18 }, },
                     "newText": "LICENSE"
                 },
+                "kind": 17
             })
         ));
 
@@ -271,9 +285,11 @@ mod tests {
             &serde_json::json!({
                 "label": "-g",
                 "detail": "count indexes and split using grapheme clusters (all visible chars have length 1)",
+                "labelDetails": { "description": "flag" },
                 "textEdit": { "range": { "start": { "line": 10, "character": 33 }, "end": { "line": 10, "character": 34 }, },
                     "newText": "-g"
                 },
+                "kind": 5
             })
         ));
     }
@@ -328,9 +344,11 @@ mod tests {
         assert!(result_from_message(resp).as_array().unwrap().contains(
             &serde_json::json!({
                 "label": "LICENSE",
+                "labelDetails": { "description": "" },
                 "textEdit": { "range": { "start": { "line": 5, "character": 3 }, "end": { "line": 5, "character": 4 }, },
                     "newText": "LICENSE"
                 },
+                "kind": 17
             })
         ));
     }
@@ -411,11 +429,12 @@ mod tests {
             expected: serde_json::json!([
                 {
                     "label": "1",
-                    "labelDetails": { "description": "record<1: string, 🤔🐘: table<baz: int>>" },
+                    "detail": "string",
                     "textEdit": {
                         "newText": "1",
                         "range": { "start": { "line": 1, "character": 5 }, "end": { "line": 1, "character": 5 } }
                     },
+                    "kind": 10
                 },
             ])
         );
@@ -426,11 +445,12 @@ mod tests {
             expected: serde_json::json!([
                 {
                     "label": "baz",
-                    "labelDetails": { "description": "table<baz: int>" },
+                    "detail": "int",
                     "textEdit": {
                         "newText": "baz",
                         "range": { "start": { "line": 1, "character": 10 }, "end": { "line": 1, "character": 10 } }
                     },
+                    "kind": 10
                 },
             ])
         );

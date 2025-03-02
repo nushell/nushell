@@ -108,23 +108,29 @@ fn get_suggestions_by_value(
     value: &Value,
     current_span: reedline::Span,
 ) -> Vec<SemanticSuggestion> {
-    let kind = SuggestionKind::Type(value.get_type());
-    let str_to_suggestion = |s: String| SemanticSuggestion {
+    let to_suggestion = |s: String, v: Option<&Value>| SemanticSuggestion {
         suggestion: Suggestion {
             value: s,
             span: current_span,
+            description: v.map(|v| v.get_type().to_string()),
             ..Suggestion::default()
         },
-        kind: Some(kind.to_owned()),
+        kind: Some(SuggestionKind::CellPath),
     };
     match value {
         Value::Record { val, .. } => val
             .columns()
-            .map(|s| str_to_suggestion(s.to_string()))
+            .map(|s| to_suggestion(s.to_string(), val.get(s)))
             .collect(),
         Value::List { vals, .. } => get_columns(vals.as_slice())
             .into_iter()
-            .map(str_to_suggestion)
+            .map(|s| {
+                let sub_val = vals
+                    .first()
+                    .and_then(|v| v.as_record().ok())
+                    .and_then(|rv| rv.get(&s));
+                to_suggestion(s, sub_val)
+            })
             .collect(),
         _ => vec![],
     }
