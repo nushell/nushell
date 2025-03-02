@@ -125,12 +125,11 @@ fn get_suggestions_by_value(
         Value::List { vals, .. } => get_columns(vals.as_slice())
             .into_iter()
             .map(|s| {
-                to_suggestion(
-                    s.clone(),
-                    vals.first()
-                        .and_then(|v| v.as_record().ok())
-                        .and_then(|rv| rv.get(s)),
-                )
+                let sub_val = vals
+                    .first()
+                    .and_then(|v| v.as_record().ok())
+                    .and_then(|rv| rv.get(&s));
+                to_suggestion(s, sub_val)
             })
             .collect(),
         _ => vec![],
