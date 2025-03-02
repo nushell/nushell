@@ -50,7 +50,11 @@ impl Completer for FileCompletion {
                 },
                 ..Suggestion::default()
             },
-            kind: Some(SuggestionKind::File),
+            kind: Some(if x.is_dir {
+                SuggestionKind::Directory
+            } else {
+                SuggestionKind::File
+            }),
         })
         .collect();
 
