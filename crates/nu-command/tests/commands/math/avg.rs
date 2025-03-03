@@ -22,6 +22,20 @@ fn can_average_bytes() {
 }
 
 #[test]
+fn can_average_range() {
+    let actual = nu!("0..5 | math avg");
+
+    assert_eq!(actual.out, "2.5");
+}
+
+#[test]
+fn cannot_average_infinite_range() {
+    let actual = nu!("0.. | math avg");
+
+    assert!(actual.err.contains("nu::shell::incorrect_value"));
+}
+
+#[test]
 fn const_avg() {
     let actual = nu!("const AVG = [1 3 5] | math avg; $AVG");
     assert_eq!(actual.out, "3");
