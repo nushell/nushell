@@ -145,9 +145,15 @@ pub enum ParseError {
         help: Option<&'static str>,
     },
 
-    #[error("Capture of mutable variable.")]
-    #[diagnostic(code(nu::parser::expected_keyword))]
-    CaptureOfMutableVar(#[label("capture of mutable variable")] Span),
+    #[error("Cannot capture mutable variables inside closures.")]
+    #[diagnostic(code(nu::parser::mutable_capture))]
+    CaptureOfMutableVar {
+        var: String,
+        #[label("could not capture within this closure")]
+        closure_span: Option<Span>,
+        #[label("attempted to capture mutable variable {var}")]
+        var_span: Span,
+    },
 
     #[error("Expected keyword.")]
     #[diagnostic(code(nu::parser::expected_keyword))]
@@ -570,7 +576,7 @@ impl ParseError {
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::AssignInPipeline(_, _, _, s) => *s,
             ParseError::NameIsBuiltinVar(_, s) => *s,
-            ParseError::CaptureOfMutableVar(s) => *s,
+            ParseError::CaptureOfMutableVar { var_span, .. } => *var_span,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
             ParseError::VariableNotFound(_, s) => *s,
