@@ -325,8 +325,8 @@ impl NuCompleter {
         // unfinished argument completion for commands
         match &element_expression.expr {
             Expr::Call(call) => {
-                // TODO: the argument to complete won't necessarily be the last one in the future
-                // for lsp completion, we won't trim the text,
+                // NOTE: the argument to complete is not necessarily the last one
+                // for lsp completion, we don't trim the text,
                 // so that `def`s after pos can be completed
                 for arg in call.arguments.iter() {
                     let span = arg.span();
