@@ -57,7 +57,7 @@ fn try_find_id_in_def(
 ) -> Option<(Id, Span)> {
     let mut span = None;
     for arg in call.arguments.iter() {
-        if location.map_or(true, |pos| arg.span().contains(*pos)) {
+        if location.is_none_or(|pos| arg.span().contains(*pos)) {
             // String means this argument is the name
             if let Argument::Positional(expr) = arg {
                 if let Expr::String(_) = &expr.expr {
@@ -76,7 +76,7 @@ fn try_find_id_in_def(
     let name = working_set.get_span_contents(span);
     let decl_id = Id::Declaration(working_set.find_decl(name)?);
     id_ref
-        .map_or(true, |id_r| decl_id == *id_r)
+        .is_none_or(|id_r| decl_id == *id_r)
         .then_some((decl_id, span))
 }
 
@@ -96,7 +96,7 @@ fn try_find_id_in_mod(
     location: Option<&usize>,
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
-    let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
+    let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
 
     call.arguments.first().and_then(|arg| {
         if !check_location(&arg.span()) {
@@ -109,7 +109,7 @@ fn try_find_id_in_mod(
                 let found_id = Id::Module(module_id);
                 let found_span = strip_quotes(arg.span(), working_set);
                 id_ref
-                    .map_or(true, |id_r| found_id == *id_r)
+                    .is_none_or(|id_r| found_id == *id_r)
                     .then_some((found_id, found_span))
             }
             _ => None,
@@ -152,7 +152,7 @@ fn try_find_id_in_use(
             .or(working_set.find_variable(name).map(Id::Variable)),
         _ => None,
     };
-    let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
+    let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
 
     // Get module id if required
     let module_name = call.arguments.first()?;
@@ -232,10 +232,10 @@ fn try_find_id_in_overlay(
     location: Option<&usize>,
     id: Option<&Id>,
 ) -> Option<(Id, Span)> {
-    let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
+    let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
     let module_from_overlay_name = |name: &str, span: Span| {
         let found_id = Id::Module(working_set.find_overlay(name.as_bytes())?.origin);
-        id.map_or(true, |id_r| found_id == *id_r)
+        id.is_none_or(|id_r| found_id == *id_r)
             .then_some((found_id, strip_quotes(span, working_set)))
     };
     for arg in call.arguments.iter() {
@@ -272,7 +272,7 @@ fn get_matched_module_id(
     let path = std::path::PathBuf::from(name.as_ref());
     let stem = path.file_stem().and_then(|fs| fs.to_str()).unwrap_or(&name);
     let found_id = Id::Module(working_set.find_module(stem.as_bytes())?);
-    id.map_or(true, |id_r| found_id == *id_r)
+    id.is_none_or(|id_r| found_id == *id_r)
         .then_some((found_id, span))
 }
 

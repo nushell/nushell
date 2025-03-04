@@ -137,7 +137,7 @@ fn command_lazy(
     call: &EvaluatedCall,
     lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
-    let rows: Option<u32> = call.opt(0)?;
+    let rows: Option<u64> = call.opt(0)?;
     let rows = rows.unwrap_or(1);
 
     let res: NuLazyFrame = lazy.to_polars().limit(rows).into();

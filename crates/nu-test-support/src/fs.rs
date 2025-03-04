@@ -88,6 +88,7 @@ pub fn binaries() -> AbsolutePathBuf {
     };
 
     std::env::var("CARGO_TARGET_DIR")
+        .or_else(|_| std::env::var("CARGO_BUILD_TARGET_DIR"))
         .ok()
         .and_then(|p| AbsolutePathBuf::try_from(p).ok())
         .unwrap_or_else(|| root().join("target"))

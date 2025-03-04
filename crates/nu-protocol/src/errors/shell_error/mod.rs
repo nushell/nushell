@@ -1326,6 +1326,40 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Option<Span>,
     },
 
+    #[error("Job {id} not found")]
+    #[diagnostic(
+        code(nu::shell::job_not_found),
+        help(
+            "The operation could not be completed, there is no job currently running with this id"
+        )
+    )]
+    JobNotFound {
+        id: usize,
+        #[label = "job not found"]
+        span: Span,
+    },
+
+    #[error("No frozen job to unfreeze")]
+    #[diagnostic(
+        code(nu::shell::no_frozen_job),
+        help("There is currently no frozen job to unfreeze")
+    )]
+    NoFrozenJob {
+        #[label = "no frozen job"]
+        span: Span,
+    },
+
+    #[error("Job {id} is not frozen")]
+    #[diagnostic(
+        code(nu::shell::os_disabled),
+        help("You tried to unfreeze a job which is not frozen")
+    )]
+    JobNotFrozen {
+        id: usize,
+        #[label = "job not frozen"]
+        span: Span,
+    },
+
     #[error(transparent)]
     #[diagnostic(transparent)]
     ChainedError(ChainedError),

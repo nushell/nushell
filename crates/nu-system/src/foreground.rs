@@ -1,10 +1,8 @@
-#[cfg(unix)]
-use std::io::prelude::*;
-use std::{
-    io,
-    process::{Child, Command},
-    sync::{atomic::AtomicU32, Arc},
-};
+use std::sync::{atomic::AtomicU32, Arc};
+
+use std::io;
+
+use std::process::{Child, Command};
 
 use crate::ExitStatus;
 
@@ -12,7 +10,7 @@ use crate::ExitStatus;
 use std::{io::IsTerminal, sync::atomic::Ordering};
 
 #[cfg(unix)]
-pub use foreground_pgroup::stdin_fd;
+pub use child_pgroup::stdin_fd;
 
 #[cfg(unix)]
 use nix::{sys::signal, sys::wait, unistd::Pid};
@@ -37,6 +35,10 @@ pub struct ForegroundChild {
     inner: Child,
     #[cfg(unix)]
     pipeline_state: Option<Arc<(AtomicU32, AtomicU32)>>,
+
+    // this is unix-only since we don't have to deal with process groups in windows
+    #[cfg(unix)]
+    interactive: bool,
 }
 
 impl ForegroundChild {
@@ -49,16 +51,22 @@ impl ForegroundChild {
     pub fn spawn(
         mut command: Command,
         interactive: bool,
+        background: bool,
         pipeline_state: &Arc<(AtomicU32, AtomicU32)>,
     ) -> io::Result<Self> {
-        if interactive && io::stdin().is_terminal() {
+        let interactive = interactive && io::stdin().is_terminal();
+
+        let uses_dedicated_process_group = interactive || background;
+
+        if uses_dedicated_process_group {
             let (pgrp, pcnt) = pipeline_state.as_ref();
             let existing_pgrp = pgrp.load(Ordering::SeqCst);
-            foreground_pgroup::prepare_command(&mut command, existing_pgrp);
+            child_pgroup::prepare_command(&mut command, existing_pgrp, background);
             command
                 .spawn()
                 .map(|child| {
-                    foreground_pgroup::set(&child, existing_pgrp);
+                    child_pgroup::set(&child, existing_pgrp, background);
+
                     let _ = pcnt.fetch_add(1, Ordering::SeqCst);
                     if existing_pgrp == 0 {
                         pgrp.store(child.id(), Ordering::SeqCst);
@@ -66,66 +74,120 @@ impl ForegroundChild {
                     Self {
                         inner: child,
                         pipeline_state: Some(pipeline_state.clone()),
+                        interactive,
                     }
                 })
                 .inspect_err(|_e| {
-                    foreground_pgroup::reset();
+                    if interactive {
+                        child_pgroup::reset();
+                    }
                 })
         } else {
             command.spawn().map(|child| Self {
                 inner: child,
                 pipeline_state: None,
+                interactive,
             })
         }
     }
 
-    pub fn wait(&mut self) -> io::Result<ExitStatus> {
+    pub fn wait(&mut self) -> io::Result<ForegroundWaitStatus> {
         #[cfg(unix)]
         {
-            // the child may be stopped multiple times, we loop until it exits
-            loop {
-                let child_pid = Pid::from_raw(self.inner.id() as i32);
-                let status = wait::waitpid(child_pid, Some(wait::WaitPidFlag::WUNTRACED));
-                match status {
-                    Err(e) => {
-                        drop(self.inner.stdin.take());
-                        return Err(e.into());
-                    }
-                    Ok(wait::WaitStatus::Exited(_, status)) => {
-                        drop(self.inner.stdin.take());
-                        return Ok(ExitStatus::Exited(status));
-                    }
-                    Ok(wait::WaitStatus::Signaled(_, signal, core_dumped)) => {
-                        drop(self.inner.stdin.take());
-                        return Ok(ExitStatus::Signaled {
-                            signal: signal as i32,
-                            core_dumped,
-                        });
-                    }
-                    Ok(wait::WaitStatus::Stopped(_, _)) => {
-                        println!("nushell currently does not support background jobs");
-                        // acquire terminal in order to be able to read from stdin
-                        foreground_pgroup::reset();
-                        let mut stdin = io::stdin();
-                        let mut stdout = io::stdout();
-                        write!(stdout, "press any key to continue")?;
-                        stdout.flush()?;
-                        stdin.read_exact(&mut [0u8])?;
-                        // bring child's pg back into foreground and continue it
-                        if let Some(state) = self.pipeline_state.as_ref() {
-                            let existing_pgrp = state.0.load(Ordering::SeqCst);
-                            foreground_pgroup::set(&self.inner, existing_pgrp);
-                        }
-                        signal::killpg(child_pid, signal::SIGCONT)?;
-                    }
-                    Ok(_) => {
-                        // keep waiting
-                    }
-                };
-            }
+            let child_pid = Pid::from_raw(self.inner.id() as i32);
+
+            unix_wait(child_pid).inspect(|result| {
+                if let (true, ForegroundWaitStatus::Frozen(_)) = (self.interactive, result) {
+                    child_pgroup::reset();
+                }
+            })
         }
         #[cfg(not(unix))]
         self.as_mut().wait().map(Into::into)
+    }
+
+    pub fn pid(&self) -> u32 {
+        self.inner.id()
+    }
+}
+
+#[cfg(unix)]
+fn unix_wait(child_pid: Pid) -> std::io::Result<ForegroundWaitStatus> {
+    use ForegroundWaitStatus::*;
+
+    // the child may be stopped multiple times, we loop until it exits
+    loop {
+        let status = wait::waitpid(child_pid, Some(wait::WaitPidFlag::WUNTRACED));
+        match status {
+            Err(e) => {
+                return Err(e.into());
+            }
+            Ok(wait::WaitStatus::Exited(_, status)) => {
+                return Ok(Finished(ExitStatus::Exited(status)));
+            }
+            Ok(wait::WaitStatus::Signaled(_, signal, core_dumped)) => {
+                return Ok(Finished(ExitStatus::Signaled {
+                    signal: signal as i32,
+                    core_dumped,
+                }));
+            }
+            Ok(wait::WaitStatus::Stopped(_, _)) => {
+                return Ok(Frozen(UnfreezeHandle { child_pid }));
+            }
+            Ok(_) => {
+                // keep waiting
+            }
+        };
+    }
+}
+
+pub enum ForegroundWaitStatus {
+    Finished(ExitStatus),
+    Frozen(UnfreezeHandle),
+}
+
+impl From<std::process::ExitStatus> for ForegroundWaitStatus {
+    fn from(status: std::process::ExitStatus) -> Self {
+        ForegroundWaitStatus::Finished(status.into())
+    }
+}
+
+#[derive(Debug)]
+pub struct UnfreezeHandle {
+    #[cfg(unix)]
+    child_pid: Pid,
+}
+
+impl UnfreezeHandle {
+    #[cfg(unix)]
+    pub fn unfreeze(
+        self,
+        pipeline_state: Option<Arc<(AtomicU32, AtomicU32)>>,
+    ) -> io::Result<ForegroundWaitStatus> {
+        // bring child's process group back into foreground and continue it
+
+        // we only keep the guard for its drop impl
+        let _guard = pipeline_state.map(|pipeline_state| {
+            ForegroundGuard::new(self.child_pid.as_raw() as u32, &pipeline_state)
+        });
+
+        if let Err(err) = signal::killpg(self.child_pid, signal::SIGCONT) {
+            return Err(err.into());
+        }
+
+        let child_pid = self.child_pid;
+
+        unix_wait(child_pid)
+    }
+
+    pub fn pid(&self) -> u32 {
+        #[cfg(unix)]
+        {
+            self.child_pid.as_raw() as u32
+        }
+
+        #[cfg(not(unix))]
+        0
     }
 }
 
@@ -141,7 +203,10 @@ impl Drop for ForegroundChild {
         if let Some((pgrp, pcnt)) = self.pipeline_state.as_deref() {
             if pcnt.fetch_sub(1, Ordering::SeqCst) == 1 {
                 pgrp.store(0, Ordering::SeqCst);
-                foreground_pgroup::reset()
+
+                if self.interactive {
+                    child_pgroup::reset()
+                }
             }
         }
     }
@@ -149,7 +214,7 @@ impl Drop for ForegroundChild {
 
 /// Keeps a specific already existing process in the foreground as long as the [`ForegroundGuard`].
 /// If the process needs to be spawned in the foreground, use [`ForegroundChild`] instead. This is
-/// used to temporarily bring plugin processes into the foreground.
+/// used to temporarily bring frozen and plugin processes into the foreground.
 ///
 /// # OS-specific behavior
 /// ## Unix
@@ -158,8 +223,8 @@ impl Drop for ForegroundChild {
 /// this expects the process ID to remain in the process group created by the [`ForegroundChild`]
 /// for the lifetime of the guard, and keeps the terminal controlling process group set to that.
 /// If there is no foreground external process running, this sets the foreground process group to
-/// the plugin's process ID. The process group that is expected can be retrieved with
-/// [`.pgrp()`](Self::pgrp) if different from the plugin process ID.
+/// the provided process ID. The process group that is expected can be retrieved with
+/// [`.pgrp()`](Self::pgrp) if different from the provided process ID.
 ///
 /// ## Other systems
 ///
@@ -200,7 +265,7 @@ impl ForegroundGuard {
                     pipeline_state: pipeline_state.clone(),
                 };
 
-                log::trace!("Giving control of the terminal to the plugin group, pid={pid}");
+                log::trace!("Giving control of the terminal to the process group, pid={pid}");
 
                 // Set the terminal controlling process group to the child process
                 unistd::tcsetpgrp(unsafe { stdin_fd() }, pid_nix)?;
@@ -221,7 +286,7 @@ impl ForegroundGuard {
                 // we only need to tell the child process to join this one
                 let pgrp = pgrp.load(Ordering::SeqCst);
                 log::trace!(
-                    "Will ask the plugin pid={pid} to join pgrp={pgrp} for control of the \
+                    "Will ask the process pid={pid} to join pgrp={pgrp} for control of the \
                     terminal"
                 );
                 return Ok(ForegroundGuard {
@@ -268,7 +333,7 @@ impl ForegroundGuard {
             if pcnt.fetch_sub(1, Ordering::SeqCst) == 1 {
                 // Clean up if we are the last one around
                 pgrp.store(0, Ordering::SeqCst);
-                foreground_pgroup::reset()
+                child_pgroup::reset()
             }
         }
     }
@@ -282,7 +347,7 @@ impl Drop for ForegroundGuard {
 
 // It's a simpler version of fish shell's external process handling.
 #[cfg(unix)]
-mod foreground_pgroup {
+mod child_pgroup {
     use nix::{
         sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal},
         unistd::{self, Pid},
@@ -306,7 +371,7 @@ mod foreground_pgroup {
         unsafe { BorrowedFd::borrow_raw(nix::libc::STDIN_FILENO) }
     }
 
-    pub fn prepare_command(external_command: &mut Command, existing_pgrp: u32) {
+    pub fn prepare_command(external_command: &mut Command, existing_pgrp: u32, background: bool) {
         unsafe {
             // Safety:
             // POSIX only allows async-signal-safe functions to be called.
@@ -320,19 +385,13 @@ mod foreground_pgroup {
                 // According to glibc's job control manual:
                 // https://www.gnu.org/software/libc/manual/html_node/Launching-Jobs.html
                 // This has to be done *both* in the parent and here in the child due to race conditions.
-                set_foreground_pid(Pid::this(), existing_pgrp);
+                set_foreground_pid(Pid::this(), existing_pgrp, background);
 
-                // Reset signal handlers for child, sync with `terminal.rs`
+                // `terminal.rs` makes the shell process ignore some signals,
+                //  so we set them to their default behavior for our child
                 let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
-                // SIGINT has special handling
+
                 let _ = sigaction(Signal::SIGQUIT, &default);
-                // We don't support background jobs, so keep some signals blocked for now
-                // let _ = sigaction(Signal::SIGTTIN, &default);
-                // let _ = sigaction(Signal::SIGTTOU, &default);
-                // We do need to reset SIGTSTP though, since some TUI
-                // applications implement their own Ctrl-Z handling, and
-                // ForegroundChild::wait() needs to be able to react to the
-                // child being stopped.
                 let _ = sigaction(Signal::SIGTSTP, &default);
                 let _ = sigaction(Signal::SIGTERM, &default);
 
@@ -341,11 +400,15 @@ mod foreground_pgroup {
         }
     }
 
-    pub fn set(process: &Child, existing_pgrp: u32) {
-        set_foreground_pid(Pid::from_raw(process.id() as i32), existing_pgrp);
+    pub fn set(process: &Child, existing_pgrp: u32, background: bool) {
+        set_foreground_pid(
+            Pid::from_raw(process.id() as i32),
+            existing_pgrp,
+            background,
+        );
     }
 
-    fn set_foreground_pid(pid: Pid, existing_pgrp: u32) {
+    fn set_foreground_pid(pid: Pid, existing_pgrp: u32, background: bool) {
         // Safety: needs to be async-signal-safe.
         // `setpgid` and `tcsetpgrp` are async-signal-safe.
 
@@ -357,7 +420,10 @@ mod foreground_pgroup {
             Pid::from_raw(existing_pgrp as i32)
         };
         let _ = unistd::setpgid(pid, pgrp);
-        let _ = unistd::tcsetpgrp(unsafe { stdin_fd() }, pgrp);
+
+        if !background {
+            let _ = unistd::tcsetpgrp(unsafe { stdin_fd() }, pgrp);
+        }
     }
 
     /// Reset the foreground process group to the shell

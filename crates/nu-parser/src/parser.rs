@@ -2817,7 +2817,7 @@ pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
 fn modf(x: f64) -> (f64, f64) {
     let rv2: f64;
     let mut u = x.to_bits();
-    let e = ((u >> 52 & 0x7ff) as i32) - 0x3ff;
+    let e = (((u >> 52) & 0x7ff) as i32) - 0x3ff;
 
     /* no fractional part */
     if e >= 52 {

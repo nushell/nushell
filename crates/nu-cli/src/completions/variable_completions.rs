@@ -32,10 +32,10 @@ impl Completer for VariableCompletion {
                 suggestion: Suggestion {
                     value: builtin.to_string(),
                     span: current_span,
+                    description: Some("reserved".into()),
                     ..Suggestion::default()
                 },
-                // TODO is there a way to get the VarId to get the type???
-                kind: None,
+                kind: Some(SuggestionKind::Variable),
             });
         }
 
@@ -44,11 +44,10 @@ impl Completer for VariableCompletion {
                 suggestion: Suggestion {
                     value: String::from_utf8_lossy(name).to_string(),
                     span: current_span,
+                    description: Some(working_set.get_variable(*var_id).ty.to_string()),
                     ..Suggestion::default()
                 },
-                kind: Some(SuggestionKind::Type(
-                    working_set.get_variable(*var_id).ty.clone(),
-                )),
+                kind: Some(SuggestionKind::Variable),
             })
         };
 

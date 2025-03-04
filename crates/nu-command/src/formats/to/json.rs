@@ -12,7 +12,11 @@ impl Command for ToJson {
     fn signature(&self) -> Signature {
         Signature::build("to json")
             .input_output_types(vec![(Type::Any, Type::String)])
-            .switch("raw", "remove all of the whitespace", Some('r'))
+            .switch(
+                "raw",
+                "remove all of the whitespace and trailing line ending",
+                Some('r'),
+            )
             .named(
                 "indent",
                 SyntaxShape::Number,

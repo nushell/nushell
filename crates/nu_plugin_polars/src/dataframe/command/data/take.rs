@@ -106,7 +106,7 @@ fn command(
 
     let casted = match index.dtype() {
         DataType::UInt32 | DataType::UInt64 | DataType::Int32 | DataType::Int64 => index
-            .cast(&DataType::UInt32)
+            .cast(&DataType::UInt64)
             .map_err(|e| ShellError::GenericError {
                 error: "Error casting index list".into(),
                 msg: e.to_string(),
@@ -123,7 +123,7 @@ fn command(
         }),
     }?;
 
-    let indices = casted.u32().map_err(|e| ShellError::GenericError {
+    let indices = casted.u64().map_err(|e| ShellError::GenericError {
         error: "Error casting index list".into(),
         msg: e.to_string(),
         span: Some(index_span),

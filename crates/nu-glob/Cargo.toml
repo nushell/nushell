@@ -13,6 +13,9 @@ categories = ["filesystem"]
 [lib]
 bench = false
 
+[dependencies]
+nu-protocol = { path = "../nu-protocol", version = "0.102.1", default-features = false }
+
 [dev-dependencies]
 doc-comment = "0.3"
 
