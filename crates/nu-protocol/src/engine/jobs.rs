@@ -1,11 +1,15 @@
 use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    sync::{
+        mpsc::{Receiver, RecvTimeoutError, Sender},
+        Arc, Mutex,
+    },
+    time::{Duration, Instant},
 };
 
 use nu_system::{kill_by_pid, UnfreezeHandle};
 
-use crate::Signals;
+use crate::{Signals, Value};
 
 use crate::JobId;
 
@@ -134,13 +138,15 @@ pub enum Job {
 pub struct ThreadJob {
     signals: Signals,
     pids: Arc<Mutex<HashSet<u32>>>,
+    pub sender: Sender<Mail>,
 }
 
 impl ThreadJob {
-    pub fn new(signals: Signals) -> Self {
+    pub fn new(signals: Signals, sender: Sender<Mail>) -> Self {
         ThreadJob {
             signals,
             pids: Arc::new(Mutex::new(HashSet::default())),
+            sender,
         }
     }
 
@@ -215,5 +221,141 @@ impl FrozenJob {
         {
             Ok(())
         }
+    }
+}
+
+/// Stores the information about the background job currently being executed by this thread, if any
+#[derive(Clone)]
+pub struct CurrentJob {
+    pub id: JobId,
+
+    // The backgorund thread job associated with this thread.
+    // If None, it indicates this thread is currently the main job
+    pub background_thread_job: Option<ThreadJob>,
+
+    // note: altough the mailbox is Mutex'd, it is only ever accessed
+    // by the current job's threads
+    pub mailbox: Arc<Mutex<Mailbox>>,
+}
+
+// The storage for unread messages
+//
+// Messages are initially sent over a mpsc channel,
+// and may then be stored in a IgnoredMail struct when
+// filtered out by a tag.
+pub struct Mailbox {
+    receiver: Receiver<Mail>,
+    ignored_mail: IgnoredMail,
+}
+
+impl Mailbox {
+    pub fn new(receiver: Receiver<Mail>) -> Self {
+        Mailbox {
+            receiver,
+            ignored_mail: IgnoredMail::default(),
+        }
+    }
+
+    pub fn recv_timeout(
+        &mut self,
+        filter_tag: Option<Tag>,
+        timeout: Duration,
+    ) -> Result<Value, RecvTimeoutError> {
+        if let Some(value) = self.ignored_mail.pop(filter_tag) {
+            Ok(value)
+        } else {
+            let mut waited_so_far = Duration::ZERO;
+            let mut before = Instant::now();
+
+            while waited_so_far < timeout {
+                let (tag, value) = self.receiver.recv_timeout(timeout - waited_so_far)?;
+
+                if filter_tag.is_some() && filter_tag == tag {
+                    return Ok(value);
+                } else {
+                    self.ignored_mail.add((tag, value));
+                    let now = Instant::now();
+                    waited_so_far += now - before;
+                    before = now;
+                }
+            }
+
+            Err(RecvTimeoutError::Timeout)
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.ignored_mail.clear();
+
+        while self.receiver.try_recv().is_ok() {}
+    }
+}
+
+// A data structure used to store messages which were received, but currently ignored by a tag filter
+// messages are added and popped in a first-in-first-out matter.
+#[derive(Default)]
+struct IgnoredMail {
+    next_id: usize,
+    messages: BTreeMap<usize, Mail>,
+    by_tag: HashMap<Tag, BTreeSet<usize>>,
+}
+
+pub type Tag = u64;
+pub type Mail = (Option<Tag>, Value);
+
+impl IgnoredMail {
+    pub fn add(&mut self, (tag, value): Mail) {
+        let id = self.next_id;
+        self.next_id += 1;
+
+        self.messages.insert(id, (tag, value));
+
+        if let Some(tag) = tag {
+            self.by_tag.entry(tag).or_default().insert(id);
+        }
+    }
+
+    pub fn pop(&mut self, tag: Option<Tag>) -> Option<Value> {
+        if let Some(tag) = tag {
+            self.pop_oldest_with_tag(tag)
+        } else {
+            self.pop_oldest()
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.messages.clear();
+        self.by_tag.clear();
+    }
+
+    fn pop_oldest(&mut self) -> Option<Value> {
+        let (id, (tag, value)) = self.messages.pop_first()?;
+
+        if let Some(tag) = tag {
+            let needs_cleanup = if let Some(ids) = self.by_tag.get_mut(&tag) {
+                ids.remove(&id);
+                ids.is_empty()
+            } else {
+                false
+            };
+
+            if needs_cleanup {
+                self.by_tag.remove(&tag);
+            }
+        }
+
+        Some(value)
+    }
+
+    fn pop_oldest_with_tag(&mut self, tag: Tag) -> Option<Value> {
+        let ids = self.by_tag.get_mut(&tag)?;
+
+        let id = ids.pop_first()?;
+
+        if ids.is_empty() {
+            self.by_tag.remove(&tag);
+        }
+
+        Some(self.messages.remove(&id)?.1)
     }
 }

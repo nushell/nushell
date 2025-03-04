@@ -22,6 +22,8 @@ use std::{
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
+        mpsc::channel,
+        mpsc::Sender,
         Arc, Mutex, MutexGuard, PoisonError,
     },
 };
@@ -31,7 +33,7 @@ type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 #[cfg(feature = "plugin")]
 use crate::{PluginRegistryFile, PluginRegistryItem, RegisteredPlugin};
 
-use super::{Jobs, ThreadJob};
+use super::{CurrentJob, Jobs, Mail, Mailbox, ThreadJob};
 
 #[derive(Clone, Debug)]
 pub enum VirtualPath {
@@ -117,7 +119,9 @@ pub struct EngineState {
     pub jobs: Arc<Mutex<Jobs>>,
 
     // The job being executed with this engine state, or None if main thread
-    pub thread_job_entry: Option<(JobId, ThreadJob)>,
+    pub current_job: CurrentJob,
+
+    pub root_job_sender: Sender<Mail>,
 
     // When there are background jobs running, the interactive behavior of `exit` changes depending on
     // the value of this flag:
@@ -141,6 +145,8 @@ pub const UNKNOWN_SPAN_ID: SpanId = SpanId::new(0);
 
 impl EngineState {
     pub fn new() -> Self {
+        let (send, recv) = channel::<Mail>();
+
         Self {
             files: vec![],
             virtual_paths: vec![],
@@ -196,7 +202,12 @@ impl EngineState {
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
             jobs: Arc::new(Mutex::new(Jobs::default())),
-            thread_job_entry: None,
+            current_job: CurrentJob {
+                id: JobId::new(0),
+                background_thread_job: None,
+                mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
+            },
+            root_job_sender: send,
             exit_warning_given: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -1080,12 +1091,12 @@ impl EngineState {
 
     // Determines whether the current state is being held by a background job
     pub fn is_background_job(&self) -> bool {
-        self.thread_job_entry.is_some()
+        self.current_job.background_thread_job.is_some()
     }
 
     // Gets the thread job entry
     pub fn current_thread_job(&self) -> Option<&ThreadJob> {
-        self.thread_job_entry.as_ref().map(|(_, job)| job)
+        self.current_job.background_thread_job.as_ref()
     }
 }
 
