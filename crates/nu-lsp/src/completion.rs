@@ -49,7 +49,12 @@ impl LanguageServer {
                 .into_iter()
                 .map(|r| {
                     let mut start = params.text_document_position.position;
-                    start.character -= (r.suggestion.span.end - r.suggestion.span.start) as u32;
+                    start.character = start.character.saturating_sub(
+                        r.suggestion
+                            .span
+                            .end
+                            .saturating_sub(r.suggestion.span.start) as u32,
+                    );
                     let decl_id = r.kind.clone().and_then(|kind| {
                         matches!(kind, SuggestionKind::Command(_))
                             .then_some(engine_state.find_decl(r.suggestion.value.as_bytes(), &[])?)
