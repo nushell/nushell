@@ -307,6 +307,7 @@ impl NuCompleter {
                 let need_externals = !prefix_str.contains(' ');
                 let need_internals = !prefix_str.starts_with('^');
                 let mut span = element_expression.span;
+                span.end = std::cmp::min(span.end, pos + 1);
                 if !need_internals {
                     span = Span::new(span.start + 1, span.end)
                 };

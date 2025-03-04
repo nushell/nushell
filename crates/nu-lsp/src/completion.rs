@@ -7,7 +7,7 @@ use lsp_types::{
     TextEdit,
 };
 use nu_cli::{NuCompleter, SuggestionKind};
-use nu_protocol::engine::Stack;
+use nu_protocol::engine::{CommandType, Stack};
 
 impl LanguageServer {
     pub(crate) fn complete(&mut self, params: &CompletionParams) -> Option<CompletionResponse> {
@@ -112,10 +112,11 @@ impl LanguageServer {
             },
             SuggestionKind::CellPath => Some(CompletionItemKind::PROPERTY),
             SuggestionKind::Command(c) => match c {
-                nu_protocol::engine::CommandType::Keyword => Some(CompletionItemKind::KEYWORD),
-                nu_protocol::engine::CommandType::Builtin => Some(CompletionItemKind::FUNCTION),
-                nu_protocol::engine::CommandType::External => Some(CompletionItemKind::INTERFACE),
-                _ => None,
+                CommandType::Keyword => Some(CompletionItemKind::KEYWORD),
+                CommandType::Builtin => Some(CompletionItemKind::FUNCTION),
+                CommandType::Custom => Some(CompletionItemKind::METHOD),
+                CommandType::Alias => Some(CompletionItemKind::REFERENCE),
+                CommandType::External | CommandType::Plugin => Some(CompletionItemKind::INTERFACE),
             },
             SuggestionKind::Directory => Some(CompletionItemKind::FOLDER),
             SuggestionKind::File => Some(CompletionItemKind::FILE),
@@ -210,7 +211,7 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_complete_request(&client_connection, script.clone(), 0, 8);
+        let resp = send_complete_request(&client_connection, script.clone(), 0, 6);
 
         #[cfg(not(windows))]
         let detail_str = "detail";
@@ -221,20 +222,15 @@ mod tests {
             expected: serde_json::json!([
                 // defined after the cursor
                 {
-                    "label": "config n foo bar",
-                    "detail": detail_str,
-                    "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 8 }, },
-                        "newText": "config n foo bar"
+                    "label": "config",
+                    "detail": "Edit nushell configuration files.",
+                    "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 6 }, },
+                        "newText": "config"
                     },
                 },
-                {
-                    "label": "config nu",
-                    "detail": "Edit nu configurations.",
-                    "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 8 }, },
-                        "newText": "config nu"
-                    },
-                    "kind": 3
-                },
+                { "label": "config env", "kind": 3 },
+                { "label": "config flatten", "kind": 3 },
+                { "label": "config n foo bar", "detail": detail_str, "kind": 2 },
             ])
         );
 
