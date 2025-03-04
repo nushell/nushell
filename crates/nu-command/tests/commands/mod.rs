@@ -82,6 +82,7 @@ mod print;
 #[cfg(feature = "sqlite")]
 mod query;
 mod random;
+mod rank;
 mod redirection;
 mod reduce;
 mod reject;
