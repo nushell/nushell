@@ -40,13 +40,19 @@ byteorder = { workspace = true }
 bytesize = { workspace = true }
 calamine = { workspace = true, features = ["dates"] }
 chardetng = { workspace = true }
-chrono = { workspace = true, features = ["std", "unstable-locales", "clock"], default-features = false }
+chrono = { workspace = true, features = [
+	"std",
+	"unstable-locales",
+	"clock",
+], default-features = false }
 chrono-humanize = { workspace = true }
 chrono-tz = { workspace = true }
 crossterm = { workspace = true, optional = true }
 csv = { workspace = true }
 devicons = { workspace = true }
-dialoguer = { workspace = true, default-features = false, features = ["fuzzy-select"] }
+dialoguer = { workspace = true, default-features = false, features = [
+	"fuzzy-select",
+] }
 digest = { workspace = true, default-features = false }
 dtparse = { workspace = true }
 encoding_rs = { workspace = true }
@@ -58,7 +64,9 @@ indexmap = { workspace = true }
 indicatif = { workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
-lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
+lscolors = { workspace = true, default-features = false, features = [
+	"nu-ansi-term",
+] }
 md5 = { workspace = true }
 mime = { workspace = true }
 mime_guess = { workspace = true }
@@ -78,7 +86,11 @@ rand = { workspace = true, optional = true }
 getrandom = { workspace = true, optional = true }
 rayon = { workspace = true }
 roxmltree = { workspace = true }
-rusqlite = { workspace = true, features = ["bundled", "backup", "chrono"], optional = true }
+rusqlite = { workspace = true, features = [
+	"bundled",
+	"backup",
+	"chrono",
+], optional = true }
 rmp = { workspace = true }
 scopeguard = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -92,7 +104,12 @@ titlecase = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"] }
 unicode-segmentation = { workspace = true }
 update-informer = { workspace = true, optional = true }
-ureq = { workspace = true, default-features = false, features = ["charset", "gzip", "json", "native-tls"], optional = true }
+ureq = { workspace = true, default-features = false, features = [
+	"charset",
+	"gzip",
+	"json",
+	"native-tls",
+], optional = true }
 url = { workspace = true }
 uu_cp = { workspace = true, optional = true }
 uu_mkdir = { workspace = true, optional = true }
@@ -101,7 +118,14 @@ uu_mv = { workspace = true, optional = true }
 uu_touch = { workspace = true, optional = true }
 uu_uname = { workspace = true, optional = true }
 uu_whoami = { workspace = true, optional = true }
-uuid = { workspace = true, features = ["v4"], optional = true }
+uuid = { workspace = true, features = [
+	"v1",
+	"v3",
+	"v4",
+	"v5",
+	"v7",
+	"fast-rng",
+], optional = true }
 v_htmlescape = { workspace = true }
 wax = { workspace = true }
 which = { workspace = true, optional = true }
@@ -117,7 +141,11 @@ uucore = { workspace = true, features = ["mode"] }
 
 [target.'cfg(unix)'.dependencies]
 umask = { workspace = true }
-nix = { workspace = true, default-features = false, features = ["user", "resource", "pthread"] }
+nix = { workspace = true, default-features = false, features = [
+	"user",
+	"resource",
+	"pthread",
+] }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 procfs = { workspace = true }
@@ -164,12 +192,7 @@ os = [
 # The dependencies listed below need 'getrandom'.
 # They work with JS (usually with wasm-bindgen) or regular OS support.
 # Hence they are also put under the 'os' feature to avoid repetition.
-js = [
-	"getrandom",
-	"getrandom/js",
-	"rand",
-	"uuid",
-]
+js = ["getrandom", "getrandom/js", "rand", "uuid"]
 
 # These dependencies require networking capabilities, especially the http
 # interface requires openssl which is not easy to embed into wasm,
@@ -182,10 +205,7 @@ network = [
 	"uuid",
 ]
 
-plugin = [
-	"nu-parser/plugin",
-	"os",
-]
+plugin = ["nu-parser/plugin", "os"]
 sqlite = ["rusqlite"]
 trash-support = ["trash"]
 
