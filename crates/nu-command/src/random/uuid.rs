@@ -39,9 +39,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec![
-            "generate", "uuid", "uuid4", "uuid1", "uuid3", "uuid5", "uuid7",
-        ]
+        vec!["generate", "uuid4", "uuid1", "uuid3", "uuid5", "uuid7"]
     }
 
     fn run(
@@ -140,9 +138,7 @@ fn uuid(
 
 fn random_mac_address() -> [u8; 6] {
     let mut mac = [0u8; 6];
-    for i in 0..6 {
-        mac[i] = rand::random::<u8>();
-    }
+    mac.iter_mut().for_each(|byte| *byte = rand::random());
     mac[0] |= 0x01;
     mac
 }
