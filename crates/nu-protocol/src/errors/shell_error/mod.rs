@@ -1360,6 +1360,27 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Span,
     },
 
+    #[error("The job {id} is not a thread job")]
+    #[diagnostic(
+        code(nu::shell::os_disabled),
+        help("The operation you tried to perform cannot be done on this kind of job")
+    )]
+    NeedThreadJob {
+        id: usize,
+        #[label = "not a thread job"]
+        span: Span,
+    },
+
+    #[error("No message was received in the requested time interval")]
+    #[diagnostic(
+        code(nu::shell::os_disabled),
+        help("No message arrived within the specified time limit")
+    )]
+    RecvTimeout {
+        #[label = "timeout"]
+        span: Span,
+    },
+
     #[error(transparent)]
     #[diagnostic(transparent)]
     ChainedError(ChainedError),
