@@ -37,11 +37,7 @@ was instead spawned by main nushell execution thread."
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        if let Some((id, _)) = &engine_state.thread_job_entry {
-            Ok(Value::int(id.get() as i64, head).into_pipeline_data())
-        } else {
-            Ok(Value::int(0, head).into_pipeline_data())
-        }
+        Ok(Value::int(engine_state.current_job.id.get() as i64, head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
