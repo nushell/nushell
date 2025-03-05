@@ -136,7 +136,6 @@ fn stats(
                 ))
         }
     }
-    .map(|data| data.set_metadata(metadata))
 }
 
 fn process_value(value: Value, span: Span, input_type: &str) -> Value {
