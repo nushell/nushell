@@ -10,7 +10,7 @@ impl Command for MailSend {
     }
 
     fn description(&self) -> &str {
-        "Send a message to a job"
+        "Send a message to the mailbox of a job."
     }
 
     fn extra_description(&self) -> &str {
@@ -31,7 +31,7 @@ This command never blocks.
             .required(
                 "id",
                 SyntaxShape::Int,
-                "The id of the job to send the message to",
+                "The id of the job to send the message to.",
             )
             .named("tag", SyntaxShape::Int, "A tag for the message", None)
             .input_output_types(vec![(Type::Any, Type::Nothing)])
