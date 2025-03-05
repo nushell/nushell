@@ -144,6 +144,9 @@ fn unfreeze_job(
                     jobs.add_job_with_id(old_id, Job::Frozen(FrozenJob { unfreeze: handle }))
                         .expect("job was supposed to be removed");
 
+                    if state.is_interactive {
+                        println!("\nJob {} is re-frozen", old_id.get());
+                    }
                     Ok(())
                 }
 
