@@ -180,13 +180,12 @@ fn get_namespace_and_name(
         _ => match Uuid::parse_str(&namespace_str) {
             Ok(uuid) => uuid,
             Err(_) => {
-                return Err(ShellError::GenericError {
-                        error: format!("Invalid namespace: {}", namespace_str),
-                        msg: "Namespace must be one of: dns, url, oid, x500, or a valid UUID string".to_string(),
-                        span: Some(span),
-                        help: Some("Use one of the predefined namespaces (dns, url, oid, x500) or a valid UUID string".to_string()),
-                        inner: Vec::new(),
-                    });
+                return Err(ShellError::IncorrectValue {
+                    msg: "Namespace must be one of: dns, url, oid, x500, or a valid UUID string"
+                        .to_string(),
+                    val_span: span,
+                    call_span: span,
+                });
             }
         },
     };
