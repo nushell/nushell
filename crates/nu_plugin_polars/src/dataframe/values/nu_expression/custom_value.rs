@@ -143,6 +143,11 @@ fn with_operator(
             .apply_with_expr(right.clone(), Expr::logical_or)
             .cache(plugin, engine, lhs_span)?
             .into_value(lhs_span)),
+        Operator::Boolean(Boolean::Xor) => Ok(left
+            .clone()
+            .apply_with_expr(right.clone(), logical_xor)
+            .cache(plugin, engine, lhs_span)?
+            .into_value(lhs_span)),
         op => Err(ShellError::OperatorUnsupportedType {
             op,
             unsupported: Type::Custom(TYPE_NAME.into()),
@@ -151,6 +156,11 @@ fn with_operator(
             help: None,
         }),
     }
+}
+
+pub fn logical_xor(a: Expr, b: Expr) -> Expr {
+    (a.clone().or(b.clone())) // A OR B
+        .and((a.and(b)).not()) // AND with NOT (A AND B)
 }
 
 fn apply_arithmetic<F>(
