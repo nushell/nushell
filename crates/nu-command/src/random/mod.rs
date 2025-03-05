@@ -18,6 +18,7 @@ pub use self::chars::SubCommand as RandomChars;
 pub use self::dice::SubCommand as RandomDice;
 pub use self::float::SubCommand as RandomFloat;
 pub use self::int::SubCommand as RandomInt;
+pub use self::uuid::get_namespace_and_name;
 pub use self::uuid::SubCommand as RandomUuid;
 pub use self::uuid1::SubCommand as RandomUuid1;
 pub use self::uuid3::SubCommand as RandomUuid3;

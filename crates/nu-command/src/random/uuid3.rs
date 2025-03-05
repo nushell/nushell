@@ -1,3 +1,4 @@
+use crate::get_namespace_and_name;
 use nu_engine::command_prelude::*;
 use uuid::Uuid;
 
