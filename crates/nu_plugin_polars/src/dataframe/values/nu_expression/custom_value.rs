@@ -7,7 +7,7 @@ use std::ops::{Add, Div, Mul, Rem, Sub};
 use super::NuExpression;
 use nu_plugin::EngineInterface;
 use nu_protocol::{
-    ast::{Comparison, Math, Operator},
+    ast::{Boolean, Comparison, Math, Operator},
     CustomValue, ShellError, Span, Type, Value,
 };
 use polars::prelude::Expr;
@@ -133,6 +133,21 @@ fn with_operator(
             .apply_with_expr(right.clone(), Expr::lt_eq)
             .cache(plugin, engine, lhs_span)?
             .into_value(lhs_span)),
+        Operator::Boolean(Boolean::And) => Ok(left
+            .clone()
+            .apply_with_expr(right.clone(), Expr::logical_and)
+            .cache(plugin, engine, lhs_span)?
+            .into_value(lhs_span)),
+        Operator::Boolean(Boolean::Or) => Ok(left
+            .clone()
+            .apply_with_expr(right.clone(), Expr::logical_or)
+            .cache(plugin, engine, lhs_span)?
+            .into_value(lhs_span)),
+        Operator::Boolean(Boolean::Xor) => Ok(left
+            .clone()
+            .apply_with_expr(right.clone(), logical_xor)
+            .cache(plugin, engine, lhs_span)?
+            .into_value(lhs_span)),
         op => Err(ShellError::OperatorUnsupportedType {
             op,
             unsupported: Type::Custom(TYPE_NAME.into()),
@@ -141,6 +156,11 @@ fn with_operator(
             help: None,
         }),
     }
+}
+
+pub fn logical_xor(a: Expr, b: Expr) -> Expr {
+    (a.clone().or(b.clone())) // A OR B
+        .and((a.and(b)).not()) // AND with NOT (A AND B)
 }
 
 fn apply_arithmetic<F>(
