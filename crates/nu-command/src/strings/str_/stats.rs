@@ -1,6 +1,5 @@
 use fancy_regex::Regex;
 use nu_engine::command_prelude::*;
-use nu_protocol::ListStream;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
@@ -14,7 +13,10 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("str stats")
             .category(Category::Strings)
-            .input_output_types(vec![(Type::String, Type::table())])
+            .input_output_types(vec![
+                (Type::String, Type::table()),
+                (Type::list(Type::Any), Type::table()),
+            ])
             .allow_variants_without_examples(true)
     }
 
@@ -97,35 +99,62 @@ fn stats(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let span = input.span().unwrap_or(call.head);
-    // This doesn't match explicit nulls
-    if matches!(input, PipelineData::Empty) {
-        return Err(ShellError::PipelineEmpty { dst_span: span });
-    }
-    let signals = engine_state.signals().clone();
 
-    // Process each value as it comes in without buffering
-    let stream = input.into_iter().map(move |value| {
-        let value_span = value.span();
-        match value {
-            Value::Error { error, .. } => Value::error(*error, value_span),
-            value => match value.coerce_str() {
-                Ok(s) => counter(s.as_ref(), value_span),
-                Err(_) => Value::error(
-                    ShellError::PipelineMismatch {
-                        exp_input_type: "string".into(),
-                        dst_span: span,
-                        src_span: value_span,
-                    },
-                    value_span,
-                ),
-            },
+    let metadata = input.metadata();
+    match input {
+        PipelineData::Empty => Ok(PipelineData::Empty),
+        PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream(..) => Ok(input
+            .into_iter()
+            .map(move |value| process_value(value, span, "list/liststream"))
+            .into_pipeline_data(span, engine_state.signals().clone())),
+        PipelineData::ByteStream(stream, ..) => {
+            let span = stream.span();
+            if let Some(chunks) = stream.chunks() {
+                Ok(chunks
+                    .map(move |value| {
+                        let val = match value {
+                            Ok(v) => v,
+                            Err(e) => Value::error(e, span),
+                        };
+                        process_value(val, span, "bytestream")
+                    })
+                    .fuse()
+                    .into_pipeline_data(span, engine_state.signals().clone()))
+            } else {
+                Ok(PipelineData::Empty)
+            }
         }
-    });
+        PipelineData::Value(..) => {
+            let metadata_clone = metadata.clone();
+            Ok(input
+                .into_iter()
+                .map(move |value| process_value(value, span, "string"))
+                .into_pipeline_data_with_metadata(
+                    span,
+                    engine_state.signals().clone(),
+                    metadata_clone,
+                ))
+        }
+    }
+    .map(|data| data.set_metadata(metadata))
+}
 
-    Ok(PipelineData::ListStream(
-        ListStream::new(stream, span, signals),
-        None,
-    ))
+fn process_value(value: Value, span: Span, input_type: &str) -> Value {
+    let value_span = value.span();
+    match value {
+        Value::Error { error, .. } => Value::error(*error, value_span),
+        value => match value.coerce_str() {
+            Ok(s) => counter(s.as_ref(), value_span),
+            Err(_) => Value::error(
+                ShellError::PipelineMismatch {
+                    exp_input_type: input_type.into(),
+                    dst_span: span,
+                    src_span: value_span,
+                },
+                value_span,
+            ),
+        },
+    }
 }
 
 fn counter(contents: &str, span: Span) -> Value {
