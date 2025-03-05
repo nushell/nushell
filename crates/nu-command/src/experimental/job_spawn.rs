@@ -69,8 +69,11 @@ impl Command for JobSpawn {
 
         let id = {
             let thread_job = ThreadJob::new(job_signals);
-            job_state.current_thread_job = Some(thread_job.clone());
-            jobs.add_job(Job::Thread(thread_job))
+            let id = jobs.add_job(Job::Thread(thread_job.clone()));
+
+            job_state.thread_job_entry = Some((id, thread_job));
+
+            id
         };
 
         let result = thread::Builder::new()

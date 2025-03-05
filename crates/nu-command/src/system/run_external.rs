@@ -279,7 +279,7 @@ impl Command for External {
             )
         })?;
 
-        if let Some(thread_job) = &engine_state.current_thread_job {
+        if let Some(thread_job) = engine_state.current_thread_job() {
             if !thread_job.try_add_pid(child.pid()) {
                 kill_by_pid(child.pid().into()).map_err(|err| {
                     ShellError::Io(IoError::new_internal(
@@ -312,8 +312,8 @@ impl Command for External {
         }
 
         let jobs = engine_state.jobs.clone();
-        let this_job = engine_state.current_thread_job.clone();
         let is_interactive = engine_state.is_interactive;
+        let this_job = engine_state.current_thread_job().cloned();
         let child_pid = child.pid();
 
         // Wrap the output into a `PipelineData::ByteStream`.
