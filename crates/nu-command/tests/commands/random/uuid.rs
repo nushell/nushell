@@ -14,7 +14,7 @@ fn generates_valid_uuid4_by_default() {
 
 #[test]
 fn generates_valid_uuid1_with_version_flag() {
-    let actual = nu!("random uuid -v 1");
+    let actual = nu!("random uuid -v 1 -m 00:11:22:33:44:55");
     let result = Uuid::parse_str(actual.out.as_str());
     assert!(result.is_ok());
 

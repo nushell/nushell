@@ -31,6 +31,12 @@ impl Command for SubCommand {
                 "The name string for v3 and v5 UUIDs. Required for v3 and v5.",
                 Some('s'),
             )
+            .named(
+                "mac",
+                SyntaxShape::String,
+                "The MAC address (node ID) used to generate v1 UUIDs. Required for v1.",
+                Some('m'),
+            )
             .allow_variants_without_examples(true)
     }
 
@@ -61,7 +67,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Generate a uuid v1 string (timestamp-based)",
-                example: "random uuid -v 1",
+                example: "random uuid -v 1 -m 00:11:22:33:44:55",
                 result: None,
             },
             Example {
@@ -96,7 +102,7 @@ fn uuid(
     let uuid_str = match version {
         1 => {
             let ts = Timestamp::now(uuid::timestamp::context::NoContext);
-            let node_id = random_mac_address();
+            let node_id = get_mac_address(engine_state, stack, call, span)?;
             let uuid = Uuid::new_v1(ts, &node_id);
             uuid.hyphenated().to_string()
         }
@@ -136,11 +142,50 @@ fn uuid(
     Ok(PipelineData::Value(Value::string(uuid_str, span), None))
 }
 
-fn random_mac_address() -> [u8; 6] {
-    let mut mac = [0u8; 6];
-    mac.iter_mut().for_each(|byte| *byte = rand::random());
-    mac[0] |= 0x01;
-    mac
+fn get_mac_address(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    span: Span,
+) -> Result<[u8; 6], ShellError> {
+    let mac_str: Option<String> = call.get_flag(engine_state, stack, "mac")?;
+
+    let mac_str = match mac_str {
+        Some(mac) => mac,
+        None => {
+            return Err(ShellError::MissingParameter {
+                param_name: "mac".to_string(),
+                span,
+            });
+        }
+    };
+
+    let mac_parts = mac_str.split(':').collect::<Vec<&str>>();
+    if mac_parts.len() != 6 {
+        return Err(ShellError::IncorrectValue {
+            msg: "MAC address must be in the format XX:XX:XX:XX:XX:XX".to_string(),
+            val_span: span,
+            call_span: span,
+        });
+    }
+
+    let mac: [u8; 6] = mac_parts
+        .iter()
+        .map(|x| u8::from_str_radix(x, 16))
+        .collect::<Result<Vec<u8>, _>>()
+        .map_err(|_| ShellError::IncorrectValue {
+            msg: "MAC address must be in the format XX:XX:XX:XX:XX:XX".to_string(),
+            val_span: span,
+            call_span: span,
+        })?
+        .try_into()
+        .map_err(|_| ShellError::IncorrectValue {
+            msg: "MAC address must be in the format XX:XX:XX:XX:XX:XX".to_string(),
+            val_span: span,
+            call_span: span,
+        })?;
+
+    Ok(mac)
 }
 
 fn get_namespace_and_name(
