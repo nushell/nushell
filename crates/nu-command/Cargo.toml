@@ -124,7 +124,6 @@ uuid = { workspace = true, features = [
 	"v4",
 	"v5",
 	"v7",
-	"fast-rng",
 ], optional = true }
 v_htmlescape = { workspace = true }
 wax = { workspace = true }

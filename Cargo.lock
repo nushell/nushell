@@ -7729,7 +7729,6 @@ dependencies = [
  "atomic",
  "getrandom",
  "md-5",
- "rand",
  "serde",
  "sha1_smol",
 ]
