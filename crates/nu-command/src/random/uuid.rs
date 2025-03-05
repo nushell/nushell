@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::{report_parse_warning, ParseWarning};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -26,11 +27,21 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        report_parse_warning(
+            &StateWorkingSet::new(engine_state),
+            &ParseWarning::DeprecatedWarning {
+                old_command: "random uuid".into(),
+                new_suggestion: "use `random uuid[version]`".into(),
+                span: head,
+                url: "`help random uuid[version]`".into(),
+            },
+        );
         uuid(call)
     }
 
