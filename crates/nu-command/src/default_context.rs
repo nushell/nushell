@@ -452,11 +452,10 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             JobList,
             JobKill,
             JobId,
+            JobSend,
+            JobRecv,
+            JobClearMail,
             Job,
-            MailSend,
-            MailRecv,
-            MailClear,
-            Mail,
         };
 
         #[cfg(all(unix, feature = "os"))]

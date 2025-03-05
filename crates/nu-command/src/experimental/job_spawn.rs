@@ -8,8 +8,8 @@ use std::{
 
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
 use nu_protocol::{
-    engine::{Closure, CurrentJob, Redirection, Job, Mailbox, ThreadJob},
-     report_shell_error, OutDest, Signals,
+    engine::{Closure, CurrentJob, Job, Mailbox, Redirection, ThreadJob},
+    report_shell_error, OutDest, Signals,
 };
 
 #[derive(Clone)]

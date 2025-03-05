@@ -1,15 +1,15 @@
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct MailClear;
+pub struct JobClearMail;
 
-impl Command for MailClear {
+impl Command for JobClearMail {
     fn name(&self) -> &str {
-        "mail clear"
+        "job clear-mail"
     }
 
     fn description(&self) -> &str {
-        "Clear mailbox."
+        "Clear this job's mailbox."
     }
 
     fn extra_description(&self) -> &str {
@@ -20,7 +20,7 @@ If a message is received while this command is executing, it may also be discard
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("mail clear")
+        Signature::build("job clear-mail")
             .category(Category::Experimental)
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
@@ -50,8 +50,8 @@ If a message is received while this command is executing, it may also be discard
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "let id = job spawn { mail recv | save sent.txt }; 'hi' | mail send $id",
-            description: "Send a message to a newly spawned job",
+            example: "job clear-mail",
+            description: "Clear the mailbox of the current job.",
             result: None,
         }]
     }

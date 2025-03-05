@@ -4,13 +4,13 @@ use nu_engine::command_prelude::*;
 use nu_protocol::engine::Tag;
 
 #[derive(Clone)]
-pub struct MailRecv;
+pub struct JobRecv;
 
 const CTRL_C_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 
-impl Command for MailRecv {
+impl Command for JobRecv {
     fn name(&self) -> &str {
-        "mail recv"
+        "job recv"
     }
 
     fn description(&self) -> &str {
@@ -34,7 +34,7 @@ in no particular order, regardless of the specified timeout parameter.
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("mail recv")
+        Signature::build("job recv")
             .category(Category::Experimental)
             .named("tag", SyntaxShape::Int, "A tag for the message", None)
             .named(
@@ -111,7 +111,7 @@ in no particular order, regardless of the specified timeout parameter.
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "mail recv",
+            example: "job recv",
             description: "Block the current thread while no message arrives",
             result: None,
         }]

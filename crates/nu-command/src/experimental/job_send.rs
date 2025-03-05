@@ -2,11 +2,11 @@ use nu_engine::command_prelude::*;
 use nu_protocol::{engine::Tag, JobId};
 
 #[derive(Clone)]
-pub struct MailSend;
+pub struct JobSend;
 
-impl Command for MailSend {
+impl Command for JobSend {
     fn name(&self) -> &str {
-        "mail send"
+        "job send"
     }
 
     fn description(&self) -> &str {
@@ -16,7 +16,7 @@ impl Command for MailSend {
     fn extra_description(&self) -> &str {
         r#"
 This command sends a message to a background job, which can then read sent messages
-in a first-in-first-out fashion with `mail recv`. When it does so, it may additionally specify a numeric filter tag,
+in a first-in-first-out fashion with `job recv`. When it does so, it may additionally specify a numeric filter tag,
 in which case it will only read messages sent with the exact same filter tag.
 
 A message can be any nushell value, and streams are always collected before being sent.
@@ -26,7 +26,7 @@ This command never blocks.
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("mail send")
+        Signature::build("job send")
             .category(Category::Experimental)
             .required(
                 "id",
@@ -105,7 +105,7 @@ This command never blocks.
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "let id = job spawn { mail recv | save sent.txt }; 'hi' | mail send $id",
+            example: "let id = job spawn { job recv | save sent.txt }; 'hi' | job send $id",
             description: "Send a message to a newly spawned job",
             result: None,
         }]
