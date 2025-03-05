@@ -24,7 +24,21 @@ impl PluginCommand for PolarsCmd {
     }
 
     fn extra_description(&self) -> &str {
-        "You must use one of the following subcommands. Using this command as-is will only produce this help message."
+        r#"
+You must use one of the subcommands below. Using this command as-is will only produce this help message.
+
+The following are the main datatypes (wrapped from Polars) that are used by these subcommands:
+
+Lazy and Strict dataframes (called `NuLazyFrame` and `NuDataFrame` in error messages) are the main
+data structure.
+
+Expressions, representing various column operations (called `NuExpression`), are passed to many commands such as
+`polars filter` or `polars with-column`. Most nushell operators are supported in these expressions, importantly
+arithmetic, comparison and boolean logical.
+
+Groupbys (`NuLazyGroupBy`), the output of a `polars group-by`, represent a grouped dataframe and are typically piped
+to the `polars agg` command with some column expressions for aggregation which then returns a dataframe.
+"#
     }
 
     fn run(
