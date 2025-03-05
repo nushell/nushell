@@ -70,56 +70,6 @@ fn uuid(
     Ok(PipelineData::Value(Value::string(uuid_str, span), None))
 }
 
-fn get_namespace_and_name(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    span: Span,
-) -> Result<(Uuid, String), ShellError> {
-    let namespace_str: Option<String> = call.get_flag(engine_state, stack, "namespace")?;
-    let name: Option<String> = call.get_flag(engine_state, stack, "name")?;
-
-    let namespace_str = match namespace_str {
-        Some(ns) => ns,
-        None => {
-            return Err(ShellError::MissingParameter {
-                param_name: "namespace".to_string(),
-                span,
-            });
-        }
-    };
-
-    let name = match name {
-        Some(n) => n,
-        None => {
-            return Err(ShellError::MissingParameter {
-                param_name: "name".to_string(),
-                span,
-            });
-        }
-    };
-
-    let namespace = match namespace_str.to_lowercase().as_str() {
-        "dns" => Uuid::NAMESPACE_DNS,
-        "url" => Uuid::NAMESPACE_URL,
-        "oid" => Uuid::NAMESPACE_OID,
-        "x500" => Uuid::NAMESPACE_X500,
-        _ => match Uuid::parse_str(&namespace_str) {
-            Ok(uuid) => uuid,
-            Err(_) => {
-                return Err(ShellError::IncorrectValue {
-                    msg: "Namespace must be one of: dns, url, oid, x500, or a valid UUID string"
-                        .to_string(),
-                    val_span: span,
-                    call_span: span,
-                });
-            }
-        },
-    };
-
-    Ok((namespace, name))
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
