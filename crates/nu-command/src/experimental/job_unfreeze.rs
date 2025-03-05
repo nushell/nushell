@@ -145,7 +145,7 @@ fn unfreeze_job(
                         .expect("job was supposed to be removed");
 
                     if state.is_interactive {
-                        println!("Job {} is re-frozen", old_id.get());
+                        println!("\nJob {} is re-frozen", old_id.get());
                     }
                     Ok(())
                 }

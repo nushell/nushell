@@ -333,7 +333,7 @@ impl Command for External {
 
                     let job_id = jobs.add_job(Job::Frozen(FrozenJob { unfreeze }));
                     if is_interactive {
-                        println!("Job {} is frozen", job_id.get());
+                        println!("\nJob {} is frozen", job_id.get());
                     }
                 }
             }))),
