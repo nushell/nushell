@@ -4680,8 +4680,6 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                         "end of input".into(),
                         Span::new(output[position - 1].span.end, output[position - 1].span.end),
                     ));
-
-                    working_set.exit_scope();
                     break;
                 }
 
@@ -4695,8 +4693,6 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                         "end of input".into(),
                         Span::new(output[position - 1].span.end, output[position - 1].span.end),
                     ));
-
-                    working_set.exit_scope();
                     break;
                 } else {
                     connector = working_set.get_span_contents(output[position].span);

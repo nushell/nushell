@@ -7,7 +7,7 @@ use lsp_types::{
     TextEdit,
 };
 use nu_cli::{NuCompleter, SuggestionKind};
-use nu_protocol::engine::Stack;
+use nu_protocol::engine::{CommandType, Stack};
 
 impl LanguageServer {
     pub(crate) fn complete(&mut self, params: &CompletionParams) -> Option<CompletionResponse> {
@@ -49,14 +49,23 @@ impl LanguageServer {
                 .into_iter()
                 .map(|r| {
                     let mut start = params.text_document_position.position;
-                    start.character -= (r.suggestion.span.end - r.suggestion.span.start) as u32;
+                    start.character = start.character.saturating_sub(
+                        r.suggestion
+                            .span
+                            .end
+                            .saturating_sub(r.suggestion.span.start) as u32,
+                    );
                     let decl_id = r.kind.clone().and_then(|kind| {
                         matches!(kind, SuggestionKind::Command(_))
                             .then_some(engine_state.find_decl(r.suggestion.value.as_bytes(), &[])?)
                     });
 
+                    let mut label_value = r.suggestion.value;
+                    if r.suggestion.append_whitespace {
+                        label_value.push(' ');
+                    }
                     CompletionItem {
-                        label: r.suggestion.value.clone(),
+                        label: label_value.clone(),
                         label_details: r
                             .kind
                             .clone()
@@ -93,7 +102,7 @@ impl LanguageServer {
                                 start,
                                 end: params.text_document_position.position,
                             },
-                            new_text: r.suggestion.value,
+                            new_text: label_value,
                         })),
                         ..Default::default()
                     }
@@ -112,10 +121,11 @@ impl LanguageServer {
             },
             SuggestionKind::CellPath => Some(CompletionItemKind::PROPERTY),
             SuggestionKind::Command(c) => match c {
-                nu_protocol::engine::CommandType::Keyword => Some(CompletionItemKind::KEYWORD),
-                nu_protocol::engine::CommandType::Builtin => Some(CompletionItemKind::FUNCTION),
-                nu_protocol::engine::CommandType::External => Some(CompletionItemKind::INTERFACE),
-                _ => None,
+                CommandType::Keyword => Some(CompletionItemKind::KEYWORD),
+                CommandType::Builtin => Some(CompletionItemKind::FUNCTION),
+                CommandType::Alias => Some(CompletionItemKind::REFERENCE),
+                CommandType::External => Some(CompletionItemKind::INTERFACE),
+                CommandType::Custom | CommandType::Plugin => Some(CompletionItemKind::METHOD),
             },
             SuggestionKind::Directory => Some(CompletionItemKind::FOLDER),
             SuggestionKind::File => Some(CompletionItemKind::FILE),
@@ -210,7 +220,7 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_complete_request(&client_connection, script.clone(), 0, 8);
+        let resp = send_complete_request(&client_connection, script.clone(), 0, 6);
 
         #[cfg(not(windows))]
         let detail_str = "detail";
@@ -221,20 +231,15 @@ mod tests {
             expected: serde_json::json!([
                 // defined after the cursor
                 {
-                    "label": "config n foo bar",
-                    "detail": detail_str,
-                    "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 8 }, },
-                        "newText": "config n foo bar"
+                    "label": "config ",
+                    "detail": "Edit nushell configuration files.",
+                    "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 6 }, },
+                        "newText": "config "
                     },
                 },
-                {
-                    "label": "config nu",
-                    "detail": "Edit nu configurations.",
-                    "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 8 }, },
-                        "newText": "config nu"
-                    },
-                    "kind": 3
-                },
+                { "label": "config env ", "kind": 3 },
+                { "label": "config flatten ", "kind": 3 },
+                { "label": "config n foo bar ", "detail": detail_str, "kind": 2 },
             ])
         );
 
@@ -242,11 +247,11 @@ mod tests {
         let resp = send_complete_request(&client_connection, script.clone(), 1, 18);
         assert!(result_from_message(resp).as_array().unwrap().contains(
             &serde_json::json!({
-                "label": "-s",
+                "label": "-s ",
                 "detail": "test flag",
                 "labelDetails": { "description": "flag" },
                 "textEdit": { "range": { "start": { "line": 1, "character": 17 }, "end": { "line": 1, "character": 18 }, },
-                    "newText": "-s"
+                    "newText": "-s "
                 },
                 "kind": 5
             })
@@ -256,11 +261,11 @@ mod tests {
         let resp = send_complete_request(&client_connection, script.clone(), 2, 22);
         assert!(result_from_message(resp).as_array().unwrap().contains(
             &serde_json::json!({
-                "label": "--long",
+                "label": "--long ",
                 "detail": "test flag",
                 "labelDetails": { "description": "flag" },
                 "textEdit": { "range": { "start": { "line": 2, "character": 19 }, "end": { "line": 2, "character": 22 }, },
-                    "newText": "--long"
+                    "newText": "--long "
                 },
                 "kind": 5
             })
@@ -283,11 +288,11 @@ mod tests {
         let resp = send_complete_request(&client_connection, script, 10, 34);
         assert!(result_from_message(resp).as_array().unwrap().contains(
             &serde_json::json!({
-                "label": "-g",
+                "label": "-g ",
                 "detail": "count indexes and split using grapheme clusters (all visible chars have length 1)",
                 "labelDetails": { "description": "flag" },
                 "textEdit": { "range": { "start": { "line": 10, "character": 33 }, "end": { "line": 10, "character": 34 }, },
-                    "newText": "-g"
+                    "newText": "-g "
                 },
                 "kind": 5
             })
@@ -311,12 +316,12 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
-                    "label": "alias",
+                    "label": "alias ",
                     "labelDetails": { "description": "keyword" },
                     "detail": "Alias a command (with optional flags) to a new name.",
                     "textEdit": {
                         "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 0 }, },
-                        "newText": "alias"
+                        "newText": "alias "
                     },
                     "kind": 14
                 }
@@ -328,12 +333,12 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
-                    "label": "alias",
+                    "label": "alias ",
                     "labelDetails": { "description": "keyword" },
                     "detail": "Alias a command (with optional flags) to a new name.",
                     "textEdit": {
                         "range": { "start": { "line": 3, "character": 2 }, "end": { "line": 3, "character": 2 }, },
-                        "newText": "alias"
+                        "newText": "alias "
                     },
                     "kind": 14
                 }
@@ -370,12 +375,12 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
-                    "label": "str trim",
+                    "label": "str trim ",
                     "labelDetails": { "description": "built-in" },
                     "detail": "Trim whitespace or specific character.",
                     "textEdit": {
                         "range": { "start": { "line": 0, "character": 8 }, "end": { "line": 0, "character": 13 }, },
-                        "newText": "str trim"
+                        "newText": "str trim "
                     },
                     "kind": 3
                 }
@@ -400,10 +405,10 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
-                    "label": "overlay",
+                    "label": "overlay ",
                     "labelDetails": { "description": "keyword" },
                     "textEdit": {
-                        "newText": "overlay",
+                        "newText": "overlay ",
                         "range": { "start": { "character": 0, "line": 0 }, "end": { "character": 2, "line": 0 } }
                     },
                     "kind": 14
@@ -489,12 +494,12 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
-                    "label": "alias",
+                    "label": "alias ",
                     "labelDetails": { "description": "keyword" },
                     "detail": "Alias a command (with optional flags) to a new name.",
                     "textEdit": {
                         "range": { "start": { "line": 0, "character": 5 }, "end": { "line": 0, "character": 5 }, },
-                        "newText": "alias"
+                        "newText": "alias "
                     },
                     "kind": 14
                 },
@@ -519,10 +524,10 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
-                    "label": "!=",
+                    "label": "!= ",
                     "labelDetails": { "description": "operator" },
                     "textEdit": {
-                        "newText": "!=",
+                        "newText": "!= ",
                         "range": { "start": { "character": 10, "line": 7 }, "end": { "character": 10, "line": 7 } }
                     },
                     "kind": 24 // operator kind
@@ -535,10 +540,10 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
-                    "label": "not-has",
+                    "label": "not-has ",
                     "labelDetails": { "description": "operator" },
                     "textEdit": {
-                        "newText": "not-has",
+                        "newText": "not-has ",
                         "range": { "start": { "character": 10, "line": 7 }, "end": { "character": 15, "line": 7 } }
                     },
                     "kind": 24 // operator kind
