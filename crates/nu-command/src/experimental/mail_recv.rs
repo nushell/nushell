@@ -14,14 +14,14 @@ impl Command for MailRecv {
     }
 
     fn description(&self) -> &str {
-        "Read a message from the mailbox"
+        "Read a message from the mailbox."
     }
 
     fn extra_description(&self) -> &str {
         r#"When messages are sent to the current process, they get stored in what is called the "mailbox".
 This commands reads and returns a message from the mailbox, in a first-in-first-out fashion.
 j
-Messages may have numeric flags attatched to them. This commands supports filtering out messages that do not satisfy a given tag, by using the `tag` flag.
+Messages may have numeric flags attached to them. This commands supports filtering out messages that do not satisfy a given tag, by using the `tag` flag.
 If no tag is specified, this command will accept any message. 
 
 If no message with the specified tag (if any) is available in the mailbox, this command will block the current thread until one arrives.
@@ -40,7 +40,7 @@ in no particular order, regardless of the specified timeout parameter.
             .named(
                 "timeout",
                 SyntaxShape::Duration,
-                "The maximum duration to wait for",
+                "The maximum time duration to wait for.",
                 None,
             )
             .input_output_types(vec![(Type::Nothing, Type::Any)])

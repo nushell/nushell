@@ -20,7 +20,7 @@ If a message is received while this command is executing, it may also be discard
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("mail flush")
+        Signature::build("mail clear")
             .category(Category::Experimental)
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)

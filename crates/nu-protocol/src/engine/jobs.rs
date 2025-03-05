@@ -229,11 +229,11 @@ impl FrozenJob {
 pub struct CurrentJob {
     pub id: JobId,
 
-    // The backgorund thread job associated with this thread.
+    // The background thread job associated with this thread.
     // If None, it indicates this thread is currently the main job
     pub background_thread_job: Option<ThreadJob>,
 
-    // note: altough the mailbox is Mutex'd, it is only ever accessed
+    // note: although the mailbox is Mutex'd, it is only ever accessed
     // by the current job's threads
     pub mailbox: Arc<Mutex<Mailbox>>,
 }
