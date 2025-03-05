@@ -2818,4 +2818,16 @@ mod record {
             _ => panic!("Expected full cell path"),
         }
     }
+
+    /// Regression test for https://github.com/nushell/nushell/issues/15243
+    #[test]
+    fn record_terminate_loop() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        parse(&mut working_set, None, b"{a:b}/", false);
+        assert_eq!(
+            working_set.parse_errors.first().map(|e| e.to_string()),
+            Some("Invalid characters after closing delimiter".to_string())
+        );
+    }
 }
