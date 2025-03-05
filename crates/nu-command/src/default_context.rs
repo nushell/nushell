@@ -426,6 +426,11 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             RandomFloat,
             RandomInt,
             RandomUuid,
+            RandomUuid1,
+            RandomUuid3,
+            RandomUuid4,
+            RandomUuid5,
+            RandomUuid7,
             RandomBinary
         };
 

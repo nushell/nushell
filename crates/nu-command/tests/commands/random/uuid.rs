@@ -13,8 +13,8 @@ fn generates_valid_uuid4_by_default() {
 }
 
 #[test]
-fn generates_valid_uuid1_with_version_flag() {
-    let actual = nu!("random uuid -v 1 -m 00:11:22:33:44:55");
+fn generates_valid_uuid1() {
+    let actual = nu!("random uuid1 -m 00:11:22:33:44:55");
     let result = Uuid::parse_str(actual.out.as_str());
     assert!(result.is_ok());
 
@@ -25,7 +25,7 @@ fn generates_valid_uuid1_with_version_flag() {
 
 #[test]
 fn generates_valid_uuid3_with_namespace_and_name() {
-    let actual = nu!("random uuid -v 3 -n dns -s example.com");
+    let actual = nu!("random uuid3 -n dns -s example.com");
     let result = Uuid::parse_str(actual.out.as_str());
     assert!(result.is_ok());
 
@@ -39,8 +39,19 @@ fn generates_valid_uuid3_with_namespace_and_name() {
 }
 
 #[test]
+fn generates_valid_uuid4() {
+    let actual = nu!("random uuid4");
+    let result = Uuid::parse_str(actual.out.as_str());
+    assert!(result.is_ok());
+
+    if let Ok(uuid) = result {
+        assert_eq!(uuid.get_version_num(), 4);
+    }
+}
+
+#[test]
 fn generates_valid_uuid5_with_namespace_and_name() {
-    let actual = nu!("random uuid -v 5 -n dns -s example.com");
+    let actual = nu!("random uuid5 -n dns -s example.com");
     let result = Uuid::parse_str(actual.out.as_str());
     assert!(result.is_ok());
 
@@ -54,18 +65,12 @@ fn generates_valid_uuid5_with_namespace_and_name() {
 }
 
 #[test]
-fn generates_valid_uuid7_with_version_flag() {
-    let actual = nu!("random uuid -v 7");
+fn generates_valid_uuid7() {
+    let actual = nu!("random uuid7");
     let result = Uuid::parse_str(actual.out.as_str());
     assert!(result.is_ok());
 
     if let Ok(uuid) = result {
         assert_eq!(uuid.get_version_num(), 7);
     }
-}
-
-#[test]
-fn errors_on_invalid_uuid_version() {
-    let actual = nu!("random uuid -v 2");
-    assert!(actual.err.contains("Unsupported UUID version: 2"));
 }
