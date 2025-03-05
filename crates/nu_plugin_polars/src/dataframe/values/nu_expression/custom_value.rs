@@ -7,7 +7,7 @@ use std::ops::{Add, Div, Mul, Rem, Sub};
 use super::NuExpression;
 use nu_plugin::EngineInterface;
 use nu_protocol::{
-    ast::{Comparison, Math, Operator},
+    ast::{Boolean, Comparison, Math, Operator},
     CustomValue, ShellError, Span, Type, Value,
 };
 use polars::prelude::Expr;
@@ -131,6 +131,16 @@ fn with_operator(
         Operator::Comparison(Comparison::LessThanOrEqual) => Ok(left
             .clone()
             .apply_with_expr(right.clone(), Expr::lt_eq)
+            .cache(plugin, engine, lhs_span)?
+            .into_value(lhs_span)),
+        Operator::Boolean(Boolean::And) => Ok(left
+            .clone()
+            .apply_with_expr(right.clone(), Expr::logical_and)
+            .cache(plugin, engine, lhs_span)?
+            .into_value(lhs_span)),
+        Operator::Boolean(Boolean::Or) => Ok(left
+            .clone()
+            .apply_with_expr(right.clone(), Expr::logical_or)
             .cache(plugin, engine, lhs_span)?
             .into_value(lhs_span)),
         op => Err(ShellError::OperatorUnsupportedType {
