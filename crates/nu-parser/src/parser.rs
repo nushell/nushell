@@ -5995,10 +5995,12 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         return garbage(working_set, span);
     }
 
+    let mut unclosed = false;
+    let mut extra_tokens = false;
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
+        unclosed = true;
     }
 
     let inner_span = Span::new(start, end);
@@ -6009,7 +6011,12 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         error: None,
         span_offset: start,
     };
-    loop {
+    while !lex_state.input.is_empty() {
+        if lex_state.input[0] == b'}' {
+            extra_tokens = true;
+            unclosed = false;
+            break;
+        }
         let additional_whitespace = &[b'\n', b'\r', b','];
         if lex_n_tokens(&mut lex_state, additional_whitespace, &[b':'], true, 1) < 1 {
             break;
@@ -6037,6 +6044,15 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         };
     }
     let (tokens, err) = (lex_state.output, lex_state.error);
+
+    if unclosed {
+        working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
+    } else if extra_tokens {
+        working_set.error(ParseError::ExtraTokensAfterClosingDelimiter(Span::new(
+            lex_state.span_offset + 1,
+            end,
+        )));
+    }
 
     if let Some(err) = err {
         working_set.error(err);
