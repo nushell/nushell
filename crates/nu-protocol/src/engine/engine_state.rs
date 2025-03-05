@@ -8,9 +8,9 @@ use crate::{
     },
     eval_const::create_nu_constant,
     shell_error::io::IoError,
-    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, Module, ModuleId,
-    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
-    VirtualPathId,
+    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module,
+    ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value,
+    VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -117,7 +117,7 @@ pub struct EngineState {
     pub jobs: Arc<Mutex<Jobs>>,
 
     // The job being executed with this engine state, or None if main thread
-    pub current_thread_job: Option<ThreadJob>,
+    pub thread_job_entry: Option<(JobId, ThreadJob)>,
 
     // When there are background jobs running, the interactive behavior of `exit` changes depending on
     // the value of this flag:
@@ -196,7 +196,7 @@ impl EngineState {
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
             jobs: Arc::new(Mutex::new(Jobs::default())),
-            current_thread_job: None,
+            thread_job_entry: None,
             exit_warning_given: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -1080,7 +1080,12 @@ impl EngineState {
 
     // Determines whether the current state is being held by a background job
     pub fn is_background_job(&self) -> bool {
-        self.current_thread_job.is_some()
+        self.thread_job_entry.is_some()
+    }
+
+    // Gets the thread job entry
+    pub fn current_thread_job(&self) -> Option<&ThreadJob> {
+        self.thread_job_entry.as_ref().map(|(_, job)| job)
     }
 }
 
