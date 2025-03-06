@@ -14,6 +14,24 @@ impl Command for SubCommand {
         Signature::build("random uuid")
             .category(Category::Random)
             .input_output_types(vec![(Type::Nothing, Type::String)])
+            .named(
+                "version",
+                SyntaxShape::Int,
+                "The UUID version to generate (1, 3, 4, 5, 7). Defaults to 4 if not specified.",
+                Some('v'),
+            )
+            .named(
+                "namespace",
+                SyntaxShape::String,
+                "The namespace for v3 and v5 UUIDs (dns, url, oid, x500). Required for v3 and v5.",
+                Some('n'),
+            )
+            .named(
+                "name",
+                SyntaxShape::String,
+                "The name string for v3 and v5 UUIDs. Required for v3 and v5.",
+                Some('s'),
+            )
             .allow_variants_without_examples(true)
     }
 
@@ -28,7 +46,7 @@ impl Command for SubCommand {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -42,27 +60,101 @@ impl Command for SubCommand {
                 url: "`help random uuid[version]`".into(),
             },
         );
-        uuid(call)
+        uuid(engine_state, stack, call)
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Generate a random uuid4 string",
-            example: "random uuid",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Generate a random uuid v4 string (default)",
+                example: "random uuid",
+                result: None,
+            },
+            Example {
+                description: "Generate a uuid v1 string (timestamp-based)",
+                example: "random uuid -v 1",
+                result: None,
+            },
+            Example {
+                description: "Generate a uuid v3 string (namespace with MD5)",
+                example: "random uuid -v 3 -n dns -s example.com",
+                result: None,
+            },
+            Example {
+                description: "Generate a uuid v5 string (namespace with SHA1)",
+                example: "random uuid -v 5 -n dns -s example.com",
+                result: None,
+            },
+            Example {
+                description: "Generate a uuid v7 string (timestamp + random)",
+                example: "random uuid -v 7",
+                result: None,
+            },
+        ]
     }
 }
 
-fn uuid(call: &Call) -> Result<PipelineData, ShellError> {
+fn uuid(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    let uuid_4 = Uuid::new_v4().hyphenated().to_string();
+
+    let version: Option<i64> = call.get_flag(engine_state, stack, "version")?;
+    let version = version.unwrap_or(4);
+
+    let uuid_str = match version {
+        1 => {
+            let ts = Timestamp::now(uuid::timestamp::context::NoContext);
+            let node_id = random_mac_address();
+            let uuid = Uuid::new_v1(ts, &node_id);
+            uuid.hyphenated().to_string()
+        }
+        3 => {
+            let (namespace, name) = get_namespace_and_name(engine_state, stack, call, span)?;
+            let uuid = Uuid::new_v3(&namespace, name.as_bytes());
+            uuid.hyphenated().to_string()
+        }
+        4 => {
+            let uuid = Uuid::new_v4();
+            uuid.hyphenated().to_string()
+        }
+        5 => {
+            let (namespace, name) = get_namespace_and_name(engine_state, stack, call, span)?;
+            let uuid = Uuid::new_v5(&namespace, name.as_bytes());
+            uuid.hyphenated().to_string()
+        }
+        7 => {
+            let ts = Timestamp::now(uuid::timestamp::context::NoContext);
+            let uuid = Uuid::new_v7(ts);
+            uuid.hyphenated().to_string()
+        }
+        _ => {
+            return Err(ShellError::GenericError {
+                error: format!(
+                    "Unsupported UUID version: {}. Supported versions are 1, 3, 4, 5, and 7.",
+                    version
+                ),
+                msg: "Invalid UUID version".to_string(),
+                span: Some(span),
+                help: Some("Specify version with -v: 1, 3, 4, 5, or 7".to_string()),
+                inner: Vec::new(),
+            });
+        }
+    };
 
     Ok(PipelineData::Value(Value::string(uuid_4, span), None))
 }
 
-// NOTE: Do not remove this function. It is used in the `uuid3` and `uuid5` modules.
-pub fn get_namespace_and_name(
+fn random_mac_address() -> [u8; 6] {
+    let mut mac = [0u8; 6];
+    mac.iter_mut().for_each(|byte| *byte = rand::random());
+    mac[0] |= 0x01;
+    mac
+}
+
+fn get_namespace_and_name(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
