@@ -14,7 +14,7 @@ fn generates_valid_uuid4_by_default() {
 
 #[test]
 fn generates_valid_uuid1() {
-    let actual = nu!("random uuid1 -m 00:11:22:33:44:55");
+    let actual = nu!("random uuid -v 1 -m 00:11:22:33:44:55");
     let result = Uuid::parse_str(actual.out.as_str());
     assert!(result.is_ok());
 
@@ -25,7 +25,7 @@ fn generates_valid_uuid1() {
 
 #[test]
 fn generates_valid_uuid3_with_namespace_and_name() {
-    let actual = nu!("random uuid3 -n dns -s example.com");
+    let actual = nu!("random uuid -v 3 -n dns -s example.com");
     let result = Uuid::parse_str(actual.out.as_str());
     assert!(result.is_ok());
 
@@ -40,7 +40,7 @@ fn generates_valid_uuid3_with_namespace_and_name() {
 
 #[test]
 fn generates_valid_uuid4() {
-    let actual = nu!("random uuid4");
+    let actual = nu!("random uuid -v 4");
     let result = Uuid::parse_str(actual.out.as_str());
     assert!(result.is_ok());
 
@@ -51,7 +51,7 @@ fn generates_valid_uuid4() {
 
 #[test]
 fn generates_valid_uuid5_with_namespace_and_name() {
-    let actual = nu!("random uuid5 -n dns -s example.com");
+    let actual = nu!("random uuid -v 5 -n dns -s example.com");
     let result = Uuid::parse_str(actual.out.as_str());
     assert!(result.is_ok());
 
@@ -66,7 +66,7 @@ fn generates_valid_uuid5_with_namespace_and_name() {
 
 #[test]
 fn generates_valid_uuid7() {
-    let actual = nu!("random uuid7");
+    let actual = nu!("random uuid -v 7");
     let result = Uuid::parse_str(actual.out.as_str());
     assert!(result.is_ok());
 
