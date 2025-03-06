@@ -14,8 +14,8 @@ impl Command for SubCommand {
         Signature::build("str stats")
             .category(Category::Strings)
             .input_output_types(vec![
-                (Type::String, Type::table()),
-                (Type::list(Type::Any), Type::table()),
+                (Type::String, Type::record()),
+                (Type::list(Type::Any), Type::record()),
             ])
             .allow_variants_without_examples(true)
     }
