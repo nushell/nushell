@@ -52,7 +52,6 @@ impl Command for SubCommand {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
