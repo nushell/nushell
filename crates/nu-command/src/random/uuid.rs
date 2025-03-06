@@ -52,6 +52,7 @@ impl Command for SubCommand {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -131,15 +132,13 @@ fn uuid(
             uuid.hyphenated().to_string()
         }
         _ => {
-            return Err(ShellError::GenericError {
-                error: format!(
+            return Err(ShellError::IncorrectValue {
+                msg: format!(
                     "Unsupported UUID version: {}. Supported versions are 1, 3, 4, 5, and 7.",
                     version
                 ),
-                msg: "Invalid UUID version".to_string(),
-                span: Some(span),
-                help: Some("Specify version with -v: 1, 3, 4, 5, or 7".to_string()),
-                inner: Vec::new(),
+                val_span: span,
+                call_span: span,
             });
         }
     };
