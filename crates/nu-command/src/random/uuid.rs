@@ -104,6 +104,8 @@ fn uuid(
     let version: Option<i64> = call.get_flag(engine_state, stack, "version")?;
     let version = version.unwrap_or(4);
 
+    validate_flags(engine_state, stack, call, span, version)?;
+
     let uuid_str = match version {
         1 => {
             let ts = Timestamp::now(uuid::timestamp::context::NoContext);
@@ -143,6 +145,88 @@ fn uuid(
     };
 
     Ok(PipelineData::Value(Value::string(uuid_str, span), None))
+}
+
+fn validate_flags(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    span: Span,
+    version: i64,
+) -> Result<(), ShellError> {
+    match version {
+        1 => {
+            if call
+                .get_flag::<Option<String>>(engine_state, stack, "namespace")?
+                .is_some()
+            {
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "version 1 uuid does not take namespace as a parameter".to_string(),
+                    span,
+                });
+            }
+            if call
+                .get_flag::<Option<String>>(engine_state, stack, "name")?
+                .is_some()
+            {
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "version 1 uuid does not take name as a parameter".to_string(),
+                    span,
+                });
+            }
+        }
+        3 | 5 => {
+            if call
+                .get_flag::<Option<String>>(engine_state, stack, "mac")?
+                .is_some()
+            {
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "version 3 and 5 uuids do not take mac as a parameter".to_string(),
+                    span,
+                });
+            }
+        }
+        v => {
+            if v != 4 && v != 7 {
+                return Err(ShellError::IncorrectValue {
+                    msg: format!(
+                        "Unsupported UUID version: {}. Supported versions are 1, 3, 4, 5, and 7.",
+                        v
+                    ),
+                    val_span: span,
+                    call_span: span,
+                });
+            }
+            if call
+                .get_flag::<Option<String>>(engine_state, stack, "mac")?
+                .is_some()
+            {
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: format!("version {} uuid does not take mac as a parameter", v),
+                    span,
+                });
+            }
+            if call
+                .get_flag::<Option<String>>(engine_state, stack, "namespace")?
+                .is_some()
+            {
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: format!("version {} uuid does not take namespace as a parameter", v),
+                    span,
+                });
+            }
+            if call
+                .get_flag::<Option<String>>(engine_state, stack, "name")?
+                .is_some()
+            {
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: format!("version {} uuid does not take name as a parameter", v),
+                    span,
+                });
+            }
+        }
+    }
+    Ok(())
 }
 
 fn get_mac_address(
