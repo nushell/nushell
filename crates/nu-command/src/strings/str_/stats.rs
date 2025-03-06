@@ -34,21 +34,21 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        stats(engine_state, call, input)
+        stats(call, input)
     }
 
     fn run_const(
         &self,
-        working_set: &StateWorkingSet,
+        _working_set: &StateWorkingSet,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        stats(working_set.permanent(), call, input)
+        stats(call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -93,67 +93,155 @@ impl Command for SubCommand {
     }
 }
 
-fn stats(
-    engine_state: &EngineState,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
+fn stats(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
     let span = input.span().unwrap_or(call.head);
-
     let metadata = input.metadata();
+
+    // Initialize counters
+    let mut lines = 0;
+    let mut words = 0;
+    let mut bytes = 0;
+    let mut chars = 0;
+    let mut graphemes = 0;
+    let mut unicode_width = 0;
+
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
-        PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream(..) => Ok(input
-            .into_iter()
-            .map(move |value| process_value(value, span, "list/liststream"))
-            .into_pipeline_data(span, engine_state.signals().clone())),
+        PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream(..) => {
+            for value in input.into_iter() {
+                match process_and_update_stats(value, span, "list/liststream") {
+                    Ok((l, w, b, c, g, u)) => {
+                        lines += l;
+                        words += w;
+                        bytes += b;
+                        chars += c;
+                        graphemes += g;
+                        unicode_width += u;
+                    }
+                    Err(err) => return Ok(Value::error(err, span).into_pipeline_data()),
+                }
+            }
+
+            Ok(
+                create_result(lines, words, bytes, chars, graphemes, unicode_width, span)
+                    .into_pipeline_data(),
+            )
+        }
         PipelineData::ByteStream(stream, ..) => {
             let span = stream.span();
             if let Some(chunks) = stream.chunks() {
-                Ok(chunks
-                    .map(move |value| {
-                        let val = match value {
-                            Ok(v) => v,
-                            Err(e) => Value::error(e, span),
-                        };
-                        process_value(val, span, "bytestream")
-                    })
-                    .fuse()
-                    .into_pipeline_data(span, engine_state.signals().clone()))
+                for value in chunks {
+                    let val = match value {
+                        Ok(v) => v,
+                        Err(e) => return Ok(Value::error(e, span).into_pipeline_data()),
+                    };
+
+                    match process_and_update_stats(val, span, "bytestream") {
+                        Ok((l, w, b, c, g, u)) => {
+                            lines += l;
+                            words += w;
+                            bytes += b;
+                            chars += c;
+                            graphemes += g;
+                            unicode_width += u;
+                        }
+                        Err(err) => return Ok(Value::error(err, span).into_pipeline_data()),
+                    }
+                }
+
+                Ok(
+                    create_result(lines, words, bytes, chars, graphemes, unicode_width, span)
+                        .into_pipeline_data(),
+                )
             } else {
                 Ok(PipelineData::Empty)
             }
         }
         PipelineData::Value(..) => {
             let metadata_clone = metadata.clone();
-            Ok(input
-                .into_iter()
-                .map(move |value| process_value(value, span, "string"))
-                .into_pipeline_data_with_metadata(
-                    span,
-                    engine_state.signals().clone(),
-                    metadata_clone,
-                ))
+            for value in input.into_iter() {
+                match process_and_update_stats(value, span, "string") {
+                    Ok((l, w, b, c, g, u)) => {
+                        lines += l;
+                        words += w;
+                        bytes += b;
+                        chars += c;
+                        graphemes += g;
+                        unicode_width += u;
+                    }
+                    Err(err) => return Ok(Value::error(err, span).into_pipeline_data()),
+                }
+            }
+
+            Ok(
+                create_result(lines, words, bytes, chars, graphemes, unicode_width, span)
+                    .into_pipeline_data_with_metadata(metadata_clone),
+            )
         }
     }
 }
 
-fn process_value(value: Value, span: Span, input_type: &str) -> Value {
+fn process_and_update_stats(
+    value: Value,
+    span: Span,
+    input_type: &str,
+) -> Result<(i64, i64, i64, i64, i64, i64), ShellError> {
     let value_span = value.span();
+
     match value {
-        Value::Error { error, .. } => Value::error(*error, value_span),
+        Value::Error { error, .. } => Err(*error),
         value => match value.coerce_str() {
-            Ok(s) => counter(s.as_ref(), value_span),
-            Err(_) => Value::error(
-                ShellError::PipelineMismatch {
-                    exp_input_type: input_type.into(),
-                    dst_span: span,
-                    src_span: value_span,
-                },
-                value_span,
-            ),
+            Ok(s) => {
+                // Count directly and update stats
+                let result = counter(s.as_ref(), value_span);
+                if let Value::Record { val, .. } = &result {
+                    let lines = val.get("lines").and_then(|v| v.as_int().ok()).unwrap_or(0);
+                    let words = val.get("words").and_then(|v| v.as_int().ok()).unwrap_or(0);
+                    let bytes = val.get("bytes").and_then(|v| v.as_int().ok()).unwrap_or(0);
+                    let chars = val.get("chars").and_then(|v| v.as_int().ok()).unwrap_or(0);
+                    let graphemes = val
+                        .get("graphemes")
+                        .and_then(|v| v.as_int().ok())
+                        .unwrap_or(0);
+                    let unicode_width = val
+                        .get("unicode-width")
+                        .and_then(|v| v.as_int().ok())
+                        .unwrap_or(0);
+
+                    Ok((lines, words, bytes, chars, graphemes, unicode_width))
+                } else {
+                    Ok((0, 0, 0, 0, 0, 0))
+                }
+            }
+            Err(_) => Err(ShellError::PipelineMismatch {
+                exp_input_type: input_type.into(),
+                dst_span: span,
+                src_span: value_span,
+            }),
         },
     }
+}
+
+fn create_result(
+    lines: i64,
+    words: i64,
+    bytes: i64,
+    chars: i64,
+    graphemes: i64,
+    unicode_width: i64,
+    span: Span,
+) -> Value {
+    Value::record(
+        record! {
+            "lines" => Value::int(lines, span),
+            "words" => Value::int(words, span),
+            "bytes" => Value::int(bytes, span),
+            "chars" => Value::int(chars, span),
+            "graphemes" => Value::int(graphemes, span),
+            "unicode-width" => Value::int(unicode_width, span),
+        },
+        span,
+    )
 }
 
 fn counter(contents: &str, span: Span) -> Value {
