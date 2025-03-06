@@ -115,7 +115,7 @@ fn unfreeze_job(
         Job::Frozen(FrozenJob { unfreeze: handle }) => {
             let pid = handle.pid();
 
-            if let Some(thread_job) = &state.current_thread_job {
+            if let Some(thread_job) = &state.current_thread_job() {
                 if !thread_job.try_add_pid(pid) {
                     kill_by_pid(pid.into()).map_err(|err| {
                         ShellError::Io(IoError::new_internal(
@@ -133,7 +133,7 @@ fn unfreeze_job(
                     .then(|| state.pipeline_externals_state.clone()),
             );
 
-            if let Some(thread_job) = &state.current_thread_job {
+            if let Some(thread_job) = &state.current_thread_job() {
                 thread_job.remove_pid(pid);
             }
 
