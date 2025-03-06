@@ -56,38 +56,38 @@ impl Command for SubCommand {
             Example {
                 description: "Count the number of words in a string",
                 example: r#""There are seven words in this sentence" | str stats"#,
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_record(record! {
                             "lines" =>     Value::test_int(1),
                             "words" =>     Value::test_int(7),
                             "bytes" =>     Value::test_int(38),
                             "chars" =>     Value::test_int(38),
                             "graphemes" => Value::test_int(38),
                             "unicode-width" => Value::test_int(38),
-                })])),
+                })),
             },
             Example {
                 description: "Counts unicode characters",
                 example: r#"'今天天气真好' | str stats"#,
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_record(record! {
                             "lines" =>     Value::test_int(1),
                             "words" =>     Value::test_int(6),
                             "bytes" =>     Value::test_int(18),
                             "chars" =>     Value::test_int(6),
                             "graphemes" => Value::test_int(6),
                             "unicode-width" => Value::test_int(12),
-                })])),
+                })),
             },
             Example {
                 description: "Counts Unicode characters correctly in a string",
                 example: r#""Amélie Amelie" | str stats"#,
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_record(record! {
                             "lines" =>     Value::test_int(1),
                             "words" =>     Value::test_int(2),
                             "bytes" =>     Value::test_int(14),
                             "chars" =>     Value::test_int(13),
                             "graphemes" => Value::test_int(13),
                             "unicode-width" => Value::test_int(13),
-                })])),
+                })),
             },
         ]
     }
