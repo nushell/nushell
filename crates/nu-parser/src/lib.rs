@@ -23,5 +23,6 @@ pub use parse_keywords::*;
 
 pub use parser::{
     is_math_expression_like, parse, parse_block, parse_expression, parse_external_call,
-    parse_unit_value, trim_quotes, trim_quotes_str, unescape_unquote_string, DURATION_UNIT_GROUPS,
+    parse_simple_cell_path, parse_unit_value, trim_quotes, trim_quotes_str,
+    unescape_unquote_string, DURATION_UNIT_GROUPS,
 };

@@ -1,5 +1,10 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, engine::StateWorkingSet, Config, ListStream};
+use nu_parser::{lex, parse_simple_cell_path, Token, TokenContents};
+use nu_protocol::{
+    ast::{Expr, PathMember},
+    engine::StateWorkingSet,
+    report_parse_error, Config, ListStream,
+};
 
 #[derive(Clone)]
 pub struct FormatPattern;
@@ -53,6 +58,7 @@ impl Command for FormatPattern {
                 // the string span is start as `"`, we don't need the character
                 // to generate proper span for sub expression.
                 let ops = extract_formatting_operations(
+                    engine_state,
                     string_pattern,
                     call.head,
                     string_span.start + 1,
@@ -93,17 +99,18 @@ impl Command for FormatPattern {
 enum FormatOperation {
     FixedText(String),
     // raw input is something like {column1.column2}
-    ValueFromColumn(String, Span),
+    CellPath(CellPath),
 }
 
 /// Given a pattern that is fed into the Format command, we can process it and subdivide it
 /// in two kind of operations.
 /// FormatOperation::FixedText contains a portion of the pattern that has to be placed
 /// there without any further processing.
-/// FormatOperation::ValueFromColumn contains the name of a column whose values will be
+/// FormatOperation::CellPath contains the name of a column whose values will be
 /// formatted according to the input pattern.
 /// "$it.column1.column2" or "$variable"
 fn extract_formatting_operations(
+    engine_state: &EngineState,
     input: String,
     error_span: Span,
     span_start: usize,
@@ -112,14 +119,13 @@ fn extract_formatting_operations(
 
     let mut characters = input.char_indices();
 
-    let mut column_span_start = 0;
-    let mut column_span_end = 0;
+    let mut pattern_range = (None, None);
     loop {
         let mut before_bracket = String::new();
 
         for (index, ch) in &mut characters {
             if ch == '{' {
-                column_span_start = index + 1; // not include '{' character.
+                pattern_range.0 = Some(index + 1); // not include '{' character.
                 break;
             }
             before_bracket.push(ch);
@@ -129,50 +135,52 @@ fn extract_formatting_operations(
             output.push(FormatOperation::FixedText(before_bracket.to_string()));
         }
 
-        let mut column_name = String::new();
-        let mut column_need_eval = false;
         for (index, ch) in &mut characters {
-            if ch == '$' {
-                column_need_eval = true;
-            }
-
             if ch == '}' {
-                column_span_end = index; // not include '}' character.
+                pattern_range.1 = Some(index); // not include '}' character.
                 break;
             }
-            column_name.push(ch);
         }
 
-        if column_span_end < column_span_start {
-            return Err(ShellError::DelimiterError {
-                msg: "there are unmatched curly braces".to_string(),
-                span: error_span,
+        let pattern_span = match pattern_range {
+            (Some(start), Some(end)) => Span::new(span_start + start, span_start + end),
+            (None, Some(_)) => {
+                return Err(ShellError::DelimiterError {
+                    msg: "there are unmatched curly braces".to_string(),
+                    span: error_span,
+                })
+            }
+            // no pattern and no fixed text, we're done parsing
+            (None, None) if before_bracket.is_empty() => break,
+            _ => continue,
+        };
+
+        let mut working_set = StateWorkingSet::new(engine_state);
+        let expression = parse_simple_cell_path(&mut working_set, pattern_span);
+
+        for error in &working_set.parse_errors {
+            report_parse_error(&working_set, &error);
+            return Err(ShellError::GenericError {
+                error: "Error while parsing pattern".into(),
+                msg: "failed to parse this pattern".into(),
+                span: Some(pattern_span),
+                help: None,
+                inner: vec![],
             });
         }
 
-        if !column_name.is_empty() {
-            if column_need_eval {
-                return Err(ShellError::GenericError {
-                    error: "Removed functionality".into(),
-                    msg: "The ability to use variables ($it) in `format pattern` has been removed."
-                        .into(),
-                    span: Some(error_span),
-                    help: Some(
-                        "You can use other formatting options, such as string interpolation."
-                            .into(),
-                    ),
-                    inner: vec![],
-                });
-            } else {
-                output.push(FormatOperation::ValueFromColumn(
-                    column_name.clone(),
-                    Span::new(span_start + column_span_start, span_start + column_span_end),
-                ));
-            }
-        }
-
-        if before_bracket.is_empty() && column_name.is_empty() {
-            break;
+        if let Expr::CellPath(cell_path) = expression.expr {
+            // successfully parsed pattern, start over
+            output.push(FormatOperation::CellPath(cell_path));
+            pattern_range = (None, None);
+        } else {
+            return Err(ShellError::GenericError {
+                error: "Invalid cell path".into(),
+                msg: "must be a cell path".into(),
+                span: Some(pattern_span),
+                help: None,
+                inner: vec![],
+            });
         }
     }
     Ok(output)
@@ -243,17 +251,11 @@ fn format_record(
     for op in format_operations {
         match op {
             FormatOperation::FixedText(s) => output.push_str(s.as_str()),
-            FormatOperation::ValueFromColumn(col_name, span) => {
-                // path member should split by '.' to handle for nested structure.
-                let path_members: Vec<PathMember> = col_name
-                    .split('.')
-                    .map(|path| PathMember::String {
-                        val: path.to_string(),
-                        span: *span,
-                        optional: false,
-                    })
-                    .collect();
-                match data_as_value.clone().follow_cell_path(&path_members, false) {
+            FormatOperation::CellPath(cell_path) => {
+                match data_as_value
+                    .clone()
+                    .follow_cell_path(&cell_path.members, false)
+                {
                     Ok(value_at_column) => {
                         output.push_str(value_at_column.to_expanded_string(", ", config).as_str())
                     }
