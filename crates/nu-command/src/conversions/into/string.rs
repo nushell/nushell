@@ -226,8 +226,13 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         }
         Value::Glob { val, .. } => Value::string(val.to_string(), span),
 
-        Value::Filesize { val: _, .. } => {
-            Value::string(input.to_expanded_string(", ", config), span)
+        Value::Filesize { val, .. } => {
+            if group_digits {
+                let decimal_value = digits.unwrap_or(0) as usize;
+                Value::string(format_int(val.get(), group_digits, decimal_value), span)
+            } else {
+                Value::string(input.to_expanded_string(", ", config), span)
+            }
         }
         Value::Duration { val: _, .. } => Value::string(input.to_expanded_string("", config), span),
 
