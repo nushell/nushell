@@ -14,6 +14,7 @@ impl Command for MathStddev {
         Signature::build("math stddev")
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::Range, Type::Number),
                 (Type::table(), Type::record()),
                 (Type::record(), Type::record()),
             ])

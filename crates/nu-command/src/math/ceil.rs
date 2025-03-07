@@ -16,6 +16,7 @@ impl Command for MathCeil {
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Int)),
                 ),
+                (Type::Range, Type::Number),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)

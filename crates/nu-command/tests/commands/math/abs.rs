@@ -7,8 +7,16 @@ fn const_abs() {
 }
 
 #[test]
-fn cannot_abs_range() {
-    let actual = nu!("0..5 | math abs");
+fn can_abs_range() {
+    let actual = nu!("-1.5..-10.5 | math abs");
+    let expected = nu!("1.5..10.5");
 
-    assert!(actual.err.contains("nu::parser::input_type_mismatch"));
+    assert_eq!(actual.out, expected.out);
+}
+
+#[test]
+fn cannot_abs_infinite_range() {
+    let actual = nu!("0.. | math abs");
+
+    assert!(actual.err.contains("nu::shell::incorrect_value"));
 }

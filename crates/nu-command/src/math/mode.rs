@@ -48,6 +48,7 @@ impl Command for MathMode {
                     Type::List(Box::new(Type::Filesize)),
                     Type::List(Box::new(Type::Filesize)),
                 ),
+                (Type::Range, Type::Number),
                 (Type::table(), Type::record()),
             ])
             .allow_variants_without_examples(true)

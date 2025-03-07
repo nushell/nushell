@@ -21,6 +21,7 @@ impl Command for MathAbs {
                     Type::List(Box::new(Type::Duration)),
                     Type::List(Box::new(Type::Duration)),
                 ),
+                (Type::Range, Type::Number),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)

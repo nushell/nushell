@@ -16,6 +16,7 @@ impl Command for MathRound {
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Number)),
                 ),
+                (Type::Range, Type::Number),
             ])
             .allow_variants_without_examples(true)
             .named(
