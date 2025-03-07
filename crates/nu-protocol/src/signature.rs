@@ -83,7 +83,7 @@ impl std::fmt::Display for Category {
             Category::Core => "core",
             Category::Custom(name) => name,
             Category::Database => "database",
-            Category::Date => "date",
+            Category::Date => "datetime",
             Category::Debug => "debug",
             Category::Default => "default",
             Category::Deprecated => "deprecated",
