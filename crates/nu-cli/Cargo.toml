@@ -13,6 +13,7 @@ bench = false
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.103.1" }
 nu-command = { path = "../nu-command", version = "0.103.1" }
+nu-std = { path = "../nu-std", version = "0.103.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.103.1" }
 rstest = { workspace = true, default-features = false }
 tempfile = { workspace = true }
