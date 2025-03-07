@@ -1132,6 +1132,21 @@ impl<'a> GetSpan for &'a StateWorkingSet<'a> {
     }
 }
 
+impl GetSpan for StateWorkingSet<'_> {
+    fn get_span(&self, span_id: SpanId) -> Span {
+        let num_permanent_spans = self.permanent_state.num_spans();
+        if span_id.get() < num_permanent_spans {
+            self.permanent_state.get_span(span_id)
+        } else {
+            *self
+                .delta
+                .spans
+                .get(span_id.get() - num_permanent_spans)
+                .expect("internal error: missing span")
+        }
+    }
+}
+
 impl miette::SourceCode for &StateWorkingSet<'_> {
     fn read_span<'b>(
         &'b self,
