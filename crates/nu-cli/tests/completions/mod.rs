@@ -604,6 +604,33 @@ fn dotnu_stdlib_completions() {
 }
 
 #[test]
+fn exportable_completions() {
+    let (_, _, mut engine, stack) = new_dotnu_engine();
+    assert!(load_standard_library(&mut engine).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let completion_str = "use std null";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["null-device", "null_device"], &suggestions);
+
+    let completion_str = "export use std/assert eq";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["equal"], &suggestions);
+
+    let completion_str = "use std/assert \"not eq";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["'not equal'"], &suggestions);
+
+    let completion_str = "use std-rfc/clip ['prefi";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["prefix"], &suggestions);
+
+    let completion_str = "use std/math [E, `TAU";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["TAU"], &suggestions);
+}
+
+#[test]
 fn dotnu_completions_const_nu_lib_dirs() {
     let (_, _, engine, stack) = new_dotnu_engine();
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));

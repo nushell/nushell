@@ -592,7 +592,7 @@ impl NuCompleter {
                                 ctx.prefix.len().min(pos.min(span.end) - ctx.span.start + 1);
                             let new_ctx = Context::new(
                                 ctx.working_set,
-                                Span::new(span.start, ctx.span.end.min(span.end).min(pos + 1)),
+                                Span::new(span.start, ctx.span.end.min(span.end)),
                                 ctx.prefix.get(offset..end_offset).unwrap_or_default(),
                                 ctx.offset,
                             );
