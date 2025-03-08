@@ -85,7 +85,12 @@ impl Completer for ExportableCompletion<'_> {
                         })
                         .collect::<Vec<String>>()
                 });
-                add_suggestion(wrapped_name(name), None, comments, SuggestionKind::Module);
+                add_suggestion(
+                    wrapped_name(name),
+                    Some("Submodule".into()),
+                    comments,
+                    SuggestionKind::Module,
+                );
             }
         }
         for (name, var_id) in &module.constants {

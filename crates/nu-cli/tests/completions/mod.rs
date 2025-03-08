@@ -594,7 +594,7 @@ fn exportable_completions() {
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["TAU"], &suggestions);
 
-    let completion_str = "use 🤔🐘 'fo";
+    let completion_str = "use 🤔🐘 'foo";
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["foo"], &suggestions);
 }
