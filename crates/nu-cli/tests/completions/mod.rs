@@ -307,7 +307,12 @@ fn custom_arguments_and_subcommands() {
     let completion_str = "foo test";
     let suggestions = completer.complete(completion_str, completion_str.len());
     // including both subcommand and directory completions
-    let expected = ["foo test bar".into(), folder("test_a"), folder("test_b")];
+    let expected = [
+        "foo test bar".into(),
+        folder("test_a"),
+        file("test_a_symlink"),
+        folder("test_b"),
+    ];
     match_suggestions_by_string(&expected, &suggestions);
 }
 
@@ -1492,6 +1497,7 @@ fn folder_with_directorycompletions() {
         folder(dir.join("another")),
         folder(dir.join("directory_completion")),
         folder(dir.join("test_a")),
+        file(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         folder(dir.join(".hidden_folder")),
     ];
@@ -1594,6 +1600,12 @@ fn folder_with_directorycompletions_with_three_trailing_dots() {
                 .join("...")
                 .join("test_a"),
         ),
+        file(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("...")
+                .join("test_a_symlink"),
+        ),
         folder(
             dir.join("directory_completion")
                 .join("folder_inside_folder")
@@ -1665,6 +1677,13 @@ fn folder_with_directorycompletions_do_not_collapse_dots() {
                 .join("..")
                 .join("..")
                 .join("test_a"),
+        ),
+        file(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join("test_a_symlink"),
         ),
         folder(
             dir.join("directory_completion")
