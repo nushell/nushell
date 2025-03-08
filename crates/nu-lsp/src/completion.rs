@@ -52,8 +52,6 @@ impl LanguageServer {
             results
                 .into_iter()
                 .map(|r| {
-                    let span = r.suggestion.span;
-                    let range = span_to_range(&Span::new(span.start, span.end), file, 0);
                     let decl_id = r.kind.clone().and_then(|kind| {
                         matches!(kind, SuggestionKind::Command(_))
                             .then_some(engine_state.find_decl(r.suggestion.value.as_bytes(), &[])?)
@@ -63,8 +61,20 @@ impl LanguageServer {
                     if r.suggestion.append_whitespace {
                         label_value.push(' ');
                     }
+
+                    let span = r.suggestion.span;
+                    let range = span_to_range(&Span::new(span.start, span.end), file, 0);
+                    let text_edit =
+                        if span.end.max(span.start + label_value.len()) < file_text.len() {
+                            Some(CompletionTextEdit::Edit(TextEdit {
+                                range,
+                                new_text: label_value.clone(),
+                            }))
+                        } else {
+                            None
+                        };
                     CompletionItem {
-                        label: label_value.clone(),
+                        label: label_value,
                         label_details: r
                             .kind
                             .clone()
@@ -96,10 +106,7 @@ impl LanguageServer {
                                 })
                             }),
                         kind: Self::lsp_completion_item_kind(r.kind),
-                        text_edit: Some(CompletionTextEdit::Edit(TextEdit {
-                            range,
-                            new_text: label_value,
-                        })),
+                        text_edit,
                         ..Default::default()
                     }
                 })
