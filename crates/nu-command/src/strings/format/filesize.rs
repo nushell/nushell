@@ -1,9 +1,9 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, FilesizeUnit};
+use nu_protocol::{engine::StateWorkingSet, FilesizeFormat, FilesizeUnit};
 
 struct Arguments {
-    format: FilesizeUnit,
+    unit: FilesizeUnit,
     cell_paths: Option<Vec<CellPath>>,
 }
 
@@ -61,10 +61,10 @@ impl Command for FormatFilesize {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let format = parse_filesize_unit(call.req::<Spanned<String>>(engine_state, stack, 0)?)?;
+        let unit = parse_filesize_unit(call.req::<Spanned<String>>(engine_state, stack, 0)?)?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let arg = Arguments { format, cell_paths };
+        let arg = Arguments { unit, cell_paths };
         operate(
             format_value_impl,
             arg,
@@ -80,10 +80,10 @@ impl Command for FormatFilesize {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let format = parse_filesize_unit(call.req_const::<Spanned<String>>(working_set, 0)?)?;
+        let unit = parse_filesize_unit(call.req_const::<Spanned<String>>(working_set, 0)?)?;
         let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let arg = Arguments { format, cell_paths };
+        let arg = Arguments { unit, cell_paths };
         operate(
             format_value_impl,
             arg,
@@ -127,7 +127,13 @@ fn parse_filesize_unit(format: Spanned<String>) -> Result<FilesizeUnit, ShellErr
 fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
     let value_span = val.span();
     match val {
-        Value::Filesize { val, .. } => Value::string(val.display(arg.format).to_string(), span),
+        Value::Filesize { val, .. } => Value::string(
+            FilesizeFormat::new()
+                .unit(arg.unit)
+                .format(*val)
+                .to_string(),
+            span,
+        ),
         Value::Error { .. } => val.clone(),
         _ => Value::error(
             ShellError::OnlySupportsThisInputType {

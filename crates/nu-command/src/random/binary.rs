@@ -46,7 +46,7 @@ impl Command for SubCommand {
             Value::Filesize { val, .. } => {
                 usize::try_from(val).map_err(|_| ShellError::InvalidValue {
                     valid: "a non-negative int or filesize".into(),
-                    actual: engine_state.get_config().filesize.display(val).to_string(),
+                    actual: engine_state.get_config().filesize.format(val).to_string(),
                     span: length_val.span(),
                 })
             }
