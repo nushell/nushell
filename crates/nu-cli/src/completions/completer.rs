@@ -323,9 +323,8 @@ impl NuCompleter {
                 let need_externals = !prefix_str.contains(' ');
                 let need_internals = !prefix_str.starts_with('^');
                 let mut span = element_expression.span;
-                span.end = std::cmp::min(span.end, pos + 1);
                 if !need_internals {
-                    span = Span::new(span.start + 1, span.end)
+                    span.start += 1;
                 };
                 suggestions.extend(self.command_completion_helper(
                     working_set,
@@ -592,7 +591,7 @@ impl NuCompleter {
                                 ctx.prefix.len().min(pos.min(span.end) - ctx.span.start + 1);
                             let new_ctx = Context::new(
                                 ctx.working_set,
-                                Span::new(span.start, ctx.span.end.min(span.end).min(pos + 1)),
+                                Span::new(span.start, ctx.span.end.min(span.end)),
                                 ctx.prefix.get(offset..end_offset).unwrap_or_default(),
                                 ctx.offset,
                             );
