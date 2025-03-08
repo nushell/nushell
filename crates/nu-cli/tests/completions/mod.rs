@@ -605,8 +605,13 @@ fn dotnu_stdlib_completions() {
 
 #[test]
 fn exportable_completions() {
-    let (_, _, mut engine, stack) = new_dotnu_engine();
+    let (_, _, mut engine, mut stack) = new_dotnu_engine();
+    let code = r#"export module "🤔🐘" {
+        export const foo = "🤔🐘";
+    }"#;
+    assert!(support::merge_input(code.as_bytes(), &mut engine, &mut stack).is_ok());
     assert!(load_standard_library(&mut engine).is_ok());
+
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
     let completion_str = "use std null";
@@ -628,6 +633,10 @@ fn exportable_completions() {
     let completion_str = "use std/math [E, `TAU";
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["TAU"], &suggestions);
+
+    let completion_str = "use 🤔🐘 'fo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["foo"], &suggestions);
 }
 
 #[test]
