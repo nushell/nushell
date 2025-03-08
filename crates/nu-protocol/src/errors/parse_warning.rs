@@ -14,12 +14,22 @@ pub enum ParseWarning {
         span: Span,
         url: String,
     },
+    #[error("Deprecated: {old}")]
+    #[diagnostic(help("{help}"))]
+    CustomDeprecatedWarning {
+        old: String,
+        help: String,
+        label: String,
+        #[label("{label}")]
+        span: Span,
+    },
 }
 
 impl ParseWarning {
     pub fn span(&self) -> Span {
         match self {
             ParseWarning::DeprecatedWarning { span, .. } => *span,
+            ParseWarning::CustomDeprecatedWarning { span, .. } => *span,
         }
     }
 }
