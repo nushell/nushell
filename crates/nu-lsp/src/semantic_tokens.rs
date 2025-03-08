@@ -80,7 +80,17 @@ impl LanguageServer {
             if sp < last_span {
                 continue;
             }
+<<<<<<< HEAD
             let mut delta_start = range.start.character;
+=======
+            // in case the start position is at the end of last line
+            let real_start_char = if range.end.line != range.start.line {
+                0
+            } else {
+                range.start.character
+            };
+            let mut delta_start = real_start_char;
+>>>>>>> 5fa8f68d0 (test: lsp exportable completion)
             if range.end.line == last_token_line {
                 delta_start -= last_token_char;
             }
