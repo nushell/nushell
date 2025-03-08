@@ -63,16 +63,18 @@ impl LanguageServer {
                     }
 
                     let span = r.suggestion.span;
-                    let range = span_to_range(&Span::new(span.start, span.end), file, 0);
-                    let text_edit =
-                        if span.end.max(span.start + label_value.len()) < file_text.len() {
-                            Some(CompletionTextEdit::Edit(TextEdit {
-                                range,
-                                new_text: label_value.clone(),
-                            }))
-                        } else {
-                            None
-                        };
+                    let mut range = span_to_range(&Span::new(span.start, span.end), file, 0);
+                    // in case the start position is at the end of last line
+                    if range.end.line != range.start.line {
+                        range.start.line = range.end.line;
+                        range.start.character = 0;
+                    }
+
+                    let text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+                        range,
+                        new_text: label_value.clone(),
+                    }));
+
                     CompletionItem {
                         label: label_value,
                         label_details: r
@@ -548,6 +550,98 @@ mod tests {
                         "range": { "start": { "character": 10, "line": 7 }, "end": { "character": 15, "line": 7 } }
                     },
                     "kind": 24 // operator kind
+                }
+            ])
+        );
+    }
+
+    #[test]
+    fn complete_use_arguments() {
+        let (client_connection, _recv) = initialize_language_server(None, None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("completion");
+        script.push("use.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+        let resp = send_complete_request(&client_connection, script.clone(), 4, 17);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "std-rfc",
+                    "labelDetails": { "description": "module" },
+                    "textEdit": {
+                        "newText": "std-rfc",
+                        "range": { "start": { "character": 11, "line": 4 }, "end": { "character": 17, "line": 4 } }
+                    },
+                    "kind": 9 // module kind
+                }
+            ])
+        );
+
+        let resp = send_complete_request(&client_connection, script.clone(), 5, 22);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "clip",
+                    "labelDetails": { "description": "module" },
+                    "textEdit": {
+                        "newText": "clip",
+                        "range": { "start": { "character": 19, "line": 5 }, "end": { "character": 23, "line": 5 } }
+                    },
+                    "kind": 9 // module kind
+                }
+            ])
+        );
+
+        let resp = send_complete_request(&client_connection, script.clone(), 5, 35);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "paste",
+                    "labelDetails": { "description": "custom" },
+                    "textEdit": {
+                        "newText": "paste",
+                        "range": { "start": { "character": 32, "line": 5 }, "end": { "character": 37, "line": 5 } }
+                    },
+                    "kind": 2
+                }
+            ])
+        );
+
+        let resp = send_complete_request(&client_connection, script.clone(), 6, 14);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "null_device ",
+                    "labelDetails": { "description": "variable" },
+                    "textEdit": {
+                        "newText": "null_device ",
+                        "range": { "start": { "character": 8, "line": 6 }, "end": { "character": 14, "line": 6 } }
+                    },
+                    "kind": 6 // variable kind
+                }
+            ])
+        );
+
+        let resp = send_complete_request(&client_connection, script, 7, 13);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "foo",
+                    "labelDetails": { "description": "variable" },
+                    "textEdit": {
+                        "newText": "foo",
+                        "range": { "start": { "character": 11, "line": 7 }, "end": { "character": 14, "line": 7 } }
+                    },
+                    "kind": 6 // variable kind
                 }
             ])
         );

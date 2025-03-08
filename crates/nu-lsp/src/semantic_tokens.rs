@@ -80,7 +80,7 @@ impl LanguageServer {
             if sp < last_span {
                 continue;
             }
-            // in case the start position is at the end of lastline
+            // in case the start position is at the end of last line
             let real_start_char = if range.end.line != range.start.line {
                 0
             } else {
