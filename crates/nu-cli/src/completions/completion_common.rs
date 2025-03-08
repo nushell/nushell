@@ -66,11 +66,10 @@ fn complete_rec(
         for entry in result.filter_map(|e| e.ok()) {
             let entry_name = entry.file_name().to_string_lossy().into_owned();
             let entry_isdir = entry.path().is_dir();
-            let is_symlink = entry.path().is_symlink();
             let mut built = built.clone();
             built.parts.push(entry_name.clone());
             // Symlinks to directories shouldn't have a trailing slash (#13275)
-            built.isdir = entry_isdir && !is_symlink;
+            built.isdir = entry_isdir && !entry.path().is_symlink();
 
             if !want_directory || entry_isdir {
                 matcher.add(entry_name.clone(), (entry_name, built));
