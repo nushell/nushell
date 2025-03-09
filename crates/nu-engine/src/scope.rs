@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Expr,
     engine::{Command, EngineState, Stack, Visibility},
-    record, DeclId, ModuleId, Signature, Span, SyntaxShape, Type, Value, VarId,
+    record, DeclId, List, ModuleId, Signature, Span, SyntaxShape, Type, Value, VarId,
 };
 use std::{cmp::Ordering, collections::HashMap};
 
@@ -46,8 +46,8 @@ impl<'e, 's> ScopeData<'e, 's> {
         }
     }
 
-    pub fn collect_vars(&self, span: Span) -> Vec<Value> {
-        let mut vars = vec![];
+    pub fn collect_vars(&self, span: Span) -> List {
+        let mut vars = List::new();
 
         for (var_name, var_id) in &self.vars_map {
             let var_name = Value::string(String::from_utf8_lossy(var_name).to_string(), span);
@@ -77,12 +77,12 @@ impl<'e, 's> ScopeData<'e, 's> {
             ));
         }
 
-        sort_rows(&mut vars);
+        sort_rows(vars.make_mut());
         vars
     }
 
-    pub fn collect_commands(&self, span: Span) -> Vec<Value> {
-        let mut commands = vec![];
+    pub fn collect_commands(&self, span: Span) -> List {
+        let mut commands = List::new();
 
         for (command_name, decl_id) in &self.decls_map {
             if self.visibility.is_decl_id_visible(decl_id)
@@ -140,7 +140,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             }
         }
 
-        sort_rows(&mut commands);
+        sort_rows(commands.make_mut());
 
         commands
     }
@@ -193,8 +193,8 @@ impl<'e, 's> ScopeData<'e, 's> {
         output_type: &Type,
         signature: &Signature,
         span: Span,
-    ) -> Vec<Value> {
-        let mut sig_records = vec![];
+    ) -> List {
+        let mut sig_records = List::new();
 
         // input
         sig_records.push(Value::record(
@@ -340,8 +340,8 @@ impl<'e, 's> ScopeData<'e, 's> {
         sig_records
     }
 
-    pub fn collect_externs(&self, span: Span) -> Vec<Value> {
-        let mut externals = vec![];
+    pub fn collect_externs(&self, span: Span) -> List {
+        let mut externals = List::new();
 
         for (command_name, decl_id) in &self.decls_map {
             let decl = self.engine_state.get_decl(**decl_id);
@@ -357,12 +357,12 @@ impl<'e, 's> ScopeData<'e, 's> {
             }
         }
 
-        sort_rows(&mut externals);
+        sort_rows(externals.make_mut());
         externals
     }
 
-    pub fn collect_aliases(&self, span: Span) -> Vec<Value> {
-        let mut aliases = vec![];
+    pub fn collect_aliases(&self, span: Span) -> List {
+        let mut aliases = List::new();
 
         for (decl_name, decl_id) in self.engine_state.get_decls_sorted(false) {
             if self.visibility.is_decl_id_visible(&decl_id) {
@@ -393,7 +393,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             }
         }
 
-        sort_rows(&mut aliases);
+        sort_rows(aliases.make_mut());
         // aliases.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
         aliases
     }
@@ -403,7 +403,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
         let all_decls = module.decls();
 
-        let mut export_commands: Vec<Value> = all_decls
+        let mut export_commands = all_decls
             .iter()
             .filter_map(|(name_bytes, decl_id)| {
                 let decl = self.engine_state.get_decl(*decl_id);
@@ -420,9 +420,9 @@ impl<'e, 's> ScopeData<'e, 's> {
                     None
                 }
             })
-            .collect();
+            .collect::<List>();
 
-        let mut export_aliases: Vec<Value> = all_decls
+        let mut export_aliases = all_decls
             .iter()
             .filter_map(|(name_bytes, decl_id)| {
                 let decl = self.engine_state.get_decl(*decl_id);
@@ -439,9 +439,9 @@ impl<'e, 's> ScopeData<'e, 's> {
                     None
                 }
             })
-            .collect();
+            .collect::<List>();
 
-        let mut export_externs: Vec<Value> = all_decls
+        let mut export_externs = all_decls
             .iter()
             .filter_map(|(name_bytes, decl_id)| {
                 let decl = self.engine_state.get_decl(*decl_id);
@@ -458,15 +458,15 @@ impl<'e, 's> ScopeData<'e, 's> {
                     None
                 }
             })
-            .collect();
+            .collect::<List>();
 
-        let mut export_submodules: Vec<Value> = module
+        let mut export_submodules = module
             .submodules()
             .iter()
             .map(|(name_bytes, submodule_id)| self.collect_module(name_bytes, submodule_id, span))
-            .collect();
+            .collect::<List>();
 
-        let mut export_consts: Vec<Value> = module
+        let mut export_consts = module
             .consts()
             .iter()
             .map(|(name_bytes, var_id)| {
@@ -479,13 +479,13 @@ impl<'e, 's> ScopeData<'e, 's> {
                     span,
                 )
             })
-            .collect();
+            .collect::<List>();
 
-        sort_rows(&mut export_commands);
-        sort_rows(&mut export_aliases);
-        sort_rows(&mut export_externs);
-        sort_rows(&mut export_submodules);
-        sort_rows(&mut export_consts);
+        sort_rows(export_commands.make_mut());
+        sort_rows(export_aliases.make_mut());
+        sort_rows(export_externs.make_mut());
+        sort_rows(export_submodules.make_mut());
+        sort_rows(export_consts.make_mut());
 
         let (module_desc, module_extra_desc) = self
             .engine_state
@@ -510,14 +510,16 @@ impl<'e, 's> ScopeData<'e, 's> {
         )
     }
 
-    pub fn collect_modules(&self, span: Span) -> Vec<Value> {
-        let mut modules = vec![];
+    pub fn collect_modules(&self, span: Span) -> List {
+        let mut modules = List::new();
 
         for (module_name, module_id) in &self.modules_map {
             modules.push(self.collect_module(module_name, module_id, span));
         }
 
-        modules.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+        modules
+            .make_mut()
+            .sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
         modules
     }
 
