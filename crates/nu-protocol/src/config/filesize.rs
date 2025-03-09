@@ -4,12 +4,7 @@ use nu_utils::get_system_locale;
 
 impl IntoValue for FilesizeUnitFormat {
     fn into_value(self, span: Span) -> Value {
-        match self {
-            FilesizeUnitFormat::Metric => "metric",
-            FilesizeUnitFormat::Binary => "binary",
-            FilesizeUnitFormat::Unit(unit) => unit.as_str(),
-        }
-        .into_value(span)
+        self.as_str().into_value(span)
     }
 }
 
@@ -24,12 +19,11 @@ impl FilesizeConfig {
         FilesizeFormatter::new()
             .unit(self.unit)
             .precision(self.precision)
+            .locale(get_system_locale()) // TODO: cache this somewhere or pass in as argument
     }
 
     pub fn format(&self, filesize: Filesize) -> FormattedFilesize {
-        self.formatter()
-            .locale(get_system_locale()) // TODO: cache this somewhere or pass in as argument
-            .format(filesize)
+        self.formatter().format(filesize)
     }
 }
 

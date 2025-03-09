@@ -127,14 +127,12 @@ fn parse_filesize_unit(format: Spanned<String>) -> Result<FilesizeUnit, ShellErr
 fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
     let value_span = val.span();
     match val {
-        Value::Filesize { val, .. } => Value::string(
-            FilesizeFormatter::new()
-                .unit(arg.unit)
-                .precision(None)
-                .format(*val)
-                .to_string(),
-            span,
-        ),
+        Value::Filesize { val, .. } => FilesizeFormatter::new()
+            .unit(arg.unit)
+            .precision(None)
+            .format(*val)
+            .to_string()
+            .into_value(span),
         Value::Error { .. } => val.clone(),
         _ => Value::error(
             ShellError::OnlySupportsThisInputType {

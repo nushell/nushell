@@ -751,7 +751,7 @@ impl FilesizeFormatter {
         self
     }
 
-    /// Format a [`Filesize`] into [`FormattedFilesize`] which implements [`fmt::Display`].
+    /// Format a [`Filesize`] into a [`FormattedFilesize`] which implements [`fmt::Display`].
     ///
     /// # Examples
     /// ```
@@ -801,7 +801,6 @@ impl fmt::Display for FormattedFilesize {
         let Filesize(filesize) = filesize;
         let precision = f.precision().or(precision);
 
-        // Format an exact, possibly fractional, string representation of `filesize`.
         let bytes = unit.as_bytes() as i64;
         let whole = filesize / bytes;
         let fract = (filesize % bytes).unsigned_abs();
