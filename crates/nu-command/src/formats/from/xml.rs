@@ -206,8 +206,10 @@ fn from_document_to_value(d: &roxmltree::Document, info: &ParsingInfo) -> Value 
 }
 
 fn from_xml_string_to_value(s: &str, info: &ParsingInfo) -> Result<Value, roxmltree::Error> {
-    let mut options = ParsingOptions::default();
-    options.allow_dtd = info.allow_dtd;
+    let options = ParsingOptions {
+        allow_dtd: info.allow_dtd,
+        ..Default::default()
+    };
 
     let parsed = roxmltree::Document::parse_with_options(s, options)?;
     Ok(from_document_to_value(&parsed, info))
@@ -295,7 +297,7 @@ fn process_xml_parse_error(source: String, err: roxmltree::Error, span: Span) ->
             make_xml_error_spanned("Invalid name.", source, pos)
         }
         roxmltree::Error::NonXmlChar(_, pos) => {
-            make_xml_error_spanned(format!("Non-XML character found. Valid characters are: <https://www.w3.org/TR/xml/#char32>"), source, pos)
+            make_xml_error_spanned("Non-XML character found. Valid characters are: <https://www.w3.org/TR/xml/#char32>", source, pos)
         }
         roxmltree::Error::InvalidChar(expected, actual, pos) => {
             make_xml_error_spanned(
