@@ -22,9 +22,16 @@ pub fn get_system_locale() -> Locale {
 
 #[cfg(debug_assertions)]
 pub fn get_system_locale_string() -> Option<String> {
-    std::env::var(LOCALE_OVERRIDE_ENV_VAR)
-        .ok()
-        .or_else(sys_locale::get_locale)
+    std::env::var(LOCALE_OVERRIDE_ENV_VAR).ok().or_else(
+        #[cfg(not(test))]
+        {
+            sys_locale::get_locale
+        },
+        #[cfg(test)]
+        {
+            || Some(Locale::en_US_POSIX.name().to_owned())
+        },
+    )
 }
 
 #[cfg(not(debug_assertions))]
