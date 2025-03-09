@@ -29,6 +29,8 @@ pub fn get_system_locale_string() -> Option<String> {
         },
         #[cfg(test)]
         {
+            // For tests, we use the same locale on all systems.
+            // To override this, set `LOCALE_OVERRIDE_ENV_VAR`.
             || Some(Locale::en_US_POSIX.name().to_owned())
         },
     )
