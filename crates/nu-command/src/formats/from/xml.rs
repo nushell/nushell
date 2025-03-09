@@ -2,7 +2,7 @@ use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLU
 use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
 
-use roxmltree::NodeType;
+use roxmltree::{NodeType, ParsingOptions, TextPos};
 
 #[derive(Clone)]
 pub struct FromXml;
@@ -16,6 +16,11 @@ impl Command for FromXml {
         Signature::build("from xml")
             .input_output_types(vec![(Type::String, Type::record())])
             .switch("keep-comments", "add comment nodes to result", None)
+            .switch(
+                "disallow-dtd",
+                "disallow parsing documents with DTDs (prevents exponential entity expansion attacks)",
+                None,
+            )
             .switch(
                 "keep-pi",
                 "add processing instruction nodes to result",
@@ -50,10 +55,12 @@ string. This way content of every tag is always a table and is easier to parse"#
         let head = call.head;
         let keep_comments = call.has_flag(engine_state, stack, "keep-comments")?;
         let keep_processing_instructions = call.has_flag(engine_state, stack, "keep-pi")?;
+        let allow_dtd = !call.has_flag(engine_state, stack, "disallow-dtd")?;
         let info = ParsingInfo {
             span: head,
             keep_comments,
             keep_processing_instructions,
+            allow_dtd,
         };
         from_xml(input, &info)
     }
@@ -90,6 +97,7 @@ struct ParsingInfo {
     span: Span,
     keep_comments: bool,
     keep_processing_instructions: bool,
+    allow_dtd: bool,
 }
 
 fn from_attributes_to_value(attributes: &[roxmltree::Attribute], info: &ParsingInfo) -> Value {
@@ -198,7 +206,12 @@ fn from_document_to_value(d: &roxmltree::Document, info: &ParsingInfo) -> Value 
 }
 
 fn from_xml_string_to_value(s: &str, info: &ParsingInfo) -> Result<Value, roxmltree::Error> {
-    let parsed = roxmltree::Document::parse(s)?;
+    let options = ParsingOptions {
+        allow_dtd: info.allow_dtd,
+        ..Default::default()
+    };
+
+    let parsed = roxmltree::Document::parse_with_options(s, options)?;
     Ok(from_document_to_value(&parsed, info))
 }
 
@@ -209,116 +222,135 @@ fn from_xml(input: PipelineData, info: &ParsingInfo) -> Result<PipelineData, She
         Ok(x) => {
             Ok(x.into_pipeline_data_with_metadata(metadata.map(|md| md.with_content_type(None))))
         }
-        Err(err) => Err(process_xml_parse_error(err, span)),
+        Err(err) => Err(process_xml_parse_error(concat_string, err, span)),
     }
 }
 
-fn process_xml_parse_error(err: roxmltree::Error, span: Span) -> ShellError {
+fn process_xml_parse_error(source: String, err: roxmltree::Error, span: Span) -> ShellError {
     match err {
-        roxmltree::Error::InvalidXmlPrefixUri(_) => make_cant_convert_error(
+        roxmltree::Error::InvalidXmlPrefixUri(pos) => make_xml_error_spanned(
             "The `xmlns:xml` attribute must have an <http://www.w3.org/XML/1998/namespace> URI.",
-            span,
+            source, pos,
         ),
-        roxmltree::Error::UnexpectedXmlUri(_) => make_cant_convert_error(
+        roxmltree::Error::UnexpectedXmlUri(pos) => make_xml_error_spanned(
             "Only the xmlns:xml attribute can have the http://www.w3.org/XML/1998/namespace  URI.",
-            span,
+            source, pos,
         ),
-        roxmltree::Error::UnexpectedXmlnsUri(_) => make_cant_convert_error(
+        roxmltree::Error::UnexpectedXmlnsUri(pos) => make_xml_error_spanned(
             "The http://www.w3.org/2000/xmlns/  URI must not be declared.",
-            span,
+            source, pos,
         ),
-        roxmltree::Error::InvalidElementNamePrefix(_) => {
-            make_cant_convert_error("xmlns can't be used as an element prefix.", span)
+        roxmltree::Error::InvalidElementNamePrefix(pos) => {
+            make_xml_error_spanned("xmlns can't be used as an element prefix.", source, pos)
         }
-        roxmltree::Error::DuplicatedNamespace(_, _) => {
-            make_cant_convert_error("A namespace was already defined on this element.", span)
+        roxmltree::Error::DuplicatedNamespace(namespace, pos) => {
+            make_xml_error_spanned(format!("Namespace {namespace} was already defined on this element."), source, pos)
         }
-        roxmltree::Error::UnknownNamespace(prefix, _) => {
-            make_cant_convert_error(format!("Unknown prefix {}", prefix), span)
+        roxmltree::Error::UnknownNamespace(prefix, pos) => {
+            make_xml_error_spanned(format!("Unknown prefix {}", prefix), source, pos)
         }
-        roxmltree::Error::UnexpectedCloseTag { .. } => {
-            make_cant_convert_error("Unexpected close tag", span)
+        roxmltree::Error::UnexpectedCloseTag(expected, actual, pos) => {
+            make_xml_error_spanned(format!("Unexpected close tag {actual}, expected {expected}"), source, pos)
         }
-        roxmltree::Error::UnexpectedEntityCloseTag(_) => {
-            make_cant_convert_error("Entity value starts with a close tag.", span)
+        roxmltree::Error::UnexpectedEntityCloseTag(pos) => {
+            make_xml_error_spanned("Entity value starts with a close tag.", source, pos)
         }
-        roxmltree::Error::UnknownEntityReference(_, _) => make_cant_convert_error(
-            "A reference to an entity that was not defined in the DTD.",
-            span,
+        roxmltree::Error::UnknownEntityReference(entity, pos) => make_xml_error_spanned(
+            format!("Reference to unknown entity {entity} (was not defined in the DTD)"),
+            source, pos,
         ),
-        roxmltree::Error::MalformedEntityReference(_) => {
-            make_cant_convert_error("A malformed entity reference.", span)
+        roxmltree::Error::MalformedEntityReference(pos) => {
+            make_xml_error_spanned("Malformed entity reference.", source, pos)
         }
-        roxmltree::Error::EntityReferenceLoop(_) => {
-            make_cant_convert_error("A possible entity reference loop.", span)
+        roxmltree::Error::EntityReferenceLoop(pos) => {
+            make_xml_error_spanned("Possible entity reference loop.", source, pos)
         }
-        roxmltree::Error::InvalidAttributeValue(_) => {
-            make_cant_convert_error("Attribute value cannot have a < character.", span)
+        roxmltree::Error::InvalidAttributeValue(pos) => {
+            make_xml_error_spanned("Attribute value cannot have a < character.", source, pos)
         }
-        roxmltree::Error::DuplicatedAttribute(_, _) => {
-            make_cant_convert_error("An element has a duplicated attributes.", span)
+        roxmltree::Error::DuplicatedAttribute(attribute, pos) => {
+            make_xml_error_spanned(format!("Element has a duplicated attribute: {attribute}"), source, pos)
         }
         roxmltree::Error::NoRootNode => {
-            make_cant_convert_error("The XML document must have at least one element.", span)
+            make_xml_error("The XML document must have at least one element.", span)
         }
         roxmltree::Error::UnclosedRootNode => {
-            make_cant_convert_error("The root node was opened but never closed.", span)
+            make_xml_error("The root node was opened but never closed.", span)
         }
-        roxmltree::Error::DtdDetected => make_cant_convert_error(
-            "An XML with DTD detected. DTDs are currently disabled due to security reasons.",
-            span,
+        roxmltree::Error::DtdDetected => make_xml_error(
+            "XML document with DTD detected.",
+            span
         ),
         roxmltree::Error::NodesLimitReached => {
-            make_cant_convert_error("Node limit was reached.", span)
+            make_xml_error("Node limit was reached.", span)
         }
         roxmltree::Error::AttributesLimitReached => {
-            make_cant_convert_error("Attribute limit reached", span)
+            make_xml_error("Attribute limit reached", span)
         }
         roxmltree::Error::NamespacesLimitReached => {
-            make_cant_convert_error("Namespace limit reached", span)
+            make_xml_error("Namespace limit reached", span)
         }
-        roxmltree::Error::UnexpectedDeclaration(_) => {
-            make_cant_convert_error("An XML document can have only one XML declaration and it must be at the start of the document.", span)
+        roxmltree::Error::UnexpectedDeclaration(pos) => {
+            make_xml_error_spanned("An XML document can have only one XML declaration and it must be at the start of the document.", source, pos)
         }
-        roxmltree::Error::InvalidName(_) => {
-            make_cant_convert_error("Invalid name found.", span)
+        roxmltree::Error::InvalidName(pos) => {
+            make_xml_error_spanned("Invalid name.", source, pos)
         }
-        roxmltree::Error::NonXmlChar(_, _) => {
-            make_cant_convert_error("A non-XML character has occurred. Valid characters are: <https://www.w3.org/TR/xml/#char32>", span)
+        roxmltree::Error::NonXmlChar(_, pos) => {
+            make_xml_error_spanned("Non-XML character found. Valid characters are: <https://www.w3.org/TR/xml/#char32>", source, pos)
         }
-        roxmltree::Error::InvalidChar(_, _, _) => {
-            make_cant_convert_error("An invalid/unexpected character in XML.", span)
+        roxmltree::Error::InvalidChar(expected, actual, pos) => {
+            make_xml_error_spanned(
+                format!("Unexpected character {}, expected {}", actual as char, expected as char),
+                source,
+                pos
+            )
         }
-        roxmltree::Error::InvalidChar2(_, _, _) => {
-            make_cant_convert_error("An invalid/unexpected character in XML.", span)
+        roxmltree::Error::InvalidChar2(expected, actual, pos) => {
+            make_xml_error_spanned(
+                format!("Unexpected character {}, expected {}", actual as char, expected),
+                source,
+                pos
+            )
         }
-        roxmltree::Error::InvalidString(_, _) => {
-            make_cant_convert_error("An invalid/unexpected string in XML.", span)
+        roxmltree::Error::InvalidString(_, pos) => {
+            make_xml_error_spanned("Invalid/unexpected string in XML.", source, pos)
         }
-        roxmltree::Error::InvalidExternalID(_) => {
-            make_cant_convert_error("An invalid ExternalID in the DTD.", span)
+        roxmltree::Error::InvalidExternalID(pos) => {
+            make_xml_error_spanned("Invalid ExternalID in the DTD.", source, pos)
         }
-        roxmltree::Error::InvalidComment(_) => {
-            make_cant_convert_error("A comment cannot contain `--` or end with `-`.", span)
+        roxmltree::Error::InvalidComment(pos) => {
+            make_xml_error_spanned("A comment cannot contain `--` or end with `-`.", source, pos)
         }
-        roxmltree::Error::InvalidCharacterData(_) => {
-            make_cant_convert_error("A Character Data node contains an invalid data. Currently, only `]]>` is not allowed.", span)
+        roxmltree::Error::InvalidCharacterData(pos) => {
+            make_xml_error_spanned("Character Data node contains an invalid data. Currently, only `]]>` is not allowed.", source, pos)
         }
-        roxmltree::Error::UnknownToken(_) => {
-            make_cant_convert_error("Unknown token in XML.", span)
+        roxmltree::Error::UnknownToken(pos) => {
+            make_xml_error_spanned("Unknown token in XML.", source, pos)
         }
         roxmltree::Error::UnexpectedEndOfStream => {
-            make_cant_convert_error("Unexpected end of stream while parsing XML.", span)
+            make_xml_error("Unexpected end of stream while parsing XML.", span)
         }
     }
 }
 
-fn make_cant_convert_error(help: impl Into<String>, span: Span) -> ShellError {
-    ShellError::CantConvert {
-        from_type: Type::String.to_string(),
-        to_type: "XML".to_string(),
+fn make_xml_error(msg: impl Into<String>, span: Span) -> ShellError {
+    ShellError::GenericError {
+        error: "Failed to parse XML".into(),
+        msg: msg.into(),
+        help: None,
+        span: Some(span),
+        inner: vec![],
+    }
+}
+
+fn make_xml_error_spanned(msg: impl Into<String>, src: String, pos: TextPos) -> ShellError {
+    let span = Span::from_row_column(pos.row as usize, pos.col as usize, &src);
+    ShellError::OutsideSpannedLabeledError {
+        src,
+        error: "Failed to parse XML".into(),
+        msg: msg.into(),
         span,
-        help: Some(help.into()),
     }
 }
 
@@ -375,6 +407,7 @@ mod tests {
             span: Span::test_data(),
             keep_comments: false,
             keep_processing_instructions: false,
+            allow_dtd: false,
         };
         from_xml_string_to_value(xml, &info)
     }

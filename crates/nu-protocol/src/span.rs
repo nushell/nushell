@@ -148,6 +148,28 @@ impl Span {
         }
     }
 
+    /// Converts row and column in a String to a Span, assuming bytes (1-based rows)
+    pub fn from_row_column(row: usize, col: usize, contents: &str) -> Span {
+        let mut cur_row = 1;
+        let mut cur_col = 1;
+
+        for (offset, curr_byte) in contents.bytes().enumerate() {
+            if curr_byte == b'\n' {
+                cur_row += 1;
+                cur_col = 1;
+            } else if cur_row >= row && cur_col >= col {
+                return Span::new(offset, offset);
+            } else {
+                cur_col += 1;
+            }
+        }
+
+        Self {
+            start: contents.len(),
+            end: contents.len(),
+        }
+    }
+
     /// Returns the minimal [`Span`] that encompasses both of the given spans.
     ///
     /// The two `Spans` can overlap in the middle,
