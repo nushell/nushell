@@ -298,10 +298,18 @@ fn process_xml_parse_error(source: String, err: roxmltree::Error, span: Span) ->
             make_xml_error_spanned(format!("Non-XML character found. Valid characters are: <https://www.w3.org/TR/xml/#char32>"), source, pos)
         }
         roxmltree::Error::InvalidChar(expected, actual, pos) => {
-            make_xml_error_spanned(format!("Unexpected character {actual}, expected {expected}"), source, pos)
+            make_xml_error_spanned(
+                format!("Unexpected character {}, expected {}", actual as char, expected as char),
+                source,
+                pos
+            )
         }
         roxmltree::Error::InvalidChar2(expected, actual, pos) => {
-            make_xml_error_spanned(format!("Unexpected character {actual}, expected {expected}"), source, pos)
+            make_xml_error_spanned(
+                format!("Unexpected character {}, expected {}", actual as char, expected),
+                source,
+                pos
+            )
         }
         roxmltree::Error::InvalidString(_, pos) => {
             make_xml_error_spanned("Invalid/unexpected string in XML.", source, pos)
