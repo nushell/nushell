@@ -129,7 +129,6 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
     match val {
         Value::Filesize { val, .. } => FilesizeFormatter::new()
             .unit(arg.unit)
-            .precision(None)
             .format(*val)
             .to_string()
             .into_value(span),

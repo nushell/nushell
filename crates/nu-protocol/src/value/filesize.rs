@@ -623,7 +623,7 @@ impl FromStr for FilesizeUnitFormat {
 /// let formatter = FilesizeFormatter::new();
 ///
 /// assert_eq!(formatter.unit(FilesizeUnit::B).format(filesize).to_string(), "4096 B");
-/// assert_eq!(formatter.unit(FilesizeUnit::KiB).format(filesize).to_string(), "4.0 KiB");
+/// assert_eq!(formatter.unit(FilesizeUnit::KiB).format(filesize).to_string(), "4 KiB");
 /// assert_eq!(formatter.precision(2).format(filesize).to_string(), "4.09 kB");
 /// assert_eq!(
 ///     formatter
@@ -646,13 +646,13 @@ impl FilesizeFormatter {
     ///
     /// The default formatter has:
     /// - a [`unit`](Self::unit) of [`FilesizeUnitFormat::Metric`].
-    /// - a [`precision`](Self::precision) of `Some(1)`.
+    /// - a [`precision`](Self::precision) of `None`.
     /// - a [`locale`](Self::locale) of [`Locale::en_US_POSIX`]
     ///   (a very plain format with no thousands separators).
     pub fn new() -> Self {
         FilesizeFormatter {
             unit: FilesizeUnitFormat::Metric,
-            precision: Some(1),
+            precision: None,
             locale: Locale::en_US_POSIX,
         }
     }
@@ -667,7 +667,7 @@ impl FilesizeFormatter {
     /// # Examples
     /// ```
     /// # use nu_protocol::{Filesize, FilesizeFormatter, FilesizeUnit, FilesizeUnitFormat};
-    /// let formatter = FilesizeFormatter::new();
+    /// let formatter = FilesizeFormatter::new().precision(1);
     ///
     /// let filesize = Filesize::from_unit(4, FilesizeUnit::KiB).unwrap();
     /// assert_eq!(formatter.unit(FilesizeUnit::B).format(filesize).to_string(), "4096 B");
@@ -738,7 +738,7 @@ impl FilesizeFormatter {
     /// # use nu_protocol::{Filesize, FilesizeFormatter, FilesizeUnit, FilesizeUnitFormat};
     /// # use num_format::Locale;
     /// let filesize = Filesize::from_unit(-4, FilesizeUnit::MiB).unwrap();
-    /// let formatter = FilesizeFormatter::new().unit(FilesizeUnit::KB);
+    /// let formatter = FilesizeFormatter::new().unit(FilesizeUnit::KB).precision(1);
     ///
     /// assert_eq!(formatter.format(filesize).to_string(), "-4194.3 kB");
     /// assert_eq!(formatter.locale(Locale::en).format(filesize).to_string(), "-4,194.3 kB");
@@ -759,8 +759,8 @@ impl FilesizeFormatter {
     /// let filesize = Filesize::from_unit(4, FilesizeUnit::KB).unwrap();
     /// let formatter = FilesizeFormatter::new();
     ///
-    /// assert_eq!(format!("{}", formatter.format(filesize)), "4.0 kB");
-    /// assert_eq!(formatter.format(filesize).to_string(), "4.0 kB");
+    /// assert_eq!(format!("{}", formatter.format(filesize)), "4 kB");
+    /// assert_eq!(formatter.format(filesize).to_string(), "4 kB");
     /// ```
     pub fn format(&self, filesize: Filesize) -> FormattedFilesize {
         FormattedFilesize {
@@ -860,7 +860,6 @@ mod tests {
             exp,
             FilesizeFormatter::new()
                 .unit(unit)
-                .precision(None)
                 .format(Filesize::new(bytes))
                 .to_string()
         );
@@ -875,7 +874,6 @@ mod tests {
             exp,
             FilesizeFormatter::new()
                 .unit(FilesizeUnitFormat::Binary)
-                .precision(None)
                 .format(Filesize::new(val))
                 .to_string()
         );
@@ -890,7 +888,6 @@ mod tests {
             exp,
             FilesizeFormatter::new()
                 .unit(FilesizeUnitFormat::Metric)
-                .precision(None)
                 .format(Filesize::new(val))
                 .to_string()
         );
