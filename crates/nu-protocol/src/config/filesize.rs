@@ -11,6 +11,7 @@ impl IntoValue for FilesizeUnitFormat {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FilesizeConfig {
     pub unit: FilesizeUnitFormat,
+    pub show_unit: bool,
     pub precision: Option<usize>,
 }
 
@@ -18,6 +19,7 @@ impl FilesizeConfig {
     pub fn formatter(&self) -> FilesizeFormatter {
         FilesizeFormatter::new()
             .unit(self.unit)
+            .show_unit(self.show_unit)
             .precision(self.precision)
             .locale(get_system_locale()) // TODO: cache this somewhere or pass in as argument
     }
@@ -31,6 +33,7 @@ impl Default for FilesizeConfig {
     fn default() -> Self {
         Self {
             unit: FilesizeUnitFormat::Metric,
+            show_unit: true,
             precision: Some(1),
         }
     }
@@ -67,6 +70,7 @@ impl UpdateFromValue for FilesizeConfig {
                         errors.type_mismatch(path, Type::String, val)
                     }
                 }
+                "show_unit" => self.show_unit.update(val, path, errors),
                 "precision" => match *val {
                     Value::Nothing { .. } => self.precision = None,
                     Value::Int { val, .. } if val >= 0 => self.precision = Some(val as usize),
@@ -83,6 +87,7 @@ impl IntoValue for FilesizeConfig {
     fn into_value(self, span: Span) -> Value {
         record! {
             "unit" => self.unit.into_value(span),
+            "show_unit" => self.show_unit.into_value(span),
             "precision" => self.precision.map(|x| x as i64).into_value(span),
         }
         .into_value(span)

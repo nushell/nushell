@@ -381,9 +381,14 @@ $env.config.datetime_format.normal = "%m/%d/%y %I:%M:%S%p"
 # Otherwise, setting this to one of the filesize units will use that particular unit when displaying all file sizes.
 $env.config.filesize.unit = 'metric'
 
+# filesize.show_unit (bool):
+# Whether to show or hide the file size unit. Useful if `$env.config.filesize.unit` is set to a fixed unit,
+# and you don't want that same unit repeated over and over again in which case you can set this to `false`.
+$env.config.filesize.show_unit = true
+
 # filesize.precision (int or nothing):
 # The number of digits to display after the decimal point for file sizes.
-# When set to `null`, all digits after the decimal point will be displayed.
+# When set to `null`, all digits after the decimal point, if any, will be displayed.
 $env.config.filesize.precision = 1
 
 # ---------------------
