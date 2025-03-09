@@ -610,6 +610,7 @@ impl FromStr for FilesizeUnitFormat {
 ///
 /// [`FilesizeFormatter`] is a builder struct that you can modify via the following methods:
 /// - [`unit`](Self::unit)
+/// - [`show_unit`](Self::show_unit)
 /// - [`precision`](Self::precision)
 /// - [`locale`](Self::locale)
 ///
@@ -637,6 +638,7 @@ impl FromStr for FilesizeUnitFormat {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FilesizeFormatter {
     unit: FilesizeUnitFormat,
+    show_unit: bool,
     precision: Option<usize>,
     locale: Locale,
 }
@@ -646,12 +648,14 @@ impl FilesizeFormatter {
     ///
     /// The default formatter has:
     /// - a [`unit`](Self::unit) of [`FilesizeUnitFormat::Metric`].
+    /// - a [`show_unit`](Self::show_unit) of `true`.
     /// - a [`precision`](Self::precision) of `None`.
     /// - a [`locale`](Self::locale) of [`Locale::en_US_POSIX`]
     ///   (a very plain format with no thousands separators).
     pub fn new() -> Self {
         FilesizeFormatter {
             unit: FilesizeUnitFormat::Metric,
+            show_unit: true,
             precision: None,
             locale: Locale::en_US_POSIX,
         }
@@ -680,6 +684,30 @@ impl FilesizeFormatter {
     pub fn unit(mut self, unit: impl Into<FilesizeUnitFormat>) -> Self {
         self.unit = unit.into();
         self
+    }
+
+    /// Sets whether to show or omit the file size unit in the formatted output.
+    ///
+    /// This setting can be used to disable the unit formatting from [`FilesizeFormatter`]
+    /// and instead provide your own.
+    ///
+    /// Note that the [`FilesizeUnitFormat`] provided to [`unit`](Self::unit) is still used to
+    /// format the numeric portion of a [`Filesize`]. So, setting `show_unit` to `false` is only
+    /// recommended for [`FilesizeUnitFormat::Unit`], since this will keep the unit the same
+    /// for all [`Filesize`]s. [`FilesizeUnitFormat::Metric`] and [`FilesizeUnitFormat::Binary`],
+    /// on the other hand, will adapt the unit to match the magnitude of each formatted [`Filesize`].
+    ///
+    /// # Examples
+    /// ```
+    /// # use nu_protocol::{Filesize, FilesizeFormatter, FilesizeUnit};
+    /// let filesize = Filesize::from_unit(4, FilesizeUnit::KiB).unwrap();
+    /// let formatter = FilesizeFormatter::new().show_unit(false);
+    ///
+    /// assert_eq!(formatter.unit(FilesizeUnit::B).format(filesize).to_string(), "4096");
+    /// assert_eq!(format!("{} KB", formatter.unit(FilesizeUnit::KiB).format(filesize)), "4 KB");
+    /// ```
+    pub fn show_unit(self, show_unit: bool) -> Self {
+        Self { show_unit, ..self }
     }
 
     /// Set the number of digits to display after the decimal place.
@@ -790,6 +818,7 @@ impl fmt::Display for FormattedFilesize {
         let Self { filesize, format } = *self;
         let FilesizeFormatter {
             unit,
+            show_unit,
             precision,
             locale,
         } = format;
@@ -839,7 +868,10 @@ impl fmt::Display for FormattedFilesize {
             }
         }
 
-        write!(f, " {unit}")?;
+        if show_unit {
+            write!(f, " {unit}")?;
+        }
+
         Ok(())
     }
 }
