@@ -9,6 +9,7 @@ mod range;
 mod test_derive;
 
 pub mod format;
+pub mod list;
 pub mod record;
 pub use custom_value::CustomValue;
 pub use duration::*;
@@ -16,6 +17,7 @@ pub use filesize::*;
 pub use from_value::FromValue;
 pub use glob::*;
 pub use into_value::{IntoValue, TryIntoValue};
+pub use list::List;
 pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
