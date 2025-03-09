@@ -2,7 +2,7 @@ use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLU
 use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
 
-use roxmltree::NodeType;
+use roxmltree::{NodeType, ParsingOptions};
 
 #[derive(Clone)]
 pub struct FromXml;
@@ -16,6 +16,11 @@ impl Command for FromXml {
         Signature::build("from xml")
             .input_output_types(vec![(Type::String, Type::record())])
             .switch("keep-comments", "add comment nodes to result", None)
+            .switch(
+                "allow-dtd",
+                "parse documents with document type definitions (may cause denial-of-service)",
+                None,
+            )
             .switch(
                 "keep-pi",
                 "add processing instruction nodes to result",
@@ -50,10 +55,12 @@ string. This way content of every tag is always a table and is easier to parse"#
         let head = call.head;
         let keep_comments = call.has_flag(engine_state, stack, "keep-comments")?;
         let keep_processing_instructions = call.has_flag(engine_state, stack, "keep-pi")?;
+        let allow_dtd = call.has_flag(engine_state, stack, "allow-dtd")?;
         let info = ParsingInfo {
             span: head,
             keep_comments,
             keep_processing_instructions,
+            allow_dtd,
         };
         from_xml(input, &info)
     }
@@ -90,6 +97,7 @@ struct ParsingInfo {
     span: Span,
     keep_comments: bool,
     keep_processing_instructions: bool,
+    allow_dtd: bool,
 }
 
 fn from_attributes_to_value(attributes: &[roxmltree::Attribute], info: &ParsingInfo) -> Value {
@@ -198,7 +206,10 @@ fn from_document_to_value(d: &roxmltree::Document, info: &ParsingInfo) -> Value 
 }
 
 fn from_xml_string_to_value(s: &str, info: &ParsingInfo) -> Result<Value, roxmltree::Error> {
-    let parsed = roxmltree::Document::parse(s)?;
+    let mut options = ParsingOptions::default();
+    options.allow_dtd = info.allow_dtd;
+
+    let parsed = roxmltree::Document::parse_with_options(s, options)?;
     Ok(from_document_to_value(&parsed, info))
 }
 
@@ -265,7 +276,7 @@ fn process_xml_parse_error(err: roxmltree::Error, span: Span) -> ShellError {
             make_cant_convert_error("The root node was opened but never closed.", span)
         }
         roxmltree::Error::DtdDetected => make_cant_convert_error(
-            "An XML with DTD detected. DTDs are currently disabled due to security reasons.",
+            "An XML with DTD detected. DTDs are disabled by default due to security reasons.",
             span,
         ),
         roxmltree::Error::NodesLimitReached => {
