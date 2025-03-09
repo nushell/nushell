@@ -407,6 +407,7 @@ mod tests {
             span: Span::test_data(),
             keep_comments: false,
             keep_processing_instructions: false,
+            allow_dtd: false,
         };
         from_xml_string_to_value(xml, &info)
     }
