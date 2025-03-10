@@ -13,10 +13,8 @@ impl Command for FormatPattern {
     fn signature(&self) -> Signature {
         Signature::build("format pattern")
             .input_output_types(vec![
-                (Type::table(), Type::List(Box::new(Type::String))),
-                (Type::record(), Type::String),
-                // TODO: only string types
-                (Type::Any, Type::Any),
+                (Type::Any, Type::String),
+                (Type::Any, Type::list(Type::String)),
             ])
             .required(
                 "pattern",
@@ -39,7 +37,7 @@ impl Command for FormatPattern {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let pattern: Value = call.req(engine_state, stack, 0)?;
-        let input_val = input.into_value(call.head)?;
+        let input_as_value = input.into_value(call.head)?;
 
         let config = stack.get_config(engine_state);
 
@@ -47,10 +45,9 @@ impl Command for FormatPattern {
         let string_pattern = pattern.coerce_into_string()?;
         // the string span is start as `"`, we don't need the character
         // to generate proper span for sub expression.
-        let ops =
-            extract_formatting_operations(engine_state, string_pattern, string_span.start + 1)?;
+        let ops = parse_formatting_operations(engine_state, string_pattern, string_span.start + 1)?;
 
-        format(input_val, &ops, &config, call.head)
+        format(input_as_value, ops, &config, call.head)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -72,19 +69,15 @@ impl Command for FormatPattern {
     }
 }
 
-#[derive(Debug)]
+/// A format operation parsed from a pattern
 enum FormatOperation {
+    /// A portion of the pattern to be inserted without any further processing
     FixedText(String),
+    /// A cell path referring to the value or column to be formatted into the pattern template
     CellPath(CellPath),
 }
 
-/// Given a pattern that is fed into the `format pattern` command, we can process it and subdivide it
-/// in two kind of operations.
-/// FormatOperation::FixedText contains a portion of the pattern that has to be placed
-/// there without any further processing.
-/// FormatOperation::CellPath contains the cell path whose values will be
-/// formatted according to the input pattern.
-fn extract_formatting_operations(
+fn parse_formatting_operations(
     engine_state: &EngineState,
     input: String,
     span_start: usize,
@@ -157,85 +150,70 @@ fn extract_formatting_operations(
     Ok(output)
 }
 
+/// Extract values and columns by following cell paths ahead of time
+enum ExtractedOperation {
+    /// Fixed text, equivalent to FormatOperation::FixedText
+    FixedText(String),
+    /// A column of values. All columns must have the same number of rows.
+    Column(Vec<Value>),
+    /// A single value, which is the same regardless of row.
+    Value(Value),
+}
+
 /// Format the incoming PipelineData according to the pattern
 fn format(
     input_data: Value,
-    format_operations: &[FormatOperation],
+    format_operations: Vec<FormatOperation>,
     config: &Config,
-    head_span: Span,
+    span: Span,
 ) -> Result<PipelineData, ShellError> {
-    //  We can only handle a Record or a List of Records
-    match input_data {
-        Value::Record { .. } => match format_record(format_operations, &input_data, config) {
-            Ok(value) => Ok(PipelineData::Value(Value::string(value, head_span), None)),
-            Err(value) => Err(value),
-        },
+    let mut extracted_operations = Vec::with_capacity(format_operations.len());
+    let mut column_size: Option<usize> = None;
 
-        Value::List { vals, .. } => {
-            let mut list = vec![];
-            for val in vals.iter() {
-                match val {
-                    Value::Record { .. } => match format_record(format_operations, val, config) {
-                        Ok(value) => {
-                            list.push(Value::string(value, head_span));
+    for operation in format_operations {
+        let extracted = match operation {
+            FormatOperation::FixedText(text) => ExtractedOperation::FixedText(text),
+            FormatOperation::CellPath(cell_path) => {
+                let inner = input_data
+                    .clone()
+                    .follow_cell_path(&cell_path.members, false)?;
+                match inner {
+                    Value::Error { error, .. } => return Err(*error),
+                    Value::List { vals, .. } => {
+                        if let Some(size) = column_size {
+                            assert!(vals.len() == size);
                         }
-                        Err(value) => {
-                            return Err(value);
-                        }
-                    },
-                    Value::Error { error, .. } => return Err(*error.clone()),
-                    _ => {
-                        return Err(ShellError::OnlySupportsThisInputType {
-                            exp_input_type: "record".to_string(),
-                            wrong_type: val.get_type().to_string(),
-                            dst_span: head_span,
-                            src_span: val.span(),
-                        })
+                        column_size = Some(vals.len());
+                        ExtractedOperation::Column(vals)
                     }
+                    value => ExtractedOperation::Value(value),
                 }
             }
-
-            Ok(Value::list(list, head_span).into_pipeline_data())
-        }
-        Value::Error { error, .. } => Err(*error),
-        _ => Ok(Value::string(
-            format_record(format_operations, &input_data, config)?,
-            head_span,
-        )
-        .into_pipeline_data()),
-        // _ => Err(ShellError::OnlySupportsThisInputType {
-        //     exp_input_type: "record".to_string(),
-        //     wrong_type: data_as_value.get_type().to_string(),
-        //     dst_span: head_span,
-        //     src_span: data_as_value.span(),
-        // }),
+        };
+        extracted_operations.push(extracted);
     }
+
+    let out = match column_size {
+        Some(size) => (0..size)
+            .map(|row| format_row(&extracted_operations, row, span, &config))
+            .collect::<Vec<Value>>()
+            .into_value(span),
+        None => format_row(&extracted_operations, 0, span, &config),
+    };
+    Ok(out.into_pipeline_data())
 }
 
-fn format_record(
-    format_operations: &[FormatOperation],
-    data_as_value: &Value,
-    config: &Config,
-) -> Result<String, ShellError> {
+fn format_row(operations: &[ExtractedOperation], row: usize, span: Span, config: &Config) -> Value {
     let mut output = String::new();
-
-    for op in format_operations {
-        match op {
-            FormatOperation::FixedText(s) => output.push_str(s.as_str()),
-            FormatOperation::CellPath(cell_path) => {
-                match data_as_value
-                    .clone()
-                    .follow_cell_path(&cell_path.members, false)
-                {
-                    Ok(value_at_column) => {
-                        output.push_str(value_at_column.to_expanded_string(", ", config).as_str())
-                    }
-                    Err(se) => return Err(se),
-                }
-            }
-        }
+    for operation in operations.iter() {
+        let text = match operation {
+            ExtractedOperation::FixedText(text) => text,
+            ExtractedOperation::Column(values) => &values[row].to_expanded_string(", ", config),
+            ExtractedOperation::Value(value) => &value.to_expanded_string(", ", config),
+        };
+        output.push_str(text);
     }
-    Ok(output)
+    Value::string(output, span)
 }
 
 #[cfg(test)]
