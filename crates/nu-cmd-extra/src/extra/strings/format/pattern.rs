@@ -23,14 +23,25 @@ impl Command for FormatPattern {
             .required(
                 "pattern",
                 SyntaxShape::String,
-                "The pattern to output. e.g.) \"{foo}: {bar}\".",
+                "The pattern to output (e.g., \"{foo}: {bar}\").",
             )
-            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 
     fn description(&self) -> &str {
-        "Format columns into a string using a simple pattern."
+        "Format columns into a string using a simple pattern.
+
+A pattern is a string which can contain cell paths within curly braces.
+
+If a template cell path refers to a column, then a string is created by filling the pattern for each row.
+If a cell path refers to a value, then the value is inserted directly into the pattern.
+
+When multiple cell paths are used, format pattern operates row-wise over the cell path with the fewest components.
+Cell paths with additional components can be used to access nested data within each row."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["printf", "template"]
     }
 
     fn run(
@@ -58,16 +69,30 @@ impl Command for FormatPattern {
         vec![
             Example {
                 description: "Print filenames with their sizes",
-                example: "ls | format pattern '{name}: {size}'",
+                example: r#"ls | format pattern "{name}: {size}""#,
                 result: None,
             },
             Example {
                 description: "Print elements from some columns of a table",
-                example: "[[col1, col2]; [v1, v2] [v3, v4]] | format pattern '{col2}'",
+                example: r#"[[col1, col2]; [v1, v2] [v3, v4]] | format pattern "{col2}""#,
                 result: Some(Value::list(
                     vec![Value::test_string("v2"), Value::test_string("v4")],
                     Span::test_data(),
                 )),
+            },
+            Example {
+                description: "Print specific elements of a list",
+                example: r#"[world hello] | format pattern "{1}, {0}!""#,
+                result: Some(Value::test_string("hello, world!")),
+            },
+            Example {
+                description: "Print nested elements",
+                example: r#"[foo bar baz qux] | window 2 | enumerate | format pattern "{index}: {item.0} -> {item.1}""#,
+                result: Some(Value::test_list(vec![
+                    Value::test_string("0: foo -> bar"),
+                    Value::test_string("1: bar -> baz"),
+                    Value::test_string("2: baz -> qux"),
+                ])),
             },
         ]
     }
