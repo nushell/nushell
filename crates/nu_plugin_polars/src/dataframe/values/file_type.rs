@@ -52,7 +52,7 @@ impl From<&str> for PolarsFileType {
         match file_type {
             "csv" => PolarsFileType::Csv,
             "tsv" => PolarsFileType::Tsv,
-            "parquet" | "parq" => PolarsFileType::Parquet,
+            "parquet" | "parq" | "pq" => PolarsFileType::Parquet,
             "ipc" | "arrow" => PolarsFileType::Arrow,
             "json" => PolarsFileType::Json,
             "avro" => PolarsFileType::Avro,
