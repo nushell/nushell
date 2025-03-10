@@ -35,10 +35,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - run: rustup update beta && rustup default beta
+      - run: rustup update beta
 
       - name: Tests
-        run: cargo test --workspace --profile ci --exclude nu_plugin_*
+        run: cargo +beta test --workspace --profile ci --exclude nu_plugin_*
       - name: Check for clean repo
         shell: bash
         run: |
