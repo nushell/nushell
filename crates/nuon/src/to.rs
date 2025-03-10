@@ -105,7 +105,7 @@ fn value_to_string(
                     let contents_string = String::from_utf8_lossy(contents_bytes);
                     Ok(contents_string.to_string())
                 } else {
-                    return Err(ShellError::CantConvert {
+                    Err(ShellError::CantConvert {
                         to_type: "string".into(),
                         from_type: "closure".into(),
                         span,
@@ -113,7 +113,7 @@ fn value_to_string(
                             "unable to retrieve block contents for closure with id {}",
                             val.block_id.get()
                         )),
-                    });
+                    })
                 }
             } else {
                 Err(ShellError::UnsupportedInput {
