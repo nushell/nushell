@@ -69,16 +69,9 @@ impl Command for ToNuon {
         match nuon::to_nuon(engine_state, &value, style, Some(span), serialize_types) {
             Ok(serde_nuon_string) => Ok(Value::string(serde_nuon_string, span)
                 .into_pipeline_data_with_metadata(Some(metadata))),
-            _ => Ok(Value::error(
-                ShellError::CantConvert {
-                    to_type: "NUON".into(),
-                    from_type: value.get_type().to_string(),
-                    span,
-                    help: None,
-                },
-                span,
-            )
-            .into_pipeline_data_with_metadata(Some(metadata))),
+            Err(error) => {
+                Ok(Value::error(error, span).into_pipeline_data_with_metadata(Some(metadata)))
+            }
         }
     }
 

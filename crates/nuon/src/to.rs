@@ -109,7 +109,7 @@ fn value_to_string(
                 }
             } else {
                 Err(ShellError::UnsupportedInput {
-                    msg: "closures are currently not nuon-compatible".into(),
+                    msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
                     input: "value originates from here".into(),
                     msg_span: span,
                     input_span: v.span(),
