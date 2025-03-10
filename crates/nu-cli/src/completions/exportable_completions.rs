@@ -11,7 +11,6 @@ use reedline::Suggestion;
 pub struct ExportableCompletion<'a> {
     pub module_id: ModuleId,
     pub temp_working_set: Option<StateWorkingSet<'a>>,
-    pub in_list: bool,
 }
 
 /// If name contains space, wrap it in quotes
@@ -52,7 +51,6 @@ impl Completer for ExportableCompletion<'_> {
                     span,
                     description,
                     extra,
-                    append_whitespace: !self.in_list,
                     ..Suggestion::default()
                 },
                 kind: Some(kind),
