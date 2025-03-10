@@ -1,6 +1,10 @@
 use nu_engine::command_prelude::*;
 use nu_parser::parse_simple_cell_path;
-use nu_protocol::{ast::Expr, engine::StateWorkingSet, Config};
+use nu_protocol::{
+    ast::{Expr, PathMember},
+    engine::StateWorkingSet,
+    Config, LabeledError,
+};
 
 #[derive(Clone)]
 pub struct FormatPattern;
@@ -74,7 +78,7 @@ enum FormatOperation {
     /// A portion of the pattern to be inserted without any further processing
     FixedText(String),
     /// A cell path referring to the value or column to be formatted into the pattern template
-    CellPath(CellPath),
+    CellPath(CellPath, Span),
 }
 
 fn parse_formatting_operations(
@@ -136,9 +140,10 @@ fn parse_formatting_operations(
             None => (),
         }
 
+        let span = expression.span(&working_set);
         if let Expr::CellPath(cell_path) = expression.expr {
             // successfully parsed pattern, start over
-            output.push(FormatOperation::CellPath(cell_path));
+            output.push(FormatOperation::CellPath(cell_path, span));
             pattern_range = (None, None);
         } else {
             return Err(ShellError::NushellFailed {
@@ -156,8 +161,8 @@ enum ExtractedOperation {
     FixedText(String),
     /// A column of values. All columns must have the same number of rows.
     Column(Vec<Value>),
-    /// A single value, which is the same regardless of row.
-    Value(Value),
+    /// A single value, which might be different depending on the row
+    Value(CellPath),
 }
 
 /// Format the incoming PipelineData according to the pattern
@@ -168,25 +173,44 @@ fn format(
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     let mut extracted_operations = Vec::with_capacity(format_operations.len());
-    let mut column_size: Option<usize> = None;
+    let mut column_size: Option<(usize, Span)> = None;
+
+    // use the cell path with the fewest members as our basis for operating row-wise
+    let min_depth = format_operations
+        .iter()
+        .filter_map(|op| match op {
+            FormatOperation::FixedText(_) => None,
+            FormatOperation::CellPath(cell_path, _) => Some(cell_path.members.len()),
+        })
+        .min()
+        .unwrap_or(0);
 
     for operation in format_operations {
         let extracted = match operation {
             FormatOperation::FixedText(text) => ExtractedOperation::FixedText(text),
-            FormatOperation::CellPath(cell_path) => {
+            FormatOperation::CellPath(cell_path, span) => {
+                let depth = cell_path.members.len();
                 let inner = input_data
                     .clone()
-                    .follow_cell_path(&cell_path.members, false)?;
+                    .follow_cell_path(&cell_path.members, false);
                 match inner {
-                    Value::Error { error, .. } => return Err(*error),
-                    Value::List { vals, .. } => {
-                        if let Some(size) = column_size {
-                            assert!(vals.len() == size);
+                    Ok(Value::Error { error, .. }) => return Err(*error),
+                    Ok(Value::List { vals, .. }) if depth == min_depth => {
+                        match column_size {
+                            Some((size, _)) if size == vals.len() => (),
+                            Some((size, old_span)) => {
+                                return Err(ShellError::LabeledError(Box::new(
+                                    LabeledError::new("Mismatched column lengths")
+                                        .with_help("Attempted to format pattern row-wise over columns of different lengths")
+                                        .with_label(format!("this column has a length of {}", size), old_span)
+                                        .with_label(format!("this column has a length of {}", vals.len()), span)
+                                )))
+                            }
+                            None => column_size = Some((vals.len(), span)),
                         }
-                        column_size = Some(vals.len());
                         ExtractedOperation::Column(vals)
                     }
-                    value => ExtractedOperation::Value(value),
+                    _ => ExtractedOperation::Value(cell_path),
                 }
             }
         };
@@ -194,26 +218,46 @@ fn format(
     }
 
     let out = match column_size {
-        Some(size) => (0..size)
-            .map(|row| format_row(&extracted_operations, row, span, &config))
-            .collect::<Vec<Value>>()
+        Some((size, _)) => (0..size)
+            .map(|row| format_row(&input_data, &extracted_operations, Some(row), span, &config))
+            .collect::<Result<Vec<Value>, ShellError>>()?
             .into_value(span),
-        None => format_row(&extracted_operations, 0, span, &config),
+        None => format_row(&input_data, &extracted_operations, None, span, &config)?,
     };
     Ok(out.into_pipeline_data())
 }
 
-fn format_row(operations: &[ExtractedOperation], row: usize, span: Span, config: &Config) -> Value {
+/// `row` must be `Some` if any operations are `ExtractedOperation::Column`
+fn format_row(
+    input_data: &Value,
+    operations: &[ExtractedOperation],
+    row: Option<usize>,
+    span: Span,
+    config: &Config,
+) -> Result<Value, ShellError> {
     let mut output = String::new();
     for operation in operations.iter() {
         let text = match operation {
             ExtractedOperation::FixedText(text) => text,
-            ExtractedOperation::Column(values) => &values[row].to_expanded_string(", ", config),
-            ExtractedOperation::Value(value) => &value.to_expanded_string(", ", config),
+            ExtractedOperation::Value(cell_path) => {
+                let members: Vec<PathMember> = row
+                    .map(|val| PathMember::int(val, false, span))
+                    .into_iter()
+                    .chain(cell_path.members.clone())
+                    .collect();
+                &input_data
+                    .clone()
+                    .follow_cell_path(&members, false)?
+                    .to_expanded_string(", ", config)
+            }
+            ExtractedOperation::Column(values) => {
+                let row = row.expect("Column operation found, but no row passed");
+                &values[row].to_expanded_string(", ", config)
+            }
         };
         output.push_str(text);
     }
-    Value::string(output, span)
+    Ok(Value::string(output, span))
 }
 
 #[cfg(test)]
