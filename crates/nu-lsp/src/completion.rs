@@ -1,13 +1,15 @@
 use std::sync::Arc;
 
-use crate::{uri_to_path, LanguageServer};
+use crate::{span_to_range, uri_to_path, LanguageServer};
 use lsp_types::{
     CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionParams,
-    CompletionResponse, CompletionTextEdit, Documentation, MarkupContent, MarkupKind, Range,
-    TextEdit,
+    CompletionResponse, CompletionTextEdit, Documentation, MarkupContent, MarkupKind, TextEdit,
 };
 use nu_cli::{NuCompleter, SuggestionKind};
-use nu_protocol::engine::{CommandType, Stack};
+use nu_protocol::{
+    engine::{CommandType, Stack},
+    Span,
+};
 
 impl LanguageServer {
     pub(crate) fn complete(&mut self, params: &CompletionParams) -> Option<CompletionResponse> {
@@ -44,17 +46,12 @@ impl LanguageServer {
             )
         };
 
+        let docs = self.docs.lock().ok()?;
+        let file = docs.get_document(&path_uri)?;
         (!results.is_empty()).then_some(CompletionResponse::Array(
             results
                 .into_iter()
                 .map(|r| {
-                    let mut start = params.text_document_position.position;
-                    start.character = start.character.saturating_sub(
-                        r.suggestion
-                            .span
-                            .end
-                            .saturating_sub(r.suggestion.span.start) as u32,
-                    );
                     let decl_id = r.kind.clone().and_then(|kind| {
                         matches!(kind, SuggestionKind::Command(_))
                             .then_some(engine_state.find_decl(r.suggestion.value.as_bytes(), &[])?)
@@ -64,8 +61,22 @@ impl LanguageServer {
                     if r.suggestion.append_whitespace {
                         label_value.push(' ');
                     }
+
+                    let span = r.suggestion.span;
+                    let mut range = span_to_range(&Span::new(span.start, span.end), file, 0);
+                    // in case the start position is at the end of last line
+                    if range.end.line != range.start.line {
+                        range.start.line = range.end.line;
+                        range.start.character = 0;
+                    }
+
+                    let text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+                        range,
+                        new_text: label_value.clone(),
+                    }));
+
                     CompletionItem {
-                        label: label_value.clone(),
+                        label: label_value,
                         label_details: r
                             .kind
                             .clone()
@@ -97,13 +108,7 @@ impl LanguageServer {
                                 })
                             }),
                         kind: Self::lsp_completion_item_kind(r.kind),
-                        text_edit: Some(CompletionTextEdit::Edit(TextEdit {
-                            range: Range {
-                                start,
-                                end: params.text_document_position.position,
-                            },
-                            new_text: label_value,
-                        })),
+                        text_edit,
                         ..Default::default()
                     }
                 })
@@ -230,16 +235,14 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!([
                 // defined after the cursor
+                { "label": "config n foo bar ", "detail": detail_str, "kind": 2 },
                 {
-                    "label": "config ",
-                    "detail": "Edit nushell configuration files.",
-                    "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 6 }, },
-                        "newText": "config "
+                    "label": "config nu ",
+                    "detail": "Edit nu configurations.",
+                    "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 8 }, },
+                        "newText": "config nu "
                     },
                 },
-                { "label": "config env ", "kind": 3 },
-                { "label": "config flatten ", "kind": 3 },
-                { "label": "config n foo bar ", "detail": detail_str, "kind": 2 },
             ])
         );
 
@@ -547,6 +550,98 @@ mod tests {
                         "range": { "start": { "character": 10, "line": 7 }, "end": { "character": 15, "line": 7 } }
                     },
                     "kind": 24 // operator kind
+                }
+            ])
+        );
+    }
+
+    #[test]
+    fn complete_use_arguments() {
+        let (client_connection, _recv) = initialize_language_server(None, None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("completion");
+        script.push("use.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+        let resp = send_complete_request(&client_connection, script.clone(), 4, 17);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "std-rfc",
+                    "labelDetails": { "description": "module" },
+                    "textEdit": {
+                        "newText": "std-rfc",
+                        "range": { "start": { "character": 11, "line": 4 }, "end": { "character": 17, "line": 4 } }
+                    },
+                    "kind": 9 // module kind
+                }
+            ])
+        );
+
+        let resp = send_complete_request(&client_connection, script.clone(), 5, 22);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "clip",
+                    "labelDetails": { "description": "module" },
+                    "textEdit": {
+                        "newText": "clip",
+                        "range": { "start": { "character": 19, "line": 5 }, "end": { "character": 23, "line": 5 } }
+                    },
+                    "kind": 9 // module kind
+                }
+            ])
+        );
+
+        let resp = send_complete_request(&client_connection, script.clone(), 5, 35);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "paste",
+                    "labelDetails": { "description": "custom" },
+                    "textEdit": {
+                        "newText": "paste",
+                        "range": { "start": { "character": 32, "line": 5 }, "end": { "character": 37, "line": 5 } }
+                    },
+                    "kind": 2
+                }
+            ])
+        );
+
+        let resp = send_complete_request(&client_connection, script.clone(), 6, 14);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "null_device",
+                    "labelDetails": { "description": "variable" },
+                    "textEdit": {
+                        "newText": "null_device",
+                        "range": { "start": { "character": 8, "line": 6 }, "end": { "character": 14, "line": 6 } }
+                    },
+                    "kind": 6 // variable kind
+                }
+            ])
+        );
+
+        let resp = send_complete_request(&client_connection, script, 7, 13);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "foo",
+                    "labelDetails": { "description": "variable" },
+                    "textEdit": {
+                        "newText": "foo",
+                        "range": { "start": { "character": 11, "line": 7 }, "end": { "character": 14, "line": 7 } }
+                    },
+                    "kind": 6 // variable kind
                 }
             ])
         );
