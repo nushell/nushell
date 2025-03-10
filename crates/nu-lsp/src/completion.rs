@@ -612,10 +612,10 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
-                    "label": "null_device ",
+                    "label": "null_device",
                     "labelDetails": { "description": "variable" },
                     "textEdit": {
-                        "newText": "null_device ",
+                        "newText": "null_device",
                         "range": { "start": { "character": 8, "line": 6 }, "end": { "character": 14, "line": 6 } }
                     },
                     "kind": 6 // variable kind

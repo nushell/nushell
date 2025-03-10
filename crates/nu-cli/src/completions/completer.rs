@@ -580,10 +580,8 @@ impl NuCompleter {
                 let mut exportable_completion = ExportableCompletion {
                     module_id,
                     temp_working_set,
-                    in_list: false,
                 };
                 let mut complete_on_list_items = |items: &[ListItem]| -> Vec<SemanticSuggestion> {
-                    exportable_completion.in_list = true;
                     for item in items {
                         let span = item.expr().span;
                         if span.contains(pos) {
