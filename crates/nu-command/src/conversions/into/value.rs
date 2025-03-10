@@ -208,7 +208,7 @@ fn process_cell(val: Value, display_as_filesizes: bool, span: Span) -> Result<Va
         }
     } else if DATETIME_DMY_RE.is_match(&val_str).unwrap_or(false) {
         let dt = parse_date_from_string(&val_str, span).map_err(|_| ShellError::CantConvert {
-            to_type: "date".to_string(),
+            to_type: "datetime".to_string(),
             from_type: "string".to_string(),
             span,
             help: Some(format!(
@@ -219,7 +219,7 @@ fn process_cell(val: Value, display_as_filesizes: bool, span: Span) -> Result<Va
         Ok(Value::date(dt, span))
     } else if DATETIME_YMD_RE.is_match(&val_str).unwrap_or(false) {
         let dt = parse_date_from_string(&val_str, span).map_err(|_| ShellError::CantConvert {
-            to_type: "date".to_string(),
+            to_type: "datetime".to_string(),
             from_type: "string".to_string(),
             span,
             help: Some(format!(
@@ -230,7 +230,7 @@ fn process_cell(val: Value, display_as_filesizes: bool, span: Span) -> Result<Va
         Ok(Value::date(dt, span))
     } else if DATETIME_YMDZ_RE.is_match(&val_str).unwrap_or(false) {
         let dt = parse_date_from_string(&val_str, span).map_err(|_| ShellError::CantConvert {
-            to_type: "date".to_string(),
+            to_type: "datetime".to_string(),
             from_type: "string".to_string(),
             span,
             help: Some(format!(

@@ -13,7 +13,7 @@ export def dark-theme [] {
         int: white
         filesize: cyan
         duration: white
-        date: purple
+        datetime: purple
         range: white
         float: white
         string: white
@@ -81,7 +81,7 @@ export def light-theme [] {
         int: dark_gray
         filesize: cyan_bold
         duration: dark_gray
-        date: purple
+        datetime: purple
         range: dark_gray
         float: dark_gray
         string: dark_gray
