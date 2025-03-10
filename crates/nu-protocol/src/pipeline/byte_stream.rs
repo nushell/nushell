@@ -5,6 +5,7 @@
 #[cfg(feature = "os")]
 use crate::process::{ChildPipe, ChildProcess};
 use crate::{
+    location,
     shell_error::{bridge::ShellErrorBridge, io::IoError},
     IntRange, PipelineData, ShellError, Signals, Span, Type, Value,
 };
@@ -367,7 +368,9 @@ impl ByteStream {
     /// binary.
     #[cfg(feature = "os")]
     pub fn stdin(span: Span) -> Result<Self, ShellError> {
-        let stdin = os_pipe::dup_stdin().map_err(|err| IoError::new(err.kind(), span, None))?;
+        let stdin = os_pipe::dup_stdin().map_err(|err| {
+            IoError::new_internal(err.kind(), "Failed to duplicate stdin", location!())
+        })?;
         let source = ByteStreamSource::File(convert_file(stdin));
         Ok(Self::new(
             source,
