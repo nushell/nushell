@@ -6,9 +6,8 @@ name: Test on Beta Toolchain
 # The ci.yml handles our actual testing with our guarantees.
 
 on:
-  push:
-    branches:
-      - main
+  schedule:
+    - cron: '0 0 * * *'  # runs daily at midnight UTC
 
 env:
   NUSHELL_CARGO_PROFILE: ci
