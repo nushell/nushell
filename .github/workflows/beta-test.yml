@@ -6,10 +6,9 @@ name: Test on Beta Toolchain
 # The ci.yml handles our actual testing with our guarantees.
 
 on:
-  pull_request:
-  # push:
-    # branches:
-    #   - main
+  push:
+    branches:
+      - main
 
 env:
   NUSHELL_CARGO_PROFILE: ci
