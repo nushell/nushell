@@ -65,7 +65,7 @@ fn helper(
         Value::String { val, .. } | Value::Glob { val, .. } => toml::Value::String(val.clone()),
         Value::Record { val, .. } => {
             let mut m = toml::map::Map::new();
-            for (k, v) in &**val {
+            for (k, v) in val {
                 m.insert(k.clone(), helper(engine_state, v, serialize_types)?);
             }
             toml::Value::Table(m)

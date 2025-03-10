@@ -194,7 +194,6 @@ fn sort_attributes(val: Value) -> Value {
         Value::Record { val, .. } => {
             // TODO: sort inplace
             let sorted = val
-                .into_owned()
                 .into_iter()
                 .sorted_by(|a, b| a.0.cmp(&b.0))
                 .collect_vec();

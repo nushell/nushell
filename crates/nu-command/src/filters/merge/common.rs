@@ -65,7 +65,7 @@ pub(crate) fn do_merge(
             Value::Record { val: lhs, .. },
             Value::Record { val: rhs, .. },
         ) => Ok(Value::record(
-            merge_records(lhs.into_owned(), rhs.into_owned(), strategy, span)?,
+            merge_records(lhs, rhs, strategy, span)?,
             span,
         )),
         // Deep merge records
@@ -74,7 +74,7 @@ pub(crate) fn do_merge(
             Value::Record { val: lhs, .. },
             Value::Record { val: rhs, .. },
         ) => Ok(Value::record(
-            merge_records(lhs.into_owned(), rhs.into_owned(), strategy, span)?,
+            merge_records(lhs, rhs, strategy, span)?,
             span,
         )),
         // Merge lists by appending
