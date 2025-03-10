@@ -1,10 +1,15 @@
+name: Test on Beta Toolchain
+# This workflow is made to run our tests on the beta toolchain to validate that 
+# the beta toolchain works.
+# We do not intend to test here that we are working correctly but rather that 
+# the beta toolchain works correctly.
+# The ci.yml handles our actual testing with our guarantees.
+
 on:
   pull_request:
   # push:
     # branches:
     #   - main
-
-name: Test on Beta Toolchain
 
 env:
   NUSHELL_CARGO_PROFILE: ci
@@ -16,6 +21,10 @@ concurrency:
 
 jobs:
   build-and-test:
+    # this job is more for testing the beta toolchain and not our tests, so if 
+    # this fails but the tests of the regular ci pass, then this is fine
+    continue-on-error: true
+
     strategy:
       fail-fast: true
       matrix:
