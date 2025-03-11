@@ -411,7 +411,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                             let dt_fixed =
                                 Local.from_local_datetime(&d).single().unwrap_or_default();
 
-                            Value::date (dt_fixed.into(),head)
+                            Value::date(dt_fixed.into(),head)
                         }
                         Err(_) => {
                             Value::error (
