@@ -18,6 +18,7 @@ use polars::prelude::{
 };
 
 use nu_protocol::{Record, ShellError, Span, Value};
+use polars_arrow::array::Utf8ViewArray;
 use polars_arrow::Either;
 
 use crate::dataframe::values::NuSchema;
@@ -1266,6 +1267,40 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
         AnyValue::StringOwned(s) => Ok(Value::string(s.to_string(), span)),
         AnyValue::Binary(bytes) => Ok(Value::binary(*bytes, span)),
         AnyValue::BinaryOwned(bytes) => Ok(Value::binary(bytes.to_owned(), span)),
+        AnyValue::Categorical(_, rev_mapping, utf8_array_pointer)
+        | AnyValue::Enum(_, rev_mapping, utf8_array_pointer) => {
+            let value = if utf8_array_pointer.is_null() {
+                utf8_view_array_to_value(rev_mapping.get_categories())
+            } else {
+                // This is no good way around having an unsafe block here
+                // as polars is using a raw pointer to the utf8 array
+                unsafe {
+                    utf8_array_pointer
+                        .get()
+                        .as_ref()
+                        .map(utf8_view_array_to_value)
+                        .unwrap_or_else(|| Value::nothing(span))
+                }
+            };
+            Ok(value)
+        }
+        AnyValue::CategoricalOwned(_, rev_mapping, utf8_array_pointer)
+        | AnyValue::EnumOwned(_, rev_mapping, utf8_array_pointer) => {
+            let value = if utf8_array_pointer.is_null() {
+                utf8_view_array_to_value(rev_mapping.get_categories())
+            } else {
+                // This is no good way around having an unsafe block here
+                // as polars is using a raw pointer to the utf8 array
+                unsafe {
+                    utf8_array_pointer
+                        .get()
+                        .as_ref()
+                        .map(utf8_view_array_to_value)
+                        .unwrap_or_else(|| Value::nothing(span))
+                }
+            };
+            Ok(value)
+        }
         e => Err(ShellError::GenericError {
             error: "Error creating Value".into(),
             msg: "".to_string(),
@@ -1353,6 +1388,18 @@ where
     } else {
         func(value).map(|v| Some(v))
     }
+}
+
+fn utf8_view_array_to_value(array: &Utf8ViewArray) -> Value {
+    let list: Vec<Value> = array
+        .iter()
+        .map(|x| match x {
+            Some(s) => Value::string(s.to_string(), Span::unknown()),
+            None => Value::nothing(Span::unknown()),
+        })
+        .collect();
+
+    Value::list(list, Span::unknown())
 }
 
 #[cfg(test)]
