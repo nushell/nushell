@@ -7,7 +7,10 @@ name: Test on Beta Toolchain
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # runs daily at midnight UTC
+    # If this workflow fails, GitHub notifications will go to the last person 
+    # who edited this line.
+    # See: https://docs.github.com/en/actions/monitoring-and-troubleshooting-workflows/monitoring-workflows/notifications-for-workflow-runs
+    - cron: '0 0 * * *'  # Runs daily at midnight UTC
 
 env:
   NUSHELL_CARGO_PROFILE: ci
