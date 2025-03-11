@@ -441,7 +441,6 @@ mod tests {
     };
     use nu_protocol::{debugger::WithoutDebug, engine::Stack, PipelineData, ShellError, Value};
     use nu_std::load_standard_library;
-    use nu_test_support::fs::fixtures;
     use std::sync::mpsc::{self, Receiver};
     use std::time::Duration;
 
