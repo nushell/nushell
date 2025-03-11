@@ -104,7 +104,7 @@ lru = "0.12"
 lscolors = { version = "0.17", default-features = false }
 lsp-server = "0.7.8"
 lsp-types = { version = "0.97.0", features = ["proposed"] }
-lsp-textdocument = "0.4.1"
+lsp-textdocument = "0.4.2"
 mach2 = "0.4"
 md5 = { version = "0.10", package = "md-5" }
 miette = "7.5"

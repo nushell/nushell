@@ -80,27 +80,21 @@ impl LanguageServer {
             if sp < last_span {
                 continue;
             }
-            // in case the start position is at the end of lastline
-            let real_start_char = if range.end.line != range.start.line {
-                0
-            } else {
-                range.start.character
-            };
-            let mut delta_start = real_start_char;
+            let mut delta_start = range.start.character;
             if range.end.line == last_token_line {
                 delta_start -= last_token_char;
             }
             tokens.push(SemanticToken {
                 delta_start,
                 delta_line: range.end.line.saturating_sub(last_token_line),
-                length: range.end.character.saturating_sub(real_start_char),
+                length: range.end.character.saturating_sub(range.start.character),
                 // 0 means function in semantic_token_legend
                 token_type: 0,
                 token_modifiers_bitset: 0,
             });
             last_span = sp;
             last_token_line = range.end.line;
-            last_token_char = real_start_char;
+            last_token_char = range.start.character;
         }
         tokens
     }
