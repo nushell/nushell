@@ -3105,9 +3105,9 @@ dependencies = [
 
 [[package]]
 name = "lsp-textdocument"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a17dcde15cae78fb2e54166da22cd6c53f48033a0391cc392b22f2437805792"
+checksum = "2d564d595f4e3dcd3c071bf472dbd2cac53bc3665ae7222d2abfecd18feaed2c"
 dependencies = [
  "lsp-types",
  "serde_json",
@@ -8078,7 +8078,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

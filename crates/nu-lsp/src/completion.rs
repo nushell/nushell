@@ -1,13 +1,15 @@
 use std::sync::Arc;
 
-use crate::{uri_to_path, LanguageServer};
+use crate::{span_to_range, uri_to_path, LanguageServer};
 use lsp_types::{
     CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionParams,
-    CompletionResponse, CompletionTextEdit, Documentation, MarkupContent, MarkupKind, Range,
-    TextEdit,
+    CompletionResponse, CompletionTextEdit, Documentation, MarkupContent, MarkupKind, TextEdit,
 };
 use nu_cli::{NuCompleter, SuggestionKind};
-use nu_protocol::engine::{CommandType, Stack};
+use nu_protocol::{
+    engine::{CommandType, Stack},
+    Span,
+};
 
 impl LanguageServer {
     pub(crate) fn complete(&mut self, params: &CompletionParams) -> Option<CompletionResponse> {
@@ -44,17 +46,12 @@ impl LanguageServer {
             )
         };
 
+        let docs = self.docs.lock().ok()?;
+        let file = docs.get_document(&path_uri)?;
         (!results.is_empty()).then_some(CompletionResponse::Array(
             results
                 .into_iter()
                 .map(|r| {
-                    let mut start = params.text_document_position.position;
-                    start.character = start.character.saturating_sub(
-                        r.suggestion
-                            .span
-                            .end
-                            .saturating_sub(r.suggestion.span.start) as u32,
-                    );
                     let decl_id = r.kind.clone().and_then(|kind| {
                         matches!(kind, SuggestionKind::Command(_))
                             .then_some(engine_state.find_decl(r.suggestion.value.as_bytes(), &[])?)
@@ -64,8 +61,17 @@ impl LanguageServer {
                     if r.suggestion.append_whitespace {
                         label_value.push(' ');
                     }
+
+                    let span = r.suggestion.span;
+                    let range = span_to_range(&Span::new(span.start, span.end), file, 0);
+
+                    let text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+                        range,
+                        new_text: label_value.clone(),
+                    }));
+
                     CompletionItem {
-                        label: label_value.clone(),
+                        label: label_value,
                         label_details: r
                             .kind
                             .clone()
@@ -97,13 +103,7 @@ impl LanguageServer {
                                 })
                             }),
                         kind: Self::lsp_completion_item_kind(r.kind),
-                        text_edit: Some(CompletionTextEdit::Edit(TextEdit {
-                            range: Range {
-                                start,
-                                end: params.text_document_position.position,
-                            },
-                            new_text: label_value,
-                        })),
+                        text_edit,
                         ..Default::default()
                     }
                 })
@@ -230,16 +230,14 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!([
                 // defined after the cursor
-                {
-                    "label": "config ",
-                    "detail": "Edit nushell configuration files.",
-                    "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 6 }, },
-                        "newText": "config "
-                    },
-                },
-                { "label": "config env ", "kind": 3 },
-                { "label": "config flatten ", "kind": 3 },
                 { "label": "config n foo bar ", "detail": detail_str, "kind": 2 },
+                {
+                    "label": "config nu ",
+                    "detail": "Edit nu configurations.",
+                    "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 8 }, },
+                        "newText": "config nu "
+                    }
+                },
             ])
         );
 
