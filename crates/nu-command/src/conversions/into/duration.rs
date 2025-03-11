@@ -15,6 +15,7 @@ impl Command for SubCommand {
         Signature::build("into duration")
             .input_output_types(vec![
                 (Type::Int, Type::Duration),
+                (Type::Float, Type::Duration),
                 (Type::String, Type::Duration),
                 (Type::Duration, Type::Duration),
                 (Type::table(), Type::table()),
@@ -107,6 +108,11 @@ impl Command for SubCommand {
             Example {
                 description: "Convert a number of an arbitrary unit to duration",
                 example: "1_234 | into duration --unit ms",
+                result: Some(Value::test_duration(1_234 * 1_000_000)),
+            },
+            Example {
+                description: "Convert a floating point number of an arbitrary unit to duration",
+                example: "1.234 | into duration --unit sec",
                 result: Some(Value::test_duration(1_234 * 1_000_000)),
             },
         ]
@@ -240,6 +246,13 @@ fn action(input: &Value, unit: &str, span: Span) -> Value {
             Ok(val) => Value::duration(val, span),
             Err(error) => Value::error(error, span),
         },
+        Value::Float { val, .. } => {
+            let val_str = format!("{}{}", val, unit);
+            match compound_to_duration(&val_str, value_span) {
+                Ok(val) => Value::duration(val, span),
+                Err(error) => Value::error(error, span),
+            }
+        }
         Value::Int { val, .. } => {
             let ns = match unit {
                 "ns" => 1,
