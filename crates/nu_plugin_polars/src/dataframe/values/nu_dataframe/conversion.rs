@@ -1197,6 +1197,14 @@ fn series_to_values(
                 })?;
             series_to_values(&casted, maybe_from_row, maybe_size, span)
         }
+        DataType::Categorical(maybe_rev_mapping, _categorical_ordering)
+        | DataType::Enum(maybe_rev_mapping, _categorical_ordering) => {
+            if let Some(rev_mapping) = maybe_rev_mapping {
+                Ok(utf8_view_array_to_value(rev_mapping.get_categories()))
+            } else {
+                Ok(vec![])
+            }
+        }
         e => Err(ShellError::GenericError {
             error: "Error creating Dataframe".into(),
             msg: "".to_string(),
@@ -1269,7 +1277,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
         AnyValue::BinaryOwned(bytes) => Ok(Value::binary(bytes.to_owned(), span)),
         AnyValue::Categorical(_, rev_mapping, utf8_array_pointer)
         | AnyValue::Enum(_, rev_mapping, utf8_array_pointer) => {
-            let value = if utf8_array_pointer.is_null() {
+            let value: Vec<Value> = if utf8_array_pointer.is_null() {
                 utf8_view_array_to_value(rev_mapping.get_categories())
             } else {
                 // This is no good way around having an unsafe block here
@@ -1279,14 +1287,14 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
                         .get()
                         .as_ref()
                         .map(utf8_view_array_to_value)
-                        .unwrap_or_else(|| Value::nothing(span))
+                        .unwrap_or_else(Vec::new)
                 }
             };
-            Ok(value)
+            Ok(Value::list(value, span))
         }
         AnyValue::CategoricalOwned(_, rev_mapping, utf8_array_pointer)
         | AnyValue::EnumOwned(_, rev_mapping, utf8_array_pointer) => {
-            let value = if utf8_array_pointer.is_null() {
+            let value: Vec<Value> = if utf8_array_pointer.is_null() {
                 utf8_view_array_to_value(rev_mapping.get_categories())
             } else {
                 // This is no good way around having an unsafe block here
@@ -1296,15 +1304,15 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
                         .get()
                         .as_ref()
                         .map(utf8_view_array_to_value)
-                        .unwrap_or_else(|| Value::nothing(span))
+                        .unwrap_or_else(Vec::new)
                 }
             };
-            Ok(value)
+            Ok(Value::list(value, span))
         }
         e => Err(ShellError::GenericError {
             error: "Error creating Value".into(),
             msg: "".to_string(),
-            span: None,
+            span: Some(span),
             help: Some(format!("Value not supported in nushell: {e}")),
             inner: Vec::new(),
         }),
@@ -1390,16 +1398,14 @@ where
     }
 }
 
-fn utf8_view_array_to_value(array: &Utf8ViewArray) -> Value {
-    let list: Vec<Value> = array
+fn utf8_view_array_to_value(array: &Utf8ViewArray) -> Vec<Value> {
+    array
         .iter()
         .map(|x| match x {
             Some(s) => Value::string(s.to_string(), Span::unknown()),
             None => Value::nothing(Span::unknown()),
         })
-        .collect();
-
-    Value::list(list, Span::unknown())
+        .collect::<Vec<Value>>()
 }
 
 #[cfg(test)]
