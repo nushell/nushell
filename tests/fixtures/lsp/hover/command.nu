@@ -5,3 +5,7 @@ hello
 
 [""] | str join
 ^sleep
+
+def foo [] {
+  def bar [] { }
+}

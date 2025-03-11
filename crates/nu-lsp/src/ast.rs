@@ -74,7 +74,15 @@ fn try_find_id_in_def(
     }
     let span = strip_quotes(span?, working_set);
     let name = working_set.get_span_contents(span);
-    let decl_id = Id::Declaration(working_set.find_decl(name)?);
+    let decl_id = Id::Declaration(working_set.find_decl(name).or_else(|| {
+        // for defs inside def
+        (0..working_set.num_decls()).find_map(|id| {
+            let decl_id = nu_protocol::DeclId::new(id);
+            let decl = working_set.get_decl(decl_id);
+            let span = working_set.get_block(decl.block_id()?).span?;
+            call.span().contains_span(span).then_some(decl_id)
+        })
+    })?);
     id_ref
         .is_none_or(|id_r| decl_id == *id_r)
         .then_some((decl_id, span))

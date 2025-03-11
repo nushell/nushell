@@ -958,6 +958,30 @@ mod tests {
     }
 
     #[test]
+    fn hover_on_custom_in_custom() {
+        let (client_connection, _recv) = initialize_language_server(None, None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hover");
+        script.push("command.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+        let resp = send_hover_request(&client_connection, script.clone(), 9, 7);
+
+        assert_json_eq!(
+            result_from_message(resp),
+            serde_json::json!({
+                    "contents": {
+                    "kind": "markdown",
+                    "value": "\n---\n### Usage \n```nu\n  bar {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                }
+            })
+        );
+    }
+
+    #[test]
     fn hover_on_external_command() {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
