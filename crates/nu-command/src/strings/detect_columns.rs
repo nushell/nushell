@@ -52,7 +52,7 @@ impl Command for DetectColumns {
                 example: r"
 'Filesystem     1K-blocks      Used Available Use% Mounted on
 none             8150224         4   8150220   1% /mnt/c' | detect columns --guess",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "Filesystem" => Value::test_string("none"),
                     "1K-blocks" => Value::test_string("8150224"),
                     "Used" => Value::test_string("4"),
@@ -64,7 +64,7 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns --gue
             Example {
                 description: "detect columns with no headers",
                 example: "'a b c' | detect columns  --no-headers",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                         "column0" => Value::test_string("a"),
                         "column1" => Value::test_string("b"),
                         "column2" => Value::test_string("c"),

@@ -53,7 +53,7 @@ with 'transpose' first."#
             Example {
                 example: "[1 2 3] | each {|e| 2 * $e }",
                 description: "Multiplies elements in the list",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(2),
                     Value::test_int(4),
                     Value::test_int(6),
@@ -62,7 +62,7 @@ with 'transpose' first."#
             Example {
                 example: "{major:2, minor:1, patch:4} | values | each {|| into string }",
                 description: "Produce a list of values in the record, converted to string",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("2"),
                     Value::test_string("1"),
                     Value::test_string("4"),
@@ -71,7 +71,7 @@ with 'transpose' first."#
             Example {
                 example: r#"[1 2 3 2] | each {|e| if $e == 2 { "two" } }"#,
                 description: "'null' items will be dropped from the result list. It has the same effect as 'filter_map' in other languages.",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("two"),
                     Value::test_string("two"),
                 ])),
@@ -80,12 +80,12 @@ with 'transpose' first."#
                 example: r#"[1 2 3] | enumerate | each {|e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
-                result: Some(Value::test_list(vec![Value::test_string("found 2 at 1!")])),
+                result: Some(Value::test_list(list![Value::test_string("found 2 at 1!")])),
             },
             Example {
                 example: r#"[1 2 3] | each --keep-empty {|e| if $e == 2 { "found 2!"} }"#,
                 description: "Iterate over each element, keeping null results",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::nothing(Span::test_data()),
                     Value::test_string("found 2!"),
                     Value::nothing(Span::test_data()),
@@ -119,7 +119,7 @@ with 'transpose' first."#
                         let is_error = value.is_error();
                         match closure.run_with_value(value) {
                             Ok(PipelineData::ListStream(s, ..)) => {
-                                let mut vals = vec![];
+                                let mut vals = List::new();
                                 for v in s {
                                     if let Value::Error { .. } = v {
                                         return Some(v);

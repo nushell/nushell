@@ -69,23 +69,20 @@ impl Command for SplitWords {
             Example {
                 description: "Split the string's words into separate rows",
                 example: "'hello world' | split words",
-                result: Some(Value::list(
-                    vec![Value::test_string("hello"), Value::test_string("world")],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("hello"),
+                    Value::test_string("world"),
+                ])),
             },
             Example {
                 description:
                     "Split the string's words, of at least 3 characters, into separate rows",
                 example: "'hello to the world' | split words --min-word-length 3",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("hello"),
-                        Value::test_string("the"),
-                        Value::test_string("world"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("hello"),
+                    Value::test_string("the"),
+                    Value::test_string("world"),
+                ])),
             },
             Example {
                 description:
@@ -222,7 +219,7 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
                             None
                         }
                     })
-                    .collect::<Vec<Value>>();
+                    .collect();
                 Value::list(words, v_span)
             } else {
                 Value::error(

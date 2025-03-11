@@ -39,7 +39,7 @@ impl Command for SkipWhile {
             Example {
                 description: "Skip while the element is negative",
                 example: "[-2 0 2 -1] | skip while {|x| $x < 0 }",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(0),
                     Value::test_int(2),
                     Value::test_int(-1),
@@ -48,7 +48,7 @@ impl Command for SkipWhile {
             Example {
                 description: "Skip while the element is negative using stored condition",
                 example: "let cond = {|x| $x < 0 }; [-2 0 2 -1] | skip while $cond",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(0),
                     Value::test_int(2),
                     Value::test_int(-1),
@@ -57,7 +57,7 @@ impl Command for SkipWhile {
             Example {
                 description: "Skip while the field value is negative",
                 example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip while {|x| $x.a < 0 }",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "a" => Value::test_int(0),
                     }),

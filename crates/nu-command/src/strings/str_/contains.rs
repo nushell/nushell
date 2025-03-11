@@ -116,7 +116,7 @@ impl Command for StrContains {
             Example {
                 description: "Check if input contains string in a table",
                 example: " [[ColA ColB]; [test 100]] | str contains --ignore-case 'E' ColA",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "ColA" => Value::test_bool(true),
                     "ColB" => Value::test_int(100),
                 })])),
@@ -124,7 +124,7 @@ impl Command for StrContains {
             Example {
                 description: "Check if input contains string in a table",
                 example: " [[ColA ColB]; [test hello]] | str contains 'e' ColA ColB",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "ColA" => Value::test_bool(true),
                     "ColB" => Value::test_bool(true),
                 })])),
@@ -137,7 +137,7 @@ impl Command for StrContains {
             Example {
                 description: "Check if list contains string",
                 example: "[one two three] | str contains o",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_bool(true),
                     Value::test_bool(true),
                     Value::test_bool(false),

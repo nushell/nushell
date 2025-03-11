@@ -52,17 +52,14 @@ In this case, generation also stops when the input stream stops."#
             Example {
                 example: "generate {|i| if $i <= 10 { {out: $i, next: ($i + 2)} }} 0",
                 description: "Generate a sequence of numbers",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(0),
-                        Value::test_int(2),
-                        Value::test_int(4),
-                        Value::test_int(6),
-                        Value::test_int(8),
-                        Value::test_int(10),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(0),
+                    Value::test_int(2),
+                    Value::test_int(4),
+                    Value::test_int(6),
+                    Value::test_int(8),
+                    Value::test_int(10),
+                ])),
             },
             Example {
                 example:
@@ -81,7 +78,7 @@ In this case, generation also stops when the input stream stops."#
                 example:
                     "1..5 | generate {|e, sum=0| let sum = $e + $sum; {out: $sum, next: $sum} }",
                 description: "Generate a running sum of the inputs",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(1),
                     Value::test_int(3),
                     Value::test_int(6),

@@ -81,116 +81,92 @@ impl Command for Find {
             Example {
                 description: "Search a number or a file size in a list of numbers",
                 example: r#"[1 5 3kb 4 3Mb] | find 5 3kb"#,
-                result: Some(Value::list(
-                    vec![Value::test_int(5), Value::test_filesize(3000)],
-                    Span::test_data(),
+                result: Some(Value::test_list(
+                    list![Value::test_int(5), Value::test_filesize(3000)],
+
                 )),
             },
             Example {
                 description: "Search a char in a list of string",
                 example: r#"[moe larry curly] | find l"#,
-                result: Some(Value::list(
-                    vec![Value::test_string("\u{1b}[37m\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37marry\u{1b}[0m"), Value::test_string("\u{1b}[37mcur\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37my\u{1b}[0m")],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("\u{1b}[37m\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37marry\u{1b}[0m"),
+                    Value::test_string("\u{1b}[37mcur\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37my\u{1b}[0m"),
+                ])),
             },
             Example {
                 description: "Find using regex",
                 example: r#"[abc bde arc abf] | find --regex "ab""#,
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("abc".to_string()),
-                        Value::test_string("abf".to_string()),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("abc"),
+                    Value::test_string("abf"),
+                ])),
             },
             Example {
                 description: "Find using regex case insensitive",
                 example: r#"[aBc bde Arc abf] | find --regex "ab" -i"#,
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("aBc".to_string()),
-                        Value::test_string("abf".to_string()),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("aBc"),
+                    Value::test_string("abf"),
+                ])),
             },
             Example {
                 description: "Find value in records using regex",
                 example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu""#,
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                            "version" => Value::test_string("0.1.0"),
-                            "name" => Value::test_string("nushell".to_string()),
-                    })],
-                )),
+                result: Some(Value::test_list(list![Value::test_record(record! {
+                    "version" => Value::test_string("0.1.0"),
+                    "name" => Value::test_string("nushell"),
+                })])),
             },
             Example {
                 description: "Find inverted values in records using regex",
                 example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu" --invert"#,
-                result: Some(Value::test_list(
-                    vec![
-                        Value::test_record(record!{
-                                "version" => Value::test_string("0.1.1"),
-                                "name" => Value::test_string("fish".to_string()),
-                        }),
-                        Value::test_record(record! {
-                                "version" => Value::test_string("0.2.0"),
-                                "name" =>Value::test_string("zsh".to_string()),
-                        }),
-                    ],
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_record(record!{
+                        "version" => Value::test_string("0.1.1"),
+                        "name" => Value::test_string("fish"),
+                    }),
+                    Value::test_record(record! {
+                        "version" => Value::test_string("0.2.0"),
+                        "name" =>Value::test_string("zsh"),
+                    }),
+                ])),
             },
             Example {
                 description: "Find value in list using regex",
                 example: r#"[["Larry", "Moe"], ["Victor", "Marina"]] | find --regex "rr""#,
-                result: Some(Value::list(
-                    vec![Value::list(
-                        vec![Value::test_string("Larry"), Value::test_string("Moe")],
-                        Span::test_data(),
-                    )],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![Value::test_list(list![
+                    Value::test_string("Larry"),
+                    Value::test_string("Moe"),
+                ])])),
             },
             Example {
                 description: "Find inverted values in records using regex",
                 example: r#"[["Larry", "Moe"], ["Victor", "Marina"]] | find --regex "rr" --invert"#,
-                result: Some(Value::list(
-                    vec![Value::list(
-                        vec![Value::test_string("Victor"), Value::test_string("Marina")],
-                        Span::test_data(),
-                    )],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![Value::test_list(list![
+                    Value::test_string("Victor"),
+                    Value::test_string("Marina"),
+                ])])),
             },
             Example {
                 description: "Remove ANSI sequences from result",
                 example:"[[foo bar]; [abc 123] [def 456]] | find --no-highlight 123",
-                result: Some(Value::list(
-                    vec![Value::test_record(record! {
-                        "foo" => Value::test_string("abc"),
-                        "bar" => Value::test_int(123)
-                    }
-                    )],
-                    Span::test_data(),
-                ))
+                result: Some(Value::test_list(list![Value::test_record(record! {
+                    "foo" => Value::test_string("abc"),
+                    "bar" => Value::test_int(123),
+                })]))
             },
             Example {
                 description: "Find and highlight text in specific columns",
                 example:
                     "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe --columns [col1]",
-                result: Some(Value::list(
-                    vec![Value::test_record(record! {
-                            "col1" => Value::test_string(
-                                "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[37m\u{1b}[0m"
-                                    .to_string(),
-                            ),
-                            "col2" => Value::test_string("larry".to_string()),
-                            "col3" => Value::test_string("curly".to_string()),
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![Value::test_record(record! {
+                    "col1" => Value::test_string(
+                        "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[37m\u{1b}[0m"
+                    ),
+                    "col2" => Value::test_string("larry"),
+                    "col3" => Value::test_string("curly"),
+                })])),
             },
         ]
     }
@@ -471,7 +447,7 @@ fn find_with_rest_and_highlight(
                     .map(|term| term.to_expanded_string("", &filter_config).to_lowercase())
                     .collect::<Vec<_>>();
 
-                let mut output: Vec<Value> = vec![];
+                let mut output = List::new();
                 for line in lines {
                     let line = line?;
                     let lower_val = line.to_lowercase();

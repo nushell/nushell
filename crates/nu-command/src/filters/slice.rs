@@ -33,26 +33,26 @@ impl Command for Slice {
             Example {
                 example: "[0,1,2,3,4,5] | slice 4..5",
                 description: "Get the last 2 items",
-                result: Some(Value::list(
-                    vec![Value::test_int(4), Value::test_int(5)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(4),
+                    Value::test_int(5),
+                ])),
             },
             Example {
                 example: "[0,1,2,3,4,5] | slice (-2)..",
                 description: "Get the last 2 items",
-                result: Some(Value::list(
-                    vec![Value::test_int(4), Value::test_int(5)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(4),
+                    Value::test_int(5),
+                ])),
             },
             Example {
                 example: "[0,1,2,3,4,5] | slice (-3)..-2",
                 description: "Get the next to last 2 items",
-                result: Some(Value::list(
-                    vec![Value::test_int(3), Value::test_int(4)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ])),
             },
         ]
     }
@@ -81,7 +81,7 @@ impl Command for Slice {
             };
 
             if count == 0 {
-                Ok(PipelineData::Value(Value::list(vec![], head), None))
+                Ok(PipelineData::Value(Value::list(List::new(), head), None))
             } else {
                 let iter = v.into_iter().skip(from).take(count);
                 Ok(iter.into_pipeline_data(head, engine_state.signals().clone()))
@@ -102,7 +102,7 @@ impl Command for Slice {
             };
 
             if count == 0 {
-                Ok(PipelineData::Value(Value::list(vec![], head), None))
+                Ok(PipelineData::Value(Value::list(List::new(), head), None))
             } else {
                 let iter = input.into_iter().skip(from).take(count);
                 Ok(iter.into_pipeline_data(head, engine_state.signals().clone()))

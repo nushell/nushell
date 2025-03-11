@@ -34,35 +34,32 @@ impl Command for FromSsv {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            example: r#"'FOO   BAR
+        vec![
+            Example {
+                example: r#"'FOO   BAR
 1   2' | from ssv"#,
-            description: "Converts ssv formatted string to table",
-            result: Some(Value::test_list(
-                vec![Value::test_record(record! {
+                description: "Converts ssv formatted string to table",
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "FOO" => Value::test_string("1"),
                     "BAR" => Value::test_string("2"),
-                })],
-            )),
-        }, Example {
-            example: r#"'FOO   BAR
+                })])),
+            },
+            Example {
+                example: r#"'FOO   BAR
 1   2' | from ssv --noheaders"#,
-            description: "Converts ssv formatted string to table but not treating the first row as column names",
-            result: Some(
-                Value::test_list(
-                    vec![
-                        Value::test_record(record! {
-                            "column0" => Value::test_string("FOO"),
-                            "column1" => Value::test_string("BAR"),
-                        }),
-                        Value::test_record(record! {
-                            "column0" => Value::test_string("1"),
-                            "column1" => Value::test_string("2"),
-                        }),
-                    ],
-                )
-            ),
-        }]
+                description: "Converts ssv formatted string to table but not treating the first row as column names",
+                result: Some(Value::test_list(list![
+                    Value::test_record(record! {
+                        "column0" => Value::test_string("FOO"),
+                        "column1" => Value::test_string("BAR"),
+                    }),
+                    Value::test_record(record! {
+                        "column0" => Value::test_string("1"),
+                        "column1" => Value::test_string("2"),
+                    }),
+                ])),
+            }
+        ]
     }
 
     fn run(

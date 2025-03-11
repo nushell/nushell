@@ -343,7 +343,7 @@ impl Job {
 
             let content = match content {
                 Value::List { vals, .. } => vals,
-                Value::Nothing { .. } => Vec::new(),
+                Value::Nothing { .. } => List::new(),
                 _ => {
                     return Err(ShellError::CantConvert {
                         to_type: "XML".into(),
@@ -424,7 +424,7 @@ impl Job {
         tag: String,
         tag_span: Span,
         attrs: Record,
-        children: Vec<Value>,
+        children: List,
     ) -> Result<(), ShellError> {
         if tag.starts_with('!') || tag.starts_with('?') {
             return Err(ShellError::CantConvert {

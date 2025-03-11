@@ -70,14 +70,11 @@ impl Command for MathLog {
             Example {
                 example: "[16 8 4] | math log 2",
                 description: "Get the log2 of a list of values",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_float(4.0),
-                        Value::test_float(3.0),
-                        Value::test_float(2.0),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_float(4.0),
+                    Value::test_float(3.0),
+                    Value::test_float(2.0),
+                ])),
             },
         ]
     }

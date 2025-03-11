@@ -41,16 +41,16 @@ impl Command for Chunks {
             Example {
                 example: "[1 2 3 4] | chunks 2",
                 description: "Chunk a list into pairs",
-                result: Some(Value::test_list(vec![
-                    Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
-                    Value::test_list(vec![Value::test_int(3), Value::test_int(4)]),
+                result: Some(Value::test_list(list![
+                    Value::test_list(list![Value::test_int(1), Value::test_int(2)]),
+                    Value::test_list(list![Value::test_int(3), Value::test_int(4)]),
                 ])),
             },
             Example {
                 example: "[[foo bar]; [0 1] [2 3] [4 5] [6 7] [8 9]] | chunks 3",
                 description: "Chunk the rows of a table into triplets",
-                result: Some(Value::test_list(vec![
-                    Value::test_list(vec![
+                result: Some(Value::test_list(list![
+                    Value::test_list(list![
                         Value::test_record(record! {
                             "foo" => Value::test_int(0),
                             "bar" => Value::test_int(1),
@@ -64,7 +64,7 @@ impl Command for Chunks {
                             "bar" => Value::test_int(5),
                         }),
                     ]),
-                    Value::test_list(vec![
+                    Value::test_list(list![
                         Value::test_record(record! {
                             "foo" => Value::test_int(6),
                             "bar" => Value::test_int(7),
@@ -79,7 +79,7 @@ impl Command for Chunks {
             Example {
                 example: "0x[11 22 33 44 55 66 77 88] | chunks 3",
                 description: "Chunk the bytes of a binary into triplets",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_binary(vec![0x11, 0x22, 0x33]),
                     Value::test_binary(vec![0x44, 0x55, 0x66]),
                     Value::test_binary(vec![0x77, 0x88]),
@@ -192,7 +192,7 @@ impl<I: Iterator<Item = Value>> Iterator for ChunksIter<I> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let first = self.iter.next()?;
-        let mut chunk = Vec::with_capacity(self.size); // delay allocation to optimize for empty iter
+        let mut chunk = List::with_capacity(self.size); // delay allocation to optimize for empty iter
         chunk.push(first);
         chunk.extend((&mut self.iter).take(self.size - 1));
         Some(Value::list(chunk, self.span))

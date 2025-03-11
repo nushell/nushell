@@ -26,18 +26,18 @@ impl Command for Enumerate {
         vec![Example {
             description: "Add an index to each element of a list",
             example: r#"[a, b, c] | enumerate "#,
-            result: Some(Value::test_list(vec![
+            result: Some(Value::test_list(list![
                 Value::test_record(record! {
-                    "index" =>  Value::test_int(0),
-                    "item" =>   Value::test_string("a"),
+                    "index" => Value::test_int(0),
+                    "item" => Value::test_string("a"),
                 }),
                 Value::test_record(record! {
-                    "index" =>  Value::test_int(1),
-                    "item" =>   Value::test_string("b"),
+                    "index" => Value::test_int(1),
+                    "item" => Value::test_string("b"),
                 }),
                 Value::test_record(record! {
-                    "index" =>  Value::test_int(2),
-                    "item" =>   Value::test_string("c"),
+                    "index" => Value::test_int(2),
+                    "item" => Value::test_string("c"),
                 }),
             ])),
         }]

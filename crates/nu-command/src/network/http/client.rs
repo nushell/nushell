@@ -907,7 +907,7 @@ fn extract_response_headers(response: &Response) -> Headers {
 }
 
 fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellError> {
-    let mut vals = Vec::with_capacity(headers.len());
+    let mut vals = List::with_capacity(headers.len());
 
     for (name, values) in headers {
         let is_duplicate = vals.iter().any(|val| {

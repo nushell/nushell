@@ -264,7 +264,7 @@ where
     if vec.is_empty() {
         Value::nothing(tag)
     } else {
-        let values = vec.into_iter().map(Into::into).collect::<Vec<Value>>();
+        let values = vec.into_iter().map(Into::into).collect();
         Value::list(values, tag)
     }
 }

@@ -110,10 +110,10 @@ impl Command for StrLength {
             Example {
                 description: "Return the lengths of multiple strings",
                 example: "['hi' 'there'] | str length",
-                result: Some(Value::list(
-                    vec![Value::test_int(2), Value::test_int(5)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(2),
+                    Value::test_int(5),
+                ])),
             },
         ]
     }

@@ -76,14 +76,14 @@ impl Command for IntoFilesize {
             Example {
                 description: "Convert string to filesize in table",
                 example: r#"[[device size]; ["/dev/sda1" "200"] ["/dev/loop0" "50"]] | into filesize size"#,
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "device" => Value::test_string("/dev/sda1"),
-                        "size" =>   Value::test_filesize(200),
+                        "size" => Value::test_filesize(200),
                     }),
                     Value::test_record(record! {
                         "device" => Value::test_string("/dev/loop0"),
-                        "size" =>   Value::test_filesize(50),
+                        "size" => Value::test_filesize(50),
                     }),
                 ])),
             },

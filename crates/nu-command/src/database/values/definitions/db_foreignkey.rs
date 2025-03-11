@@ -16,7 +16,7 @@ impl DbRow for DbForeignKey {
         ]
     }
 
-    fn columns(&self) -> Vec<String> {
+    fn values(&self) -> Vec<String> {
         vec![
             self.column_name
                 .as_ref()

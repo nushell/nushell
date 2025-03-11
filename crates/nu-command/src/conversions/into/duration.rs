@@ -76,7 +76,7 @@ impl Command for IntoDuration {
                 description: "Convert table of duration strings to table of duration values",
                 example:
                     "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "value" => Value::test_duration(NS_PER_SEC),
                     }),
