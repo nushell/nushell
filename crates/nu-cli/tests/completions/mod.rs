@@ -2345,6 +2345,13 @@ fn assignment_operator_completions(mut custom_completer: NuCompleter) {
     let expected: Vec<_> = vec!["++", "++="];
     let suggestions = custom_completer.complete("$env.config.keybindings +", 25);
     match_suggestions(&expected, &suggestions);
+
+    // all operators for type any
+    let suggestions = custom_completer.complete("ls | where name ", 16);
+    assert_eq!(30, suggestions.len());
+    let expected: Vec<_> = vec!["starts-with"];
+    let suggestions = custom_completer.complete("ls | where name starts", 22);
+    match_suggestions(&expected, &suggestions);
 }
 
 #[test]
