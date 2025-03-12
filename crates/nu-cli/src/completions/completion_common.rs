@@ -275,7 +275,7 @@ pub fn complete_item(
         });
         FileSuggestion {
             span,
-            path: escape_path(path, want_directory),
+            path: escape_path(path),
             style,
             is_dir,
         }
@@ -284,7 +284,7 @@ pub fn complete_item(
 }
 
 // Fix files or folders with quotes or hashes
-pub fn escape_path(path: String, dir: bool) -> String {
+pub fn escape_path(path: String) -> String {
     // make glob pattern have the highest priority.
     if nu_glob::is_glob(path.as_str()) {
         let pathbuf = nu_path::expand_tilde(path);
@@ -298,13 +298,11 @@ pub fn escape_path(path: String, dir: bool) -> String {
         };
     }
 
-    let filename_contaminated = !dir && path.contains(['\'', '"', ' ', '#', '(', ')']);
-    let dirname_contaminated = dir && path.contains(['\'', '"', ' ', '#']);
+    let contaminated = path.contains(['\'', '"', ' ', '#', '(', ')', '{', '}', '[', ']']);
     let maybe_flag = path.starts_with('-');
     let maybe_variable = path.starts_with('$');
     let maybe_number = path.parse::<f64>().is_ok();
-    if filename_contaminated || dirname_contaminated || maybe_flag || maybe_variable || maybe_number
-    {
+    if contaminated || maybe_flag || maybe_variable || maybe_number {
         format!("`{path}`")
     } else {
         path

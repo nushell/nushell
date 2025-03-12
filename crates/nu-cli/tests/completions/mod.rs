@@ -891,6 +891,7 @@ fn partial_completions() {
         folder(dir.join("partial-a")),
         folder(dir.join("partial-b")),
         folder(dir.join("partial-c")),
+        format!("`{}`", folder(dir.join("partial-d("))),
     ];
 
     // Match the results
@@ -980,6 +981,15 @@ fn partial_completions() {
                 .join("final_partial")
                 .join("somefile"),
         ),
+        format!(
+            "`{}`",
+            file(
+                dir.join("partial-d(")
+                    .join("..")
+                    .join("final_partial")
+                    .join("somefile"),
+            )
+        ),
     ];
 
     // Match the results
@@ -1059,6 +1069,16 @@ fn partial_completion_with_dot_expansions() {
                 .join("partial_completions")
                 .join("final_partial")
                 .join("somefile"),
+        ),
+        format!(
+            "`{}`",
+            file(
+                dir.join("partial-d(")
+                    .join("...")
+                    .join("partial_completions")
+                    .join("final_partial")
+                    .join("somefile"),
+            )
         ),
     ];
 
