@@ -18,9 +18,9 @@ impl CmdArgument for Arguments {
 }
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct IntoInt;
 
-impl Command for SubCommand {
+impl Command for IntoInt {
     fn name(&self) -> &str {
         "into int"
     }
@@ -521,7 +521,7 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(IntoInt {})
     }
 
     #[test]

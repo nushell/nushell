@@ -4,9 +4,9 @@ use nu_protocol::{ast::Expr, Unit};
 
 const NS_PER_SEC: i64 = 1_000_000_000;
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct IntoDuration;
 
-impl Command for SubCommand {
+impl Command for IntoDuration {
     fn name(&self) -> &str {
         "into duration"
     }
@@ -277,7 +277,7 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(IntoDuration {})
     }
 
     const NS_PER_SEC: i64 = 1_000_000_000;

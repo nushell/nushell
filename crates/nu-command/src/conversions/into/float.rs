@@ -2,9 +2,9 @@ use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct IntoFloat;
 
-impl Command for SubCommand {
+impl Command for IntoFloat {
     fn name(&self) -> &str {
         "into float"
     }
@@ -134,7 +134,7 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(IntoFloat {})
     }
 
     #[test]

@@ -49,9 +49,9 @@ impl Zone {
 }
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct IntoDatetime;
 
-impl Command for SubCommand {
+impl Command for IntoDatetime {
     fn name(&self) -> &str {
         "into datetime"
     }
@@ -495,14 +495,14 @@ fn list_human_readable_examples(span: Span) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::{action, DatetimeFormat, SubCommand, Zone};
+    use super::{action, DatetimeFormat, IntoDatetime, Zone};
     use nu_protocol::Type::Error;
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(IntoDatetime {})
     }
 
     #[test]

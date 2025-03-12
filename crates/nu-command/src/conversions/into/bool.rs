@@ -2,9 +2,9 @@ use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct IntoBool;
 
-impl Command for SubCommand {
+impl Command for IntoBool {
     fn name(&self) -> &str {
         "into bool"
     }
@@ -202,7 +202,7 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(IntoBool {})
     }
 
     #[test]
