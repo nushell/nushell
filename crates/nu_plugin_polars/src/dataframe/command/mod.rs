@@ -5,5 +5,6 @@ pub mod data;
 pub mod datetime;
 pub mod index;
 pub mod integer;
+pub mod list;
 pub mod string;
 pub mod stub;
