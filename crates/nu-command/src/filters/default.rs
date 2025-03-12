@@ -25,7 +25,7 @@ impl Command for Default {
             )
             .switch(
                 "empty",
-                "also compact empty items like \"\", {}, and []",
+                "also remove empty items like \"\", {}, and []",
                 Some('e'),
             )
             .category(Category::Filters)
@@ -143,9 +143,7 @@ fn default(
             .map(|x| x.set_metadata(metadata))
     } else if input.is_nothing()
         || (default_when_empty
-            && (matches!(input, PipelineData::Value(Value::String { ref val, .. }, _) if val.is_empty())
-                || matches!(input, PipelineData::Value(Value::Record { ref val, .. }, _) if val.is_empty())
-                || matches!(input, PipelineData::Value(Value::List { ref vals, .. }, _) if vals.is_empty())))
+            && matches!(input, PipelineData::Value(ref value, _) if value.is_empty()))
     {
         Ok(value.into_pipeline_data())
     } else {
