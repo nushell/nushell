@@ -55,7 +55,7 @@ export def aggregate [
       }
   }
 
-  def "error not-a-table" [span: record<start: int, end:int>] {
+  def error-not-a-table [span: record<start: int, end:int>] {
       error make {
           msg: "input must be a table",
           label: {
@@ -69,9 +69,9 @@ export def aggregate [
     let IN = $in
     let md = metadata $in
 
-    let first = try { $IN | first } catch { error not-a-table $md.span }
+    let first = try { $IN | first } catch { error-not-a-table $md.span }
     if not (($first | describe) starts-with record) {
-        error not-a-table $md.span
+        error-not-a-table $md.span
     }
 
     let grouped = "items" in $first

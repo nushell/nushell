@@ -19,14 +19,14 @@ let exe = $paths.1
 
 let test_lines = [
     "python -c 'import sys; print(sys.executable)'"                                  # 1
-    "python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'" # 2
+    `python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'` # 2
     $"overlay use '([$env.PWD $env_name $subdir activate.nu] | path join)'"
     "python -c 'import sys; print(sys.executable)'"                                  # 3
-    "python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'" # 4
+    `python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'` # 4
     "print $env.VIRTUAL_ENV_PROMPT"                                                  # 5
     "deactivate"
     "python -c 'import sys; print(sys.executable)'"                                  # 6
-    "python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'" # 7
+    `python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'` # 7
 ]
 
 def main [] {
