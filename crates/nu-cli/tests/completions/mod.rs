@@ -934,6 +934,7 @@ fn partial_completions() {
         file(dir.join("partial-b").join("hello_b")),
         file(dir.join("partial-b").join("hi_b")),
         file(dir.join("partial-c").join("hello_c")),
+        format!("`{}`", file(dir.join("partial-d(").join(".gitkeep"))),
     ];
 
     // Match the results
