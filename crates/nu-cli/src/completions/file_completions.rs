@@ -9,33 +9,25 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::path::Path;
 
-use super::{completion_common::FileSuggestion, SemanticSuggestion};
+use super::{completion_common::FileSuggestion, SemanticSuggestion, SuggestionKind};
 
-#[derive(Clone, Default)]
-pub struct FileCompletion {}
-
-impl FileCompletion {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
+pub struct FileCompletion;
 
 impl Completer for FileCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         let AdjustView {
             prefix,
             span,
             readjusted,
-        } = adjust_if_intermediate(prefix, working_set, span);
+        } = adjust_if_intermediate(prefix.as_ref(), working_set, span);
 
         #[allow(deprecated)]
         let items: Vec<_> = complete_item(
@@ -58,8 +50,11 @@ impl Completer for FileCompletion {
                 },
                 ..Suggestion::default()
             },
-            // TODO????
-            kind: None,
+            kind: Some(if x.is_dir {
+                SuggestionKind::Directory
+            } else {
+                SuggestionKind::File
+            }),
         })
         .collect();
 

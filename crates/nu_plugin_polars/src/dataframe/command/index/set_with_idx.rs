@@ -99,7 +99,7 @@ fn command(
     let casted = match indices.dtype() {
         DataType::UInt32 | DataType::UInt64 | DataType::Int32 | DataType::Int64 => indices
             .as_ref()
-            .cast(&DataType::UInt32, CastOptions::default())
+            .cast(&DataType::UInt64, CastOptions::default())
             .map_err(|e| ShellError::GenericError {
                 error: "Error casting indices".into(),
                 msg: e.to_string(),
@@ -117,7 +117,7 @@ fn command(
     }?;
 
     let indices = casted
-        .u32()
+        .u64()
         .map_err(|e| ShellError::GenericError {
             error: "Error casting indices".into(),
             msg: e.to_string(),

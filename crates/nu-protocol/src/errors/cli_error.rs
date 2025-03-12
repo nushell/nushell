@@ -50,10 +50,6 @@ pub fn report_compile_error(working_set: &StateWorkingSet, error: &CompileError)
 
 fn report_error(working_set: &StateWorkingSet, error: &dyn miette::Diagnostic) {
     eprintln!("Error: {:?}", CliError(error, working_set));
-    let have_no_backtrace = working_set.get_env_var("NU_BACKTRACE").is_none();
-    if have_no_backtrace {
-        eprintln!("set the `NU_BACKTRACE=1` environment variable to display a backtrace.")
-    }
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
     {

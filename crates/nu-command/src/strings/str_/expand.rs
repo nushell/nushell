@@ -175,6 +175,25 @@ impl Command for SubCommand {
                     ],
                     Span::test_data()
                 )),
+            },
+
+            Example {
+                description: "Supports zero padding in numeric ranges.",
+                example: "\"A{08..10}B{11..013}C\" | str expand",
+                result: Some(Value::list(
+                    vec![
+                        Value::test_string("A08B011C"),
+                        Value::test_string("A08B012C"),
+                        Value::test_string("A08B013C"),
+                        Value::test_string("A09B011C"),
+                        Value::test_string("A09B012C"),
+                        Value::test_string("A09B013C"),
+                        Value::test_string("A10B011C"),
+                        Value::test_string("A10B012C"),
+                        Value::test_string("A10B013C"),
+                    ],
+                    Span::test_data()
+                )),
             }
         ]
     }

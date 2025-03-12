@@ -14,8 +14,8 @@ use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean,
-    FilesizeUnit, Flag, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type,
-    Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    FilesizeUnit, Flag, ParseError, PositionalArg, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -1283,51 +1283,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
         return garbage(working_set, head);
     }
 
-    let mut pos = 0;
-    let cmd_start = pos;
-    let mut name_spans = vec![];
-    let mut name = vec![];
-
-    for word_span in spans[cmd_start..].iter() {
-        // Find the longest group of words that could form a command
-
-        name_spans.push(*word_span);
-
-        let name_part = working_set.get_span_contents(*word_span);
-        if name.is_empty() {
-            name.extend(name_part);
-        } else {
-            name.push(b' ');
-            name.extend(name_part);
-        }
-
-        pos += 1;
-    }
-
-    let mut maybe_decl_id = working_set.find_decl(&name);
-
-    while maybe_decl_id.is_none() {
-        // Find the longest command match
-        if name_spans.len() <= 1 {
-            // Keep the first word even if it does not match -- could be external command
-            break;
-        }
-
-        name_spans.pop();
-        pos -= 1;
-
-        let mut name = vec![];
-        for name_span in &name_spans {
-            let name_part = working_set.get_span_contents(*name_span);
-            if name.is_empty() {
-                name.extend(name_part);
-            } else {
-                name.push(b' ');
-                name.extend(name_part);
-            }
-        }
-        maybe_decl_id = working_set.find_decl(&name);
-    }
+    let (cmd_start, pos, _name, maybe_decl_id) = find_longest_decl(working_set, spans);
 
     if let Some(decl_id) = maybe_decl_id {
         // Before the internal parsing we check if there is no let or alias declarations
@@ -1422,6 +1378,172 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
         // Otherwise, try external command
         parse_external_call(working_set, spans)
     }
+}
+
+pub fn find_longest_decl(
+    working_set: &mut StateWorkingSet<'_>,
+    spans: &[Span],
+) -> (
+    usize,
+    usize,
+    Vec<u8>,
+    Option<nu_protocol::Id<nu_protocol::marker::Decl>>,
+) {
+    find_longest_decl_with_prefix(working_set, spans, b"")
+}
+
+pub fn find_longest_decl_with_prefix(
+    working_set: &mut StateWorkingSet<'_>,
+    spans: &[Span],
+    prefix: &[u8],
+) -> (
+    usize,
+    usize,
+    Vec<u8>,
+    Option<nu_protocol::Id<nu_protocol::marker::Decl>>,
+) {
+    let mut pos = 0;
+    let cmd_start = pos;
+    let mut name_spans = vec![];
+    let mut name = vec![];
+    name.extend(prefix);
+
+    for word_span in spans[cmd_start..].iter() {
+        // Find the longest group of words that could form a command
+
+        name_spans.push(*word_span);
+
+        let name_part = working_set.get_span_contents(*word_span);
+        if name.is_empty() {
+            name.extend(name_part);
+        } else {
+            name.push(b' ');
+            name.extend(name_part);
+        }
+
+        pos += 1;
+    }
+
+    let mut maybe_decl_id = working_set.find_decl(&name);
+
+    while maybe_decl_id.is_none() {
+        // Find the longest command match
+        if name_spans.len() <= 1 {
+            // Keep the first word even if it does not match -- could be external command
+            break;
+        }
+
+        name_spans.pop();
+        pos -= 1;
+
+        // TODO: Refactor to avoid recreating name with an inner loop.
+        name.clear();
+        name.extend(prefix);
+        for name_span in &name_spans {
+            let name_part = working_set.get_span_contents(*name_span);
+            if name.is_empty() {
+                name.extend(name_part);
+            } else {
+                name.push(b' ');
+                name.extend(name_part);
+            }
+        }
+        maybe_decl_id = working_set.find_decl(&name);
+    }
+    (cmd_start, pos, name, maybe_decl_id)
+}
+
+pub fn parse_attribute(
+    working_set: &mut StateWorkingSet,
+    lite_command: &LiteCommand,
+) -> (Attribute, Option<String>) {
+    let _ = lite_command
+        .parts
+        .first()
+        .filter(|s| working_set.get_span_contents(**s).starts_with(b"@"))
+        .expect("Attributes always start with an `@`");
+
+    assert!(
+        lite_command.attribute_idx.is_empty(),
+        "attributes can't have attributes"
+    );
+
+    let mut spans = lite_command.parts.clone();
+    if let Some(first) = spans.first_mut() {
+        first.start += 1;
+    }
+    let spans = spans.as_slice();
+    let attr_span = Span::concat(spans);
+
+    let (cmd_start, cmd_end, mut name, decl_id) =
+        find_longest_decl_with_prefix(working_set, spans, b"attr");
+
+    debug_assert!(name.starts_with(b"attr "));
+    let _ = name.drain(..(b"attr ".len()));
+
+    let name_span = Span::concat(&spans[cmd_start..cmd_end]);
+
+    let Ok(name) = String::from_utf8(name) else {
+        working_set.error(ParseError::NonUtf8(name_span));
+        return (
+            Attribute {
+                expr: garbage(working_set, attr_span),
+            },
+            None,
+        );
+    };
+
+    let Some(decl_id) = decl_id else {
+        working_set.error(ParseError::UnknownCommand(name_span));
+        return (
+            Attribute {
+                expr: garbage(working_set, attr_span),
+            },
+            None,
+        );
+    };
+
+    let decl = working_set.get_decl(decl_id);
+
+    let parsed_call = match decl.as_alias() {
+        // TODO: Once `const def` is available, we should either disallow aliases as attributes OR
+        // allow them but rather than using the aliases' name, use the name of the aliased command
+        Some(alias) => match &alias.clone().wrapped_call {
+            Expression {
+                expr: Expr::ExternalCall(..),
+                ..
+            } => {
+                let shell_error = ShellError::NotAConstCommand { span: name_span };
+                working_set.error(shell_error.wrap(working_set, attr_span));
+                return (
+                    Attribute {
+                        expr: garbage(working_set, Span::concat(spans)),
+                    },
+                    None,
+                );
+            }
+            _ => {
+                trace!("parsing: alias of internal call");
+                parse_internal_call(working_set, name_span, &spans[cmd_end..], decl_id)
+            }
+        },
+        None => {
+            trace!("parsing: internal call");
+            parse_internal_call(working_set, name_span, &spans[cmd_end..], decl_id)
+        }
+    };
+
+    (
+        Attribute {
+            expr: Expression::new(
+                working_set,
+                Expr::Call(parsed_call.call),
+                Span::concat(spans),
+                parsed_call.output,
+            ),
+        },
+        Some(name),
+    )
 }
 
 pub fn parse_binary(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -2695,7 +2817,7 @@ pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
 fn modf(x: f64) -> (f64, f64) {
     let rv2: f64;
     let mut u = x.to_bits();
-    let e = ((u >> 52 & 0x7ff) as i32) - 0x3ff;
+    let e = (((u >> 52) & 0x7ff) as i32) - 0x3ff;
 
     /* no fractional part */
     if e >= 52 {
@@ -4166,7 +4288,7 @@ pub fn parse_list_expression(
         working_set.error(err)
     }
 
-    let (mut output, err) = lite_parse(&output);
+    let (mut output, err) = lite_parse(&output, working_set);
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -4558,8 +4680,6 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                         "end of input".into(),
                         Span::new(output[position - 1].span.end, output[position - 1].span.end),
                     ));
-
-                    working_set.exit_scope();
                     break;
                 }
 
@@ -4573,8 +4693,6 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                         "end of input".into(),
                         Span::new(output[position - 1].span.end, output[position - 1].span.end),
                     ));
-
-                    working_set.exit_scope();
                     break;
                 } else {
                     connector = working_set.get_span_contents(output[position].span);
@@ -5014,11 +5132,11 @@ pub fn parse_assignment_operator(working_set: &mut StateWorkingSet, span: Span) 
 
     let operator = match contents {
         b"=" => Operator::Assignment(Assignment::Assign),
-        b"+=" => Operator::Assignment(Assignment::PlusAssign),
-        b"++=" => Operator::Assignment(Assignment::ConcatAssign),
-        b"-=" => Operator::Assignment(Assignment::MinusAssign),
+        b"+=" => Operator::Assignment(Assignment::AddAssign),
+        b"-=" => Operator::Assignment(Assignment::SubtractAssign),
         b"*=" => Operator::Assignment(Assignment::MultiplyAssign),
         b"/=" => Operator::Assignment(Assignment::DivideAssign),
+        b"++=" => Operator::Assignment(Assignment::ConcatenateAssign),
         _ => {
             working_set.error(ParseError::Expected("assignment operator", span));
             return garbage(working_set, span);
@@ -5154,28 +5272,28 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         b">=" => Operator::Comparison(Comparison::GreaterThanOrEqual),
         b"=~" | b"like" => Operator::Comparison(Comparison::RegexMatch),
         b"!~" | b"not-like" => Operator::Comparison(Comparison::NotRegexMatch),
-        b"+" => Operator::Math(Math::Plus),
-        b"++" => Operator::Math(Math::Concat),
-        b"-" => Operator::Math(Math::Minus),
-        b"*" => Operator::Math(Math::Multiply),
-        b"/" => Operator::Math(Math::Divide),
-        b"//" => Operator::Math(Math::FloorDivision),
         b"in" => Operator::Comparison(Comparison::In),
         b"not-in" => Operator::Comparison(Comparison::NotIn),
         b"has" => Operator::Comparison(Comparison::Has),
         b"not-has" => Operator::Comparison(Comparison::NotHas),
+        b"starts-with" => Operator::Comparison(Comparison::StartsWith),
+        b"ends-with" => Operator::Comparison(Comparison::EndsWith),
+        b"+" => Operator::Math(Math::Add),
+        b"-" => Operator::Math(Math::Subtract),
+        b"*" => Operator::Math(Math::Multiply),
+        b"/" => Operator::Math(Math::Divide),
+        b"//" => Operator::Math(Math::FloorDivide),
         b"mod" => Operator::Math(Math::Modulo),
+        b"**" => Operator::Math(Math::Pow),
+        b"++" => Operator::Math(Math::Concatenate),
         b"bit-or" => Operator::Bits(Bits::BitOr),
         b"bit-xor" => Operator::Bits(Bits::BitXor),
         b"bit-and" => Operator::Bits(Bits::BitAnd),
         b"bit-shl" => Operator::Bits(Bits::ShiftLeft),
         b"bit-shr" => Operator::Bits(Bits::ShiftRight),
-        b"starts-with" => Operator::Comparison(Comparison::StartsWith),
-        b"ends-with" => Operator::Comparison(Comparison::EndsWith),
-        b"and" => Operator::Boolean(Boolean::And),
         b"or" => Operator::Boolean(Boolean::Or),
         b"xor" => Operator::Boolean(Boolean::Xor),
-        b"**" => Operator::Math(Math::Pow),
+        b"and" => Operator::Boolean(Boolean::And),
         // WARNING: not actual operators below! Error handling only
         pow @ (b"^" | b"pow") => {
             working_set.error(ParseError::UnknownOperator(
@@ -5728,11 +5846,20 @@ pub fn parse_builtin_commands(
     }
 
     trace!("parsing: checking for keywords");
-    let name = working_set.get_span_contents(lite_command.parts[0]);
+    let name = lite_command
+        .command_parts()
+        .first()
+        .map(|s| working_set.get_span_contents(*s))
+        .unwrap_or(b"");
 
     match name {
+        // `parse_def` and `parse_extern` work both with and without attributes
         b"def" => parse_def(working_set, lite_command, None).0,
         b"extern" => parse_extern(working_set, lite_command, None),
+        // `parse_export_in_block` also handles attributes by itself
+        b"export" => parse_export_in_block(working_set, lite_command),
+        // Other definitions can't have attributes, so we handle attributes here with parse_attribute_block
+        _ if lite_command.has_attributes() => parse_attribute_block(working_set, lite_command),
         b"let" => parse_let(
             working_set,
             &lite_command
@@ -5761,7 +5888,6 @@ pub fn parse_builtin_commands(
             parse_keyword(working_set, lite_command)
         }
         b"source" | b"source-env" => parse_source(working_set, lite_command),
-        b"export" => parse_export_in_block(working_set, lite_command),
         b"hide" => parse_hide(working_set, lite_command),
         b"where" => parse_where(working_set, lite_command),
         // Only "plugin use" is a keyword
@@ -5781,6 +5907,31 @@ pub fn parse_builtin_commands(
         _ => {
             let element = parse_pipeline_element(working_set, lite_command);
 
+            // There is still a chance to make `parse_pipeline_element` parse into
+            // some keyword that should apply side effects first, Example:
+            //
+            // module a { export alias b = overlay use first.nu };
+            // use a
+            // a b
+            //
+            // In this case, `a b` will be parsed as a pipeline element, which leads
+            // to the `overlay use` command.
+            // In this case, we need to ensure that the side effects of these keywords
+            // are applied.
+            if let Expression {
+                expr: Expr::Call(call),
+                ..
+            } = &element.expr
+            {
+                // Apply parse keyword side effects
+                let cmd = working_set.get_decl(call.decl_id);
+                match cmd.name() {
+                    "overlay hide" => return parse_overlay_hide(working_set, call.clone()),
+                    "overlay new" => return parse_overlay_new(working_set, call.clone()),
+                    "overlay use" => return parse_overlay_use(working_set, call.clone()),
+                    _ => { /* this alias is not a parser keyword */ }
+                }
+            }
             Pipeline {
                 elements: vec![element],
             }
@@ -5844,10 +5995,12 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         return garbage(working_set, span);
     }
 
+    let mut unclosed = false;
+    let mut extra_tokens = false;
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
+        unclosed = true;
     }
 
     let inner_span = Span::new(start, end);
@@ -5858,24 +6011,48 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         error: None,
         span_offset: start,
     };
-    let mut lex_n = |additional_whitespace, special_tokens, max_tokens| {
-        lex_n_tokens(
-            &mut lex_state,
-            additional_whitespace,
-            special_tokens,
-            true,
-            max_tokens,
-        )
-    };
-    loop {
-        if lex_n(&[b'\n', b'\r', b','], &[b':'], 2) < 2 {
+    while !lex_state.input.is_empty() {
+        if lex_state.input[0] == b'}' {
+            extra_tokens = true;
+            unclosed = false;
+            break;
+        }
+        let additional_whitespace = &[b'\n', b'\r', b','];
+        if lex_n_tokens(&mut lex_state, additional_whitespace, &[b':'], true, 1) < 1 {
             break;
         };
-        if lex_n(&[b'\n', b'\r', b','], &[], 1) < 1 {
+        let span = lex_state
+            .output
+            .last()
+            .expect("should have gotten 1 token")
+            .span;
+        let contents = working_set.get_span_contents(span);
+        if contents.len() > 3
+            && contents.starts_with(b"...")
+            && (contents[3] == b'$' || contents[3] == b'{' || contents[3] == b'(')
+        {
+            // This was a spread operator, so there's no value
+            continue;
+        }
+        // Get token for colon
+        if lex_n_tokens(&mut lex_state, additional_whitespace, &[b':'], true, 1) < 1 {
+            break;
+        };
+        // Get token for value
+        if lex_n_tokens(&mut lex_state, additional_whitespace, &[], true, 1) < 1 {
             break;
         };
     }
     let (tokens, err) = (lex_state.output, lex_state.error);
+
+    if unclosed {
+        working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
+    } else if extra_tokens {
+        working_set.error(ParseError::ExtraTokensAfterClosingDelimiter(Span::new(
+            lex_state.span_offset + 1,
+            end,
+        )));
+    }
 
     if let Some(err) = err {
         working_set.error(err);
@@ -6129,7 +6306,7 @@ pub fn parse_block(
     scoped: bool,
     is_subexpression: bool,
 ) -> Block {
-    let (lite_block, err) = lite_parse(tokens);
+    let (lite_block, err) = lite_parse(tokens, working_set);
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -6144,7 +6321,7 @@ pub fn parse_block(
     // that share the same block can see each other
     for pipeline in &lite_block.block {
         if pipeline.commands.len() == 1 {
-            parse_def_predecl(working_set, &pipeline.commands[0].parts)
+            parse_def_predecl(working_set, pipeline.commands[0].command_parts())
         }
     }
 
@@ -6329,6 +6506,9 @@ pub fn discover_captures_in_expr(
     output: &mut Vec<(VarId, Span)>,
 ) -> Result<(), ParseError> {
     match &expr.expr {
+        Expr::AttributeBlock(ab) => {
+            discover_captures_in_expr(working_set, &ab.item, seen, seen_blocks, output)?;
+        }
         Expr::BinaryOp(lhs, _, rhs) => {
             discover_captures_in_expr(working_set, lhs, seen, seen_blocks, output)?;
             discover_captures_in_expr(working_set, rhs, seen, seen_blocks, output)?;

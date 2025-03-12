@@ -970,19 +970,19 @@ fn binary_op(
             Comparison::EndsWith => lhs_val.ends_with(op_span, &rhs_val, span)?,
         },
         Operator::Math(mat) => match mat {
-            Math::Plus => lhs_val.add(op_span, &rhs_val, span)?,
-            Math::Concat => lhs_val.concat(op_span, &rhs_val, span)?,
-            Math::Minus => lhs_val.sub(op_span, &rhs_val, span)?,
+            Math::Add => lhs_val.add(op_span, &rhs_val, span)?,
+            Math::Subtract => lhs_val.sub(op_span, &rhs_val, span)?,
             Math::Multiply => lhs_val.mul(op_span, &rhs_val, span)?,
             Math::Divide => lhs_val.div(op_span, &rhs_val, span)?,
+            Math::FloorDivide => lhs_val.floor_div(op_span, &rhs_val, span)?,
             Math::Modulo => lhs_val.modulo(op_span, &rhs_val, span)?,
-            Math::FloorDivision => lhs_val.floor_div(op_span, &rhs_val, span)?,
             Math::Pow => lhs_val.pow(op_span, &rhs_val, span)?,
+            Math::Concatenate => lhs_val.concat(op_span, &rhs_val, span)?,
         },
         Operator::Boolean(bl) => match bl {
-            Boolean::And => lhs_val.and(op_span, &rhs_val, span)?,
             Boolean::Or => lhs_val.or(op_span, &rhs_val, span)?,
             Boolean::Xor => lhs_val.xor(op_span, &rhs_val, span)?,
+            Boolean::And => lhs_val.and(op_span, &rhs_val, span)?,
         },
         Operator::Bits(bit) => match bit {
             Bits::BitOr => lhs_val.bit_or(op_span, &rhs_val, span)?,
@@ -1023,8 +1023,6 @@ fn eval_call<D: DebugContext>(
     let args_len = caller_stack.arguments.get_len(*args_base);
     let decl = engine_state.get_decl(decl_id);
 
-    check_input_types(&input, decl.signature(), head)?;
-
     // Set up redirect modes
     let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
 
@@ -1033,6 +1031,9 @@ fn eval_call<D: DebugContext>(
     if let Some(block_id) = decl.block_id() {
         // If the decl is a custom command
         let block = engine_state.get_block(block_id);
+
+        // check types after acquiring block to avoid unnecessarily cloning Signature
+        check_input_types(&input, &block.signature, head)?;
 
         // Set up a callee stack with the captures and move arguments from the stack into variables
         let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
@@ -1058,6 +1059,8 @@ fn eval_call<D: DebugContext>(
             redirect_env(engine_state, &mut caller_stack, &callee_stack);
         }
     } else {
+        check_input_types(&input, &decl.signature(), head)?;
+
         // FIXME: precalculate this and save it somewhere
         let span = Span::merge_many(
             std::iter::once(head).chain(
@@ -1277,10 +1280,10 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
 /// Type check pipeline input against command's input types
 fn check_input_types(
     input: &PipelineData,
-    signature: Signature,
+    signature: &Signature,
     head: Span,
 ) -> Result<(), ShellError> {
-    let io_types = signature.input_output_types;
+    let io_types = &signature.input_output_types;
 
     // If a command doesn't have any input/output types, then treat command input type as any
     if io_types.is_empty() {

@@ -98,7 +98,7 @@ impl Command for NuCheck {
                         Ok(Some(path)) => path,
                         Ok(None) => {
                             return Err(ShellError::Io(IoError::new(
-                                std::io::ErrorKind::NotFound,
+                                ErrorKind::FileNotFound,
                                 path_span,
                                 PathBuf::from(path_str.item),
                             )))
@@ -166,16 +166,6 @@ impl Command for NuCheck {
             Example {
                 description: "Parse a string as script",
                 example: "$'two(char nl)lines' | nu-check ",
-                result: None,
-            },
-            Example {
-                description: "Heuristically parse which begins with script first, if it sees a failure, try module afterwards",
-                example: "nu-check -a script.nu",
-                result: None,
-            },
-            Example {
-                description: "Heuristically parse by showing error message",
-                example: "open foo.nu | lines | nu-check --all --debug",
                 result: None,
             },
         ]
@@ -265,7 +255,7 @@ fn parse_file_script(
     match std::fs::read(path) {
         Ok(contents) => parse_script(working_set, Some(&filename), &contents, is_debug, call_head),
         Err(err) => Err(ShellError::Io(IoError::new(
-            err.kind(),
+            err.kind().not_found_as(NotFound::File),
             path_span,
             PathBuf::from(path),
         ))),

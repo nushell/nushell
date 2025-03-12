@@ -33,7 +33,7 @@ impl Command for PluginAdd {
             .required(
                 "filename",
                 SyntaxShape::String,
-                "Path to the executable for the plugin",
+                "Path to the executable for the plugin.",
             )
             .category(Category::Plugin)
     }

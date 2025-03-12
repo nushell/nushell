@@ -16,7 +16,7 @@ impl Command for UpdateCells {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "the closure to run an update for each cell",
+                "The closure to run an update for each cell.",
             )
             .named(
                 "columns",

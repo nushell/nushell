@@ -1,5 +1,4 @@
 mod bits;
-mod conversions;
 mod filters;
 mod formats;
 mod math;
@@ -26,8 +25,6 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
                 $( working_set.add_decl(Box::new($command)); )*
             };
         }
-
-        bind_command!(conversions::Fmt);
 
         bind_command!(
             filters::UpdateCells,

@@ -4,7 +4,7 @@ use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     report_shell_error,
-    shell_error::io::IoError,
+    shell_error::io::{ErrorKindExt, IoError, NotFound},
     DeclId, ShellError, Span, Value, VarId,
 };
 use reedline::Completer;
@@ -58,7 +58,7 @@ fn read_in_file<'a>(
     let file = std::fs::read(file_path)
         .map_err(|err| {
             ShellError::Io(IoError::new_with_additional_context(
-                err.kind(),
+                err.kind().not_found_as(NotFound::File),
                 Span::unknown(),
                 PathBuf::from(file_path),
                 "Could not read file",

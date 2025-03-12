@@ -145,7 +145,7 @@ fn extract_inlay_hints_from_expression(
 
 impl LanguageServer {
     pub(crate) fn get_inlay_hints(&mut self, params: &InlayHintParams) -> Option<Vec<InlayHint>> {
-        Some(self.inlay_hints.get(&params.text_document.uri)?.clone())
+        self.inlay_hints.get(&params.text_document.uri).cloned()
     }
 
     pub(crate) fn extract_inlay_hints(
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn inlay_hint_variable_type() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -231,7 +231,7 @@ mod tests {
 
     #[test]
     fn inlay_hint_assignment_type() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -259,7 +259,7 @@ mod tests {
 
     #[test]
     fn inlay_hint_parameter_names() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -315,6 +315,36 @@ mod tests {
                     "kind": 2,
                     "tooltip": { "kind": "markdown", "value": "`any: `" }
                 }
+            ])
+        );
+    }
+
+    #[test]
+    /// https://github.com/nushell/nushell/pull/15071
+    fn inlay_hint_for_nu_script_loaded_on_init() {
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hints");
+        script.push("type.nu");
+        let script_path_str = script.to_str();
+        let script = path_to_uri(&script);
+
+        let config = format!("source {}", script_path_str.unwrap());
+        let (client_connection, _recv) = initialize_language_server(Some(&config), None);
+
+        open_unchecked(&client_connection, script.clone());
+        let resp = send_inlay_hint_request(&client_connection, script.clone());
+
+        assert_json_eq!(
+            result_from_message(resp),
+            serde_json::json!([
+                { "position": { "line": 0, "character": 9 }, "label": ": int", "kind": 1 },
+                { "position": { "line": 1, "character": 7 }, "label": ": string", "kind": 1 },
+                { "position": { "line": 2, "character": 8 }, "label": ": bool", "kind": 1 },
+                { "position": { "line": 3, "character": 9 }, "label": ": float", "kind": 1 },
+                { "position": { "line": 4, "character": 8 }, "label": ": list", "kind": 1 },
+                { "position": { "line": 5, "character": 10 }, "label": ": record", "kind": 1 },
+                { "position": { "line": 6, "character": 11 }, "label": ": closure", "kind": 1 }
             ])
         );
     }

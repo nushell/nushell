@@ -77,7 +77,9 @@ impl Command for Cd {
                         if let Ok(path) = nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                             if !path.is_dir() {
                                 return Err(shell_error::io::IoError::new(
-                                    shell_error::io::ErrorKind::NotADirectory,
+                                    shell_error::io::ErrorKind::Std(
+                                        std::io::ErrorKind::NotADirectory,
+                                    ),
                                     v.span,
                                     None,
                                 )
@@ -86,7 +88,7 @@ impl Command for Cd {
                             path
                         } else {
                             return Err(shell_error::io::IoError::new(
-                                std::io::ErrorKind::NotFound,
+                                ErrorKind::DirectoryNotFound,
                                 v.span,
                                 PathBuf::from(path_no_whitespace),
                             )
@@ -96,7 +98,7 @@ impl Command for Cd {
                         let path = nu_path::expand_path_with(path_no_whitespace, &cwd, true);
                         if !path.exists() {
                             return Err(shell_error::io::IoError::new(
-                                std::io::ErrorKind::NotFound,
+                                ErrorKind::DirectoryNotFound,
                                 v.span,
                                 PathBuf::from(path_no_whitespace),
                             )
@@ -104,7 +106,7 @@ impl Command for Cd {
                         };
                         if !path.is_dir() {
                             return Err(shell_error::io::IoError::new(
-                                shell_error::io::ErrorKind::NotADirectory,
+                                shell_error::io::ErrorKind::Std(std::io::ErrorKind::NotADirectory),
                                 v.span,
                                 path,
                             )

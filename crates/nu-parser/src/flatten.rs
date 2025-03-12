@@ -189,6 +189,12 @@ fn flatten_expression_into(
     }
 
     match &expr.expr {
+        Expr::AttributeBlock(ab) => {
+            for attr in &ab.attributes {
+                flatten_expression_into(working_set, &attr.expr, output);
+            }
+            flatten_expression_into(working_set, &ab.item, output);
+        }
         Expr::BinaryOp(lhs, op, rhs) => {
             flatten_expression_into(working_set, lhs, output);
             flatten_expression_into(working_set, op, output);

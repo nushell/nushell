@@ -95,15 +95,17 @@ impl Command for Open {
             let arg_span = path.span;
             // let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
-            for path in nu_engine::glob_from(&path, &cwd, call_span, None)
-                .map_err(|err| match err {
-                    ShellError::Io(mut err) => {
-                        err.span = arg_span;
-                        err.into()
-                    }
-                    _ => err,
-                })?
-                .1
+            for path in
+                nu_engine::glob_from(&path, &cwd, call_span, None, engine_state.signals().clone())
+                    .map_err(|err| match err {
+                        ShellError::Io(mut err) => {
+                            err.kind = err.kind.not_found_as(NotFound::File);
+                            err.span = arg_span;
+                            err.into()
+                        }
+                        _ => err,
+                    })?
+                    .1
             {
                 let path = path?;
                 let path = Path::new(&path);
@@ -151,7 +153,7 @@ impl Command for Open {
                         // At least under windows this check ensures that we don't get a
                         // permission denied error on directories
                         return Err(ShellError::Io(IoError::new(
-                            shell_error::io::ErrorKind::IsADirectory,
+                            shell_error::io::ErrorKind::Std(std::io::ErrorKind::IsADirectory),
                             arg_span,
                             PathBuf::from(path),
                         )));

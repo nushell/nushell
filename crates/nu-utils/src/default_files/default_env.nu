@@ -3,7 +3,7 @@
 #
 # version = "0.102.1"
 
-$env.PROMPT_COMMAND = $env.PROMPT_COMMAND? | default {||
+$env.PROMPT_COMMAND = {||
     let dir = match (do -i { $env.PWD | path relative-to $nu.home-path }) {
         null => $env.PWD
         '' => '~'
@@ -17,7 +17,7 @@ $env.PROMPT_COMMAND = $env.PROMPT_COMMAND? | default {||
     $path_segment | str replace --all (char path_sep) $"($separator_color)(char path_sep)($path_color)"
 }
 
-$env.PROMPT_COMMAND_RIGHT = $env.PROMPT_COMMAND_RIGHT? | default {||
+$env.PROMPT_COMMAND_RIGHT = {||
     # create a right prompt in magenta with green separators and am/pm underlined
     let time_segment = ([
         (ansi reset)

@@ -274,9 +274,9 @@ impl LanguageServer {
         let uri = params.text_document.uri.to_owned();
         let docs = self.docs.lock().ok()?;
         self.symbol_cache.update(&uri, &engine_state, &docs);
-        Some(DocumentSymbolResponse::Flat(
-            self.symbol_cache.get_symbols_by_uri(&uri)?,
-        ))
+        self.symbol_cache
+            .get_symbols_by_uri(&uri)
+            .map(DocumentSymbolResponse::Flat)
     }
 
     pub(crate) fn workspace_symbol(
@@ -352,7 +352,7 @@ mod tests {
     #[test]
     // for variable `$in/$it`, should not appear in symbols
     fn document_symbol_special_variables() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -368,7 +368,7 @@ mod tests {
 
     #[test]
     fn document_symbol_basic() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -410,7 +410,7 @@ mod tests {
 
     #[test]
     fn document_symbol_update() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -456,7 +456,7 @@ mod tests {
 
     #[test]
     fn workspace_symbol_current() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -516,7 +516,7 @@ mod tests {
 
     #[test]
     fn workspace_symbol_other() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");

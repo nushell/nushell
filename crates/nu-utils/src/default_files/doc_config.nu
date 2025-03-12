@@ -97,6 +97,8 @@ $env.config.edit_mode = "emacs"
 # Tip: Set to "editor" to use the default editor on Unix platforms using
 #      the Alternatives system or equivalent
 $env.config.buffer_editor = "editor"
+# To set arguments for the editor, a list can be used:
+$env.config.buffer_editor = ["emacsclient", "-s", "light", "-t"]
 
 # cursor_shape_* (string)
 # -----------------------
@@ -379,9 +381,14 @@ $env.config.datetime_format.normal = "%m/%d/%y %I:%M:%S%p"
 # Otherwise, setting this to one of the filesize units will use that particular unit when displaying all file sizes.
 $env.config.filesize.unit = 'metric'
 
+# filesize.show_unit (bool):
+# Whether to show or hide the file size unit. Useful if `$env.config.filesize.unit` is set to a fixed unit,
+# and you don't want that same unit repeated over and over again in which case you can set this to `false`.
+$env.config.filesize.show_unit = true
+
 # filesize.precision (int or nothing):
 # The number of digits to display after the decimal point for file sizes.
-# When set to `null`, all digits after the decimal point will be displayed.
+# When set to `null`, all digits after the decimal point, if any, will be displayed.
 $env.config.filesize.precision = 1
 
 # ---------------------
@@ -784,6 +791,13 @@ $env.config.color_config.empty
 # whitespace, that whitespace will be displayed using this style.
 # Use { attr: n } to disable.
 $env.config.color_config.leading_trailing_space_bg = { bg: 'red' }
+
+# banner_foreground: The default text style for the Welcome Banner displayed at startup
+$env.config.color_config.banner_foreground = "attr_normal"
+
+# banner_highlight1 and banner_highlight2: Colors for highlighted text in the Welcome Banner
+$env.config.color_config.banner_highlight1 = "green"
+$env.config.color_config.banner_highlight2 = "purple"
 
 # ------------------------
 # `explore` command colors

@@ -72,6 +72,19 @@ impl Command for Const {
         }
     }
 
+    fn run_const(
+        &self,
+        _working_set: &StateWorkingSet,
+        _call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        Ok(PipelineData::empty())
+    }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

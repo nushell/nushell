@@ -65,6 +65,7 @@ fn spread_type_list() -> TestResult {
 
 #[test]
 fn spread_in_record() -> TestResult {
+    run_test(r#"{...{} ...{}, a: 1} | to nuon"#, "{a: 1}").unwrap();
     run_test(r#"{...{...{...{}}}} | to nuon"#, "{}").unwrap();
     run_test(
         r#"{foo: bar ...{a: {x: 1}} b: 3} | to nuon"#,

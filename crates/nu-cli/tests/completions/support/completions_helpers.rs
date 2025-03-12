@@ -14,7 +14,7 @@ fn create_default_context() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
 }
 
-// creates a new engine with the current path into the completions fixtures folder
+/// creates a new engine with the current path into the completions fixtures folder
 pub fn new_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Target folder inside assets
     let dir = fs::fixtures().join("completions");
@@ -69,7 +69,26 @@ pub fn new_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     (dir, dir_str, engine_state, stack)
 }
 
-// creates a new engine with the current path into the completions fixtures folder
+/// Adds pseudo PATH env for external completion tests
+pub fn new_external_engine() -> EngineState {
+    let mut engine = create_default_context();
+    let dir = fs::fixtures().join("external_completions").join("path");
+    let dir_str = dir.to_string_lossy().to_string();
+    let internal_span = nu_protocol::Span::new(0, dir_str.len());
+    engine.add_env_var(
+        "PATH".to_string(),
+        Value::List {
+            vals: vec![Value::String {
+                val: dir_str,
+                internal_span,
+            }],
+            internal_span,
+        },
+    );
+    engine
+}
+
+/// creates a new engine with the current path into the completions fixtures folder
 pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Target folder inside assets
     let dir = fs::fixtures().join("dotnu_completions");
@@ -86,6 +105,23 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Add $nu
     engine_state.generate_nu_constant();
 
+    // const $NU_LIB_DIRS
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let var_id = working_set.add_variable(
+        b"$NU_LIB_DIRS".into(),
+        Span::unknown(),
+        nu_protocol::Type::List(Box::new(nu_protocol::Type::String)),
+        false,
+    );
+    working_set.set_variable_const_val(
+        var_id,
+        Value::test_list(vec![
+            Value::string(file(dir.join("lib-dir1")), dir_span),
+            Value::string(file(dir.join("lib-dir3")), dir_span),
+        ]),
+    );
+    let _ = engine_state.merge_delta(working_set.render());
+
     // New stack
     let mut stack = Stack::new();
 
@@ -95,17 +131,12 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
         "TEST".to_string(),
         Value::string("NUSHELL".to_string(), dir_span),
     );
-
     stack.add_env_var(
-        "NU_LIB_DIRS".to_string(),
-        Value::list(
-            vec![
-                Value::string(file(dir.join("lib-dir1")), dir_span),
-                Value::string(file(dir.join("lib-dir2")), dir_span),
-                Value::string(file(dir.join("lib-dir3")), dir_span),
-            ],
-            dir_span,
-        ),
+        "NU_LIB_DIRS".into(),
+        Value::test_list(vec![
+            Value::string(file(dir.join("lib-dir2")), dir_span),
+            Value::string(file(dir.join("lib-dir3")), dir_span),
+        ]),
     );
 
     // Merge environment into the permanent state
@@ -185,8 +216,8 @@ pub fn new_partial_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     (dir, dir_str, engine_state, stack)
 }
 
-// match a list of suggestions with the expected values
-pub fn match_suggestions(expected: &Vec<String>, suggestions: &Vec<Suggestion>) {
+/// match a list of suggestions with the expected values
+pub fn match_suggestions(expected: &Vec<&str>, suggestions: &Vec<Suggestion>) {
     let expected_len = expected.len();
     let suggestions_len = suggestions.len();
     if expected_len != suggestions_len {
@@ -197,28 +228,34 @@ pub fn match_suggestions(expected: &Vec<String>, suggestions: &Vec<Suggestion>) 
         )
     }
 
-    let suggestoins_str = suggestions
+    let suggestions_str = suggestions
         .iter()
-        .map(|it| it.value.clone())
+        .map(|it| it.value.as_str())
         .collect::<Vec<_>>();
 
-    assert_eq!(expected, &suggestoins_str);
+    assert_eq!(expected, &suggestions_str);
 }
 
-// append the separator to the converted path
+/// match a list of suggestions with the expected values
+pub fn match_suggestions_by_string(expected: &[String], suggestions: &Vec<Suggestion>) {
+    let expected = expected.iter().map(|it| it.as_str()).collect::<Vec<_>>();
+    match_suggestions(&expected, suggestions);
+}
+
+/// append the separator to the converted path
 pub fn folder(path: impl Into<PathBuf>) -> String {
     let mut converted_path = file(path);
     converted_path.push(MAIN_SEPARATOR);
     converted_path
 }
 
-// convert a given path to string
+/// convert a given path to string
 pub fn file(path: impl Into<PathBuf>) -> String {
     path.into().into_os_string().into_string().unwrap()
 }
 
-// merge_input executes the given input into the engine
-// and merges the state
+/// merge_input executes the given input into the engine
+/// and merges the state
 pub fn merge_input(
     input: &[u8],
     engine_state: &mut EngineState,

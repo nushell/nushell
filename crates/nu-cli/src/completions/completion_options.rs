@@ -25,8 +25,8 @@ pub enum MatchAlgorithm {
     Fuzzy,
 }
 
-pub struct NuMatcher<T> {
-    options: CompletionOptions,
+pub struct NuMatcher<'a, T> {
+    options: &'a CompletionOptions,
     needle: String,
     state: State<T>,
 }
@@ -45,11 +45,11 @@ enum State<T> {
 }
 
 /// Filters and sorts suggestions
-impl<T> NuMatcher<T> {
+impl<T> NuMatcher<'_, T> {
     /// # Arguments
     ///
     /// * `needle` - The text to search for
-    pub fn new(needle: impl AsRef<str>, options: CompletionOptions) -> NuMatcher<T> {
+    pub fn new(needle: impl AsRef<str>, options: &CompletionOptions) -> NuMatcher<T> {
         let needle = trim_quotes_str(needle.as_ref());
         match options.match_algorithm {
             MatchAlgorithm::Prefix => {
@@ -184,7 +184,7 @@ impl<T> NuMatcher<T> {
     }
 }
 
-impl NuMatcher<SemanticSuggestion> {
+impl NuMatcher<'_, SemanticSuggestion> {
     pub fn add_semantic_suggestion(&mut self, sugg: SemanticSuggestion) -> bool {
         let value = sugg.suggestion.value.to_string();
         self.add(value, sugg)
@@ -271,7 +271,7 @@ mod test {
             match_algorithm,
             ..Default::default()
         };
-        let mut matcher = NuMatcher::new(needle, options);
+        let mut matcher = NuMatcher::new(needle, &options);
         matcher.add(haystack, haystack);
         if should_match {
             assert_eq!(vec![haystack], matcher.results());
@@ -286,7 +286,7 @@ mod test {
             match_algorithm: MatchAlgorithm::Fuzzy,
             ..Default::default()
         };
-        let mut matcher = NuMatcher::new("fob", options);
+        let mut matcher = NuMatcher::new("fob", &options);
         for item in ["foo/bar", "fob", "foo bar"] {
             matcher.add(item, item);
         }
@@ -300,7 +300,7 @@ mod test {
             match_algorithm: MatchAlgorithm::Fuzzy,
             ..Default::default()
         };
-        let mut matcher = NuMatcher::new("'love spaces' ", options);
+        let mut matcher = NuMatcher::new("'love spaces' ", &options);
         for item in [
             "'i love spaces'",
             "'i love spaces' so much",

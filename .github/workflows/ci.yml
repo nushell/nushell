@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+      - 'patch-release-*'
 
 name: continuous-integration
 
@@ -21,14 +22,14 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        # Pinning to Ubuntu 20.04 because building on newer Ubuntu versions causes linux-gnu
+        # Pinning to Ubuntu 22.04 because building on newer Ubuntu versions causes linux-gnu
         # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
-        # revisiting this when 20.04 is closer to EOL (April 2025)
+        # revisiting this when 22.04 is closer to EOL (June 2027)
         #
         # Using macOS 13 runner because 14 is based on the M1 and has half as much RAM (7 GB,
         # instead of 14 GB) which is too little for us right now. Revisit when `dfr` commands are
         # removed and we're only building the `polars` plugin instead
-        platform: [windows-latest, macos-13, ubuntu-20.04]
+        platform: [windows-latest, macos-13, ubuntu-22.04]
 
     runs-on: ${{ matrix.platform }}
 
@@ -36,7 +37,7 @@ jobs:
       - uses: actions/checkout@v4.1.7
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.10.1
+        uses: actions-rust-lang/setup-rust-toolchain@v1.11.0
 
       - name: cargo fmt
         run: cargo fmt --all -- --check
@@ -56,7 +57,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-20.04]
+        platform: [windows-latest, macos-latest, ubuntu-22.04]
 
     runs-on: ${{ matrix.platform }}
 
@@ -64,7 +65,7 @@ jobs:
       - uses: actions/checkout@v4.1.7
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.10.1
+        uses: actions-rust-lang/setup-rust-toolchain@v1.11.0
 
       - name: Tests
         run: cargo test --workspace --profile ci --exclude nu_plugin_*
@@ -83,7 +84,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [ubuntu-20.04, macos-latest, windows-latest]
+        platform: [ubuntu-22.04, macos-latest, windows-latest]
         py:
           - py
 
@@ -93,10 +94,10 @@ jobs:
       - uses: actions/checkout@v4.1.7
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.10.1
+        uses: actions-rust-lang/setup-rust-toolchain@v1.11.0
 
       - name: Install Nushell
-        run: cargo install --path . --locked --no-default-features --force
+        run: cargo install --path . --locked --force
 
       - name: Standard library tests
         run: nu -c 'use crates/nu-std/testing.nu; testing run-tests --path crates/nu-std'
@@ -136,7 +137,7 @@ jobs:
         # instead of 14 GB) which is too little for us right now.
         #
         # Failure occurring with clippy for rust 1.77.2
-        platform: [windows-latest, macos-13, ubuntu-20.04]
+        platform: [windows-latest, macos-13, ubuntu-22.04]
 
     runs-on: ${{ matrix.platform }}
 
@@ -144,7 +145,7 @@ jobs:
       - uses: actions/checkout@v4.1.7
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.10.1
+        uses: actions-rust-lang/setup-rust-toolchain@v1.11.0
 
       - name: Clippy
         run: cargo clippy --package nu_plugin_* -- $CLIPPY_OPTIONS
@@ -185,7 +186,7 @@ jobs:
       - uses: actions/checkout@v4.1.7
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.10.1
+        uses: actions-rust-lang/setup-rust-toolchain@v1.11.0
 
       - name: Add wasm32-unknown-unknown target
         run: rustup target add wasm32-unknown-unknown

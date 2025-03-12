@@ -19,6 +19,26 @@ fn strip_quotes(span: Span, working_set: &StateWorkingSet) -> Span {
     }
 }
 
+fn try_find_id_in_misc(
+    call: &Call,
+    working_set: &StateWorkingSet,
+    location: Option<&usize>,
+    id_ref: Option<&Id>,
+) -> Option<(Id, Span)> {
+    let call_name = working_set.get_span_contents(call.head);
+    match call_name {
+        b"def" | b"export def" => try_find_id_in_def(call, working_set, location, id_ref),
+        b"module" | b"export module" => try_find_id_in_mod(call, working_set, location, id_ref),
+        b"use" | b"export use" | b"hide" => {
+            try_find_id_in_use(call, working_set, location, id_ref, call_name)
+        }
+        b"overlay use" | b"overlay hide" => {
+            try_find_id_in_overlay(call, working_set, location, id_ref)
+        }
+        _ => None,
+    }
+}
+
 /// For situations like
 /// ```nushell
 /// def foo [] {}
@@ -35,13 +55,9 @@ fn try_find_id_in_def(
     location: Option<&usize>,
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
-    let call_name = working_set.get_span_contents(call.head);
-    if call_name != b"def" && call_name != b"export def" {
-        return None;
-    };
     let mut span = None;
     for arg in call.arguments.iter() {
-        if location.map_or(true, |pos| arg.span().contains(*pos)) {
+        if location.is_none_or(|pos| arg.span().contains(*pos)) {
             // String means this argument is the name
             if let Argument::Positional(expr) = arg {
                 if let Expr::String(_) = &expr.expr {
@@ -58,9 +74,19 @@ fn try_find_id_in_def(
     }
     let span = strip_quotes(span?, working_set);
     let name = working_set.get_span_contents(span);
-    let decl_id = Id::Declaration(working_set.find_decl(name)?);
+    let decl_id = Id::Declaration(working_set.find_decl(name).or_else(|| {
+        // for defs inside def
+        // TODO: get scope by position
+        // https://github.com/nushell/nushell/issues/15291
+        (0..working_set.num_decls()).find_map(|id| {
+            let decl_id = nu_protocol::DeclId::new(id);
+            let decl = working_set.get_decl(decl_id);
+            let span = working_set.get_block(decl.block_id()?).span?;
+            call.span().contains_span(span).then_some(decl_id)
+        })
+    })?);
     id_ref
-        .map_or(true, |id_r| decl_id == *id_r)
+        .is_none_or(|id_r| decl_id == *id_r)
         .then_some((decl_id, span))
 }
 
@@ -80,11 +106,7 @@ fn try_find_id_in_mod(
     location: Option<&usize>,
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
-    let call_name = working_set.get_span_contents(call.head);
-    if call_name != b"module" && call_name != b"export module" {
-        return None;
-    };
-    let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
+    let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
 
     call.arguments.first().and_then(|arg| {
         if !check_location(&arg.span()) {
@@ -97,7 +119,7 @@ fn try_find_id_in_mod(
                 let found_id = Id::Module(module_id);
                 let found_span = strip_quotes(arg.span(), working_set);
                 id_ref
-                    .map_or(true, |id_r| found_id == *id_r)
+                    .is_none_or(|id_r| found_id == *id_r)
                     .then_some((found_id, found_span))
             }
             _ => None,
@@ -119,11 +141,8 @@ fn try_find_id_in_use(
     working_set: &StateWorkingSet,
     location: Option<&usize>,
     id: Option<&Id>,
+    call_name: &[u8],
 ) -> Option<(Id, Span)> {
-    let call_name = working_set.get_span_contents(call.head);
-    if call_name != b"use" && call_name != b"export use" && call_name != b"hide" {
-        return None;
-    }
     // TODO: for keyword `hide`, the decl/var is already hidden in working_set,
     // this function will always return None.
     let find_by_name = |name: &[u8]| match id {
@@ -143,7 +162,7 @@ fn try_find_id_in_use(
             .or(working_set.find_variable(name).map(Id::Variable)),
         _ => None,
     };
-    let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
+    let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
 
     // Get module id if required
     let module_name = call.arguments.first()?;
@@ -223,14 +242,10 @@ fn try_find_id_in_overlay(
     location: Option<&usize>,
     id: Option<&Id>,
 ) -> Option<(Id, Span)> {
-    let call_name = working_set.get_span_contents(call.head);
-    if call_name != b"overlay use" && call_name != b"overlay hide" {
-        return None;
-    }
-    let check_location = |span: &Span| location.map_or(true, |pos| span.contains(*pos));
+    let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
     let module_from_overlay_name = |name: &str, span: Span| {
         let found_id = Id::Module(working_set.find_overlay(name.as_bytes())?.origin);
-        id.map_or(true, |id_r| found_id == *id_r)
+        id.is_none_or(|id_r| found_id == *id_r)
             .then_some((found_id, strip_quotes(span, working_set)))
     };
     for arg in call.arguments.iter() {
@@ -267,7 +282,7 @@ fn get_matched_module_id(
     let path = std::path::PathBuf::from(name.as_ref());
     let stem = path.file_stem().and_then(|fs| fs.to_str()).unwrap_or(&name);
     let found_id = Id::Module(working_set.find_module(stem.as_bytes())?);
-    id.map_or(true, |id_r| found_id == *id_r)
+    id.is_none_or(|id_r| found_id == *id_r)
         .then_some((found_id, span))
 }
 
@@ -292,18 +307,18 @@ fn find_id_in_expr(
             if call.head.contains(*location) {
                 FindMapResult::Found((Id::Declaration(call.decl_id), call.head))
             } else {
-                try_find_id_in_def(call, working_set, Some(location), None)
-                    .or(try_find_id_in_mod(call, working_set, Some(location), None))
-                    .or(try_find_id_in_use(call, working_set, Some(location), None))
-                    .or(try_find_id_in_overlay(
-                        call,
-                        working_set,
-                        Some(location),
-                        None,
-                    ))
+                try_find_id_in_misc(call, working_set, Some(location), None)
                     .map(FindMapResult::Found)
                     .unwrap_or_default()
             }
+        }
+        Expr::ExternalCall(head, _) => {
+            if head.span.contains(*location) {
+                if let Expr::GlobPattern(cmd, _) = &head.expr {
+                    return FindMapResult::Found((Id::External(cmd.clone()), head.span));
+                }
+            }
+            FindMapResult::Continue
         }
         Expr::FullCellPath(fcp) => {
             if fcp.head.span.contains(*location) {
@@ -383,11 +398,7 @@ fn find_reference_by_id_in_expr(
                 occurs.push(call.head);
                 return Some(occurs);
             }
-            if let Some((_, span_found)) = try_find_id_in_def(call, working_set, None, Some(id))
-                .or(try_find_id_in_mod(call, working_set, None, Some(id)))
-                .or(try_find_id_in_use(call, working_set, None, Some(id)))
-                .or(try_find_id_in_overlay(call, working_set, None, Some(id)))
-            {
+            if let Some((_, span_found)) = try_find_id_in_misc(call, working_set, None, Some(id)) {
                 occurs.push(span_found);
             }
             Some(occurs)

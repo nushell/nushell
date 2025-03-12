@@ -9,29 +9,22 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::path::Path;
 
-use super::{completion_common::FileSuggestion, SemanticSuggestion};
+use super::{completion_common::FileSuggestion, SemanticSuggestion, SuggestionKind};
 
-#[derive(Clone, Default)]
-pub struct DirectoryCompletion {}
-
-impl DirectoryCompletion {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
+pub struct DirectoryCompletion;
 
 impl Completer for DirectoryCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let AdjustView { prefix, span, .. } = adjust_if_intermediate(prefix, working_set, span);
+        let AdjustView { prefix, span, .. } =
+            adjust_if_intermediate(prefix.as_ref(), working_set, span);
 
         // Filter only the folders
         #[allow(deprecated)]
@@ -54,8 +47,7 @@ impl Completer for DirectoryCompletion {
                 },
                 ..Suggestion::default()
             },
-            // TODO????
-            kind: None,
+            kind: Some(SuggestionKind::Directory),
         })
         .collect();
 

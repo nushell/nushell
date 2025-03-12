@@ -38,7 +38,7 @@ impl Command for SubCommand {
             .rest(
                 "cell path",
                 SyntaxShape::CellPath,
-                "for a data structure input, add a gradient to strings at the given cell paths",
+                "For a data structure input, add a gradient to strings at the given cell paths.",
             )
             .input_output_types(vec![
                 (Type::String, Type::String),

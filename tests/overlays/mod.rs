@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
@@ -1288,6 +1288,44 @@ fn alias_overlay_use() {
 }
 
 #[test]
+fn alias_overlay_use_2() {
+    let inp = &[
+        "module inner {}",
+        "module spam { export alias b = overlay use inner }",
+        "use spam",
+        "spam b",
+        "overlay list | get 1",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert!(actual.err.is_empty());
+    assert!(actual_repl.err.is_empty());
+    assert_eq!(actual.out, "inner");
+    assert_eq!(actual_repl.out, "inner");
+}
+
+#[test]
+fn alias_overlay_use_3() {
+    let inp = &[
+        "module inner {}",
+        "module spam { export alias b = overlay use inner }",
+        "use spam b",
+        "b",
+        "overlay list | get 1",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert!(actual.err.is_empty());
+    assert!(actual_repl.err.is_empty());
+    assert_eq!(actual.out, "inner");
+    assert_eq!(actual_repl.out, "inner");
+}
+
+#[test]
 fn alias_overlay_new() {
     let inp = &[
         "alias on = overlay new",
@@ -1369,4 +1407,51 @@ fn overlay_help_no_error() {
     assert!(actual.err.is_empty());
     let actual = nu!("overlay use -h");
     assert!(actual.err.is_empty());
+}
+
+#[test]
+fn test_overlay_use_with_printing_file_pwd() {
+    Playground::setup("use_with_printing_file_pwd", |dirs, nu| {
+        let file = dirs.test().join("foo").join("mod.nu");
+        nu.mkdir("foo").with_files(&[FileWithContent(
+            file.as_os_str().to_str().unwrap(),
+            r#"
+                export-env {
+                    print $env.FILE_PWD
+                }
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "overlay use foo"
+        );
+
+        assert_eq!(actual.out, dirs.test().join("foo").to_string_lossy());
+    });
+}
+
+#[test]
+fn test_overlay_use_with_printing_current_file() {
+    Playground::setup("use_with_printing_current_file", |dirs, nu| {
+        let file = dirs.test().join("foo").join("mod.nu");
+        nu.mkdir("foo").with_files(&[FileWithContent(
+            file.as_os_str().to_str().unwrap(),
+            r#"
+                export-env {
+                    print $env.CURRENT_FILE
+                }
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "overlay use foo"
+        );
+
+        assert_eq!(
+            actual.out,
+            dirs.test().join("foo").join("mod.nu").to_string_lossy()
+        );
+    });
 }

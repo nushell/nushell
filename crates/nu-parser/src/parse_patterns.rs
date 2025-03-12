@@ -99,7 +99,7 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
         working_set.error(err);
     }
 
-    let (output, err) = lite_parse(&output);
+    let (output, err) = lite_parse(&output, working_set);
     if let Some(err) = err {
         working_set.error(err);
     }

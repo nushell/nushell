@@ -1,6 +1,7 @@
+use std/testing *
 use std/util *
 
-#[test]
+@test
 def path_add [] {
     use std/assert
 
@@ -44,7 +45,7 @@ def path_add [] {
     }
 }
 
-#[test]
+@test
 def path_add_expand [] {
     use std/assert
 
@@ -70,7 +71,7 @@ def path_add_expand [] {
     rm $real_dir $link_dir
 }
 
-#[test]
+@test
 def repeat_things [] {
     use std/assert
     assert error { "foo" | repeat -1 }

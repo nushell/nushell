@@ -70,7 +70,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ParEach,
             ChunkBy,
             Prepend,
-            Range,
             Reduce,
             Reject,
             Rename,
@@ -314,6 +313,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Where,
             ToXml,
             ToYaml,
+            ToYml,
         };
 
         // Viewers
@@ -448,7 +448,16 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Experimental
         bind_command! {
             IsAdmin,
+            JobSpawn,
+            JobList,
+            JobKill,
+            Job,
         };
+
+        #[cfg(unix)]
+        bind_command! {
+            JobUnfreeze,
+        }
 
         // Removed
         bind_command! {

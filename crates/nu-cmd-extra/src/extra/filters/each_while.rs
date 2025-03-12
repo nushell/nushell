@@ -26,7 +26,7 @@ impl Command for EachWhile {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "the closure to run",
+                "The closure to run.",
             )
             .category(Category::Filters)
     }

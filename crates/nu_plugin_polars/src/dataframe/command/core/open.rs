@@ -7,7 +7,7 @@ use crate::{
 use log::debug;
 use nu_utils::perf;
 
-use nu_plugin::PluginCommand;
+use nu_plugin::{EvaluatedCall, PluginCommand};
 use nu_protocol::{
     shell_error::io::IoError, Category, Example, LabeledError, PipelineData, ShellError, Signature,
     Span, Spanned, SyntaxShape, Type, Value,
@@ -90,6 +90,28 @@ impl PluginCommand for OpenDataFrame {
                 r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
                 Some('s')
             )
+            .switch(
+                "hive-enabled",
+                "Enable hive support. Parquet and Arrow files",
+                None,
+            )
+            .named(
+                "hive-start-idx",
+                SyntaxShape::Number,
+                "Start index of hive partitioning. Parquet and Arrow files",
+                None,
+            )
+            .named(
+                "hive-schema",
+                SyntaxShape::Record(vec![]),
+                r#"Hive schema in format [{name: str}]. Parquet and Arrow files"#,
+                None,
+            )
+            .switch(
+                "hive-try-parse-dates",
+                "Try to parse dates in hive partitioning. Parquet and Arrow files",
+                None,
+            )
             .switch("truncate-ragged-lines", "Truncate lines that are longer than the schema. CSV file", None)
             .input_output_type(Type::Any, Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
@@ -141,13 +163,19 @@ fn command(
         });
     }
 
+    let hive_options = build_hive_options(call)?;
+
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
             PolarsFileType::Csv | PolarsFileType::Tsv => {
                 from_csv(plugin, engine, call, resource, is_eager)
             }
-            PolarsFileType::Parquet => from_parquet(plugin, engine, call, resource, is_eager),
-            PolarsFileType::Arrow => from_arrow(plugin, engine, call, resource, is_eager),
+            PolarsFileType::Parquet => {
+                from_parquet(plugin, engine, call, resource, is_eager, hive_options)
+            }
+            PolarsFileType::Arrow => {
+                from_arrow(plugin, engine, call, resource, is_eager, hive_options)
+            }
             PolarsFileType::Json => from_json(plugin, engine, call, resource, is_eager),
             PolarsFileType::NdJson => from_ndjson(plugin, engine, call, resource, is_eager),
             PolarsFileType::Avro => from_avro(plugin, engine, call, resource, is_eager),
@@ -180,12 +208,14 @@ fn from_parquet(
     call: &nu_plugin::EvaluatedCall,
     resource: Resource,
     is_eager: bool,
+    hive_options: HiveOptions,
 ) -> Result<Value, ShellError> {
     let file_path = resource.path;
     let file_span = resource.span;
     if !is_eager {
         let args = ScanArgsParquet {
             cloud_options: resource.cloud_options,
+            hive_options,
             ..Default::default()
         };
         let df: NuLazyFrame = LazyFrame::scan_parquet(file_path, args)
@@ -279,6 +309,7 @@ fn from_arrow(
     call: &nu_plugin::EvaluatedCall,
     resource: Resource,
     is_eager: bool,
+    hive_options: HiveOptions,
 ) -> Result<Value, ShellError> {
     let file_path = resource.path;
     let file_span = resource.span;
@@ -290,7 +321,7 @@ fn from_arrow(
             row_index: None,
             cloud_options: resource.cloud_options,
             include_file_paths: None,
-            hive_options: HiveOptions::default(),
+            hive_options,
         };
 
         let df: NuLazyFrame = LazyFrame::scan_ipc(file_path, args)
@@ -594,4 +625,21 @@ fn cloud_not_supported(file_type: PolarsFileType, span: Span) -> ShellError {
         help: None,
         inner: vec![],
     }
+}
+
+fn build_hive_options(call: &EvaluatedCall) -> Result<HiveOptions, ShellError> {
+    let enabled: Option<bool> = call.get_flag("hive-enabled")?;
+    let hive_start_idx: Option<usize> = call.get_flag("hive-start-idx")?;
+    let schema: Option<NuSchema> = call
+        .get_flag::<Value>("hive-schema")?
+        .map(|schema| NuSchema::try_from(&schema))
+        .transpose()?;
+    let try_parse_dates: bool = call.has_flag("hive-try-parse-dates")?;
+
+    Ok(HiveOptions {
+        enabled,
+        hive_start_idx: hive_start_idx.unwrap_or(0),
+        schema: schema.map(|s| s.into()),
+        try_parse_dates,
+    })
 }

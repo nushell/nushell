@@ -1,7 +1,8 @@
+use std/testing *
 use std/xml *
 use std/assert
 
-#[before-each]
+@before-each
 def before-each [] {
     {sample_xml: ('
         <a>
@@ -17,7 +18,7 @@ def before-each [] {
     }
 }
 
-#[test]
+@test
 def xml_xaccess [] {
     let sample_xml = $in.sample_xml
 
@@ -28,7 +29,7 @@ def xml_xaccess [] {
     assert equal ($sample_xml | xaccess [* * * {|e| $e.attributes != {}}]) [[tag, attributes, content]; [c, {a: b}, []]]
 }
 
-#[test]
+@test
 def xml_xupdate [] {
     let sample_xml = $in.sample_xml
 
@@ -37,7 +38,7 @@ def xml_xupdate [] {
     assert equal ($sample_xml | xupdate [* * * {|e| $e.attributes != {}}] {|x| $x | update content ['xml']}) {tag: a, attributes: {}, content: [[tag, attributes, content]; [b, {}, [[tag, attributes, content]; [c, {a: b}, [xml]]]], [c, {}, []], [d, {}, [[tag, attributes, content]; [e, {}, [[tag, attributes, content]; [null, null, z]]], [e, {}, [[tag, attributes, content]; [null, null, x]]]]]]}
 }
 
-#[test]
+@test
 def xml_xinsert [] {
     let sample_xml = $in.sample_xml
 

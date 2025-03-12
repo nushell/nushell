@@ -12,10 +12,9 @@ pub trait Completer {
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
-        pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion>;
 }
@@ -30,8 +29,14 @@ pub struct SemanticSuggestion {
 #[derive(Clone, Debug, PartialEq)]
 pub enum SuggestionKind {
     Command(nu_protocol::engine::CommandType),
-    Type(nu_protocol::Type),
+    Value(nu_protocol::Type),
+    CellPath,
+    Directory,
+    File,
+    Flag,
     Module,
+    Operator,
+    Variable,
 }
 
 impl From<Suggestion> for SemanticSuggestion {

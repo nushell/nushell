@@ -24,7 +24,7 @@ pub(crate) fn run_commands(
     trace!("run_commands");
 
     let start_time = std::time::Instant::now();
-    let create_scaffold = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
+    let create_scaffold = nu_path::nu_config_dir().is_some_and(|p| !p.exists());
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
     // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
@@ -54,7 +54,7 @@ pub(crate) fn run_commands(
         perf!("read env.nu", start_time, use_color);
 
         let start_time = std::time::Instant::now();
-        let create_scaffold = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
+        let create_scaffold = nu_path::nu_config_dir().is_some_and(|p| !p.exists());
 
         // If we have a config file parameter *OR* we have a login shell parameter, read the config file
         if parsed_nu_cli_args.config_file.is_some() || parsed_nu_cli_args.login_shell.is_some() {
@@ -122,7 +122,7 @@ pub(crate) fn run_file(
     // if the --no-config-file(-n) flag is passed, do not load plugin, env, or config files
     if parsed_nu_cli_args.no_config_file.is_none() {
         let start_time = std::time::Instant::now();
-        let create_scaffold = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
+        let create_scaffold = nu_path::nu_config_dir().is_some_and(|p| !p.exists());
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file);
         perf!("read plugins", start_time, use_color);

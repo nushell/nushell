@@ -26,7 +26,7 @@ impl Command for BitsAnd {
             .required(
                 "target",
                 SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::Int]),
-                "right-hand side of the operation",
+                "Right-hand side of the operation.",
             )
             .named(
                 "endian",

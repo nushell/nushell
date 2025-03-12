@@ -20,7 +20,7 @@ iterate over each record, not necessarily each cell within it.
 
 Avoid passing single records to this command. Since a record is a
 one-row structure, 'each' will only run once, behaving similar to 'do'.
-To iterate over a record's values, try converting it to a table
+To iterate over a record's values, use 'items' or try converting it to a table
 with 'transpose' first."#
     }
 
@@ -70,7 +70,7 @@ with 'transpose' first."#
             },
             Example {
                 example: r#"[1 2 3 2] | each {|e| if $e == 2 { "two" } }"#,
-                description: "Produce a list that has \"two\" for each 2 in the input",
+                description: "'null' items will be dropped from the result list. It has the same effect as 'filter_map' in other languages.",
                 result: Some(Value::test_list(vec![
                     Value::test_string("two"),
                     Value::test_string("two"),

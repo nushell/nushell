@@ -520,11 +520,11 @@ impl Eval for EvalRuntime {
 
         let rhs = match assignment {
             Assignment::Assign => rhs,
-            Assignment::PlusAssign => {
+            Assignment::AddAssign => {
                 let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
                 lhs.add(op_span, &rhs, op_span)?
             }
-            Assignment::MinusAssign => {
+            Assignment::SubtractAssign => {
                 let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
                 lhs.sub(op_span, &rhs, op_span)?
             }
@@ -536,7 +536,7 @@ impl Eval for EvalRuntime {
                 let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
                 lhs.div(op_span, &rhs, op_span)?
             }
-            Assignment::ConcatAssign => {
+            Assignment::ConcatenateAssign => {
                 let lhs = eval_expression::<D>(engine_state, stack, lhs)?;
                 lhs.concat(op_span, &rhs, op_span)?
             }

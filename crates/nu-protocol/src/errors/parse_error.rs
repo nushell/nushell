@@ -1,11 +1,10 @@
+use crate::{ast::RedirectionSource, did_you_mean, Span, Type};
+use miette::Diagnostic;
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
     str::{from_utf8, Utf8Error},
 };
-
-use crate::{ast::RedirectionSource, did_you_mean, Span, Type};
-use miette::Diagnostic;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
@@ -115,38 +114,36 @@ pub enum ParseError {
         span: Span,
     },
 
-    #[error("{0} is not supported on values of type {3}")]
-    #[diagnostic(code(nu::parser::unsupported_operation))]
-    UnsupportedOperationLHS(
-        String,
-        #[label = "doesn't support this value"] Span,
-        #[label("{3}")] Span,
-        Type,
-    ),
+    /// One or more of the values have types not supported by the operator.
+    #[error("The '{op}' operator does not work on values of type '{unsupported}'.")]
+    #[diagnostic(code(nu::parser::operator_unsupported_type))]
+    OperatorUnsupportedType {
+        op: &'static str,
+        unsupported: Type,
+        #[label = "does not support '{unsupported}'"]
+        op_span: Span,
+        #[label("{unsupported}")]
+        unsupported_span: Span,
+        #[help]
+        help: Option<&'static str>,
+    },
 
-    #[error("{0} is not supported between {3} and {5}.")]
-    #[diagnostic(code(nu::parser::unsupported_operation))]
-    UnsupportedOperationRHS(
-        String,
-        #[label = "doesn't support these values"] Span,
-        #[label("{3}")] Span,
-        Type,
-        #[label("{5}")] Span,
-        Type,
-    ),
-
-    #[error("{0} is not supported between {3}, {5}, and {7}.")]
-    #[diagnostic(code(nu::parser::unsupported_operation))]
-    UnsupportedOperationTernary(
-        String,
-        #[label = "doesn't support these values"] Span,
-        #[label("{3}")] Span,
-        Type,
-        #[label("{5}")] Span,
-        Type,
-        #[label("{7}")] Span,
-        Type,
-    ),
+    /// The operator supports the types of both values, but not the specific combination of their types.
+    #[error("Types '{lhs}' and '{rhs}' are not compatible for the '{op}' operator.")]
+    #[diagnostic(code(nu::parser::operator_incompatible_types))]
+    OperatorIncompatibleTypes {
+        op: &'static str,
+        lhs: Type,
+        rhs: Type,
+        #[label = "does not operate between '{lhs}' and '{rhs}'"]
+        op_span: Span,
+        #[label("{lhs}")]
+        lhs_span: Span,
+        #[label("{rhs}")]
+        rhs_span: Span,
+        #[help]
+        help: Option<&'static str>,
+    },
 
     #[error("Capture of mutable variable.")]
     #[diagnostic(code(nu::parser::expected_keyword))]
@@ -543,6 +540,13 @@ pub enum ParseError {
         help("try assigning to a variable or a cell path of a variable")
     )]
     AssignmentRequiresVar(#[label("needs to be a variable")] Span),
+
+    #[error("Attributes must be followed by a definition.")]
+    #[diagnostic(
+        code(nu::parser::attribute_requires_definition),
+        help("try following this line with a `def` or `extern` definition")
+    )]
+    AttributeRequiresDefinition(#[label("must be followed by a definition")] Span),
 }
 
 impl ParseError {
@@ -557,9 +561,8 @@ impl ParseError {
             ParseError::ExpectedWithStringMsg(_, s) => *s,
             ParseError::ExpectedWithDidYouMean(_, _, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
-            ParseError::UnsupportedOperationLHS(_, _, s, _) => *s,
-            ParseError::UnsupportedOperationRHS(_, _, _, _, s, _) => *s,
-            ParseError::UnsupportedOperationTernary(_, _, _, _, _, _, s, _) => *s,
+            ParseError::OperatorUnsupportedType { op_span, .. } => *op_span,
+            ParseError::OperatorIncompatibleTypes { op_span, .. } => *op_span,
             ParseError::ExpectedKeyword(_, s) => *s,
             ParseError::UnexpectedKeyword(_, s) => *s,
             ParseError::CantAliasKeyword(_, s) => *s,
@@ -634,6 +637,7 @@ impl ParseError {
             ParseError::ExtraTokensAfterClosingDelimiter(s) => *s,
             ParseError::AssignmentRequiresVar(s) => *s,
             ParseError::AssignmentRequiresMutableVar(s) => *s,
+            ParseError::AttributeRequiresDefinition(s) => *s,
         }
     }
 }

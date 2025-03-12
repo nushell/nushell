@@ -51,7 +51,7 @@ fn complete_rec(
     }
 
     let prefix = partial.first().unwrap_or(&"");
-    let mut matcher = NuMatcher::new(prefix, options.clone());
+    let mut matcher = NuMatcher::new(prefix, options);
 
     for built in built_paths {
         let mut path = built.cwd.clone();
@@ -65,10 +65,11 @@ fn complete_rec(
 
         for entry in result.filter_map(|e| e.ok()) {
             let entry_name = entry.file_name().to_string_lossy().into_owned();
-            let entry_isdir = entry.path().is_dir() && !entry.path().is_symlink();
+            let entry_isdir = entry.path().is_dir();
             let mut built = built.clone();
             built.parts.push(entry_name.clone());
-            built.isdir = entry_isdir;
+            // Symlinks to directories shouldn't have a trailing slash (#13275)
+            built.isdir = entry_isdir && !entry.path().is_symlink();
 
             if !want_directory || entry_isdir {
                 matcher.add(entry_name.clone(), (entry_name, built));
@@ -157,6 +158,7 @@ pub struct FileSuggestion {
     pub span: nu_protocol::Span,
     pub path: String,
     pub style: Option<Style>,
+    pub is_dir: bool,
 }
 
 /// # Parameters
@@ -260,6 +262,7 @@ pub fn complete_item(
         if should_collapse_dots {
             p = collapse_ndots(p);
         }
+        let is_dir = p.isdir;
         let path = original_cwd.apply(p, path_separator);
         let style = ls_colors.as_ref().map(|lsc| {
             lsc.style_for_path_with_metadata(
@@ -275,6 +278,7 @@ pub fn complete_item(
             span,
             path: escape_path(path, want_directory),
             style,
+            is_dir,
         }
     })
     .collect()
@@ -315,12 +319,12 @@ pub struct AdjustView {
 }
 
 pub fn adjust_if_intermediate(
-    prefix: &[u8],
+    prefix: &str,
     working_set: &StateWorkingSet,
     mut span: nu_protocol::Span,
 ) -> AdjustView {
     let span_contents = String::from_utf8_lossy(working_set.get_span_contents(span)).to_string();
-    let mut prefix = String::from_utf8_lossy(prefix).to_string();
+    let mut prefix = prefix.to_string();
 
     // A difference of 1 because of the cursor's unicode code point in between.
     // Using .chars().count() because unicode and Windows.

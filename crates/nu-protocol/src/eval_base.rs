@@ -27,6 +27,7 @@ pub trait Eval {
         let expr_span = expr.span(&state);
 
         match &expr.expr {
+            Expr::AttributeBlock(ab) => Self::eval::<D>(state, mut_state, &ab.item),
             Expr::Bool(b) => Ok(Value::bool(*b, expr_span)),
             Expr::Int(i) => Ok(Value::int(*i, expr_span)),
             Expr::Float(f) => Ok(Value::float(*f, expr_span)),
@@ -234,14 +235,14 @@ pub trait Eval {
                         let rhs = Self::eval::<D>(state, mut_state, rhs)?;
 
                         match math {
-                            Math::Plus => lhs.add(op_span, &rhs, expr_span),
-                            Math::Minus => lhs.sub(op_span, &rhs, expr_span),
+                            Math::Add => lhs.add(op_span, &rhs, expr_span),
+                            Math::Subtract => lhs.sub(op_span, &rhs, expr_span),
                             Math::Multiply => lhs.mul(op_span, &rhs, expr_span),
                             Math::Divide => lhs.div(op_span, &rhs, expr_span),
-                            Math::Concat => lhs.concat(op_span, &rhs, expr_span),
+                            Math::FloorDivide => lhs.floor_div(op_span, &rhs, expr_span),
                             Math::Modulo => lhs.modulo(op_span, &rhs, expr_span),
-                            Math::FloorDivision => lhs.floor_div(op_span, &rhs, expr_span),
                             Math::Pow => lhs.pow(op_span, &rhs, expr_span),
+                            Math::Concatenate => lhs.concat(op_span, &rhs, expr_span),
                         }
                     }
                     Operator::Comparison(comparison) => {

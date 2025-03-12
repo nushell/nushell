@@ -1,15 +1,15 @@
-use std::sync::Arc;
-
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 use nu_protocol::{shell_error::into_code, Config};
 use nu_utils::get_system_locale;
 use num_format::ToFormattedString;
+use std::sync::Arc;
 
 struct Arguments {
     decimals_value: Option<i64>,
     cell_paths: Option<Vec<CellPath>>,
     config: Arc<Config>,
+    group_digits: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -51,6 +51,11 @@ impl Command for SubCommand {
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, convert data at the given cell paths.",
+            )
+            .switch(
+                "group-digits",
+                "group digits together by the locale specific thousands separator",
+                Some('g'),
             )
             .named(
                 "decimals",
@@ -148,6 +153,7 @@ fn string_helper(
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
+    let group_digits = call.has_flag(engine_state, stack, "group-digits")?;
     if let Some(decimal_val) = decimals_value {
         if decimal_val.is_negative() {
             return Err(ShellError::TypeMismatch {
@@ -182,6 +188,7 @@ fn string_helper(
             decimals_value,
             cell_paths,
             config,
+            group_digits,
         };
         operate(action, args, input, head, engine_state.signals())
     }
@@ -190,10 +197,12 @@ fn string_helper(
 fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     let digits = args.decimals_value;
     let config = &args.config;
+    let group_digits = args.group_digits;
+
     match input {
         Value::Int { val, .. } => {
             let decimal_value = digits.unwrap_or(0) as usize;
-            let res = format_int(*val, false, decimal_value);
+            let res = format_int(*val, group_digits, decimal_value);
             Value::string(res, span)
         }
         Value::Float { val, .. } => {
@@ -206,11 +215,24 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         }
         Value::Bool { val, .. } => Value::string(val.to_string(), span),
         Value::Date { val, .. } => Value::string(val.format("%c").to_string(), span),
-        Value::String { val, .. } => Value::string(val.to_string(), span),
+        Value::String { val, .. } => {
+            if group_digits {
+                let number = val.parse::<i64>().unwrap_or_default();
+                let decimal_value = digits.unwrap_or(0) as usize;
+                Value::string(format_int(number, group_digits, decimal_value), span)
+            } else {
+                Value::string(val.to_string(), span)
+            }
+        }
         Value::Glob { val, .. } => Value::string(val.to_string(), span),
 
-        Value::Filesize { val: _, .. } => {
-            Value::string(input.to_expanded_string(", ", config), span)
+        Value::Filesize { val, .. } => {
+            if group_digits {
+                let decimal_value = digits.unwrap_or(0) as usize;
+                Value::string(format_int(val.get(), group_digits, decimal_value), span)
+            } else {
+                Value::string(input.to_expanded_string(", ", config), span)
+            }
         }
         Value::Duration { val: _, .. } => Value::string(input.to_expanded_string("", config), span),
 

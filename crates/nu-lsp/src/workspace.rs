@@ -42,7 +42,7 @@ fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Result<nu_glob::Paths> {
         return Err(miette!("\nworkspace folder does not exist."));
     }
     let pattern = format!("{}/**/*.nu", path.to_string_lossy());
-    nu_glob::glob(&pattern).into_diagnostic()
+    nu_glob::glob(&pattern, None).into_diagnostic()
 }
 
 impl LanguageServer {
@@ -50,15 +50,14 @@ impl LanguageServer {
     pub(crate) fn initialize_workspace_folders(
         &mut self,
         init_params: serde_json::Value,
-    ) -> Result<()> {
+    ) -> Option<()> {
         if let Some(array) = init_params.get("workspaceFolders") {
-            let folders: Vec<WorkspaceFolder> =
-                serde_json::from_value(array.clone()).into_diagnostic()?;
+            let folders: Vec<WorkspaceFolder> = serde_json::from_value(array.clone()).ok()?;
             for folder in folders {
                 self.workspace_folders.insert(folder.name.clone(), folder);
             }
         }
-        Ok(())
+        Some(())
     }
 
     /// Highlight all occurrences of the text at cursor, in current file
@@ -568,18 +567,38 @@ mod tests {
             .unwrap()
     }
 
+    /// Should not exit on malformed init_params
+    #[test]
+    fn malformed_init_params() {
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("workspace");
+        let (client_connection, _recv) = initialize_language_server(
+            None,
+            Some(serde_json::json!({ "workspaceFolders": serde_json::Value::Null })),
+        );
+        script.push("foo.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+    }
+
     #[test]
     fn command_reference_in_workspace() {
         let mut script = fixtures();
         script.push("lsp");
         script.push("workspace");
-        let (client_connection, _recv) = initialize_language_server(Some(InitializeParams {
-            workspace_folders: Some(vec![WorkspaceFolder {
-                uri: path_to_uri(&script),
-                name: "random name".to_string(),
-            }]),
-            ..Default::default()
-        }));
+        let (client_connection, _recv) = initialize_language_server(
+            None,
+            serde_json::to_value(InitializeParams {
+                workspace_folders: Some(vec![WorkspaceFolder {
+                    uri: path_to_uri(&script),
+                    name: "random name".to_string(),
+                }]),
+                ..Default::default()
+            })
+            .ok(),
+        );
         script.push("foo.nu");
         let script = path_to_uri(&script);
 
@@ -620,13 +639,17 @@ mod tests {
         let mut script = fixtures();
         script.push("lsp");
         script.push("workspace");
-        let (client_connection, _recv) = initialize_language_server(Some(InitializeParams {
-            workspace_folders: Some(vec![WorkspaceFolder {
-                uri: path_to_uri(&script),
-                name: "random name".to_string(),
-            }]),
-            ..Default::default()
-        }));
+        let (client_connection, _recv) = initialize_language_server(
+            None,
+            serde_json::to_value(InitializeParams {
+                workspace_folders: Some(vec![WorkspaceFolder {
+                    uri: path_to_uri(&script),
+                    name: "random name".to_string(),
+                }]),
+                ..Default::default()
+            })
+            .ok(),
+        );
         script.push("foo.nu");
         let script = path_to_uri(&script);
 
@@ -667,13 +690,17 @@ mod tests {
         let mut script = fixtures();
         script.push("lsp");
         script.push("workspace");
-        let (client_connection, _recv) = initialize_language_server(Some(InitializeParams {
-            workspace_folders: Some(vec![WorkspaceFolder {
-                uri: path_to_uri(&script),
-                name: "random name".to_string(),
-            }]),
-            ..Default::default()
-        }));
+        let (client_connection, _recv) = initialize_language_server(
+            None,
+            serde_json::to_value(InitializeParams {
+                workspace_folders: Some(vec![WorkspaceFolder {
+                    uri: path_to_uri(&script),
+                    name: "random name".to_string(),
+                }]),
+                ..Default::default()
+            })
+            .ok(),
+        );
         script.push("foo.nu");
         let script = path_to_uri(&script);
 
@@ -742,13 +769,17 @@ mod tests {
         let mut script = fixtures();
         script.push("lsp");
         script.push("workspace");
-        let (client_connection, _recv) = initialize_language_server(Some(InitializeParams {
-            workspace_folders: Some(vec![WorkspaceFolder {
-                uri: path_to_uri(&script),
-                name: "random name".to_string(),
-            }]),
-            ..Default::default()
-        }));
+        let (client_connection, _recv) = initialize_language_server(
+            None,
+            serde_json::to_value(InitializeParams {
+                workspace_folders: Some(vec![WorkspaceFolder {
+                    uri: path_to_uri(&script),
+                    name: "random name".to_string(),
+                }]),
+                ..Default::default()
+            })
+            .ok(),
+        );
         script.push("foo.nu");
         let script = path_to_uri(&script);
 
@@ -807,13 +838,17 @@ mod tests {
         let mut script = fixtures();
         script.push("lsp");
         script.push("workspace");
-        let (client_connection, _recv) = initialize_language_server(Some(InitializeParams {
-            workspace_folders: Some(vec![WorkspaceFolder {
-                uri: path_to_uri(&script),
-                name: "random name".to_string(),
-            }]),
-            ..Default::default()
-        }));
+        let (client_connection, _recv) = initialize_language_server(
+            None,
+            serde_json::to_value(InitializeParams {
+                workspace_folders: Some(vec![WorkspaceFolder {
+                    uri: path_to_uri(&script),
+                    name: "random name".to_string(),
+                }]),
+                ..Default::default()
+            })
+            .ok(),
+        );
         script.push("foo.nu");
         let script = path_to_uri(&script);
 
@@ -898,7 +933,7 @@ mod tests {
         script.push("foo.nu");
         let script = path_to_uri(&script);
 
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
         open_unchecked(&client_connection, script.clone());
 
         let message = send_document_highlight_request(&client_connection, script.clone(), 3, 5);

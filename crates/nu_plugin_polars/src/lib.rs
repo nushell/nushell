@@ -8,7 +8,7 @@ pub use cache::{Cache, Cacheable};
 use command::{
     aggregation::aggregation_commands, boolean::boolean_commands, core::core_commands,
     data::data_commands, datetime::datetime_commands, index::index_commands,
-    integer::integer_commands, string::string_commands, stub::PolarsCmd,
+    integer::integer_commands, list::list_commands, string::string_commands, stub::PolarsCmd,
 };
 use log::debug;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
@@ -93,6 +93,7 @@ impl Plugin for PolarsPlugin {
         commands.append(&mut index_commands());
         commands.append(&mut integer_commands());
         commands.append(&mut string_commands());
+        commands.append(&mut list_commands());
 
         commands.append(&mut cache_commands());
         commands

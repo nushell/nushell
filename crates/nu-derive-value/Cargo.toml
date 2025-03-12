@@ -20,5 +20,5 @@ workspace = true
 proc-macro2 = { workspace = true }
 syn = { workspace = true }
 quote = { workspace = true }
-proc-macro-error = { workspace = true }
+proc-macro-error2 = { workspace = true }
 heck = { workspace = true }

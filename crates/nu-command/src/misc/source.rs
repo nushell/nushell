@@ -55,8 +55,13 @@ impl Command for Source {
         let cwd = engine_state.cwd_as_string(Some(stack))?;
         let pb = std::path::PathBuf::from(block_id_name);
         let parent = pb.parent().unwrap_or(std::path::Path::new(""));
-        let file_path = canonicalize_with(pb.as_path(), cwd)
-            .map_err(|err| IoError::new(err.kind(), call.head, pb.clone()))?;
+        let file_path = canonicalize_with(pb.as_path(), cwd).map_err(|err| {
+            IoError::new(
+                err.kind().not_found_as(NotFound::File),
+                call.head,
+                pb.clone(),
+            )
+        })?;
 
         // Note: We intentionally left out PROCESS_PATH since it's supposed to
         // to work like argv[0] in C, which is the name of the program being executed.
