@@ -76,6 +76,8 @@ fn try_find_id_in_def(
     let name = working_set.get_span_contents(span);
     let decl_id = Id::Declaration(working_set.find_decl(name).or_else(|| {
         // for defs inside def
+        // TODO: get scope by position
+        // https://github.com/nushell/nushell/issues/15291
         (0..working_set.num_decls()).find_map(|id| {
             let decl_id = nu_protocol::DeclId::new(id);
             let decl = working_set.get_decl(decl_id);
