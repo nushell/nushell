@@ -1,9 +1,9 @@
 use nu_engine::{command_prelude::*, get_full_help};
 
 #[derive(Clone)]
-pub struct RandomCommand;
+pub struct Random;
 
-impl Command for RandomCommand {
+impl Command for Random {
     fn name(&self) -> &str {
         "random"
     }

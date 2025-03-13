@@ -4,9 +4,9 @@ use nu_engine::command_prelude::*;
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct UrlEncode;
 
-impl Command for SubCommand {
+impl Command for UrlEncode {
     fn name(&self) -> &str {
         "url encode"
     }
@@ -130,6 +130,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(UrlEncode {})
     }
 }

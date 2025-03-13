@@ -1,9 +1,9 @@
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct MathAbs;
 
-impl Command for SubCommand {
+impl Command for MathAbs {
     fn name(&self) -> &str {
         "math abs"
     }
@@ -105,6 +105,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(MathAbs {})
     }
 }

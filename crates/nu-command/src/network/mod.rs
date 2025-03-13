@@ -11,7 +11,7 @@ pub use self::http::*;
 pub use self::url::*;
 
 #[cfg(feature = "network")]
-pub use port::SubCommand as Port;
+pub use port::Port;
 
 #[cfg(feature = "network")]
 pub use version_check::VersionCheck;

@@ -2,9 +2,9 @@ use nu_engine::command_prelude::*;
 use rand::{thread_rng, RngCore};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct RandomBinary;
 
-impl Command for SubCommand {
+impl Command for RandomBinary {
     fn name(&self) -> &str {
         "random binary"
     }
@@ -89,6 +89,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(RandomBinary {})
     }
 }

@@ -2,9 +2,9 @@ use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrReverse;
 
-impl Command for SubCommand {
+impl Command for StrReverse {
     fn name(&self) -> &str {
         "str reverse"
     }
@@ -117,6 +117,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrReverse {})
     }
 }

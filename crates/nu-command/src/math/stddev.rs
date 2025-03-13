@@ -3,9 +3,9 @@ use crate::math::utils::run_with_function;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct MathStddev;
 
-impl Command for SubCommand {
+impl Command for MathStddev {
     fn name(&self) -> &str {
         "math stddev"
     }
@@ -111,6 +111,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(MathStddev {})
     }
 }

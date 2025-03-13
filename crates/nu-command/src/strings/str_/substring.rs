@@ -7,7 +7,7 @@ use nu_protocol::{engine::StateWorkingSet, IntRange};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrSubstring;
 
 struct Arguments {
     range: IntRange,
@@ -21,7 +21,7 @@ impl CmdArgument for Arguments {
     }
 }
 
-impl Command for SubCommand {
+impl Command for StrSubstring {
     fn name(&self) -> &str {
         "str substring"
     }
@@ -188,13 +188,13 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 mod tests {
     use nu_protocol::IntRange;
 
-    use super::{action, Arguments, Span, SubCommand, Value};
+    use super::{action, Arguments, Span, StrSubstring, Value};
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrSubstring {})
     }
 
     #[derive(Clone, Copy, Debug)]

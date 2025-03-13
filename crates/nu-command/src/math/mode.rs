@@ -3,7 +3,7 @@ use nu_engine::command_prelude::*;
 use std::{cmp::Ordering, collections::HashMap};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct MathMode;
 
 #[derive(Hash, Eq, PartialEq, Debug)]
 enum NumberTypes {
@@ -28,7 +28,7 @@ impl HashableType {
     }
 }
 
-impl Command for SubCommand {
+impl Command for MathMode {
     fn name(&self) -> &str {
         "math mode"
     }
@@ -183,6 +183,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(MathMode {})
     }
 }

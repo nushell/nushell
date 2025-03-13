@@ -1,9 +1,9 @@
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct CommandlineEdit;
 
-impl Command for SubCommand {
+impl Command for CommandlineEdit {
     fn name(&self) -> &str {
         "commandline edit"
     }

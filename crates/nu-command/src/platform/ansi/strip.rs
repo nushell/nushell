@@ -16,9 +16,9 @@ impl CmdArgument for Arguments {
 }
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct AnsiStrip;
 
-impl Command for SubCommand {
+impl Command for AnsiStrip {
     fn name(&self) -> &str {
         "ansi strip"
     }
@@ -83,14 +83,14 @@ fn action(input: &Value, args: &Arguments, _span: Span) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{action, Arguments, SubCommand};
+    use super::{action, AnsiStrip, Arguments};
     use nu_protocol::{engine::EngineState, Span, Value};
 
     #[test]
     fn examples_work_as_expected() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(AnsiStrip {})
     }
 
     #[test]

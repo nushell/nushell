@@ -6,9 +6,9 @@ use crate::network::http::client::{
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct HttpPatch;
 
-impl Command for SubCommand {
+impl Command for HttpPatch {
     fn name(&self) -> &str {
         "http patch"
     }
@@ -250,6 +250,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(HttpPatch {})
     }
 }

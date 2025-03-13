@@ -1,9 +1,9 @@
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct MathRound;
 
-impl Command for SubCommand {
+impl Command for MathRound {
     fn name(&self) -> &str {
         "math round"
     }
@@ -153,6 +153,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(MathRound {})
     }
 }

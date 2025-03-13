@@ -3,9 +3,9 @@ use nu_engine::command_prelude::*;
 use rand::prelude::{thread_rng, Rng};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct RandomBool;
 
-impl Command for SubCommand {
+impl Command for RandomBool {
     fn name(&self) -> &str {
         "random bool"
     }
@@ -91,6 +91,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(RandomBool {})
     }
 }

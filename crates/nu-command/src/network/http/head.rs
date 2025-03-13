@@ -8,9 +8,9 @@ use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct HttpHead;
 
-impl Command for SubCommand {
+impl Command for HttpHead {
     fn name(&self) -> &str {
         "http head"
     }
@@ -175,6 +175,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(HttpHead {})
     }
 }

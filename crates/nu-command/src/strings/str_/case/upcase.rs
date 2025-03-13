@@ -1,9 +1,9 @@
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrUpcase;
 
-impl Command for SubCommand {
+impl Command for StrUpcase {
     fn name(&self) -> &str {
         "str upcase"
     }
@@ -116,13 +116,13 @@ fn action(input: &Value, head: Span) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::{action, SubCommand};
+    use super::{action, StrUpcase};
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrUpcase {})
     }
 
     #[test]

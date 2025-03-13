@@ -1,9 +1,9 @@
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct AnsiLink;
 
-impl Command for SubCommand {
+impl Command for AnsiLink {
     fn name(&self) -> &str {
         "ansi link"
     }
@@ -144,12 +144,12 @@ fn add_osc_link(text: &str, link: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::SubCommand;
+    use super::AnsiLink;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(AnsiLink {})
     }
 }

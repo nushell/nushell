@@ -2,7 +2,7 @@ use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrTrim;
 
 struct Arguments {
     to_trim: Option<char>,
@@ -23,7 +23,7 @@ pub enum TrimSide {
     Both,
 }
 
-impl Command for SubCommand {
+impl Command for StrTrim {
     fn name(&self) -> &str {
         "str trim"
     }
@@ -272,7 +272,7 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrTrim {})
     }
 
     fn make_record(cols: Vec<&str>, vals: Vec<&str>) -> Value {
