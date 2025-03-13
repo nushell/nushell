@@ -1406,7 +1406,6 @@ fn file_completion_quoted() {
         "`4.2`",
         "\'[a] bc.txt\'",
         "`curly-bracket_{.txt`",
-        "`pipe_|.txt`",
         "`semicolon_;.txt`",
         "'square-bracket_[.txt'",
         "`te st.txt`",
