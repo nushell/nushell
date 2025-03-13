@@ -298,14 +298,19 @@ pub fn escape_path(path: String) -> String {
         };
     }
 
-    let contaminated = path.contains(['\'', '"', ' ', '#', '(', ')', '{', '}', '[', ']']);
-    let maybe_flag = path.starts_with('-');
-    let maybe_variable = path.starts_with('$');
-    let maybe_number = path.parse::<f64>().is_ok();
-    if contaminated || maybe_flag || maybe_variable || maybe_number {
-        format!("`{path}`")
+    if path.contains('`') {
+        format!("\"{}\"", path.replace('"', r#"\""#))
     } else {
-        path
+        let contaminated =
+            path.contains(['\'', '"', ' ', '#', '(', ')', '{', '}', '[', ']', '|', ';']);
+        let maybe_flag = path.starts_with('-');
+        let maybe_variable = path.starts_with('$');
+        let maybe_number = path.parse::<f64>().is_ok();
+        if contaminated || maybe_flag || maybe_variable || maybe_number {
+            format!("`{path}`")
+        } else {
+            path
+        }
     }
 }
 
