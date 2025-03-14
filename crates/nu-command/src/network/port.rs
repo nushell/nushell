@@ -4,9 +4,9 @@ use nu_protocol::shell_error::io::IoError;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct Port;
 
-impl Command for SubCommand {
+impl Command for Port {
     fn name(&self) -> &str {
         "port"
     }

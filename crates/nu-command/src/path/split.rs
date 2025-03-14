@@ -8,9 +8,9 @@ struct Arguments;
 impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct PathSplit;
 
-impl Command for SubCommand {
+impl Command for PathSplit {
     fn name(&self) -> &str {
         "path split"
     }
@@ -193,6 +193,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(PathSplit {})
     }
 }

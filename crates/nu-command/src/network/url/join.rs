@@ -3,9 +3,9 @@ use nu_engine::command_prelude::*;
 use super::query::{record_to_query_string, table_to_query_string};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct UrlJoin;
 
-impl Command for SubCommand {
+impl Command for UrlJoin {
     fn name(&self) -> &str {
         "url join"
     }
@@ -378,6 +378,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(UrlJoin {})
     }
 }

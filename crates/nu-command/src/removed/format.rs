@@ -1,9 +1,9 @@
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct DateFormat;
 
-impl Command for SubCommand {
+impl Command for DateFormat {
     fn name(&self) -> &str {
         "date format"
     }

@@ -15,19 +15,19 @@ mod arcsinh;
 mod arctan;
 mod arctanh;
 
-pub use cos::SubCommand as MathCos;
-pub use cosh::SubCommand as MathCosH;
-pub use sin::SubCommand as MathSin;
-pub use sinh::SubCommand as MathSinH;
-pub use tan::SubCommand as MathTan;
-pub use tanh::SubCommand as MathTanH;
+pub use cos::MathCos;
+pub use cosh::MathCosH;
+pub use sin::MathSin;
+pub use sinh::MathSinH;
+pub use tan::MathTan;
+pub use tanh::MathTanH;
 
-pub use exp::SubCommand as MathExp;
-pub use ln::SubCommand as MathLn;
+pub use exp::MathExp;
+pub use ln::MathLn;
 
-pub use arccos::SubCommand as MathArcCos;
-pub use arccosh::SubCommand as MathArcCosH;
-pub use arcsin::SubCommand as MathArcSin;
-pub use arcsinh::SubCommand as MathArcSinH;
-pub use arctan::SubCommand as MathArcTan;
-pub use arctanh::SubCommand as MathArcTanH;
+pub use arccos::MathArcCos;
+pub use arccosh::MathArcCosH;
+pub use arcsin::MathArcSin;
+pub use arcsinh::MathArcSinH;
+pub use arctan::MathArcTan;
+pub use arctanh::MathArcTanH;

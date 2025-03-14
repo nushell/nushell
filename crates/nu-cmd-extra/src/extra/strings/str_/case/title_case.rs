@@ -3,9 +3,9 @@ use heck::ToTitleCase;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrTitleCase;
 
-impl Command for SubCommand {
+impl Command for StrTitleCase {
     fn name(&self) -> &str {
         "str title-case"
     }
@@ -86,6 +86,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrTitleCase {})
     }
 }

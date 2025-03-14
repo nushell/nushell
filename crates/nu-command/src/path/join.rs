@@ -10,9 +10,9 @@ struct Arguments {
 impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct PathJoin;
 
-impl Command for SubCommand {
+impl Command for PathJoin {
     fn name(&self) -> &str {
         "path join"
     }
@@ -299,6 +299,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(PathJoin {})
     }
 }

@@ -3,9 +3,9 @@ use nu_engine::command_prelude::*;
 use super::query::query_string_to_table;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct UrlSplitQuery;
 
-impl Command for SubCommand {
+impl Command for UrlSplitQuery {
     fn name(&self) -> &str {
         "url split-query"
     }
@@ -101,6 +101,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(UrlSplitQuery {})
     }
 }

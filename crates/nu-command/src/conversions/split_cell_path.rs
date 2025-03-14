@@ -2,9 +2,9 @@ use nu_engine::command_prelude::*;
 use nu_protocol::{ast::PathMember, IntoValue};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct SplitCellPath;
 
-impl Command for SubCommand {
+impl Command for SplitCellPath {
     fn name(&self) -> &str {
         "split cell-path"
     }
@@ -150,6 +150,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(SplitCellPath {})
     }
 }

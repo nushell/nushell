@@ -1,9 +1,9 @@
 use nu_engine::{command_prelude::*, get_full_help};
 
 #[derive(Clone)]
-pub struct SplitCommand;
+pub struct Split;
 
-impl Command for SplitCommand {
+impl Command for Split {
     fn name(&self) -> &str {
         "split"
     }

@@ -7,9 +7,9 @@ use rand::{
 const DEFAULT_CHARS_LENGTH: usize = 25;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct RandomChars;
 
-impl Command for SubCommand {
+impl Command for RandomChars {
     fn name(&self) -> &str {
         "random chars"
     }
@@ -119,6 +119,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(RandomChars {})
     }
 }
