@@ -1,9 +1,8 @@
 use crate::values::NuDataFrame;
 use crate::PolarsPlugin;
-
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    list, Category, Example, LabeledError, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -30,10 +29,10 @@ impl PluginCommand for ColumnsDF {
         vec![Example {
             description: "Dataframe columns",
             example: "[[a b]; [1 2] [3 4]] | polars into-df | polars columns",
-            result: Some(Value::list(
-                vec![Value::test_string("a"), Value::test_string("b")],
-                Span::test_data(),
-            )),
+            result: Some(Value::test_list(list![
+                Value::test_string("a"),
+                Value::test_string("b"),
+            ])),
         }]
     }
 
@@ -55,7 +54,7 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
-    let names: Vec<Value> = df
+    let names = df
         .as_ref()
         .get_column_names()
         .iter()

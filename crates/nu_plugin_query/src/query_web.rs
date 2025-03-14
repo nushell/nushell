@@ -1,7 +1,7 @@
 use crate::{web_tables::WebTable, Query};
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, LabeledError, List, Record, Signature, Span, Spanned, SyntaxShape, Value,
 };
 use scraper::{Html, Selector as ScraperSelector};
 
@@ -261,7 +261,7 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
         return Value::record(record, span);
     }
 
-    let mut table_out = Vec::new();
+    let mut table_out = List::new();
     // sometimes there are tables where the first column is the headers, kind of like
     // a table has ben rotated ccw 90 degrees, in these cases all columns will be missing
     // we keep track of this with this variable so we can deal with it later
@@ -319,7 +319,7 @@ fn execute_selector_query_with_attribute(
 ) -> Result<Value, LabeledError> {
     let doc = Html::parse_fragment(input_string);
 
-    let vals: Vec<Value> = doc
+    let vals = doc
         .select(&fallible_css(query_string, inspect)?)
         .map(|selection| {
             Value::string(
@@ -340,7 +340,7 @@ fn execute_selector_query_with_attributes(
 ) -> Result<Value, LabeledError> {
     let doc = Html::parse_fragment(input_string);
 
-    let mut attrs: Vec<String> = Vec::new();
+    let mut attrs = Vec::new();
     if let Value::List { vals, .. } = &attributes {
         for x in vals {
             if let Value::String { val, .. } = x {
@@ -349,7 +349,7 @@ fn execute_selector_query_with_attributes(
         }
     }
 
-    let vals: Vec<Value> = doc
+    let vals = doc
         .select(&fallible_css(query_string, inspect)?)
         .map(|selection| {
             let mut record = Record::new();
@@ -374,7 +374,7 @@ fn execute_selector_query(
 ) -> Result<Value, LabeledError> {
     let doc = Html::parse_fragment(input_string);
 
-    let vals: Vec<Value> = match as_html {
+    let vals = match as_html {
         true => doc
             .select(&fallible_css(query_string, inspect)?)
             .map(|selection| Value::string(selection.html(), span))
@@ -428,6 +428,7 @@ pub fn css(selector: &str, inspect: bool) -> ScraperSelector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nu_protocol::list;
 
     const SIMPLE_LIST: &str = r#"
          <ul>
@@ -514,7 +515,7 @@ mod tests {
             MULTIPLE_ATTRIBUTES,
             null_spanned("a"),
             &Value::list(
-                vec![
+                list![
                     Value::string("href".to_string(), Span::unknown()),
                     Value::string("target".to_string(), Span::unknown()),
                 ],

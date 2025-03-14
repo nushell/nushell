@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use chrono::{DateTime, FixedOffset, Offset, Utc};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, Record, Signature, Span, Value as NuValue,
+    record, Category, Example, LabeledError, List, Record, Signature, Span, Value as NuValue,
 };
 use plist::{Date as PlistDate, Dictionary, Value as PlistValue};
 
@@ -105,7 +105,7 @@ fn convert_dict(dict: &Dictionary, span: Span) -> Result<NuValue, LabeledError> 
     ))
 }
 
-fn convert_array(plist_array: &[PlistValue], span: Span) -> Result<Vec<NuValue>, LabeledError> {
+fn convert_array(plist_array: &[PlistValue], span: Span) -> Result<List, LabeledError> {
     plist_array
         .iter()
         .map(|v| convert_plist_value(v, span))
@@ -129,7 +129,7 @@ mod test {
     use std::time::SystemTime;
 
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::ShellError;
+    use nu_protocol::{list, ShellError};
 
     #[test]
     fn test_convert_string() {
@@ -223,7 +223,7 @@ mod test {
         let nu_arr = convert_array(&arr, Span::test_data()).unwrap();
         assert_eq!(
             nu_arr,
-            vec![
+            list![
                 NuValue::string("a".to_string(), Span::test_data()),
                 NuValue::string("b".to_string(), Span::test_data())
             ]

@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use nu_plugin_protocol::test_util::{test_plugin_custom_value, TestCustomValue};
 use nu_protocol::{
-    engine::Closure, record, BlockId, CustomValue, IntoSpanned, ShellError, Span, Value, VarId,
+    engine::Closure, list, record, BlockId, CustomValue, IntoSpanned, ShellError, Span, Value,
+    VarId,
 };
 
 use crate::{
@@ -92,7 +93,7 @@ fn check_list_custom_values(
 #[test]
 fn add_source_in_nested_list() -> Result<(), ShellError> {
     let orig_custom_val = Value::test_custom_value(Box::new(test_plugin_custom_value()));
-    let mut val = Value::test_list(vec![orig_custom_val.clone(), orig_custom_val.clone()]);
+    let mut val = Value::test_list(list![orig_custom_val.clone(), orig_custom_val.clone()]);
     let source = Arc::new(PluginSource::new_fake("foo"));
     PluginCustomValueWithSource::add_source_in(&mut val, &source)?;
 

@@ -108,6 +108,8 @@ fn json_decode_err<T>(err: serde_json::Error) -> Result<Option<T>, ShellError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nu_protocol::list;
+
     crate::serializers::tests::generate_tests!(JsonSerializer {});
 
     #[test]
@@ -130,7 +132,7 @@ mod tests {
         // use something deeply nested, to try to trigger any pretty printing
         let output = PluginOutput::Data(
             0,
-            StreamData::List(Value::test_list(vec![
+            StreamData::List(Value::test_list(list![
                 Value::test_int(4),
                 // in case escaping failed
                 Value::test_string("newline\ncontaining\nstring"),

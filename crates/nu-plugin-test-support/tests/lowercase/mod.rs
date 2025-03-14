@@ -1,7 +1,7 @@
 use nu_plugin::*;
 use nu_plugin_test_support::PluginTest;
 use nu_protocol::{
-    Example, IntoInterruptiblePipelineData, LabeledError, PipelineData, ShellError, Signals,
+    list, Example, IntoInterruptiblePipelineData, LabeledError, PipelineData, ShellError, Signals,
     Signature, Span, Type, Value,
 };
 
@@ -30,7 +30,7 @@ impl PluginCommand for Lowercase {
         vec![Example {
             example: r#"[Hello wORLD] | lowercase"#,
             description: "Lowercase a list of strings",
-            result: Some(Value::test_list(vec![
+            result: Some(Value::test_list(list![
                 Value::test_string("hello"),
                 Value::test_string("world"),
             ])),
@@ -77,7 +77,7 @@ fn test_lowercase_using_eval_with() -> Result<(), ShellError> {
     )?;
 
     assert_eq!(
-        Value::test_list(vec![Value::test_string("hello world")]),
+        Value::test_list(list![Value::test_string("hello world")]),
         result.into_value(Span::test_data())?
     );
 
