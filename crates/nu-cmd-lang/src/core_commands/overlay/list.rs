@@ -29,7 +29,7 @@ impl Command for OverlayList {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let active_overlays_engine: Vec<Value> = stack
+        let active_overlays_engine = stack
             .active_overlays
             .iter()
             .map(|s| Value::string(s, call.head))

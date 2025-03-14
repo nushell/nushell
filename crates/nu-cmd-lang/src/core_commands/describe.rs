@@ -87,7 +87,7 @@ impl Command for Describe {
                         "fib" => Value::test_record(record!(
                             "type" => Value::test_string("list"),
                             "length" => Value::test_int(6),
-                            "values" => Value::test_list(vec![
+                            "values" => Value::test_list(list![
                                 Value::test_string("int"),
                                 Value::test_string("int"),
                                 Value::test_string("int"),
@@ -118,7 +118,7 @@ impl Command for Describe {
                 //     "subtype" => Value::test_record(record!(
                 //         "type" => Value::test_string("list"),
                 //         "length" => Value::test_int(3),
-                //         "values" => Value::test_list(vec![
+                //         "values" => Value::test_list(list![
                 //             Value::test_string("int"),
                 //             Value::test_string("int"),
                 //             Value::test_string("int"),
@@ -278,16 +278,15 @@ fn describe_value_inner(
                 "columns" => Value::record(columns, head),
             })
         }
-        Value::List { mut vals, .. } => {
-            for val in &mut vals {
-                *val =
-                    describe_value_inner(std::mem::take(val), head, engine_state).into_value(head);
-            }
-
+        Value::List { vals, .. } => {
+            let values = vals
+                .into_iter()
+                .map(|val| describe_value_inner(val, head, engine_state).into_value(head))
+                .collect::<List>();
             Description::Record(record! {
                 "type" => Value::string("list", head),
-                "length" => Value::int(vals.len() as i64, head),
-                "values" => Value::list(vals, head),
+                "length" => Value::int(values.len() as i64, head),
+                "values" => Value::list(values, head),
             })
         }
         Value::Closure { val, .. } => {

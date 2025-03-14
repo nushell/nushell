@@ -8,14 +8,13 @@ pub use to::ToStyle;
 
 #[cfg(test)]
 mod tests {
+    use crate::{from_nuon, to_nuon, ToStyle};
     use chrono::DateTime;
     use nu_protocol::{
         ast::{CellPath, PathMember, RangeInclusion},
         engine::{Closure, EngineState},
-        record, BlockId, IntRange, Range, Span, Value,
+        list, record, BlockId, IntRange, Range, Span, Value,
     };
-
-    use crate::{from_nuon, to_nuon, ToStyle};
 
     /// test something of the form
     /// ```nushell
@@ -40,7 +39,7 @@ mod tests {
     fn list_of_numbers() {
         nuon_end_to_end(
             "[1, 2, 3]",
-            Some(Value::test_list(vec![
+            Some(Value::test_list(list![
                 Value::test_int(1),
                 Value::test_int(2),
                 Value::test_int(3),
@@ -52,7 +51,7 @@ mod tests {
     fn list_of_strings() {
         nuon_end_to_end(
             "[abc, xyz, def]",
-            Some(Value::test_list(vec![
+            Some(Value::test_list(list![
                 Value::test_string("abc"),
                 Value::test_string("xyz"),
                 Value::test_string("def"),
@@ -64,7 +63,7 @@ mod tests {
     fn table() {
         nuon_end_to_end(
             "[[my, columns]; [abc, xyz], [def, ijk]]",
-            Some(Value::test_list(vec![
+            Some(Value::test_list(list![
                 Value::test_record(record!(
                     "my" => Value::test_string("abc"),
                     "columns" => Value::test_string("xyz")
@@ -106,7 +105,7 @@ mod tests {
     fn escaping3() {
         nuon_end_to_end(
             r#"[hello\\world]"#,
-            Some(Value::test_list(vec![Value::test_string(
+            Some(Value::test_list(list![Value::test_string(
                 r#"hello\\world"#,
             )])),
         );
@@ -228,8 +227,8 @@ mod tests {
                 None,
             )
             .unwrap(),
-            Value::test_list(vec![
-                Value::test_list(vec![
+            Value::test_list(list![
+                Value::test_list(list![
                     Value::test_record(record!(
                         "a" => Value::test_int(1),
                         "nuon" => Value::test_int(2),
@@ -328,7 +327,7 @@ mod tests {
         assert!(from_nuon(
             &to_nuon(
                 &engine_state,
-                &Value::test_list(vec![
+                &Value::test_list(list![
                     Value::test_record(record!(
                         "a" => Value::test_int(1),
                         "b" => Value::test_int(2),
@@ -369,7 +368,7 @@ mod tests {
     fn to_nuon_quotes_empty_string_in_list() {
         nuon_end_to_end(
             r#"[""]"#,
-            Some(Value::test_list(vec![Value::test_string("")])),
+            Some(Value::test_list(list![Value::test_string("")])),
         );
     }
 
@@ -377,7 +376,7 @@ mod tests {
     fn to_nuon_quotes_empty_string_in_table() {
         nuon_end_to_end(
             "[[a, b]; [\"\", la], [le, lu]]",
-            Some(Value::test_list(vec![
+            Some(Value::test_list(list![
                 Value::test_record(record!(
                     "a" => Value::test_string(""),
                     "b" => Value::test_string("la"),
@@ -411,7 +410,7 @@ mod tests {
         assert_eq!(
             to_nuon(
                 &engine_state,
-                &Value::test_list(vec![
+                &Value::test_list(list![
                     Value::test_record(record!(
                         "a" => Value::test_int(1),
                         "b" => Value::test_int(2),

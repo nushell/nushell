@@ -22,8 +22,8 @@ use nu_engine::{convert_env_values, exit::cleanup_exit};
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::Stack, record, report_shell_error, ByteStream, Config, IntoValue, PipelineData,
-    ShellError, Span, Spanned, Type, Value,
+    engine::Stack, list, record, report_shell_error, ByteStream, Config, IntoValue, List,
+    PipelineData, ShellError, Span, Spanned, Type, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -137,7 +137,7 @@ fn main() -> Result<()> {
     default_nu_lib_dirs_path.push("scripts");
     // env.NU_LIB_DIRS to be replaced by constant (below) - Eventual deprecation
     // but an empty list for now to allow older code to work
-    engine_state.add_env_var("NU_LIB_DIRS".to_string(), Value::test_list(vec![]));
+    engine_state.add_env_var("NU_LIB_DIRS".to_string(), Value::test_list(List::new()));
 
     let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
     let var_id = working_set.add_variable(
@@ -148,7 +148,7 @@ fn main() -> Result<()> {
     );
     working_set.set_variable_const_val(
         var_id,
-        Value::test_list(vec![
+        Value::test_list(list![
             Value::test_string(default_nu_lib_dirs_path.to_string_lossy()),
             Value::test_string(default_nushell_completions_path.to_string_lossy()),
         ]),
@@ -157,7 +157,7 @@ fn main() -> Result<()> {
 
     let mut default_nu_plugin_dirs_path = nushell_config_path;
     default_nu_plugin_dirs_path.push("plugins");
-    engine_state.add_env_var("NU_PLUGIN_DIRS".to_string(), Value::test_list(vec![]));
+    engine_state.add_env_var("NU_PLUGIN_DIRS".to_string(), Value::test_list(List::new()));
     let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
     let var_id = working_set.add_variable(
         b"$NU_PLUGIN_DIRS".into(),
@@ -167,7 +167,7 @@ fn main() -> Result<()> {
     );
     working_set.set_variable_const_val(
         var_id,
-        Value::test_list(vec![Value::test_string(
+        Value::test_list(list![Value::test_string(
             default_nu_plugin_dirs_path.to_string_lossy(),
         )]),
     );
@@ -284,7 +284,7 @@ fn main() -> Result<()> {
     start_time = std::time::Instant::now();
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
         let span = include_path.span;
-        let vals: Vec<_> = include_path
+        let vals = include_path
             .item
             .split('\x1e') // \x1e is the record separator character (a character that is unlikely to appear in a path)
             .map(|x| Value::string(x.trim().to_string(), span))
