@@ -1,9 +1,9 @@
+use crate::math::utils::ensure_bounded;
 use crate::math::utils::run_with_function;
 use nu_engine::command_prelude::*;
+use nu_protocol::Range;
 use std::{cmp::Ordering, collections::HashMap};
-use crate::math::utils::ensure_bounded;
- use nu_protocol::Range;
- 
+
 #[derive(Clone)]
 pub struct MathMode;
 
@@ -77,7 +77,14 @@ impl Command for MathMode {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        if let PipelineData::Value(Value::Range { ref val, internal_span }, ..) = input {
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
             match &**val {
                 Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
                 Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
@@ -93,7 +100,14 @@ impl Command for MathMode {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        if let PipelineData::Value(Value::Range { ref val, internal_span }, ..) = input {
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
             match &**val {
                 Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
                 Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,

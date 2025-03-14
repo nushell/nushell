@@ -1,5 +1,5 @@
-use nu_engine::command_prelude::*;
 use crate::math::utils::ensure_bounded;
+use nu_engine::command_prelude::*;
 use nu_protocol::Range;
 
 #[derive(Clone)]
@@ -48,7 +48,14 @@ impl Command for MathFloor {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-        if let PipelineData::Value(Value::Range { ref val, internal_span }, ..) = input {
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
             match &**val {
                 Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
                 Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
@@ -68,7 +75,14 @@ impl Command for MathFloor {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-        if let PipelineData::Value(Value::Range { ref val, internal_span }, ..) = input {
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
             match &**val {
                 Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
                 Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,

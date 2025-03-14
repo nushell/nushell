@@ -1,8 +1,8 @@
-use nu_engine::command_prelude::*;
-use nu_protocol::Signals;
 use crate::math::utils::ensure_bounded;
- use nu_protocol::Range;
- 
+use nu_engine::command_prelude::*;
+use nu_protocol::Range;
+use nu_protocol::Signals;
+
 #[derive(Clone)]
 pub struct MathLog;
 
@@ -51,7 +51,14 @@ impl Command for MathLog {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let base: Spanned<f64> = call.req(engine_state, stack, 0)?;
-        if let PipelineData::Value(Value::Range { ref val, internal_span }, ..) = input {
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
             match &**val {
                 Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
                 Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
@@ -68,7 +75,14 @@ impl Command for MathLog {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let base: Spanned<f64> = call.req_const(working_set, 0)?;
-        if let PipelineData::Value(Value::Range { ref val, internal_span }, ..) = input {
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
             match &**val {
                 Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
                 Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
