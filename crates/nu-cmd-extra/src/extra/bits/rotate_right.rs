@@ -98,14 +98,11 @@ impl Command for BitsRor {
             Example {
                 description: "rotate right a list of numbers of two bytes",
                 example: "[15 33 92] | bits ror 2 --number-bytes 2",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(49155),
-                        Value::test_int(16392),
-                        Value::test_int(23),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(49155),
+                    Value::test_int(16392),
+                    Value::test_int(23),
+                ])),
             },
             Example {
                 description: "rotate right binary data",

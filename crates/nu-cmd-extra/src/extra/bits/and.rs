@@ -98,7 +98,7 @@ impl Command for BitsAnd {
             Example {
                 description: "Apply bitwise and to a list of numbers",
                 example: "[4 3 2] | bits and 2",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(0),
                     Value::test_int(2),
                     Value::test_int(2),
@@ -107,7 +107,7 @@ impl Command for BitsAnd {
             Example {
                 description: "Apply bitwise and to a list of binary data",
                 example: "[0x[7f ff] 0x[ff f0]] | bits and 0x[99 99]",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_binary([0x19, 0x99]),
                     Value::test_binary([0x99, 0x90]),
                 ])),

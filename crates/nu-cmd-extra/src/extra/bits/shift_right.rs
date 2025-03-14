@@ -100,10 +100,11 @@ impl Command for BitsShr {
             Example {
                 description: "Shift right a list of numbers",
                 example: "[15 35 2] | bits shr 2",
-                result: Some(Value::list(
-                    vec![Value::test_int(3), Value::test_int(8), Value::test_int(0)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(3),
+                    Value::test_int(8),
+                    Value::test_int(0),
+                ])),
             },
             Example {
                 description: "Shift right a binary value",
