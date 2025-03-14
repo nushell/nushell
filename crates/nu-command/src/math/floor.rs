@@ -18,7 +18,7 @@ impl Command for MathFloor {
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Int)),
                 ),
-                (Type::Range, Type::Number),
+                (Type::Range, Type::List(Box::new(Type::Number))),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)
@@ -54,7 +54,6 @@ impl Command for MathFloor {
                 Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
             }
         }
-
         input.map(move |value| operate(value, head), engine_state.signals())
     }
 
@@ -75,7 +74,6 @@ impl Command for MathFloor {
                 Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
             }
         }
-
         input.map(
             move |value| operate(value, head),
             working_set.permanent().signals(),

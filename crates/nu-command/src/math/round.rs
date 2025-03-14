@@ -1,5 +1,7 @@
 use nu_engine::command_prelude::*;
-
+use crate::math::utils::ensure_bounded;
+ use nu_protocol::Range;
+ 
 #[derive(Clone)]
 pub struct MathRound;
 
@@ -16,7 +18,7 @@ impl Command for MathRound {
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Number)),
                 ),
-                (Type::Range, Type::Number),
+                (Type::Range, Type::List(Box::new(Type::Number))),
             ])
             .allow_variants_without_examples(true)
             .named(
@@ -53,6 +55,12 @@ impl Command for MathRound {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
+        if let PipelineData::Value(Value::Range { ref val, internal_span }, ..) = input {
+            match &**val {
+                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+            }
+        }
         input.map(
             move |value| operate(value, head, precision_param),
             engine_state.signals(),
@@ -70,6 +78,12 @@ impl Command for MathRound {
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        if let PipelineData::Value(Value::Range { ref val, internal_span }, ..) = input {
+            match &**val {
+                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+            }
         }
         input.map(
             move |value| operate(value, head, precision_param),
