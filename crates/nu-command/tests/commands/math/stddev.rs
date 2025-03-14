@@ -7,16 +7,8 @@ fn const_avg() {
 }
 
 #[test]
-fn can_stddev_range() {
+fn cannot_stddev_range() {
     let actual = nu!("0..5 | math stddev");
-    let expected = nu!("[0 1 2 3 4 5] | math stddev");
 
-    assert_eq!(actual.out, expected.out);
-}
-
-#[test]
-fn cannot_stddev_infinite_range() {
-    let actual = nu!("0.. | math abs");
-
-    assert!(actual.err.contains("nu::shell::incorrect_value"));
+    assert!(actual.err.contains("nu::parser::input_type_mismatch"));
 }
