@@ -7,7 +7,7 @@ fn const_abs() {
 }
 
 #[test]
-fn can_abs_range() {
+fn can_abs_range_into_list() {
     let actual = nu!("-1.5..-10.5 | math abs");
     let expected = nu!("1.5..10.5");
 

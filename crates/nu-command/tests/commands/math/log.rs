@@ -7,7 +7,7 @@ fn const_log() {
 }
 
 #[test]
-fn can_log_range() {
+fn can_log_range_into_list() {
     let actual = nu!("1..5 | math log 2");
     let expected = nu!("[1 2 3 4 5] | math log 2");
 

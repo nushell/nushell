@@ -7,7 +7,7 @@ fn const_ceil() {
 }
 
 #[test]
-fn can_ceil_range() {
+fn can_ceil_range_into_list() {
     let actual = nu!("(1.8)..(1.9)..(2.2) | math ceil");
     let expected = nu!("[2 2 2 3 3]");
 

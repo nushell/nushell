@@ -7,7 +7,7 @@ fn const_variance() {
 }
 
 #[test]
-fn can_variance_range() {
+fn can_variance_range_into_list() {
     let actual = nu!("0..5 | math variance");
     let expected = nu!("[0 1 2 3 4 5] | math variance");
 
