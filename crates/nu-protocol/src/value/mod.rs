@@ -121,7 +121,7 @@ pub enum Value {
         internal_span: Span,
     },
     List {
-        vals: Vec<Value>,
+        vals: List,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -560,7 +560,7 @@ impl Value {
     }
 
     /// Unwraps the inner list `Vec` or returns an error if this `Value` is not a list
-    pub fn into_list(self) -> Result<Vec<Value>, ShellError> {
+    pub fn into_list(self) -> Result<List, ShellError> {
         if let Value::List { vals, .. } = self {
             Ok(vals)
         } else {
@@ -893,7 +893,7 @@ impl Value {
                             .and_then(|val| val.get(name).cloned())
                             .unwrap_or(Value::nothing(span))
                     })
-                    .collect::<Vec<_>>();
+                    .collect::<List>();
 
                 if !out.is_empty() {
                     Some(Value::list(out, span))
@@ -1098,12 +1098,9 @@ impl Value {
                 } => {
                     // Treat a numeric path member as `select <val>`
                     match current {
-                        Value::List { mut vals, .. } => {
-                            if *count < vals.len() {
-                                // `vals` is owned and will be dropped right after this,
-                                // so we can `swap_remove` the value at index `count`
-                                // without worrying about preserving order.
-                                current = vals.swap_remove(*count);
+                        Value::List { vals, .. } => {
+                            if let Some(val) = vals.get(*count) {
+                                current = val.clone();
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if vals.is_empty() {
@@ -1333,7 +1330,7 @@ impl Value {
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
-                        for val in vals.iter_mut() {
+                        for val in vals.make_mut() {
                             match val {
                                 Value::Record { val: record, .. } => {
                                     let record = record.to_mut();
@@ -1378,7 +1375,7 @@ impl Value {
                     val: row_num, span, ..
                 } => match self {
                     Value::List { vals, .. } => {
-                        if let Some(v) = vals.get_mut(*row_num) {
+                        if let Some(v) = vals.make_mut().get_mut(*row_num) {
                             v.upsert_data_at_cell_path(path, new_val)?;
                         } else if vals.len() != *row_num {
                             return Err(ShellError::InsertAfterNextFreeIndex {
@@ -1435,7 +1432,7 @@ impl Value {
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
-                        for val in vals.iter_mut() {
+                        for val in vals.make_mut() {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
@@ -1484,7 +1481,7 @@ impl Value {
                     val: row_num, span, ..
                 } => match self {
                     Value::List { vals, .. } => {
-                        if let Some(v) = vals.get_mut(*row_num) {
+                        if let Some(v) = vals.make_mut().get_mut(*row_num) {
                             v.update_data_at_cell_path(path, new_val)?;
                         } else if vals.is_empty() {
                             return Err(ShellError::AccessEmptyContent { span: *span });
@@ -1522,7 +1519,7 @@ impl Value {
                         optional,
                     } => match self {
                         Value::List { vals, .. } => {
-                            for val in vals.iter_mut() {
+                            for val in vals.make_mut() {
                                 let v_span = val.span();
                                 match val {
                                     Value::Record { val: record, .. } => {
@@ -1566,21 +1563,21 @@ impl Value {
                         span,
                         optional,
                     } => match self {
-                        Value::List { vals, .. } => {
-                            if vals.get_mut(*row_num).is_some() {
-                                vals.remove(*row_num);
-                                Ok(())
-                            } else if *optional {
-                                Ok(())
-                            } else if vals.is_empty() {
-                                Err(ShellError::AccessEmptyContent { span: *span })
-                            } else {
-                                Err(ShellError::AccessBeyondEnd {
-                                    max_idx: vals.len() - 1,
-                                    span: *span,
-                                })
+                        Value::List { vals, .. } => match vals.remove(*row_num) {
+                            Ok(_) => Ok(()),
+                            Err(_) => {
+                                if *optional {
+                                    Ok(())
+                                } else if vals.is_empty() {
+                                    Err(ShellError::AccessEmptyContent { span: *span })
+                                } else {
+                                    Err(ShellError::AccessBeyondEnd {
+                                        max_idx: vals.len() - 1,
+                                        span: *span,
+                                    })
+                                }
                             }
-                        }
+                        },
                         v => Err(ShellError::NotAList {
                             dst_span: *span,
                             src_span: v.span(),
@@ -1597,7 +1594,7 @@ impl Value {
                         optional,
                     } => match self {
                         Value::List { vals, .. } => {
-                            for val in vals.iter_mut() {
+                            for val in vals.make_mut() {
                                 let v_span = val.span();
                                 match val {
                                     Value::Record { val: record, .. } => {
@@ -1646,7 +1643,7 @@ impl Value {
                         optional,
                     } => match self {
                         Value::List { vals, .. } => {
-                            if let Some(v) = vals.get_mut(*row_num) {
+                            if let Some(v) = vals.make_mut().get_mut(*row_num) {
                                 v.remove_data_at_cell_path(path)
                             } else if *optional {
                                 Ok(())
@@ -1683,7 +1680,7 @@ impl Value {
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
-                        for val in vals.iter_mut() {
+                        for val in vals.make_mut() {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
@@ -1750,9 +1747,10 @@ impl Value {
                     val: row_num, span, ..
                 } => match self {
                     Value::List { vals, .. } => {
-                        if let Some(v) = vals.get_mut(*row_num) {
+                        if let Some(v) = vals.make_mut().get_mut(*row_num) {
                             if path.is_empty() {
-                                vals.insert(*row_num, new_val);
+                                vals.insert(*row_num, new_val)
+                                    .expect("row_num is in bounds");
                             } else {
                                 v.insert_data_at_cell_path(path, new_val, head_span)?;
                             }
@@ -1794,7 +1792,7 @@ impl Value {
                 PathMember::Int { val, .. } => {
                     if *val == 0usize {
                         Ok(Value::list(
-                            vec![Value::with_data_at_cell_path(path, value)?],
+                            crate::list![Value::with_data_at_cell_path(path, value)?],
                             span,
                         ))
                     } else {
@@ -1828,7 +1826,8 @@ impl Value {
                 .to_mut()
                 .iter_mut()
                 .try_for_each(|(_, rec_value)| rec_value.recurse_mut(f)),
-            Value::List { ref mut vals, .. } => vals
+            Value::List { vals, .. } => vals
+                .make_mut()
                 .iter_mut()
                 .try_for_each(|list_value| list_value.recurse_mut(f)),
             // Closure captures are visited. Maybe these don't have to be if they are changed to
@@ -1965,7 +1964,7 @@ impl Value {
         }
     }
 
-    pub fn list(vals: Vec<Value>, span: Span) -> Value {
+    pub fn list(vals: List, span: Span) -> Value {
         Value::List {
             vals,
             internal_span: span,
@@ -2076,7 +2075,7 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_list(vals: Vec<Value>) -> Value {
+    pub fn test_list(vals: List) -> Value {
         Value::list(vals, Span::test_data())
     }
 
@@ -2130,7 +2129,7 @@ impl Value {
             Value::test_float(0.0),
             Value::test_string(String::new()),
             Value::test_record(Record::new()),
-            Value::test_list(Vec::new()),
+            Value::test_list(List::new()),
             Value::test_closure(Closure {
                 block_id: BlockId::new(0),
                 captures: Vec::new(),
@@ -3280,7 +3279,10 @@ impl Value {
     pub fn concat(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => {
-                Ok(Value::list([lhs.as_slice(), rhs.as_slice()].concat(), span))
+                let mut list = List::with_capacity(lhs.len() + rhs.len());
+                list.extend_from_slice(lhs);
+                list.extend_from_slice(rhs);
+                Ok(list.into_value(span))
             }
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
                 Ok(Value::string([lhs.as_str(), rhs.as_str()].join(""), span))
@@ -4021,8 +4023,7 @@ fn operator_type_error(
 
 #[cfg(test)]
 mod tests {
-    use super::{Record, Value};
-    use crate::record;
+    use crate::{list, record, List, Record, Value};
 
     mod at_cell_path {
         use crate::{IntoValue, Span};
@@ -4072,8 +4073,8 @@ mod tests {
                     value_to_insert.clone(),
                 ),
                 // [[[[["value"]]]]]
-                Ok(Value::test_list(vec![Value::test_list(vec![
-                    Value::test_list(vec![Value::test_list(vec![value_to_insert])])
+                Ok(Value::test_list(list![Value::test_list(list![
+                    Value::test_list(list![Value::test_list(list![value_to_insert])])
                 ])]))
             );
         }
@@ -4097,10 +4098,10 @@ mod tests {
                 ),
                 // [{a:[{b:[{c:[{d:["value"]}]}]}]]}
                 Ok(record!(
-                    "a" => Value::test_list(vec![record!(
-                        "b" => Value::test_list(vec![record!(
-                            "c" => Value::test_list(vec![record!(
-                                "d" => Value::test_list(vec![value_to_insert])
+                    "a" => Value::test_list(list![record!(
+                        "b" => Value::test_list(list![record!(
+                            "c" => Value::test_list(list![record!(
+                                "d" => Value::test_list(list![value_to_insert])
                             ).into_value(span)])
                         ).into_value(span)])
                     ).into_value(span)])
@@ -4113,7 +4114,7 @@ mod tests {
         fn test_nested_upsert_data_at_cell_path() {
             let span = Span::test_data();
             let mut base_value = record!(
-                "a" => Value::test_list(vec![])
+                "a" => Value::test_list(List::new())
             )
             .into_value(span);
 
@@ -4132,9 +4133,9 @@ mod tests {
                 base_value,
                 // {a:[{b:["value"]}]}
                 record!(
-                    "a" => Value::test_list(vec![
+                    "a" => Value::test_list(list![
                         record!(
-                            "b" => Value::test_list(vec![value_to_insert])
+                            "b" => Value::test_list(list![value_to_insert])
                         )
                         .into_value(span)
                     ])
@@ -4147,7 +4148,7 @@ mod tests {
         fn test_nested_insert_data_at_cell_path() {
             let span = Span::test_data();
             let mut base_value = record!(
-                "a" => Value::test_list(vec![])
+                "a" => Value::test_list(List::new())
             )
             .into_value(span);
 
@@ -4167,9 +4168,9 @@ mod tests {
                 base_value,
                 // {a:[{b:["value"]}]}
                 record!(
-                    "a" => Value::test_list(vec![
+                    "a" => Value::test_list(list![
                         record!(
-                            "b" => Value::test_list(vec![value_to_insert])
+                            "b" => Value::test_list(list![value_to_insert])
                         )
                         .into_value(span)
                     ])
@@ -4190,8 +4191,8 @@ mod tests {
 
         #[test]
         fn test_list() {
-            let list_with_no_values = Value::test_list(vec![]);
-            let list_with_one_empty_string = Value::test_list(vec![Value::test_string("")]);
+            let list_with_no_values = Value::test_list(List::new());
+            let list_with_one_empty_string = Value::test_list(list![Value::test_string("")]);
 
             assert!(list_with_no_values.is_empty());
             assert!(!list_with_one_empty_string.is_empty());
@@ -4229,11 +4230,11 @@ mod tests {
 
         #[test]
         fn test_list() {
-            let list_of_ints = Value::test_list(vec![Value::test_int(0)]);
-            let list_of_floats = Value::test_list(vec![Value::test_float(0.0)]);
+            let list_of_ints = Value::test_list(list![Value::test_int(0)]);
+            let list_of_floats = Value::test_list(list![Value::test_float(0.0)]);
             let list_of_ints_and_floats =
-                Value::test_list(vec![Value::test_int(0), Value::test_float(0.0)]);
-            let list_of_ints_and_floats_and_bools = Value::test_list(vec![
+                Value::test_list(list![Value::test_int(0), Value::test_float(0.0)]);
+            let list_of_ints_and_floats_and_bools = Value::test_list(list![
                 Value::test_int(0),
                 Value::test_float(0.0),
                 Value::test_bool(false),
@@ -4267,7 +4268,7 @@ mod tests {
             let ty_any_list = Type::list(Type::Any);
             let ty_list_list_int = Type::list(Type::list(Type::Int));
 
-            let list = Value::test_list(vec![
+            let list = Value::test_list(list![
                 Value::test_int(1),
                 Value::test_int(2),
                 Value::test_int(3),
@@ -4277,7 +4278,7 @@ mod tests {
             assert_subtype_equivalent(&list, &ty_str_list);
             assert_subtype_equivalent(&list, &ty_any_list);
 
-            let list = Value::test_list(vec![
+            let list = Value::test_list(list![
                 Value::test_int(1),
                 Value::test_string("hi"),
                 Value::test_int(3),
@@ -4287,7 +4288,7 @@ mod tests {
             assert_subtype_equivalent(&list, &ty_str_list);
             assert_subtype_equivalent(&list, &ty_any_list);
 
-            let list = Value::test_list(vec![Value::test_list(vec![Value::test_int(1)])]);
+            let list = Value::test_list(list![Value::test_list(list![Value::test_int(1)])]);
 
             assert_subtype_equivalent(&list, &ty_list_list_int);
 
@@ -4297,7 +4298,7 @@ mod tests {
                 ("b".into(), Type::Int),
                 ("c".into(), Type::Int),
             ]));
-            let empty = Value::test_list(vec![]);
+            let empty = Value::test_list(List::new());
 
             assert_subtype_equivalent(&empty, &ty_any_list);
             assert!(empty.is_subtype_of(&ty_int_list));
@@ -4355,8 +4356,8 @@ mod tests {
                 "b" => Value::test_int(2),
             });
 
-            let table_abc = Value::test_list(vec![record_abc.clone(), record_abc.clone()]);
-            let table_ab = Value::test_list(vec![record_ab.clone(), record_ab.clone()]);
+            let table_abc = Value::test_list(list![record_abc.clone(), record_abc.clone()]);
+            let table_ab = Value::test_list(list![record_ab.clone(), record_ab.clone()]);
 
             assert_subtype_equivalent(&table_abc, &ty_abc);
             assert_subtype_equivalent(&table_abc, &ty_ab);
@@ -4364,12 +4365,12 @@ mod tests {
             assert_subtype_equivalent(&table_ab, &ty_ab);
             assert_subtype_equivalent(&table_abc, &ty_list_any);
 
-            let table_mixed = Value::test_list(vec![record_abc.clone(), record_ab.clone()]);
+            let table_mixed = Value::test_list(list![record_abc.clone(), record_ab.clone()]);
             assert_subtype_equivalent(&table_mixed, &ty_abc);
             assert!(table_mixed.is_subtype_of(&ty_ab));
 
             let ty_a = Type::Table(Box::new([("a".into(), Type::Any)]));
-            let table_mixed_types = Value::test_list(vec![
+            let table_mixed_types = Value::test_list(list![
                 Value::test_record(record! {
                     "a" => Value::test_int(1),
                 }),
@@ -4438,7 +4439,7 @@ mod tests {
 
         // complex values returning None
         assert!(Value::test_record(Record::default()).coerce_bool().is_err());
-        assert!(Value::test_list(vec![Value::test_int(1)])
+        assert!(Value::test_list(list![Value::test_int(1)])
             .coerce_bool()
             .is_err());
         assert!(Value::test_date(

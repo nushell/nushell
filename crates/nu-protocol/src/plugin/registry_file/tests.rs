@@ -1,7 +1,7 @@
 use super::{PluginRegistryFile, PluginRegistryItem, PluginRegistryItemData};
 use crate::{
-    Category, PluginExample, PluginMetadata, PluginSignature, ShellError, Signature, SyntaxShape,
-    Type, Value,
+    list, Category, PluginExample, PluginMetadata, PluginSignature, ShellError, Signature,
+    SyntaxShape, Type, Value,
 };
 use pretty_assertions::assert_eq;
 use std::io::Cursor;
@@ -22,7 +22,7 @@ fn foo_plugin() -> PluginRegistryItem {
                 examples: vec![PluginExample {
                     example: "16 | foo".into(),
                     description: "powers of two up to 16".into(),
-                    result: Some(Value::test_list(vec![
+                    result: Some(Value::test_list(list![
                         Value::test_int(2),
                         Value::test_int(4),
                         Value::test_int(8),

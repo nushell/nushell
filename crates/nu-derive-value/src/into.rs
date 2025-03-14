@@ -282,7 +282,7 @@ fn fields_return_value(
                     |(_, accessor)| quote!(nu_protocol::IntoValue::into_value(#accessor, span)),
                 );
             Ok(quote!(nu_protocol::Value::list(
-                std::vec![#(#items),*],
+                nu_protocol::list![#(#items),*],
                 span
             )))
         }
