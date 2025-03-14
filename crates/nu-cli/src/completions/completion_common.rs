@@ -292,14 +292,15 @@ pub fn escape_path(path: String) -> String {
         return if path.contains('\'') {
             // decide to use double quote, also need to escape `"` in path
             // or else users can't do anything with completed path either.
-            format!("\"{}\"", path.replace('"', r#"\""#))
+            format!("{:?}", path)
         } else {
             format!("'{path}'")
         };
     }
 
     if path.contains('`') {
-        format!("\"{}\"", path.replace('"', r#"\""#))
+        let path = std::path::Path::new(&path);
+        format!("{:?}", path)
     } else {
         let contaminated =
             path.contains(['\'', '"', ' ', '#', '(', ')', '{', '}', '[', ']', '|', ';']);
