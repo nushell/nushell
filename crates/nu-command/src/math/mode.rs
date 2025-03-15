@@ -1,7 +1,5 @@
-use crate::math::utils::ensure_bounded;
 use crate::math::utils::run_with_function;
 use nu_engine::command_prelude::*;
-use nu_protocol::Range;
 use std::{cmp::Ordering, collections::HashMap};
 
 #[derive(Clone)]
@@ -50,7 +48,6 @@ impl Command for MathMode {
                     Type::List(Box::new(Type::Filesize)),
                     Type::List(Box::new(Type::Filesize)),
                 ),
-                (Type::Range, Type::List(Box::new(Type::Number))),
                 (Type::table(), Type::record()),
             ])
             .allow_variants_without_examples(true)
@@ -76,20 +73,6 @@ impl Command for MathMode {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
-        if let PipelineData::Value(
-            Value::Range {
-                ref val,
-                internal_span,
-            },
-            ..,
-        ) = input
-        {
-            match &**val {
-                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-            }
-        }
         run_with_function(call, input, mode)
     }
 
@@ -99,20 +82,6 @@ impl Command for MathMode {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
-        if let PipelineData::Value(
-            Value::Range {
-                ref val,
-                internal_span,
-            },
-            ..,
-        ) = input
-        {
-            match &**val {
-                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-            }
-        }
         run_with_function(call, input, mode)
     }
 
@@ -141,7 +110,7 @@ impl Command for MathMode {
     }
 }
 
-pub fn mode(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellError> {
     //In e-q, Value doesn't implement Hash or Eq, so we have to get the values inside
     // But f64 doesn't implement Hash, so we get the binary representation to use as
     // key in the HashMap
@@ -161,11 +130,11 @@ pub fn mode(values: &[Value], span: Span, head: Span) -> Result<Value, ShellErro
                 NumberTypes::Filesize,
             )),
             Value::Error { error, .. } => Err(*error.clone()),
-            _ => Err(ShellError::UnsupportedInput {
+            other => Err(ShellError::UnsupportedInput {
                 msg: "Unable to give a result with this input".to_string(),
                 input: "value originates from here".into(),
                 msg_span: head,
-                input_span: span,
+                input_span: other.span(),
             }),
         })
         .collect::<Result<Vec<HashableType>, ShellError>>()?;

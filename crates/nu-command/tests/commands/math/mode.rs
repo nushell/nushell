@@ -7,16 +7,8 @@ fn const_avg() {
 }
 
 #[test]
-fn can_mode_range_into_list() {
+fn cannot_mode_range() {
     let actual = nu!("0..5 | math mode");
-    let expected = nu!("[0 1 2 3 4 5] | math mode");
 
-    assert_eq!(actual.out, expected.out);
-}
-
-#[test]
-fn cannot_mode_infinite_range() {
-    let actual = nu!("0.. | math mode");
-
-    assert!(actual.err.contains("nu::shell::incorrect_value"));
+    assert!(actual.err.contains("nu::parser::input_type_mismatch"));
 }
