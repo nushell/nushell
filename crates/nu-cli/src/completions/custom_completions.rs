@@ -42,8 +42,10 @@ impl<T: Completer> Completer for CustomCompletion<T> {
     ) -> Vec<SemanticSuggestion> {
         // Call custom declaration
         let mut stack_mut = stack.clone();
+        let mut engine_state = working_set.permanent_state.clone();
+        let _ = engine_state.merge_delta(working_set.delta.clone());
         let result = eval_call::<WithoutDebug>(
-            working_set.permanent_state,
+            &engine_state,
             &mut stack_mut,
             &Call {
                 decl_id: self.decl_id,
