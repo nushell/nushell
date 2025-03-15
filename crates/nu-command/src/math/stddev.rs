@@ -58,13 +58,12 @@ impl Command for MathStddev {
         let span = input.span().unwrap_or(name);
         let input: PipelineData = match input.try_expand_range() {
             Err(_) => {
-                let span = span;
                 return Err(ShellError::IncorrectValue {
                     msg: "Range must be bounded".to_string(),
                     val_span: span,
                     call_span: name,
-                })
-            },
+                });
+            }
             Ok(val) => val,
         };
         run_with_function(call, input, compute_stddev(sample))
@@ -81,13 +80,12 @@ impl Command for MathStddev {
         let span = input.span().unwrap_or(name);
         let input: PipelineData = match input.try_expand_range() {
             Err(_) => {
-                let span = span;
                 return Err(ShellError::IncorrectValue {
                     msg: "Range must be bounded".to_string(),
                     val_span: span,
                     call_span: name,
-                })
-            },
+                });
+            }
             Ok(val) => val,
         };
         run_with_function(call, input, compute_stddev(sample))
