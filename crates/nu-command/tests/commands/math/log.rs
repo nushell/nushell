@@ -16,7 +16,7 @@ fn can_log_range_into_list() {
 
 #[test]
 fn cannot_log_infinite_range() {
-    let actual = nu!("1.. | math log");
+    let actual = nu!("1.. | math log 2");
 
     assert!(actual.err.contains("nu::shell::incorrect_value"));
 }

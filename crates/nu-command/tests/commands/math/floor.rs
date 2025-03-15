@@ -8,8 +8,8 @@ fn const_floor() {
 
 #[test]
 fn can_floor_range_into_list() {
-    let actual = nu!("(1.8)..(1.9)..(2.2) | math floor");
-    let expected = nu!("[1 1 2 2 2]");
+    let actual = nu!("(1.8)..(3.8) | math floor");
+    let expected = nu!("[1 2 3]");
 
     assert_eq!(actual.out, expected.out);
 }
