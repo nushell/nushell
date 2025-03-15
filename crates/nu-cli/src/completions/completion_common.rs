@@ -276,7 +276,7 @@ pub fn complete_item(
         });
         FileSuggestion {
             span,
-            path: escape_path(path, want_directory),
+            path: escape_path(path),
             style,
             is_dir,
         }
@@ -285,30 +285,30 @@ pub fn complete_item(
 }
 
 // Fix files or folders with quotes or hashes
-pub fn escape_path(path: String, dir: bool) -> String {
+pub fn escape_path(path: String) -> String {
     // make glob pattern have the highest priority.
-    if nu_glob::is_glob(path.as_str()) {
+    if nu_glob::is_glob(path.as_str()) || path.contains('`') {
+        // expand home `~` for https://github.com/nushell/nushell/issues/13905
         let pathbuf = nu_path::expand_tilde(path);
         let path = pathbuf.to_string_lossy();
-        return if path.contains('\'') {
-            // decide to use double quote, also need to escape `"` in path
-            // or else users can't do anything with completed path either.
-            format!("\"{}\"", path.replace('"', r#"\""#))
+        if path.contains('\'') {
+            // decide to use double quotes
+            // Path as Debug will do the escaping for `"`, `\`
+            format!("{:?}", path)
         } else {
             format!("'{path}'")
-        };
-    }
-
-    let filename_contaminated = !dir && path.contains(['\'', '"', ' ', '#', '(', ')']);
-    let dirname_contaminated = dir && path.contains(['\'', '"', ' ', '#']);
-    let maybe_flag = path.starts_with('-');
-    let maybe_variable = path.starts_with('$');
-    let maybe_number = path.parse::<f64>().is_ok();
-    if filename_contaminated || dirname_contaminated || maybe_flag || maybe_variable || maybe_number
-    {
-        format!("`{path}`")
+        }
     } else {
-        path
+        let contaminated =
+            path.contains(['\'', '"', ' ', '#', '(', ')', '{', '}', '[', ']', '|', ';']);
+        let maybe_flag = path.starts_with('-');
+        let maybe_variable = path.starts_with('$');
+        let maybe_number = path.parse::<f64>().is_ok();
+        if contaminated || maybe_flag || maybe_variable || maybe_number {
+            format!("`{path}`")
+        } else {
+            path
+        }
     }
 }
 

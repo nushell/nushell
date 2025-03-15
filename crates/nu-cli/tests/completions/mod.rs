@@ -896,6 +896,7 @@ fn partial_completions() {
         folder(dir.join("partial-a")),
         folder(dir.join("partial-b")),
         folder(dir.join("partial-c")),
+        format!("`{}`", folder(dir.join("partial-d("))),
     ];
 
     // Match the results
@@ -938,6 +939,7 @@ fn partial_completions() {
         file(dir.join("partial-b").join("hello_b")),
         file(dir.join("partial-b").join("hi_b")),
         file(dir.join("partial-c").join("hello_c")),
+        format!("`{}`", file(dir.join("partial-d(").join(".gitkeep"))),
     ];
 
     // Match the results
@@ -984,6 +986,15 @@ fn partial_completions() {
                 .join("..")
                 .join("final_partial")
                 .join("somefile"),
+        ),
+        format!(
+            "`{}`",
+            file(
+                dir.join("partial-d(")
+                    .join("..")
+                    .join("final_partial")
+                    .join("somefile"),
+            )
         ),
     ];
 
@@ -1064,6 +1075,16 @@ fn partial_completion_with_dot_expansions() {
                 .join("partial_completions")
                 .join("final_partial")
                 .join("somefile"),
+        ),
+        format!(
+            "`{}`",
+            file(
+                dir.join("partial-d(")
+                    .join("...")
+                    .join("partial_completions")
+                    .join("final_partial")
+                    .join("somefile"),
+            )
         ),
     ];
 
@@ -1389,6 +1410,9 @@ fn file_completion_quoted() {
         "`-inf`",
         "`4.2`",
         "\'[a] bc.txt\'",
+        "`curly-bracket_{.txt`",
+        "`semicolon_;.txt`",
+        "'square-bracket_[.txt'",
         "`te st.txt`",
         "`te#st.txt`",
         "`te'st.txt`",
