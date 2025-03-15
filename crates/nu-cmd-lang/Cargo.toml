@@ -42,7 +42,6 @@ plugin = [
   "os",
 ]
 
-mimalloc = []
 trash-support = []
 sqlite = []
 static-link-openssl = []
