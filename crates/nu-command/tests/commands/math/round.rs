@@ -42,7 +42,7 @@ fn const_round() {
 }
 
 #[test]
-fn can_round_range() {
+fn can_round_range_into_list() {
     let actual = nu!("(1.0)..(1.2)..(2.0) | math round");
     let expected = nu!("[1 1 1 2 2 2]");
 

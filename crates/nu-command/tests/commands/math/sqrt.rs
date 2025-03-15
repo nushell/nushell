@@ -28,7 +28,7 @@ fn const_sqrt() {
 }
 
 #[test]
-fn can_sqrt_range_into_list() {
+fn can_sqrt_range() {
     let actual = nu!("0..5 | math sqrt");
     let expected = nu!("[0 1 2 3 4 5] | math sqrt");
 
