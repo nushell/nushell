@@ -689,7 +689,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.11.0",
+ "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "regex",
@@ -4130,7 +4130,7 @@ dependencies = [
  "polars-plan",
  "polars-utils",
  "serde",
- "sqlparser",
+ "sqlparser 0.55.0",
  "tempfile",
  "tokio",
  "typetag",
@@ -5295,7 +5295,7 @@ dependencies = [
  "rand",
  "regex",
  "serde",
- "sqlparser",
+ "sqlparser 0.53.0",
 ]
 
 [[package]]
@@ -6727,6 +6727,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sqlparser"
+version = "0.55.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4521174166bac1ff04fe16ef4524c70144cd29682a45978978ca3d7f4e0be11"
+dependencies = [
+ "log",
+ "recursive",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8057,7 +8067,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
