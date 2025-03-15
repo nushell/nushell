@@ -292,7 +292,7 @@ pub fn escape_path(path: String) -> String {
         let path = pathbuf.to_string_lossy();
         if path.contains('\'') {
             // decide to use double quotes
-            // std::path::Path::display will do the escaping for `"`, `\`
+            // Path as Debug will do the escaping for `"`, `\`
             format!("{:?}", path)
         } else {
             format!("'{path}'")
