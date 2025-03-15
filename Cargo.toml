@@ -220,7 +220,6 @@ ctrlc = { workspace = true }
 dirs = { workspace = true }
 log = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
-mimalloc = { version = "0.1.42", default-features = false, optional = true }
 multipart-rs = { workspace = true }
 serde_json = { workspace = true }
 simplelog = "0.12"
@@ -274,7 +273,6 @@ default = [
   "plugin",
   "trash-support",
   "sqlite",
-  "mimalloc",
 ]
 stable = ["default"]
 # NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command
@@ -283,7 +281,6 @@ stable = ["default"]
 # otherwise the system version will be used. Not enabled by default because it takes a while to build
 static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
 
-mimalloc = ["nu-cmd-lang/mimalloc", "dep:mimalloc"]
 # Optional system clipboard support in `reedline`, this behavior has problematic compatibility with some systems.
 # Missing X server/ Wayland can cause issues
 system-clipboard = [

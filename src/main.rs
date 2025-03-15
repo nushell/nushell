@@ -9,10 +9,6 @@ mod signals;
 mod terminal;
 mod test_bins;
 
-#[cfg(feature = "mimalloc")]
-#[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
 use crate::{
     command::parse_commandline_args,
     config_files::set_config_path,
