@@ -17,8 +17,8 @@ impl Command for FromXml {
             .input_output_types(vec![(Type::String, Type::record())])
             .switch("keep-comments", "add comment nodes to result", None)
             .switch(
-                "disallow-dtd",
-                "disallow parsing documents with DTDs (prevents exponential entity expansion attacks)",
+                "allow-dtd",
+                "allow parsing documents with DTDs (may result in exponential entity expansion)",
                 None,
             )
             .switch(
@@ -55,7 +55,7 @@ string. This way content of every tag is always a table and is easier to parse"#
         let head = call.head;
         let keep_comments = call.has_flag(engine_state, stack, "keep-comments")?;
         let keep_processing_instructions = call.has_flag(engine_state, stack, "keep-pi")?;
-        let allow_dtd = !call.has_flag(engine_state, stack, "disallow-dtd")?;
+        let allow_dtd = call.has_flag(engine_state, stack, "allow-dtd")?;
         let info = ParsingInfo {
             span: head,
             keep_comments,
@@ -278,7 +278,7 @@ fn process_xml_parse_error(source: String, err: roxmltree::Error, span: Span) ->
             make_xml_error("The root node was opened but never closed.", span)
         }
         roxmltree::Error::DtdDetected => make_xml_error(
-            "XML document with DTD detected.",
+            "XML document with DTD detected.\nDTDs are disabled by default to prevent denial-of-serivce attacks (use --allow-dtd to parse anyway)",
             span
         ),
         roxmltree::Error::NodesLimitReached => {
