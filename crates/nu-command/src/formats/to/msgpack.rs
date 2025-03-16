@@ -251,22 +251,10 @@ pub(crate) fn write_value(
         }
         Value::Closure { val, .. } => {
             if serialize_types {
-                let block = engine_state.get_block(val.block_id);
-                let closure_string: &str = if let Some(span) = block.span {
-                    let contents_bytes = engine_state.get_span_contents(span);
-                    &String::from_utf8_lossy(contents_bytes)
-                } else {
-                    return Err(WriteError::Shell(Box::new(ShellError::CantConvert {
-                        to_type: "string".into(),
-                        from_type: "closure".into(),
-                        span,
-                        help: Some(format!(
-                            "unable to retrieve block contents for closure with id {}",
-                            val.block_id.get()
-                        )),
-                    })));
-                };
-                mp::write_str(out, closure_string).err_span(span)?;
+                let closure_string = val
+                    .coerce_into_string(&engine_state, span)
+                    .map_err(|err| WriteError::Shell(Box::new(err)))?;
+                mp::write_str(out, &closure_string).err_span(span)?;
             } else {
                 return Err(WriteError::Shell(Box::new(ShellError::UnsupportedInput {
                     msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),

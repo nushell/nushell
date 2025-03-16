@@ -144,22 +144,8 @@ pub fn value_to_json_value(
         Value::Error { error, .. } => return Err(*error.clone()),
         Value::Closure { val, .. } => {
             if serialize_types {
-                let block = engine_state.get_block(val.block_id);
-                if let Some(span) = block.span {
-                    let contents_bytes = engine_state.get_span_contents(span);
-                    let contents_string = String::from_utf8_lossy(contents_bytes);
-                    nu_json::Value::String(contents_string.to_string())
-                } else {
-                    return Err(ShellError::CantConvert {
-                        to_type: "string".into(),
-                        from_type: "closure".into(),
-                        span,
-                        help: Some(format!(
-                            "unable to retrieve block contents for closure with id {}",
-                            val.block_id.get()
-                        )),
-                    });
-                }
+                let closure_string = val.coerce_into_string(&engine_state, span)?;
+                nu_json::Value::String(closure_string.to_string())
             } else {
                 return Err(ShellError::UnsupportedInput {
                     msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
