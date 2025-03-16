@@ -927,8 +927,9 @@ mod windows_helper {
             ) {
                 Ok(handle) => {
                     // Don't forget to close the Find handle
-                    // WIN32_FIND_DATAW is a pure data struct so we can let our find_data outlive the
-                    // handle.
+                    // https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-findfirstfilew#remarks
+                    // Assumption: WIN32_FIND_DATAW is a pure data struct, so we can let our
+                    // find_data outlive the handle.
                     let _ = FindClose(handle);
                     Ok(find_data)
                 }
