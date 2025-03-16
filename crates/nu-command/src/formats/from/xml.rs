@@ -278,7 +278,7 @@ fn process_xml_parse_error(source: String, err: roxmltree::Error, span: Span) ->
             make_xml_error("The root node was opened but never closed.", span)
         }
         roxmltree::Error::DtdDetected => make_xml_error(
-            "XML document with DTD detected.\nDTDs are disabled by default to prevent denial-of-serivce attacks (use --allow-dtd to parse anyway)",
+            "XML document with DTD detected.\nDTDs are disabled by default to prevent denial-of-service attacks (use --allow-dtd to parse anyway)",
             span
         ),
         roxmltree::Error::NodesLimitReached => {
