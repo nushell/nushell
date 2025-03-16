@@ -99,17 +99,10 @@ fn value_to_string(
         }
         Value::Closure { val, .. } => {
             if serialize_types {
-                let block = engine_state.get_block(val.block_id);
-                if let Some(span) = block.span {
-                    let contents_bytes = engine_state.get_span_contents(span);
-                    let contents_string = String::from_utf8_lossy(contents_bytes);
-                    Ok(contents_string.to_string())
-                } else {
-                    Ok(String::new())
-                }
+                Ok(val.coerce_into_string(engine_state, span)?.to_string())
             } else {
                 Err(ShellError::UnsupportedInput {
-                    msg: "closures are currently not nuon-compatible".into(),
+                    msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
                     input: "value originates from here".into(),
                     msg_span: span,
                     input_span: v.span(),

@@ -57,7 +57,7 @@ impl Command for ToJson {
         // allow ranges to expand and turn into array
         let input = input.try_expand_range()?;
         let value = input.into_value(span)?;
-        let json_value = value_to_json_value(engine_state, &value, serialize_types)?;
+        let json_value = value_to_json_value(engine_state, &value, span, serialize_types)?;
 
         let json_result = if raw {
             nu_json::to_string_raw(&json_value)
@@ -78,16 +78,12 @@ impl Command for ToJson {
                 };
                 Ok(PipelineData::Value(res, Some(metadata)))
             }
-            _ => Ok(Value::error(
-                ShellError::CantConvert {
-                    to_type: "JSON".into(),
-                    from_type: value.get_type().to_string(),
-                    span,
-                    help: None,
-                },
+            _ => Err(ShellError::CantConvert {
+                to_type: "JSON".into(),
+                from_type: value.get_type().to_string(),
                 span,
-            )
-            .into_pipeline_data()),
+                help: None,
+            }),
         }
     }
 
@@ -118,6 +114,7 @@ impl Command for ToJson {
 pub fn value_to_json_value(
     engine_state: &EngineState,
     v: &Value,
+    call_span: Span,
     serialize_types: bool,
 ) -> Result<nu_json::Value, ShellError> {
     let span = v.span();
@@ -142,24 +139,20 @@ pub fn value_to_json_value(
         ),
 
         Value::List { vals, .. } => {
-            nu_json::Value::Array(json_list(engine_state, vals, serialize_types)?)
+            nu_json::Value::Array(json_list(engine_state, vals, call_span, serialize_types)?)
         }
         Value::Error { error, .. } => return Err(*error.clone()),
         Value::Closure { val, .. } => {
             if serialize_types {
-                let block = engine_state.get_block(val.block_id);
-                if let Some(span) = block.span {
-                    let contents_bytes = engine_state.get_span_contents(span);
-                    let contents_string = String::from_utf8_lossy(contents_bytes);
-                    nu_json::Value::String(contents_string.to_string())
-                } else {
-                    nu_json::Value::String(format!(
-                        "unable to retrieve block contents for json block_id {}",
-                        val.block_id.get()
-                    ))
-                }
+                let closure_string = val.coerce_into_string(engine_state, span)?;
+                nu_json::Value::String(closure_string.to_string())
             } else {
-                nu_json::Value::Null
+                return Err(ShellError::UnsupportedInput {
+                    msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+                    input: "value originates from here".into(),
+                    msg_span: call_span,
+                    input_span: span,
+                });
             }
         }
         Value::Range { .. } => nu_json::Value::Null,
@@ -171,14 +164,14 @@ pub fn value_to_json_value(
             for (k, v) in &**val {
                 m.insert(
                     k.clone(),
-                    value_to_json_value(engine_state, v, serialize_types)?,
+                    value_to_json_value(engine_state, v, call_span, serialize_types)?,
                 );
             }
             nu_json::Value::Object(m)
         }
         Value::Custom { val, .. } => {
             let collected = val.to_base_value(span)?;
-            value_to_json_value(engine_state, &collected, serialize_types)?
+            value_to_json_value(engine_state, &collected, call_span, serialize_types)?
         }
     })
 }
@@ -186,12 +179,18 @@ pub fn value_to_json_value(
 fn json_list(
     engine_state: &EngineState,
     input: &[Value],
+    call_span: Span,
     serialize_types: bool,
 ) -> Result<Vec<nu_json::Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {
-        out.push(value_to_json_value(engine_state, value, serialize_types)?);
+        out.push(value_to_json_value(
+            engine_state,
+            value,
+            call_span,
+            serialize_types,
+        )?);
     }
 
     Ok(out)
