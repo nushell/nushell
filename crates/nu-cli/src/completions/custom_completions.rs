@@ -5,7 +5,7 @@ use nu_engine::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
-    engine::{Stack, StateWorkingSet},
+    engine::{EngineState, Stack, StateWorkingSet},
     DeclId, PipelineData, Span, Type, Value,
 };
 use std::collections::HashMap;
@@ -42,30 +42,37 @@ impl<T: Completer> Completer for CustomCompletion<T> {
     ) -> Vec<SemanticSuggestion> {
         // Call custom declaration
         let mut stack_mut = stack.clone();
-        let mut engine_state = working_set.permanent_state.clone();
-        let _ = engine_state.merge_delta(working_set.delta.clone());
-        let result = eval_call::<WithoutDebug>(
-            &engine_state,
-            &mut stack_mut,
-            &Call {
-                decl_id: self.decl_id,
-                head: span,
-                arguments: vec![
-                    Argument::Positional(Expression::new_unknown(
-                        Expr::String(self.line.clone()),
-                        Span::unknown(),
-                        Type::String,
-                    )),
-                    Argument::Positional(Expression::new_unknown(
-                        Expr::Int(self.line_pos as i64),
-                        Span::unknown(),
-                        Type::Int,
-                    )),
-                ],
-                parser_info: HashMap::new(),
-            },
-            PipelineData::empty(),
-        );
+        let mut eval = |engine_state: &EngineState| {
+            eval_call::<WithoutDebug>(
+                engine_state,
+                &mut stack_mut,
+                &Call {
+                    decl_id: self.decl_id,
+                    head: span,
+                    arguments: vec![
+                        Argument::Positional(Expression::new_unknown(
+                            Expr::String(self.line.clone()),
+                            Span::unknown(),
+                            Type::String,
+                        )),
+                        Argument::Positional(Expression::new_unknown(
+                            Expr::Int(self.line_pos as i64),
+                            Span::unknown(),
+                            Type::Int,
+                        )),
+                    ],
+                    parser_info: HashMap::new(),
+                },
+                PipelineData::empty(),
+            )
+        };
+        let result = if self.decl_id.get() < working_set.permanent_state.num_decls() {
+            eval(working_set.permanent_state)
+        } else {
+            let mut engine_state = working_set.permanent_state.clone();
+            let _ = engine_state.merge_delta(working_set.delta.clone());
+            eval(&engine_state)
+        };
 
         let mut completion_options = orig_options.clone();
         let mut should_sort = true;
