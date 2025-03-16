@@ -1474,10 +1474,6 @@ impl<'de> Deserialize<'de> for ShellError {
     }
 }
 
-pub fn into_code(err: &ShellError) -> Option<String> {
-    err.code().map(|code| code.to_string())
-}
-
 #[test]
 fn shell_error_serialize_roundtrip() {
     // Ensure that we can serialize and deserialize `ShellError`, and check that it basically would
