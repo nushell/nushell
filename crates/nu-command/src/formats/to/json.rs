@@ -144,7 +144,7 @@ pub fn value_to_json_value(
         Value::Error { error, .. } => return Err(*error.clone()),
         Value::Closure { val, .. } => {
             if serialize_types {
-                let closure_string = val.coerce_into_string(&engine_state, span)?;
+                let closure_string = val.coerce_into_string(engine_state, span)?;
                 nu_json::Value::String(closure_string.to_string())
             } else {
                 return Err(ShellError::UnsupportedInput {

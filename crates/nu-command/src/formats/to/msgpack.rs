@@ -252,7 +252,7 @@ pub(crate) fn write_value(
         Value::Closure { val, .. } => {
             if serialize_types {
                 let closure_string = val
-                    .coerce_into_string(&engine_state, span)
+                    .coerce_into_string(engine_state, span)
                     .map_err(|err| WriteError::Shell(Box::new(err)))?;
                 mp::write_str(out, &closure_string).err_span(span)?;
             } else {
