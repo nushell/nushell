@@ -1,6 +1,8 @@
 use std/dt [datetime-diff, pretty-print-duration]
 
 # Print a banner for Nushell with information about the project
+@category "default"
+@search-terms "welcome" "startup"
 export def banner [
     --short    # Only show startup time
 ] {
@@ -40,8 +42,9 @@ match (config use-colors) {
 }
 
 # Return the current working directory
+@category "default"
 export def pwd [
-    --physical (-P) # resolve symbolic links
+    --physical (-P) # Resolve symbolic links
 ] {
     if $physical {
         $env.PWD | path expand
