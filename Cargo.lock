@@ -3808,6 +3808,7 @@ dependencies = [
  "nu-parser",
  "nu-protocol",
  "nu-test-support",
+ "nu-utils",
  "nucleo-matcher",
  "serde",
  "serde_json",
