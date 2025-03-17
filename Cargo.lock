@@ -3959,6 +3959,7 @@ dependencies = [
  "serde_json",
  "strum",
  "strum_macros",
+ "sys-locale",
  "tempfile",
  "thiserror 2.0.6",
  "typetag",
@@ -4022,8 +4023,8 @@ version = "0.103.1"
 dependencies = [
  "nu-glob",
  "nu-path",
+ "nu-protocol",
  "nu-utils",
- "num-format",
  "tempfile",
  "which",
 ]
@@ -4042,7 +4043,6 @@ dependencies = [
  "serde",
  "serde_json",
  "strip-ansi-escapes",
- "sys-locale",
  "unicase",
 ]
 

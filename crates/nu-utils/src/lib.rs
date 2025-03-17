@@ -4,12 +4,10 @@ mod deansi;
 pub mod emoji;
 pub mod filesystem;
 pub mod flatten_json;
-pub mod locale;
 mod quoting;
 mod shared_cow;
 pub mod utils;
 
-pub use locale::get_system_locale;
 pub use utils::{
     enable_vt_processing, get_default_config, get_default_env, get_doc_config, get_doc_env,
     get_ls_colors, get_scaffold_config, get_scaffold_env, stderr_write_all_and_flush,

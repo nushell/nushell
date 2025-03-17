@@ -1,8 +1,7 @@
 #![cfg(debug_assertions)]
 
+use nu_protocol::Locale;
 use std::sync::Mutex;
-
-use nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR;
 
 static LOCALE_OVERRIDE_MUTEX: Mutex<()> = Mutex::new(());
 
@@ -22,15 +21,15 @@ pub fn with_locale_override<T>(locale_string: &str, func: fn() -> T) -> T {
             .lock()
             .expect("Failed to get mutex lock for locale override");
 
-        let saved = std::env::var(LOCALE_OVERRIDE_ENV_VAR).ok();
-        std::env::set_var(LOCALE_OVERRIDE_ENV_VAR, locale_string);
+        let saved = std::env::var(Locale::OVERRIDE_ENV_VAR).ok();
+        std::env::set_var(Locale::OVERRIDE_ENV_VAR, locale_string);
 
         let result = std::panic::catch_unwind(func);
 
         if let Some(locale_str) = saved {
-            std::env::set_var(LOCALE_OVERRIDE_ENV_VAR, locale_str);
+            std::env::set_var(Locale::OVERRIDE_ENV_VAR, locale_str);
         } else {
-            std::env::remove_var(LOCALE_OVERRIDE_ENV_VAR);
+            std::env::remove_var(Locale::OVERRIDE_ENV_VAR);
         }
 
         result

@@ -37,6 +37,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 strum = { workspace = true }
 strum_macros = { workspace = true }
+sys-locale = "0.3"
 thiserror = "2.0"
 typetag = "0.2"
 os_pipe = { workspace = true, optional = true, features = ["io_safety"] }

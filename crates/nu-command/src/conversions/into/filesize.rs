@@ -1,7 +1,17 @@
-use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use nu_protocol::Locale;
 
-use nu_utils::get_system_locale;
+struct Arguments {
+    locale: Locale,
+    cell_paths: Option<Vec<CellPath>>,
+}
+
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
+    }
+}
 
 #[derive(Clone)]
 pub struct IntoFilesize;
@@ -67,7 +77,9 @@ impl Command for IntoFilesize {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        let args = CellPathOnlyArgs::from(cell_paths);
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let locale = Locale::system_number().unwrap_or_default();
+        let args = Arguments { locale, cell_paths };
         operate(action, args, input, call.head, engine_state.signals())
     }
 
@@ -116,13 +128,13 @@ impl Command for IntoFilesize {
     }
 }
 
-fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     let value_span = input.span();
     match input {
         Value::Filesize { .. } => input.clone(),
         Value::Int { val, .. } => Value::filesize(*val, value_span),
         Value::Float { val, .. } => Value::filesize(*val as i64, value_span),
-        Value::String { val, .. } => match i64_from_string(val, value_span) {
+        Value::String { val, .. } => match i64_from_string(val, value_span, args.locale) {
             Ok(val) => Value::filesize(val, value_span),
             Err(error) => Value::error(error, value_span),
         },
@@ -139,13 +151,9 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     }
 }
 
-fn i64_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
-    // Get the Locale so we know what the thousands separator is
-    let locale = get_system_locale();
-
-    // Now that we know the locale, get the thousands separator and remove it
-    // so strings like 1,123,456 can be parsed as 1123456
-    let no_comma_string = a_string.replace(locale.separator(), "");
+fn i64_from_string(a_string: &str, span: Span, locale: Locale) -> Result<i64, ShellError> {
+    // Get the thousands separator and remove it, so strings like 1,123,456 can be parsed as 1123456
+    let no_comma_string = a_string.replace(locale.number().separator(), "");
     let clean_string = no_comma_string.trim();
 
     // Hadle negative file size

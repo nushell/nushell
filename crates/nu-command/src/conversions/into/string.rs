@@ -1,7 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::Config;
-use nu_utils::get_system_locale;
+use nu_protocol::{Config, Locale};
 use num_format::ToFormattedString;
 use std::sync::Arc;
 
@@ -10,6 +9,7 @@ struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
     config: Arc<Config>,
     group_digits: bool,
+    locale: Locale,
 }
 
 impl CmdArgument for Arguments {
@@ -154,6 +154,7 @@ fn string_helper(
     let head = call.head;
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
     let group_digits = call.has_flag(engine_state, stack, "group-digits")?;
+    let locale = Locale::system_number().unwrap_or_default();
     if let Some(decimal_val) = decimals_value {
         if decimal_val.is_negative() {
             return Err(ShellError::TypeMismatch {
@@ -189,6 +190,7 @@ fn string_helper(
             cell_paths,
             config,
             group_digits,
+            locale,
         };
         operate(action, args, input, head, engine_state.signals())
     }
@@ -198,11 +200,12 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     let digits = args.decimals_value;
     let config = &args.config;
     let group_digits = args.group_digits;
+    let locale = args.locale;
 
     match input {
         Value::Int { val, .. } => {
             let decimal_value = digits.unwrap_or(0) as usize;
-            let res = format_int(*val, group_digits, decimal_value);
+            let res = format_int(*val, group_digits, decimal_value, locale);
             Value::string(res, span)
         }
         Value::Float { val, .. } => {
@@ -220,7 +223,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::Filesize { val, .. } => {
             if group_digits {
                 let decimal_value = digits.unwrap_or(0) as usize;
-                Value::string(format_int(val.get(), group_digits, decimal_value), span)
+                Value::string(
+                    format_int(val.get(), group_digits, decimal_value, locale),
+                    span,
+                )
             } else {
                 Value::string(input.to_expanded_string(", ", config), span)
             }
@@ -274,17 +280,15 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     }
 }
 
-fn format_int(int: i64, group_digits: bool, decimals: usize) -> String {
-    let locale = get_system_locale();
-
+fn format_int(int: i64, group_digits: bool, decimals: usize, locale: Locale) -> String {
     let str = if group_digits {
-        int.to_formatted_string(&locale)
+        int.to_formatted_string(&locale.number())
     } else {
         int.to_string()
     };
 
     if decimals > 0 {
-        let decimal_point = locale.decimal();
+        let decimal_point = locale.number().decimal();
 
         format!(
             "{}{decimal_point}{dummy:0<decimals$}",
