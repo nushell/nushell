@@ -28,22 +28,15 @@ impl LanguageServer {
                 .and_then(|s| s.chars().next())
                 .is_some_and(|c| c.is_whitespace() || "|(){}[]<>,:;".contains(c));
 
-        let (results, engine_state) = if need_fallback {
-            let engine_state = Arc::new(self.initial_engine_state.clone());
-            let completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
-            (
-                completer.fetch_completions_at(&file_text[..location], location),
-                engine_state,
-            )
+        self.need_parse |= need_fallback;
+        let engine_state = Arc::new(self.new_engine_state());
+        let completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
+        let results = if need_fallback {
+            completer.fetch_completions_at(&file_text[..location], location)
         } else {
-            let engine_state = Arc::new(self.new_engine_state());
-            let completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
             let file_path = uri_to_path(&path_uri);
             let filename = file_path.to_str()?;
-            (
-                completer.fetch_completions_within_file(filename, location, &file_text),
-                engine_state,
-            )
+            completer.fetch_completions_within_file(filename, location, &file_text)
         };
 
         let docs = self.docs.lock().ok()?;
