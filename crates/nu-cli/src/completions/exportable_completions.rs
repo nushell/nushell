@@ -41,6 +41,7 @@ impl Completer for ExportableCompletion<'_> {
             start: span.start - offset,
             end: span.end - offset,
         };
+        // TODO: use matcher.add_lazy to lazy evaluate an item if it matches the prefix
         let mut add_suggestion = |value: String,
                                   description: Option<String>,
                                   extra: Option<Vec<String>>,
