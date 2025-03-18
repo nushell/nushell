@@ -120,7 +120,7 @@ impl Completer for DotNuCompletion {
         );
 
         if self.std_virtual_path {
-            let mut matcher = NuMatcher::<()>::new(partial, options);
+            let mut matcher = NuMatcher::new(partial, options);
             let base_dir = surround_remove(&base_dir);
             if base_dir == "." {
                 let surround_prefix = partial
@@ -129,14 +129,15 @@ impl Completer for DotNuCompletion {
                     .collect::<String>();
                 for path in ["std", "std-rfc"] {
                     let path = format!("{}{}", surround_prefix, path);
-                    if matcher.matches(&path) {
-                        completions.push(FileSuggestion {
-                            path,
+                    matcher.add(
+                        path.clone(),
+                        FileSuggestion {
                             span,
+                            path,
                             style: None,
                             is_dir: true,
-                        });
-                    }
+                        },
+                    );
                 }
             } else if let Some(VirtualPath::Dir(sub_paths)) =
                 working_set.find_virtual_path(&base_dir)
@@ -147,16 +148,18 @@ impl Completer for DotNuCompletion {
                         .strip_prefix(&format!("{}/", base_dir))
                         .unwrap_or(path)
                         .to_string();
-                    if matcher.matches(&path) {
-                        completions.push(FileSuggestion {
+                    matcher.add(
+                        path.clone(),
+                        FileSuggestion {
                             path,
                             span,
                             style: None,
                             is_dir: matches!(sub_vp, VirtualPath::Dir(_)),
-                        });
-                    }
+                        },
+                    );
                 }
             }
+            completions.extend(matcher.results());
         }
 
         completions
