@@ -1,6 +1,6 @@
 [package]
 name = "nu-glob"
-version = "0.103.0"
+version = "0.103.1"
 authors = ["The Nushell Project Developers", "The Rust Project Developers"]
 license = "MIT/Apache-2.0"
 description = """
@@ -14,7 +14,7 @@ categories = ["filesystem"]
 bench = false
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.103.0", default-features = false }
+nu-protocol = { path = "../nu-protocol", version = "0.103.1", default-features = false }
 
 [dev-dependencies]
 doc-comment = "0.3"

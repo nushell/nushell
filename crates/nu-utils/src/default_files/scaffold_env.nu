@@ -1,7 +1,7 @@
 # env.nu
 #
 # Installed by:
-# version = "0.103.0"
+# version = "0.103.1"
 #
 # Previously, environment variables were typically configured in `env.nu`.
 # In general, most configuration can and should be performed in `config.nu`
