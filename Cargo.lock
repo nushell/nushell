@@ -3948,7 +3948,6 @@ dependencies = [
  "nu-derive-value",
  "nu-path",
  "nu-system",
- "nu-test-support",
  "nu-utils",
  "num-format",
  "os_pipe",
