@@ -319,6 +319,18 @@ fn to_nuon_errs_on_closure() {
 }
 
 #[test]
+fn to_nuon_closure_coerced_to_quoted_string() {
+    let actual = nu!(pipeline(
+        r#"
+            {|| to nuon}
+            | to nuon --serialize
+        "#
+    ));
+
+    assert_eq!(actual.out, "\"{|| to nuon}\"");
+}
+
+#[test]
 fn binary_to() {
     let actual = nu!(pipeline(
         r#"
