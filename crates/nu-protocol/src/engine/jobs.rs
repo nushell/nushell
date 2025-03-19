@@ -43,7 +43,11 @@ impl Jobs {
             self.last_frozen_job_id = None;
         }
 
-        self.jobs.remove(&id)
+        let result = self.jobs.remove(&id);
+        if self.jobs.is_empty() {
+            self.next_job_id = 1;
+        }
+        result
     }
 
     fn assign_last_frozen_id_if_frozen(&mut self, id: JobId, job: &Job) {
