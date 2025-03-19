@@ -3,8 +3,8 @@ use super::definitions::{
     db_index::DbIndex, db_table::DbTable,
 };
 use nu_protocol::{
-    shell_error::io::IoError, CustomValue, PipelineData, Record, ShellError, Signals, Span,
-    Spanned, Value,
+    shell_error::io::IoError, CustomValue, ErrSpan, Interrupted, PipelineData, Record, ShellError,
+    Signals, Span, Spanned, Value,
 };
 use rusqlite::{
     types::ValueRef, Connection, DatabaseName, Error as SqliteError, OpenFlags, Row, Statement,
@@ -517,6 +517,12 @@ impl From<ShellError> for SqliteOrShellError {
     }
 }
 
+impl From<Spanned<Interrupted>> for SqliteOrShellError {
+    fn from(interrupt: Spanned<Interrupted>) -> Self {
+        ShellError::from(interrupt).into()
+    }
+}
+
 impl SqliteOrShellError {
     fn into_shell_error(self, span: Span, msg: &str) -> ShellError {
         match self {
@@ -574,7 +580,7 @@ fn prepared_statement_to_nu_list(
             let mut row_values = vec![];
 
             for row_result in row_results {
-                signals.check(call_span)?;
+                signals.check().err_span(call_span)?;
                 if let Ok(row_value) = row_result {
                     row_values.push(row_value);
                 }
@@ -600,7 +606,7 @@ fn prepared_statement_to_nu_list(
             let mut row_values = vec![];
 
             for row_result in row_results {
-                signals.check(call_span)?;
+                signals.check().err_span(call_span)?;
                 if let Ok(row_value) = row_result {
                     row_values.push(row_value);
                 }

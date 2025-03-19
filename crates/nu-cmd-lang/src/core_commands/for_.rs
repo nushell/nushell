@@ -84,7 +84,7 @@ impl Command for For {
         match value {
             Value::List { vals, .. } => {
                 for x in vals.into_iter() {
-                    engine_state.signals().check(head)?;
+                    engine_state.signals().check().err_span(head)?;
 
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
@@ -102,7 +102,7 @@ impl Command for For {
             }
             Value::Range { val, .. } => {
                 for x in val.into_range_iter(span, Signals::empty()) {
-                    engine_state.signals().check(head)?;
+                    engine_state.signals().check().err_span(head)?;
                     stack.add_var(var_id, x);
 
                     match eval_block(&engine_state, stack, block, PipelineData::empty()) {

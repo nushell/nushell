@@ -340,7 +340,7 @@ impl InterfaceManager for EngineInterfaceManager {
             }
             PluginInput::Signal(action) => {
                 match action {
-                    SignalAction::Interrupt => self.state.signals.trigger(),
+                    SignalAction::Interrupt => self.state.signals.trigger_interrupt(),
                     SignalAction::Reset => self.state.signals.reset(),
                 }
                 self.state.signal_handlers.run(action);

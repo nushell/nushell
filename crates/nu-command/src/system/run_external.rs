@@ -440,7 +440,7 @@ fn expand_glob(
         let mut result: Vec<OsString> = vec![];
 
         for m in matches {
-            signals.check(span)?;
+            signals.check().err_span(span)?;
             if let Ok(arg) = m {
                 let arg = resolve_globbed_path_to_cwd_relative(arg, prefix.as_ref(), cwd);
                 result.push(arg.into());

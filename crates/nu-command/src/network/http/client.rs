@@ -6,7 +6,7 @@ use base64::{
 };
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
-use nu_protocol::{shell_error::io::IoError, ByteStream, LabeledError, Signals};
+use nu_protocol::{shell_error::io::IoError, ByteStream, Interrupted, LabeledError, Signals};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
@@ -195,6 +195,12 @@ pub enum ShellErrorOrRequestError {
 impl From<ShellError> for ShellErrorOrRequestError {
     fn from(error: ShellError) -> Self {
         ShellErrorOrRequestError::ShellError(error)
+    }
+}
+
+impl From<Spanned<Interrupted>> for ShellErrorOrRequestError {
+    fn from(interrupt: Spanned<Interrupted>) -> Self {
+        ShellError::from(interrupt).into()
     }
 }
 
@@ -478,7 +484,7 @@ fn send_cancellable_request(
 
     // ...and poll the channel for responses
     loop {
-        signals.check(span)?;
+        signals.check().err_span(span)?;
 
         // 100ms wait time chosen arbitrarily
         match rx.recv_timeout(Duration::from_millis(100)) {
@@ -541,7 +547,7 @@ fn send_cancellable_request_bytes(
 
     // ...and poll the channel for responses
     loop {
-        signals.check(span)?;
+        signals.check().err_span(span)?;
 
         // 100ms wait time chosen arbitrarily
         match rx.recv_timeout(Duration::from_millis(100)) {

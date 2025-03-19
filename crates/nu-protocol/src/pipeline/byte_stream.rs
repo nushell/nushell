@@ -6,7 +6,7 @@
 use crate::process::{ChildPipe, ChildProcess};
 use crate::{
     shell_error::{bridge::ShellErrorBridge, io::IoError},
-    IntRange, PipelineData, ShellError, Signals, Span, Type, Value,
+    ErrSpan, IntRange, PipelineData, ShellError, Signals, Span, Type, Value,
 };
 use serde::{Deserialize, Serialize};
 use std::ops::Bound;
@@ -809,7 +809,10 @@ impl Reader {
 
 impl Read for Reader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.signals.check(self.span).map_err(ShellErrorBridge)?;
+        self.signals
+            .check()
+            .err_span(self.span)
+            .map_err(|e| ShellErrorBridge(ShellError::from(e)))?;
         self.reader.read(buf)
     }
 }
@@ -1251,7 +1254,7 @@ pub fn copy_with_signals(
     signals: &Signals,
 ) -> Result<u64, ShellError> {
     let from_io_error = IoError::factory(span, None);
-    if signals.is_empty() {
+    if !signals.has_interrupt() {
         match io::copy(&mut reader, &mut writer) {
             Ok(n) => {
                 writer.flush().map_err(&from_io_error)?;
@@ -1294,7 +1297,7 @@ fn generic_copy(
     let buf = &mut [0; DEFAULT_BUF_SIZE];
     let mut len = 0;
     loop {
-        signals.check(span)?;
+        signals.check().err_span(span)?;
         let n = match reader.read(buf) {
             Ok(0) => break,
             Ok(n) => n,
