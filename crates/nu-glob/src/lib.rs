@@ -44,7 +44,7 @@
 //! ```rust,no_run
 //! use nu_glob::glob_with;
 //! use nu_glob::MatchOptions;
-//! use nu_protocol::Signals;
+//! use nu_utils::Signals;
 //!
 //! let options = MatchOptions {
 //!     case_sensitive: false,
