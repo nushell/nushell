@@ -32,7 +32,20 @@ pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
     }
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, target_os = "android"))]
+pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
+    use nix::errno::Errno;
+    use nix::unistd::{AccessFlags, access};
+
+    match access(dir.as_ref(), AccessFlags::X_OK) {
+        Ok(_) => PermissionResult::PermissionOk,
+        Err(Errno::EPERM) => PermissionResult::PermissionDenied("Permission denied"),
+        Err(Errno::ENOENT) => PermissionResult::PermissionDenied("Path not exists?"),
+        Err(_) => PermissionResult::PermissionDenied("Unknown error"),
+    }
+}
+
+#[cfg(all(unix, not(target_os = "android")))]
 pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
     match dir.as_ref().metadata() {
         Ok(metadata) => {
