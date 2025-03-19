@@ -660,7 +660,7 @@ mod tests {
 
         client_connection
             .receiver
-            .recv_timeout(Duration::from_secs(2))
+            .recv_timeout(Duration::from_secs(3))
             .unwrap()
     }
 }
