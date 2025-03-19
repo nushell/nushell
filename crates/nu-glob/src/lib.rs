@@ -73,7 +73,7 @@ extern crate doc_comment;
 #[cfg(test)]
 doctest!("../README.md");
 
-use nu_protocol::Signals;
+use nu_utils::Signals;
 use std::cmp;
 use std::cmp::Ordering;
 use std::error::Error;

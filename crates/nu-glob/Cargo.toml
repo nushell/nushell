@@ -14,7 +14,7 @@ categories = ["filesystem"]
 bench = false
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.103.1", default-features = false }
+nu-utils = { path = "../nu-utils", version = "0.103.1", default-features = false }
 
 [dev-dependencies]
 doc-comment = "0.3"
