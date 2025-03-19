@@ -307,7 +307,6 @@ fn from_nuon_datetime() {
 }
 
 #[test]
-#[ignore]
 fn to_nuon_errs_on_closure() {
     let actual = nu!(pipeline(
         r#"
@@ -316,7 +315,7 @@ fn to_nuon_errs_on_closure() {
         "#
     ));
 
-    assert!(actual.err.contains("can't convert closure to NUON"));
+    assert!(actual.err.contains("not deserializable"));
 }
 
 #[test]
