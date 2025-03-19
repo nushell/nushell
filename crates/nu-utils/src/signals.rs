@@ -19,8 +19,8 @@ impl fmt::Display for Interrupted {
 impl Error for Interrupted {}
 
 impl From<Interrupted> for io::Error {
-    fn from(_: Interrupted) -> Self {
-        io::ErrorKind::Interrupted.into()
+    fn from(interrupt: Interrupted) -> Self {
+        io::Error::new(io::ErrorKind::Other, interrupt)
     }
 }
 
