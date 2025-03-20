@@ -457,7 +457,9 @@ impl CursorMoveHandler for RecordView {
 
 fn create_layer(value: Value) -> Result<RecordLayer> {
     let (columns, values) = collect_input(value)?;
-
+    if columns.is_empty() {
+        return Err(anyhow::anyhow!("Nothing to explore in empty collections!"));
+    }
     Ok(RecordLayer::new(columns, values))
 }
 
@@ -683,4 +685,122 @@ fn strip_string(text: &str) -> String {
     String::from_utf8(strip_ansi_escapes::strip(text))
         .map_err(|_| ())
         .unwrap_or_else(|_| text.to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_protocol::{span::Span, Value};
+
+    // Helper to create a simple test Value::Record
+    fn create_test_record() -> Value {
+        let mut record = Record::new();
+        record.insert(
+            "name".to_string(),
+            Value::string("sample", Span::test_data()),
+        );
+        record.insert("value".to_string(), Value::int(42, Span::test_data()));
+        Value::record(record, Span::test_data())
+    }
+
+    // Helper to create a simple test Value::List
+    fn create_test_list() -> Value {
+        let items = vec![
+            Value::string("item1", Span::test_data()),
+            Value::string("item2", Span::test_data()),
+        ];
+        Value::list(items, Span::test_data())
+    }
+
+    #[test]
+    fn test_create_layer_empty_collection() {
+        // Test with empty record
+        let empty_record = Value::record(Record::new(), Span::test_data());
+        let result = create_layer(empty_record);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Nothing to explore in empty collections!"
+        );
+
+        // Test with empty list
+        let empty_list = Value::list(vec![], Span::test_data());
+        let result = create_layer(empty_list);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Nothing to explore in empty collections!"
+        );
+    }
+
+    #[test]
+    fn test_create_layer_valid_record() {
+        let record = create_test_record();
+        let result = create_layer(record);
+        assert!(result.is_ok());
+
+        let layer = result.unwrap();
+        assert_eq!(layer.column_names, vec!["name", "value"]);
+        assert_eq!(layer.record_values.len(), 1);
+        assert_eq!(layer.record_values[0].len(), 2);
+    }
+
+    #[test]
+    fn test_create_layer_valid_list() {
+        let list = create_test_list();
+        let result = create_layer(list);
+        assert!(result.is_ok());
+
+        let layer = result.unwrap();
+        assert_eq!(layer.column_names, vec![""]);
+        assert_eq!(layer.record_values.len(), 2);
+        assert_eq!(layer.record_values[0].len(), 1);
+    }
+
+    #[test]
+    fn test_transpose_table() {
+        // Create a simple 2x3 table
+        let mut layer = RecordLayer::new(
+            vec!["col1".to_string(), "col2".to_string(), "col3".to_string()],
+            vec![
+                vec![
+                    Value::string("r1c1", Span::test_data()),
+                    Value::string("r1c2", Span::test_data()),
+                    Value::string("r1c3", Span::test_data()),
+                ],
+                vec![
+                    Value::string("r2c1", Span::test_data()),
+                    Value::string("r2c2", Span::test_data()),
+                    Value::string("r2c3", Span::test_data()),
+                ],
+            ],
+        );
+
+        // Before transpose
+        assert_eq!(layer.count_rows(), 2);
+        assert_eq!(layer.count_columns(), 3);
+        assert_eq!(layer.was_transposed, false);
+
+        // After transpose
+        transpose_table(&mut layer);
+        assert_eq!(layer.count_rows(), 3);
+        assert_eq!(layer.count_columns(), 3); // Now includes header row
+        assert_eq!(layer.was_transposed, true);
+
+        // After transpose back
+        transpose_table(&mut layer);
+        assert_eq!(layer.count_rows(), 2);
+        assert_eq!(layer.count_columns(), 3);
+        assert_eq!(layer.was_transposed, false);
+    }
+
+    #[test]
+    fn test_estimate_page_size() {
+        // Test with header
+        let area = Rect::new(0, 0, 80, 24);
+        assert_eq!(estimate_page_size(area, true), 18); // 24 - 3 (status bar) - 3 (header) = 18
+
+        // Test without header
+        assert_eq!(estimate_page_size(area, false), 21); // 24 - 3 (status bar) = 21
+    }
 }
