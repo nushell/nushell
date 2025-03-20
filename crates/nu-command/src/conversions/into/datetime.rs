@@ -4,6 +4,8 @@ use human_date_parser::{from_human_time, ParseResult};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
+const HOUR: i32 = 60 * 60;
+
 #[derive(Clone, Debug)]
 struct Arguments {
     zone_options: Option<Spanned<Zone>>,
@@ -323,7 +325,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             };
         }
     }
-    const HOUR: i32 = 60 * 60;
 
     // Check to see if input looks like a Unix timestamp (i.e. can it be parsed to an int?)
     let timestamp = match input {
@@ -404,10 +405,56 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
     let parse_as_string = |val: &str| {
         match dateformat {
-            Some(dt) => match DateTime::parse_from_str(val, &dt.0) {
-                Ok(d) => Value::date ( d, head ),
+            Some(dt_format) => match DateTime::parse_from_str(val, &dt_format.0) {
+                Ok(dt) => {
+                    match timezone {
+                        None => {
+                            Value::date ( dt, head )
+                        },
+                        Some(Spanned { item, span }) => match item {
+                            Zone::Utc => {
+                                Value::date ( dt, head )
+                            }
+                            Zone::Local => {
+                                Value::date(dt.with_timezone(&Local).into(), *span)
+                            }
+                            Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
+                                Some(eastoffset) => {
+                                    Value::date(dt.with_timezone(&eastoffset), *span)
+                                }
+                                None => Value::error(
+                                    ShellError::DatetimeParseError {
+                                        msg: input.to_abbreviated_string(&nu_protocol::Config::default()),
+                                        span: *span,
+                                    },
+                                    *span,
+                                ),
+                            },
+                            Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
+                                Some(westoffset) => {
+                                    Value::date(dt.with_timezone(&westoffset), *span)
+                                }
+                                None => Value::error(
+                                    ShellError::DatetimeParseError {
+                                        msg: input.to_abbreviated_string(&nu_protocol::Config::default()),
+                                        span: *span,
+                                    },
+                                    *span,
+                                ),
+                            },
+                            Zone::Error => Value::error(
+                                // This is an argument error, not an input error
+                                ShellError::TypeMismatch {
+                                    err_message: "Invalid timezone or offset".to_string(),
+                                    span: *span,
+                                },
+                                *span,
+                            ),
+                        },
+                    }
+                },
                 Err(reason) => {
-                    match NaiveDateTime::parse_from_str(val, &dt.0) {
+                    match NaiveDateTime::parse_from_str(val, &dt_format.0) {
                         Ok(d) => {
                             let dt_fixed =
                                 Local.from_local_datetime(&d).single().unwrap_or_default();
@@ -416,7 +463,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         }
                         Err(_) => {
                             Value::error (
-                                ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
+                                ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt_format.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
                                 head,
                             )
                         }
@@ -631,6 +678,49 @@ mod tests {
     }
 
     #[test]
+    fn takes_timestamp_offset_as_int_with_formatting() {
+        let date_int = Value::test_int(1_614_434_140);
+        let timezone_option = Some(Spanned {
+            item: Zone::East(8),
+            span: Span::test_data(),
+        });
+        let fmt_options = Some(DatetimeFormat("%s".to_string()));
+        let args = Arguments {
+            zone_options: timezone_option,
+            format_options: fmt_options,
+            cell_paths: None,
+        };
+        let actual = action(&date_int, &args, Span::test_data());
+        let expected = Value::date(
+            DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z").unwrap(),
+            Span::test_data(),
+        );
+
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn takes_timestamp_offset_as_int_with_local_timezone() {
+        let date_int = Value::test_int(1_614_434_140);
+        let timezone_option = Some(Spanned {
+            item: Zone::Local,
+            span: Span::test_data(),
+        });
+        let fmt_options = Some(DatetimeFormat("%s".to_string()));
+        let args = Arguments {
+            zone_options: timezone_option,
+            format_options: fmt_options,
+            cell_paths: None,
+        };
+        let actual = action(&date_int, &args, Span::test_data());
+        let expected = Value::date(
+            Utc.timestamp_opt(1_614_434_140, 0).unwrap().into(),
+            Span::test_data(),
+        );
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
     fn takes_timestamp() {
         let date_str = Value::test_string("1614434140000000000");
         let timezone_option = Some(Spanned {
@@ -644,7 +734,7 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::date(
-            Local.timestamp_opt(1614434140, 0).unwrap().into(),
+            Local.timestamp_opt(1_614_434_140, 0).unwrap().into(),
             Span::test_data(),
         );
 
@@ -663,7 +753,7 @@ mod tests {
             cell_paths: None,
         };
         let expected = Value::date(
-            Local.timestamp_opt(1614434140, 0).unwrap().into(),
+            Local.timestamp_opt(1_614_434_140, 0).unwrap().into(),
             Span::test_data(),
         );
         let actual = action(&expected, &args, Span::test_data());
@@ -682,7 +772,7 @@ mod tests {
         let actual = action(&date_str, &args, Span::test_data());
 
         let expected = Value::date(
-            Utc.timestamp_opt(1614434140, 0).unwrap().into(),
+            Utc.timestamp_opt(1_614_434_140, 0).unwrap().into(),
             Span::test_data(),
         );
 
