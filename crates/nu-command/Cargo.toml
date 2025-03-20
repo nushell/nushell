@@ -85,6 +85,7 @@ quick-xml = { workspace = true }
 rand = { workspace = true, optional = true }
 getrandom = { workspace = true, optional = true }
 rayon = { workspace = true }
+reedline = { workspace = true }
 roxmltree = { workspace = true }
 rusqlite = { workspace = true, features = [
 	"bundled",
