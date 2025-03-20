@@ -1,13 +1,10 @@
+#[cfg(unix)]
+use nix::{
+    errno::Errno,
+    unistd::{access, AccessFlags},
+};
 #[cfg(any(windows, unix))]
 use std::path::Path;
-#[cfg(unix)]
-use {
-    nix::{
-        sys::stat::{mode_t, Mode},
-        unistd::{Gid, Uid},
-    },
-    std::os::unix::fs::MetadataExt,
-};
 
 // The result of checking whether we have permission to cd to a directory
 #[derive(Debug)]
@@ -32,87 +29,14 @@ pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
     }
 }
 
-#[cfg(all(unix, target_os = "android"))]
+#[cfg(unix)]
 pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
-    use nix::errno::Errno;
-    use nix::unistd::{AccessFlags, access};
-
     match access(dir.as_ref(), AccessFlags::X_OK) {
         Ok(_) => PermissionResult::PermissionOk,
         Err(Errno::EPERM) => PermissionResult::PermissionDenied("Permission denied"),
         Err(Errno::ENOENT) => PermissionResult::PermissionDenied("Path not exists?"),
         Err(_) => PermissionResult::PermissionDenied("Unknown error"),
     }
-}
-
-#[cfg(all(unix, not(target_os = "android")))]
-pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
-    match dir.as_ref().metadata() {
-        Ok(metadata) => {
-            let mode = Mode::from_bits_truncate(metadata.mode() as mode_t);
-            let current_user_uid = users::get_current_uid();
-            if current_user_uid.is_root() {
-                return PermissionResult::PermissionOk;
-            }
-            let current_user_gid = users::get_current_gid();
-            let owner_user = Uid::from_raw(metadata.uid());
-            let owner_group = Gid::from_raw(metadata.gid());
-            match (
-                current_user_uid == owner_user,
-                current_user_gid == owner_group,
-            ) {
-                (true, _) => {
-                    if mode.contains(Mode::S_IXUSR) {
-                        PermissionResult::PermissionOk
-                    } else {
-                        PermissionResult::PermissionDenied(
-                            "You are the owner but do not have execute permission",
-                        )
-                    }
-                }
-                (false, true) => {
-                    if mode.contains(Mode::S_IXGRP) {
-                        PermissionResult::PermissionOk
-                    } else {
-                        PermissionResult::PermissionDenied(
-                            "You are in the group but do not have execute permission",
-                        )
-                    }
-                }
-                (false, false) => {
-                    if mode.contains(Mode::S_IXOTH)
-                        || (mode.contains(Mode::S_IXGRP)
-                            && any_group(current_user_gid, owner_group))
-                    {
-                        PermissionResult::PermissionOk
-                    } else {
-                        PermissionResult::PermissionDenied(
-                            "You are neither the owner, in the group, nor the super user and do not have permission",
-                        )
-                    }
-                }
-            }
-        }
-        Err(_) => PermissionResult::PermissionDenied("Could not retrieve file metadata"),
-    }
-}
-
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "android"))]
-fn any_group(_current_user_gid: Gid, owner_group: Gid) -> bool {
-    users::current_user_groups()
-        .unwrap_or_default()
-        .contains(&owner_group)
-}
-
-#[cfg(all(
-    unix,
-    not(any(target_os = "linux", target_os = "freebsd", target_os = "android"))
-))]
-fn any_group(current_user_gid: Gid, owner_group: Gid) -> bool {
-    users::get_current_username()
-        .and_then(|name| users::get_user_groups(&name, current_user_gid))
-        .unwrap_or_default()
-        .contains(&owner_group)
 }
 
 #[cfg(unix)]
