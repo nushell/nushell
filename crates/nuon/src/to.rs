@@ -99,7 +99,9 @@ fn value_to_string(
         }
         Value::Closure { val, .. } => {
             if serialize_types {
-                Ok(val.coerce_into_string(engine_state, span)?.to_string())
+                Ok(escape_quote_string(
+                    &val.coerce_into_string(engine_state, span)?,
+                ))
             } else {
                 Err(ShellError::UnsupportedInput {
                     msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
