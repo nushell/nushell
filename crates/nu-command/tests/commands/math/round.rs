@@ -42,8 +42,16 @@ fn const_round() {
 }
 
 #[test]
-fn cannot_round_infinite_range() {
-    let actual = nu!("0..5 | math round");
+fn can_round_range_into_list() {
+    let actual = nu!("(1.0)..(1.2)..(2.0) | math round");
+    let expected = nu!("[1 1 1 2 2 2]");
 
-    assert!(actual.err.contains("nu::parser::input_type_mismatch"));
+    assert_eq!(actual.out, expected.out);
+}
+
+#[test]
+fn cannot_round_infinite_range() {
+    let actual = nu!("0.. | math round");
+
+    assert!(actual.err.contains("nu::shell::incorrect_value"));
 }

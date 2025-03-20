@@ -1,4 +1,6 @@
+use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
+use nu_protocol::Range;
 
 #[derive(Clone)]
 pub struct MathAbs;
@@ -21,6 +23,7 @@ impl Command for MathAbs {
                     Type::List(Box::new(Type::Duration)),
                     Type::List(Box::new(Type::Duration)),
                 ),
+                (Type::Range, Type::List(Box::new(Type::Number))),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)
@@ -46,6 +49,19 @@ impl Command for MathAbs {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
+            match &**val {
+                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+            }
+        }
         input.map(move |value| abs_helper(value, head), engine_state.signals())
     }
 
@@ -56,6 +72,19 @@ impl Command for MathAbs {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
+            match &**val {
+                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+            }
+        }
         input.map(
             move |value| abs_helper(value, head),
             working_set.permanent().signals(),

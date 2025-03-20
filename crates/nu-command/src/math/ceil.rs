@@ -1,4 +1,6 @@
+use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
+use nu_protocol::Range;
 
 #[derive(Clone)]
 pub struct MathCeil;
@@ -16,6 +18,7 @@ impl Command for MathCeil {
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Int)),
                 ),
+                (Type::Range, Type::List(Box::new(Type::Number))),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)
@@ -45,6 +48,19 @@ impl Command for MathCeil {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
+            match &**val {
+                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+            }
+        }
         input.map(move |value| operate(value, head), engine_state.signals())
     }
 
@@ -58,6 +74,19 @@ impl Command for MathCeil {
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
+            match &**val {
+                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+            }
         }
         input.map(
             move |value| operate(value, head),

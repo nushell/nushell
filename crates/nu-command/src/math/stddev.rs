@@ -14,6 +14,7 @@ impl Command for MathStddev {
         Signature::build("math stddev")
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::Range, Type::Number),
                 (Type::table(), Type::record()),
                 (Type::record(), Type::record()),
             ])
@@ -53,6 +54,18 @@ impl Command for MathStddev {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let sample = call.has_flag(engine_state, stack, "sample")?;
+        let name = call.head;
+        let span = input.span().unwrap_or(name);
+        let input: PipelineData = match input.try_expand_range() {
+            Err(_) => {
+                return Err(ShellError::IncorrectValue {
+                    msg: "Range must be bounded".to_string(),
+                    val_span: span,
+                    call_span: name,
+                });
+            }
+            Ok(val) => val,
+        };
         run_with_function(call, input, compute_stddev(sample))
     }
 
@@ -63,6 +76,18 @@ impl Command for MathStddev {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let sample = call.has_flag_const(working_set, "sample")?;
+        let name = call.head;
+        let span = input.span().unwrap_or(name);
+        let input: PipelineData = match input.try_expand_range() {
+            Err(_) => {
+                return Err(ShellError::IncorrectValue {
+                    msg: "Range must be bounded".to_string(),
+                    val_span: span,
+                    call_span: name,
+                });
+            }
+            Ok(val) => val,
+        };
         run_with_function(call, input, compute_stddev(sample))
     }
 
