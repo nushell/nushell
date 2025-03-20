@@ -1,8 +1,5 @@
+use super::byte_stream::{random_byte_stream, RandomDistribution};
 use nu_engine::command_prelude::*;
-use rand::{
-    distributions::{Alphanumeric, Distribution},
-    thread_rng,
-};
 
 const DEFAULT_CHARS_LENGTH: usize = 25;
 
@@ -71,7 +68,6 @@ fn chars(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    let span = call.head;
     let length: Option<Value> = call.get_flag(engine_state, stack, "length")?;
     let length = if let Some(length_val) = length {
         match length_val {
@@ -97,17 +93,11 @@ fn chars(
         DEFAULT_CHARS_LENGTH
     };
 
-    let mut rng = thread_rng();
-
-    let random_string = Alphanumeric
-        .sample_iter(&mut rng)
-        .take(length)
-        .map(char::from)
-        .collect::<String>();
-
-    Ok(PipelineData::Value(
-        Value::string(random_string, span),
-        None,
+    Ok(random_byte_stream(
+        RandomDistribution::Alphanumeric,
+        length,
+        call.head,
+        engine_state.signals().clone(),
     ))
 }
 
