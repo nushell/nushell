@@ -13,6 +13,7 @@ mod example;
 mod id;
 pub mod ir;
 mod lev_distance;
+mod locale;
 mod module;
 pub mod parser_path;
 mod pipeline;
@@ -35,6 +36,7 @@ pub use errors::*;
 pub use example::*;
 pub use id::*;
 pub use lev_distance::levenshtein_distance;
+pub use locale::Locale;
 pub use module::*;
 pub use pipeline::*;
 #[cfg(feature = "plugin")]

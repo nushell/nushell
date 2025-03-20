@@ -1,8 +1,7 @@
 use crate::{generate_strftime_list, parse_date_from_string};
-use chrono::{DateTime, Locale, TimeZone};
+use chrono::{DateTime, TimeZone};
 use nu_engine::command_prelude::*;
-
-use nu_utils::locale::{get_system_locale_string, LOCALE_OVERRIDE_ENV_VAR};
+use nu_protocol::Locale;
 use std::fmt::{Display, Write};
 
 #[derive(Clone)]
@@ -92,24 +91,7 @@ impl Command for FormatDate {
     ) -> Result<PipelineData, ShellError> {
         let list = call.has_flag(engine_state, stack, "list")?;
         let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
-
-        // get the locale first so we can use the proper get_env_var functions since this is a const command
-        // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
-        let locale = if let Some(loc) = engine_state
-            .get_env_var(LOCALE_OVERRIDE_ENV_VAR)
-            .or_else(|| engine_state.get_env_var("LC_TIME"))
-        {
-            let locale_str = loc.as_str()?.split('.').next().unwrap_or("en_US");
-            locale_str.try_into().unwrap_or(Locale::en_US)
-        } else {
-            get_system_locale_string()
-                .map(|l| l.replace('-', "_"))
-                .unwrap_or_else(|| String::from("en_US"))
-                .as_str()
-                .try_into()
-                .unwrap_or(Locale::en_US)
-        };
-
+        let locale = Locale::system_date().unwrap_or_default();
         run(engine_state, call, input, list, format, locale)
     }
 
@@ -121,24 +103,7 @@ impl Command for FormatDate {
     ) -> Result<PipelineData, ShellError> {
         let list = call.has_flag_const(working_set, "list")?;
         let format = call.opt_const::<Spanned<String>>(working_set, 0)?;
-
-        // get the locale first so we can use the proper get_env_var functions since this is a const command
-        // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
-        let locale = if let Some(loc) = working_set
-            .get_env_var(LOCALE_OVERRIDE_ENV_VAR)
-            .or_else(|| working_set.get_env_var("LC_TIME"))
-        {
-            let locale_str = loc.as_str()?.split('.').next().unwrap_or("en_US");
-            locale_str.try_into().unwrap_or(Locale::en_US)
-        } else {
-            get_system_locale_string()
-                .map(|l| l.replace('-', "_"))
-                .unwrap_or_else(|| String::from("en_US"))
-                .as_str()
-                .try_into()
-                .unwrap_or(Locale::en_US)
-        };
-
+        let locale = Locale::system_date().unwrap_or_default();
         run(working_set.permanent(), call, input, list, format, locale)
     }
 }
@@ -182,7 +147,7 @@ where
     Tz::Offset: Display,
 {
     let mut formatter_buf = String::new();
-    let format = date_time.format_localized(formatter, locale);
+    let format = date_time.format_localized(formatter, locale.date());
 
     match formatter_buf.write_fmt(format_args!("{format}")) {
         Ok(_) => Value::string(formatter_buf, span),

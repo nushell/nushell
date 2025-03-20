@@ -23,16 +23,12 @@ use crate::{
     ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
     did_you_mean,
     engine::{Closure, EngineState},
-    BlockId, Config, ShellError, Signals, Span, Type,
+    BlockId, Config, Locale, ShellError, Signals, Span, Type,
 };
-use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
+use chrono::{DateTime, Datelike, FixedOffset, TimeZone};
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
-use nu_utils::{
-    contains_emoji,
-    locale::{get_system_locale_string, LOCALE_OVERRIDE_ENV_VAR},
-    IgnoreCaseExt, SharedCow,
-};
+use nu_utils::{contains_emoji, IgnoreCaseExt, SharedCow};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -908,22 +904,8 @@ impl Value {
         Tz::Offset: Display,
     {
         let mut formatter_buf = String::new();
-        let locale = if let Ok(l) =
-            std::env::var(LOCALE_OVERRIDE_ENV_VAR).or_else(|_| std::env::var("LC_TIME"))
-        {
-            let locale_str = l.split('.').next().unwrap_or("en_US");
-            locale_str.try_into().unwrap_or(Locale::en_US)
-        } else {
-            // LC_ALL > LC_CTYPE > LANG else en_US
-            get_system_locale_string()
-                .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
-                .unwrap_or_else(|| String::from("en_US"))
-                .as_str()
-                .try_into()
-                .unwrap_or(Locale::en_US)
-        };
-        let format = date_time.format_localized(formatter, locale);
-
+        let locale = Locale::system_date().unwrap_or_default();
+        let format = date_time.format_localized(formatter, locale.date());
         match formatter_buf.write_fmt(format_args!("{format}")) {
             Ok(_) => (),
             Err(_) => formatter_buf = format!("Invalid format string {}", formatter),

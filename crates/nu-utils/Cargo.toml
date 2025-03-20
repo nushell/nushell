@@ -25,7 +25,6 @@ num-format = { workspace = true }
 strip-ansi-escapes = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sys-locale = "0.3"
 unicase = "2.8.0"
 
 [features]

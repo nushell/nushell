@@ -235,6 +235,7 @@ macro_rules! nu_with_plugins {
 
 use crate::{Outcome, NATIVE_PATH_ENV_VAR};
 use nu_path::{AbsolutePath, AbsolutePathBuf, Path, PathBuf};
+use nu_protocol::Locale;
 use nu_utils::escape_quote_string;
 use std::{
     ffi::OsStr,
@@ -275,7 +276,7 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
 
     let mut command = setup_command(&executable_path, &target_cwd);
     command
-        .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
+        .env(Locale::OVERRIDE_ENV_VAR, locale)
         .env(NATIVE_PATH_ENV_VAR, paths_joined);
 
     if let Some(envs) = opts.envs {
