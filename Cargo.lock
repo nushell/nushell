@@ -3795,7 +3795,6 @@ name = "nu-glob"
 version = "0.103.1"
 dependencies = [
  "doc-comment",
- "nu-protocol",
 ]
 
 [[package]]
@@ -3967,6 +3966,7 @@ dependencies = [
  "miette",
  "nix 0.29.0",
  "nu-derive-value",
+ "nu-glob",
  "nu-path",
  "nu-system",
  "nu-test-support",

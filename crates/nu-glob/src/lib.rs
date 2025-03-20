@@ -27,9 +27,9 @@
 //! To print all jpg files in `/media/` and all of its subdirectories.
 //!
 //! ```rust,no_run
-//! use nu_glob::glob;
+//! use nu_glob::{glob, Uninterruptible};
 //!
-//! for entry in glob("/media/**/*.jpg", None).expect("Failed to read glob pattern") {
+//! for entry in glob("/media/**/*.jpg", Uninterruptible).expect("Failed to read glob pattern") {
 //!     match entry {
 //!         Ok(path) => println!("{:?}", path.display()),
 //!         Err(e) => println!("{:?}", e),
@@ -42,9 +42,7 @@
 //! instead of printing them.
 //!
 //! ```rust,no_run
-//! use nu_glob::glob_with;
-//! use nu_glob::MatchOptions;
-//! use nu_protocol::Signals;
+//! use nu_glob::{glob_with, MatchOptions, Uninterruptible};
 //!
 //! let options = MatchOptions {
 //!     case_sensitive: false,
@@ -52,7 +50,7 @@
 //!     require_literal_leading_dot: false,
 //!     recursive_match_hidden_dir: true,
 //! };
-//! for entry in glob_with("local/*a*", options, Signals::empty()).unwrap() {
+//! for entry in glob_with("local/*a*", options, Uninterruptible).unwrap() {
 //!     if let Ok(path) = entry {
 //!         println!("{:?}", path.display())
 //!     }
@@ -73,7 +71,6 @@ extern crate doc_comment;
 #[cfg(test)]
 doctest!("../README.md");
 
-use nu_protocol::Signals;
 use std::cmp;
 use std::cmp::Ordering;
 use std::error::Error;
@@ -88,6 +85,29 @@ use MatchResult::{EntirePatternDoesntMatch, Match, SubPatternDoesntMatch};
 use PatternToken::AnyExcept;
 use PatternToken::{AnyChar, AnyRecursiveSequence, AnySequence, AnyWithin, Char};
 
+/// A trait for types that can be periodically polled to check whether to cancel an operation.
+pub trait Interruptible {
+    /// Returns whether the current operation should be cancelled.
+    fn interrupted(&self) -> bool;
+}
+
+impl<I: Interruptible> Interruptible for &I {
+    #[inline]
+    fn interrupted(&self) -> bool {
+        (*self).interrupted()
+    }
+}
+
+/// A no-op implementor of [`Interruptible`] that always returns `false` for [`interrupted`](Interruptible::interrupted).
+pub struct Uninterruptible;
+
+impl Interruptible for Uninterruptible {
+    #[inline]
+    fn interrupted(&self) -> bool {
+        false
+    }
+}
+
 /// An iterator that yields `Path`s from the filesystem that match a particular
 /// pattern.
 ///
@@ -98,16 +118,16 @@ use PatternToken::{AnyChar, AnyRecursiveSequence, AnySequence, AnyWithin, Char};
 ///
 /// See the `glob` function for more details.
 #[derive(Debug)]
-pub struct Paths {
+pub struct Paths<I = Uninterruptible> {
     dir_patterns: Vec<Pattern>,
     require_dir: bool,
     options: MatchOptions,
     todo: Vec<Result<(PathBuf, usize), GlobError>>,
     scope: Option<PathBuf>,
-    signals: Signals,
+    interrupt: I,
 }
 
-impl Paths {
+impl Paths<Uninterruptible> {
     /// An iterator representing a single path.
     pub fn single(path: &Path, relative_to: &Path) -> Self {
         Paths {
@@ -116,7 +136,7 @@ impl Paths {
             options: MatchOptions::default(),
             todo: vec![Ok((path.to_path_buf(), 0))],
             scope: Some(relative_to.into()),
-            signals: Signals::empty(),
+            interrupt: Uninterruptible,
         }
     }
 }
@@ -133,7 +153,7 @@ impl Paths {
 ///
 /// When iterating, each result is a `GlobResult` which expresses the
 /// possibility that there was an `IoError` when attempting to read the contents
-/// of the matched path.  In other words, each item returned by the iterator
+/// of the matched path. In other words, each item returned by the iterator
 /// will either be an `Ok(Path)` if the path matched, or an `Err(GlobError)` if
 /// the path (partially) matched _but_ its contents could not be read in order
 /// to determine if its contents matched.
@@ -146,9 +166,9 @@ impl Paths {
 /// `kittens.jpg`, `puppies.jpg` and `hamsters.gif`:
 ///
 /// ```rust,no_run
-/// use nu_glob::glob;
+/// use nu_glob::{glob, Uninterruptible};
 ///
-/// for entry in glob("/media/pictures/*.jpg", None).unwrap() {
+/// for entry in glob("/media/pictures/*.jpg", Uninterruptible).unwrap() {
 ///     match entry {
 ///         Ok(path) => println!("{:?}", path.display()),
 ///
@@ -170,20 +190,16 @@ impl Paths {
 /// `filter_map`:
 ///
 /// ```rust
-/// use nu_glob::glob;
+/// use nu_glob::{glob, Uninterruptible};
 /// use std::result::Result;
 ///
-/// for path in glob("/media/pictures/*.jpg", None).unwrap().filter_map(Result::ok) {
+/// for path in glob("/media/pictures/*.jpg", Uninterruptible).unwrap().filter_map(Result::ok) {
 ///     println!("{}", path.display());
 /// }
 /// ```
 /// Paths are yielded in alphabetical order.
-pub fn glob(pattern: &str, signals: Option<Signals>) -> Result<Paths, PatternError> {
-    glob_with(
-        pattern,
-        MatchOptions::default(),
-        signals.unwrap_or(Signals::empty()),
-    )
+pub fn glob<I: Interruptible>(pattern: &str, interrupt: I) -> Result<Paths<I>, PatternError> {
+    glob_with(pattern, MatchOptions::default(), interrupt)
 }
 
 /// Return an iterator that produces all the `Path`s that match the given
@@ -199,11 +215,11 @@ pub fn glob(pattern: &str, signals: Option<Signals>) -> Result<Paths, PatternErr
 /// passed to this function.
 ///
 /// Paths are yielded in alphabetical order.
-pub fn glob_with(
+pub fn glob_with<I: Interruptible>(
     pattern: &str,
     options: MatchOptions,
-    signals: Signals,
-) -> Result<Paths, PatternError> {
+    interrupt: I,
+) -> Result<Paths<I>, PatternError> {
     #[cfg(windows)]
     fn check_windows_verbatim(p: &Path) -> bool {
         match p.components().next() {
@@ -265,7 +281,7 @@ pub fn glob_with(
             options,
             todo: Vec::new(),
             scope: None,
-            signals,
+            interrupt,
         });
     }
 
@@ -297,7 +313,7 @@ pub fn glob_with(
         options,
         todo,
         scope: Some(scope),
-        signals,
+        interrupt,
     })
 }
 
@@ -308,13 +324,13 @@ pub fn glob_with(
 /// This is provided primarily for testability, so multithreaded test runners can
 /// test pattern matches in different test directories at the same time without
 /// having to append the parent to the pattern under test.
-pub fn glob_with_parent(
+pub fn glob_with_parent<I: Interruptible>(
     pattern: &str,
     options: MatchOptions,
     parent: &Path,
-    signals: Signals,
-) -> Result<Paths, PatternError> {
-    match glob_with(pattern, options, signals) {
+    interrupt: I,
+) -> Result<Paths<I>, PatternError> {
+    match glob_with(pattern, options, interrupt) {
         Ok(mut p) => {
             p.scope = match p.scope {
                 None => Some(parent.to_path_buf()),
@@ -408,7 +424,7 @@ fn is_dir(p: &Path) -> bool {
 /// such as failing to read a particular directory's contents.
 pub type GlobResult = Result<PathBuf, GlobError>;
 
-impl Iterator for Paths {
+impl<I: Interruptible> Iterator for Paths<I> {
     type Item = GlobResult;
 
     fn next(&mut self) -> Option<GlobResult> {
@@ -429,7 +445,7 @@ impl Iterator for Paths {
                         0,
                         &scope,
                         self.options,
-                        &self.signals,
+                        &self.interrupt,
                     );
                 }
             }
@@ -487,7 +503,7 @@ impl Iterator for Paths {
                         next,
                         &path,
                         self.options,
-                        &self.signals,
+                        &self.interrupt,
                     );
 
                     if next == self.dir_patterns.len() - 1 {
@@ -539,7 +555,7 @@ impl Iterator for Paths {
                         idx + 1,
                         &path,
                         self.options,
-                        &self.signals,
+                        &self.interrupt,
                     );
                 }
             }
@@ -929,7 +945,7 @@ fn fill_todo(
     idx: usize,
     path: &Path,
     options: MatchOptions,
-    signals: &Signals,
+    interrupt: &impl Interruptible,
 ) {
     // convert a pattern that's just many Char(_) to a string
     fn pattern_as_str(pattern: &Pattern) -> Option<String> {
@@ -951,7 +967,7 @@ fn fill_todo(
             // . or .. globs since these never show up as path components.
             todo.push(Ok((next_path, !0)));
         } else {
-            fill_todo(todo, patterns, idx + 1, &next_path, options, signals);
+            fill_todo(todo, patterns, idx + 1, &next_path, options, interrupt);
         }
     };
 
@@ -982,7 +998,7 @@ fn fill_todo(
         None if is_dir => {
             let dirs = fs::read_dir(path).and_then(|d| {
                 d.map(|e| {
-                    if signals.interrupted() {
+                    if interrupt.interrupted() {
                         return Err(io::Error::from(io::ErrorKind::Interrupted));
                     }
                     e.map(|e| {
@@ -1141,13 +1157,13 @@ impl Default for MatchOptions {
 
 #[cfg(test)]
 mod test {
-    use crate::{Paths, PatternError};
+    use crate::{Paths, PatternError, Uninterruptible};
 
     use super::{glob as glob_with_signals, MatchOptions, Pattern};
     use std::path::Path;
 
     fn glob(pattern: &str) -> Result<Paths, PatternError> {
-        glob_with_signals(pattern, None)
+        glob_with_signals(pattern, Uninterruptible)
     }
 
     #[test]
