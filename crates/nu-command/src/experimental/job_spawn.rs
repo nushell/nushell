@@ -8,8 +8,8 @@ use std::{
 
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
 use nu_protocol::{
-    engine::{Closure, Job, ThreadJob},
-    report_shell_error, Signals,
+    engine::{Closure, Job, Redirection, ThreadJob},
+    report_shell_error, OutDest, Signals,
 };
 
 #[derive(Clone)]
@@ -76,15 +76,18 @@ impl Command for JobSpawn {
         let result = thread::Builder::new()
             .name(format!("background job {}", id.get()))
             .spawn(move || {
-                ClosureEvalOnce::new(&job_state, &job_stack, closure)
+                let mut stack = job_stack.reset_pipes();
+                let stack = stack.push_redirection(
+                    Some(Redirection::Pipe(OutDest::Null)),
+                    Some(Redirection::Pipe(OutDest::Null)),
+                );
+                ClosureEvalOnce::new_preserve_out_dest(&job_state, &stack, closure)
                     .run_with_input(Value::nothing(head).into_pipeline_data())
-                    .and_then(|data| data.into_value(head))
+                    .and_then(|data| data.drain())
                     .unwrap_or_else(|err| {
                         if !job_state.signals().interrupted() {
                             report_shell_error(&job_state, &err);
                         }
-
-                        Value::nothing(head)
                     });
 
                 {
