@@ -322,12 +322,12 @@ impl Stack {
         }
     }
 
-    pub fn gather_captures(&self, engine_state: &EngineState, captures: &[VarId]) -> Stack {
+    pub fn gather_captures(&self, engine_state: &EngineState, captures: &[(VarId, Span)]) -> Stack {
         let mut vars = Vec::with_capacity(captures.len());
 
         let fake_span = Span::new(0, 0);
 
-        for capture in captures {
+        for (capture, _) in captures {
             // Note: this assumes we have calculated captures correctly and that commands
             // that take in a var decl will manually set this into scope when running the blocks
             if let Ok(value) = self.get_var(*capture, fake_span) {
