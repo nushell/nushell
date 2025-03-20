@@ -162,15 +162,16 @@ impl LanguageServer {
             parameters.push(arg_to_param_info(rest_arg));
         }
         let max_idx = parameters.len().saturating_sub(1) as u32;
+        let active_parameter = Some(param_num_before_pos.min(max_idx));
         Some(SignatureHelp {
             signatures: vec![SignatureInformation {
                 label: Self::get_signature_label(&active_signature),
                 documentation: str_to_doc(active_signature.description),
                 parameters: Some(parameters),
-                active_parameter: Some(std::cmp::min(param_num_before_pos, max_idx)),
+                active_parameter,
             }],
             active_signature: Some(0),
-            active_parameter: None,
+            active_parameter,
         })
     }
 }
@@ -315,7 +316,8 @@ mod tests {
                     ],
                     "activeParameter": 1
                 }],
-                "activeSignature": 0
+                "activeSignature": 0,
+                "activeParameter": 1
             })
         );
 
@@ -332,7 +334,8 @@ mod tests {
                     ],
                     "activeParameter": 2
                 }],
-                "activeSignature": 0
+                "activeSignature": 0,
+                "activeParameter": 2
             })
         );
     }
