@@ -26,6 +26,9 @@ pub struct ProcessInfo {
     pub prev_res: Option<RUsageInfoV2>,
     pub interval: Duration,
     pub start_time: i64,
+    pub user_id: i64,
+    pub priority: i64,
+    pub task_thread_num: i64,
 }
 
 pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> {
@@ -96,6 +99,9 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
         let interval = curr_time.saturating_duration_since(prev_time);
         let ppid = curr_task.pbsd.pbi_ppid as i32;
         let start_time = curr_task.pbsd.pbi_start_tvsec as i64;
+        let user_id = curr_task.pbsd.pbi_uid as i64;
+        let priority = curr_task.ptinfo.pti_priority as i64;
+        let task_thread_num = curr_task.ptinfo.pti_threadnum as i64;
 
         let proc = ProcessInfo {
             pid,
@@ -110,6 +116,9 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
             prev_res,
             interval,
             start_time,
+            user_id,
+            priority,
+            task_thread_num,
         };
 
         ret.push(proc);
@@ -276,24 +285,44 @@ fn clone_task_all_info(src: &TaskAllInfo) -> TaskAllInfo {
         pbi_start_tvsec: src.pbsd.pbi_start_tvsec,
         pbi_start_tvusec: src.pbsd.pbi_start_tvusec,
     };
+
+    // Comments taken from here https://github.com/apple-oss-distributions/xnu/blob/8d741a5de7ff4191bf97d57b9f54c2f6d4a15585/bsd/sys/proc_info.h#L127
     let ptinfo = TaskInfo {
+        // virtual memory size (bytes)
         pti_virtual_size: src.ptinfo.pti_virtual_size,
+        // resident memory size (bytes)
         pti_resident_size: src.ptinfo.pti_resident_size,
+        // total user time
         pti_total_user: src.ptinfo.pti_total_user,
+        // total system time
         pti_total_system: src.ptinfo.pti_total_system,
+        // existing threads only user
         pti_threads_user: src.ptinfo.pti_threads_user,
+        // existing threads only system
         pti_threads_system: src.ptinfo.pti_threads_system,
+        // default policy for new threads
         pti_policy: src.ptinfo.pti_policy,
+        // number of page faults
         pti_faults: src.ptinfo.pti_faults,
+        // number of actual pageins
         pti_pageins: src.ptinfo.pti_pageins,
+        // number of copy-on-write faults
         pti_cow_faults: src.ptinfo.pti_cow_faults,
+        // number of messages sent
         pti_messages_sent: src.ptinfo.pti_messages_sent,
+        // number of messages received
         pti_messages_received: src.ptinfo.pti_messages_received,
+        // number of mach system calls
         pti_syscalls_mach: src.ptinfo.pti_syscalls_mach,
+        // number of unix system calls
         pti_syscalls_unix: src.ptinfo.pti_syscalls_unix,
+        // number of context switches
         pti_csw: src.ptinfo.pti_csw,
+        // number of threads in the task
         pti_threadnum: src.ptinfo.pti_threadnum,
+        // number of running threads
         pti_numrunning: src.ptinfo.pti_numrunning,
+        // task priority
         pti_priority: src.ptinfo.pti_priority,
     };
     TaskAllInfo { pbsd, ptinfo }
