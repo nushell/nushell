@@ -26,7 +26,7 @@ nu-utils = { path = "../nu-utils", version = "0.103.1" }
 chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
 chrono-tz = "0.10"
 fancy-regex = { workspace = true }
-indexmap = { version = "2.7" }
+indexmap = { version = "2.8" }
 num = {version = "0.4"}
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.53"}
