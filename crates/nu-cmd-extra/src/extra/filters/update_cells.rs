@@ -127,7 +127,6 @@ impl Iterator for UpdateCellIterator {
         let mut value = self.iter.next()?;
 
         let value = if let Value::Record { val, .. } = &mut value {
-            let val = val.to_mut();
             if let Some(columns) = &self.columns {
                 for (col, val) in val.iter_mut() {
                     if columns.contains(col) {
