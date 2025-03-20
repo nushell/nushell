@@ -4,6 +4,7 @@ use human_date_parser::{from_human_time, ParseResult};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
+#[derive(Clone, Debug)]
 struct Arguments {
     zone_options: Option<Spanned<Zone>>,
     format_options: Option<DatetimeFormat>,
@@ -272,7 +273,7 @@ impl Command for IntoDatetime {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct DatetimeFormat(String);
 
 fn action(input: &Value, args: &Arguments, head: Span) -> Value {
