@@ -85,7 +85,7 @@ quick-xml = { workspace = true }
 rand = { workspace = true, optional = true }
 getrandom = { workspace = true, optional = true }
 rayon = { workspace = true }
-reedline = { workspace = true }
+reedline = { workspace = true, optional = true }
 roxmltree = { workspace = true }
 rusqlite = { workspace = true, features = [
 	"bundled",
@@ -179,6 +179,7 @@ os = [
 	"notify-debouncer-full",
 	"open",
 	"os_pipe",
+	"reedline",
 	"uu_cp",
 	"uu_mkdir",
 	"uu_mktemp",
