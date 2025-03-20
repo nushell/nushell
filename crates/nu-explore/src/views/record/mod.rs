@@ -779,19 +779,19 @@ mod tests {
         // Before transpose
         assert_eq!(layer.count_rows(), 2);
         assert_eq!(layer.count_columns(), 3);
-        assert_eq!(layer.was_transposed, false);
+        assert!(!layer.was_transposed);
 
         // After transpose
         transpose_table(&mut layer);
         assert_eq!(layer.count_rows(), 3);
         assert_eq!(layer.count_columns(), 3); // Now includes header row
-        assert_eq!(layer.was_transposed, true);
+        assert!(layer.was_transposed);
 
         // After transpose back
         transpose_table(&mut layer);
         assert_eq!(layer.count_rows(), 2);
         assert_eq!(layer.count_columns(), 3);
-        assert_eq!(layer.was_transposed, false);
+        assert!(!layer.was_transposed);
     }
 
     #[test]
