@@ -170,7 +170,7 @@ impl ThreadJob {
         // it's okay to make this interrupt outside of the mutex, since it has acquire-release
         // semantics.
 
-        self.signals.trigger_interrupt();
+        self.signals.trigger();
 
         let mut pids = self.pids.lock().expect("PIDs lock was poisoned");
 

@@ -496,9 +496,9 @@ fn stream_to_file(
         let mut reader = BufReader::new(source);
 
         let res = loop {
-            if let Err(err) = signals.check().err_span(span) {
+            if let Err(err) = signals.check(span) {
                 bar.abandoned_msg("# Cancelled #".to_owned());
-                return Err(err.into());
+                return Err(err);
             }
 
             match reader.fill_buf() {

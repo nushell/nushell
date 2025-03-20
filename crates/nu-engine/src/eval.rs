@@ -7,8 +7,8 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
-    BlockId, Config, DataSource, ErrSpan, IntoPipelineData, PipelineData, PipelineMetadata,
-    ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
+    BlockId, Config, DataSource, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
+    Span, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 use std::sync::Arc;
@@ -19,7 +19,7 @@ pub fn eval_call<D: DebugContext>(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    engine_state.signals().check().err_span(call.head)?;
+    engine_state.signals().check(call.head)?;
     let decl = engine_state.get_decl(call.decl_id);
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {

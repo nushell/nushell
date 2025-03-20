@@ -241,7 +241,7 @@ fn insert_in_transaction(
     let tx = table.try_init(&first_val)?;
 
     for stream_value in stream {
-        if let Err(err) = signals.check().err_span(span) {
+        if let Err(err) = signals.check(span) {
             tx.rollback().map_err(|e| ShellError::GenericError {
                 error: "Failed to rollback SQLite transaction".into(),
                 msg: e.to_string(),
@@ -249,7 +249,7 @@ fn insert_in_transaction(
                 help: None,
                 inner: Vec::new(),
             })?;
-            return Err(err.into());
+            return Err(err);
         }
 
         let val = stream_value.as_record()?;

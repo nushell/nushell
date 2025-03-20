@@ -2,7 +2,7 @@ use std::{cmp::max, collections::HashMap};
 
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
-use nu_protocol::{Config, ErrSpan, Record, ShellError, Span, Value};
+use nu_protocol::{Config, Record, ShellError, Span, Value};
 
 use tabled::grid::config::Position;
 
@@ -147,7 +147,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         }
 
         for (row, item) in input.iter().enumerate() {
-            cfg.opts.signals.check().err_span(cfg.opts.span)?;
+            cfg.opts.signals.check(cfg.opts.span)?;
             check_value(item)?;
 
             let index = row + row_offset;
@@ -183,7 +183,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         }
 
         for (row, item) in input.iter().enumerate() {
-            cfg.opts.signals.check().err_span(cfg.opts.span)?;
+            cfg.opts.signals.check(cfg.opts.span)?;
             check_value(item)?;
 
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available_width);
@@ -269,7 +269,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         let mut column_rows = 0usize;
 
         for (row, item) in input.iter().enumerate() {
-            cfg.opts.signals.check().err_span(cfg.opts.span)?;
+            cfg.opts.signals.check(cfg.opts.span)?;
             check_value(item)?;
 
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available);
@@ -395,7 +395,7 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
 
     let mut data = Vec::with_capacity(record.len());
     for (key, value) in record {
-        cfg.opts.signals.check().err_span(cfg.opts.span)?;
+        cfg.opts.signals.check(cfg.opts.span)?;
 
         let cell = match expand_value(value, value_width, &cfg)? {
             Some(val) => val,

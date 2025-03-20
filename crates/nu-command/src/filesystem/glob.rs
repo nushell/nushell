@@ -291,8 +291,8 @@ fn glob_to_value(
 ) -> ListStream {
     let map_signals = signals.clone();
     let result = glob_results.filter_map(move |entry| {
-        if let Err(err) = map_signals.check().err_span(span) {
-            return Some(Value::error(ShellError::from(err), span));
+        if let Err(err) = map_signals.check(span) {
+            return Some(Value::error(err, span));
         };
         let file_type = entry.file_type();
 

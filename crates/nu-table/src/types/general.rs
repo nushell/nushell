@@ -1,6 +1,6 @@
 use nu_color_config::TextStyle;
 use nu_engine::column::get_columns;
-use nu_protocol::{Config, ErrSpan, Record, ShellError, Value};
+use nu_protocol::{Config, Record, ShellError, Value};
 
 use crate::{
     clean_charset, colorize_space,
@@ -44,7 +44,7 @@ fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
     let mut data = vec![Vec::with_capacity(2); record.len()];
 
     for ((column, value), row) in record.iter().zip(data.iter_mut()) {
-        opts.signals.check().err_span(opts.span)?;
+        opts.signals.check(opts.span)?;
 
         let key = NuRecordsValue::new(column.to_string());
 
@@ -105,7 +105,7 @@ fn create_table_with_header(
     table.set_row(0, headers.clone());
 
     for (row, item) in input.iter().enumerate() {
-        opts.signals.check().err_span(opts.span)?;
+        opts.signals.check(opts.span)?;
         check_value(item)?;
 
         for (col, header) in headers.iter().enumerate() {
@@ -138,7 +138,7 @@ fn create_table_with_header_and_index(
     table.set_row(0, headers.clone());
 
     for (row, item) in input.iter().enumerate() {
-        opts.signals.check().err_span(opts.span)?;
+        opts.signals.check(opts.span)?;
         check_value(item)?;
 
         let text = get_table_row_index(item, opts.config, row, row_offset);
@@ -164,7 +164,7 @@ fn create_table_with_no_header(
     table.set_index_style(get_index_style(&opts.style_computer));
 
     for (row, item) in input.iter().enumerate() {
-        opts.signals.check().err_span(opts.span)?;
+        opts.signals.check(opts.span)?;
         check_value(item)?;
 
         let (text, style) = get_string_value(item, opts);
@@ -186,7 +186,7 @@ fn create_table_with_no_header_and_index(
     table.set_index_style(get_index_style(&opts.style_computer));
 
     for (row, item) in input.iter().enumerate() {
-        opts.signals.check().err_span(opts.span)?;
+        opts.signals.check(opts.span)?;
         check_value(item)?;
 
         let text = get_table_row_index(item, opts.config, row, row_offset);
