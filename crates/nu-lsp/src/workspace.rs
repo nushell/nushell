@@ -9,6 +9,7 @@ use lsp_types::{
     TextDocumentPositionParams, TextEdit, Uri, WorkspaceEdit, WorkspaceFolder,
 };
 use miette::{miette, IntoDiagnostic, Result};
+use nu_glob::Uninterruptible;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Span,
@@ -42,7 +43,7 @@ fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Result<nu_glob::Paths> {
         return Err(miette!("\nworkspace folder does not exist."));
     }
     let pattern = format!("{}/**/*.nu", path.to_string_lossy());
-    nu_glob::glob(&pattern, None).into_diagnostic()
+    nu_glob::glob(&pattern, Uninterruptible).into_diagnostic()
 }
 
 impl LanguageServer {
