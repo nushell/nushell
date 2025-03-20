@@ -168,6 +168,11 @@ pub enum Value {
     },
 }
 
+// This is to document/enforce the size of `Value` in bytes.
+// We should try to avoid increasing the size of `Value`,
+// and PRs that do so will have to change the number below so that it's noted in review.
+const _: () = assert!(std::mem::size_of::<Value>() <= 48);
+
 impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
