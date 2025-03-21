@@ -84,18 +84,17 @@ impl Command for Input {
 
         // Here we will render the default prompt to the right
         let default_val: Option<String> = call.get_flag(engine_state, stack, "default")?;
-        let right_prompt = match (&prompt_str, &default_val) {
-            (Some(_prompt), Some(val)) => format!("(default: {val})").to_string(),
+        let default_str = match (&prompt_str, &default_val) {
+            (Some(_prompt), Some(val)) => format!("(default: {val}) ").to_string(),
             _ => "".to_string(),
         };
         let mut buf = String::new();
         let prompt = ReedlinePrompt {
+            // Put the default value in the indicator for now.
+            indicator: default_str,
             left_prompt: prompt_str.unwrap_or("".to_string()),
             // Breaking change, the default is now in the right prompt
-            right_prompt,
-            indicator: "".to_string(), // TODO: Add support for custom prompt indicators
-                                       // for now, and backwards compat, we just use the  empty
-                                       // string
+            right_prompt: "".to_string(),
         };
         let mut line_editor = Reedline::create();
         // Disable ansi colors for now, for backwards compat. This will be configurable in the
