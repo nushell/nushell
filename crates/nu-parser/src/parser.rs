@@ -5208,7 +5208,7 @@ pub fn parse_assignment_expression(
         rhs_span.start,
         &[],
         &[],
-        true,
+        false,
     );
     working_set.parse_errors.extend(rhs_error);
 
