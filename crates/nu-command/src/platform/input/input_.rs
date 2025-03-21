@@ -4,8 +4,6 @@ use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::io::IoError;
 use reedline::{Reedline, Signal};
 
-use std::io::Write;
-
 #[derive(Clone)]
 pub struct Input;
 
@@ -84,24 +82,29 @@ impl Command for Input {
             return self.legacy_input(engine_state, stack, call, _input);
         }
 
-        // FIXME: print default val if present
+        // Here we will render the default prompt to the right
         let default_val: Option<String> = call.get_flag(engine_state, stack, "default")?;
-
+        let right_prompt = match (&prompt_str, &default_val) {
+            (Some(_prompt), Some(val)) => format!("(default: {val})").to_string(),
+            _ => "".to_string(),
+        };
         let mut buf = String::new();
         let prompt = ReedlinePrompt {
             left_prompt: prompt_str.unwrap_or("".to_string()),
+            // Breaking change, the default is now in the right prompt
+            right_prompt,
             indicator: "".to_string(), // TODO: Add support for custom prompt indicators
                                        // for now, and backwards compat, we just use the  empty
                                        // string
         };
-        let mut line_editor = Reedline::create().with_ansi_colors(false); // Disable ansi colors for now
+        let mut line_editor = Reedline::create();
+        // Disable ansi colors for now, for backwards compat. This will be configurable in the
+        // future
+        line_editor = line_editor.with_ansi_colors(false);
 
         // TODO handle options
 
         loop {
-            if i64::try_from(buf.len()).unwrap_or(0) >= numchar.item {
-                break;
-            }
             match line_editor.read_line(&prompt) {
                 Ok(Signal::Success(buffer)) => {
                     buf.push_str(&buffer);

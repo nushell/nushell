@@ -16,6 +16,7 @@ pub static DEFAULT_MULTILINE_INDICATOR: &str = "::: ";
 pub struct ReedlinePrompt {
     /// What segment should be rendered in the left (main) prompt
     pub left_prompt: String,
+    pub right_prompt: String,
     pub indicator: String,
 }
 
@@ -25,7 +26,7 @@ impl Prompt for ReedlinePrompt {
     }
 
     fn render_prompt_right(&self) -> Cow<str> {
-        Cow::Borrowed("")
+        Cow::Borrowed(&self.right_prompt)
     }
 
     fn render_prompt_indicator(&self, edit_mode: PromptEditMode) -> Cow<str> {
