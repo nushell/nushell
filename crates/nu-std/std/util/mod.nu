@@ -7,8 +7,8 @@
         path add "returned" --ret
     }
 } --result [returned bar baz foo fooo]
-@example "adding paths based on the operating system" {
-    path add {linux: "foo", windows: "bar", darwin: "baz"}
+@example "adding paths based on $nu.os-info.name" {
+    path add {linux: "foo", windows: "bar", macos: "baz"}
 }
 export def --env "path add" [
     --ret (-r)  # return $env.PATH, useful in pipelines to avoid scoping.
@@ -28,12 +28,12 @@ export def --env "path add" [
     let path_name = if "PATH" in $env { "PATH" } else { "Path" }
 
     let paths = $paths | each {|p|
-        let p = match ($p | describe | str replace --regex '<.*' '') {
+        let p = match ($p | describe -d).type {
             "string" => $p,
             "record" => { $p | get --ignore-errors $nu.os-info.name },
         }
 
-        $p | path expand --no-symlink
+        if $p != null { $p | path expand --no-symlink }
     }
 
     if null in $paths or ($paths | is-empty) {
