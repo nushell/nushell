@@ -84,15 +84,8 @@ impl Command for Input {
             return self.legacy_input(engine_state, stack, call, _input);
         }
 
+        // FIXME: print default val if present
         let default_val: Option<String> = call.get_flag(engine_state, stack, "default")?;
-
-        if let Some(prompt) = &prompt_str {
-            match &default_val {
-                None => print!("{prompt}"),
-                Some(val) => print!("{prompt} (default: {val})"),
-            }
-            let _ = std::io::stdout().flush();
-        }
 
         let mut buf = String::new();
         let prompt = ReedlinePrompt {
