@@ -94,7 +94,8 @@ impl Command for Input {
                                        // for now, and backwards compat, we just use the  empty
                                        // string
         };
-        let mut line_editor = Reedline::create();
+        let mut line_editor = Reedline::create().with_ansi_colors(false); // Disable ansi colors for now
+
         // TODO handle options
 
         loop {
