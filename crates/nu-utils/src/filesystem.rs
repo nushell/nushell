@@ -1,26 +1,23 @@
 #[cfg(unix)]
-use nix::{
-    errno::Errno,
-    unistd::{access, AccessFlags},
-};
+use nix::unistd::{access, AccessFlags};
 #[cfg(any(windows, unix))]
 use std::path::Path;
 
 // The result of checking whether we have permission to cd to a directory
 #[derive(Debug)]
-pub enum PermissionResult<'a> {
+pub enum PermissionResult {
     PermissionOk,
-    PermissionDenied(&'a str),
+    PermissionDenied,
 }
 
 // TODO: Maybe we should use file_attributes() from https://doc.rust-lang.org/std/os/windows/fs/trait.MetadataExt.html
 // More on that here: https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
 #[cfg(windows)]
-pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
+pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult {
     match dir.as_ref().read_dir() {
         Err(e) => {
             if matches!(e.kind(), std::io::ErrorKind::PermissionDenied) {
-                PermissionResult::PermissionDenied("Folder is unable to be read")
+                PermissionResult::PermissionDenied
             } else {
                 PermissionResult::PermissionOk
             }
@@ -30,12 +27,10 @@ pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
 }
 
 #[cfg(unix)]
-pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
+pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult {
     match access(dir.as_ref(), AccessFlags::X_OK) {
         Ok(_) => PermissionResult::PermissionOk,
-        Err(Errno::EPERM) => PermissionResult::PermissionDenied("Permission denied"),
-        Err(Errno::ENOENT) => PermissionResult::PermissionDenied("Path not exists?"),
-        Err(_) => PermissionResult::PermissionDenied("Unknown error"),
+        Err(_) => PermissionResult::PermissionDenied,
     }
 }
 
