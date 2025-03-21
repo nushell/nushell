@@ -1,5 +1,8 @@
 #[cfg(unix)]
-use nix::unistd::{access, AccessFlags};
+use nix::{
+    fcntl::AtFlags,
+    unistd::{faccessat, AccessFlags},
+};
 #[cfg(any(windows, unix))]
 use std::path::Path;
 
@@ -28,7 +31,7 @@ pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult {
 
 #[cfg(unix)]
 pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult {
-    match access(dir.as_ref(), AccessFlags::X_OK) {
+    match faccessat(None, dir.as_ref(), AccessFlags::X_OK, AtFlags::AT_EACCESS) {
         Ok(_) => PermissionResult::PermissionOk,
         Err(_) => PermissionResult::PermissionDenied,
     }
