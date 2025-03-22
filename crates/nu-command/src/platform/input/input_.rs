@@ -134,6 +134,7 @@ impl Command for Input {
             left_prompt: prompt_str.unwrap_or("".to_string()),
             right_prompt: "".to_string(),
         };
+
         let mut line_editor = Reedline::create();
         line_editor = line_editor.with_ansi_colors(false);
         line_editor = match history {
@@ -182,6 +183,16 @@ impl Command for Input {
             Example {
                 description: "Get input from the user with default value, and assign to a variable",
                 example: "let user_input = (input --default 10)",
+                result: None,
+            },
+            Example {
+                description: "Get input from the user with history, and assign to a variable",
+                example: "let user_input = (input --history [past,command,entries])",
+                result: None,
+            },
+            Example {
+                description: "Get input from the user with history backed by a file, and assign to a variable",
+                example: "let user_input = (input --history ./history.txt)",
                 result: None,
             },
         ]
