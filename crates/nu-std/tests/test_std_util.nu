@@ -40,7 +40,10 @@ def path_add [] {
         assert equal (get_path) ([($target_paths | get $nu.os-info.name)] | path expand)
 
         load-env {$path_name: []}
-        assert error {|| path add {} }
+        path add {}
+        assert equal (get_path) []
+
+        assert error {|| path add 1 }
 
         load-env {$path_name: [$"(["/foo", "/bar"] | path expand | str join (char esep))"]}
         path add "~/foo"

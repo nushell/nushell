@@ -11,10 +11,10 @@
     path add {linux: "foo", windows: "bar", macos: "baz"}
 }
 export def --env "path add" [
-    --ret (-r)  # return $env.PATH, useful in pipelines to avoid scoping.
+    --ret (-r)     # return $env.PATH, useful in pipelines to avoid scoping.
     --append (-a)  # append to $env.PATH instead of prepending to.
-    ...paths  # the paths to add to $env.PATH.
-] {
+    ...paths: any  # the paths to add to $env.PATH.
+]: [nothing -> nothing, nothing -> list<path>] {
     let span = (metadata $paths).span
     let paths = $paths | flatten
 
@@ -25,34 +25,35 @@ export def --env "path add" [
         }}
     }
 
+    for path in $paths {
+        if ($path | describe -d).type not-in ['string', 'record'] {
+            error make {msg: 'Invalid input', label: {
+                text: 'Path must be a string or record',
+                span: (metadata $path).span
+            }}
+        }
+    }
+
     let path_name = if "PATH" in $env { "PATH" } else { "Path" }
 
     let paths = $paths | each {|p|
-        let p = match ($p | describe -d).type {
-            "string" => $p,
-            "record" => { $p | get --ignore-errors $nu.os-info.name },
+        match ($p | describe -d).type {
+            'string' => { $p | path expand --no-symlink },
+            'record' => {
+                if $nu.os-info.name in ($p | columns) {
+                    $p | get $nu.os-info.name | path expand --no-symlink
+                }
+            }
         }
-
-        if $p != null { $p | path expand --no-symlink }
-    }
-
-    if null in $paths or ($paths | is-empty) {
-        error make {msg: "Empty input", label: {
-            text: $"Received a record, that does not contain a ($nu.os-info.name) key",
-            span: $span
-        }}
-    }
+    } | compact
 
     load-env {$path_name: (
-        $env
-            | get $path_name
-            | split row (char esep)
-            | if $append { append $paths } else { prepend $paths }
+        $env | get $path_name
+        | if $append { append $paths } else { prepend $paths }
+        | uniq
     )}
 
-    if $ret {
-        $env | get $path_name
-    }
+    if $ret { $env | get $path_name }
 }
 
 # The cute and friendly mascot of Nushell :)
