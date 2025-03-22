@@ -2,7 +2,7 @@ use crate::platform::input::legacy_input::LegacyInput;
 use crate::platform::input::reedline_prompt::ReedlinePrompt;
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::io::IoError;
-use reedline::{FileBackedHistory, Reedline, Signal, HISTORY_SIZE};
+use reedline::{FileBackedHistory, History, HistoryItem, Reedline, Signal, HISTORY_SIZE};
 
 #[derive(Clone)]
 pub struct Input;
@@ -48,8 +48,8 @@ impl Command for Input {
             .named(
                 "history",
                 SyntaxShape::OneOf(vec![
-                    SyntaxShape::Filepath,
                     SyntaxShape::List(Box::new(SyntaxShape::String)),
+                    SyntaxShape::Filepath,
                 ]),
                 "path to a file to read/write history or a list of history entries",
                 None,
@@ -57,7 +57,7 @@ impl Command for Input {
             .named(
                 "max-history",
                 SyntaxShape::Int,
-                "The maximum number of entries to keep in the history",
+                "The maximum number of entries to keep in the history, defaults to reedline {HISTORY_SIZE}",
                 None,
             )
             .switch("suppress-output", "don't print keystroke values", Some('s'))
@@ -90,6 +90,10 @@ impl Command for Input {
         let prompt_str: Option<String> = call.opt(engine_state, stack, 0)?;
         let default_val: Option<String> = call.get_flag(engine_state, stack, "default")?;
         let history_val: Option<Value> = call.get_flag(engine_state, stack, "history")?;
+        let max_history: usize = call
+            .get_flag::<i64>(engine_state, stack, "max-history")?
+            .map(|l| if l < 0 { 0 } else { l as usize })
+            .unwrap_or(HISTORY_SIZE);
 
         let from_io_error = IoError::factory(call.head, None);
 
@@ -101,10 +105,20 @@ impl Command for Input {
         // Here we will render the default prompt to the right
         let history = match history_val {
             None => None,
-            Some(Value::String { val, .. }) => Some(Box::new(
-                FileBackedHistory::with_file(HISTORY_SIZE, val.into())
+            Some(Value::String { val, .. }) => Some(
+                FileBackedHistory::with_file(max_history, val.into())
                     .expect("Error creating history file"),
-            )),
+            ),
+            Some(Value::List { vals, .. }) => {
+                let mut history =
+                    FileBackedHistory::new(max_history).expect("Error creating history file");
+                vals.iter().for_each(|val| {
+                    if let Value::String { val, .. } = val {
+                        let _ = history.save(HistoryItem::from_command_line(val.clone()));
+                    }
+                });
+                Some(history)
+            }
             Some(h) => {
                 return Err(ShellError::UnsupportedInput {
                     msg: "Unsupported history type".to_string(),
@@ -123,7 +137,7 @@ impl Command for Input {
         let mut line_editor = Reedline::create();
         line_editor = line_editor.with_ansi_colors(false);
         line_editor = match history {
-            Some(h) => line_editor.with_history(h),
+            Some(h) => line_editor.with_history(Box::new(h)),
             None => line_editor,
         };
 
