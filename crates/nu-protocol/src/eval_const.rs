@@ -518,10 +518,10 @@ impl Eval for EvalConst {
                 .iter()
                 .any(|error| block_span.contains_span(error.span()))
             {
-                return Err(ShellError::NotAConstant { span });
+                return Err(ShellError::ParseErrorInConstant { span });
             }
         } else if !working_set.parse_errors.is_empty() {
-            return Err(ShellError::NotAConstant { span });
+            return Err(ShellError::ParseErrorInConstant { span });
         };
         eval_const_subexpression(working_set, block, PipelineData::empty(), span)?.into_value(span)
     }
