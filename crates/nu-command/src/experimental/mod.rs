@@ -1,6 +1,6 @@
 mod is_admin;
 mod job;
-mod job_clear_mail;
+mod job_flush;
 mod job_id;
 mod job_kill;
 mod job_list;
@@ -18,7 +18,7 @@ pub use job_kill::JobKill;
 pub use job_list::JobList;
 pub use job_spawn::JobSpawn;
 
-pub use job_clear_mail::JobClearMail;
+pub use job_flush::JobFlush;
 pub use job_recv::JobRecv;
 pub use job_send::JobSend;
 
