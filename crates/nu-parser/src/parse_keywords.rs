@@ -3331,7 +3331,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         spans[span.0 + 1].start,
                         &[],
                         &[],
-                        true,
+                        false,
                     );
 
                     if let Some(parse_error) = parse_error {
@@ -3613,7 +3613,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         spans[span.0 + 1].start,
                         &[],
                         &[],
-                        true,
+                        false,
                     );
 
                     if let Some(parse_error) = parse_error {
