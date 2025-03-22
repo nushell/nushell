@@ -301,6 +301,20 @@ fn test_open_block_command() {
 }
 
 #[test]
+fn test_open_with_converter_flags() {
+    // https://github.com/nushell/nushell/issues/13722
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        r#"
+            def "from blockcommandparser" [ --flag ] { if $flag { "yes" } else { "no" } }
+            open sample.blockcommandparser
+        "#
+    );
+
+    assert_eq!(actual.out, "no")
+}
+
+#[test]
 fn open_ignore_ansi() {
     Playground::setup("open_test_ansi", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("nu.zion.txt")]);
