@@ -1,29 +1,26 @@
+#[cfg(unix)]
+use nix::{
+    fcntl::AtFlags,
+    unistd::{faccessat, AccessFlags},
+};
 #[cfg(any(windows, unix))]
 use std::path::Path;
-#[cfg(unix)]
-use {
-    nix::{
-        sys::stat::{mode_t, Mode},
-        unistd::{Gid, Uid},
-    },
-    std::os::unix::fs::MetadataExt,
-};
 
 // The result of checking whether we have permission to cd to a directory
 #[derive(Debug)]
-pub enum PermissionResult<'a> {
+pub enum PermissionResult {
     PermissionOk,
-    PermissionDenied(&'a str),
+    PermissionDenied,
 }
 
 // TODO: Maybe we should use file_attributes() from https://doc.rust-lang.org/std/os/windows/fs/trait.MetadataExt.html
 // More on that here: https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
 #[cfg(windows)]
-pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
+pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult {
     match dir.as_ref().read_dir() {
         Err(e) => {
             if matches!(e.kind(), std::io::ErrorKind::PermissionDenied) {
-                PermissionResult::PermissionDenied("Folder is unable to be read")
+                PermissionResult::PermissionDenied
             } else {
                 PermissionResult::PermissionOk
             }
@@ -33,73 +30,11 @@ pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
 }
 
 #[cfg(unix)]
-pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
-    match dir.as_ref().metadata() {
-        Ok(metadata) => {
-            let mode = Mode::from_bits_truncate(metadata.mode() as mode_t);
-            let current_user_uid = users::get_current_uid();
-            if current_user_uid.is_root() {
-                return PermissionResult::PermissionOk;
-            }
-            let current_user_gid = users::get_current_gid();
-            let owner_user = Uid::from_raw(metadata.uid());
-            let owner_group = Gid::from_raw(metadata.gid());
-            match (
-                current_user_uid == owner_user,
-                current_user_gid == owner_group,
-            ) {
-                (true, _) => {
-                    if mode.contains(Mode::S_IXUSR) {
-                        PermissionResult::PermissionOk
-                    } else {
-                        PermissionResult::PermissionDenied(
-                            "You are the owner but do not have execute permission",
-                        )
-                    }
-                }
-                (false, true) => {
-                    if mode.contains(Mode::S_IXGRP) {
-                        PermissionResult::PermissionOk
-                    } else {
-                        PermissionResult::PermissionDenied(
-                            "You are in the group but do not have execute permission",
-                        )
-                    }
-                }
-                (false, false) => {
-                    if mode.contains(Mode::S_IXOTH)
-                        || (mode.contains(Mode::S_IXGRP)
-                            && any_group(current_user_gid, owner_group))
-                    {
-                        PermissionResult::PermissionOk
-                    } else {
-                        PermissionResult::PermissionDenied(
-                            "You are neither the owner, in the group, nor the super user and do not have permission",
-                        )
-                    }
-                }
-            }
-        }
-        Err(_) => PermissionResult::PermissionDenied("Could not retrieve file metadata"),
+pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult {
+    match faccessat(None, dir.as_ref(), AccessFlags::X_OK, AtFlags::AT_EACCESS) {
+        Ok(_) => PermissionResult::PermissionOk,
+        Err(_) => PermissionResult::PermissionDenied,
     }
-}
-
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "android"))]
-fn any_group(_current_user_gid: Gid, owner_group: Gid) -> bool {
-    users::current_user_groups()
-        .unwrap_or_default()
-        .contains(&owner_group)
-}
-
-#[cfg(all(
-    unix,
-    not(any(target_os = "linux", target_os = "freebsd", target_os = "android"))
-))]
-fn any_group(current_user_gid: Gid, owner_group: Gid) -> bool {
-    users::get_current_username()
-        .and_then(|name| users::get_user_groups(&name, current_user_gid))
-        .unwrap_or_default()
-        .contains(&owner_group)
 }
 
 #[cfg(unix)]

@@ -132,7 +132,7 @@ impl Command for Cd {
                 stack.set_cwd(path)?;
                 Ok(PipelineData::empty())
             }
-            PermissionResult::PermissionDenied(_) => {
+            PermissionResult::PermissionDenied => {
                 Err(IoError::new(std::io::ErrorKind::PermissionDenied, call.head, path).into())
             }
         }
