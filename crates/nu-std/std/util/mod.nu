@@ -49,6 +49,7 @@ export def --env "path add" [
 
     load-env {$path_name: (
         $env | get $path_name
+        | split row (char esep)
         | if $append { append $paths } else { prepend $paths }
         | uniq
     )}
