@@ -8,8 +8,8 @@
 //! use nu_plugin::*;
 //! use nu_plugin_test_support::PluginTest;
 //! use nu_protocol::{
-//!     Example, IntoInterruptiblePipelineData, LabeledError, PipelineData, ShellError, Signals,
-//!     Signature, Span, Type, Value,
+//!     list, Example, IntoInterruptiblePipelineData, LabeledError, PipelineData, ShellError,
+//!     Signals, Signature, Span, Type, Value,
 //! };
 //!
 //! struct LowercasePlugin;
@@ -37,7 +37,7 @@
 //!         vec![Example {
 //!             example: r#"[Hello wORLD] | lowercase"#,
 //!             description: "Lowercase a list of strings",
-//!             result: Some(Value::test_list(vec![
+//!             result: Some(Value::test_list(list![
 //!                 Value::test_string("hello"),
 //!                 Value::test_string("world"),
 //!             ])),
@@ -89,10 +89,10 @@
 //!         .into_value(Span::test_data())?;
 //!
 //!     assert_eq!(
-//!         Value::test_list(vec![
-//!             Value::test_string("foobar")
+//!         Value::test_list(list![
+//!             Value::test_string("foobar"),
 //!         ]),
-//!         output
+//!         output,
 //!     );
 //!     Ok(())
 //! }

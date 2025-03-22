@@ -133,31 +133,29 @@ fn from_ods(
     }
 
     for sheet_name in sheet_names {
-        let mut sheet_output = vec![];
-
         if let Ok(current_sheet) = ods.worksheet_range(&sheet_name) {
-            for row in current_sheet.rows() {
-                let record = row
-                    .iter()
-                    .enumerate()
-                    .map(|(i, cell)| {
-                        let value = match cell {
-                            Data::Empty => Value::nothing(head),
-                            Data::String(s) => Value::string(s, head),
-                            Data::Float(f) => Value::float(*f, head),
-                            Data::Int(i) => Value::int(*i, head),
-                            Data::Bool(b) => Value::bool(*b, head),
-                            _ => Value::nothing(head),
-                        };
+            let list = current_sheet
+                .rows()
+                .map(|row| {
+                    row.iter()
+                        .enumerate()
+                        .map(|(i, cell)| {
+                            let value = match cell {
+                                Data::Empty => Value::nothing(head),
+                                Data::String(s) => Value::string(s, head),
+                                Data::Float(f) => Value::float(*f, head),
+                                Data::Int(i) => Value::int(*i, head),
+                                Data::Bool(b) => Value::bool(*b, head),
+                                _ => Value::nothing(head),
+                            };
+                            (format!("column{i}"), value)
+                        })
+                        .collect::<Record>()
+                        .into_value(head)
+                })
+                .collect();
 
-                        (format!("column{i}"), value)
-                    })
-                    .collect();
-
-                sheet_output.push(Value::record(record, head));
-            }
-
-            dict.insert(sheet_name, Value::list(sheet_output, head));
+            dict.insert(sheet_name, Value::list(list, head));
         } else {
             return Err(ShellError::UnsupportedInput {
                 msg: "Could not load sheet".to_string(),

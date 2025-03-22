@@ -68,37 +68,37 @@ impl Command for GroupBy {
                 description: "Group using a block which is evaluated against each input value",
                 example: "[foo.txt bar.csv baz.txt] | group-by { path parse | get extension }",
                 result: Some(Value::test_record(record! {
-                    "txt" => Value::test_list(vec![
+                    "txt" => Value::test_list(list![
                         Value::test_string("foo.txt"),
                         Value::test_string("baz.txt"),
                     ]),
-                    "csv" => Value::test_list(vec![Value::test_string("bar.csv")]),
+                    "csv" => Value::test_list(list![Value::test_string("bar.csv")]),
                 })),
             },
             Example {
                 description: "You can also group by raw values by leaving out the argument",
                 example: "['1' '3' '1' '3' '2' '1' '1'] | group-by",
                 result: Some(Value::test_record(record! {
-                    "1" => Value::test_list(vec![
+                    "1" => Value::test_list(list![
                         Value::test_string("1"),
                         Value::test_string("1"),
                         Value::test_string("1"),
                         Value::test_string("1"),
                     ]),
-                    "3" => Value::test_list(vec![
+                    "3" => Value::test_list(list![
                         Value::test_string("3"),
                         Value::test_string("3"),
                     ]),
-                    "2" => Value::test_list(vec![Value::test_string("2")]),
+                    "2" => Value::test_list(list![Value::test_string("2")]),
                 })),
             },
             Example {
                 description: "You can also output a table instead of a record",
                 example: "['1' '3' '1' '3' '2' '1' '1'] | group-by --to-table",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "group" => Value::test_string("1"),
-                        "items" => Value::test_list(vec![
+                        "items" => Value::test_list(list![
                             Value::test_string("1"),
                             Value::test_string("1"),
                             Value::test_string("1"),
@@ -107,14 +107,14 @@ impl Command for GroupBy {
                     }),
                     Value::test_record(record! {
                         "group" => Value::test_string("3"),
-                        "items" => Value::test_list(vec![
+                        "items" => Value::test_list(list![
                             Value::test_string("3"),
                             Value::test_string("3"),
                         ]),
                     }),
                     Value::test_record(record! {
                         "group" => Value::test_string("2"),
-                        "items" => Value::test_list(vec![Value::test_string("2")]),
+                        "items" => Value::test_list(list![Value::test_string("2")]),
                     }),
                 ])),
             },
@@ -122,11 +122,11 @@ impl Command for GroupBy {
                 description: "Group bools, whether they are strings or actual bools",
                 example: r#"[true "true" false "false"] | group-by"#,
                 result: Some(Value::test_record(record! {
-                    "true" => Value::test_list(vec![
+                    "true" => Value::test_list(list![
                         Value::test_bool(true),
                         Value::test_string("true"),
                     ]),
-                    "false" => Value::test_list(vec![
+                    "false" => Value::test_list(list![
                         Value::test_bool(false),
                         Value::test_string("false"),
                     ]),
@@ -143,29 +143,23 @@ impl Command for GroupBy {
     | group-by lang year"#,
                 result: Some(Value::test_record(record! {
                     "rb" => Value::test_record(record! {
-                        "2019" => Value::test_list(
-                            vec![Value::test_record(record! {
-                                    "name" => Value::test_string("andres"),
-                                    "lang" => Value::test_string("rb"),
-                                    "year" => Value::test_string("2019"),
-                            })],
-                        ),
+                        "2019" => Value::test_list(list![Value::test_record(record! {
+                            "name" => Value::test_string("andres"),
+                            "lang" => Value::test_string("rb"),
+                            "year" => Value::test_string("2019"),
+                        })]),
                     }),
                     "rs" => Value::test_record(record! {
-                            "2019" => Value::test_list(
-                                vec![Value::test_record(record! {
-                                        "name" => Value::test_string("jt"),
-                                        "lang" => Value::test_string("rs"),
-                                        "year" => Value::test_string("2019"),
-                                })],
-                            ),
-                            "2021" => Value::test_list(
-                                vec![Value::test_record(record! {
-                                        "name" => Value::test_string("storm"),
-                                        "lang" => Value::test_string("rs"),
-                                        "year" => Value::test_string("2021"),
-                                })],
-                            ),
+                        "2019" => Value::test_list(list![Value::test_record(record! {
+                            "name" => Value::test_string("jt"),
+                            "lang" => Value::test_string("rs"),
+                            "year" => Value::test_string("2019"),
+                        })]),
+                        "2021" => Value::test_list(list![Value::test_record(record! {
+                            "name" => Value::test_string("storm"),
+                            "lang" => Value::test_string("rs"),
+                            "year" => Value::test_string("2021"),
+                        })]),
                     }),
                 }))
             },
@@ -178,11 +172,11 @@ impl Command for GroupBy {
         [storm, rs, "2021"]
     ]
     | group-by lang year --to-table"#,
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "lang" => Value::test_string("rb"),
                         "year" => Value::test_string("2019"),
-                        "items" => Value::test_list(vec![
+                        "items" => Value::test_list(list![
                             Value::test_record(record! {
                                 "name" => Value::test_string("andres"),
                                 "lang" => Value::test_string("rb"),
@@ -193,7 +187,7 @@ impl Command for GroupBy {
                     Value::test_record(record! {
                         "lang" => Value::test_string("rs"),
                         "year" => Value::test_string("2019"),
-                        "items" => Value::test_list(vec![
+                        "items" => Value::test_list(list![
                             Value::test_record(record! {
                                 "name" => Value::test_string("jt"),
                                 "lang" => Value::test_string("rs"),
@@ -204,7 +198,7 @@ impl Command for GroupBy {
                     Value::test_record(record! {
                         "lang" => Value::test_string("rs"),
                         "year" => Value::test_string("2021"),
-                        "items" => Value::test_list(vec![
+                        "items" => Value::test_list(list![
                             Value::test_record(record! {
                                 "name" => Value::test_string("storm"),
                                 "lang" => Value::test_string("rs"),

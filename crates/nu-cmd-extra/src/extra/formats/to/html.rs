@@ -340,41 +340,40 @@ fn to_html(
 
 fn theme_demo(span: Span) -> PipelineData {
     // If asset doesn't work, make sure to return the default theme
-    let html_themes = get_html_themes("228_themes.json").unwrap_or_default();
-    let result: Vec<Value> = html_themes
+    get_html_themes("228_themes.json")
+        .unwrap_or_default()
         .themes
         .into_iter()
         .map(|n| {
-            Value::record(
-                record! {
-                    "name" => Value::string(n.name, span),
-                    "black" => Value::string(n.black, span),
-                    "red" => Value::string(n.red, span),
-                    "green" => Value::string(n.green, span),
-                    "yellow" => Value::string(n.yellow, span),
-                    "blue" => Value::string(n.blue, span),
-                    "purple" => Value::string(n.purple, span),
-                    "cyan" => Value::string(n.cyan, span),
-                    "white" => Value::string(n.white, span),
-                    "brightBlack" => Value::string(n.brightBlack, span),
-                    "brightRed" => Value::string(n.brightRed, span),
-                    "brightGreen" => Value::string(n.brightGreen, span),
-                    "brightYellow" => Value::string(n.brightYellow, span),
-                    "brightBlue" => Value::string(n.brightBlue, span),
-                    "brightPurple" => Value::string(n.brightPurple, span),
-                    "brightCyan" => Value::string(n.brightCyan, span),
-                    "brightWhite" => Value::string(n.brightWhite, span),
-                    "background" => Value::string(n.background, span),
-                    "foreground" => Value::string(n.foreground, span),
-                },
-                span,
-            )
+            record! {
+                "name" => Value::string(n.name, span),
+                "black" => Value::string(n.black, span),
+                "red" => Value::string(n.red, span),
+                "green" => Value::string(n.green, span),
+                "yellow" => Value::string(n.yellow, span),
+                "blue" => Value::string(n.blue, span),
+                "purple" => Value::string(n.purple, span),
+                "cyan" => Value::string(n.cyan, span),
+                "white" => Value::string(n.white, span),
+                "brightBlack" => Value::string(n.brightBlack, span),
+                "brightRed" => Value::string(n.brightRed, span),
+                "brightGreen" => Value::string(n.brightGreen, span),
+                "brightYellow" => Value::string(n.brightYellow, span),
+                "brightBlue" => Value::string(n.brightBlue, span),
+                "brightPurple" => Value::string(n.brightPurple, span),
+                "brightCyan" => Value::string(n.brightCyan, span),
+                "brightWhite" => Value::string(n.brightWhite, span),
+                "background" => Value::string(n.background, span),
+                "foreground" => Value::string(n.foreground, span),
+            }
+            .into_value(span)
         })
-        .collect();
-    Value::list(result, span).into_pipeline_data_with_metadata(PipelineMetadata {
-        data_source: DataSource::HtmlThemes,
-        content_type: None,
-    })
+        .collect::<List>()
+        .into_value(span)
+        .into_pipeline_data_with_metadata(PipelineMetadata {
+            data_source: DataSource::HtmlThemes,
+            content_type: None,
+        })
 }
 
 fn html_list(list: Vec<Value>, config: &Config) -> String {

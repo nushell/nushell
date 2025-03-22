@@ -34,7 +34,7 @@ impl Command for Drop {
             Example {
                 example: "[0,1,2,3] | drop",
                 description: "Remove the last item of a list",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(0),
                     Value::test_int(1),
                     Value::test_int(2),
@@ -43,7 +43,7 @@ impl Command for Drop {
             Example {
                 example: "[0,1,2,3] | drop 0",
                 description: "Remove zero item of a list",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(0),
                     Value::test_int(1),
                     Value::test_int(2),
@@ -53,7 +53,7 @@ impl Command for Drop {
             Example {
                 example: "[0,1,2,3] | drop 2",
                 description: "Remove the last two items of a list",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(0),
                     Value::test_int(1),
                 ])),
@@ -61,7 +61,7 @@ impl Command for Drop {
             Example {
                 description: "Remove the last row in a table",
                 example: "[[a, b]; [1, 2] [3, 4]] | drop 1",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "a" => Value::test_int(1),
                     "b" => Value::test_int(2),
                 })])),
@@ -79,7 +79,7 @@ impl Command for Drop {
         let head = call.head;
         let metadata = input.metadata();
         let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
-        let mut values = input.into_iter_strict(head)?.collect::<Vec<_>>();
+        let mut values = input.into_iter_strict(head)?.collect::<List>();
 
         let rows_to_drop = if let Some(rows) = rows {
             if rows.item < 0 {

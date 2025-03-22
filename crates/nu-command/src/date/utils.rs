@@ -1,5 +1,5 @@
 use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone};
-use nu_protocol::{record, ShellError, Span, Value};
+use nu_protocol::{record, List, ShellError, Span, Value};
 
 pub(crate) fn parse_date_from_string(
     input: &str,
@@ -271,7 +271,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
                 head,
             )
         })
-        .collect::<Vec<Value>>();
+        .collect::<List>();
 
     if show_parse_only_formats {
         // now.format("%#z") will panic since it is parse-only

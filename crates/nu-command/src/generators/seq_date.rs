@@ -84,109 +84,91 @@ impl Command for SeqDate {
                 description: "Return the first 10 days in January, 2020",
                 example:
                     "seq date --begin-date '2020-01-01' --end-date '2020-01-10' --increment 1day",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("2020-01-01"),
-                        Value::test_string("2020-01-02"),
-                        Value::test_string("2020-01-03"),
-                        Value::test_string("2020-01-04"),
-                        Value::test_string("2020-01-05"),
-                        Value::test_string("2020-01-06"),
-                        Value::test_string("2020-01-07"),
-                        Value::test_string("2020-01-08"),
-                        Value::test_string("2020-01-09"),
-                        Value::test_string("2020-01-10"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("2020-01-01"),
+                    Value::test_string("2020-01-02"),
+                    Value::test_string("2020-01-03"),
+                    Value::test_string("2020-01-04"),
+                    Value::test_string("2020-01-05"),
+                    Value::test_string("2020-01-06"),
+                    Value::test_string("2020-01-07"),
+                    Value::test_string("2020-01-08"),
+                    Value::test_string("2020-01-09"),
+                    Value::test_string("2020-01-10"),
+                ])),
             },
             Example {
                 description: "Return the first 10 days in January, 2020 using --days flag",
                 example:
                     "seq date --begin-date '2020-01-01' --days 10 --increment 1day",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("2020-01-01"),
-                        Value::test_string("2020-01-02"),
-                        Value::test_string("2020-01-03"),
-                        Value::test_string("2020-01-04"),
-                        Value::test_string("2020-01-05"),
-                        Value::test_string("2020-01-06"),
-                        Value::test_string("2020-01-07"),
-                        Value::test_string("2020-01-08"),
-                        Value::test_string("2020-01-09"),
-                        Value::test_string("2020-01-10"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("2020-01-01"),
+                    Value::test_string("2020-01-02"),
+                    Value::test_string("2020-01-03"),
+                    Value::test_string("2020-01-04"),
+                    Value::test_string("2020-01-05"),
+                    Value::test_string("2020-01-06"),
+                    Value::test_string("2020-01-07"),
+                    Value::test_string("2020-01-08"),
+                    Value::test_string("2020-01-09"),
+                    Value::test_string("2020-01-10"),
+                ])),
             },
             Example {
                 description: "Return the first five 5-minute periods starting January 1, 2020",
                 example:
                     "seq date --begin-date '2020-01-01' --periods 5 --increment 5min --output-format '%Y-%m-%d %H:%M:%S'",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("2020-01-01 00:00:00"),
-                        Value::test_string("2020-01-01 00:05:00"),
-                        Value::test_string("2020-01-01 00:10:00"),
-                        Value::test_string("2020-01-01 00:15:00"),
-                        Value::test_string("2020-01-01 00:20:00"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("2020-01-01 00:00:00"),
+                    Value::test_string("2020-01-01 00:05:00"),
+                    Value::test_string("2020-01-01 00:10:00"),
+                    Value::test_string("2020-01-01 00:15:00"),
+                    Value::test_string("2020-01-01 00:20:00"),
+                ])),
             },
             Example {
                 description: "print every fifth day between January 1st 2020 and January 31st 2020",
                 example:
                     "seq date --begin-date '2020-01-01' --end-date '2020-01-31' --increment 5day",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("2020-01-01"),
-                        Value::test_string("2020-01-06"),
-                        Value::test_string("2020-01-11"),
-                        Value::test_string("2020-01-16"),
-                        Value::test_string("2020-01-21"),
-                        Value::test_string("2020-01-26"),
-                        Value::test_string("2020-01-31"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("2020-01-01"),
+                    Value::test_string("2020-01-06"),
+                    Value::test_string("2020-01-11"),
+                    Value::test_string("2020-01-16"),
+                    Value::test_string("2020-01-21"),
+                    Value::test_string("2020-01-26"),
+                    Value::test_string("2020-01-31"),
+                ])),
             },
             Example {
                 description: "increment defaults to days if no duration is supplied",
                 example:
                     "seq date --begin-date '2020-01-01' --end-date '2020-01-31' --increment 5",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("2020-01-01"),
-                        Value::test_string("2020-01-06"),
-                        Value::test_string("2020-01-11"),
-                        Value::test_string("2020-01-16"),
-                        Value::test_string("2020-01-21"),
-                        Value::test_string("2020-01-26"),
-                        Value::test_string("2020-01-31"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("2020-01-01"),
+                    Value::test_string("2020-01-06"),
+                    Value::test_string("2020-01-11"),
+                    Value::test_string("2020-01-16"),
+                    Value::test_string("2020-01-21"),
+                    Value::test_string("2020-01-26"),
+                    Value::test_string("2020-01-31"),
+                ])),
             },
             Example {
                 description: "print every six hours starting January 1st, 2020 until January 3rd, 2020",
                 example:
                     "seq date --begin-date '2020-01-01' --end-date '2020-01-03' --increment 6hr --output-format '%Y-%m-%d %H:%M:%S'",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("2020-01-01 00:00:00"),
-                        Value::test_string("2020-01-01 06:00:00"),
-                        Value::test_string("2020-01-01 12:00:00"),
-                        Value::test_string("2020-01-01 18:00:00"),
-                        Value::test_string("2020-01-02 00:00:00"),
-                        Value::test_string("2020-01-02 06:00:00"),
-                        Value::test_string("2020-01-02 12:00:00"),
-                        Value::test_string("2020-01-02 18:00:00"),
-                        Value::test_string("2020-01-03 00:00:00"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("2020-01-01 00:00:00"),
+                    Value::test_string("2020-01-01 06:00:00"),
+                    Value::test_string("2020-01-01 12:00:00"),
+                    Value::test_string("2020-01-01 18:00:00"),
+                    Value::test_string("2020-01-02 00:00:00"),
+                    Value::test_string("2020-01-02 06:00:00"),
+                    Value::test_string("2020-01-02 12:00:00"),
+                    Value::test_string("2020-01-02 18:00:00"),
+                    Value::test_string("2020-01-03 00:00:00"),
+                ])),
             },
         ]
     }
@@ -447,7 +429,7 @@ pub fn run_seq_dates(
         });
     }
 
-    let mut ret = vec![];
+    let mut ret = List::new();
     loop {
         let mut date_string = String::new();
         match write!(date_string, "{}", next.format(&out_format)) {

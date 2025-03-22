@@ -326,11 +326,7 @@ fn bind_args_to(
     }
 
     if let Some(rest_positional) = &signature.rest_positional {
-        let mut rest_items = vec![];
-
-        for result in val_iter {
-            rest_items.push(result);
-        }
+        let rest_items = val_iter.collect::<List>();
 
         let span = if let Some(rest_item) = rest_items.first() {
             rest_item.span()

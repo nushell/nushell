@@ -52,10 +52,10 @@ consecutive elements that share the same closure result value into lists."#
             Example {
                 description: "Chunk data into runs of larger than zero or not.",
                 example: "[1, 3, -2, -2, 0, 1, 2] | chunk-by {|it| $it >= 0 }",
-                result: Some(Value::test_list(vec![
-                    Value::test_list(vec![Value::test_int(1), Value::test_int(3)]),
-                    Value::test_list(vec![Value::test_int(-2), Value::test_int(-2)]),
-                    Value::test_list(vec![
+                result: Some(Value::test_list(list![
+                    Value::test_list(list![Value::test_int(1), Value::test_int(3)]),
+                    Value::test_list(list![Value::test_int(-2), Value::test_int(-2)]),
+                    Value::test_list(list![
                         Value::test_int(0),
                         Value::test_int(1),
                         Value::test_int(2),
@@ -65,10 +65,10 @@ consecutive elements that share the same closure result value into lists."#
             Example {
                 description: "Identify repetitions in a string",
                 example: r#"[a b b c c c] | chunk-by { |it| $it }"#,
-                result: Some(Value::test_list(vec![
-                    Value::test_list(vec![Value::test_string("a")]),
-                    Value::test_list(vec![Value::test_string("b"), Value::test_string("b")]),
-                    Value::test_list(vec![
+                result: Some(Value::test_list(list![
+                    Value::test_list(list![Value::test_string("a")]),
+                    Value::test_list(list![Value::test_string("b"), Value::test_string("b")]),
+                    Value::test_list(list![
                         Value::test_string("c"),
                         Value::test_string("c"),
                         Value::test_string("c"),
@@ -78,18 +78,18 @@ consecutive elements that share the same closure result value into lists."#
             Example {
                 description: "Chunk values of range by predicate",
                 example: r#"(0..8) | chunk-by { |it| $it // 3 }"#,
-                result: Some(Value::test_list(vec![
-                    Value::test_list(vec![
+                result: Some(Value::test_list(list![
+                    Value::test_list(list![
                         Value::test_int(0),
                         Value::test_int(1),
                         Value::test_int(2),
                     ]),
-                    Value::test_list(vec![
+                    Value::test_list(list![
                         Value::test_int(3),
                         Value::test_int(4),
                         Value::test_int(5),
                     ]),
-                    Value::test_list(vec![
+                    Value::test_list(list![
                         Value::test_int(6),
                         Value::test_int(7),
                         Value::test_int(8),
@@ -100,18 +100,18 @@ consecutive elements that share the same closure result value into lists."#
     }
 }
 
-struct Chunk<I, T, F, K> {
+struct Chunk<I, F, K> {
     iterator: I,
-    last_value: Option<(T, K)>,
+    last_value: Option<(Value, K)>,
     closure: F,
     done: bool,
     signals: Signals,
 }
 
-impl<I, T, F, K> Chunk<I, T, F, K>
+impl<I, F, K> Chunk<I, F, K>
 where
-    I: Iterator<Item = T>,
-    F: FnMut(&T) -> K,
+    I: Iterator<Item = Value>,
+    F: FnMut(&Value) -> K,
     K: PartialEq,
 {
     fn inner_iterator_next(&mut self) -> Option<I::Item> {
@@ -123,13 +123,13 @@ where
     }
 }
 
-impl<I, T, F, K> Iterator for Chunk<I, T, F, K>
+impl<I, F, K> Iterator for Chunk<I, F, K>
 where
-    I: Iterator<Item = T>,
-    F: FnMut(&T) -> K,
+    I: Iterator<Item = Value>,
+    F: FnMut(&Value) -> K,
     K: PartialEq,
 {
-    type Item = Vec<T>;
+    type Item = List;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.done {
@@ -148,7 +148,7 @@ where
             Some((value, key)) => (value, key),
         };
 
-        let mut result = vec![head];
+        let mut result = list![head];
 
         loop {
             match self.inner_iterator_next() {
@@ -172,10 +172,10 @@ where
 }
 
 /// An iterator with the semantics of the chunk_by operation.
-fn chunk_iter_by<I, T, F, K>(iterator: I, signals: Signals, closure: F) -> Chunk<I, T, F, K>
+fn chunk_iter_by<I, F, K>(iterator: I, signals: Signals, closure: F) -> Chunk<I, F, K>
 where
-    I: Iterator<Item = T>,
-    F: FnMut(&T) -> K,
+    I: Iterator<Item = Value>,
+    F: FnMut(&Value) -> K,
     K: PartialEq,
 {
     Chunk {
@@ -236,7 +236,6 @@ where
             Ok(data) => data.into_value(head).unwrap_or_else(|error| {
                 Value::error(chain_error_with_input(error, value.is_error(), head), head)
             }),
-
             Err(error) => Value::error(chain_error_with_input(error, value.is_error(), head), head),
         }
     })

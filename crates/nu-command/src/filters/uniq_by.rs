@@ -86,7 +86,7 @@ impl Command for UniqBy {
         vec![Example {
             description: "Get rows from table filtered by column uniqueness ",
             example: "[[fruit count]; [apple 9] [apple 2] [pear 3] [orange 7]] | uniq-by fruit",
-            result: Some(Value::test_list(vec![
+            result: Some(Value::test_list(list![
                 Value::test_record(record! {
                     "fruit" => Value::test_string("apple"),
                     "count" => Value::test_int(9),
@@ -132,18 +132,14 @@ fn validate(vec: &[Value], columns: &[String], span: Span) -> Result<(), ShellEr
     Ok(())
 }
 
-fn get_data_by_columns(columns: &[String], item: &Value) -> Vec<Value> {
-    columns
-        .iter()
-        .filter_map(|col| item.get_data_by_key(col))
-        .collect::<Vec<_>>()
-}
-
 fn item_mapper_by_col(cols: Vec<String>) -> impl Fn(crate::ItemMapperState) -> crate::ValueCounter {
     let columns = cols;
 
     Box::new(move |ms: crate::ItemMapperState| -> crate::ValueCounter {
-        let item_column_values = get_data_by_columns(&columns, &ms.item);
+        let item_column_values = columns
+            .iter()
+            .filter_map(|col| ms.item.get_data_by_key(col))
+            .collect();
 
         let col_vals = Value::list(item_column_values, Span::unknown());
 

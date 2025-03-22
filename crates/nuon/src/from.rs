@@ -210,25 +210,20 @@ fn convert_to_value(
             span: expr.span,
         }),
         Expr::List(vals) => {
-            let mut output = vec![];
+            let list = vals
+                .into_iter()
+                .map(|item| match item {
+                    ListItem::Item(expr) => convert_to_value(expr, span, original_text),
+                    ListItem::Spread(_, inner) => Err(ShellError::OutsideSpannedLabeledError {
+                        src: original_text.to_string(),
+                        error: "Error when loading".into(),
+                        msg: "spread operator not supported in nuon".into(),
+                        span: inner.span,
+                    }),
+                })
+                .collect::<Result<_, _>>()?;
 
-            for item in vals {
-                match item {
-                    ListItem::Item(expr) => {
-                        output.push(convert_to_value(expr, span, original_text)?);
-                    }
-                    ListItem::Spread(_, inner) => {
-                        return Err(ShellError::OutsideSpannedLabeledError {
-                            src: original_text.to_string(),
-                            error: "Error when loading".into(),
-                            msg: "spread operator not supported in nuon".into(),
-                            span: inner.span,
-                        });
-                    }
-                }
-            }
-
-            Ok(Value::list(output, span))
+            Ok(Value::list(list, span))
         }
         Expr::MatchBlock(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
@@ -350,8 +345,6 @@ fn convert_to_value(
         Expr::Table(mut table) => {
             let mut cols = vec![];
 
-            let mut output = vec![];
-
             for key in table.columns.as_mut() {
                 let key_str = match &mut key.expr {
                     Expr::String(key_str) => key_str,
@@ -376,28 +369,31 @@ fn convert_to_value(
                 }
             }
 
-            for row in table.rows.into_vec() {
-                if cols.len() != row.len() {
-                    return Err(ShellError::OutsideSpannedLabeledError {
-                        src: original_text.to_string(),
-                        error: "Error when loading".into(),
-                        msg: "table has mismatched columns".into(),
-                        span: expr.span,
-                    });
-                }
+            let list = IntoIterator::into_iter(table.rows)
+                .map(|row| {
+                    if cols.len() != row.len() {
+                        return Err(ShellError::OutsideSpannedLabeledError {
+                            src: original_text.to_string(),
+                            error: "Error when loading".into(),
+                            msg: "table has mismatched columns".into(),
+                            span: expr.span,
+                        });
+                    }
 
-                let record = cols
-                    .iter()
-                    .zip(row.into_vec())
-                    .map(|(col, cell)| {
-                        convert_to_value(cell, span, original_text).map(|val| (col.clone(), val))
-                    })
-                    .collect::<Result<_, _>>()?;
+                    let record = cols
+                        .iter()
+                        .zip(row)
+                        .map(|(col, cell)| {
+                            convert_to_value(cell, span, original_text)
+                                .map(|val| (col.clone(), val))
+                        })
+                        .collect::<Result<_, _>>()?;
 
-                output.push(Value::record(record, span));
-            }
+                    Ok(Value::record(record, span))
+                })
+                .collect::<Result<_, _>>()?;
 
-            Ok(Value::list(output, span))
+            Ok(Value::list(list, span))
         }
         Expr::ValueWithUnit(value) => {
             let size = match value.expr.expr {

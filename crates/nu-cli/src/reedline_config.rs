@@ -1332,7 +1332,7 @@ fn extract_char(value: &Value) -> Result<char, ShellError> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_protocol::record;
+    use nu_protocol::{list, record};
 
     #[test]
     fn test_send_event() {
@@ -1402,10 +1402,7 @@ mod test {
             "send" => Value::test_string("Enter"),
         });
         let event = record! {
-            "until" => Value::list(
-                vec![menu_event, enter_event],
-                Span::test_data(),
-            ),
+            "until" => Value::test_list(list![menu_event, enter_event]),
         };
 
         let span = Span::test_data();
@@ -1434,7 +1431,7 @@ mod test {
         let enter_event = Value::test_record(record! {
             "send" => Value::test_string("Enter"),
         });
-        let event = Value::list(vec![menu_event, enter_event], Span::test_data());
+        let event = Value::test_list(list![menu_event, enter_event]);
 
         let config = Config::default();
         let parsed_event = parse_event(&event, &config).unwrap();

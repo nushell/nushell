@@ -46,23 +46,22 @@ impl Command for Histogram {
             Example {
                 description: "Compute a histogram for a list of numbers",
                 example: "[1 2 1] | histogram",
-                result: Some(Value::test_list (
-                        vec![Value::test_record(record! {
-                            "value" =>      Value::test_int(1),
-                            "count" =>      Value::test_int(2),
-                            "quantile" =>   Value::test_float(0.6666666666666666),
-                            "percentage" => Value::test_string("66.67%"),
-                            "frequency" =>  Value::test_string("******************************************************************"),
-                        }),
-                        Value::test_record(record! {
-                            "value" =>      Value::test_int(2),
-                            "count" =>      Value::test_int(1),
-                            "quantile" =>   Value::test_float(0.3333333333333333),
-                            "percentage" => Value::test_string("33.33%"),
-                            "frequency" =>  Value::test_string("*********************************"),
-                        })],
-                    )
-                 ),
+                result: Some(Value::test_list(list![
+                    Value::test_record(record! {
+                        "value" => Value::test_int(1),
+                        "count" => Value::test_int(2),
+                        "quantile" => Value::test_float(0.6666666666666666),
+                        "percentage" => Value::test_string("66.67%"),
+                        "frequency" => Value::test_string("******************************************************************"),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_int(2),
+                        "count" => Value::test_int(1),
+                        "quantile" => Value::test_float(0.3333333333333333),
+                        "percentage" => Value::test_string("33.33%"),
+                        "frequency" => Value::test_string("*********************************"),
+                    }),
+                ])),
             },
             Example {
                 description: "Compute a histogram for a list of numbers, and percentage is based on the maximum value",
@@ -137,7 +136,7 @@ impl Command for Histogram {
 }
 
 fn run_histogram(
-    values: Vec<Value>,
+    values: List,
     column_name: Option<Spanned<String>>,
     freq_column: String,
     calc_method: PercentageCalcMethod,

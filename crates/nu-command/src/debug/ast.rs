@@ -65,7 +65,7 @@ impl Command for Ast {
             Example {
                 description: "Print the ast of a string flattened",
                 example: r#"ast "'hello'" --flatten"#,
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "content" => Value::test_string("'hello'"),
                     "shape" => Value::test_string("shape_string"),
                     "span" => Value::test_record(record! {
@@ -83,48 +83,54 @@ impl Command for Ast {
             Example {
                 description: "Print the ast of a pipeline flattened",
                 example: r#"ast 'ls | sort-by type name -i' --flatten"#,
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "content" => Value::test_string("ls"),
                         "shape" => Value::test_string("shape_external"),
                         "span" => Value::test_record(record! {
                             "start" => Value::test_int(0),
-                            "end" => Value::test_int(2),}),
+                            "end" => Value::test_int(2),
+                        }),
                     }),
                     Value::test_record(record! {
                         "content" => Value::test_string("|"),
                         "shape" => Value::test_string("shape_pipe"),
                         "span" => Value::test_record(record! {
                             "start" => Value::test_int(3),
-                            "end" => Value::test_int(4),}),
+                            "end" => Value::test_int(4),
+                        }),
                     }),
                     Value::test_record(record! {
                         "content" => Value::test_string("sort-by"),
                         "shape" => Value::test_string("shape_internalcall"),
                         "span" => Value::test_record(record! {
                             "start" => Value::test_int(5),
-                            "end" => Value::test_int(12),}),
+                            "end" => Value::test_int(12),
+                        }),
                     }),
                     Value::test_record(record! {
                         "content" => Value::test_string("type"),
                         "shape" => Value::test_string("shape_string"),
                         "span" => Value::test_record(record! {
                             "start" => Value::test_int(13),
-                            "end" => Value::test_int(17),}),
+                            "end" => Value::test_int(17),
+                        }),
                     }),
                     Value::test_record(record! {
                         "content" => Value::test_string("name"),
                         "shape" => Value::test_string("shape_string"),
                         "span" => Value::test_record(record! {
                             "start" => Value::test_int(18),
-                            "end" => Value::test_int(22),}),
+                            "end" => Value::test_int(22),
+                        }),
                     }),
                     Value::test_record(record! {
                         "content" => Value::test_string("-i"),
                         "shape" => Value::test_string("shape_flag"),
                         "span" => Value::test_record(record! {
                             "start" => Value::test_int(23),
-                            "end" => Value::test_int(25),}),
+                            "end" => Value::test_int(25),
+                        }),
                     }),
                 ])),
             },
@@ -181,28 +187,30 @@ impl Command for Ast {
 
                 Ok(Value::string(json_string, pipeline.span).into_pipeline_data())
             } else {
-                // let mut rec: Record = Record::new();
-                let mut rec = vec![];
-                for (span, shape) in flat {
-                    let content =
-                        String::from_utf8_lossy(working_set.get_span_contents(span)).to_string();
-                    let each_rec = record! {
-                        "content" => Value::test_string(content),
-                        "shape" => Value::test_string(shape.to_string()),
-                        "span" => Value::test_record(record!{
-                            "start" => Value::test_int(match span.start.checked_sub(offset) {
-                                Some(start) => start as i64,
-                                None => 0
+                Ok(flat
+                    .into_iter()
+                    .map(|(span, shape)| {
+                        let content = String::from_utf8_lossy(working_set.get_span_contents(span))
+                            .to_string();
+                        let each_rec = record! {
+                            "content" => Value::test_string(content),
+                            "shape" => Value::test_string(shape.to_string()),
+                            "span" => Value::test_record(record!{
+                                "start" => Value::test_int(match span.start.checked_sub(offset) {
+                                    Some(start) => start as i64,
+                                    None => 0,
+                                }),
+                                "end" => Value::test_int(match span.end.checked_sub(offset) {
+                                    Some(end) => end as i64,
+                                    None => 0,
+                                }),
                             }),
-                            "end" => Value::test_int(match span.end.checked_sub(offset) {
-                                Some(end) => end as i64,
-                                None => 0
-                            }),
-                        }),
-                    };
-                    rec.push(Value::test_record(each_rec));
-                }
-                Ok(Value::list(rec, pipeline.span).into_pipeline_data())
+                        };
+                        Value::test_record(each_rec)
+                    })
+                    .collect::<List>()
+                    .into_value(pipeline.span)
+                    .into_pipeline_data())
             }
         } else {
             let error_output = working_set.parse_errors.first();

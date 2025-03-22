@@ -183,7 +183,7 @@ mod test {
     use nu_protocol::{
         ast::{CellPath, PathMember},
         engine::Closure,
-        BlockId,
+        list, BlockId,
     };
     use std::collections::HashSet;
 
@@ -245,7 +245,7 @@ mod test {
     fn from_unhashable_value() {
         let span = Span::test_data();
         let values = [
-            Value::list(vec![Value::bool(true, span)], span),
+            Value::list(list![Value::bool(true, span)], span),
             Value::closure(
                 Closure {
                     block_id: BlockId::new(0),

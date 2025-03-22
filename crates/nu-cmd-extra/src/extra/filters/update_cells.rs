@@ -45,7 +45,7 @@ impl Command for UpdateCells {
             $value
           }
     }"#,
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "2021-04-16" => Value::test_int(37),
                     "2021-06-10" => Value::test_string(""),
                     "2021-09-18" => Value::test_string(""),
@@ -67,7 +67,7 @@ impl Command for UpdateCells {
               $value
             }
     }"#,
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "2021-04-16" => Value::test_int(37),
                     "2021-06-10" => Value::test_int(0),
                     "2021-09-18" => Value::test_int(0),

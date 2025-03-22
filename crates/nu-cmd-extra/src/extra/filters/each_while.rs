@@ -32,30 +32,27 @@ impl Command for EachWhile {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let stream_test_1 = vec![Value::test_int(2), Value::test_int(4)];
-        let stream_test_2 = vec![
-            Value::test_string("Output: 1"),
-            Value::test_string("Output: 2"),
-        ];
-
         vec![
             Example {
                 example: "[1 2 3 2 1] | each while {|e| if $e < 3 { $e * 2 } }",
                 description: "Produces a list of each element before the 3, doubled",
-                result: Some(Value::list(stream_test_1, Span::test_data())),
+                result: Some(Value::test_list(list![
+                    Value::test_int(2),
+                    Value::test_int(4),
+                ])),
             },
             Example {
                 example: r#"[1 2 stop 3 4] | each while {|e| if $e != 'stop' { $"Output: ($e)" } }"#,
                 description: "Output elements until reaching 'stop'",
-                result: Some(Value::list(stream_test_2, Span::test_data())),
+                result: Some(Value::test_list(list![
+                    Value::test_string("Output: 1"),
+                    Value::test_string("Output: 2"),
+                ])),
             },
             Example {
                 example: r#"[1 2 3] | enumerate | each while {|e| if $e.item < 2 { $"value ($e.item) at ($e.index)!"} }"#,
                 description: "Iterate over each element, printing the matching value and its index",
-                result: Some(Value::list(
-                    vec![Value::test_string("value 1 at 0!")],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![Value::test_string("value 1 at 0!")])),
             },
         ]
     }

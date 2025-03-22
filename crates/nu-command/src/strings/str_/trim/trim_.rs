@@ -445,22 +445,16 @@ mod tests {
 
     #[test]
     fn global_trim_left_table() {
-        let row = Value::list(
-            vec![
-                Value::test_string("  a  "),
-                Value::test_int(65),
-                Value::test_string(" d"),
-            ],
-            Span::test_data(),
-        );
-        let expected = Value::list(
-            vec![
-                Value::test_string("a  "),
-                Value::test_int(65),
-                Value::test_string("d"),
-            ],
-            Span::test_data(),
-        );
+        let row = Value::test_list(list![
+            Value::test_string("  a  "),
+            Value::test_int(65),
+            Value::test_string(" d"),
+        ]);
+        let expected = Value::test_list(list![
+            Value::test_string("a  "),
+            Value::test_int(65),
+            Value::test_string("d"),
+        ]);
 
         let args = Arguments {
             to_trim: None,
@@ -545,22 +539,16 @@ mod tests {
 
     #[test]
     fn global_trim_right_table() {
-        let row = Value::list(
-            vec![
-                Value::test_string("  a  "),
-                Value::test_int(65),
-                Value::test_string(" d"),
-            ],
-            Span::test_data(),
-        );
-        let expected = Value::list(
-            vec![
-                Value::test_string("  a"),
-                Value::test_int(65),
-                Value::test_string(" d"),
-            ],
-            Span::test_data(),
-        );
+        let row = Value::test_list(list![
+            Value::test_string("  a  "),
+            Value::test_int(65),
+            Value::test_string(" d"),
+        ]);
+        let expected = Value::test_list(list![
+            Value::test_string("  a"),
+            Value::test_int(65),
+            Value::test_string(" d"),
+        ]);
         let args = Arguments {
             to_trim: None,
             trim_side: TrimSide::Right,

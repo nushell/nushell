@@ -66,7 +66,7 @@ impl Command for SplitCellPath {
             Example {
                 description: "Split a cell-path into its components",
                 example: "$.5?.c | split cell-path",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "value" => Value::test_int(5),
                         "optional" => Value::test_bool(true),
@@ -80,7 +80,7 @@ impl Command for SplitCellPath {
             Example {
                 description: "Split a complex cell-path",
                 example: r#"$.a.b?.1."2"."c.d" | split cell-path"#,
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "value" => Value::test_string("a"),
                         "optional" => Value::test_bool(false),

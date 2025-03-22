@@ -43,23 +43,20 @@ repeating this process with row 1, and so on."#
             Example {
                 example: "[a b c] | wrap name | merge ( [47 512 618] | wrap id )",
                 description: "Add an 'id' column to the input table",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(record! {
-                            "name" => Value::test_string("a"),
-                            "id" => Value::test_int(47),
-                        }),
-                        Value::test_record(record! {
-                            "name" => Value::test_string("b"),
-                            "id" => Value::test_int(512),
-                        }),
-                        Value::test_record(record! {
-                            "name" => Value::test_string("c"),
-                            "id" => Value::test_int(618),
-                        }),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_record(record! {
+                        "name" => Value::test_string("a"),
+                        "id" => Value::test_int(47),
+                    }),
+                    Value::test_record(record! {
+                        "name" => Value::test_string("b"),
+                        "id" => Value::test_int(512),
+                    }),
+                    Value::test_record(record! {
+                        "name" => Value::test_string("c"),
+                        "id" => Value::test_int(618),
+                    }),
+                ])),
             },
             Example {
                 example: "{a: 1, b: 2} | merge {c: 3}",
@@ -73,7 +70,7 @@ repeating this process with row 1, and so on."#
             Example {
                 example: "[{columnA: A0 columnB: B0}] | merge [{columnA: 'A0*'}]",
                 description: "Merge two tables, overwriting overlapping columns",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "columnA" => Value::test_string("A0*"),
                     "columnB" => Value::test_string("B0"),
                 })])),

@@ -47,10 +47,11 @@ impl Command for FromToml {
 b = [1, 2]' | from toml",
                 description: "Converts toml formatted string to record",
                 result: Some(Value::test_record(record! {
-                    "a" =>  Value::test_int(1),
-                    "b" =>  Value::test_list(vec![
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_list(list![
                         Value::test_int(1),
-                        Value::test_int(2)],),
+                        Value::test_int(2),
+                    ]),
                 })),
             },
         ]
@@ -107,14 +108,11 @@ fn convert_toml_datetime_to_value(dt: &Datetime, span: Span) -> Value {
 
 fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
     match value {
-        toml::Value::Array(array) => {
-            let v: Vec<Value> = array
-                .iter()
-                .map(|x| convert_toml_to_value(x, span))
-                .collect();
-
-            Value::list(v, span)
-        }
+        toml::Value::Array(array) => array
+            .iter()
+            .map(|x| convert_toml_to_value(x, span))
+            .collect::<List>()
+            .into_value(span),
         toml::Value::Boolean(b) => Value::bool(*b, span),
         toml::Value::Float(f) => Value::float(*f, span),
         toml::Value::Integer(i) => Value::int(*i, span),

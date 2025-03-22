@@ -74,7 +74,7 @@ impl Command for StrCamelCase {
             Example {
                 description: "convert a column from a table to camelCase",
                 example: r#"[[lang, gems]; [nu_test, 100]] | str camel-case lang"#,
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "lang" => Value::test_string("nuTest"),
                     "gems" => Value::test_int(100),
                 })])),

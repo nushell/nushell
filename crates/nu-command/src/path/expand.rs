@@ -113,7 +113,7 @@ impl Command for PathExpand {
             Example {
                 description: "Expand a list of paths",
                 example: r"[ C:\foo\..\bar, C:\foo\..\baz ] | path expand",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string(r"C:\bar"),
                     Value::test_string(r"C:\baz"),
                 ])),
@@ -137,7 +137,7 @@ impl Command for PathExpand {
             Example {
                 description: "Expand a list of paths",
                 example: "[ /foo/../bar, /foo/../baz ] | path expand",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("/bar"),
                     Value::test_string("/baz"),
                 ])),

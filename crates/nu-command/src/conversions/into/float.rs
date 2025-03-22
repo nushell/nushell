@@ -57,7 +57,7 @@ impl Command for IntoFloat {
             Example {
                 description: "Convert string to float in table",
                 example: "[[num]; ['5.01']] | into float num",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "num" => Value::test_float(5.01),
                 })])),
             },
@@ -69,7 +69,7 @@ impl Command for IntoFloat {
             Example {
                 description: "Coerce list of ints and floats to float",
                 example: "[4 -5.9] | into float",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_float(4.0),
                     Value::test_float(-5.9),
                 ])),

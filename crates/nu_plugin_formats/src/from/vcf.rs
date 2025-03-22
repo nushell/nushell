@@ -4,7 +4,7 @@ use ical::{parser::vcard::component::*, property::Property};
 use indexmap::IndexMap;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, ShellError, Signature, Span, Type, Value,
+    list, record, Category, Example, LabeledError, ShellError, Signature, Span, Type, Value,
 };
 
 pub struct FromVcf;
@@ -59,21 +59,22 @@ impl SimplePluginCommand for FromVcf {
         let cursor = std::io::Cursor::new(input_bytes);
         let parser = ical::VcardParser::new(cursor);
 
-        let iter = parser.map(move |contact| match contact {
-            Ok(c) => contact_to_value(c, head),
-            Err(e) => Value::error(
-                ShellError::UnsupportedInput {
-                    msg: format!("input cannot be parsed as .vcf ({e})"),
-                    input: "value originates from here".into(),
-                    msg_span: head,
-                    input_span: span,
-                },
-                span,
-            ),
-        });
+        let list = parser
+            .map(move |contact| match contact {
+                Ok(c) => contact_to_value(c, head),
+                Err(e) => Value::error(
+                    ShellError::UnsupportedInput {
+                        msg: format!("input cannot be parsed as .vcf ({e})"),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: span,
+                    },
+                    span,
+                ),
+            })
+            .collect();
 
-        let collected: Vec<_> = iter.collect();
-        Ok(Value::list(collected, head))
+        Ok(Value::list(list, head))
     }
 }
 
@@ -85,26 +86,24 @@ FN:Bar
 EMAIL:foo@bar.com
 END:VCARD' | from vcf",
         description: "Converts ics formatted string to table",
-        result: Some(Value::test_list(vec![Value::test_record(record! {
-            "properties" => Value::test_list(
-                vec![
-                    Value::test_record(record! {
-                            "name" =>   Value::test_string("N"),
-                            "value" =>  Value::test_string("Foo"),
-                            "params" => Value::nothing(Span::test_data()),
-                    }),
-                    Value::test_record(record! {
-                            "name" =>   Value::test_string("FN"),
-                            "value" =>  Value::test_string("Bar"),
-                            "params" => Value::nothing(Span::test_data()),
-                    }),
-                    Value::test_record(record! {
-                            "name" =>   Value::test_string("EMAIL"),
-                            "value" =>  Value::test_string("foo@bar.com"),
-                            "params" => Value::nothing(Span::test_data()),
-                    }),
-                ],
-            ),
+        result: Some(Value::test_list(list![Value::test_record(record! {
+            "properties" => Value::test_list(list![
+                Value::test_record(record! {
+                    "name" => Value::test_string("N"),
+                    "value" => Value::test_string("Foo"),
+                    "params" => Value::nothing(Span::test_data()),
+                }),
+                Value::test_record(record! {
+                    "name" => Value::test_string("FN"),
+                    "value" => Value::test_string("Bar"),
+                    "params" => Value::nothing(Span::test_data()),
+                }),
+                Value::test_record(record! {
+                    "name" => Value::test_string("EMAIL"),
+                    "value" => Value::test_string("foo@bar.com"),
+                    "params" => Value::nothing(Span::test_data()),
+                }),
+            ]),
         })])),
     }]
 }
@@ -140,7 +139,7 @@ fn properties_to_value(properties: Vec<Property>, span: Span) -> Value {
                     span,
                 )
             })
-            .collect::<Vec<Value>>(),
+            .collect(),
         span,
     )
 }
@@ -149,7 +148,7 @@ fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> Value {
     let mut row = IndexMap::new();
 
     for (param_name, param_values) in params {
-        let values: Vec<Value> = param_values
+        let values = param_values
             .into_iter()
             .map(|val| Value::string(val, span))
             .collect();

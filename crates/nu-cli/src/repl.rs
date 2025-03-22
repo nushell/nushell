@@ -22,12 +22,12 @@ use nu_color_config::StyleComputer;
 use nu_engine::env_to_strings;
 use nu_engine::exit::cleanup_exit;
 use nu_parser::{lex, parse, trim_quotes_str};
-use nu_protocol::shell_error::io::IoError;
 use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_shell_error, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
-    Value,
+    list, report_shell_error,
+    shell_error::io::IoError,
+    HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
 };
 use nu_utils::{
     filesystem::{have_permission, PermissionResult},
@@ -889,9 +889,9 @@ fn do_auto_cd(
 
     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
     let mut shells = if let Some(v) = shells {
-        v.clone().into_list().unwrap_or_else(|_| vec![cwd])
+        v.clone().into_list().unwrap_or_else(|_| list![cwd])
     } else {
-        vec![cwd]
+        list![cwd]
     };
 
     let current_shell = stack.get_env_var(engine_state, "NUSHELL_CURRENT_SHELL");
@@ -908,7 +908,7 @@ fn do_auto_cd(
         0
     };
 
-    shells[current_shell] = Value::string(path, span);
+    shells.make_mut()[current_shell] = Value::string(path, span);
 
     stack.add_env_var("NUSHELL_SHELLS".into(), Value::list(shells, span));
     stack.add_env_var(

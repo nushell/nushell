@@ -120,7 +120,7 @@ impl Command for BytesAt {
             Example {
                 description: "Slice bytes across multiple table columns",
                 example: r#"[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes at 1.. ColB ColC"#,
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "ColA" => Value::test_binary(vec![0x11, 0x12, 0x13]),
                     "ColB" => Value::test_binary(vec![0x15, 0x16]),
                     "ColC" => Value::test_binary(vec![0x18, 0x19]),

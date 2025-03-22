@@ -7,7 +7,7 @@ pub use conversion::{Column, ColumnMap};
 pub use operations::Axis;
 
 use indexmap::map::IndexMap;
-use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
+use nu_protocol::{did_you_mean, IntoValue, List, PipelineData, Record, ShellError, Span, Value};
 use polars::prelude::{
     Column as PolarsColumn, DataFrame, DataType, IntoLazy, PolarsObject, Series,
 };
@@ -231,9 +231,8 @@ impl NuDataFrame {
         add_missing_columns(df, &maybe_schema, Span::unknown())
     }
 
-    pub fn fill_list_nan(list: Vec<Value>, list_span: Span, fill: Value) -> Value {
-        let newlist = list
-            .into_iter()
+    pub fn fill_list_nan(list: List, list_span: Span, fill: Value) -> Value {
+        list.into_iter()
             .map(|value| {
                 let span = value.span();
                 match value {
@@ -248,8 +247,8 @@ impl NuDataFrame {
                     _ => value,
                 }
             })
-            .collect::<Vec<Value>>();
-        Value::list(newlist, list_span)
+            .collect::<List>()
+            .into_value(list_span)
     }
 
     pub fn columns(&self, span: Span) -> Result<Vec<Column>, ShellError> {
@@ -336,7 +335,7 @@ impl NuDataFrame {
     }
 
     // Print is made out a head and if the dataframe is too large, then a tail
-    pub fn print(&self, include_index: bool, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn print(&self, include_index: bool, span: Span) -> Result<List, ShellError> {
         let df = &self.df;
         let size: usize = 20;
 
@@ -346,8 +345,8 @@ impl NuDataFrame {
             conversion::add_separator(&mut values, df, self.has_index(), span);
             let remaining = df.height() - sample_size;
             let tail_size = remaining.min(sample_size);
-            let mut tail_values = self.tail(Some(tail_size), include_index, span)?;
-            values.append(&mut tail_values);
+            let tail_values = self.tail(Some(tail_size), include_index, span)?;
+            values.extend(tail_values);
 
             Ok(values)
         } else {
@@ -364,7 +363,7 @@ impl NuDataFrame {
         rows: Option<usize>,
         include_index: bool,
         span: Span,
-    ) -> Result<Vec<Value>, ShellError> {
+    ) -> Result<List, ShellError> {
         let to_row = rows.unwrap_or(5);
         let values = self.to_rows(0, to_row, include_index, span)?;
         Ok(values)
@@ -375,7 +374,7 @@ impl NuDataFrame {
         rows: Option<usize>,
         include_index: bool,
         span: Span,
-    ) -> Result<Vec<Value>, ShellError> {
+    ) -> Result<List, ShellError> {
         let df = &self.df;
         let to_row = df.height();
         let size = rows.unwrap_or(DEFAULT_ROWS);
@@ -392,7 +391,7 @@ impl NuDataFrame {
         to_row: usize,
         include_index: bool,
         span: Span,
-    ) -> Result<Vec<Value>, ShellError> {
+    ) -> Result<List, ShellError> {
         let df = &self.df;
         let upper_row = to_row.min(df.height());
 
@@ -432,7 +431,7 @@ impl NuDataFrame {
 
                 Value::record(record, span)
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
         Ok(values)
     }

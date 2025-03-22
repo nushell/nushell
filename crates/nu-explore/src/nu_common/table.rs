@@ -1,6 +1,6 @@
 use crate::nu_common::NuConfig;
 use nu_color_config::StyleComputer;
-use nu_protocol::{Record, Signals, Value};
+use nu_protocol::{List, Record, Signals, Value};
 use nu_table::{
     common::{nu_value_to_string, nu_value_to_string_clean},
     ExpandedTable, TableOpts,
@@ -44,7 +44,7 @@ fn try_build_map(record: &Record, opts: TableOpts<'_>) -> String {
     }
 }
 
-fn try_build_list(vals: Vec<Value>, opts: TableOpts<'_>) -> String {
+fn try_build_list(vals: List, opts: TableOpts<'_>) -> String {
     let result = ExpandedTable::new(None, false, String::new()).build_list(&vals, opts.clone());
     match result {
         Ok(Some(out)) => out,

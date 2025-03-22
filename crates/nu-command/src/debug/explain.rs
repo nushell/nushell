@@ -59,7 +59,7 @@ pub fn get_pipeline_elements(
     stack: &mut Stack,
     block: &Block,
     span: Span,
-) -> Vec<Value> {
+) -> List {
     let eval_expression = get_eval_expression(engine_state);
 
     block
@@ -93,7 +93,7 @@ pub fn get_pipeline_elements(
                 "cmd_index" => Value::string(cmd_index, span),
                 "cmd_name" => Value::string(command_name, expr_span),
                 "type" => Value::string(ty, span),
-                "cmd_args" => Value::list(command_args_value, expr_span),
+                "cmd_args" => Value::list(command_args_value.into(), expr_span),
                 "span_start" => Value::int(expr_span.start as i64, span),
                 "span_end" => Value::int(expr_span.end as i64, span),
             };

@@ -5,7 +5,7 @@ use crate::{
         ExternalArgument, ListItem, Math, Operator, RecordItem,
     },
     debugger::DebugContext,
-    BlockId, Config, GetSpan, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
+    BlockId, Config, GetSpan, List, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -51,7 +51,7 @@ pub trait Eval {
             }
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr_span)),
             Expr::List(list) => {
-                let mut output = vec![];
+                let mut output = List::new();
                 for item in list {
                     match item {
                         ListItem::Item(expr) => output.push(Self::eval::<D>(state, mut_state, expr)?),
@@ -131,7 +131,7 @@ pub trait Eval {
                     }
                 }
 
-                let mut output_rows = vec![];
+                let mut output_rows = List::new();
                 for val in table.rows.as_ref() {
                     let record = output_headers.iter().zip(val.as_ref()).map(|(col, expr)| {
                         Self::eval::<D>(state, mut_state, expr).map(|val| (col.clone(), val))

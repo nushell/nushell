@@ -92,11 +92,11 @@ fn convert_yaml_value_to_nu_value(
         }
         serde_yaml::Value::String(s) => Value::string(s.to_string(), span),
         serde_yaml::Value::Sequence(a) => {
-            let result: Result<Vec<Value>, ShellError> = a
+            let result = a
                 .iter()
                 .map(|x| convert_yaml_value_to_nu_value(x, span, val_span))
-                .collect();
-            Value::list(result?, span)
+                .collect::<Result<_, _>>()?;
+            Value::list(result, span)
         }
         serde_yaml::Value::Mapping(t) => {
             // Using an IndexMap ensures consistent ordering
@@ -186,22 +186,22 @@ fn convert_yaml_value_to_nu_value(
 }
 
 pub fn from_yaml_string_to_value(s: &str, span: Span, val_span: Span) -> Result<Value, ShellError> {
-    let mut documents = vec![];
-
-    for document in serde_yaml::Deserializer::from_str(s) {
-        let v: serde_yaml::Value =
-            serde_yaml::Value::deserialize(document).map_err(|x| ShellError::UnsupportedInput {
-                msg: format!("Could not load YAML: {x}"),
-                input: "value originates from here".into(),
-                msg_span: span,
-                input_span: val_span,
-            })?;
-        documents.push(convert_yaml_value_to_nu_value(&v, span, val_span)?);
-    }
+    let mut documents = serde_yaml::Deserializer::from_str(s)
+        .map(|document| {
+            serde_yaml::Value::deserialize(document)
+                .map_err(|x| ShellError::UnsupportedInput {
+                    msg: format!("Could not load YAML: {x}"),
+                    input: "value originates from here".into(),
+                    msg_span: span,
+                    input_span: val_span,
+                })
+                .and_then(|v| convert_yaml_value_to_nu_value(&v, span, val_span))
+        })
+        .collect::<Result<List, _>>()?;
 
     match documents.len() {
         0 => Ok(Value::nothing(span)),
-        1 => Ok(documents.remove(0)),
+        1 => Ok(documents.pop().expect("len = 1")),
         _ => Ok(Value::list(documents, span)),
     }
 }
@@ -218,13 +218,15 @@ pub fn get_examples() -> Vec<Example<'static>> {
         Example {
             example: "'[ a: 1, b: [1, 2] ]' | from yaml",
             description: "Converts yaml formatted string to table",
-            result: Some(Value::test_list(vec![
+            result: Some(Value::test_list(list![
                 Value::test_record(record! {
                     "a" => Value::test_int(1),
                 }),
                 Value::test_record(record! {
-                    "b" => Value::test_list(
-                        vec![Value::test_int(1), Value::test_int(2)],),
+                    "b" => Value::test_list(list![
+                        Value::test_int(1),
+                        Value::test_int(2),
+                    ]),
                 }),
             ])),
         },
@@ -312,7 +314,7 @@ mod test {
         for ii in 1..1000 {
             let actual = from_yaml_string_to_value(test_yaml, Span::test_data(), Span::test_data());
 
-            let expected: Result<Value, ShellError> = Ok(Value::test_list(vec![
+            let expected: Result<_, ShellError> = Ok(Value::test_list(list![
                 Value::test_record(record! {
                     "a" => Value::test_string("b"),
                     "b" => Value::test_string("c"),

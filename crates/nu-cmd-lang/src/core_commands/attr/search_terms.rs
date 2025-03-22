@@ -28,7 +28,7 @@ impl Command for AttrSearchTerms {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let args = call.rest(engine_state, stack, 0)?;
-        Ok(Value::list(args, call.head).into_pipeline_data())
+        Ok(Value::list(args.into(), call.head).into_pipeline_data())
     }
 
     fn run_const(
@@ -38,7 +38,7 @@ impl Command for AttrSearchTerms {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let args = call.rest_const(working_set, 0)?;
-        Ok(Value::list(args, call.head).into_pipeline_data())
+        Ok(Value::list(args.into(), call.head).into_pipeline_data())
     }
 
     fn is_const(&self) -> bool {

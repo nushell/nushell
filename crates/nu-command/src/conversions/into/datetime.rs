@@ -190,7 +190,7 @@ impl Command for IntoDatetime {
                 description: "Convert non-standard timestamp string, without timezone offset, to datetime with custom formatting",
                 example: "'16.11.1984 8:00 am' | into datetime --format '%d.%m.%Y %H:%M %P'",
                 #[allow(clippy::inconsistent_digit_grouping)]
-                result: Some(Value::date(
+                result: Some(Value::test_date(
                     Local
                         .from_local_datetime(
                             &NaiveDateTime::parse_from_str("16.11.1984 8:00 am", "%d.%m.%Y %H:%M %P")
@@ -198,7 +198,6 @@ impl Command for IntoDatetime {
                         )
                         .unwrap()
                         .with_timezone(Local::now().offset()),
-                    Span::test_data(),
                 )),
             },
             Example {
@@ -223,35 +222,29 @@ impl Command for IntoDatetime {
             Example {
                 description: "Convert list of timestamps to datetimes",
                 example: r#"["2023-03-30 10:10:07 -05:00", "2023-05-05 13:43:49 -05:00", "2023-06-05 01:37:42 -05:00"] | into datetime"#,
-                result: Some(Value::list(
-                    vec![
-                        Value::date(
-                            DateTime::parse_from_str(
-                                "2023-03-30 10:10:07 -05:00",
-                                "%Y-%m-%d %H:%M:%S %z",
-                            )
-                            .expect("date calculation should not fail in test"),
-                            Span::test_data(),
-                        ),
-                        Value::date(
-                            DateTime::parse_from_str(
-                                "2023-05-05 13:43:49 -05:00",
-                                "%Y-%m-%d %H:%M:%S %z",
-                            )
-                            .expect("date calculation should not fail in test"),
-                            Span::test_data(),
-                        ),
-                        Value::date(
-                            DateTime::parse_from_str(
-                                "2023-06-05 01:37:42 -05:00",
-                                "%Y-%m-%d %H:%M:%S %z",
-                            )
-                            .expect("date calculation should not fail in test"),
-                            Span::test_data(),
-                        ),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_date(
+                        DateTime::parse_from_str(
+                            "2023-03-30 10:10:07 -05:00",
+                            "%Y-%m-%d %H:%M:%S %z",
+                        )
+                        .expect("date calculation should not fail in test"),
+                    ),
+                    Value::test_date(
+                        DateTime::parse_from_str(
+                            "2023-05-05 13:43:49 -05:00",
+                            "%Y-%m-%d %H:%M:%S %z",
+                        )
+                        .expect("date calculation should not fail in test"),
+                    ),
+                    Value::test_date(
+                        DateTime::parse_from_str(
+                            "2023-06-05 01:37:42 -05:00",
+                            "%Y-%m-%d %H:%M:%S %z",
+                        )
+                        .expect("date calculation should not fail in test"),
+                    ),
+                ])),
             },
             Example {
                 description: "Parsing human readable datetimes",
@@ -455,39 +448,39 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 }
 
 fn list_human_readable_examples(span: Span) -> Value {
-    let examples: Vec<String> = vec![
-        "Today 18:30".into(),
-        "2022-11-07 13:25:30".into(),
-        "15:20 Friday".into(),
-        "This Friday 17:00".into(),
-        "13:25, Next Tuesday".into(),
-        "Last Friday at 19:45".into(),
-        "In 3 days".into(),
-        "In 2 hours".into(),
-        "10 hours and 5 minutes ago".into(),
-        "1 years ago".into(),
-        "A year ago".into(),
-        "A month ago".into(),
-        "A week ago".into(),
-        "A day ago".into(),
-        "An hour ago".into(),
-        "A minute ago".into(),
-        "A second ago".into(),
-        "Now".into(),
+    let examples = [
+        "Today 18:30",
+        "2022-11-07 13:25:30",
+        "15:20 Friday",
+        "This Friday 17:00",
+        "13:25, Next Tuesday",
+        "Last Friday at 19:45",
+        "In 3 days",
+        "In 2 hours",
+        "10 hours and 5 minutes ago",
+        "1 years ago",
+        "A year ago",
+        "A month ago",
+        "A week ago",
+        "A day ago",
+        "An hour ago",
+        "A minute ago",
+        "A second ago",
+        "Now",
     ];
 
     let records = examples
-        .iter()
+        .into_iter()
         .map(|s| {
             Value::record(
                 record! {
-                    "parseable human datetime examples" => Value::test_string(s.to_string()),
-                    "result" => action(&Value::test_string(s.to_string()), &Arguments { zone_options: None, format_options: None, cell_paths: None }, span)
+                    "parseable human datetime examples" => Value::test_string(s),
+                    "result" => action(&Value::test_string(s), &Arguments { zone_options: None, format_options: None, cell_paths: None }, span)
                 },
                 span,
             )
         })
-        .collect::<Vec<Value>>();
+        .collect();
 
     Value::list(records, span)
 }

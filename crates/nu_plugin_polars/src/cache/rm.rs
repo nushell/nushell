@@ -44,11 +44,11 @@ impl PluginCommand for CacheRemove {
         call: &EvaluatedCall,
         _input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let msgs: Vec<Value> = call
+        let msgs = call
             .rest::<String>(0)?
             .into_iter()
             .map(|ref key| remove_cache_entry(plugin, engine, key, call.head))
-            .collect::<Result<Vec<Value>, ShellError>>()?;
+            .collect::<Result<_, ShellError>>()?;
 
         Ok(PipelineData::Value(Value::list(msgs, call.head), None))
     }

@@ -69,27 +69,23 @@ impl Command for FromTsv {
             Example {
                 description: "Convert tab-separated data to a table",
                 example: "\"ColA\tColB\n1\t2\" | from tsv",
-                result: Some(Value::test_list (
-                    vec![Value::test_record(record! {
-                        "ColA" =>  Value::test_int(1),
-                        "ColB" =>  Value::test_int(2),
-                    })],
-                ))
+                result: Some(Value::test_list (list![Value::test_record(record! {
+                    "ColA" => Value::test_int(1),
+                    "ColB" => Value::test_int(2),
+                })]))
             },
             Example {
                 description: "Convert comma-separated data to a table, allowing variable number of columns per row and ignoring headers",
                 example: "\"value 1\nvalue 2\tdescription 2\" | from tsv --flexible --noheaders",
-                result: Some(Value::test_list (
-                    vec![
-                        Value::test_record(record! {
-                            "column0" => Value::test_string("value 1"),
-                        }),
-                        Value::test_record(record! {
-                            "column0" => Value::test_string("value 2"),
-                            "column1" => Value::test_string("description 2"),
-                        }),
-                    ],
-                ))
+                result: Some(Value::test_list(list![
+                    Value::test_record(record! {
+                        "column0" => Value::test_string("value 1"),
+                    }),
+                    Value::test_record(record! {
+                        "column0" => Value::test_string("value 2"),
+                        "column1" => Value::test_string("description 2"),
+                    }),
+                ]))
             },
             Example {
                 description: "Create a tsv file with header columns and open it",
