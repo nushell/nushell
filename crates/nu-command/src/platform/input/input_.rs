@@ -24,7 +24,9 @@ impl Command for Input {
 
     fn signature(&self) -> Signature {
         Signature::build("input")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::Any), 
+                (Type::List(Box::new(Type::String)), Type::Any)])
             .allow_variants_without_examples(true)
             .optional("prompt", SyntaxShape::String, "Prompt to show the user.")
             .named(
@@ -46,12 +48,9 @@ impl Command for Input {
                 Some('d'),
             )
             .named(
-                "history",
-                SyntaxShape::OneOf(vec![
-                    SyntaxShape::List(Box::new(SyntaxShape::String)),
-                    SyntaxShape::Filepath,
-                ]),
-                "path to a file to read/write history or a list of history entries",
+                "history-file",
+                SyntaxShape::Filepath,
+                "path to a file to read/write history",
                 None,
             )
             .named(
@@ -69,7 +68,7 @@ impl Command for Input {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         // Those options are not supported by reedline, default to the legacy
         // implementation
@@ -84,12 +83,12 @@ impl Command for Input {
         .any(|x| *x);
 
         if use_legacy {
-            return self.legacy_input(engine_state, stack, call, _input);
+            return self.legacy_input(engine_state, stack, call, input);
         }
 
         let prompt_str: Option<String> = call.opt(engine_state, stack, 0)?;
         let default_val: Option<String> = call.get_flag(engine_state, stack, "default")?;
-        let history_val: Option<Value> = call.get_flag(engine_state, stack, "history")?;
+        let history_file_val: Option<String> = call.get_flag(engine_state, stack, "history-file")?;
         let max_history: usize = call
             .get_flag::<i64>(engine_state, stack, "max-history")?
             .map(|l| if l < 0 { 0 } else { l as usize })
@@ -102,31 +101,31 @@ impl Command for Input {
             _ => "".to_string(),
         };
 
-        // Here we will render the default prompt to the right
-        let history = match history_val {
-            None => None,
-            Some(Value::String { val, .. }) => Some(
-                FileBackedHistory::with_file(max_history, val.into())
-                    .expect("Error creating history file"),
-            ),
-            Some(Value::List { vals, .. }) => {
-                let mut history =
-                    FileBackedHistory::new(max_history).expect("Error creating history file");
-                vals.iter().for_each(|val| {
-                    if let Value::String { val, .. } = val {
-                        let _ = history.save(HistoryItem::from_command_line(val.clone()));
-                    }
-                });
-                Some(history)
+        let history_entries = match input {
+            PipelineData::Value(Value::List { vals, .. }, ..) => {
+                Some(vals)
             }
-            Some(h) => {
-                return Err(ShellError::UnsupportedInput {
-                    msg: "Unsupported history type".to_string(),
-                    input: "value originated from here".to_string(),
-                    msg_span: call.head,
-                    input_span: h.span(),
-                })
-            } // Value::List { vals, .. } => Some(Box::new((usize::MAX, val.into()))),
+            _ => None,
+        };
+
+        // If we either have history entries or history file, we create an history
+        let history = match (history_entries.is_some(), history_file_val.is_some()) {
+            (false, false) => None,
+            _ => { 
+                let mut history = match history_file_val {
+                    Some(file) => FileBackedHistory::with_file(max_history, file.into()),
+                    None => FileBackedHistory::new(max_history)
+                }.expect("Error creating history file");
+
+                if let Some(vals) = history_entries {
+                    vals.iter().for_each(|val| {
+                        if let Value::String { val, .. } = val {
+                            let _ = history.save(HistoryItem::from_command_line(val.clone()));
+                        }
+                    });
+                }
+                Some(history)
+            },
         };
 
         let prompt = ReedlinePrompt {
@@ -187,12 +186,12 @@ impl Command for Input {
             },
             Example {
                 description: "Get input from the user with history, and assign to a variable",
-                example: "let user_input = (input --history [past,command,entries])",
+                example: "let user_input = ([past,command,entries] | input)",
                 result: None,
             },
             Example {
                 description: "Get input from the user with history backed by a file, and assign to a variable",
-                example: "let user_input = (input --history ./history.txt)",
+                example: "let user_input = (input --history-file ./history.txt)",
                 result: None,
             },
         ]
