@@ -12,7 +12,7 @@ impl Command for Any {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Bool)])
-            .required(
+            .optional(
                 "predicate",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "A closure that must evaluate to a boolean.",

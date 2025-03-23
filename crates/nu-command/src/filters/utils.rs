@@ -26,18 +26,34 @@ pub fn boolean_fold(
     accumulator: bool,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let closure: Closure = call.req(engine_state, stack, 0)?;
+    let closure_res = call.req(engine_state, stack, 0);
 
-    let mut closure = ClosureEval::new(engine_state, stack, closure);
+    match closure_res {
+        Ok(closure) => {
+            let mut closure = ClosureEval::new(engine_state, stack, closure);
 
-    for value in input {
-        engine_state.signals().check(head)?;
-        let pred = closure.run_with_value(value)?.into_value(head)?.is_true();
+            for value in input {
+                engine_state.signals().check(head)?;
+                let pred = closure.run_with_value(value)?.into_value(head)?.is_true();
 
-        if pred == accumulator {
-            return Ok(Value::bool(accumulator, head).into_pipeline_data());
+                if pred == accumulator {
+                    return Ok(Value::bool(accumulator, head).into_pipeline_data());
+                }
+            }
+
+            Ok(Value::bool(!accumulator, head).into_pipeline_data())
         }
-    }
+        Err(ShellError::AccessEmptyContent { .. }) => {
+            for value in input {
+                engine_state.signals().check(head)?;
+                let pred = value.is_true();
 
-    Ok(Value::bool(!accumulator, head).into_pipeline_data())
+                if pred == accumulator {
+                    return Ok(Value::bool(accumulator, head).into_pipeline_data());
+                }
+            }
+            Ok(Value::bool(!accumulator, head).into_pipeline_data())
+        }
+        Err(e) => Err(e),
+    }
 }
