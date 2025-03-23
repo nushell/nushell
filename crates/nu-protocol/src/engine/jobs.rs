@@ -4,8 +4,10 @@ use std::{
         mpsc::{Receiver, RecvTimeoutError, Sender},
         Arc, Mutex,
     },
-    time::{Duration, Instant},
 };
+
+#[cfg(not(target_family = "wasm"))]
+use std::time::{Duration, Instant};
 
 use nu_system::{kill_by_pid, UnfreezeHandle};
 
@@ -256,6 +258,7 @@ impl Mailbox {
         }
     }
 
+    #[cfg(not(target_family = "wasm"))]
     pub fn recv_timeout(
         &mut self,
         filter_tag: Option<Tag>,
