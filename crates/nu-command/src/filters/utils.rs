@@ -1,6 +1,6 @@
 use nu_engine::{CallExt, ClosureEval};
 use nu_protocol::{
-    engine::{Call, Closure, EngineState, Stack},
+    engine::{Call, EngineState, Stack},
     IntoPipelineData, PipelineData, ShellError, Span, Value,
 };
 
