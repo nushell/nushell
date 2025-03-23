@@ -71,7 +71,7 @@ fn build_table(
 
 fn convert_nu_value_to_table_value(value: Value, config: &Config) -> TableValue {
     match value {
-        Value::Record { val, .. } => build_vertical_map(val.into_owned(), config),
+        Value::Record { val, .. } => build_vertical_map(val, config),
         Value::List { vals, .. } => {
             let rebuild_array_as_map = is_valid_record(&vals) && count_columns_in_record(&vals) > 0;
             if rebuild_array_as_map {
@@ -174,7 +174,7 @@ fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
 
     for val in vals {
         let val = get_as_record(val);
-        for (i, (_, val)) in val.into_owned().into_iter().enumerate() {
+        for (i, (_, val)) in val.into_iter().enumerate() {
             let value = convert_nu_value_to_table_value(val, config);
             let list = get_table_value_column_mut(&mut list[i]);
 
@@ -194,7 +194,7 @@ fn get_table_value_column_mut(val: &mut TableValue) -> &mut Vec<TableValue> {
     }
 }
 
-fn get_as_record(val: Value) -> nu_utils::SharedCow<Record> {
+fn get_as_record(val: Value) -> Record {
     match val {
         Value::Record { val, .. } => val,
         _ => unreachable!(),

@@ -146,13 +146,7 @@ impl Command for Sort {
         let sorted: Value = match value {
             Value::Record { val, .. } => {
                 // Records have two sorting methods, toggled by presence or absence of -v
-                let record = crate::sort_record(
-                    val.into_owned(),
-                    sort_by_value,
-                    reverse,
-                    insensitive,
-                    natural,
-                )?;
+                let record = crate::sort_record(val, sort_by_value, reverse, insensitive, natural)?;
                 Value::record(record, span)
             }
             value @ Value::List { .. } => {
