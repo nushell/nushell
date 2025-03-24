@@ -1,5 +1,5 @@
 use nu_protocol::{
-    DeclId, Span, SyntaxShape, VarId,
+    DeclId, GetSpan, Span, SyntaxShape, VarId,
     ast::{
         Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, ListItem,
         MatchPattern, PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection,
@@ -18,7 +18,7 @@ pub enum FlatShape {
     Custom(DeclId),
     DateTime,
     Directory,
-    External,
+    External(Span),
     ExternalArg,
     ExternalResolved,
     Filepath,
@@ -58,7 +58,7 @@ impl FlatShape {
             FlatShape::Custom(_) => "shape_custom",
             FlatShape::DateTime => "shape_datetime",
             FlatShape::Directory => "shape_directory",
-            FlatShape::External => "shape_external",
+            FlatShape::External(_) => "shape_external",
             FlatShape::ExternalArg => "shape_externalarg",
             FlatShape::ExternalResolved => "shape_external_resolved",
             FlatShape::Filepath => "shape_filepath",
@@ -321,7 +321,10 @@ fn flatten_expression_into(
         }
         Expr::ExternalCall(head, args) => {
             if let Expr::String(..) | Expr::GlobPattern(..) = &head.expr {
-                output.push((head.span, FlatShape::External));
+                output.push((
+                    head.span,
+                    FlatShape::External(working_set.get_span(head.span_id)),
+                ));
             } else {
                 flatten_expression_into(working_set, head, output);
             }
