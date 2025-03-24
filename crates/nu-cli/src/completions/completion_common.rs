@@ -199,10 +199,9 @@ pub fn complete_item(
     let ls_colors = (engine_state.config.completions.use_ls_colors
         && engine_state.config.use_ansi_coloring.get(engine_state))
     .then(|| {
-        let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
-            Some(v) => env_to_string("LS_COLORS", v, engine_state, stack).ok(),
-            None => None,
-        };
+        let ls_colors_env_str = stack
+            .get_env_var(engine_state, "LS_COLORS")
+            .and_then(|v| env_to_string("LS_COLORS", v, engine_state, stack).ok());
         get_ls_colors(ls_colors_env_str)
     });
 
@@ -264,15 +263,12 @@ pub fn complete_item(
         }
         let is_dir = p.isdir;
         let path = original_cwd.apply(p, path_separator);
+        let real_path = expand_to_real_path(&path);
+        let metadata = std::fs::symlink_metadata(&real_path).ok();
         let style = ls_colors.as_ref().map(|lsc| {
-            lsc.style_for_path_with_metadata(
-                &path,
-                std::fs::symlink_metadata(expand_to_real_path(&path))
-                    .ok()
-                    .as_ref(),
-            )
-            .map(lscolors::Style::to_nu_ansi_term_style)
-            .unwrap_or_default()
+            lsc.style_for_path_with_metadata(&real_path, metadata.as_ref())
+                .map(lscolors::Style::to_nu_ansi_term_style)
+                .unwrap_or_default()
         });
         FileSuggestion {
             span,
