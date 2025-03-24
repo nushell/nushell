@@ -25,7 +25,7 @@ impl Command for Input {
     fn signature(&self) -> Signature {
         Signature::build("input")
             .input_output_types(vec![
-                (Type::Nothing, Type::Any), 
+                (Type::Nothing, Type::Any),
                 (Type::List(Box::new(Type::String)), Type::Any)])
             .allow_variants_without_examples(true)
             .optional("prompt", SyntaxShape::String, "Prompt to show the user.")
@@ -88,13 +88,12 @@ impl Command for Input {
 
         let prompt_str: Option<String> = call.opt(engine_state, stack, 0)?;
         let default_val: Option<String> = call.get_flag(engine_state, stack, "default")?;
-        let history_file_val: Option<String> = call.get_flag(engine_state, stack, "history-file")?;
+        let history_file_val: Option<String> =
+            call.get_flag(engine_state, stack, "history-file")?;
         let max_history: usize = call
             .get_flag::<i64>(engine_state, stack, "max-history")?
             .map(|l| if l < 0 { 0 } else { l as usize })
             .unwrap_or(HISTORY_SIZE);
-
-        let from_io_error = IoError::factory(call.head, None);
 
         let default_str = match (&prompt_str, &default_val) {
             (Some(_prompt), Some(val)) => format!("(default: {val}) "),
@@ -102,20 +101,19 @@ impl Command for Input {
         };
 
         let history_entries = match input {
-            PipelineData::Value(Value::List { vals, .. }, ..) => {
-                Some(vals)
-            }
+            PipelineData::Value(Value::List { vals, .. }, ..) => Some(vals),
             _ => None,
         };
 
         // If we either have history entries or history file, we create an history
         let history = match (history_entries.is_some(), history_file_val.is_some()) {
-            (false, false) => None,
-            _ => { 
+            (false, false) => None, // Neither are set, no need for history support
+            _ => {
                 let mut history = match history_file_val {
                     Some(file) => FileBackedHistory::with_file(max_history, file.into()),
-                    None => FileBackedHistory::new(max_history)
-                }.expect("Error creating history file");
+                    None => FileBackedHistory::new(max_history),
+                }
+                .expect("Error creating history file");
 
                 if let Some(vals) = history_entries {
                     vals.iter().for_each(|val| {
@@ -125,7 +123,7 @@ impl Command for Input {
                     });
                 }
                 Some(history)
-            },
+            }
         };
 
         let prompt = ReedlinePrompt {
@@ -156,7 +154,7 @@ impl Command for Input {
                 }
                 Ok(_) => continue,
                 Err(event_error) => {
-                    crossterm::terminal::disable_raw_mode().map_err(&from_io_error)?;
+                    let from_io_error = IoError::factory(call.head, None);
                     return Err(from_io_error(event_error).into());
                 }
             }
@@ -186,7 +184,7 @@ impl Command for Input {
             },
             Example {
                 description: "Get input from the user with history, and assign to a variable",
-                example: "let user_input = ([past,command,entries] | input)",
+                example: "let user_input = ([past,command,entries] | input )",
                 result: None,
             },
             Example {
