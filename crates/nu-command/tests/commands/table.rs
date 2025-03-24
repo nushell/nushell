@@ -3149,3 +3149,23 @@ fn table_index_expand() {
          ╰─────┴─────╯"
     );
 }
+
+#[test]
+fn table_expand_big_header() {
+    let actual = nu!("
+        let column_name = (('' | fill -c 'a' --width ((term size).columns + 1)))
+        [{ $column_name: 'contents' }] | table -e --width=80
+    ");
+
+    assert_eq!(
+        actual.out,
+        "╭───┬──────────────────────────────────────────────────────────────────────────╮\
+         │ # │ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa │\
+         │   │ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa │\
+         │   │ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa │\
+         │   │ aaaaaaaaaaaaaaaaaaaaaaaaaaaa                                             │\
+         ├───┼──────────────────────────────────────────────────────────────────────────┤\
+         │ 0 │ contents                                                                 │\
+         ╰───┴──────────────────────────────────────────────────────────────────────────╯"
+    );
+}

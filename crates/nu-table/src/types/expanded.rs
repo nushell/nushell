@@ -240,7 +240,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         }
 
         let mut available = available_width - pad_space;
-        let mut column_width = string_width(&header);
+        let mut column_width = 0;
 
         if !is_last_column {
             // we need to make sure that we have a space for a next column if we use available width
@@ -293,8 +293,17 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             column_rows = column_rows.saturating_add(cell.size);
         }
 
+        let mut head_width = string_width(&header);
+        let mut header = header;
+        if head_width > available {
+            header = wrap_text(&header, available, cfg.opts.config);
+            head_width = available;
+        }
+
         let head_cell = NuRecordsValue::new(header);
         data[0].push(head_cell);
+
+        column_width = max(column_width, head_width);
 
         if column_width > available {
             // remove the column we just inserted
