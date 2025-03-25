@@ -195,6 +195,52 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) {
                 ),
             ],
         ),
+        (
+            // a row in the left table does not have the join column
+            (
+                "[{a: 1 ref: 1} {a: 2 ref: 2} {a: 3}]",
+                "[{ref: 1 b: 1} {ref: 2 b: 2} {ref: 3 b: 3}]",
+                "ref",
+            ),
+            [
+                ("--inner", "[[a, ref, b]; [1, 1, 1], [2, 2, 2]]"),
+                (
+                    "--left",
+                    "[[a, ref, b]; [1, 1, 1], [2, 2, 2], [3, null, null]]",
+                ),
+                (
+                    "--right",
+                    "[[a, ref, b]; [1, 1, 1], [2, 2, 2], [null, 3, 3]]",
+                ),
+                (
+                    "--outer",
+                    "[[a, ref, b]; [1, 1, 1], [2, 2, 2], [3, null, null], [null, 3, 3]]",
+                ),
+            ],
+        ),
+        (
+            // a row in the right table does not have the join column
+            (
+                "[{a: 1 ref: 1} {a: 2 ref: 2} {a: 3 ref: 3}]",
+                "[{ref: 1 b: 1} {ref: 2 b: 2} {b: 3}]",
+                "ref",
+            ),
+            [
+                ("--inner", "[[a, ref, b]; [1, 1, 1], [2, 2, 2]]"),
+                (
+                    "--left",
+                    "[[a, ref, b]; [1, 1, 1], [2, 2, 2], [3, 3, null]]",
+                ),
+                (
+                    "--right",
+                    "[[a, ref, b]; [1, 1, 1], [2, 2, 2], [null, null, 3]]",
+                ),
+                (
+                    "--outer",
+                    "[[a, ref, b]; [1, 1, 1], [2, 2, 2], [3, 3, null], [null, null, 3]]",
+                ),
+            ],
+        ),
     ] {
         for (join_type_, expected) in join_types {
             if join_type_ == join_type {
