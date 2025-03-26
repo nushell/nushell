@@ -93,10 +93,11 @@ pub fn calculate(
             Ok(Value::record(record, span))
         }
         PipelineData::Value(Value::Range { val, .. }, ..) => {
-            match *val {
-                Range::IntRange(range) => ensure_bounded(range.end(), span, name)?,
-                Range::FloatRange(range) => ensure_bounded(range.end(), span, name)?,
-            }
+            ensure_bounded_2(val.as_ref(), span, name)?;
+            // match *val {
+            //     Range::IntRange(range) => ensure_bounded(range.end(), span, name)?,
+            //     Range::FloatRange(range) => ensure_bounded(range.end(), span, name)?,
+            // }
             let new_vals: Result<Vec<Value>, ShellError> = val
                 .into_range_iter(span, Signals::empty())
                 .map(|val| mf(&[val], span, name))
@@ -115,6 +116,19 @@ pub fn calculate(
                 .expect("non-Empty non-ListStream PipelineData had no span"),
         }),
     }
+}
+
+pub fn ensure_bounded_2(range: &Range, val_span: Span, call_span: Span) -> Result<(), ShellError> {
+    if range.is_bounded() {
+        dbg!("is_bounded TRUE");
+        return Ok(());
+    }
+    dbg!("is_bounded FALSE");
+    Err(ShellError::IncorrectValue {
+        msg: "Range must be bounded".to_string(),
+        val_span,
+        call_span,
+    })
 }
 
 pub fn ensure_bounded<T>(
