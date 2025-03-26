@@ -291,7 +291,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             match parse_date_from_string(&input_val, span) {
                 Ok(date) => return Value::date(date, span),
                 Err(_) => {
-                    if let Ok(date) = from_human_time(&input_val) {
+                    if let Ok(date) = from_human_time(&input_val, Local::now().naive_local()) {
                         match date {
                             ParseResult::Date(date) => {
                                 let time = Local::now().time();
@@ -304,7 +304,15 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                 return Value::date(dt_fixed, span);
                             }
                             ParseResult::DateTime(date) => {
-                                return Value::date(date.fixed_offset(), span)
+                                let local_offset = *Local::now().offset();
+                                let datetime = local_offset.from_local_datetime(&date).unwrap();
+                                let dt_fixed = TimeZone::from_local_datetime(
+                                    &local_offset,
+                                    &datetime.naive_local(),
+                                )
+                                .single()
+                                .unwrap_or_default();
+                                return Value::date(dt_fixed, span);
                             }
                             ParseResult::Time(time) => {
                                 let date = Local::now().date_naive();
