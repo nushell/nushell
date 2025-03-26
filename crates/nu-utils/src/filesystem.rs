@@ -30,6 +30,7 @@ pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult {
 }
 
 #[cfg(unix)]
+/// Check that the process' user id has permissions to execute or in the case of a directory traverse the particular directory
 pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult {
     // `faccessat()` from modern libc does not always take ACL into account.
     // We prefer call `access()` instead as possible.
