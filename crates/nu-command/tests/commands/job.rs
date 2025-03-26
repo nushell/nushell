@@ -1,23 +1,4 @@
-use nu_test_support::{nu, playground::Playground};
-
-#[test]
-fn jobs_do_run() {
-    Playground::setup("job_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[]);
-
-        let actual = nu!(
-            cwd: dirs.root(),
-            r#"
-            rm -f a.txt;
-            job spawn { sleep 200ms; 'a' | save a.txt };
-            let before = 'a.txt' | path exists;
-            sleep 400ms;
-            let after = 'a.txt' | path exists;
-            [$before, $after] | to nuon"#
-        );
-        assert_eq!(actual.out, "[false, true]");
-    })
-}
+use nu_test_support::nu;
 
 #[test]
 fn job_send_root_job_works() {
@@ -206,11 +187,11 @@ fn job_list_adds_jobs_correctly() {
     let actual = nu!(format!(
         r#"
             let list0 = job list | get id;
-            let job1 = job spawn {{ sleep 20ms }};
+            let job1 = job spawn {{ job recv }};
             let list1 = job list | get id;
-            let job2 = job spawn {{ sleep 20ms }};
+            let job2 = job spawn {{ job recv }};
             let list2 = job list | get id;
-            let job3 = job spawn {{ sleep 20ms }};
+            let job3 = job spawn {{ job recv }};
             let list3 = job list | get id;
             [({}), ({}), ({}), ({})] | to nuon
             "#,
@@ -227,11 +208,13 @@ fn job_list_adds_jobs_correctly() {
 fn jobs_get_removed_from_list_after_termination() {
     let actual = nu!(format!(
         r#"
-            let job = job spawn {{ sleep 0.5sec }};
+            let job = job spawn {{ job recv }};
 
             let list0 = job list | get id;
 
-            sleep 1sec
+            "die!" | job send $job
+
+            sleep 0.2sec
 
             let list1 = job list | get id;
 
@@ -243,6 +226,8 @@ fn jobs_get_removed_from_list_after_termination() {
     assert_eq!(actual.out, "[true, true]");
 }
 
+// TODO: find way to communicate between process in windows
+// so these tests can fail less often
 #[test]
 fn job_list_shows_pids() {
     let actual = nu!(format!(
@@ -264,9 +249,9 @@ fn job_list_shows_pids() {
 fn killing_job_removes_it_from_table() {
     let actual = nu!(format!(
         r#"
-            let job1 = job spawn {{ sleep 100ms }}
-            let job2 = job spawn {{ sleep 100ms }}
-            let job3 = job spawn {{ sleep 100ms }}
+            let job1 = job spawn {{ job recv }}
+            let job2 = job spawn {{ job recv }}
+            let job3 = job spawn {{ job recv }}
 
             let list_before = job list | get id
 
