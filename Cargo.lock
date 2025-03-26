@@ -3702,7 +3702,7 @@ dependencies = [
  "procfs",
  "quick-xml 0.37.1",
  "rand 0.8.5",
- "rand_chacha 0.3.1",
+ "rand_chacha 0.9.0",
  "rayon",
  "rmp",
  "roxmltree",
