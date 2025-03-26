@@ -1140,6 +1140,8 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
+    /// TODO: Get rid of this error by moving the check before evaluation
+    ///
     /// Tried evaluating of a subexpression with parsing error
     ///
     /// ## Resolution
