@@ -305,7 +305,27 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                             }
                             ParseResult::DateTime(date) => {
                                 let local_offset = *Local::now().offset();
-                                let datetime = local_offset.from_local_datetime(&date).unwrap();
+                                let datetime = match local_offset.from_local_datetime(&date) {
+                                    chrono::LocalResult::Single(dt) => dt,
+                                    chrono::LocalResult::Ambiguous(_, _) => {
+                                        return Value::error(
+                                            ShellError::DatetimeParseError {
+                                                msg: "Ambiguous datetime".to_string(),
+                                                span,
+                                            },
+                                            span,
+                                        );
+                                    }
+                                    chrono::LocalResult::None => {
+                                        return Value::error(
+                                            ShellError::DatetimeParseError {
+                                                msg: "Invalid datetime".to_string(),
+                                                span,
+                                            },
+                                            span,
+                                        );
+                                    }
+                                };
                                 let dt_fixed = TimeZone::from_local_datetime(
                                     &local_offset,
                                     &datetime.naive_local(),
