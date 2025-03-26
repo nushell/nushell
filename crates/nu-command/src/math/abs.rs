@@ -57,10 +57,7 @@ impl Command for MathAbs {
             ..,
         ) = input
         {
-            match &**val {
-                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-            }
+            ensure_bounded(val.as_ref(), internal_span, head)?;
         }
         input.map(move |value| abs_helper(value, head), engine_state.signals())
     }
@@ -80,10 +77,7 @@ impl Command for MathAbs {
             ..,
         ) = input
         {
-            match &**val {
-                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-            }
+            ensure_bounded(val.as_ref(), internal_span, head)?;
         }
         input.map(
             move |value| abs_helper(value, head),
