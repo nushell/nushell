@@ -1,7 +1,7 @@
 #[cfg(unix)]
 use nix::{
     fcntl::AtFlags,
-    unistd::{faccessat, AccessFlags},
+    unistd::{access, faccessat, AccessFlags, Uid},
 };
 #[cfg(any(windows, unix))]
 use std::path::Path;
@@ -31,10 +31,13 @@ pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult {
 
 #[cfg(unix)]
 pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult {
-    match faccessat(None, dir.as_ref(), AccessFlags::X_OK, AtFlags::AT_EACCESS) {
-        Ok(_) => PermissionResult::PermissionOk,
-        Err(_) => PermissionResult::PermissionDenied,
+    // `faccessat()` from modern libc does not always take ACL into account.
+    // We prefer call `access()` instead as possible.
+    if Uid::current() == Uid::effective() {
+        return access(dir.as_ref(), AccessFlags::X_OK).into();
     }
+
+    faccessat(None, dir.as_ref(), AccessFlags::X_OK, AtFlags::AT_EACCESS).into()
 }
 
 #[cfg(unix)]
@@ -141,6 +144,15 @@ pub mod users {
                     .map(|group| group.gid)
                     .collect(),
             )
+        }
+    }
+}
+
+impl<T, E> From<Result<T, E>> for PermissionResult {
+    fn from(value: Result<T, E>) -> Self {
+        match value {
+            Ok(_) => Self::PermissionOk,
+            Err(_) => Self::PermissionDenied,
         }
     }
 }
