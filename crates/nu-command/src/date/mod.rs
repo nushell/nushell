@@ -7,8 +7,8 @@ mod to_timezone;
 mod utils;
 
 pub use date_::Date;
-pub use humanize::SubCommand as DateHumanize;
-pub use list_timezone::SubCommand as DateListTimezones;
-pub use now::SubCommand as DateNow;
-pub use to_timezone::SubCommand as DateToTimezone;
+pub use humanize::DateHumanize;
+pub use list_timezone::DateListTimezones;
+pub use now::DateNow;
+pub use to_timezone::DateToTimezone;
 pub(crate) use utils::{generate_strftime_list, parse_date_from_string};

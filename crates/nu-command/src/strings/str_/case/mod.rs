@@ -3,10 +3,10 @@ mod downcase;
 mod str_;
 mod upcase;
 
-pub use capitalize::SubCommand as StrCapitalize;
-pub use downcase::SubCommand as StrDowncase;
+pub use capitalize::StrCapitalize;
+pub use downcase::StrDowncase;
 pub use str_::Str;
-pub use upcase::SubCommand as StrUpcase;
+pub use upcase::StrUpcase;
 
 use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_engine::command_prelude::*;

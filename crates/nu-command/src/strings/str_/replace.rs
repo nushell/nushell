@@ -19,9 +19,9 @@ impl CmdArgument for Arguments {
 }
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrReplace;
 
-impl Command for SubCommand {
+impl Command for StrReplace {
     fn name(&self) -> &str {
         "str replace"
     }
@@ -304,7 +304,7 @@ fn action(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::{action, Arguments, SubCommand};
+    use super::{action, Arguments, StrReplace};
 
     fn test_spanned_string(val: &str) -> Spanned<String> {
         Spanned {
@@ -317,7 +317,7 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrReplace {})
     }
 
     #[test]

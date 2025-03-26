@@ -49,9 +49,9 @@ impl Zone {
 }
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct IntoDatetime;
 
-impl Command for SubCommand {
+impl Command for IntoDatetime {
     fn name(&self) -> &str {
         "into datetime"
     }
@@ -408,13 +408,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 Err(reason) => {
                     match NaiveDateTime::parse_from_str(val, &dt.0) {
                         Ok(d) => {
-                            let local_offset = *Local::now().offset();
                             let dt_fixed =
-                                TimeZone::from_local_datetime(&local_offset, &d)
-                                    .single()
-                                    .unwrap_or_default();
+                                Local.from_local_datetime(&d).single().unwrap_or_default();
 
-                            Value::date (dt_fixed,head)
+                            Value::date(dt_fixed.into(),head)
                         }
                         Err(_) => {
                             Value::error (
@@ -498,14 +495,14 @@ fn list_human_readable_examples(span: Span) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::{action, DatetimeFormat, SubCommand, Zone};
+    use super::{action, DatetimeFormat, IntoDatetime, Zone};
     use nu_protocol::Type::Error;
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(IntoDatetime {})
     }
 
     #[test]

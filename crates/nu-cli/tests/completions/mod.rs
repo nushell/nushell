@@ -307,7 +307,12 @@ fn custom_arguments_and_subcommands() {
     let completion_str = "foo test";
     let suggestions = completer.complete(completion_str, completion_str.len());
     // including both subcommand and directory completions
-    let expected = ["foo test bar".into(), folder("test_a"), folder("test_b")];
+    let expected = [
+        "foo test bar".into(),
+        folder("test_a"),
+        file("test_a_symlink"),
+        folder("test_b"),
+    ];
     match_suggestions_by_string(&expected, &suggestions);
 }
 
@@ -342,6 +347,21 @@ fn custom_arguments_vs_subcommands() {
     let suggestions = completer.complete(completion_str, completion_str.len());
     // including only subcommand completions
     let expected: Vec<_> = vec!["foo test bar"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn custom_completions_defined_inline() {
+    let (_, _, engine, stack) = new_engine();
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "def animals [] { [cat dog] }
+export def say [
+  animal: string@animals
+] { }; say ";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    // including only subcommand completions
+    let expected: Vec<_> = vec!["cat", "dog"];
     match_suggestions(&expected, &suggestions);
 }
 
@@ -891,6 +911,7 @@ fn partial_completions() {
         folder(dir.join("partial-a")),
         folder(dir.join("partial-b")),
         folder(dir.join("partial-c")),
+        format!("`{}`", folder(dir.join("partial-d("))),
     ];
 
     // Match the results
@@ -933,6 +954,7 @@ fn partial_completions() {
         file(dir.join("partial-b").join("hello_b")),
         file(dir.join("partial-b").join("hi_b")),
         file(dir.join("partial-c").join("hello_c")),
+        format!("`{}`", file(dir.join("partial-d(").join(".gitkeep"))),
     ];
 
     // Match the results
@@ -979,6 +1001,15 @@ fn partial_completions() {
                 .join("..")
                 .join("final_partial")
                 .join("somefile"),
+        ),
+        format!(
+            "`{}`",
+            file(
+                dir.join("partial-d(")
+                    .join("..")
+                    .join("final_partial")
+                    .join("somefile"),
+            )
         ),
     ];
 
@@ -1059,6 +1090,16 @@ fn partial_completion_with_dot_expansions() {
                 .join("partial_completions")
                 .join("final_partial")
                 .join("somefile"),
+        ),
+        format!(
+            "`{}`",
+            file(
+                dir.join("partial-d(")
+                    .join("...")
+                    .join("partial_completions")
+                    .join("final_partial")
+                    .join("somefile"),
+            )
         ),
     ];
 
@@ -1384,6 +1425,9 @@ fn file_completion_quoted() {
         "`-inf`",
         "`4.2`",
         "\'[a] bc.txt\'",
+        "`curly-bracket_{.txt`",
+        "`semicolon_;.txt`",
+        "'square-bracket_[.txt'",
         "`te st.txt`",
         "`te#st.txt`",
         "`te'st.txt`",
@@ -1492,6 +1536,7 @@ fn folder_with_directorycompletions() {
         folder(dir.join("another")),
         folder(dir.join("directory_completion")),
         folder(dir.join("test_a")),
+        file(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         folder(dir.join(".hidden_folder")),
     ];
@@ -1594,6 +1639,12 @@ fn folder_with_directorycompletions_with_three_trailing_dots() {
                 .join("...")
                 .join("test_a"),
         ),
+        file(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("...")
+                .join("test_a_symlink"),
+        ),
         folder(
             dir.join("directory_completion")
                 .join("folder_inside_folder")
@@ -1665,6 +1716,13 @@ fn folder_with_directorycompletions_do_not_collapse_dots() {
                 .join("..")
                 .join("..")
                 .join("test_a"),
+        ),
+        file(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join("test_a_symlink"),
         ),
         folder(
             dir.join("directory_completion")
@@ -2344,6 +2402,13 @@ fn assignment_operator_completions(mut custom_completer: NuCompleter) {
     assert_eq!(9, suggestions.len());
     let expected: Vec<_> = vec!["++", "++="];
     let suggestions = custom_completer.complete("$env.config.keybindings +", 25);
+    match_suggestions(&expected, &suggestions);
+
+    // all operators for type any
+    let suggestions = custom_completer.complete("ls | where name ", 16);
+    assert_eq!(30, suggestions.len());
+    let expected: Vec<_> = vec!["starts-with"];
+    let suggestions = custom_completer.complete("ls | where name starts", 22);
     match_suggestions(&expected, &suggestions);
 }
 

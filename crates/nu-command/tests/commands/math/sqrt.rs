@@ -26,3 +26,18 @@ fn const_sqrt() {
     let actual = nu!("const SQRT = 4 | math sqrt; $SQRT");
     assert_eq!(actual.out, "2");
 }
+
+#[test]
+fn can_sqrt_range() {
+    let actual = nu!("0..5 | math sqrt");
+    let expected = nu!("[0 1 2 3 4 5] | math sqrt");
+
+    assert_eq!(actual.out, expected.out);
+}
+
+#[test]
+fn cannot_sqrt_infinite_range() {
+    let actual = nu!("0.. | math sqrt");
+
+    assert!(actual.err.contains("nu::shell::incorrect_value"));
+}

@@ -1,6 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::{shell_error::into_code, Config};
+use nu_protocol::Config;
 use nu_utils::get_system_locale;
 use num_format::ToFormattedString;
 use std::sync::Arc;
@@ -19,9 +19,9 @@ impl CmdArgument for Arguments {
 }
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct IntoString;
 
-impl Command for SubCommand {
+impl Command for IntoString {
     fn name(&self) -> &str {
         "into string"
     }
@@ -215,17 +215,8 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         }
         Value::Bool { val, .. } => Value::string(val.to_string(), span),
         Value::Date { val, .. } => Value::string(val.format("%c").to_string(), span),
-        Value::String { val, .. } => {
-            if group_digits {
-                let number = val.parse::<i64>().unwrap_or_default();
-                let decimal_value = digits.unwrap_or(0) as usize;
-                Value::string(format_int(number, group_digits, decimal_value), span)
-            } else {
-                Value::string(val.to_string(), span)
-            }
-        }
-        Value::Glob { val, .. } => Value::string(val.to_string(), span),
-
+        Value::String { val, .. } => Value::string(val, span),
+        Value::Glob { val, .. } => Value::string(val, span),
         Value::Filesize { val, .. } => {
             if group_digits {
                 let decimal_value = digits.unwrap_or(0) as usize;
@@ -235,8 +226,6 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             }
         }
         Value::Duration { val: _, .. } => Value::string(input.to_expanded_string("", config), span),
-
-        Value::Error { error, .. } => Value::string(into_code(error).unwrap_or_default(), span),
         Value::Nothing { .. } => Value::string("".to_string(), span),
         Value::Record { .. } => Value::error(
             // Watch out for CantConvert's argument order
@@ -272,6 +261,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 })
                 .unwrap_or_else(|err| Value::error(err, span))
         }
+        Value::Error { .. } => input.clone(),
         x => Value::error(
             ShellError::CantConvert {
                 to_type: String::from("string"),
@@ -316,6 +306,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(IntoString {})
     }
 }

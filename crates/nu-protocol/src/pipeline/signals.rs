@@ -1,10 +1,10 @@
 use crate::{ShellError, Span};
+use nu_glob::Interruptible;
+use serde::{Deserialize, Serialize};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-
-use serde::{Deserialize, Serialize};
 
 /// Used to check for signals to suspend or terminate the execution of Nushell code.
 ///
@@ -81,6 +81,13 @@ impl Signals {
         if let Some(signals) = &self.signals {
             signals.store(false, Ordering::Relaxed);
         }
+    }
+}
+
+impl Interruptible for Signals {
+    #[inline]
+    fn interrupted(&self) -> bool {
+        self.interrupted()
     }
 }
 

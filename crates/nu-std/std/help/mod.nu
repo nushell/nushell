@@ -109,7 +109,7 @@ def "nu-complete main-help" [] {
 }
 
 def "nu-complete list-externs" [] {
-    scope commands | where is_extern | select name description | rename value description
+    scope commands | where is_extern == true | select name description | rename value description
 }
 
 def build-help-header [
@@ -397,7 +397,7 @@ export def externs [
 ] {
     let externs = (
         scope commands
-        | where is_extern
+        | where is_extern == true
         | select name module_name description
         | sort-by name
         | str trim
@@ -761,7 +761,7 @@ Here are some tips to help you get started.
   * ('help <name>' | pretty-cmd) - display help about a particular command, alias, or module
   * ('help --find <text to search>' | pretty-cmd) - search through all help commands table
 
-Nushell works on the idea of a "(ansi default_italic)pipeline(ansi reset)". Pipelines are commands connected with the '|' character.
+Nushell works on the idea of a '(ansi default_italic)pipeline(ansi reset)'. Pipelines are commands connected with the '|' character.
 Each stage in the pipeline works together to load, parse, and display information to you.
 
 (ansi green)Examples(ansi reset):

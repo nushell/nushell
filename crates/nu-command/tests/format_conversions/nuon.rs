@@ -303,11 +303,10 @@ fn from_nuon_datetime() {
         "#
     ));
 
-    assert_eq!(actual.out, "date");
+    assert_eq!(actual.out, "datetime");
 }
 
 #[test]
-#[ignore]
 fn to_nuon_errs_on_closure() {
     let actual = nu!(pipeline(
         r#"
@@ -316,7 +315,19 @@ fn to_nuon_errs_on_closure() {
         "#
     ));
 
-    assert!(actual.err.contains("can't convert closure to NUON"));
+    assert!(actual.err.contains("not deserializable"));
+}
+
+#[test]
+fn to_nuon_closure_coerced_to_quoted_string() {
+    let actual = nu!(pipeline(
+        r#"
+            {|| to nuon}
+            | to nuon --serialize
+        "#
+    ));
+
+    assert_eq!(actual.out, "\"{|| to nuon}\"");
 }
 
 #[test]

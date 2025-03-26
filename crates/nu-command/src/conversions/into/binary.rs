@@ -13,9 +13,9 @@ impl CmdArgument for Arguments {
 }
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct IntoBinary;
 
-impl Command for SubCommand {
+impl Command for IntoBinary {
     fn name(&self) -> &str {
         "into binary"
     }
@@ -204,7 +204,7 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(IntoBinary {})
     }
 
     #[rstest]

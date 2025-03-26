@@ -6,9 +6,9 @@ use nu_engine::command_prelude::*;
 
 const NS_PER_SEC: i64 = 1_000_000_000;
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct MathAvg;
 
-impl Command for SubCommand {
+impl Command for MathAvg {
     fn name(&self) -> &str {
         "math avg"
     }
@@ -104,6 +104,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(MathAvg {})
     }
 }

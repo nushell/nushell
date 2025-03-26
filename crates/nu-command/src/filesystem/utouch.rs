@@ -158,17 +158,15 @@ impl Command for UTouch {
                     continue;
                 }
 
-                let mut expanded_globs = glob(
-                    &file_path.to_string_lossy(),
-                    Some(engine_state.signals().clone()),
-                )
-                .unwrap_or_else(|_| {
-                    panic!(
-                        "Failed to process file path: {}",
-                        &file_path.to_string_lossy()
-                    )
-                })
-                .peekable();
+                let mut expanded_globs =
+                    glob(&file_path.to_string_lossy(), engine_state.signals().clone())
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "Failed to process file path: {}",
+                                &file_path.to_string_lossy()
+                            )
+                        })
+                        .peekable();
 
                 if expanded_globs.peek().is_none() {
                     let file_name = file_path.file_name().unwrap_or_else(|| {

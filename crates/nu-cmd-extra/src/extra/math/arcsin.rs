@@ -1,9 +1,9 @@
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct MathArcSin;
 
-impl Command for SubCommand {
+impl Command for MathArcSin {
     fn name(&self) -> &str {
         "math arcsin"
     }
@@ -115,6 +115,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(MathArcSin {})
     }
 }

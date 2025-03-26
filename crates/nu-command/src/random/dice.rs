@@ -3,9 +3,9 @@ use nu_protocol::ListStream;
 use rand::prelude::{thread_rng, Rng};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct RandomDice;
 
-impl Command for SubCommand {
+impl Command for RandomDice {
     fn name(&self) -> &str {
         "random dice"
     }
@@ -89,6 +89,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(RandomDice {})
     }
 }

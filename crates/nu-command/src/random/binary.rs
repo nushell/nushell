@@ -1,10 +1,10 @@
+use super::byte_stream::{random_byte_stream, RandomDistribution};
 use nu_engine::command_prelude::*;
-use rand::{thread_rng, RngCore};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct RandomBinary;
 
-impl Command for SubCommand {
+impl Command for RandomBinary {
     fn name(&self) -> &str {
         "random binary"
     }
@@ -57,12 +57,12 @@ impl Command for SubCommand {
             }),
         }?;
 
-        let mut rng = thread_rng();
-
-        let mut out = vec![0u8; length];
-        rng.fill_bytes(&mut out);
-
-        Ok(Value::binary(out, call.head).into_pipeline_data())
+        Ok(random_byte_stream(
+            RandomDistribution::Binary,
+            length,
+            call.head,
+            engine_state.signals().clone(),
+        ))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -89,6 +89,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(RandomBinary {})
     }
 }

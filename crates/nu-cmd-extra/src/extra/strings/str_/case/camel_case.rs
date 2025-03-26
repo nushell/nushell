@@ -3,9 +3,9 @@ use heck::ToLowerCamelCase;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrCamelCase;
 
-impl Command for SubCommand {
+impl Command for StrCamelCase {
     fn name(&self) -> &str {
         "str camel-case"
     }
@@ -91,6 +91,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrCamelCase {})
     }
 }

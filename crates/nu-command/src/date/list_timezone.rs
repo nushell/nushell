@@ -2,9 +2,9 @@ use chrono_tz::TZ_VARIANTS;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct DateListTimezones;
 
-impl Command for SubCommand {
+impl Command for DateListTimezones {
     fn name(&self) -> &str {
         "date list-timezone"
     }

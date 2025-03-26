@@ -3,7 +3,7 @@ use nu_engine::command_prelude::*;
 use std::{cmp::Ordering, collections::HashMap};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct MathMode;
 
 #[derive(Hash, Eq, PartialEq, Debug)]
 enum NumberTypes {
@@ -28,7 +28,7 @@ impl HashableType {
     }
 }
 
-impl Command for SubCommand {
+impl Command for MathMode {
     fn name(&self) -> &str {
         "math mode"
     }
@@ -110,7 +110,7 @@ impl Command for SubCommand {
     }
 }
 
-pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn mode(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
     //In e-q, Value doesn't implement Hash or Eq, so we have to get the values inside
     // But f64 doesn't implement Hash, so we get the binary representation to use as
     // key in the HashMap
@@ -130,11 +130,11 @@ pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellErr
                 NumberTypes::Filesize,
             )),
             Value::Error { error, .. } => Err(*error.clone()),
-            other => Err(ShellError::UnsupportedInput {
+            _ => Err(ShellError::UnsupportedInput {
                 msg: "Unable to give a result with this input".to_string(),
                 input: "value originates from here".into(),
                 msg_span: head,
-                input_span: other.span(),
+                input_span: span,
             }),
         })
         .collect::<Result<Vec<HashableType>, ShellError>>()?;
@@ -183,6 +183,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(MathMode {})
     }
 }

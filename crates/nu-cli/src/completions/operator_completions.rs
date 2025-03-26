@@ -37,6 +37,15 @@ fn common_comparison_ops() -> Vec<OperatorItem> {
     ]
 }
 
+fn all_ops_for_immutable() -> Vec<OperatorItem> {
+    ast::Comparison::iter()
+        .map(operator_to_item)
+        .chain(ast::Math::iter().map(operator_to_item))
+        .chain(ast::Boolean::iter().map(operator_to_item))
+        .chain(ast::Bits::iter().map(operator_to_item))
+        .collect()
+}
+
 fn collection_comparison_ops() -> Vec<OperatorItem> {
     let mut ops = common_comparison_ops();
     ops.push(operator_to_item(Comparison::Has));
@@ -70,6 +79,10 @@ fn math_ops() -> Vec<OperatorItem> {
 
 fn bit_ops() -> Vec<OperatorItem> {
     ast::Bits::iter().map(operator_to_item).collect()
+}
+
+fn all_assignment_ops() -> Vec<OperatorItem> {
+    ast::Assignment::iter().map(operator_to_item).collect()
 }
 
 fn numeric_assignment_ops() -> Vec<OperatorItem> {
@@ -154,7 +167,7 @@ fn ops_by_value(value: &Value, mutable: bool) -> Vec<OperatorItem> {
         Value::Filesize { .. } | Value::Duration { .. } => valid_value_with_unit_ops(),
         Value::Range { .. } | Value::Record { .. } => collection_comparison_ops(),
         Value::List { .. } => valid_list_ops(),
-        _ => common_comparison_ops(),
+        _ => all_ops_for_immutable(),
     };
     if mutable {
         ops.extend(match value {
@@ -165,7 +178,11 @@ fn ops_by_value(value: &Value, mutable: bool) -> Vec<OperatorItem> {
             Value::String { .. } | Value::Binary { .. } | Value::List { .. } => {
                 concat_assignment_ops()
             }
-            _ => vec![operator_to_item(ast::Assignment::Assign)],
+            Value::Bool { .. }
+            | Value::Date { .. }
+            | Value::Range { .. }
+            | Value::Record { .. } => vec![operator_to_item(ast::Assignment::Assign)],
+            _ => all_assignment_ops(),
         })
     }
     ops
@@ -223,7 +240,7 @@ impl Completer for OperatorCompletion<'_> {
                     needs_assignment_ops = false;
                     ops_by_value(&value, mutable)
                 }
-                _ => common_comparison_ops(),
+                _ => all_ops_for_immutable(),
             },
             _ => common_comparison_ops(),
         };
@@ -233,6 +250,7 @@ impl Completer for OperatorCompletion<'_> {
                 Type::Int | Type::Float | Type::Number => numeric_assignment_ops(),
                 Type::Filesize | Type::Duration => numeric_assignment_ops(),
                 Type::String | Type::Binary | Type::List(_) => concat_assignment_ops(),
+                Type::Any => all_assignment_ops(),
                 _ => vec![operator_to_item(ast::Assignment::Assign)],
             });
         }

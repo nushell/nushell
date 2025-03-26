@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.102.1"
+# version = "0.103.1"
 $env.config.color_config = {
     separator: white
     leading_trailing_space_bg: { attr: n }
@@ -10,7 +10,7 @@ $env.config.color_config = {
     int: white
     filesize: cyan
     duration: white
-    date: purple
+    datetime: purple
     range: white
     float: white
     string: white

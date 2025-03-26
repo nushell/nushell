@@ -802,7 +802,7 @@ mod windows_helper {
     use std::os::windows::prelude::OsStrExt;
     use windows::Win32::Foundation::FILETIME;
     use windows::Win32::Storage::FileSystem::{
-        FindFirstFileW, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_READONLY,
+        FindClose, FindFirstFileW, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_READONLY,
         FILE_ATTRIBUTE_REPARSE_POINT, WIN32_FIND_DATAW,
     };
     use windows::Win32::System::SystemServices::{
@@ -925,7 +925,14 @@ mod windows_helper {
                 windows::core::PCWSTR(filename_wide.as_ptr()),
                 &mut find_data,
             ) {
-                Ok(_) => Ok(find_data),
+                Ok(handle) => {
+                    // Don't forget to close the Find handle
+                    // https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-findfirstfilew#remarks
+                    // Assumption: WIN32_FIND_DATAW is a pure data struct, so we can let our
+                    // find_data outlive the handle.
+                    let _ = FindClose(handle);
+                    Ok(find_data)
+                }
                 Err(e) => Err(ShellError::Io(IoError::new_with_additional_context(
                     std::io::ErrorKind::Other,
                     span,

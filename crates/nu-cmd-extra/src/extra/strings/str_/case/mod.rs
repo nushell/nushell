@@ -6,13 +6,13 @@ mod snake_case;
 mod str_;
 mod title_case;
 
-pub use camel_case::SubCommand as StrCamelCase;
-pub use kebab_case::SubCommand as StrKebabCase;
-pub use pascal_case::SubCommand as StrPascalCase;
-pub use screaming_snake_case::SubCommand as StrScreamingSnakeCase;
-pub use snake_case::SubCommand as StrSnakeCase;
+pub use camel_case::StrCamelCase;
+pub use kebab_case::StrKebabCase;
+pub use pascal_case::StrPascalCase;
+pub use screaming_snake_case::StrScreamingSnakeCase;
+pub use snake_case::StrSnakeCase;
 pub use str_::Str;
-pub use title_case::SubCommand as StrTitleCase;
+pub use title_case::StrTitleCase;
 
 use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_engine::command_prelude::*;

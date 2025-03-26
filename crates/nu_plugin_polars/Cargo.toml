@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu_plugin_polars"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_polars"
-version = "0.102.1"
+version = "0.103.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -17,17 +17,16 @@ bench = false
 bench = false
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.102.1" }
-nu-plugin = { path = "../nu-plugin", version = "0.102.1" }
-nu-path = { path = "../nu-path", version = "0.102.1" }
-nu-utils = { path = "../nu-utils", version = "0.102.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.103.1" }
+nu-plugin = { path = "../nu-plugin", version = "0.103.1" }
+nu-path = { path = "../nu-path", version = "0.103.1" }
+nu-utils = { path = "../nu-utils", version = "0.103.1" }
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
 chrono-tz = "0.10"
 fancy-regex = { workspace = true }
-indexmap = { version = "2.7" }
-mimalloc = { version = "0.1.42" }
+indexmap = { version = "2.8" }
 num = {version = "0.4"}
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.53"}
@@ -39,7 +38,7 @@ polars-utils = { version = "0.46"}
 typetag = "0.2"
 env_logger = "0.11.3"
 log.workspace = true
-uuid = { version = "1.12", features = ["v4", "serde"] }
+uuid = { version = "1.16", features = ["v4", "serde"] }
 
 # Do to a compile error with polars, this included to force the raw dependency
 hashbrown = { version = "0.15", features = ["rayon", "serde"] }
@@ -47,7 +46,7 @@ hashbrown = { version = "0.15", features = ["rayon", "serde"] }
 # Cloud support
 aws-config = { version = "1.5", features = ["sso"] }
 aws-credential-types = "1.2"
-tokio = { version = "1.43", features = ["full"] }
+tokio = { version = "1.44", features = ["full"] }
 object_store = { version = "0.11", default-features = false }
 url.workspace = true
 
@@ -94,9 +93,9 @@ optional = false
 version = "0.46"
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.102.1" }
-nu-engine = { path = "../nu-engine", version = "0.102.1" }
-nu-parser = { path = "../nu-parser", version = "0.102.1" }
-nu-command = { path = "../nu-command", version = "0.102.1" }
-nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.102.1" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.103.1" }
+nu-engine = { path = "../nu-engine", version = "0.103.1" }
+nu-parser = { path = "../nu-parser", version = "0.103.1" }
+nu-command = { path = "../nu-command", version = "0.103.1" }
+nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.103.1" }
 tempfile.workspace = true

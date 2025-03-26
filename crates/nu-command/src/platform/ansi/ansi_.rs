@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 #[derive(Clone)]
-pub struct AnsiCommand;
+pub struct Ansi;
 
 struct AnsiCode {
     short_name: Option<&'static str>,
@@ -505,7 +505,7 @@ static CODE_LIST: LazyLock<Vec<AnsiCode>> = LazyLock::new(|| { vec![
 static CODE_MAP: LazyLock<HashMap<&'static str, &'static str>> =
     LazyLock::new(|| build_ansi_hashmap(&CODE_LIST));
 
-impl Command for AnsiCommand {
+impl Command for Ansi {
     fn name(&self) -> &str {
         "ansi"
     }
@@ -902,12 +902,12 @@ fn build_ansi_hashmap(v: &[AnsiCode]) -> HashMap<&str, &str> {
 
 #[cfg(test)]
 mod tests {
-    use crate::platform::ansi::ansi_::AnsiCommand;
+    use crate::platform::ansi::ansi_::Ansi;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::test_examples;
 
-        test_examples(AnsiCommand {})
+        test_examples(Ansi {})
     }
 }

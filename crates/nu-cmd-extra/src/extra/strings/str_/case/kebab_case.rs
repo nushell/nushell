@@ -3,9 +3,9 @@ use heck::ToKebabCase;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrKebabCase;
 
-impl Command for SubCommand {
+impl Command for StrKebabCase {
     fn name(&self) -> &str {
         "str kebab-case"
     }
@@ -90,6 +90,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrKebabCase {})
     }
 }

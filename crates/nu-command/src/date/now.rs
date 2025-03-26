@@ -2,9 +2,9 @@ use chrono::Local;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct DateNow;
 
-impl Command for SubCommand {
+impl Command for DateNow {
     fn name(&self) -> &str {
         "date now"
     }

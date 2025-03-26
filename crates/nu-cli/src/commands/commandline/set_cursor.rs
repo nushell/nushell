@@ -3,9 +3,9 @@ use nu_engine::command_prelude::*;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct CommandlineSetCursor;
 
-impl Command for SubCommand {
+impl Command for CommandlineSetCursor {
     fn name(&self) -> &str {
         "commandline set-cursor"
     }

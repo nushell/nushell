@@ -3,7 +3,7 @@ use nu_engine::command_prelude::*;
 use nu_protocol::{engine::StateWorkingSet, levenshtein_distance};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrDistance;
 
 struct Arguments {
     compare_string: String,
@@ -16,7 +16,7 @@ impl CmdArgument for Arguments {
     }
 }
 
-impl Command for SubCommand {
+impl Command for StrDistance {
     fn name(&self) -> &str {
         "str distance"
     }
@@ -148,6 +148,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrDistance {})
     }
 }

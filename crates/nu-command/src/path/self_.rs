@@ -3,9 +3,9 @@ use nu_path::expand_path_with;
 use nu_protocol::{engine::StateWorkingSet, shell_error::io::IoError};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct PathSelf;
 
-impl Command for SubCommand {
+impl Command for PathSelf {
     fn name(&self) -> &str {
         "path self"
     }
@@ -126,6 +126,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(PathSelf {})
     }
 }

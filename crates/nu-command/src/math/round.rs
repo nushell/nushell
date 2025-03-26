@@ -1,9 +1,11 @@
+use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
+use nu_protocol::Range;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct MathRound;
 
-impl Command for SubCommand {
+impl Command for MathRound {
     fn name(&self) -> &str {
         "math round"
     }
@@ -16,6 +18,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Number)),
                 ),
+                (Type::Range, Type::List(Box::new(Type::Number))),
             ])
             .allow_variants_without_examples(true)
             .named(
@@ -52,6 +55,19 @@ impl Command for SubCommand {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
+            match &**val {
+                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+            }
+        }
         input.map(
             move |value| operate(value, head, precision_param),
             engine_state.signals(),
@@ -69,6 +85,19 @@ impl Command for SubCommand {
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
+            match &**val {
+                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
+            }
         }
         input.map(
             move |value| operate(value, head, precision_param),
@@ -153,6 +182,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(MathRound {})
     }
 }

@@ -3,9 +3,9 @@ use nu_engine::command_prelude::*;
 use nu_protocol::format_duration_as_timeperiod;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct IntoRecord;
 
-impl Command for SubCommand {
+impl Command for IntoRecord {
     fn name(&self) -> &str {
         "into record"
     }
@@ -243,6 +243,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(IntoRecord {})
     }
 }

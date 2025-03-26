@@ -1,0 +1,52 @@
+name: Test on Beta Toolchain
+# This workflow is made to run our tests on the beta toolchain to validate that 
+# the beta toolchain works.
+# We do not intend to test here that we are working correctly but rather that 
+# the beta toolchain works correctly.
+# The ci.yml handles our actual testing with our guarantees.
+
+on:
+  schedule:
+    # If this workflow fails, GitHub notifications will go to the last person 
+    # who edited this line.
+    # See: https://docs.github.com/en/actions/monitoring-and-troubleshooting-workflows/monitoring-workflows/notifications-for-workflow-runs
+    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+
+env:
+  NUSHELL_CARGO_PROFILE: ci
+  NU_LOG_LEVEL: DEBUG
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    # this job is more for testing the beta toolchain and not our tests, so if 
+    # this fails but the tests of the regular ci pass, then this is fine
+    continue-on-error: true
+
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: [windows-latest, macos-latest, ubuntu-22.04]
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: rustup update beta
+
+      - name: Tests
+        run: cargo +beta test --workspace --profile ci --exclude nu_plugin_*
+      - name: Check for clean repo
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "there are changes";
+            git status --porcelain
+            exit 1
+          else
+            echo "no changes in working directory";
+          fi

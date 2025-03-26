@@ -40,3 +40,18 @@ fn const_round() {
     let actual = nu!("const ROUND = 18.345 | math round; $ROUND");
     assert_eq!(actual.out, "18");
 }
+
+#[test]
+fn can_round_range_into_list() {
+    let actual = nu!("(1.0)..(1.2)..(2.0) | math round");
+    let expected = nu!("[1 1 1 2 2 2]");
+
+    assert_eq!(actual.out, expected.out);
+}
+
+#[test]
+fn cannot_round_infinite_range() {
+    let actual = nu!("0.. | math round");
+
+    assert!(actual.err.contains("nu::shell::incorrect_value"));
+}

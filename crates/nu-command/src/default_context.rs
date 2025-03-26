@@ -70,7 +70,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ParEach,
             ChunkBy,
             Prepend,
-            Range,
             Reduce,
             Reject,
             Rename,
@@ -455,7 +454,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Job,
         };
 
-        #[cfg(unix)]
+        #[cfg(all(unix, feature = "os"))]
         bind_command! {
             JobUnfreeze,
         }

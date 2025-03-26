@@ -5,9 +5,9 @@ use url::Url;
 use super::query::query_string_to_table;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct UrlParse;
 
-impl Command for SubCommand {
+impl Command for UrlParse {
     fn name(&self) -> &str {
         "url parse"
     }
@@ -128,6 +128,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(UrlParse {})
     }
 }
