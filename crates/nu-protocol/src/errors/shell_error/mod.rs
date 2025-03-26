@@ -1140,6 +1140,25 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
+    /// TODO: Get rid of this error by moving the check before evaluation
+    ///
+    /// Tried evaluating of a subexpression with parsing error
+    ///
+    /// ## Resolution
+    ///
+    /// Fix the parsing error first.
+    #[error("Found parsing error in expression.")]
+    #[diagnostic(
+        code(nu::shell::parse_error_in_constant),
+        help(
+            "This expression is supposed to be evaluated into a constant, which means error-free."
+        )
+    )]
+    ParseErrorInConstant {
+        #[label("Parsing error detected in expression")]
+        span: Span,
+    },
+
     /// Tried assigning non-constant value to a constant
     ///
     /// ## Resolution

@@ -6,7 +6,7 @@ use nu_protocol::{
 };
 use rstest::rstest;
 
-use mock::{Alias, AttrEcho, Def, Let, Mut, ToCustom};
+use mock::{Alias, AttrEcho, Const, Def, IfMocked, Let, Mut, ToCustom};
 
 fn test_int(
     test_tag: &str,     // name of sub-test
@@ -782,6 +782,38 @@ pub fn parse_attributes_external_alias() {
 
     assert!(shell_error.contains("nu::shell::not_a_const_command"));
     assert!(parse_error.contains("Encountered error during parse-time evaluation"));
+}
+
+#[test]
+pub fn parse_if_in_const_expression() {
+    // https://github.com/nushell/nushell/issues/15321
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Const));
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(IfMocked));
+
+    let source = b"const foo = if t";
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(!working_set.parse_errors.is_empty());
+    let ParseError::MissingPositional(error, _, _) = &working_set.parse_errors[0] else {
+        panic!("Expected MissingPositional");
+    };
+
+    assert!(error.contains("cond"));
+
+    working_set.parse_errors = Vec::new();
+    let source = b"def a [n= (if ]";
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(!working_set.parse_errors.is_empty());
+    let ParseError::UnexpectedEof(error, _) = &working_set.parse_errors[0] else {
+        panic!("Expected UnexpectedEof");
+    };
+
+    assert!(error.contains(")"));
 }
 
 fn test_external_call(input: &str, tag: &str, f: impl FnOnce(&Expression, &[ExternalArgument])) {
@@ -1970,6 +2002,51 @@ mod mock {
     };
 
     #[derive(Clone)]
+    pub struct Const;
+
+    impl Command for Const {
+        fn name(&self) -> &str {
+            "const"
+        }
+
+        fn description(&self) -> &str {
+            "Create a parse-time constant."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("const")
+                .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+                .allow_variants_without_examples(true)
+                .required("const_name", SyntaxShape::VarWithOptType, "Constant name.")
+                .required(
+                    "initial_value",
+                    SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                    "Equals sign followed by constant value.",
+                )
+                .category(Category::Core)
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+
+        fn run_const(
+            &self,
+            _working_set: &StateWorkingSet,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            Ok(PipelineData::empty())
+        }
+    }
+
+    #[derive(Clone)]
     pub struct Let;
 
     impl Command for Let {
@@ -2421,6 +2498,19 @@ mod mock {
             _input: PipelineData,
         ) -> Result<PipelineData, ShellError> {
             todo!()
+        }
+
+        fn is_const(&self) -> bool {
+            true
+        }
+
+        fn run_const(
+            &self,
+            _working_set: &StateWorkingSet,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            panic!("Should not be called!")
         }
     }
 }
