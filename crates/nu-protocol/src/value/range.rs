@@ -635,11 +635,9 @@ impl Range {
     pub fn is_bounded(&self) -> bool {
         match self {
             Range::IntRange(range) => {
-                dbg!(range.end());
                 range.end() != Bound::<i64>::Unbounded
             }
             Range::FloatRange(range) => {
-                dbg!(range.end());
                 range.end() != Bound::<f64>::Unbounded
             }
         }
