@@ -33,10 +33,17 @@ pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult {
 pub fn have_permission(dir: impl AsRef<Path>) -> PermissionResult {
     // `faccessat()` from modern libc does not always take ACL into account.
     // We prefer call `access()` instead as possible.
-    if Uid::current() == Uid::effective() {
+    //
+    // Android refuses to check permission on flag != 0 in their `faccessat()`,
+    // see https://android.googlesource.com/platform/bionic/+/master/libc/bionic/faccessat.cpp.
+    if Uid::current() == Uid::effective() || cfg!(target_os = "android") {
         return access(dir.as_ref(), AccessFlags::X_OK).into();
     }
 
+    // Normally, this should happen only if user has set SETUID bit for nu executable
+    // (which is strongly discouraged).
+    // Modern sudo installation checks for owner=root plus SETUID bit on, thus,
+    // `sudo nu` for example, will not lead to EUID != RUID.
     faccessat(None, dir.as_ref(), AccessFlags::X_OK, AtFlags::AT_EACCESS).into()
 }
 
