@@ -261,7 +261,7 @@ impl Mailbox {
     #[cfg(not(target_family = "wasm"))]
     pub fn recv_timeout(
         &mut self,
-        filter_tag: Option<Tag>,
+        filter_tag: Option<FilterTag>,
         timeout: Duration,
     ) -> Result<Value, RecvTimeoutError> {
         if let Some(value) = self.ignored_mail.pop(filter_tag) {
@@ -300,11 +300,11 @@ impl Mailbox {
 struct IgnoredMail {
     next_id: usize,
     messages: BTreeMap<usize, Mail>,
-    by_tag: HashMap<Tag, BTreeSet<usize>>,
+    by_tag: HashMap<FilterTag, BTreeSet<usize>>,
 }
 
-pub type Tag = u64;
-pub type Mail = (Option<Tag>, Value);
+pub type FilterTag = u64;
+pub type Mail = (Option<FilterTag>, Value);
 
 impl IgnoredMail {
     pub fn add(&mut self, (tag, value): Mail) {
@@ -318,7 +318,7 @@ impl IgnoredMail {
         }
     }
 
-    pub fn pop(&mut self, tag: Option<Tag>) -> Option<Value> {
+    pub fn pop(&mut self, tag: Option<FilterTag>) -> Option<Value> {
         if let Some(tag) = tag {
             self.pop_oldest_with_tag(tag)
         } else {
@@ -350,7 +350,7 @@ impl IgnoredMail {
         Some(value)
     }
 
-    fn pop_oldest_with_tag(&mut self, tag: Tag) -> Option<Value> {
+    fn pop_oldest_with_tag(&mut self, tag: FilterTag) -> Option<Value> {
         let ids = self.by_tag.get_mut(&tag)?;
 
         let id = ids.pop_first()?;

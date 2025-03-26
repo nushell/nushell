@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::Tag, JobId};
+use nu_protocol::{engine::FilterTag, JobId};
 
 #[derive(Clone)]
 pub struct JobSend;
@@ -67,7 +67,7 @@ This command never blocks.
             }
         }
 
-        let tag = tag_arg.map(|it| it.item as Tag);
+        let tag = tag_arg.map(|it| it.item as FilterTag);
 
         let value = input.into_value(head)?;
 

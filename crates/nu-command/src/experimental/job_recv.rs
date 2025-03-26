@@ -1,7 +1,7 @@
 use std::{sync::mpsc::RecvTimeoutError, time::Duration};
 
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::Tag;
+use nu_protocol::engine::FilterTag;
 
 #[derive(Clone)]
 pub struct JobRecv;
@@ -68,7 +68,7 @@ in no particular order, regardless of the specified timeout parameter.
             }
         }
 
-        let tag = tag_arg.map(|it| it.item as Tag);
+        let tag = tag_arg.map(|it| it.item as FilterTag);
 
         let duration: Option<i64> = call.get_flag(engine_state, stack, "timeout")?;
 
