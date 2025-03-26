@@ -273,7 +273,7 @@ impl Mailbox {
             while waited_so_far < timeout {
                 let (tag, value) = self.receiver.recv_timeout(timeout - waited_so_far)?;
 
-                if filter_tag.is_some() && filter_tag == tag {
+                if filter_tag.is_none() || filter_tag == tag  {
                     return Ok(value);
                 } else {
                     self.ignored_mail.add((tag, value));
