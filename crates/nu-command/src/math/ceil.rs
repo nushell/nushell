@@ -1,6 +1,5 @@
 use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
-use nu_protocol::Range;
 
 #[derive(Clone)]
 pub struct MathCeil;

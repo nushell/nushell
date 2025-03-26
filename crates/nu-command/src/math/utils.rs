@@ -1,4 +1,4 @@
-use core::{ops::Bound, slice};
+use core::slice;
 use indexmap::IndexMap;
 use nu_protocol::{
     engine::Call, IntoPipelineData, PipelineData, Range, ShellError, Signals, Span, Value,
