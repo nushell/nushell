@@ -305,7 +305,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                             }
                             ParseResult::DateTime(date) => {
                                 let local_offset = *Local::now().offset();
-                                let datetime = match local_offset.from_local_datetime(&date) {
+                                let dt_fixed = match local_offset.from_local_datetime(&date) {
                                     chrono::LocalResult::Single(dt) => dt,
                                     chrono::LocalResult::Ambiguous(_, _) => {
                                         return Value::error(
@@ -326,12 +326,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                         );
                                     }
                                 };
-                                let dt_fixed = TimeZone::from_local_datetime(
-                                    &local_offset,
-                                    &datetime.naive_local(),
-                                )
-                                .single()
-                                .unwrap_or_default();
                                 return Value::date(dt_fixed, span);
                             }
                             ParseResult::Time(time) => {
