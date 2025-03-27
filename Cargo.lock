@@ -2846,6 +2846,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4144,7 +4153,7 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "num",
- "object_store",
+ "object_store 0.12.0",
  "polars",
  "polars-arrow",
  "polars-io",
@@ -4446,6 +4455,27 @@ dependencies = [
  "tracing",
  "url",
  "walkdir",
+]
+
+[[package]]
+name = "object_store"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9ce831b09395f933addbc56d894d889e4b226eba304d4e7adbab591e26daf1e"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "chrono",
+ "futures",
+ "http 1.2.0",
+ "humantime",
+ "itertools 0.14.0",
+ "parking_lot",
+ "percent-encoding",
+ "thiserror 2.0.6",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]
@@ -4976,7 +5006,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19d6529cae0d1db5ed690e47de41fac9b35ae0c26d476830c2079f130887b847"
 dependencies = [
  "avro-schema",
- "object_store",
+ "object_store 0.11.2",
  "polars-arrow-format",
  "regex",
  "simdutf8",
@@ -5031,7 +5061,7 @@ dependencies = [
  "memchr",
  "memmap2",
  "num-traits",
- "object_store",
+ "object_store 0.11.2",
  "once_cell",
  "percent-encoding",
  "polars-arrow",
