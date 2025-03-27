@@ -864,7 +864,7 @@ fn do_auto_cd(
         path.to_string_lossy().to_string()
     };
 
-    if let PermissionResult::PermissionDenied(_) = have_permission(path.clone()) {
+    if let PermissionResult::PermissionDenied = have_permission(path.clone()) {
         report_shell_error(
             engine_state,
             &ShellError::Io(IoError::new_with_additional_context(
