@@ -84,12 +84,12 @@ in no particular order, regardless of the specified timeout parameter.
             .lock()
             .expect("failed to acquire lock");
 
-        return if let Some(timeout) = timeout {
+        if let Some(timeout) = timeout {
             recv_with_time_limit(&mut mailbox, tag, engine_state.signals(), head, timeout)
         } else {
             recv_without_time_limit(&mut mailbox, tag, engine_state.signals(), head)
         }
-        .map(|value| value.into_pipeline_data());
+        .map(|value| value.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
