@@ -23,6 +23,7 @@ mod last;
 mod len;
 mod lit;
 mod pivot;
+mod qcut;
 mod query_df;
 mod rename;
 mod reverse;
@@ -110,6 +111,7 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazySortBy),
         Box::new(LazyFilter),
         Box::new(Shift),
+        Box::new(qcut::QCutSeries),
         Box::new(Unique),
         Box::new(unnest::UnnestDF),
     ]
