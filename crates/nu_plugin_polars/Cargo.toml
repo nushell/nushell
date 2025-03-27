@@ -32,7 +32,7 @@ serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.53"}
 polars-io = { version = "0.46", features = ["avro", "cloud", "aws"]}
 polars-arrow = { version = "0.46"}
-polars-ops = { version = "0.46", features = ["pivot"]}
+polars-ops = { version = "0.46", features = ["pivot", "cutqcut"]}  
 polars-plan = { version = "0.46", features = ["regex"]}
 polars-utils = { version = "0.46"}
 typetag = "0.2"
