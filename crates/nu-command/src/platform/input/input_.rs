@@ -94,6 +94,7 @@ impl Command for Input {
             .get_flag::<i64>(engine_state, stack, "max-history")?
             .map(|l| if l < 0 { 0 } else { l as usize })
             .unwrap_or(HISTORY_SIZE);
+        let max_history_span = call.get_flag_span(stack, "max-history");
 
         let default_str = match (&prompt_str, &default_val) {
             (Some(_prompt), Some(val)) => format!("(default: {val}) "),
@@ -109,11 +110,20 @@ impl Command for Input {
         let history = match (history_entries.is_some(), history_file_val.is_some()) {
             (false, false) => None, // Neither are set, no need for history support
             _ => {
-                let mut history = match history_file_val {
+                let file_history = match history_file_val {
                     Some(file) => FileBackedHistory::with_file(max_history, file.into()),
                     None => FileBackedHistory::new(max_history),
-                }
-                .expect("Error creating history file");
+                };
+                let mut history = match file_history {
+                    Ok(h) => h,
+                    Err(_e) => {
+                        return Err(ShellError::IncorrectValue {
+                            msg: "invalid max_history size".to_string(),
+                            val_span: max_history_span.expect("max-history should be set"),
+                            call_span: call.head,
+                        });
+                    }
+                };
 
                 if let Some(vals) = history_entries {
                     vals.iter().for_each(|val| {
@@ -141,22 +151,20 @@ impl Command for Input {
 
         let mut buf = String::new();
 
-        loop {
-            match line_editor.read_line(&prompt) {
-                Ok(Signal::Success(buffer)) => {
-                    buf.push_str(&buffer);
-                    break;
-                }
-                Ok(Signal::CtrlC) => {
-                    return Err(
-                        IoError::new(std::io::ErrorKind::Interrupted, call.head, None).into(),
-                    );
-                }
-                Ok(_) => continue,
-                Err(event_error) => {
-                    let from_io_error = IoError::factory(call.head, None);
-                    return Err(from_io_error(event_error).into());
-                }
+        match line_editor.read_line(&prompt) {
+            Ok(Signal::Success(buffer)) => {
+                buf.push_str(&buffer);
+            }
+            Ok(Signal::CtrlC) => {
+                return Err(IoError::new(std::io::ErrorKind::Interrupted, call.head, None).into());
+            }
+            Ok(Signal::CtrlD) => {
+                // Do nothing on ctrl-d
+                return Ok(Value::nothing(call.head).into_pipeline_data());
+            }
+            Err(event_error) => {
+                let from_io_error = IoError::factory(call.head, None);
+                return Err(from_io_error(event_error).into());
             }
         }
         match default_val {
