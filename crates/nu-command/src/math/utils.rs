@@ -1,4 +1,4 @@
-use core::{ops::Bound, slice};
+use core::slice;
 use indexmap::IndexMap;
 use nu_protocol::{
     engine::Call, IntoPipelineData, PipelineData, Range, ShellError, Signals, Span, Value,
@@ -93,10 +93,7 @@ pub fn calculate(
             Ok(Value::record(record, span))
         }
         PipelineData::Value(Value::Range { val, .. }, ..) => {
-            match *val {
-                Range::IntRange(range) => ensure_bounded(range.end(), span, name)?,
-                Range::FloatRange(range) => ensure_bounded(range.end(), span, name)?,
-            }
+            ensure_bounded(val.as_ref(), span, name)?;
             let new_vals: Result<Vec<Value>, ShellError> = val
                 .into_range_iter(span, Signals::empty())
                 .map(|val| mf(&[val], span, name))
@@ -117,17 +114,13 @@ pub fn calculate(
     }
 }
 
-pub fn ensure_bounded<T>(
-    bound: Bound<T>,
-    val_span: Span,
-    call_span: Span,
-) -> Result<(), ShellError> {
-    match bound {
-        Bound::<T>::Unbounded => Err(ShellError::IncorrectValue {
-            msg: "Range must be bounded".to_string(),
-            val_span,
-            call_span,
-        }),
-        _ => Ok(()),
+pub fn ensure_bounded(range: &Range, val_span: Span, call_span: Span) -> Result<(), ShellError> {
+    if range.is_bounded() {
+        return Ok(());
     }
+    Err(ShellError::IncorrectValue {
+        msg: "Range must be bounded".to_string(),
+        val_span,
+        call_span,
+    })
 }
