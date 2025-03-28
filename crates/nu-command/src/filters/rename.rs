@@ -211,9 +211,8 @@ fn rename(
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { .. } => item,
                     other => Value::error(
-                        ShellError::OnlySupportsThisInputType {
+                        ShellError::PipelineMismatch {
                             exp_input_type: "record".into(),
-                            wrong_type: other.get_type().to_string(),
                             dst_span: head,
                             src_span: other.span(),
                         },

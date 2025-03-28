@@ -97,9 +97,8 @@ impl Command for FromJson {
                         Ok(PipelineData::Empty)
                     }
                 }
-                _ => Err(ShellError::OnlySupportsThisInputType {
+                _ => Err(ShellError::PipelineMismatch {
                     exp_input_type: "string".into(),
-                    wrong_type: input.get_type().to_string(),
                     dst_span: call.head,
                     src_span: input.span().unwrap_or(call.head),
                 }),

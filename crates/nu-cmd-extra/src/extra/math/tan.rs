@@ -87,9 +87,8 @@ fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
         }
         Value::Error { .. } => value,
         other => Value::error(
-            ShellError::OnlySupportsThisInputType {
+            ShellError::PipelineMismatch {
                 exp_input_type: "numeric".into(),
-                wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),
             },

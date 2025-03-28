@@ -137,9 +137,8 @@ fn drop_cols(
             }
         }
         PipelineData::Empty => Ok(PipelineData::Empty),
-        PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::PipelineMismatch {
             exp_input_type: "table or record".into(),
-            wrong_type: stream.type_().describe().into(),
             dst_span: head,
             src_span: stream.span(),
         }),
@@ -169,9 +168,8 @@ fn drop_record_cols(
 }
 
 fn unsupported_value_error(val: &Value, head: Span) -> ShellError {
-    ShellError::OnlySupportsThisInputType {
+    ShellError::PipelineMismatch {
         exp_input_type: "table or record".into(),
-        wrong_type: val.get_type().to_string(),
         dst_span: head,
         src_span: val.span(),
     }

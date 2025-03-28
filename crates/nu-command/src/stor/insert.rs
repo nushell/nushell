@@ -126,9 +126,8 @@ fn handle(
         PipelineData::Value(Value::List { vals, .. }, ..) => vals,
         PipelineData::Value(val, ..) => vec![val],
         _ => {
-            return Err(ShellError::OnlySupportsThisInputType {
+            return Err(ShellError::PipelineMismatch {
                 exp_input_type: "list or record".into(),
-                wrong_type: "".into(),
                 dst_span: span,
                 src_span: span,
             })
@@ -139,9 +138,8 @@ fn handle(
         .into_iter()
         .map(|val| match val {
             Value::Record { val, .. } => Ok(val.into_owned()),
-            other => Err(ShellError::OnlySupportsThisInputType {
+            other => Err(ShellError::PipelineMismatch {
                 exp_input_type: "record".into(),
-                wrong_type: other.get_type().to_string(),
                 dst_span: Span::unknown(),
                 src_span: other.span(),
             }),

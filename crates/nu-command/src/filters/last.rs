@@ -148,9 +148,8 @@ impl Command for Last {
                     }
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => Err(*error),
-                    other => Err(ShellError::OnlySupportsThisInputType {
+                    other => Err(ShellError::PipelineMismatch {
                         exp_input_type: "list, binary or range".into(),
-                        wrong_type: other.get_type().to_string(),
                         dst_span: head,
                         src_span: other.span(),
                     }),
@@ -189,17 +188,15 @@ impl Command for Last {
                         Ok(PipelineData::Empty)
                     }
                 } else {
-                    Err(ShellError::OnlySupportsThisInputType {
+                    Err(ShellError::PipelineMismatch {
                         exp_input_type: "list, binary or range".into(),
-                        wrong_type: stream.type_().describe().into(),
                         dst_span: head,
                         src_span: stream.span(),
                     })
                 }
             }
-            PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
+            PipelineData::Empty => Err(ShellError::PipelineMismatch {
                 exp_input_type: "list, binary or range".into(),
-                wrong_type: "null".into(),
                 dst_span: call.head,
                 src_span: call.head,
             }),

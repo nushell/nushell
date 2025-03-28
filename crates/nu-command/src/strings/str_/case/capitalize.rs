@@ -117,9 +117,8 @@ fn action(input: &Value, head: Span) -> Value {
         Value::String { val, .. } => Value::string(uppercase_helper(val), head),
         Value::Error { .. } => input.clone(),
         _ => Value::error(
-            ShellError::OnlySupportsThisInputType {
+            ShellError::PipelineMismatch {
                 exp_input_type: "string".into(),
-                wrong_type: input.get_type().to_string(),
                 dst_span: head,
                 src_span: input.span(),
             },

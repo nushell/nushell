@@ -116,9 +116,8 @@ pub fn get_values<'a>(
             }
             Value::Error { error, .. } => return Err(*error.clone()),
             _ => {
-                return Err(ShellError::OnlySupportsThisInputType {
+                return Err(ShellError::PipelineMismatch {
                     exp_input_type: "record or table".into(),
-                    wrong_type: item.get_type().to_string(),
                     dst_span: head,
                     src_span: input_span,
                 })
@@ -163,9 +162,8 @@ fn values(
                     .into_pipeline_data_with_metadata(head, signals, metadata)),
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),
-                other => Err(ShellError::OnlySupportsThisInputType {
+                other => Err(ShellError::PipelineMismatch {
                     exp_input_type: "record or table".into(),
-                    wrong_type: other.get_type().to_string(),
                     dst_span: head,
                     src_span: other.span(),
                 }),
@@ -180,9 +178,8 @@ fn values(
                 Err(err) => Err(err),
             }
         }
-        PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::PipelineMismatch {
             exp_input_type: "record or table".into(),
-            wrong_type: stream.type_().describe().into(),
             dst_span: head,
             src_span: stream.span(),
         }),

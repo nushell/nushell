@@ -160,9 +160,8 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
         }
         Value::Error { .. } => val.clone(),
         _ => Value::error(
-            ShellError::OnlySupportsThisInputType {
+            ShellError::PipelineMismatch {
                 exp_input_type: "filesize".into(),
-                wrong_type: val.get_type().to_string(),
                 dst_span: span,
                 src_span: val.span(),
             },

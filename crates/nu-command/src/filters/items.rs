@@ -69,23 +69,20 @@ impl Command for Items {
                             .into_pipeline_data(head, engine_state.signals().clone()))
                     }
                     Value::Error { error, .. } => Err(*error),
-                    other => Err(ShellError::OnlySupportsThisInputType {
+                    other => Err(ShellError::PipelineMismatch {
                         exp_input_type: "record".into(),
-                        wrong_type: other.get_type().to_string(),
                         dst_span: head,
                         src_span: other.span(),
                     }),
                 }
             }
-            PipelineData::ListStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
+            PipelineData::ListStream(stream, ..) => Err(ShellError::PipelineMismatch {
                 exp_input_type: "record".into(),
-                wrong_type: "stream".into(),
                 dst_span: call.head,
                 src_span: stream.span(),
             }),
-            PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
+            PipelineData::ByteStream(stream, ..) => Err(ShellError::PipelineMismatch {
                 exp_input_type: "record".into(),
-                wrong_type: stream.type_().describe().into(),
                 dst_span: call.head,
                 src_span: stream.span(),
             }),

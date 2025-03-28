@@ -168,9 +168,8 @@ fn action(
         PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: span }),
         // Allow chaining of get -i
         PipelineData::Value(val @ Value::Nothing { .. }, ..) if !ignore_errors => {
-            return Err(ShellError::OnlySupportsThisInputType {
+            return Err(ShellError::PipelineMismatch {
                 exp_input_type: "table or record".into(),
-                wrong_type: "nothing".into(),
                 dst_span: span,
                 src_span: val.span(),
             })
