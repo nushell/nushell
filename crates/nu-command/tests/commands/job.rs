@@ -143,6 +143,16 @@ fn job_recv_timeout_works() {
 }
 
 #[test]
+fn job_recv_timeout_zero_works() {
+    let actual = nu!(r#"
+        "hi there" | job send 0
+        job recv --timeout 0sec
+        "#);
+
+    assert_eq!(actual.out, "hi there");
+}
+
+#[test]
 fn job_flush_clears_messages() {
     let actual = nu!(r#"
         "SALE!!!" | job send 0

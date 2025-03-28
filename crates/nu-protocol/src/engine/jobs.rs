@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     sync::{
-        mpsc::{Receiver, RecvTimeoutError, Sender},
+        mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError},
         Arc, Mutex,
     },
 };
@@ -284,6 +284,23 @@ impl Mailbox {
             }
 
             Err(RecvTimeoutError::Timeout)
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn try_recv(&mut self, filter_tag: Option<FilterTag>) -> Result<Value, TryRecvError> {
+        if let Some(value) = self.ignored_mail.pop(filter_tag) {
+            Ok(value)
+        } else {
+            loop {
+                let (tag, value) = self.receiver.try_recv()?;
+
+                if filter_tag.is_none() || filter_tag == tag {
+                    return Ok(value);
+                } else {
+                    self.ignored_mail.add((tag, value));
+                }
+            }
         }
     }
 

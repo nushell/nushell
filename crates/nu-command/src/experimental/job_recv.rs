@@ -1,4 +1,7 @@
-use std::{sync::mpsc::RecvTimeoutError, time::Duration, time::Instant};
+use std::{
+    sync::mpsc::{RecvTimeoutError, TryRecvError},
+    time::{Duration, Instant},
+};
 
 use nu_engine::command_prelude::*;
 
@@ -26,10 +29,11 @@ impl Command for JobRecv {
 This commands reads and returns a message from the mailbox, in a first-in-first-out fashion.
 j
 Messages may have numeric flags attached to them. This commands supports filtering out messages that do not satisfy a given tag, by using the `tag` flag.
-If no tag is specified, this command will accept any message. 
+If no tag is specified, this command will accept any message.
 
 If no message with the specified tag (if any) is available in the mailbox, this command will block the current thread until one arrives.
 By default this command block indefinitely until a matching message arrives, but a timeout duration can be specified. 
+If a timeout duration of zero is specified, it will succeed only if there already is a message in the mailbox.
 
 Note: When using par-each, only one thread at a time can utilize this command.
 In the case of two or more threads running this command, they will wait until other threads are done using it,
@@ -85,7 +89,11 @@ in no particular order, regardless of the specified timeout parameter.
             .expect("failed to acquire lock");
 
         if let Some(timeout) = timeout {
-            recv_with_time_limit(&mut mailbox, tag, engine_state.signals(), head, timeout)
+            if timeout == Duration::ZERO {
+                recv_instantly(&mut mailbox, tag, head)
+            } else {
+                recv_with_time_limit(&mut mailbox, tag, engine_state.signals(), head, timeout)
+            }
         } else {
             recv_without_time_limit(&mut mailbox, tag, engine_state.signals(), head)
         }
@@ -116,6 +124,18 @@ fn recv_without_time_limit(
             Err(RecvTimeoutError::Timeout) => {} // try again
             Err(RecvTimeoutError::Disconnected) => return Err(ShellError::Interrupted { span }),
         }
+    }
+}
+
+fn recv_instantly(
+    mailbox: &mut Mailbox,
+    tag: Option<FilterTag>,
+    span: Span,
+) -> Result<Value, ShellError> {
+    match mailbox.try_recv(tag) {
+        Ok(value) => Ok(value),
+        Err(TryRecvError::Empty) => Err(ShellError::RecvTimeout { span }),
+        Err(TryRecvError::Disconnected) => Err(ShellError::Interrupted { span }),
     }
 }
 
