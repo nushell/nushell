@@ -108,8 +108,9 @@ fn abs_helper(val: Value, head: Span) -> Value {
         Value::Duration { val, .. } => Value::duration(val.abs(), span),
         Value::Error { .. } => val,
         other => Value::error(
-            ShellError::PipelineMismatch {
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
+                wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),
             },

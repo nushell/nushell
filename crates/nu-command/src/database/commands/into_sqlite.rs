@@ -206,8 +206,9 @@ fn action(
         PipelineData::Value(val, _) => {
             insert_in_transaction(std::iter::once(val), span, table, signals)
         }
-        _ => Err(ShellError::PipelineMismatch {
+        _ => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list".into(),
+            wrong_type: "".into(),
             dst_span: span,
             src_span: span,
         }),
@@ -318,8 +319,9 @@ fn insert_value(
 
             Ok(())
         }
-        val => Err(ShellError::PipelineMismatch {
+        val => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record".into(),
+            wrong_type: val.get_type().to_string(),
             dst_span: Span::unknown(),
             src_span: val.span(),
         }),
@@ -359,8 +361,9 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         | Type::Range
         | Type::Record(_)
         | Type::Glob
-        | Type::Table(_) => Err(ShellError::PipelineMismatch {
+        | Type::Table(_) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "sql".into(),
+            wrong_type: val.get_type().to_string(),
             dst_span: Span::unknown(),
             src_span: val.span(),
         }),

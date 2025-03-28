@@ -214,8 +214,9 @@ fn format_helper(
             }
         }
         _ => Value::error(
-            ShellError::PipelineMismatch {
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "date, string (that represents datetime)".into(),
+                wrong_type: value.get_type().to_string(),
                 dst_span: head_span,
                 src_span: value.span(),
             },
@@ -236,8 +237,9 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
             }
         }
         _ => Value::error(
-            ShellError::PipelineMismatch {
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "date, string (that represents datetime)".into(),
+                wrong_type: value.get_type().to_string(),
                 dst_span: span,
                 src_span: val_span,
             },

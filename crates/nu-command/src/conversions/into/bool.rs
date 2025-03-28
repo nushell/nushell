@@ -169,8 +169,9 @@ fn strict_string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
 fn action(input: &Value, args: &IntoBoolCmdArgument, span: Span) -> Value {
     let err = || {
         Value::error(
-            ShellError::PipelineMismatch {
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "bool, int, float or string".into(),
+                wrong_type: input.get_type().to_string(),
                 dst_span: span,
                 src_span: input.span(),
             },

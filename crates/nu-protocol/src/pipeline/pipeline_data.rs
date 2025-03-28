@@ -341,9 +341,10 @@ impl PipelineData {
                     ),
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => return Err(*error),
-                    _ => {
-                        return Err(ShellError::PipelineMismatch {
+                    other => {
+                        return Err(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "list, binary, range, or byte stream".into(),
+                            wrong_type: other.get_type().to_string(),
                             dst_span: span,
                             src_span: val_span,
                         })
@@ -354,8 +355,9 @@ impl PipelineData {
                 PipelineIteratorInner::ListStream(stream.into_iter())
             }
             PipelineData::Empty => {
-                return Err(ShellError::PipelineMismatch {
+                return Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "list, binary, range, or byte stream".into(),
+                    wrong_type: "null".into(),
                     dst_span: span,
                     src_span: span,
                 })
@@ -738,18 +740,21 @@ impl PipelineData {
     ) -> ShellError {
         match self {
             PipelineData::Empty => ShellError::PipelineEmpty { dst_span: span },
-            PipelineData::Value(value, ..) => ShellError::PipelineMismatch {
+            PipelineData::Value(value, ..) => ShellError::OnlySupportsThisInputType {
                 exp_input_type: expected_type.into(),
+                wrong_type: value.get_type().get_non_specified_string(),
                 dst_span: span,
                 src_span: value.span(),
             },
-            PipelineData::ListStream(stream, ..) => ShellError::PipelineMismatch {
+            PipelineData::ListStream(stream, ..) => ShellError::OnlySupportsThisInputType {
                 exp_input_type: expected_type.into(),
+                wrong_type: "list (stream)".into(),
                 dst_span: span,
                 src_span: stream.span(),
             },
-            PipelineData::ByteStream(stream, ..) => ShellError::PipelineMismatch {
+            PipelineData::ByteStream(stream, ..) => ShellError::OnlySupportsThisInputType {
                 exp_input_type: expected_type.into(),
+                wrong_type: stream.type_().describe().into(),
                 dst_span: span,
                 src_span: stream.span(),
             },

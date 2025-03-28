@@ -184,8 +184,9 @@ pub fn transpose(
             }
             Value::Record { .. } => {} // go on, this is what we're looking for
             _ => {
-                return Err(ShellError::PipelineMismatch {
+                return Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "table or record".into(),
+                    wrong_type: "list<any>".into(),
                     dst_span: call.head,
                     src_span: value.span(),
                 })
