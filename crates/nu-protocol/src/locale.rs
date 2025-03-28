@@ -151,11 +151,7 @@ impl FromStr for Locale {
                 // `num_format::Locale` is missing some language and region combinations,
                 // so we fallback to only the language if possible (e.g., "en-US" => "en").
                 // Note that `num_format::Locale` allows both "-" and "_" when parsing identifiers.
-                s.split_once('_')
-                    .or_else(|| s.split_once('-'))?
-                    .0
-                    .parse()
-                    .ok()
+                s.split_once(['_', '-'])?.0.parse().ok()
             })
             .ok_or(ParseLocaleError(()))?;
 
