@@ -429,10 +429,9 @@ pub fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError
         Value::Binary { val, .. } => Box::new(val),
         Value::Nothing { .. } => Box::new(rusqlite::types::Null),
         val => {
-            return Err(ShellError::OnlySupportsThisInputType {
+            return Err(ShellError::PipelineMismatch {
                 exp_input_type:
                     "bool, int, float, filesize, duration, date, string, nothing, binary".into(),
-                wrong_type: val.get_type().to_string(),
                 dst_span: Span::unknown(),
                 src_span: val.span(),
             })

@@ -70,9 +70,8 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::error(
-            ShellError::OnlySupportsThisInputType {
+            ShellError::PipelineMismatch {
                 exp_input_type: "float, int, or filesize".into(),
-                wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: other.span(),
             },

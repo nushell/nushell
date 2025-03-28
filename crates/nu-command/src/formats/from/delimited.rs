@@ -104,9 +104,8 @@ pub(super) fn from_delimited_data(
                 metadata,
             ))
         }
-        PipelineData::ListStream(list_stream, _) => Err(ShellError::OnlySupportsThisInputType {
+        PipelineData::ListStream(list_stream, _) => Err(ShellError::PipelineMismatch {
             exp_input_type: "string".into(),
-            wrong_type: "list".into(),
             dst_span: name,
             src_span: list_stream.span(),
         }),

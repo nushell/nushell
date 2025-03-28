@@ -121,9 +121,8 @@ fn handle(
             }
             match value {
                 Value::Record { val, .. } => Ok(val.into_owned()),
-                val => Err(ShellError::OnlySupportsThisInputType {
+                val => Err(ShellError::PipelineMismatch {
                     exp_input_type: "record".into(),
-                    wrong_type: val.get_type().to_string(),
                     dst_span: Span::unknown(),
                     src_span: val.span(),
                 }),
@@ -139,9 +138,8 @@ fn handle(
                     inner: vec![],
                 });
             }
-            Err(ShellError::OnlySupportsThisInputType {
+            Err(ShellError::PipelineMismatch {
                 exp_input_type: "record".into(),
-                wrong_type: "".into(),
                 dst_span: span,
                 src_span: span,
             })
