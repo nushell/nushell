@@ -10,7 +10,7 @@ use nu_cli::NuCompleter;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::expand_tilde;
-use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, PipelineData};
+use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, Config, PipelineData};
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
 use support::{
@@ -367,7 +367,7 @@ export def say [
 
 /// External command only if starts with `^`
 #[test]
-fn external_commands_only() {
+fn external_commands() {
     let engine = new_external_engine();
     let mut completer = NuCompleter::new(
         Arc::new(engine),
@@ -387,6 +387,34 @@ fn external_commands_only() {
     let expected: Vec<_> = vec!["sleep", "sleep.exe"];
     #[cfg(not(windows))]
     let expected: Vec<_> = vec!["sleep", "^sleep"];
+    match_suggestions(&expected, &suggestions);
+}
+
+/// Disable external commands except for those start with `^`
+#[test]
+fn external_commands_disabled() {
+    let mut engine = new_external_engine();
+
+    let mut config = Config::default();
+    config.completions.external.enable = false;
+    engine.set_config(config);
+
+    let stack = nu_protocol::engine::Stack::new();
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "ls; ^sleep";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    #[cfg(windows)]
+    let expected: Vec<_> = vec!["sleep.exe"];
+    #[cfg(not(windows))]
+    let expected: Vec<_> = vec!["sleep"];
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "sleep";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    #[cfg(windows)]
+    let expected: Vec<_> = vec!["sleep"];
+    #[cfg(not(windows))]
+    let expected: Vec<_> = vec!["sleep"];
     match_suggestions(&expected, &suggestions);
 }
 

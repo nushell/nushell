@@ -486,9 +486,10 @@ impl NuCompleter {
         externals: bool,
         strip: bool,
     ) -> Vec<SemanticSuggestion> {
+        let config = self.engine_state.get_config();
         let mut command_completions = CommandCompletion {
             internals,
-            externals,
+            externals: !internals || (externals && config.completions.external.enable),
         };
         let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
         let ctx = Context::new(working_set, new_span, prefix, offset);
