@@ -105,6 +105,11 @@ pub fn load_standard_library(
         ),
         (
             "mod.nu",
+            "std-rfc/config",
+            include_str!("../std-rfc/config/mod.nu"),
+        ),
+        (
+            "mod.nu",
             "std-rfc/conversions",
             include_str!("../std-rfc/conversions/mod.nu"),
         ),
