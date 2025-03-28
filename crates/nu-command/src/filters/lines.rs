@@ -102,10 +102,10 @@ impl Command for Lines {
         vec![Example {
             description: "Split multi-line string into lines",
             example: r#"$"two\nlines" | lines"#,
-            result: Some(Value::list(
-                vec![Value::test_string("two"), Value::test_string("lines")],
-                Span::test_data(),
-            )),
+            result: Some(Value::test_list(list![
+                Value::test_string("two"),
+                Value::test_string("lines"),
+            ])),
         }]
     }
 }

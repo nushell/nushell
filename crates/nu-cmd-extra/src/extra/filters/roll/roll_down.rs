@@ -29,7 +29,7 @@ impl Command for RollDown {
         vec![Example {
             description: "Rolls rows down of a table",
             example: "[[a b]; [1 2] [3 4] [5 6]] | roll down",
-            result: Some(Value::test_list(vec![
+            result: Some(Value::test_list(list![
                 Value::test_record(record! {
                     "a" => Value::test_int(5),
                     "b" => Value::test_int(6),

@@ -2,7 +2,7 @@
 //! elements
 //!
 //! For more general infos regarding our pipelining model refer to [`PipelineData`]
-use crate::{Config, PipelineData, ShellError, Signals, Span, Value};
+use crate::{Config, List, PipelineData, ShellError, Signals, Span, Value};
 use std::fmt::Debug;
 
 pub type ValueIterator = Box<dyn Iterator<Item = Value> + Send + 'static>;
@@ -74,9 +74,15 @@ impl ListStream {
             .join(separator)
     }
 
+    /// Collect the values of a [`ListStream`] into a list [`List`].
+    pub fn into_list(self) -> List {
+        self.stream.collect()
+    }
+
     /// Collect the values of a [`ListStream`] into a list [`Value`].
     pub fn into_value(self) -> Value {
-        Value::list(self.stream.collect(), self.span)
+        let span = self.span;
+        Value::list(self.into_list(), span)
     }
 
     /// Consume all values in the stream, returning an error if any of the values is a `Value::Error`.

@@ -60,23 +60,17 @@ impl Command for Debug {
             Example {
                 description: "Debug print a list",
                 example: "['hello'] | debug",
-                result: Some(Value::list(
-                    vec![Value::test_string("hello")],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![Value::test_string("hello")])),
             },
             Example {
                 description: "Debug print a table",
                 example:
                     "[[version patch]; ['0.1.0' false] ['0.1.1' true] ['0.2.0' false]] | debug",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("{version: 0.1.0, patch: false}"),
-                        Value::test_string("{version: 0.1.1, patch: true}"),
-                        Value::test_string("{version: 0.2.0, patch: false}"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("{version: 0.1.0, patch: false}"),
+                    Value::test_string("{version: 0.1.1, patch: true}"),
+                    Value::test_string("{version: 0.2.0, patch: false}"),
+                ])),
             },
         ]
     }

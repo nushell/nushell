@@ -37,7 +37,7 @@ impl Command for FromJson {
                 description: "Converts json formatted string to table",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
-                    "b" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
+                    "b" => Value::test_list(list![Value::test_int(1), Value::test_int(2)]),
                 })),
             },
             Example {
@@ -52,9 +52,9 @@ impl Command for FromJson {
                 example: r#"'{ "a": 1 }
 { "b": 2 }' | from json --objects"#,
                 description: "Parse a stream of line-delimited JSON values",
-                result: Some(Value::test_list(vec![
-                    Value::test_record(record! {"a" => Value::test_int(1)}),
-                    Value::test_record(record! {"b" => Value::test_int(2)}),
+                result: Some(Value::test_list(list![
+                    Value::test_record(record! { "a" => Value::test_int(1) }),
+                    Value::test_record(record! { "b" => Value::test_int(2) }),
                 ])),
             },
         ]

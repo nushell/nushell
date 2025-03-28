@@ -31,51 +31,39 @@ impl Command for Values {
             Example {
                 example: "{ mode:normal userid:31415 } | values",
                 description: "Get the values from the record (produce a list)",
-                result: Some(Value::list(
-                    vec![Value::test_string("normal"), Value::test_int(31415)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("normal"),
+                    Value::test_int(31415),
+                ])),
             },
             Example {
                 example: "{ f:250 g:191 c:128 d:1024 e:2000 a:16 b:32 } | values",
                 description: "Values are ordered by the column order of the record",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(250),
-                        Value::test_int(191),
-                        Value::test_int(128),
-                        Value::test_int(1024),
-                        Value::test_int(2000),
-                        Value::test_int(16),
-                        Value::test_int(32),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(250),
+                    Value::test_int(191),
+                    Value::test_int(128),
+                    Value::test_int(1024),
+                    Value::test_int(2000),
+                    Value::test_int(16),
+                    Value::test_int(32),
+                ])),
             },
             Example {
                 example: "[[name meaning]; [ls list] [mv move] [cd 'change directory']] | values",
                 description: "Get the values from the table (produce a list of lists)",
-                result: Some(Value::list(
-                    vec![
-                        Value::list(
-                            vec![
-                                Value::test_string("ls"),
-                                Value::test_string("mv"),
-                                Value::test_string("cd"),
-                            ],
-                            Span::test_data(),
-                        ),
-                        Value::list(
-                            vec![
-                                Value::test_string("list"),
-                                Value::test_string("move"),
-                                Value::test_string("change directory"),
-                            ],
-                            Span::test_data(),
-                        ),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_list(list![
+                        Value::test_string("ls"),
+                        Value::test_string("mv"),
+                        Value::test_string("cd"),
+                    ]),
+                    Value::test_list(list![
+                        Value::test_string("list"),
+                        Value::test_string("move"),
+                        Value::test_string("change directory"),
+                    ]),
+                ])),
             },
         ]
     }
@@ -101,7 +89,7 @@ pub fn get_values<'a>(
     head: Span,
     input_span: Span,
 ) -> Result<Vec<Value>, ShellError> {
-    let mut output: IndexMap<String, Vec<Value>> = IndexMap::new();
+    let mut output: IndexMap<String, List> = IndexMap::new();
 
     for item in input {
         match item {
@@ -110,7 +98,7 @@ pub fn get_values<'a>(
                     if let Some(vec) = output.get_mut(k) {
                         vec.push(v.clone());
                     } else {
-                        output.insert(k.clone(), vec![v.clone()]);
+                        output.insert(k.clone(), list![v.clone()]);
                     }
                 }
             }

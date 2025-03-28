@@ -103,7 +103,7 @@ Also note that if you don't have a permission to a directory of a path, false wi
             Example {
                 description: "Check if files in list exist",
                 example: r"[ C:\joe\todo.txt, C:\Users\doe\todo.txt ] | path exists",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_bool(false),
                     Value::test_bool(false),
                 ])),
@@ -122,7 +122,7 @@ Also note that if you don't have a permission to a directory of a path, false wi
             Example {
                 description: "Check if files in list exist",
                 example: "[ /home/joe/todo.txt, /home/doe/todo.txt ] | path exists",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_bool(false),
                     Value::test_bool(false),
                 ])),

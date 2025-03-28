@@ -70,7 +70,7 @@ When inserting into a specific index, the closure will instead get the current v
             Example {
                 description: "Insert a new column into a table, populating all rows",
                 example: "[[project, lang]; ['Nushell', 'Rust']] | insert type 'shell'",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "project" => Value::test_string("Nushell"),
                     "lang" => Value::test_string("Rust"),
                     "type" => Value::test_string("shell"),
@@ -79,7 +79,7 @@ When inserting into a specific index, the closure will instead get the current v
             Example {
                 description: "Insert a new column with values computed based off the other columns",
                 example: "[[foo]; [7] [8] [9]] | insert bar {|row| $row.foo * 2 }",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "foo" => Value::test_int(7),
                         "bar" => Value::test_int(14),
@@ -97,7 +97,7 @@ When inserting into a specific index, the closure will instead get the current v
             Example {
                 description: "Insert a new value into a list at an index",
                 example: "[1 2 4] | insert 2 3",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(1),
                     Value::test_int(2),
                     Value::test_int(3),
@@ -107,7 +107,7 @@ When inserting into a specific index, the closure will instead get the current v
             Example {
                 description: "Insert a new value at the end of a list",
                 example: "[1 2 3] | insert 3 4",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(1),
                     Value::test_int(2),
                     Value::test_int(3),
@@ -117,14 +117,14 @@ When inserting into a specific index, the closure will instead get the current v
             Example {
                 description: "Insert into a nested path, creating new values as needed",
                 example: "[{} {a: [{}]}] | insert a.0.b \"value\"",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record!(
-                        "a" => Value::test_list(vec![Value::test_record(record!(
+                        "a" => Value::test_list(list![Value::test_record(record!(
                             "b" => Value::test_string("value"),
                         ))]),
                     )),
                     Value::test_record(record!(
-                        "a" => Value::test_list(vec![Value::test_record(record!(
+                        "a" => Value::test_list(list![Value::test_record(record!(
                             "b" => Value::test_string("value"),
                         ))]),
                     )),
@@ -152,7 +152,7 @@ fn insert(
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
                         let mut closure = ClosureEval::new(engine_state, stack, *val);
-                        for val in vals {
+                        for val in vals.make_mut() {
                             insert_value_by_closure(
                                 val,
                                 &mut closure,

@@ -368,7 +368,7 @@ fn print_limits(
     soft: bool,
     hard: bool,
 ) -> Result<PipelineData, ShellError> {
-    let mut output = Vec::new();
+    let mut output = List::new();
     let mut print_default_limit = true;
     let max_len = max_desc_len(call, engine_state, stack, print_all)?;
 

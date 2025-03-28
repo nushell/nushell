@@ -53,25 +53,25 @@ impl Command for SplitColumn {
             Example {
                 description: "Split a string into columns by the specified separator",
                 example: "'a--b--c' | split column '--'",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                        "column1" => Value::test_string("a"),
-                        "column2" => Value::test_string("b"),
-                        "column3" => Value::test_string("c"),
+                result: Some(Value::test_list(list![Value::test_record(record! {
+                    "column1" => Value::test_string("a"),
+                    "column2" => Value::test_string("b"),
+                    "column3" => Value::test_string("c"),
                 })])),
             },
             Example {
                 description: "Split a string into columns of char and remove the empty columns",
                 example: "'abc' | split column --collapse-empty ''",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                        "column1" => Value::test_string("a"),
-                        "column2" => Value::test_string("b"),
-                        "column3" => Value::test_string("c"),
+                result: Some(Value::test_list(list![Value::test_record(record! {
+                    "column1" => Value::test_string("a"),
+                    "column2" => Value::test_string("b"),
+                    "column3" => Value::test_string("c"),
                 })])),
             },
             Example {
                 description: "Split a list of strings into a table",
                 example: "['a-b' 'c-d'] | split column -",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "column1" => Value::test_string("a"),
                         "column2" => Value::test_string("b"),
@@ -85,7 +85,7 @@ impl Command for SplitColumn {
             Example {
                 description: "Split a list of strings into a table, ignoring padding",
                 example: r"['a -  b' 'c  -    d'] | split column --regex '\s*-\s*'",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "column1" => Value::test_string("a"),
                         "column2" => Value::test_string("b"),
@@ -99,7 +99,7 @@ impl Command for SplitColumn {
             Example {
                 description: "Split into columns, last column may contain the delimiter",
                 example: r"['author: Salina Yoon' r#'title: Where's Ellie?: A Hide-and-Seek Book'#] | split column --number 2 ': ' key value",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "key" => Value::test_string("author"),
                         "value" => Value::test_string("Salina Yoon"),

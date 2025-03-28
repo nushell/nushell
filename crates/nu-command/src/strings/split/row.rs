@@ -47,54 +47,42 @@ impl Command for SplitRow {
             Example {
                 description: "Split a string into rows of char",
                 example: "'abc' | split row ''",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string(""),
-                        Value::test_string("a"),
-                        Value::test_string("b"),
-                        Value::test_string("c"),
-                        Value::test_string(""),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string(""),
+                    Value::test_string("a"),
+                    Value::test_string("b"),
+                    Value::test_string("c"),
+                    Value::test_string(""),
+                ])),
             },
             Example {
                 description: "Split a string into rows by the specified separator",
                 example: "'a--b--c' | split row '--'",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("a"),
-                        Value::test_string("b"),
-                        Value::test_string("c"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("a"),
+                    Value::test_string("b"),
+                    Value::test_string("c"),
+                ])),
             },
             Example {
                 description: "Split a string by '-'",
                 example: "'-a-b-c-' | split row '-'",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string(""),
-                        Value::test_string("a"),
-                        Value::test_string("b"),
-                        Value::test_string("c"),
-                        Value::test_string(""),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string(""),
+                    Value::test_string("a"),
+                    Value::test_string("b"),
+                    Value::test_string("c"),
+                    Value::test_string(""),
+                ])),
             },
             Example {
                 description: "Split a string by regex",
                 example: r"'a   b       c' | split row -r '\s+'",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("a"),
-                        Value::test_string("b"),
-                        Value::test_string("c"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("a"),
+                    Value::test_string("b"),
+                    Value::test_string("c"),
+                ])),
             },
         ]
     }

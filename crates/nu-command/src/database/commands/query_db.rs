@@ -49,9 +49,9 @@ stor open | query db "INSERT INTO my_table VALUES (?, ?)" -p [hello 123]"#,
                 example: r#"stor create -t my_table -c { first: str, second: int }
 stor insert -t my_table -d { first: 'hello', second: '123' }
 stor open | query db "SELECT * FROM my_table WHERE second = :search_second" -p { search_second: 123 }"#,
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "first" => Value::test_string("hello"),
-                    "second" => Value::test_int(123)
+                    "second" => Value::test_int(123),
                 })])),
             },
         ]

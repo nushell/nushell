@@ -16,7 +16,7 @@ impl DbRow for DbConstraint {
         ]
     }
 
-    fn columns(&self) -> Vec<String> {
+    fn values(&self) -> Vec<String> {
         vec![
             self.name.to_string(),
             self.column_name.to_string(),

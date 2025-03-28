@@ -28,7 +28,7 @@ impl DbRow for DbColumn {
         ]
     }
 
-    fn columns(&self) -> Vec<String> {
+    fn values(&self) -> Vec<String> {
         vec![
             self.cid
                 .as_ref()

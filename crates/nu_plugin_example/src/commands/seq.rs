@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, ListStream, PipelineData, Signals, Signature, SyntaxShape,
-    Type, Value,
+    list, Category, Example, LabeledError, ListStream, PipelineData, Signals, Signature,
+    SyntaxShape, Type, Value,
 };
 
 use crate::ExamplePlugin;
@@ -36,7 +36,7 @@ impl PluginCommand for Seq {
         vec![Example {
             example: "example seq 1 3",
             description: "generate a sequence from 1 to 3",
-            result: Some(Value::test_list(vec![
+            result: Some(Value::test_list(list![
                 Value::test_int(1),
                 Value::test_int(2),
                 Value::test_int(3),

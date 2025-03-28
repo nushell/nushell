@@ -33,16 +33,13 @@ impl Command for SeqChar {
             Example {
                 description: "sequence a to e",
                 example: "seq char a e",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string('a'),
-                        Value::test_string('b'),
-                        Value::test_string('c'),
-                        Value::test_string('d'),
-                        Value::test_string('e'),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string('a'),
+                    Value::test_string('b'),
+                    Value::test_string('c'),
+                    Value::test_string('d'),
+                    Value::test_string('e'),
+                ])),
             },
             Example {
                 description: "Sequence a to e, and join the characters with a pipe",
@@ -134,7 +131,7 @@ fn run_seq_char(start_ch: char, end_ch: char, span: Span) -> Result<PipelineData
     let result = result_vec
         .into_iter()
         .map(|x| Value::string(x, span))
-        .collect::<Vec<Value>>();
+        .collect();
     Ok(Value::list(result, span).into_pipeline_data())
 }
 #[cfg(test)]

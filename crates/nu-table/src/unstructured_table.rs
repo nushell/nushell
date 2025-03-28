@@ -1,5 +1,5 @@
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Record, Span, TableIndent, Value};
+use nu_protocol::{Config, List, Record, Span, TableIndent, Value};
 
 use tabled::{
     grid::{
@@ -75,7 +75,7 @@ fn convert_nu_value_to_table_value(value: Value, config: &Config) -> TableValue 
         Value::List { vals, .. } => {
             let rebuild_array_as_map = is_valid_record(&vals) && count_columns_in_record(&vals) > 0;
             if rebuild_array_as_map {
-                build_map_from_record(vals, config)
+                build_map_from_list(vals, config)
             } else {
                 build_vertical_array(vals, config)
             }
@@ -122,7 +122,7 @@ fn string_append_to_width(key: &mut String, max: usize) {
     key.extend(std::iter::repeat(' ').take(rest));
 }
 
-fn build_vertical_array(vals: Vec<Value>, config: &Config) -> TableValue {
+fn build_vertical_array(vals: List, config: &Config) -> TableValue {
     let map = vals
         .into_iter()
         .map(|val| convert_nu_value_to_table_value(val, config))
@@ -163,7 +163,7 @@ fn count_columns_in_record(vals: &[Value]) -> usize {
     }
 }
 
-fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
+fn build_map_from_list(vals: List, config: &Config) -> TableValue {
     // assumes that we have a valid record structure (checked by is_valid_record)
 
     let head = get_columns_in_record(&vals);

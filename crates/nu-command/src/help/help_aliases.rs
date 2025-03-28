@@ -82,21 +82,21 @@ pub fn help_aliases(
         style_computer.compute("search_result", &Value::string("search result", head));
 
     if let Some(f) = find {
-        let all_cmds_vec = build_help_aliases(engine_state, stack, head);
-        let found_cmds_vec = highlight_search_in_table(
-            all_cmds_vec,
+        let all_cmds = build_help_aliases(engine_state, stack, head);
+        let found_cmds = highlight_search_in_table(
+            all_cmds,
             &f.item,
             &["name", "description"],
             &string_style,
             &highlight_style,
         )?;
 
-        return Ok(Value::list(found_cmds_vec, head).into_pipeline_data());
+        return Ok(Value::list(found_cmds, head).into_pipeline_data());
     }
 
     if rest.is_empty() {
-        let found_cmds_vec = build_help_aliases(engine_state, stack, head);
-        Ok(Value::list(found_cmds_vec, head).into_pipeline_data())
+        let found_cmds = build_help_aliases(engine_state, stack, head);
+        Ok(Value::list(found_cmds, head).into_pipeline_data())
     } else {
         let mut name = String::new();
 
@@ -152,10 +152,9 @@ pub fn help_aliases(
     }
 }
 
-fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
+fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> List {
     let mut scope_data = ScopeData::new(engine_state, stack);
     scope_data.populate_decls();
-
     scope_data.collect_aliases(span)
 }
 

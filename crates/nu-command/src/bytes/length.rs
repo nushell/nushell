@@ -59,10 +59,10 @@ impl Command for BytesLen {
             Example {
                 description: "Return the lengths of multiple binaries",
                 example: "[0x[1F FF AA AB] 0x[1F]] | bytes length",
-                result: Some(Value::list(
-                    vec![Value::test_int(4), Value::test_int(1)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(4),
+                    Value::test_int(1),
+                ])),
             },
         ]
     }

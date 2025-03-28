@@ -1,7 +1,7 @@
 use super::NuSpan;
 use anyhow::Result;
 use nu_engine::get_columns;
-use nu_protocol::{record, ByteStream, ListStream, PipelineData, PipelineMetadata, Value};
+use nu_protocol::{record, ByteStream, List, ListStream, PipelineData, PipelineMetadata, Value};
 use std::collections::HashMap;
 
 pub fn collect_pipeline(input: PipelineData) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
@@ -14,11 +14,7 @@ pub fn collect_pipeline(input: PipelineData) -> Result<(Vec<String>, Vec<Vec<Val
 }
 
 fn collect_list_stream(stream: ListStream) -> (Vec<String>, Vec<Vec<Value>>) {
-    let mut records = vec![];
-    for item in stream {
-        records.push(item);
-    }
-
+    let records = stream.into_list();
     let mut cols = get_columns(&records);
     let data = convert_records_to_dataset(&cols, records);
 
@@ -130,13 +126,13 @@ pub fn collect_input(value: Value) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
     }
 }
 
-fn convert_records_to_dataset(cols: &[String], records: Vec<Value>) -> Vec<Vec<Value>> {
+fn convert_records_to_dataset(cols: &[String], records: List) -> Vec<Vec<Value>> {
     if !cols.is_empty() {
         create_table_for_record(cols, &records)
     } else if cols.is_empty() && records.is_empty() {
         vec![]
     } else if cols.len() == records.len() {
-        vec![records]
+        vec![records.into()]
     } else {
         // I am not sure whether it's good to return records as its length LIKELY
         // will not match columns, which makes no sense......

@@ -76,7 +76,7 @@ impl Command for StrDowncase {
             Example {
                 description: "Downcase contents",
                 example: "[[ColA ColB]; [Test ABC]] | str downcase ColA",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "ColA" => Value::test_string("test"),
                     "ColB" => Value::test_string("ABC"),
                 })])),
@@ -84,7 +84,7 @@ impl Command for StrDowncase {
             Example {
                 description: "Downcase contents",
                 example: "[[ColA ColB]; [Test ABC]] | str downcase ColA ColB",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "ColA" => Value::test_string("test"),
                     "ColB" => Value::test_string("abc"),
                 })])),

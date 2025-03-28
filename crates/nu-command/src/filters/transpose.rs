@@ -80,28 +80,28 @@ impl Command for Transpose {
             Example {
                 description: "Transposes the table contents with default column names",
                 example: "[[c1 c2]; [1 2]] | transpose",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "column0" => Value::test_string("c1"),
                         "column1" => Value::test_int(1),
                     }),
                     Value::test_record(record! {
-                        "column0" =>  Value::test_string("c2"),
-                        "column1" =>  Value::test_int(2),
+                        "column0" => Value::test_string("c2"),
+                        "column1" => Value::test_int(2),
                     }),
                 ])),
             },
             Example {
                 description: "Transposes the table contents with specified column names",
                 example: "[[c1 c2]; [1 2]] | transpose key val",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
-                        "key" =>  Value::test_string("c1"),
-                        "val" =>  Value::test_int(1),
+                        "key" => Value::test_string("c1"),
+                        "val" => Value::test_int(1),
                     }),
                     Value::test_record(record! {
-                        "key" =>  Value::test_string("c2"),
-                        "val" =>  Value::test_int(2),
+                        "key" => Value::test_string("c2"),
+                        "val" => Value::test_int(2),
                     }),
                 ])),
             },
@@ -109,7 +109,7 @@ impl Command for Transpose {
                 description:
                     "Transposes the table without column names and specify a new column name",
                 example: "[[c1 c2]; [1 2]] | transpose --ignore-titles val",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "val" => Value::test_int(1),
                     }),
@@ -122,8 +122,8 @@ impl Command for Transpose {
                 description: "Transfer back to record with -d flag",
                 example: "{c1: 1, c2: 2} | transpose | transpose --ignore-titles -r -d",
                 result: Some(Value::test_record(record! {
-                    "c1" =>  Value::test_int(1),
-                    "c2" =>  Value::test_int(2),
+                    "c1" => Value::test_int(1),
+                    "c2" => Value::test_int(2),
                 })),
             },
         ]
@@ -278,7 +278,7 @@ pub fn transpose(
                                     vals.push(x);
                                 }
                                 v => {
-                                    *v = Value::list(vec![std::mem::take(v), x], current_span);
+                                    *v = Value::list(list![std::mem::take(v), x], current_span);
                                 }
                             };
                         } else if args.keep_last {

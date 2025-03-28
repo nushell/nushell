@@ -101,21 +101,18 @@ impl Command for StrDistance {
         Example {
             description: "Compute edit distance between strings in table and another string, using cell paths",
             example: "[{a: 'nutshell' b: 'numetal'}] | str distance 'nushell' 'a' 'b'",
-            result: Some(Value::test_list (
-                vec![
-                    Value::test_record(record! {
-                        "a" => Value::test_int(1),
-                        "b" => Value::test_int(4),
-                    })])),
+            result: Some(Value::test_list (list![Value::test_record(record! {
+                "a" => Value::test_int(1),
+                "b" => Value::test_int(4),
+            })])),
         },
         Example {
             description: "Compute edit distance between strings in record and another string, using cell paths",
             example: "{a: 'nutshell' b: 'numetal'} | str distance 'nushell' a b",
-            result: Some(
-                    Value::test_record(record! {
-                        "a" => Value::test_int(1),
-                        "b" => Value::test_int(4),
-                    })),
+            result: Some(Value::test_record(record! {
+                "a" => Value::test_int(1),
+                "b" => Value::test_int(4),
+            })),
         }]
     }
 }

@@ -80,36 +80,30 @@ impl Command for PathSplit {
             Example {
                 description: "Split a path into parts",
                 example: r"'C:\Users\viking\spam.txt' | path split",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string(r"C:\"),
-                        Value::test_string("Users"),
-                        Value::test_string("viking"),
-                        Value::test_string("spam.txt"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string(r"C:\"),
+                    Value::test_string("Users"),
+                    Value::test_string("viking"),
+                    Value::test_string("spam.txt"),
+                ])),
             },
             Example {
                 description: "Split paths in list into parts",
                 example: r"[ C:\Users\viking\spam.txt C:\Users\viking\eggs.txt ] | path split",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_list(vec![
-                            Value::test_string(r"C:\"),
-                            Value::test_string("Users"),
-                            Value::test_string("viking"),
-                            Value::test_string("spam.txt"),
-                        ]),
-                        Value::test_list(vec![
-                            Value::test_string(r"C:\"),
-                            Value::test_string("Users"),
-                            Value::test_string("viking"),
-                            Value::test_string("eggs.txt"),
-                        ]),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_list(list![
+                        Value::test_string(r"C:\"),
+                        Value::test_string("Users"),
+                        Value::test_string("viking"),
+                        Value::test_string("spam.txt"),
+                    ]),
+                    Value::test_list(list![
+                        Value::test_string(r"C:\"),
+                        Value::test_string("Users"),
+                        Value::test_string("viking"),
+                        Value::test_string("eggs.txt"),
+                    ]),
+                ])),
             },
         ]
     }
@@ -120,36 +114,30 @@ impl Command for PathSplit {
             Example {
                 description: "Split a path into parts",
                 example: r"'/home/viking/spam.txt' | path split",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("/"),
-                        Value::test_string("home"),
-                        Value::test_string("viking"),
-                        Value::test_string("spam.txt"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("/"),
+                    Value::test_string("home"),
+                    Value::test_string("viking"),
+                    Value::test_string("spam.txt"),
+                ])),
             },
             Example {
                 description: "Split paths in list into parts",
                 example: r"[ /home/viking/spam.txt /home/viking/eggs.txt ] | path split",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_list(vec![
-                            Value::test_string("/"),
-                            Value::test_string("home"),
-                            Value::test_string("viking"),
-                            Value::test_string("spam.txt"),
-                        ]),
-                        Value::test_list(vec![
-                            Value::test_string("/"),
-                            Value::test_string("home"),
-                            Value::test_string("viking"),
-                            Value::test_string("eggs.txt"),
-                        ]),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_list(list![
+                        Value::test_string("/"),
+                        Value::test_string("home"),
+                        Value::test_string("viking"),
+                        Value::test_string("spam.txt"),
+                    ]),
+                    Value::test_list(list![
+                        Value::test_string("/"),
+                        Value::test_string("home"),
+                        Value::test_string("viking"),
+                        Value::test_string("eggs.txt"),
+                    ]),
+                ])),
             },
         ]
     }

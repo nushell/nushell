@@ -1,6 +1,5 @@
+use nu_protocol::{record, IntoValue, Record, ShellError, Span, Type, Value};
 use std::borrow::Cow;
-
-use nu_protocol::{IntoValue, Record, ShellError, Span, Type, Value};
 
 pub fn record_to_query_string(
     record: &Record,
@@ -105,14 +104,14 @@ pub fn query_string_to_table(query: &str, head: Span, span: Span) -> Result<Valu
         .into_iter()
         .map(|(key, value)| {
             Value::record(
-                nu_protocol::record! {
+                record! {
                     "key" => key.into_value(head),
                     "value" => value.into_value(head)
                 },
                 head,
             )
         })
-        .collect::<Vec<_>>();
+        .collect();
 
     Ok(Value::list(params, head))
 }

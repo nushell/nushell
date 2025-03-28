@@ -98,10 +98,11 @@ impl Command for BitsRol {
             Example {
                 description: "Rotate left a list of numbers with 2 bits",
                 example: "[5 3 2] | bits rol 2",
-                result: Some(Value::list(
-                    vec![Value::test_int(20), Value::test_int(12), Value::test_int(8)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(20),
+                    Value::test_int(12),
+                    Value::test_int(8)
+                ])),
             },
             Example {
                 description: "rotate left binary data",

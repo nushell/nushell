@@ -91,10 +91,10 @@ impl Command for MathSqrt {
         vec![Example {
             description: "Compute the square root of each number in a list",
             example: "[9 16] | math sqrt",
-            result: Some(Value::list(
-                vec![Value::test_float(3.0), Value::test_float(4.0)],
-                Span::test_data(),
-            )),
+            result: Some(Value::test_list(list![
+                Value::test_float(3.0),
+                Value::test_float(4.0),
+            ])),
         }]
     }
 }

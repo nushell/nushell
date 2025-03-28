@@ -169,13 +169,11 @@ impl Command for StrReplace {
                 description: "Find and replace all occurrences of found string in table using regular expression",
                 example:
                     "[[ColA ColB ColC]; [abc abc ads]] | str replace --all --regex 'b' 'z' ColA ColC",
-                result: Some(Value::test_list (
-                    vec![Value::test_record(record! {
-                        "ColA" => Value::test_string("azc"),
-                        "ColB" => Value::test_string("abc"),
-                        "ColC" => Value::test_string("ads"),
-                    })],
-                )),
+                result: Some(Value::test_list (list![Value::test_record(record! {
+                    "ColA" => Value::test_string("azc"),
+                    "ColB" => Value::test_string("abc"),
+                    "ColC" => Value::test_string("ads"),
+                })])),
             },
             Example {
                 description: "Find and replace all occurrences of found string in record using regular expression",

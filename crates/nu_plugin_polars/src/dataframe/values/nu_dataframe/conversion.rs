@@ -17,7 +17,7 @@ use polars::prelude::{
     TemporalMethods, TimeUnit, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
 };
 
-use nu_protocol::{Record, ShellError, Span, Value};
+use nu_protocol::{List, Record, ShellError, Span, Value};
 use polars_arrow::array::Utf8ViewArray;
 use polars_arrow::Either;
 
@@ -165,13 +165,13 @@ pub fn create_column_from_series(
 ) -> Result<Column, ShellError> {
     let size = to_row - from_row;
     let values = series_to_values(series, Some(from_row), Some(size), span)?;
-    Ok(Column::new(series.name().clone(), values))
+    Ok(Column::new(series.name().clone(), values.into()))
 }
 
 // Adds a separator to the vector of values using the column names from the
 // dataframe to create the Values Row
 // returns true if there is an index column contained in the dataframe
-pub fn add_separator(values: &mut Vec<Value>, df: &DataFrame, has_index: bool, span: Span) {
+pub fn add_separator(values: &mut List, df: &DataFrame, has_index: bool, span: Span) {
     let mut record = Record::new();
 
     if !has_index {
@@ -696,7 +696,7 @@ fn series_to_values(
     maybe_from_row: Option<usize>,
     maybe_size: Option<usize>,
     span: Span,
-) -> Result<Vec<Value>, ShellError> {
+) -> Result<List, ShellError> {
     match series.dtype() {
         DataType::Null => {
             let it = std::iter::repeat(Value::nothing(span));
@@ -705,7 +705,7 @@ fn series_to_values(
             } else {
                 Either::Right(it)
             }
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -728,7 +728,7 @@ fn series_to_values(
                 Some(a) => Value::int(a as i64, span),
                 None => Value::nothing(span),
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -751,7 +751,7 @@ fn series_to_values(
                 Some(a) => Value::int(a as i64, span),
                 None => Value::nothing(span),
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -774,7 +774,7 @@ fn series_to_values(
                 Some(a) => Value::int(a as i64, span),
                 None => Value::nothing(span),
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -797,7 +797,7 @@ fn series_to_values(
                 Some(a) => Value::int(a as i64, span),
                 None => Value::nothing(span),
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -820,7 +820,7 @@ fn series_to_values(
                 Some(a) => Value::int(a as i64, span),
                 None => Value::nothing(span),
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -843,7 +843,7 @@ fn series_to_values(
                 Some(a) => Value::int(a as i64, span),
                 None => Value::nothing(span),
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -866,7 +866,7 @@ fn series_to_values(
                 Some(a) => Value::int(a as i64, span),
                 None => Value::nothing(span),
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -889,7 +889,7 @@ fn series_to_values(
                 Some(a) => Value::int(a, span),
                 None => Value::nothing(span),
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -912,7 +912,7 @@ fn series_to_values(
                 Some(a) => Value::float(a as f64, span),
                 None => Value::nothing(span),
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -935,7 +935,7 @@ fn series_to_values(
                 Some(a) => Value::float(a, span),
                 None => Value::nothing(span),
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -958,7 +958,7 @@ fn series_to_values(
                 Some(a) => Value::bool(a, span),
                 None => Value::nothing(span),
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -981,7 +981,7 @@ fn series_to_values(
                 Some(a) => Value::string(a.to_string(), span),
                 None => Value::nothing(span),
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -1009,7 +1009,7 @@ fn series_to_values(
                 Some(b) => Value::binary(b, span),
                 None => Value::nothing(span),
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -1038,7 +1038,7 @@ fn series_to_values(
                         Some(a) => a.get_value(),
                         None => Value::nothing(span),
                     })
-                    .collect::<Vec<Value>>();
+                    .collect();
 
                     Ok(values)
                 }
@@ -1062,15 +1062,15 @@ fn series_to_values(
                         Either::Right(it)
                     }
                     .map(|ca| {
-                        let sublist: Vec<Value> = if let Some(ref s) = ca {
+                        let sublist = if let Some(ref s) = ca {
                             series_to_values(s, None, None, Span::unknown())?
                         } else {
                             // empty item
-                            vec![]
+                            List::new()
                         };
                         Ok(Value::list(sublist, span))
                     })
-                    .collect::<Result<Vec<Value>, ShellError>>()
+                    .collect::<Result<_, _>>()
                 }
             }
         }
@@ -1097,7 +1097,7 @@ fn series_to_values(
                 }
                 None => Ok(Value::nothing(span)),
             })
-            .collect::<Result<Vec<Value>, ShellError>>()?;
+            .collect::<Result<_, ShellError>>()?;
             Ok(values)
         }
         DataType::Datetime(time_unit, tz) => {
@@ -1124,7 +1124,7 @@ fn series_to_values(
                 }
                 None => Ok(Value::nothing(span)),
             })
-            .collect::<Result<Vec<Value>, ShellError>>()?;
+            .collect::<Result<_, ShellError>>()?;
             Ok(values)
         }
         DataType::Struct(_) => {
@@ -1142,20 +1142,20 @@ fn series_to_values(
                 0..casted.len()
             };
 
-            let mut values = Vec::with_capacity(casted.len());
-
-            for i in range {
-                let val = casted
-                    .get_any_value(i)
-                    .map_err(|e| ShellError::GenericError {
-                        error: format!("Could not get struct value for index {i} - {e}"),
-                        msg: "".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    })?;
-                values.push(any_value_to_value(&val, span)?)
-            }
+            let values = range
+                .map(|i| {
+                    let val = casted
+                        .get_any_value(i)
+                        .map_err(|e| ShellError::GenericError {
+                            error: format!("Could not get struct value for index {i} - {e}"),
+                            msg: "".into(),
+                            span: None,
+                            help: None,
+                            inner: vec![],
+                        })?;
+                    any_value_to_value(&val, span)
+                })
+                .collect::<Result<_, _>>()?;
 
             Ok(values)
         }
@@ -1181,7 +1181,7 @@ fn series_to_values(
                 Some(nanoseconds) => Value::duration(nanoseconds, span),
                 None => Value::nothing(span),
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
             Ok(values)
         }
@@ -1202,7 +1202,7 @@ fn series_to_values(
             if let Some(rev_mapping) = maybe_rev_mapping {
                 Ok(utf8_view_array_to_value(rev_mapping.get_categories()))
             } else {
-                Ok(vec![])
+                Ok(List::new())
             }
         }
         e => Err(ShellError::GenericError {
@@ -1277,7 +1277,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
         AnyValue::BinaryOwned(bytes) => Ok(Value::binary(bytes.to_owned(), span)),
         AnyValue::Categorical(_, rev_mapping, utf8_array_pointer)
         | AnyValue::Enum(_, rev_mapping, utf8_array_pointer) => {
-            let value: Vec<Value> = if utf8_array_pointer.is_null() {
+            let value = if utf8_array_pointer.is_null() {
                 utf8_view_array_to_value(rev_mapping.get_categories())
             } else {
                 // This is no good way around having an unsafe block here
@@ -1287,14 +1287,14 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
                         .get()
                         .as_ref()
                         .map(utf8_view_array_to_value)
-                        .unwrap_or_else(Vec::new)
+                        .unwrap_or_else(List::new)
                 }
             };
             Ok(Value::list(value, span))
         }
         AnyValue::CategoricalOwned(_, rev_mapping, utf8_array_pointer)
         | AnyValue::EnumOwned(_, rev_mapping, utf8_array_pointer) => {
-            let value: Vec<Value> = if utf8_array_pointer.is_null() {
+            let value = if utf8_array_pointer.is_null() {
                 utf8_view_array_to_value(rev_mapping.get_categories())
             } else {
                 // This is no good way around having an unsafe block here
@@ -1304,7 +1304,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
                         .get()
                         .as_ref()
                         .map(utf8_view_array_to_value)
-                        .unwrap_or_else(Vec::new)
+                        .unwrap_or_else(List::new)
                 }
             };
             Ok(Value::list(value, span))
@@ -1398,20 +1398,20 @@ where
     }
 }
 
-fn utf8_view_array_to_value(array: &Utf8ViewArray) -> Vec<Value> {
+fn utf8_view_array_to_value(array: &Utf8ViewArray) -> List {
     array
         .iter()
         .map(|x| match x {
             Some(s) => Value::string(s.to_string(), Span::unknown()),
             None => Value::nothing(Span::unknown()),
         })
-        .collect::<Vec<Value>>()
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use indexmap::indexmap;
-    use nu_protocol::record;
+    use nu_protocol::{list, record};
     use polars::datatypes::CompatLevel;
     use polars::prelude::Field;
     use polars_arrow::array::{BooleanArray, PrimitiveArray};
@@ -1422,14 +1422,8 @@ mod tests {
     #[test]
     fn test_parsed_column_string_list() -> Result<(), Box<dyn std::error::Error>> {
         let values = vec![
-            Value::list(
-                vec![Value::string("bar".to_string(), Span::test_data())],
-                Span::test_data(),
-            ),
-            Value::list(
-                vec![Value::string("baz".to_string(), Span::test_data())],
-                Span::test_data(),
-            ),
+            Value::test_list(list![Value::test_string("bar".to_string())]),
+            Value::test_list(list![Value::test_string("baz".to_string())]),
         ];
         let column = Column {
             name: "foo".into(),
@@ -1580,14 +1574,11 @@ mod tests {
         );
 
         let test_list_series = Series::new("int series".into(), &[1, 2, 3]);
-        let comparison_list_series = Value::list(
-            vec![
-                Value::int(1, span),
-                Value::int(2, span),
-                Value::int(3, span),
-            ],
-            span,
-        );
+        let comparison_list_series = Value::test_list(list![
+            Value::int(1, span),
+            Value::int(2, span),
+            Value::int(3, span),
+        ]);
         assert_eq!(
             any_value_to_value(&AnyValue::List(test_list_series), span)?,
             comparison_list_series

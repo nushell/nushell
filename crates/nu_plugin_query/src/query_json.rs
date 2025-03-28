@@ -2,7 +2,8 @@ use crate::Query;
 use gjson::Value as gjValue;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value,
+    list, Category, Example, LabeledError, List, Record, Signature, Span, Spanned, SyntaxShape,
+    Value,
 };
 
 pub struct QueryJson;
@@ -33,7 +34,7 @@ impl SimplePluginCommand for QueryJson {
             Example {
                 description: "Get a list of children from a json object",
                 example: r#"'{"children": ["Sara","Alex","Jack"]}' | query json children"#,
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("Sara"),
                     Value::test_string("Alex"),
                     Value::test_string("Jack"),
@@ -48,7 +49,7 @@ impl SimplePluginCommand for QueryJson {
     {"first": "Jane", "last": "Murphy", "age": 47, "nets": ["ig", "tw"]}
   ]
 }' | query json friends.#.first"#,
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("Dale"),
                     Value::test_string("Roger"),
                     Value::test_string("Jane"),
@@ -146,7 +147,7 @@ fn query_contains_modifiers(query: &str) -> bool {
 fn convert_gjson_value_to_nu_value(v: &gjValue, span: Span) -> Value {
     match v.kind() {
         gjson::Kind::Array => {
-            let mut vals = vec![];
+            let mut vals = List::new();
             v.each(|_k, v| {
                 vals.push(convert_gjson_value_to_nu_value(&v, span));
                 true

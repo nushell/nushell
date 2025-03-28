@@ -68,29 +68,27 @@ impl Command for HelpOperators {
         ]
         .into_iter()
         .map(|op| {
-            Value::record(
-                record! {
-                    "type" => Value::string(op_type(&op), head),
-                    "operator" => Value::string(op.to_string(), head),
-                    "name" => Value::string(name(&op), head),
-                    "description" => Value::string(description(&op), head),
-                    "precedence" => Value::int(op.precedence().into(), head),
-                },
-                head,
-            )
+            record! {
+                "type" => Value::string(op_type(&op), head),
+                "operator" => Value::string(op.to_string(), head),
+                "name" => Value::string(name(&op), head),
+                "description" => Value::string(description(&op), head),
+                "precedence" => Value::int(op.precedence().into(), head),
+            }
+            .into_value(head)
         })
-        .collect::<Vec<_>>();
+        .collect::<List>();
 
-        operators.push(Value::record(
+        operators.push(
             record! {
                 "type" => Value::string("Boolean", head),
                 "operator" => Value::string("not", head),
                 "name" => Value::string("Not", head),
                 "description" => Value::string("Negates a value or expression.", head),
                 "precedence" => Value::int(55, head),
-            },
-            head,
-        ));
+            }
+            .into_value(head),
+        );
 
         Ok(Value::list(operators, head).into_pipeline_data())
     }

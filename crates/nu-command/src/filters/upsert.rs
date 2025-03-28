@@ -73,15 +73,15 @@ If the command is inserting at the end of a list or table, then both of these va
                 description: "Insert a new entry into a record",
                 example: "{'name': 'nu', 'stars': 5} | upsert language 'Rust'",
                 result: Some(Value::test_record(record! {
-                    "name" =>     Value::test_string("nu"),
-                    "stars" =>    Value::test_int(5),
+                    "name" => Value::test_string("nu"),
+                    "stars" => Value::test_int(5),
                     "language" => Value::test_string("Rust"),
                 })),
             },
             Example {
                 description: "Update each row of a table",
                 example: "[[name lang]; [Nushell ''] [Reedline '']] | upsert lang 'Rust'",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "name" => Value::test_string("Nushell"),
                         "lang" => Value::test_string("Rust"),
@@ -95,7 +95,7 @@ If the command is inserting at the end of a list or table, then both of these va
             Example {
                 description: "Insert a new column with values computed based off the other columns",
                 example: "[[foo]; [7] [8] [9]] | upsert bar {|row| $row.foo * 2 }",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "foo" => Value::test_int(7),
                         "bar" => Value::test_int(14),
@@ -113,7 +113,7 @@ If the command is inserting at the end of a list or table, then both of these va
             Example {
                 description: "Update null values in a column to a default value",
                 example: "[[foo]; [2] [null] [4]] | upsert foo { default 0 }",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "foo" => Value::test_int(2),
                     }),
@@ -128,7 +128,7 @@ If the command is inserting at the end of a list or table, then both of these va
             Example {
                 description: "Upsert into a list, updating an existing value at an index",
                 example: "[1 2 3] | upsert 0 2",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(2),
                     Value::test_int(2),
                     Value::test_int(3),
@@ -137,7 +137,7 @@ If the command is inserting at the end of a list or table, then both of these va
             Example {
                 description: "Upsert into a list, inserting a new value at the end",
                 example: "[1 2 3] | upsert 3 4",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(1),
                     Value::test_int(2),
                     Value::test_int(3),
@@ -147,14 +147,14 @@ If the command is inserting at the end of a list or table, then both of these va
             Example {
                 description: "Upsert into a nested path, creating new values as needed",
                 example: "[{} {a: [{}]}] | upsert a.0.b \"value\"",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record!(
-                        "a" => Value::test_list(vec![Value::test_record(record!(
+                        "a" => Value::test_list(list![Value::test_record(record!(
                             "b" => Value::test_string("value"),
                         ))]),
                     )),
                     Value::test_record(record!(
-                        "a" => Value::test_list(vec![Value::test_record(record!(
+                        "a" => Value::test_list(list![Value::test_record(record!(
                             "b" => Value::test_string("value"),
                         ))]),
                     )),
@@ -180,7 +180,7 @@ fn upsert(
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
                         let mut closure = ClosureEval::new(engine_state, stack, *val);
-                        for val in vals {
+                        for val in vals.make_mut() {
                             upsert_value_by_closure(
                                 val,
                                 &mut closure,

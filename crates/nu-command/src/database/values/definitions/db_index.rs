@@ -16,7 +16,7 @@ impl DbRow for DbIndex {
         ]
     }
 
-    fn columns(&self) -> Vec<String> {
+    fn values(&self) -> Vec<String> {
         vec![
             self.name
                 .as_ref()

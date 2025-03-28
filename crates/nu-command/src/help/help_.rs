@@ -127,15 +127,15 @@ You can also learn more at https://www.nushell.sh/book/"#;
 }
 
 pub fn highlight_search_in_table(
-    table: Vec<Value>, // list of records
+    table: List, // list of records
     search_string: &str,
     searched_cols: &[&str],
     string_style: &Style,
     highlight_style: &Style,
-) -> Result<Vec<Value>, ShellError> {
+) -> Result<List, ShellError> {
     let orig_search_string = search_string;
     let search_string = search_string.to_folded_case();
-    let mut matches = vec![];
+    let mut matches = List::new();
 
     for mut value in table {
         let Value::Record {

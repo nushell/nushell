@@ -1,6 +1,6 @@
 use crate::{
     ast::{Expr, MatchPattern, Pattern, RangeInclusion},
-    Span, Value, VarId,
+    List, Span, Value, VarId,
 };
 
 pub trait Matcher {
@@ -54,7 +54,7 @@ impl Matcher for Pattern {
                                 Pattern::IgnoreRest => {}
                                 Pattern::Rest(var_id) => matches.push((
                                     *var_id,
-                                    Value::list(Vec::new(), items[vals.len()].span),
+                                    Value::list(List::new(), items[vals.len()].span),
                                 )),
                                 _ => {
                                     // There is a pattern which can't skip missing values, so we fail
@@ -75,7 +75,7 @@ impl Matcher for Pattern {
                                     break;
                                 }
                                 Pattern::Rest(var_id) => {
-                                    let rest_vals = vals[val_idx..].to_vec();
+                                    let rest_vals = List::from(&vals[val_idx..]);
                                     matches.push((*var_id, Value::list(rest_vals, pattern.span)));
                                     break;
                                 }
