@@ -1,14 +1,14 @@
 use chrono::{FixedOffset, TimeZone};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-
-use nu_utils::get_system_locale;
+use nu_protocol::Locale;
 
 struct Arguments {
     radix: u32,
     cell_paths: Option<Vec<CellPath>>,
     signed: bool,
     little_endian: bool,
+    locale: Locale,
 }
 
 impl CmdArgument for Arguments {
@@ -151,12 +151,13 @@ impl Command for IntoInt {
         };
 
         let signed = call.has_flag(engine_state, stack, "signed")?;
-
+        let locale = Locale::system_number().unwrap_or_default();
         let args = Arguments {
             radix,
             little_endian,
             signed,
             cell_paths,
+            locale,
         };
         operate(action, args, input, call.head, engine_state.signals())
     }
@@ -241,16 +242,20 @@ impl Command for IntoInt {
 }
 
 fn action(input: &Value, args: &Arguments, span: Span) -> Value {
-    let radix = args.radix;
-    let signed = args.signed;
-    let little_endian = args.little_endian;
+    let Arguments {
+        radix,
+        signed,
+        little_endian,
+        locale,
+        ..
+    } = *args;
     let val_span = input.span();
     match input {
         Value::Int { val: _, .. } => {
             if radix == 10 {
                 input.clone()
             } else {
-                convert_int(input, span, radix)
+                convert_int(input, span, radix, locale)
             }
         }
         Value::Filesize { val, .. } => Value::int(val.get(), span),
@@ -259,7 +264,8 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 if radix == 10 {
                     *val as i64
                 } else {
-                    match convert_int(&Value::int(*val as i64, span), span, radix).as_int() {
+                    match convert_int(&Value::int(*val as i64, span), span, radix, locale).as_int()
+                    {
                         Ok(v) => v,
                         _ => {
                             return Value::error(
@@ -279,12 +285,12 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         ),
         Value::String { val, .. } => {
             if radix == 10 {
-                match int_from_string(val, span) {
+                match int_from_string(val, span, locale) {
                     Ok(val) => Value::int(val, span),
                     Err(error) => Value::error(error, span),
                 }
             } else {
-                convert_int(input, span, radix)
+                convert_int(input, span, radix, locale)
             }
         }
         Value::Bool { val, .. } => {
@@ -376,7 +382,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     }
 }
 
-fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
+fn convert_int(input: &Value, head: Span, radix: u32, locale: Locale) -> Value {
     let i = match input {
         Value::Int { val, .. } => val.to_string(),
         Value::String { val, .. } => {
@@ -386,7 +392,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                 || val.starts_with("0o")
             // octal
             {
-                match int_from_string(val, head) {
+                match int_from_string(val, head, locale) {
                     Ok(x) => return Value::int(x, head),
                     Err(e) => return Value::error(e, head),
                 }
@@ -437,13 +443,10 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
     }
 }
 
-fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
-    // Get the Locale so we know what the thousands separator is
-    let locale = get_system_locale();
-
+fn int_from_string(a_string: &str, span: Span, locale: Locale) -> Result<i64, ShellError> {
     // Now that we know the locale, get the thousands separator and remove it
     // so strings like 1,123,456 can be parsed as 1123456
-    let no_comma_string = a_string.replace(locale.separator(), "");
+    let no_comma_string = a_string.replace(locale.number().separator(), "");
 
     let trimmed = no_comma_string.trim();
     match trimmed {
@@ -536,6 +539,7 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
+                locale: Locale::default(),
             },
             Span::test_data(),
         );
@@ -552,6 +556,7 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
+                locale: Locale::default(),
             },
             Span::test_data(),
         );
@@ -568,6 +573,7 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
+                locale: Locale::default(),
             },
             Span::test_data(),
         );
@@ -585,6 +591,7 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
+                locale: Locale::default(),
             },
             Span::test_data(),
         );
@@ -608,6 +615,7 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
+                locale: Locale::default(),
             },
             Span::test_data(),
         );
@@ -631,6 +639,7 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
+                locale: Locale::default(),
             },
             Span::test_data(),
         );

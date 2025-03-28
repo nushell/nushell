@@ -15,10 +15,10 @@ bench = false
 workspace = true
 
 [dependencies]
+nu-protocol = { path = "../nu-protocol", version = "0.103.1" }
 nu-path = { path = "../nu-path", version = "0.103.1" }
 nu-glob = { path = "../nu-glob", version = "0.103.1" }
 nu-utils = { path = "../nu-utils", version = "0.103.1" }
 
-num-format = { workspace = true }
 which = { workspace = true }
 tempfile = { workspace = true }

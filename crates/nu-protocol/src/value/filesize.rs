@@ -1,5 +1,5 @@
-use crate::{FromValue, IntoValue, ShellError, Span, Type, Value};
-use num_format::{Locale, WriteFormatted};
+use crate::{FromValue, IntoValue, Locale, ShellError, Span, Type, Value};
+use num_format::WriteFormatted;
 use serde::{Deserialize, Serialize};
 use std::{
     char,
@@ -629,7 +629,7 @@ impl FromStr for FilesizeUnitFormat {
 /// assert_eq!(
 ///     formatter
 ///         .unit(FilesizeUnit::B)
-///         .locale(Locale::en)
+///         .locale("en".parse().unwrap())
 ///         .format(filesize)
 ///         .to_string(),
 ///     "4,096 B",
@@ -640,7 +640,7 @@ pub struct FilesizeFormatter {
     unit: FilesizeUnitFormat,
     show_unit: bool,
     precision: Option<usize>,
-    locale: Locale,
+    locale: num_format::Locale,
 }
 
 impl FilesizeFormatter {
@@ -650,14 +650,13 @@ impl FilesizeFormatter {
     /// - a [`unit`](Self::unit) of [`FilesizeUnitFormat::Metric`].
     /// - a [`show_unit`](Self::show_unit) of `true`.
     /// - a [`precision`](Self::precision) of `None`.
-    /// - a [`locale`](Self::locale) of [`Locale::en_US_POSIX`]
-    ///   (a very plain format with no thousands separators).
+    /// - a [`locale`](Self::locale) of `Locale::default()`.
     pub fn new() -> Self {
         FilesizeFormatter {
             unit: FilesizeUnitFormat::Metric,
             show_unit: true,
             precision: None,
-            locale: Locale::en_US_POSIX,
+            locale: Locale::default().number(),
         }
     }
 
@@ -763,19 +762,22 @@ impl FilesizeFormatter {
     ///
     /// # Examples
     /// ```
-    /// # use nu_protocol::{Filesize, FilesizeFormatter, FilesizeUnit, FilesizeUnitFormat};
-    /// # use num_format::Locale;
+    /// # use nu_protocol::{Filesize, FilesizeFormatter, FilesizeUnit, FilesizeUnitFormat, Locale};
     /// let filesize = Filesize::from_unit(-4, FilesizeUnit::MiB).unwrap();
     /// let formatter = FilesizeFormatter::new().unit(FilesizeUnit::KB).precision(1);
+    /// let with_locale = |name: &str, filesize| {
+    ///     let locale = name.parse().unwrap();
+    ///     formatter.locale(locale).format(filesize).to_string()
+    /// };
     ///
     /// assert_eq!(formatter.format(filesize).to_string(), "-4194.3 kB");
-    /// assert_eq!(formatter.locale(Locale::en).format(filesize).to_string(), "-4,194.3 kB");
-    /// assert_eq!(formatter.locale(Locale::rm).format(filesize).to_string(), "\u{2212}4’194.3 kB");
+    /// assert_eq!(with_locale("en", filesize), "-4,194.3 kB");
+    /// assert_eq!(with_locale("rm", filesize), "\u{2212}4’194.3 kB");
     /// let filesize = Filesize::from_unit(-4, FilesizeUnit::GiB).unwrap();
-    /// assert_eq!(formatter.locale(Locale::ta).format(filesize).to_string(), "-42,94,967.2 kB");
+    /// assert_eq!(with_locale("ta", filesize), "-42,94,967.2 kB");
     /// ```
     pub fn locale(mut self, locale: Locale) -> Self {
-        self.locale = locale;
+        self.locale = locale.number();
         self
     }
 
