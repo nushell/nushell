@@ -690,7 +690,7 @@ fn strip_string(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::{span::Span, Value};
+    use nu_protocol::{list, Span, Value};
 
     // Helper to create a simple test Value::Record
     fn create_test_record() -> Value {
@@ -705,11 +705,10 @@ mod tests {
 
     // Helper to create a simple test Value::List
     fn create_test_list() -> Value {
-        let items = vec![
-            Value::string("item1", Span::test_data()),
-            Value::string("item2", Span::test_data()),
-        ];
-        Value::list(items, Span::test_data())
+        Value::test_list(list![
+            Value::test_string("item1"),
+            Value::test_string("item2"),
+        ])
     }
 
     #[test]
@@ -724,7 +723,7 @@ mod tests {
         );
 
         // Test with empty list
-        let empty_list = Value::list(vec![], Span::test_data());
+        let empty_list = Value::test_list(list![]);
         let result = create_layer(empty_list);
         assert!(result.is_err());
         assert_eq!(
