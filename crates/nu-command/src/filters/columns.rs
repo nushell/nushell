@@ -101,8 +101,9 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
                 // Propagate errors
                 Value::Error { error, .. } => return Err(*error),
                 other => {
-                    return Err(ShellError::PipelineMismatch {
+                    return Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "record or table".into(),
+                        wrong_type: other.get_type().to_string(),
                         dst_span: head,
                         src_span: other.span(),
                     })
@@ -124,8 +125,9 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
                 .into_pipeline_data()
                 .set_metadata(metadata))
         }
-        PipelineData::ByteStream(stream, ..) => Err(ShellError::PipelineMismatch {
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record or table".into(),
+            wrong_type: "byte stream".into(),
             dst_span: head,
             src_span: stream.span(),
         }),

@@ -109,8 +109,9 @@ fn into_cell_path(call: &Call, input: PipelineData) -> Result<PipelineData, Shel
             let list: Vec<_> = stream.into_iter().collect();
             Ok(list_to_cell_path(&list, head)?.into_pipeline_data())
         }
-        PipelineData::ByteStream(stream, ..) => Err(ShellError::PipelineMismatch {
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list, int".into(),
+            wrong_type: stream.type_().describe().into(),
             dst_span: head,
             src_span: stream.span(),
         }),
@@ -182,8 +183,9 @@ fn value_to_cell_path(value: Value, span: Span) -> Result<Value, ShellError> {
         Value::CellPath { .. } => Ok(value),
         Value::Int { val, .. } => Ok(int_to_cell_path(val, span)),
         Value::List { vals, .. } => list_to_cell_path(&vals, span),
-        other => Err(ShellError::PipelineMismatch {
+        other => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "int, list".into(),
+            wrong_type: other.get_type().to_string(),
             dst_span: span,
             src_span: other.span(),
         }),

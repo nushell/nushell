@@ -99,8 +99,9 @@ impl Command for Skip {
                         metadata,
                     ))
                 } else {
-                    Err(ShellError::PipelineMismatch {
+                    Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "list, binary or range".into(),
+                        wrong_type: stream.type_().describe().into(),
                         dst_span: call.head,
                         src_span: stream.span(),
                     })

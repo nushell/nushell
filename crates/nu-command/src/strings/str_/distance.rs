@@ -129,8 +129,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
         Value::Error { .. } => input.clone(),
         _ => Value::error(
-            ShellError::PipelineMismatch {
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
+                wrong_type: input.get_type().to_string(),
                 dst_span: head,
                 src_span: input.span(),
             },

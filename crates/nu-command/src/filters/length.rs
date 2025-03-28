@@ -89,8 +89,9 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
             )
             .into_pipeline_data())
         }
-        _ => Err(ShellError::PipelineMismatch {
+        _ => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list, table, binary, and nothing".into(),
+            wrong_type: input.get_type().to_string(),
             dst_span: call.head,
             src_span: span,
         }),

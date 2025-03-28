@@ -78,8 +78,9 @@ fn helper(value: Value, head: Span) -> Value {
         }
         Value::Date { val, .. } => Value::string(humanize_date(val), head),
         _ => Value::error(
-            ShellError::PipelineMismatch {
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "date, string (that represents datetime), or nothing".into(),
+                wrong_type: value.get_type().to_string(),
                 dst_span: head,
                 src_span: span,
             },

@@ -133,8 +133,9 @@ fn run(
                 }
                 .map(|val| val.into_pipeline_data()),
                 Value::Error { error, .. } => Err(*error),
-                _ => Err(ShellError::PipelineMismatch {
+                _ => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "binary".into(),
+                    wrong_type: v.get_type().to_string(),
                     dst_span: head,
                     src_span: v.span(),
                 }),

@@ -50,8 +50,9 @@ impl Command for Lines {
                 }
                 // Propagate existing errors
                 Value::Error { error, .. } => Err(*error),
-                value => Err(ShellError::PipelineMismatch {
+                value => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string or byte stream".into(),
+                    wrong_type: value.get_type().to_string(),
                     dst_span: head,
                     src_span: value.span(),
                 }),
