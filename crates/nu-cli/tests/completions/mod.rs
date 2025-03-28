@@ -411,9 +411,6 @@ fn external_commands_disabled() {
 
     let completion_str = "sleep";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    #[cfg(windows)]
-    let expected: Vec<_> = vec!["sleep"];
-    #[cfg(not(windows))]
     let expected: Vec<_> = vec!["sleep"];
     match_suggestions(&expected, &suggestions);
 }
