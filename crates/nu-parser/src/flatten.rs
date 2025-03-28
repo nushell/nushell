@@ -232,7 +232,8 @@ fn flatten_expression_into(
                     None
                 }
             } else {
-                None
+                // for empty closures
+                Some((outer_span, FlatShape::Closure))
             };
 
             output.extend(flattened);

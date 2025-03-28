@@ -120,7 +120,7 @@ impl<'a> StyleComputer<'a> {
             ("int".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("filesize".to_string(), ComputableStyle::Static(Color::Cyan.normal())),
             ("duration".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("date".to_string(), ComputableStyle::Static(Color::Purple.normal())),
+            ("datetime".to_string(), ComputableStyle::Static(Color::Purple.normal())),
             ("range".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("float".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("string".to_string(), ComputableStyle::Static(Color::White.normal())),

@@ -10,7 +10,7 @@ $env.config.color_config = {
     int: white
     filesize: cyan
     duration: white
-    date: purple
+    datetime: purple
     range: white
     float: white
     string: white

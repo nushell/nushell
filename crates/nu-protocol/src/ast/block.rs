@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct Block {
     pub signature: Box<Signature>,
     pub pipelines: Vec<Pipeline>,
-    pub captures: Vec<VarId>,
+    pub captures: Vec<(VarId, Span)>,
     pub redirect_env: bool,
     /// The block compiled to IR instructions. Not available for subexpressions.
     pub ir_block: Option<IrBlock>,

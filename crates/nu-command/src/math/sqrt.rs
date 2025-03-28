@@ -1,3 +1,4 @@
+use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -16,6 +17,7 @@ impl Command for MathSqrt {
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Float)),
                 ),
+                (Type::Range, Type::List(Box::new(Type::Number))),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)
@@ -45,6 +47,16 @@ impl Command for MathSqrt {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
+            ensure_bounded(val.as_ref(), internal_span, head)?;
+        }
         input.map(move |value| operate(value, head), engine_state.signals())
     }
 
@@ -58,6 +70,16 @@ impl Command for MathSqrt {
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
+            ensure_bounded(val.as_ref(), internal_span, head)?;
         }
         input.map(
             move |value| operate(value, head),

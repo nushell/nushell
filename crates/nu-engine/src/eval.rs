@@ -641,17 +641,17 @@ impl Eval for EvalRuntime {
             .get_block(block_id)
             .captures
             .iter()
-            .map(|&id| {
+            .map(|(id, span)| {
                 stack
-                    .get_var(id, span)
+                    .get_var(*id, *span)
                     .or_else(|_| {
                         engine_state
-                            .get_var(id)
+                            .get_var(*id)
                             .const_val
                             .clone()
-                            .ok_or(ShellError::VariableNotFoundAtRuntime { span })
+                            .ok_or(ShellError::VariableNotFoundAtRuntime { span: *span })
                     })
-                    .map(|var| (id, var))
+                    .map(|var| (*id, var))
             })
             .collect::<Result<_, _>>()?;
 

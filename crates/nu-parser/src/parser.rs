@@ -5208,7 +5208,7 @@ pub fn parse_assignment_expression(
         rhs_span.start,
         &[],
         &[],
-        true,
+        false,
     );
     working_set.parse_errors.extend(rhs_error);
 
@@ -6589,9 +6589,9 @@ pub fn discover_captures_in_expr(
                     None => {
                         let block = working_set.get_block(block_id);
                         if !block.captures.is_empty() {
-                            for capture in &block.captures {
+                            for (capture, span) in &block.captures {
                                 if !seen.contains(capture) {
-                                    output.push((*capture, call.head));
+                                    output.push((*capture, *span));
                                 }
                             }
                         } else {
@@ -6905,8 +6905,7 @@ pub fn parse(
         &mut captures,
     ) {
         Ok(_) => {
-            Arc::make_mut(&mut output).captures =
-                captures.into_iter().map(|(var_id, _)| var_id).collect();
+            Arc::make_mut(&mut output).captures = captures;
         }
         Err(err) => working_set.error(err),
     }
@@ -6961,7 +6960,7 @@ pub fn parse(
             && block_id.get() >= working_set.permanent_state.num_blocks()
         {
             let block = working_set.get_block_mut(block_id);
-            block.captures = captures.into_iter().map(|(var_id, _)| var_id).collect();
+            block.captures = captures;
         }
     }
 

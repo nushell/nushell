@@ -7,8 +7,16 @@ fn const_ceil() {
 }
 
 #[test]
-fn cannot_ceil_range() {
-    let actual = nu!("0..5 | math ceil");
+fn can_ceil_range_into_list() {
+    let actual = nu!("(1.8)..(3.8) | math ceil");
+    let expected = nu!("[2 3 4]");
 
-    assert!(actual.err.contains("nu::parser::input_type_mismatch"));
+    assert_eq!(actual.out, expected.out);
+}
+
+#[test]
+fn cannot_ceil_infinite_range() {
+    let actual = nu!("0.. | math ceil");
+
+    assert!(actual.err.contains("nu::shell::incorrect_value"));
 }

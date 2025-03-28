@@ -7,8 +7,16 @@ fn const_log() {
 }
 
 #[test]
-fn cannot_log_range() {
-    let actual = nu!("0.. | math log 2");
+fn can_log_range_into_list() {
+    let actual = nu!("1..5 | math log 2");
+    let expected = nu!("[1 2 3 4 5] | math log 2");
 
-    assert!(actual.err.contains("nu::parser::input_type_mismatch"));
+    assert_eq!(actual.out, expected.out);
+}
+
+#[test]
+fn cannot_log_infinite_range() {
+    let actual = nu!("1.. | math log 2");
+
+    assert!(actual.err.contains("nu::shell::incorrect_value"));
 }

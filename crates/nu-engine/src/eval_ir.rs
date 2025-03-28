@@ -855,7 +855,7 @@ fn literal_value(
             let captures = block
                 .captures
                 .iter()
-                .map(|var_id| get_var(ctx, *var_id, span).map(|val| (*var_id, val)))
+                .map(|(var_id, span)| get_var(ctx, *var_id, *span).map(|val| (*var_id, val)))
                 .collect::<Result<Vec<_>, ShellError>>()?;
             Value::closure(
                 Closure {
@@ -1024,63 +1024,65 @@ fn eval_call<D: DebugContext>(
     // Set up redirect modes
     let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
 
-    let result;
+    let result = (|| {
+        if let Some(block_id) = decl.block_id() {
+            // If the decl is a custom command
+            let block = engine_state.get_block(block_id);
 
-    if let Some(block_id) = decl.block_id() {
-        // If the decl is a custom command
-        let block = engine_state.get_block(block_id);
+            // check types after acquiring block to avoid unnecessarily cloning Signature
+            check_input_types(&input, &block.signature, head)?;
 
-        // check types after acquiring block to avoid unnecessarily cloning Signature
-        check_input_types(&input, &block.signature, head)?;
+            // Set up a callee stack with the captures and move arguments from the stack into variables
+            let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
-        // Set up a callee stack with the captures and move arguments from the stack into variables
-        let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
+            gather_arguments(
+                engine_state,
+                block,
+                &mut caller_stack,
+                &mut callee_stack,
+                *args_base,
+                args_len,
+                head,
+            )?;
 
-        gather_arguments(
-            engine_state,
-            block,
-            &mut caller_stack,
-            &mut callee_stack,
-            *args_base,
-            args_len,
-            head,
-        )?;
+            // Add one to the recursion count, so we don't recurse too deep. Stack overflows are not
+            // recoverable in Rust.
+            callee_stack.recursion_count += 1;
 
-        // Add one to the recursion count, so we don't recurse too deep. Stack overflows are not
-        // recoverable in Rust.
-        callee_stack.recursion_count += 1;
+            let result =
+                eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input);
 
-        result = eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input);
+            // Move environment variables back into the caller stack scope if requested to do so
+            if block.redirect_env {
+                redirect_env(engine_state, &mut caller_stack, &callee_stack);
+            }
 
-        // Move environment variables back into the caller stack scope if requested to do so
-        if block.redirect_env {
-            redirect_env(engine_state, &mut caller_stack, &callee_stack);
+            result
+        } else {
+            check_input_types(&input, &decl.signature(), head)?;
+            // FIXME: precalculate this and save it somewhere
+            let span = Span::merge_many(
+                std::iter::once(head).chain(
+                    caller_stack
+                        .arguments
+                        .get_args(*args_base, args_len)
+                        .iter()
+                        .flat_map(|arg| arg.span()),
+                ),
+            );
+
+            let call = Call {
+                decl_id,
+                head,
+                span,
+                args_base: *args_base,
+                args_len,
+            };
+
+            // Run the call
+            decl.run(engine_state, &mut caller_stack, &(&call).into(), input)
         }
-    } else {
-        check_input_types(&input, &decl.signature(), head)?;
-
-        // FIXME: precalculate this and save it somewhere
-        let span = Span::merge_many(
-            std::iter::once(head).chain(
-                caller_stack
-                    .arguments
-                    .get_args(*args_base, args_len)
-                    .iter()
-                    .flat_map(|arg| arg.span()),
-            ),
-        );
-
-        let call = Call {
-            decl_id,
-            head,
-            span,
-            args_base: *args_base,
-            args_len,
-        };
-
-        // Run the call
-        result = decl.run(engine_state, &mut caller_stack, &(&call).into(), input);
-    };
+    })();
 
     drop(caller_stack);
 

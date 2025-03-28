@@ -1,5 +1,6 @@
 mod binary;
 mod bool;
+mod byte_stream;
 mod chars;
 mod dice;
 mod float;

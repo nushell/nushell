@@ -331,7 +331,7 @@ impl Value {
         if let Value::Date { val, .. } = self {
             Ok(*val)
         } else {
-            self.cant_convert_to("date")
+            self.cant_convert_to("datetime")
         }
     }
 

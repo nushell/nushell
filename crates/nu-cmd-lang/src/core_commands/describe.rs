@@ -103,7 +103,7 @@ impl Command for Describe {
                                 "category" => Value::test_string("default"),
                             )),
                         )),
-                        "first_commit" => Value::test_string("date"),
+                        "first_commit" => Value::test_string("datetime"),
                         "my_duration" => Value::test_string("duration"),
                     )),
                 ))),

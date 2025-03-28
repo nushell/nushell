@@ -111,7 +111,10 @@ impl Expression {
             Expr::UnaryNot(expr) => expr.has_in_variable(working_set),
             Expr::Block(block_id) | Expr::Closure(block_id) => {
                 let block = working_set.get_block(*block_id);
-                block.captures.contains(&IN_VARIABLE_ID)
+                block
+                    .captures
+                    .iter()
+                    .any(|(var_id, _)| var_id == &IN_VARIABLE_ID)
                     || block
                         .pipelines
                         .iter()
