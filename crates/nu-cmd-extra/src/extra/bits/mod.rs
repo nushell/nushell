@@ -159,9 +159,10 @@ where
         }
         (Value::Binary { .. }, Value::Int { .. }) | (Value::Int { .. }, Value::Binary { .. }) => {
             Value::error(
-                ShellError::PipelineMismatch {
+                ShellError::OnlySupportsThisInputType {
                     exp_input_type: "input, and argument, to be both int or both binary"
                         .to_string(),
+                    wrong_type: "int and binary".to_string(),
                     dst_span: rhs.span(),
                     src_span: span,
                 },

@@ -181,11 +181,14 @@ fn operate(
             Value::List { vals, .. } => {
                 let iter = vals.into_iter().map(move |val| {
                     let span = val.span();
-                    val.into_string().map_err(|_| ShellError::PipelineMismatch {
-                        exp_input_type: "string".into(),
-                        dst_span: head,
-                        src_span: span,
-                    })
+                    let type_ = val.get_type();
+                    val.into_string()
+                        .map_err(|_| ShellError::OnlySupportsThisInputType {
+                            exp_input_type: "string".into(),
+                            wrong_type: type_.to_string(),
+                            dst_span: head,
+                            src_span: span,
+                        })
                 });
 
                 let iter = ParseIter {
@@ -199,8 +202,9 @@ fn operate(
 
                 Ok(ListStream::new(iter, head, Signals::empty()).into())
             }
-            value => Err(ShellError::PipelineMismatch {
+            value => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
+                wrong_type: value.get_type().to_string(),
                 dst_span: head,
                 src_span: value.span(),
             }),
