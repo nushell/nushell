@@ -255,8 +255,9 @@ fn split_column_helper(
             v => {
                 let span = v.span();
                 vec![Value::error(
-                    ShellError::PipelineMismatch {
+                    ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string".into(),
+                        wrong_type: v.get_type().to_string(),
                         dst_span: head,
                         src_span: span,
                     },

@@ -40,6 +40,7 @@ impl Command for SplitCellPath {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let input_type = input.get_type();
 
         let src_span = match input {
             // Early return on correct type and empty pipeline
@@ -54,8 +55,9 @@ impl Command for SplitCellPath {
             PipelineData::ListStream(stream, ..) => stream.span(),
             PipelineData::ByteStream(stream, ..) => stream.span(),
         };
-        Err(ShellError::PipelineMismatch {
+        Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "cell-path".into(),
+            wrong_type: input_type.to_string(),
             dst_span: head,
             src_span,
         })

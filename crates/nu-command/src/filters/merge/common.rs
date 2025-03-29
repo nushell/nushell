@@ -42,8 +42,9 @@ pub(crate) fn typecheck_merge(lhs: &Value, rhs: &Value, head: Span) -> Result<()
     match (lhs.get_type(), rhs.get_type()) {
         (Type::Record { .. }, Type::Record { .. }) => Ok(()),
         (_, _) if is_list_of_records(lhs) && is_list_of_records(rhs) => Ok(()),
-        _ => Err(ShellError::PipelineMismatch {
+        other => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "input and argument to be both record or both table".to_string(),
+            wrong_type: format!("{} and {}", other.0, other.1).to_string(),
             dst_span: head,
             src_span: lhs.span(),
         }),
