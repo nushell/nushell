@@ -52,19 +52,20 @@ fn err_from_value(rest: &Value, name: Span) -> ShellError {
     match rest {
         Value::Error { error, .. } => *error.clone(),
         _ => {
-            if rest.is_nothing() {
-                ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "string, record or list".into(),
-                    wrong_type: "nothing".into(),
-                    dst_span: name,
-                    src_span: rest.span(),
-                }
+            let wrong_type = if rest.is_nothing() {
+                dbg!("nothing".to_string());
+                dbg!(rest.get_type().to_string());
+                "nothing".to_string()
             } else {
-                ShellError::PipelineMismatch {
-                    exp_input_type: "string, row or list".into(),
-                    dst_span: name,
-                    src_span: rest.span(),
-                }
+                dbg!("nothing".to_string());
+                dbg!(rest.get_type().to_string());
+                rest.get_type().to_string()
+            };
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "string, record or list".into(),
+                wrong_type,
+                dst_span: name,
+                src_span: rest.span(),
             }
         }
     }

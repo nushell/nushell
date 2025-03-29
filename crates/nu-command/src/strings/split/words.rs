@@ -226,8 +226,9 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
                 Value::list(words, v_span)
             } else {
                 Value::error(
-                    ShellError::PipelineMismatch {
+                    ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string".into(),
+                        wrong_type: v.get_type().to_string(),
                         dst_span: span,
                         src_span: v_span,
                     },

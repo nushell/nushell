@@ -1,4 +1,5 @@
 use super::PathSubcommandArguments;
+use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::StateWorkingSet;
 use std::path::{Path, PathBuf};
@@ -221,14 +222,24 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
 
                     Value::list(vals, span)
                 }
-                Err(_) => Value::error(
-                    ShellError::PipelineMismatch {
-                        exp_input_type: "string or record".into(),
-                        dst_span: head,
-                        src_span: span,
-                    },
-                    span,
-                ),
+                Err(_) => {
+                    let wrong_type = format!(
+                        "[{}]",
+                        parts
+                            .iter()
+                            .map(|part| part.get_type().to_string())
+                            .join(", ")
+                    );
+                    Value::error(
+                        ShellError::OnlySupportsThisInputType {
+                            exp_input_type: "string or record".into(),
+                            wrong_type,
+                            dst_span: head,
+                            src_span: span,
+                        },
+                        span,
+                    )
+                }
             }
         }
     }
