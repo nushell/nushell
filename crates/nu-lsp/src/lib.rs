@@ -440,6 +440,7 @@ mod tests {
         TextDocumentPositionParams, WorkDoneProgressParams,
     };
     use nu_protocol::{debugger::WithoutDebug, engine::Stack, PipelineData, ShellError, Value};
+    use nu_std::load_standard_library;
     use std::sync::mpsc::{self, Receiver};
     use std::time::Duration;
 
@@ -455,6 +456,7 @@ mod tests {
         let engine_state = nu_cmd_lang::create_default_context();
         let mut engine_state = nu_command::add_shell_command_context(engine_state);
         engine_state.generate_nu_constant();
+        assert!(load_standard_library(&mut engine_state).is_ok());
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
         engine_state.add_env_var(
             "PWD".into(),

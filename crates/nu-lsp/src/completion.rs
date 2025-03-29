@@ -28,22 +28,15 @@ impl LanguageServer {
                 .and_then(|s| s.chars().next())
                 .is_some_and(|c| c.is_whitespace() || "|(){}[]<>,:;".contains(c));
 
-        let (results, engine_state) = if need_fallback {
-            let engine_state = Arc::new(self.initial_engine_state.clone());
-            let completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
-            (
-                completer.fetch_completions_at(&file_text[..location], location),
-                engine_state,
-            )
+        self.need_parse |= need_fallback;
+        let engine_state = Arc::new(self.new_engine_state());
+        let completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
+        let results = if need_fallback {
+            completer.fetch_completions_at(&file_text[..location], location)
         } else {
-            let engine_state = Arc::new(self.new_engine_state());
-            let completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
             let file_path = uri_to_path(&path_uri);
             let filename = file_path.to_str()?;
-            (
-                completer.fetch_completions_within_file(filename, location, &file_text),
-                engine_state,
-            )
+            completer.fetch_completions_within_file(filename, location, &file_text)
         };
 
         let docs = self.docs.lock().ok()?;
@@ -63,10 +56,8 @@ impl LanguageServer {
                     }
 
                     let span = r.suggestion.span;
-                    let range = span_to_range(&Span::new(span.start, span.end), file, 0);
-
                     let text_edit = Some(CompletionTextEdit::Edit(TextEdit {
-                        range,
+                        range: span_to_range(&Span::new(span.start, span.end), file, 0),
                         new_text: label_value.clone(),
                     }));
 
@@ -236,7 +227,7 @@ mod tests {
                     "detail": "Edit nu configurations.",
                     "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 8 }, },
                         "newText": "config nu "
-                    }
+                    },
                 },
             ])
         );
@@ -545,6 +536,98 @@ mod tests {
                         "range": { "start": { "character": 10, "line": 7 }, "end": { "character": 15, "line": 7 } }
                     },
                     "kind": 24 // operator kind
+                }
+            ])
+        );
+    }
+
+    #[test]
+    fn complete_use_arguments() {
+        let (client_connection, _recv) = initialize_language_server(None, None);
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("completion");
+        script.push("use.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+        let resp = send_complete_request(&client_connection, script.clone(), 4, 17);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "std-rfc",
+                    "labelDetails": { "description": "module" },
+                    "textEdit": {
+                        "newText": "std-rfc",
+                        "range": { "start": { "character": 11, "line": 4 }, "end": { "character": 17, "line": 4 } }
+                    },
+                    "kind": 9 // module kind
+                }
+            ])
+        );
+
+        let resp = send_complete_request(&client_connection, script.clone(), 5, 22);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "clip",
+                    "labelDetails": { "description": "module" },
+                    "textEdit": {
+                        "newText": "clip",
+                        "range": { "start": { "character": 19, "line": 5 }, "end": { "character": 23, "line": 5 } }
+                    },
+                    "kind": 9 // module kind
+                }
+            ])
+        );
+
+        let resp = send_complete_request(&client_connection, script.clone(), 5, 35);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "paste",
+                    "labelDetails": { "description": "custom" },
+                    "textEdit": {
+                        "newText": "paste",
+                        "range": { "start": { "character": 32, "line": 5 }, "end": { "character": 37, "line": 5 } }
+                    },
+                    "kind": 2
+                }
+            ])
+        );
+
+        let resp = send_complete_request(&client_connection, script.clone(), 6, 14);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "null_device",
+                    "labelDetails": { "description": "variable" },
+                    "textEdit": {
+                        "newText": "null_device",
+                        "range": { "start": { "character": 8, "line": 6 }, "end": { "character": 14, "line": 6 } }
+                    },
+                    "kind": 6 // variable kind
+                }
+            ])
+        );
+
+        let resp = send_complete_request(&client_connection, script, 7, 13);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                {
+                    "label": "foo",
+                    "labelDetails": { "description": "variable" },
+                    "textEdit": {
+                        "newText": "foo",
+                        "range": { "start": { "character": 11, "line": 7 }, "end": { "character": 14, "line": 7 } }
+                    },
+                    "kind": 6 // variable kind
                 }
             ])
         );
