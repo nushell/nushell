@@ -2224,6 +2224,16 @@ fn exact_match() {
         &vec![file(dir.join("partial").join("hello.txt")).as_str()],
         &suggestions,
     );
+
+    let target_dir = format!("open {}", file(dir.join("partial").join("hello"))); // No trailing slash
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Despite no trailing slash, since it's an exact match, only 'partial/hello.txt' should be suggested, not
+    // 'partial-a/hello' and stuff. See issue #14794 for details.
+    match_suggestions(
+        &vec![file(dir.join("partial").join("hello.txt")).as_str()],
+        &suggestions,
+    );
 }
 
 #[ignore = "was reverted, still needs fixing"]
