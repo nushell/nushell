@@ -698,17 +698,15 @@ fn parse_timezone_from_record(
                 };
                 Ok(offset)
             }
-            other => {
-                Err(Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "string".to_string(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: *head,
-                        src_span: other.span(),
-                    },
-                    *span,
-                ))
-            }
+            other => Err(Value::error(
+                ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "string".to_string(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: *head,
+                    src_span: other.span(),
+                },
+                *span,
+            )),
         },
         None => Ok(FixedOffset::east_opt(0).unwrap()),
     }
