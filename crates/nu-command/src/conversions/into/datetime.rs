@@ -497,21 +497,22 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 }
 
 fn merge_record(record: &Record, head: Span, span: Span) -> Value {
-    for key in record.columns() {
-        if !ALLOWED_COLUMNS.contains(&key.as_str()) {
-            let allowed_cols = ALLOWED_COLUMNS.join(", ");
-            return Value::error(ShellError::UnsupportedInput {
-                msg: format!(
-                    "Column '{key}' is not valid for a structured datetime. Allowed columns are: {allowed_cols}"
-                ),
-                input: "value originates from here".into(),
-                msg_span: head,
-                input_span: span
-                },
-                span,
-            );
-        }
-    }
+    if let Some(invalid_col) = record
+        .columns()
+        .find(|key| !ALLOWED_COLUMNS.contains(&key.as_str()))
+    {
+        let allowed_cols = ALLOWED_COLUMNS.join(", ");
+        return Value::error(ShellError::UnsupportedInput {
+            msg: format!(
+                "Column '{invalid_col}' is not valid for a structured datetime. Allowed columns are: {allowed_cols}"
+            ),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span
+            },
+            span,
+        );
+    };
 
     let nanosecond = match parse_value_from_record_as_u32("nanosecond", 0, record, &head, &span) {
         Ok(value) => value,
@@ -698,7 +699,7 @@ fn parse_timezone_from_record(
                 Ok(offset)
             }
             other => {
-                return Err(Value::error(
+                Err(Value::error(
                     ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string".to_string(),
                         wrong_type: other.get_type().to_string(),
@@ -706,7 +707,7 @@ fn parse_timezone_from_record(
                         src_span: other.span(),
                     },
                     *span,
-                ));
+                ))
             }
         },
         None => Ok(FixedOffset::east_opt(0).unwrap()),
