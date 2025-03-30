@@ -579,37 +579,11 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
         None => 0,
     };
 
-    let offset = match record.get("timezone") {
-        Some(val) => match val {
-            Value::String { val, internal_span } => {
-                let offset: FixedOffset = match val.parse() {
-                    Ok(offset) => offset,
-                    Err(_) => {
-                        return Value::error(
-                            ShellError::IncorrectValue {
-                                msg: "invalid timezone".to_string(),
-                                val_span: head,
-                                call_span: *internal_span,
-                            },
-                            span,
-                        )
-                    }
-                };
-                offset
-            }
-            other => {
-                return Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "string".to_string(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: head,
-                        src_span: other.span(),
-                    },
-                    span,
-                );
-            }
-        },
-        None => FixedOffset::east_opt(0).unwrap(),
+    let offset = match parse_timezone_from_record(record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
     };
 
     let total_nanoseconds = nanosecond + microsecond * 1_000 + millisecond * 1_000_000;
@@ -698,6 +672,45 @@ fn parse_value_from_record_as_u32(
         None => default,
     };
     Ok(value)
+}
+
+fn parse_timezone_from_record(
+    record: &Record,
+    head: &Span,
+    span: &Span,
+) -> Result<FixedOffset, Value> {
+    match record.get("timezone") {
+        Some(val) => match val {
+            Value::String { val, internal_span } => {
+                let offset: FixedOffset = match val.parse() {
+                    Ok(offset) => offset,
+                    Err(_) => {
+                        return Err(Value::error(
+                            ShellError::IncorrectValue {
+                                msg: "invalid timezone".to_string(),
+                                val_span: *head,
+                                call_span: *internal_span,
+                            },
+                            *span,
+                        ))
+                    }
+                };
+                Ok(offset)
+            }
+            other => {
+                return Err(Value::error(
+                    ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "string".to_string(),
+                        wrong_type: other.get_type().to_string(),
+                        dst_span: *head,
+                        src_span: other.span(),
+                    },
+                    *span,
+                ));
+            }
+        },
+        None => Ok(FixedOffset::east_opt(0).unwrap()),
+    }
 }
 
 fn list_human_readable_examples(span: Span) -> Value {
