@@ -22,6 +22,7 @@ extend-ignore-re = [
 
 [type.rust.extend-words]
 nd = "nd"
+typ = "typ"
 numer = "numer"
 styl = "styl"
 
