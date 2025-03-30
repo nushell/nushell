@@ -253,13 +253,22 @@ fn build_table(mut t: NuTable, termwidth: usize) -> Option<String> {
         return Some(String::new());
     }
 
-    let structure = get_table_structure(&t.data, &t.config);
-    let border_header = structure.with_header && t.config.header_on_border;
-    let head = border_header.then(|| remove_header(&mut t));
+    let mut head = None;
+    if is_header_on_border(&t) {
+        head = Some(remove_header(&mut t));
+    } else {
+        table_insert_footer(&mut t);
+    }
 
     let widths = table_truncate(&mut t, head.clone(), termwidth)?;
-    table_insert_footer(&mut t);
+
     draw_table(t, widths, head, termwidth)
+}
+
+fn is_header_on_border(t: &NuTable) -> bool {
+    let structure = get_table_structure(&t.data, &t.config);
+    let border_header = structure.with_header && t.config.header_on_border;
+    border_header
 }
 
 fn table_insert_footer(t: &mut NuTable) {
@@ -307,22 +316,26 @@ fn draw_table(
     }
 
     let data: Vec<Vec<_>> = t.data.into();
-
     let mut table = Builder::from_vec(data).build();
 
     set_indent(&mut table, t.config.indent);
     load_theme(&mut table, &t.config.theme, &structure, sep_color);
     align_table(&mut table, t.alignments, &structure);
     colorize_table(&mut table, t.styles, &structure);
-
-    let width_ctrl = WidthCtrl::new(widths, t.config, termwidth);
-
-    table.with(width_ctrl);
-    if let Some(head) = head {
-        set_border_head(&mut table, head, structure.with_footer);
-    }
+    truncate_table(&mut table, t.config, widths, termwidth);
+    table_set_border_header(&mut table, head, structure);
 
     table_to_string(table, termwidth)
+}
+
+fn table_set_border_header(table: &mut Table, head: Option<HeadInfo>, structure: TableStructure) {
+    if let Some(head) = head {
+        set_border_head(table, head, structure.with_footer);
+    }
+}
+
+fn truncate_table(table: &mut Table, cfg: TableConfig, widths: Vec<usize>, termwidth: usize) {
+    table.with(WidthCtrl::new(widths, cfg, termwidth));
 }
 
 fn indent_sum(indent: TableIndent) -> usize {
@@ -862,7 +875,8 @@ fn truncate_columns_by_head(
         let move_width = col_width + pad + (i > 0 && has_vertical) as usize;
         if width + move_width >= termwidth {
             let available = termwidth.saturating_sub(
-                (i > 0 && has_vertical) as usize
+                width
+                    + (i > 0 && has_vertical) as usize
                     + (i + 1 != widths.len())
                         .then_some(TRAILING_COLUMN_WIDTH)
                         .unwrap_or(0)
@@ -873,14 +887,14 @@ fn truncate_columns_by_head(
                 width += available;
                 widths[i] = available;
                 truncate_pos += 1;
-            }
 
-            let col_width = available;
-            for row in data.iter_mut() {
-                let cell = &row[i];
-                let text = cell.as_ref();
-                let text = string_expand(text, col_width);
-                row[i] = NuRecordsValue::new(text);
+                let col_width = available;
+                for row in data.iter_mut() {
+                    let cell = &row[i];
+                    let text = cell.as_ref();
+                    let text = string_expand(text, col_width - pad);
+                    row[i] = NuRecordsValue::new(text);
+                }
             }
 
             break;
