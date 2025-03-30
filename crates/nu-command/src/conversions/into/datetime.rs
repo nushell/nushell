@@ -326,7 +326,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
                 dbg!(other);
                 return Value::error(
                     ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "record<int>".to_string(),
+                        exp_input_type: "int".to_string(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: head,
                         src_span: other.span(),
@@ -356,7 +356,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
                 dbg!(other);
                 return Value::error(
                     ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "record<int>".to_string(),
+                        exp_input_type: "int".to_string(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: head,
                         src_span: other.span(),
@@ -386,7 +386,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
                 dbg!(other);
                 return Value::error(
                     ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "record<int>".to_string(),
+                        exp_input_type: "int".to_string(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: head,
                         src_span: other.span(),
@@ -416,7 +416,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
                 dbg!(other);
                 return Value::error(
                     ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "record<int>".to_string(),
+                        exp_input_type: "int".to_string(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: head,
                         src_span: other.span(),
@@ -446,7 +446,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
                 dbg!(other);
                 return Value::error(
                     ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "record<int>".to_string(),
+                        exp_input_type: "int".to_string(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: head,
                         src_span: other.span(),
@@ -476,7 +476,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
                 dbg!(other);
                 return Value::error(
                     ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "record<int>".to_string(),
+                        exp_input_type: "int".to_string(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: head,
                         src_span: other.span(),
@@ -506,7 +506,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
                 dbg!(other);
                 return Value::error(
                     ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "record<int>".to_string(),
+                        exp_input_type: "int".to_string(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: head,
                         src_span: other.span(),
@@ -536,7 +536,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
                 dbg!(other);
                 return Value::error(
                     ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "record<int>".to_string(),
+                        exp_input_type: "int".to_string(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: head,
                         src_span: other.span(),
@@ -554,7 +554,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
                 dbg!(other);
                 return Value::error(
                     ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "record<int>".to_string(),
+                        exp_input_type: "int".to_string(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: head,
                         src_span: other.span(),
@@ -565,14 +565,29 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
         },
         None => 0,
     };
-    let timezone: &str = match record.get("timezone") {
+    let offset = match record.get("timezone") {
         Some(val) => match val {
-            Value::String { val, .. } => val,
+            Value::String { val, internal_span } => {
+                let offset: FixedOffset = match val.parse() {
+                    Ok(offset) => offset,
+                    Err(_) => {
+                        return Value::error(
+                            ShellError::IncorrectValue {
+                                msg: "invalid timezone".to_string(),
+                                val_span: head,
+                                call_span: *internal_span,
+                            },
+                            span,
+                        )
+                    }
+                };
+                offset
+            }
             other => {
                 dbg!(other);
                 return Value::error(
                     ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "timezone: string".to_string(),
+                        exp_input_type: "string".to_string(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: head,
                         src_span: other.span(),
@@ -581,7 +596,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
                 );
             }
         },
-        None => "+00:00",
+        None => FixedOffset::east_opt(0).unwrap(),
     };
 
     dbg!(&nanosecond);
@@ -593,7 +608,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     dbg!(&day);
     dbg!(&month);
     dbg!(&year);
-    dbg!(timezone);
+    dbg!(&offset);
 
     let total_nanoseconds = nanosecond + microsecond * 1_000 + millisecond * 1_000_000;
 
@@ -626,20 +641,6 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
         }
     };
     let date_time = NaiveDateTime::new(date, time);
-
-    let offset: FixedOffset = match timezone.parse() {
-        Ok(val) => val,
-        Err(_) => {
-            return Value::error(
-                ShellError::IncorrectValue {
-                    msg: "invalid timezone".to_string(),
-                    val_span: head,
-                    call_span: span,
-                },
-                span,
-            )
-        }
-    };
 
     dbg!(&date);
     dbg!(&time);
@@ -683,25 +684,26 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             Some(tz) => {
                 return Value::error(
                     ShellError::IncompatibleParameters {
-                        left_message: "left message".into(),
+                        left_message: "got a record as input".into(),
                         left_span: head,
-                        right_message: "right message".into(),
+                        right_message: "the timezone should be included in the record".into(),
                         right_span: tz.span,
                     },
                     head,
                 );
             }
         }
+
         // TODO
         // match dateformat {
         //     None => (),
-        //     Some(dt) => {
+        //     Some(_) => {
         //         return Value::error(
         //             ShellError::IncompatibleParameters {
-        //                 left_message: "left message".into(),
+        //                 left_message: "got a record as input".into(),
         //                 left_span: head,
-        //                 right_message: "right message".into(),
-        //                 right_span: dt,
+        //                 right_message:"cannot be used with records".into(),
+        //                 right_span: input.span(),
         //             },
         //             head,
         //         );
