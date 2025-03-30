@@ -825,7 +825,10 @@ mod tests {
     #[test]
     fn takes_a_date_format_with_timezone() {
         let date_str = Value::test_string("16.11.1984 8:00 am +0000");
-        let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()));
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()),
+            span: Span::test_data(),
+        });
         let args = Arguments {
             zone_options: None,
             format_options: fmt_options,
@@ -849,7 +852,10 @@ mod tests {
         // the purpose of a "without_timezone" test.
         // std::env::set_var("TZ", "UTC");
         let date_str = Value::test_string("16.11.1984 8:00 am");
-        let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P".to_string()));
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%d.%m.%Y %H:%M %P".to_string()),
+            span: Span::test_data(),
+        });
         let args = Arguments {
             zone_options: None,
             format_options: fmt_options,
@@ -931,7 +937,10 @@ mod tests {
     #[test]
     fn takes_int_with_formatstring() {
         let date_int = Value::test_int(1_614_434_140);
-        let fmt_options = Some(DatetimeFormat("%s".to_string()));
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%s".to_string()),
+            span: Span::test_data(),
+        });
         let args = Arguments {
             zone_options: None,
             format_options: fmt_options,
@@ -953,7 +962,10 @@ mod tests {
             item: Zone::East(8),
             span: Span::test_data(),
         });
-        let fmt_options = Some(DatetimeFormat("%s".to_string()));
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%s".to_string()),
+            span: Span::test_data(),
+        });
         let args = Arguments {
             zone_options: timezone_option,
             format_options: fmt_options,
@@ -975,7 +987,10 @@ mod tests {
             item: Zone::Local,
             span: Span::test_data(),
         });
-        let fmt_options = Some(DatetimeFormat("%s".to_string()));
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%s".to_string()),
+            span: Span::test_data(),
+        });
         let args = Arguments {
             zone_options: timezone_option,
             format_options: fmt_options,
@@ -1051,7 +1066,10 @@ mod tests {
     #[test]
     fn communicates_parsing_error_given_an_invalid_datetimelike_string() {
         let date_str = Value::test_string("16.11.1984 8:00 am Oops0000");
-        let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()));
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()),
+            span: Span::test_data(),
+        });
         let args = Arguments {
             zone_options: None,
             format_options: fmt_options,
