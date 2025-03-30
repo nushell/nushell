@@ -689,8 +689,8 @@ fn parse_timezone_from_record(
                         return Err(Value::error(
                             ShellError::IncorrectValue {
                                 msg: "invalid timezone".to_string(),
-                                val_span: *head,
-                                call_span: *internal_span,
+                                val_span: *internal_span,
+                                call_span: *head,
                             },
                             *span,
                         ))
