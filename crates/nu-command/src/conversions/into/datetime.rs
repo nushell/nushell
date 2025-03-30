@@ -714,7 +714,7 @@ fn parse_timezone_from_record(
                 *span,
             )),
         },
-        None => Ok(FixedOffset::east_opt(0).unwrap()),
+        None => Ok(FixedOffset::east_opt(0).expect("Should never fail")),
     }
 }
 
