@@ -21,7 +21,7 @@ const ALLOWED_COLUMNS: [&str; 10] = [
 #[derive(Clone, Debug)]
 struct Arguments {
     zone_options: Option<Spanned<Zone>>,
-    format_options: Option<DatetimeFormat>,
+    format_options: Option<Spanned<DatetimeFormat>>,
     cell_paths: Option<Vec<CellPath>>,
 }
 
@@ -153,13 +153,16 @@ impl Command for IntoDatetime {
                 };
 
             let format_options = call
-                .get_flag::<String>(engine_state, stack, "format")?
+                .get_flag::<Spanned<String>>(engine_state, stack, "format")?
                 .as_ref()
-                .map(|fmt| DatetimeFormat(fmt.to_string()));
+                .map(|fmt| Spanned {
+                    item: DatetimeFormat(fmt.item.to_string()),
+                    span: fmt.span,
+                });
 
             let args = Arguments {
-                format_options,
                 zone_options,
+                format_options,
                 cell_paths,
             };
             operate(action, args, input, call.head, engine_state.signals())
@@ -694,21 +697,20 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             }
         }
 
-        // TODO
-        // match dateformat {
-        //     None => (),
-        //     Some(_) => {
-        //         return Value::error(
-        //             ShellError::IncompatibleParameters {
-        //                 left_message: "got a record as input".into(),
-        //                 left_span: head,
-        //                 right_message:"cannot be used with records".into(),
-        //                 right_span: input.span(),
-        //             },
-        //             head,
-        //         );
-        //     }
-        // }
+        match dateformat {
+            None => (),
+            Some(dt) => {
+                return Value::error(
+                    ShellError::IncompatibleParameters {
+                        left_message: "got a record as input".into(),
+                        left_span: head,
+                        right_message: "cannot be used with records".into(),
+                        right_span: dt.span,
+                    },
+                    head,
+                );
+            }
+        }
 
         dbg!(input);
         return merge_record(record, head, *internal_span);
@@ -833,7 +835,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
     let parse_as_string = |val: &str| {
         match dateformat {
-            Some(dt_format) => match DateTime::parse_from_str(val, &dt_format.0) {
+            Some(dt_format) => match DateTime::parse_from_str(val, &dt_format.item.0) {
                 Ok(dt) => {
                     match timezone {
                         None => {
@@ -882,7 +884,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     }
                 },
                 Err(reason) => {
-                    match NaiveDateTime::parse_from_str(val, &dt_format.0) {
+                    match NaiveDateTime::parse_from_str(val, &dt_format.item.0) {
                         Ok(d) => {
                             let dt_fixed =
                                 Local.from_local_datetime(&d).single().unwrap_or_default();
@@ -891,7 +893,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         }
                         Err(_) => {
                             Value::error (
-                                ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt_format.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
+                                ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt_format.item.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
                                 head,
                             )
                         }
