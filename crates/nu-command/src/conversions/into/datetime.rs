@@ -294,7 +294,6 @@ impl Command for IntoDatetime {
 struct DatetimeFormat(String);
 
 fn action(input: &Value, args: &Arguments, head: Span) -> Value {
-    dbg!(input, args);
     let timezone = &args.zone_options;
     let dateformat = &args.format_options;
 
@@ -338,7 +337,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             }
         }
 
-        dbg!(input);
         return merge_record(record, head, *internal_span);
     }
 
@@ -388,7 +386,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => return input.clone(),
         other => {
-            dbg!(other);
             return Value::error(
                 ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string and int".into(),
@@ -540,7 +537,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
     };
 
-    dbg!(input);
     match input {
         Value::String { val, .. } => parse_as_string(val),
         Value::Int { val, .. } => parse_as_string(&val.to_string()),
@@ -628,7 +624,6 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
         Some(val) => match val {
             Value::Int { val, .. } => *val as i32,
             other => {
-                dbg!(other);
                 return Value::error(
                     ShellError::OnlySupportsThisInputType {
                         exp_input_type: "int".to_string(),
@@ -662,7 +657,6 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
                 offset
             }
             other => {
-                dbg!(other);
                 return Value::error(
                     ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string".to_string(),
@@ -676,17 +670,6 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
         },
         None => FixedOffset::east_opt(0).unwrap(),
     };
-
-    dbg!(&nanosecond);
-    dbg!(&microsecond);
-    dbg!(&millisecond);
-    dbg!(&second);
-    dbg!(&minute);
-    dbg!(&hour);
-    dbg!(&day);
-    dbg!(&month);
-    dbg!(&year);
-    dbg!(&offset);
 
     let total_nanoseconds = nanosecond + microsecond * 1_000 + millisecond * 1_000_000;
 
@@ -719,11 +702,6 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
         }
     };
     let date_time = NaiveDateTime::new(date, time);
-
-    dbg!(&date);
-    dbg!(&time);
-    dbg!(&date_time);
-    dbg!(&offset);
 
     // let datetime_with_timezone = DateTime::from_naive_utc_and_offset(date_time, offset);
     let date_time_fixed = match offset.from_local_datetime(&date_time).single() {
@@ -765,7 +743,6 @@ fn parse_value_from_record_as_u32(
                 *val as u32
             }
             other => {
-                dbg!(other);
                 return Err(Value::error(
                     ShellError::OnlySupportsThisInputType {
                         exp_input_type: "int".to_string(),
