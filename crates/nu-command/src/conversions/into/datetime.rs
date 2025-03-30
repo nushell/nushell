@@ -230,6 +230,12 @@ impl Command for IntoDatetime {
                 result: example_result_1(1614434140_000000000),
             },
             Example {
+                description: "Using a record as input",
+                example: "{year: 2025, month: 3, day: 30, hour: 12, minute: 15, second: 59, timezone: '+02:00'} | into datetime",
+                #[allow(clippy::inconsistent_digit_grouping)]
+                result: example_result_1(1743329759_000000000),
+            },
+            Example {
                 description: "Convert list of timestamps to datetimes",
                 example: r#"["2023-03-30 10:10:07 -05:00", "2023-05-05 13:43:49 -05:00", "2023-06-05 01:37:42 -05:00"] | into datetime"#,
                 result: Some(Value::list(
