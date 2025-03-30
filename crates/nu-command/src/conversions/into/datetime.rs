@@ -269,6 +269,46 @@ impl Command for IntoDatetime {
 #[derive(Clone, Debug)]
 struct DatetimeFormat(String);
 
+fn parse_value_from_record_as_u32(
+    col: &str,
+    default: u32,
+    record: &Record,
+    head: &Span,
+    span: &Span,
+) -> Result<u32, Value> {
+    let value: u32 = match record.get(col) {
+        Some(val) => match val {
+            Value::Int { val, .. } => {
+                if *val < 0 || *val > u32::MAX as i64 {
+                    return Err(Value::error(
+                        ShellError::IncorrectValue {
+                            msg: format!("incorrect value for {}", col),
+                            val_span: *head,
+                            call_span: *span,
+                        },
+                        *span,
+                    ));
+                }
+                *val as u32
+            }
+            other => {
+                dbg!(other);
+                return Err(Value::error(
+                    ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "int".to_string(),
+                        wrong_type: other.get_type().to_string(),
+                        dst_span: *head,
+                        src_span: other.span(),
+                    },
+                    *span,
+                ));
+            }
+        },
+        None => default,
+    };
+    Ok(value)
+}
+
 fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     for key in record.columns() {
         if !ALLOWED_COLUMNS.contains(&key.as_str()) {
@@ -286,245 +326,53 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
         }
     }
 
-    let nanosecond: u32 = match record.get("nanosecond") {
-        Some(val) => match val {
-            Value::Int { val, .. } => {
-                if *val < 0 || *val > u32::MAX as i64 {
-                    return Value::error(
-                        ShellError::IncorrectValue {
-                            msg: "incorrect value for nanosecond".to_string(),
-                            val_span: head,
-                            call_span: span,
-                        },
-                        span,
-                    );
-                }
-                *val as u32
-            }
-            other => {
-                dbg!(other);
-                return Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "int".to_string(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: head,
-                        src_span: other.span(),
-                    },
-                    span,
-                );
-            }
-        },
-        None => 0,
+    let nanosecond = match parse_value_from_record_as_u32("nanosecond", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
     };
-    let microsecond: u32 = match record.get("microsecond") {
-        Some(val) => match val {
-            Value::Int { val, .. } => {
-                if *val < 0 || *val > u32::MAX as i64 {
-                    return Value::error(
-                        ShellError::IncorrectValue {
-                            msg: "incorrect value for microsecond".to_string(),
-                            val_span: head,
-                            call_span: span,
-                        },
-                        span,
-                    );
-                }
-                *val as u32
-            }
-            other => {
-                dbg!(other);
-                return Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "int".to_string(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: head,
-                        src_span: other.span(),
-                    },
-                    span,
-                );
-            }
-        },
-        None => 0,
+    let microsecond = match parse_value_from_record_as_u32("microsecond", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
     };
-    let millisecond: u32 = match record.get("millisecond") {
-        Some(val) => match val {
-            Value::Int { val, .. } => {
-                if *val < 0 || *val > u32::MAX as i64 {
-                    return Value::error(
-                        ShellError::IncorrectValue {
-                            msg: "incorrect value for millisecond".to_string(),
-                            val_span: head,
-                            call_span: span,
-                        },
-                        span,
-                    );
-                }
-                *val as u32
-            }
-            other => {
-                dbg!(other);
-                return Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "int".to_string(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: head,
-                        src_span: other.span(),
-                    },
-                    span,
-                );
-            }
-        },
-        None => 0,
+    let millisecond = match parse_value_from_record_as_u32("millisecond", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
     };
-    let second: u32 = match record.get("second") {
-        Some(val) => match val {
-            Value::Int { val, .. } => {
-                if *val < 0 || *val > u32::MAX as i64 {
-                    return Value::error(
-                        ShellError::IncorrectValue {
-                            msg: "incorrect value for second".to_string(),
-                            val_span: head,
-                            call_span: span,
-                        },
-                        span,
-                    );
-                }
-                *val as u32
-            }
-            other => {
-                dbg!(other);
-                return Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "int".to_string(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: head,
-                        src_span: other.span(),
-                    },
-                    span,
-                );
-            }
-        },
-        None => 0,
+    let second = match parse_value_from_record_as_u32("second", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
     };
-    let minute: u32 = match record.get("minute") {
-        Some(val) => match val {
-            Value::Int { val, .. } => {
-                if *val < 0 || *val > u32::MAX as i64 {
-                    return Value::error(
-                        ShellError::IncorrectValue {
-                            msg: "incorrect value for minute".to_string(),
-                            val_span: head,
-                            call_span: span,
-                        },
-                        span,
-                    );
-                }
-                *val as u32
-            }
-            other => {
-                dbg!(other);
-                return Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "int".to_string(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: head,
-                        src_span: other.span(),
-                    },
-                    span,
-                );
-            }
-        },
-        None => 0,
+    let minute = match parse_value_from_record_as_u32("minute", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
     };
-    let hour: u32 = match record.get("hour") {
-        Some(val) => match val {
-            Value::Int { val, .. } => {
-                if *val < 0 || *val > u32::MAX as i64 {
-                    return Value::error(
-                        ShellError::IncorrectValue {
-                            msg: "incorrect value for hour".to_string(),
-                            val_span: head,
-                            call_span: span,
-                        },
-                        span,
-                    );
-                }
-                *val as u32
-            }
-            other => {
-                dbg!(other);
-                return Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "int".to_string(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: head,
-                        src_span: other.span(),
-                    },
-                    span,
-                );
-            }
-        },
-        None => 0,
+    let hour = match parse_value_from_record_as_u32("hour", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
     };
-    let day: u32 = match record.get("day") {
-        Some(val) => match val {
-            Value::Int { val, .. } => {
-                if *val < 0 || *val > u32::MAX as i64 {
-                    return Value::error(
-                        ShellError::IncorrectValue {
-                            msg: "incorrect value for day".to_string(),
-                            val_span: head,
-                            call_span: span,
-                        },
-                        span,
-                    );
-                }
-                *val as u32
-            }
-            other => {
-                dbg!(other);
-                return Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "int".to_string(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: head,
-                        src_span: other.span(),
-                    },
-                    span,
-                );
-            }
-        },
-        None => 1,
+    let day = match parse_value_from_record_as_u32("day", 1, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
     };
-    let month: u32 = match record.get("month") {
-        Some(val) => match val {
-            Value::Int { val, .. } => {
-                if *val < 0 || *val > u32::MAX as i64 {
-                    return Value::error(
-                        ShellError::IncorrectValue {
-                            msg: "incorrect value for month".to_string(),
-                            val_span: head,
-                            call_span: span,
-                        },
-                        span,
-                    );
-                }
-                *val as u32
-            }
-            other => {
-                dbg!(other);
-                return Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "int".to_string(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: head,
-                        src_span: other.span(),
-                    },
-                    span,
-                );
-            }
-        },
-        None => 1,
+    let month = match parse_value_from_record_as_u32("month", 1, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
     };
     let year: i32 = match record.get("year") {
         Some(val) => match val {
@@ -544,6 +392,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
         },
         None => 0,
     };
+
     let offset = match record.get("timezone") {
         Some(val) => match val {
             Value::String { val, internal_span } => {
