@@ -283,34 +283,28 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         internal_span,
     } = input
     {
-        match timezone {
-            None => (),
-            Some(tz) => {
-                return Value::error(
-                    ShellError::IncompatibleParameters {
-                        left_message: "got a record as input".into(),
-                        left_span: head,
-                        right_message: "the timezone should be included in the record".into(),
-                        right_span: tz.span,
-                    },
-                    head,
-                );
-            }
+        if let Some(tz) = timezone {
+            return Value::error(
+                ShellError::IncompatibleParameters {
+                    left_message: "got a record as input".into(),
+                    left_span: head,
+                    right_message: "the timezone should be included in the record".into(),
+                    right_span: tz.span,
+                },
+                head,
+            );
         }
 
-        match dateformat {
-            None => (),
-            Some(dt) => {
-                return Value::error(
-                    ShellError::IncompatibleParameters {
-                        left_message: "got a record as input".into(),
-                        left_span: head,
-                        right_message: "cannot be used with records".into(),
-                        right_span: dt.span,
-                    },
-                    head,
-                );
-            }
+        if let Some(dt) = dateformat {
+            return Value::error(
+                ShellError::IncompatibleParameters {
+                    left_message: "got a record as input".into(),
+                    left_span: head,
+                    right_message: "cannot be used with records".into(),
+                    right_span: dt.span,
+                },
+                head,
+            );
         }
 
         return merge_record(record, head, *internal_span);
