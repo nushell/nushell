@@ -269,229 +269,6 @@ impl Command for IntoDatetime {
 #[derive(Clone, Debug)]
 struct DatetimeFormat(String);
 
-fn parse_value_from_record_as_u32(
-    col: &str,
-    default: u32,
-    record: &Record,
-    head: &Span,
-    span: &Span,
-) -> Result<u32, Value> {
-    let value: u32 = match record.get(col) {
-        Some(val) => match val {
-            Value::Int { val, .. } => {
-                if *val < 0 || *val > u32::MAX as i64 {
-                    return Err(Value::error(
-                        ShellError::IncorrectValue {
-                            msg: format!("incorrect value for {}", col),
-                            val_span: *head,
-                            call_span: *span,
-                        },
-                        *span,
-                    ));
-                }
-                *val as u32
-            }
-            other => {
-                dbg!(other);
-                return Err(Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "int".to_string(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: *head,
-                        src_span: other.span(),
-                    },
-                    *span,
-                ));
-            }
-        },
-        None => default,
-    };
-    Ok(value)
-}
-
-fn merge_record(record: &Record, head: Span, span: Span) -> Value {
-    for key in record.columns() {
-        if !ALLOWED_COLUMNS.contains(&key.as_str()) {
-            let allowed_cols = ALLOWED_COLUMNS.join(", ");
-            return Value::error(ShellError::UnsupportedInput {
-                msg: format!(
-                    "Column '{key}' is not valid for a structured datetime. Allowed columns are: {allowed_cols}"
-                ),
-                input: "value originates from here".into(),
-                msg_span: head,
-                input_span: span
-                },
-                span,
-            );
-        }
-    }
-
-    let nanosecond = match parse_value_from_record_as_u32("nanosecond", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let microsecond = match parse_value_from_record_as_u32("microsecond", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let millisecond = match parse_value_from_record_as_u32("millisecond", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let second = match parse_value_from_record_as_u32("second", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let minute = match parse_value_from_record_as_u32("minute", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let hour = match parse_value_from_record_as_u32("hour", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let day = match parse_value_from_record_as_u32("day", 1, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let month = match parse_value_from_record_as_u32("month", 1, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let year: i32 = match record.get("year") {
-        Some(val) => match val {
-            Value::Int { val, .. } => *val as i32,
-            other => {
-                dbg!(other);
-                return Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "int".to_string(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: head,
-                        src_span: other.span(),
-                    },
-                    span,
-                );
-            }
-        },
-        None => 0,
-    };
-
-    let offset = match record.get("timezone") {
-        Some(val) => match val {
-            Value::String { val, internal_span } => {
-                let offset: FixedOffset = match val.parse() {
-                    Ok(offset) => offset,
-                    Err(_) => {
-                        return Value::error(
-                            ShellError::IncorrectValue {
-                                msg: "invalid timezone".to_string(),
-                                val_span: head,
-                                call_span: *internal_span,
-                            },
-                            span,
-                        )
-                    }
-                };
-                offset
-            }
-            other => {
-                dbg!(other);
-                return Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "string".to_string(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: head,
-                        src_span: other.span(),
-                    },
-                    span,
-                );
-            }
-        },
-        None => FixedOffset::east_opt(0).unwrap(),
-    };
-
-    dbg!(&nanosecond);
-    dbg!(&microsecond);
-    dbg!(&millisecond);
-    dbg!(&second);
-    dbg!(&minute);
-    dbg!(&hour);
-    dbg!(&day);
-    dbg!(&month);
-    dbg!(&year);
-    dbg!(&offset);
-
-    let total_nanoseconds = nanosecond + microsecond * 1_000 + millisecond * 1_000_000;
-
-    let date = match NaiveDate::from_ymd_opt(year, month, day) {
-        Some(d) => d,
-        None => {
-            return Value::error(
-                ShellError::IncorrectValue {
-                    msg: "one of more values are incorrect and do not represent valid date"
-                        .to_string(),
-                    val_span: head,
-                    call_span: span,
-                },
-                span,
-            )
-        }
-    };
-    let time = match NaiveTime::from_hms_nano_opt(hour, minute, second, total_nanoseconds) {
-        Some(t) => t,
-        None => {
-            return Value::error(
-                ShellError::IncorrectValue {
-                    msg: "one of more values are incorrect and do not represent valid time"
-                        .to_string(),
-                    val_span: head,
-                    call_span: span,
-                },
-                span,
-            )
-        }
-    };
-    let date_time = NaiveDateTime::new(date, time);
-
-    dbg!(&date);
-    dbg!(&time);
-    dbg!(&date_time);
-    dbg!(&offset);
-
-    // let datetime_with_timezone = DateTime::from_naive_utc_and_offset(date_time, offset);
-    let date_time_fixed = match offset.from_local_datetime(&date_time).single() {
-        Some(d) => d,
-        None => {
-            return Value::error(
-                ShellError::IncorrectValue {
-                    msg: "Ambiguous or invalid timezone conversion".to_string(),
-                    val_span: head,
-                    call_span: span,
-                },
-                span,
-            )
-        }
-    };
-    Value::date(date_time_fixed, span)
-}
-
 fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     dbg!(input, args);
     let timezone = &args.zone_options;
@@ -727,6 +504,267 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             head,
         ),
     }
+}
+
+fn merge_record(record: &Record, head: Span, span: Span) -> Value {
+    for key in record.columns() {
+        if !ALLOWED_COLUMNS.contains(&key.as_str()) {
+            let allowed_cols = ALLOWED_COLUMNS.join(", ");
+            return Value::error(ShellError::UnsupportedInput {
+                msg: format!(
+                    "Column '{key}' is not valid for a structured datetime. Allowed columns are: {allowed_cols}"
+                ),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: span
+                },
+                span,
+            );
+        }
+    }
+
+    let nanosecond = match parse_value_from_record_as_u32("nanosecond", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let microsecond = match parse_value_from_record_as_u32("microsecond", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let millisecond = match parse_value_from_record_as_u32("millisecond", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let second = match parse_value_from_record_as_u32("second", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let minute = match parse_value_from_record_as_u32("minute", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let hour = match parse_value_from_record_as_u32("hour", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let day = match parse_value_from_record_as_u32("day", 1, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let month = match parse_value_from_record_as_u32("month", 1, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let year: i32 = match record.get("year") {
+        Some(val) => match val {
+            Value::Int { val, .. } => *val as i32,
+            other => {
+                dbg!(other);
+                return Value::error(
+                    ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "int".to_string(),
+                        wrong_type: other.get_type().to_string(),
+                        dst_span: head,
+                        src_span: other.span(),
+                    },
+                    span,
+                );
+            }
+        },
+        None => 0,
+    };
+
+    let offset = match record.get("timezone") {
+        Some(val) => match val {
+            Value::String { val, internal_span } => {
+                let offset: FixedOffset = match val.parse() {
+                    Ok(offset) => offset,
+                    Err(_) => {
+                        return Value::error(
+                            ShellError::IncorrectValue {
+                                msg: "invalid timezone".to_string(),
+                                val_span: head,
+                                call_span: *internal_span,
+                            },
+                            span,
+                        )
+                    }
+                };
+                offset
+            }
+            other => {
+                dbg!(other);
+                return Value::error(
+                    ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "string".to_string(),
+                        wrong_type: other.get_type().to_string(),
+                        dst_span: head,
+                        src_span: other.span(),
+                    },
+                    span,
+                );
+            }
+        },
+        None => FixedOffset::east_opt(0).unwrap(),
+    };
+
+    dbg!(&nanosecond);
+    dbg!(&microsecond);
+    dbg!(&millisecond);
+    dbg!(&second);
+    dbg!(&minute);
+    dbg!(&hour);
+    dbg!(&day);
+    dbg!(&month);
+    dbg!(&year);
+    dbg!(&offset);
+
+    let total_nanoseconds = nanosecond + microsecond * 1_000 + millisecond * 1_000_000;
+
+    let date = match NaiveDate::from_ymd_opt(year, month, day) {
+        Some(d) => d,
+        None => {
+            return Value::error(
+                ShellError::IncorrectValue {
+                    msg: "one of more values are incorrect and do not represent valid date"
+                        .to_string(),
+                    val_span: head,
+                    call_span: span,
+                },
+                span,
+            )
+        }
+    };
+    let time = match NaiveTime::from_hms_nano_opt(hour, minute, second, total_nanoseconds) {
+        Some(t) => t,
+        None => {
+            return Value::error(
+                ShellError::IncorrectValue {
+                    msg: "one of more values are incorrect and do not represent valid time"
+                        .to_string(),
+                    val_span: head,
+                    call_span: span,
+                },
+                span,
+            )
+        }
+    };
+    let date_time = NaiveDateTime::new(date, time);
+
+    dbg!(&date);
+    dbg!(&time);
+    dbg!(&date_time);
+    dbg!(&offset);
+
+    // let datetime_with_timezone = DateTime::from_naive_utc_and_offset(date_time, offset);
+    let date_time_fixed = match offset.from_local_datetime(&date_time).single() {
+        Some(d) => d,
+        None => {
+            return Value::error(
+                ShellError::IncorrectValue {
+                    msg: "Ambiguous or invalid timezone conversion".to_string(),
+                    val_span: head,
+                    call_span: span,
+                },
+                span,
+            )
+        }
+    };
+    Value::date(date_time_fixed, span)
+}
+
+fn parse_value_from_record_as_u32(
+    col: &str,
+    default: u32,
+    record: &Record,
+    head: &Span,
+    span: &Span,
+) -> Result<u32, Value> {
+    let value: u32 = match record.get(col) {
+        Some(val) => match val {
+            Value::Int { val, .. } => {
+                if *val < 0 || *val > u32::MAX as i64 {
+                    return Err(Value::error(
+                        ShellError::IncorrectValue {
+                            msg: format!("incorrect value for {}", col),
+                            val_span: *head,
+                            call_span: *span,
+                        },
+                        *span,
+                    ));
+                }
+                *val as u32
+            }
+            other => {
+                dbg!(other);
+                return Err(Value::error(
+                    ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "int".to_string(),
+                        wrong_type: other.get_type().to_string(),
+                        dst_span: *head,
+                        src_span: other.span(),
+                    },
+                    *span,
+                ));
+            }
+        },
+        None => default,
+    };
+    Ok(value)
+}
+
+fn list_human_readable_examples(span: Span) -> Value {
+    let examples: Vec<String> = vec![
+        "Today 18:30".into(),
+        "2022-11-07 13:25:30".into(),
+        "15:20 Friday".into(),
+        "This Friday 17:00".into(),
+        "13:25, Next Tuesday".into(),
+        "Last Friday at 19:45".into(),
+        "In 3 days".into(),
+        "In 2 hours".into(),
+        "10 hours and 5 minutes ago".into(),
+        "1 years ago".into(),
+        "A year ago".into(),
+        "A month ago".into(),
+        "A week ago".into(),
+        "A day ago".into(),
+        "An hour ago".into(),
+        "A minute ago".into(),
+        "A second ago".into(),
+        "Now".into(),
+    ];
+
+    let records = examples
+        .iter()
+        .map(|s| {
+            Value::record(
+                record! {
+                    "parseable human datetime examples" => Value::test_string(s.to_string()),
+                    "result" => action(&Value::test_string(s.to_string()), &Arguments { zone_options: None, format_options: None, cell_paths: None }, span)
+                },
+                span,
+            )
+        })
+        .collect::<Vec<Value>>();
+
+    Value::list(records, span)
 }
 
 #[cfg(test)]
