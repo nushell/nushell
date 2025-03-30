@@ -1,9 +1,20 @@
 use crate::{generate_strftime_list, parse_date_from_string};
-use chrono::{DateTime, FixedOffset, Local, NaiveDateTime, TimeZone, Utc};
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use chrono::{DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use nu_engine::command_prelude::*;
 
 const HOUR: i32 = 60 * 60;
+const ALLOWED_COLUMNS: [&str; 10] = [
+    "year",
+    "month",
+    "day",
+    "hour",
+    "minute",
+    "second",
+    "millisecond",
+    "microsecond",
+    "nanosecond",
+    "timezone",
+];
 
 #[derive(Clone, Debug)]
 struct Arguments {
@@ -255,13 +266,131 @@ impl Command for IntoDatetime {
 #[derive(Clone, Debug)]
 struct DatetimeFormat(String);
 
+fn merge_record(record: &Record, head: Span, span: Span) -> Value {
+    for key in record.columns() {
+        if !ALLOWED_COLUMNS.contains(&key.as_str()) {
+            let allowed_cols = ALLOWED_COLUMNS.join(", ");
+            return Value::error(ShellError::UnsupportedInput {
+                msg: format!(
+                    "Column '{key}' is not valid for a structured datetime. Allowed columns are: {allowed_cols}"
+                ),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: span
+                },
+                span,
+            );
+        }
+    }
+
+    let nanosecond: u32 = match record.get("nanosecond") {
+        Some(val) => match val {
+            Value::Int { val, .. } => {
+                dbg!(val);
+                if *val < 0 || *val > u32::MAX as i64 {
+                    return Value::error(
+                        ShellError::IncorrectValue {
+                            msg: "incorrect value for nanosecond".to_string(),
+                            val_span: head,
+                            call_span: span,
+                        },
+                        span,
+                    );
+                }
+                *val as u32
+            }
+            other => {
+                dbg!(other);
+                return Value::error(
+                    ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "record<int>".to_string(),
+                        wrong_type: other.get_type().to_string(),
+                        dst_span: head,
+                        src_span: other.span(),
+                    },
+                    span,
+                );
+            }
+        },
+        None => 0,
+    };
+
+    dbg!(&nanosecond);
+
+    let timezone = "+01:00";
+
+    let date = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+    let time = match NaiveTime::from_hms_nano_opt(0, 0, 0, nanosecond) {
+        Some(d) => d,
+        None => {
+            return Value::error(
+                ShellError::IncorrectValue {
+                    msg: "one of more values are incorrect and do not represent valid date time"
+                        .to_string(),
+                    val_span: head,
+                    call_span: span,
+                },
+                span,
+            )
+        }
+    };
+    let datetime = NaiveDateTime::new(date, time);
+
+    let offset: FixedOffset = timezone
+        .parse()
+        .unwrap_or(FixedOffset::east_opt(0).unwrap()); // TODO return error instead
+
+    let datetime_with_timezone = DateTime::from_naive_utc_and_offset(datetime, offset);
+    Value::date(datetime_with_timezone, span)
+}
+
 fn action(input: &Value, args: &Arguments, head: Span) -> Value {
+    dbg!(input, args);
     let timezone = &args.zone_options;
     let dateformat = &args.format_options;
 
     // noop if the input is already a datetime
     if matches!(input, Value::Date { .. }) {
         return input.clone();
+    }
+
+    if let Value::Record {
+        val: record,
+        internal_span,
+    } = input
+    {
+        match timezone {
+            None => (),
+            Some(tz) => {
+                return Value::error(
+                    ShellError::IncompatibleParameters {
+                        left_message: "left message".into(),
+                        left_span: head,
+                        right_message: "right message".into(),
+                        right_span: tz.span,
+                    },
+                    head,
+                );
+            }
+        }
+        // TODO
+        // match dateformat {
+        //     None => (),
+        //     Some(dt) => {
+        //         return Value::error(
+        //             ShellError::IncompatibleParameters {
+        //                 left_message: "left message".into(),
+        //                 left_span: head,
+        //                 right_message: "right message".into(),
+        //                 right_span: dt,
+        //             },
+        //             head,
+        //         );
+        //     }
+        // }
+
+        dbg!(input);
+        return merge_record(record, head, *internal_span);
     }
 
     // Let's try dtparse first
@@ -281,6 +410,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => return input.clone(),
         other => {
+            dbg!(other);
             return Value::error(
                 ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string and int".into(),
@@ -432,6 +562,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
     };
 
+    dbg!(input);
     match input {
         Value::String { val, .. } => parse_as_string(val),
         Value::Int { val, .. } => parse_as_string(&val.to_string()),
