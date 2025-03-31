@@ -102,7 +102,7 @@ fn complete_rec(
                         && (if options.case_sensitive {
                             entry_name.eq(base)
                         } else {
-                            entry_name.to_folded_case().eq(&base.to_folded_case())
+                            entry_name.eq_ignore_case(&base)
                         });
                     completions.extend(complete_rec(
                         rest,
