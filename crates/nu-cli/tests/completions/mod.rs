@@ -2249,6 +2249,11 @@ fn exact_match() {
         ],
         &suggestions,
     );
+
+    // Exact match behavior shouldn't be enabled if the path has no slashes
+    let target_dir = format!("open {}", file(dir.join("partial")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+    assert!(suggestions.len() > 1);
 }
 
 #[ignore = "was reverted, still needs fixing"]

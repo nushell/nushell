@@ -29,10 +29,8 @@ pub struct PathBuiltFromString {
 /// `isdir`: whether the current partial path has a trailing slash.
 /// Parsing a path string into a pathbuf loses that bit of information.
 ///
-/// `enable_exact_match`: Whether all of the following are true:
-///   - Prefix matching is used
-///   - The typed path has at least one slash
-///   - All of the previous components of the path matched a directory exactly
+/// `enable_exact_match`: Whether match algorithm is Prefix and all previous components
+/// of the path matched a directory exactly.
 fn complete_rec(
     partial: &[&str],
     built_paths: &[PathBuiltFromString],
@@ -254,8 +252,6 @@ pub fn complete_item(
         .filter(|s| !s.is_empty())
         .collect();
 
-    let enable_exact_match =
-        options.match_algorithm == MatchAlgorithm::Prefix && (partial.len() > 1 || isdir);
     complete_rec(
         partial.as_slice(),
         &cwds
@@ -269,7 +265,7 @@ pub fn complete_item(
         options,
         want_directory,
         isdir,
-        enable_exact_match,
+        options.match_algorithm == MatchAlgorithm::Prefix,
     )
     .into_iter()
     .map(|mut p| {
