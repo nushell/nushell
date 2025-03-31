@@ -1,6 +1,5 @@
 use nu_engine::command_prelude::*;
-
-use rand::prelude::{thread_rng, Rng};
+use rand::random_bool;
 
 #[derive(Clone)]
 pub struct RandomBool;
@@ -77,8 +76,7 @@ fn bool(
         }
     }
 
-    let mut rng = thread_rng();
-    let bool_result: bool = rng.gen_bool(probability);
+    let bool_result: bool = random_bool(probability);
 
     Ok(PipelineData::Value(Value::bool(bool_result, span), None))
 }

@@ -1,8 +1,8 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
 use rand::{
-    distributions::{Alphanumeric, Standard},
-    thread_rng, Rng,
+    distr::{Alphanumeric, StandardUniform},
+    rng, Rng,
 };
 
 pub(super) enum RandomDistribution {
@@ -31,9 +31,9 @@ pub(super) fn random_byte_stream(
 
             let bytes_to_write = std::cmp::min(remaining_bytes, OUTPUT_CHUNK_SIZE);
 
-            let rng = thread_rng();
+            let rng = rng();
             let byte_iter: Box<dyn Iterator<Item = u8>> = match distribution {
-                RandomDistribution::Binary => Box::new(rng.sample_iter(Standard)),
+                RandomDistribution::Binary => Box::new(rng.sample_iter(StandardUniform)),
                 RandomDistribution::Alphanumeric => Box::new(rng.sample_iter(Alphanumeric)),
             };
             out.extend(byte_iter.take(bytes_to_write));

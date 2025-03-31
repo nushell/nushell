@@ -7,7 +7,7 @@ use nu_test_support::{
     playground::{Dirs, Playground},
 };
 use rand::{
-    distributions::{Alphanumeric, DistString, Standard},
+    distr::{Alphanumeric, DistString, Standard},
     prelude::Distribution,
     rngs::StdRng,
     Rng, SeedableRng,
