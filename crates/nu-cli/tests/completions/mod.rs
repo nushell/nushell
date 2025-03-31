@@ -951,10 +951,11 @@ fn partial_completions() {
     // Create the expected values
     let expected_paths = [
         file(dir.join("partial").join("hello.txt")),
+        folder(dir.join("partial").join("hol")),
         file(dir.join("partial-a").join("have_ext.exe")),
         file(dir.join("partial-a").join("have_ext.txt")),
         file(dir.join("partial-a").join("hello")),
-        file(dir.join("partial-a").join("hola")),
+        folder(dir.join("partial-a").join("hola")),
         file(dir.join("partial-b").join("hello_b")),
         file(dir.join("partial-b").join("hi_b")),
         file(dir.join("partial-c").join("hello_c")),
@@ -971,11 +972,12 @@ fn partial_completions() {
     // Create the expected values
     let expected_paths = [
         file(dir.join("partial").join("hello.txt")),
+        folder(dir.join("partial").join("hol")),
         file(dir.join("partial-a").join("anotherfile")),
         file(dir.join("partial-a").join("have_ext.exe")),
         file(dir.join("partial-a").join("have_ext.txt")),
         file(dir.join("partial-a").join("hello")),
-        file(dir.join("partial-a").join("hola")),
+        folder(dir.join("partial-a").join("hola")),
         file(dir.join("partial-b").join("hello_b")),
         file(dir.join("partial-b").join("hi_b")),
         file(dir.join("partial-c").join("hello_c")),
@@ -2215,15 +2217,43 @@ fn exact_match() {
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
+    // Troll case to test if exact match logic works case insensitively
     let target_dir = format!("open {}", folder(dir.join("pArTiAL")));
     let suggestions = completer.complete(&target_dir, target_dir.len());
-
-    // Since it's an exact match, only 'partial' should be suggested, not
-    // 'partial-a' and stuff. Implemented in #13302
     match_suggestions(
-        &vec![file(dir.join("partial").join("hello.txt")).as_str()],
+        &vec![
+            file(dir.join("partial").join("hello.txt")).as_str(),
+            folder(dir.join("partial").join("hol")).as_str(),
+        ],
         &suggestions,
     );
+
+    let target_dir = format!("open {}", file(dir.join("partial").join("h")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+    match_suggestions(
+        &vec![
+            file(dir.join("partial").join("hello.txt")).as_str(),
+            folder(dir.join("partial").join("hol")).as_str(),
+        ],
+        &suggestions,
+    );
+
+    // Even though "hol" is an exact match, the first component ("part") wasn't an
+    // exact match, so we include partial-a/hola
+    let target_dir = format!("open {}", file(dir.join("part").join("hol")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+    match_suggestions(
+        &vec![
+            folder(dir.join("partial").join("hol")).as_str(),
+            folder(dir.join("partial-a").join("hola")).as_str(),
+        ],
+        &suggestions,
+    );
+
+    // Exact match behavior shouldn't be enabled if the path has no slashes
+    let target_dir = format!("open {}", file(dir.join("partial")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+    assert!(suggestions.len() > 1);
 }
 
 #[ignore = "was reverted, still needs fixing"]
