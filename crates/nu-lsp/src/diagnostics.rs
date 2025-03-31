@@ -38,6 +38,17 @@ impl LanguageServer {
             });
         }
 
+        for warn in working_set.parse_warnings.iter() {
+            let message = warn.to_string();
+
+            diagnostics.diagnostics.push(Diagnostic {
+                range: span_to_range(&warn.span(), file, span.start),
+                severity: Some(DiagnosticSeverity::WARNING),
+                message,
+                ..Default::default()
+            });
+        }
+
         self.connection
             .sender
             .send(lsp_server::Message::Notification(

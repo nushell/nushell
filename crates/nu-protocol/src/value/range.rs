@@ -1,6 +1,7 @@
 //! A Range is an iterator over integers or floats.
 
 use crate::{ast::RangeInclusion, ShellError, Signals, Span, Value};
+use core::ops::Bound;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display};
 
@@ -628,6 +629,13 @@ impl Range {
             (Self::FloatRange(range), Value::Int { val, .. }) => range.contains(*val as f64),
             (Self::FloatRange(range), Value::Float { val, .. }) => range.contains(*val),
             _ => false,
+        }
+    }
+
+    pub fn is_bounded(&self) -> bool {
+        match self {
+            Range::IntRange(range) => range.end() != Bound::<i64>::Unbounded,
+            Range::FloatRange(range) => range.end() != Bound::<f64>::Unbounded,
         }
     }
 

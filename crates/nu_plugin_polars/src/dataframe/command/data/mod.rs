@@ -5,6 +5,7 @@ mod cast;
 mod col;
 mod collect;
 mod concat;
+mod cut;
 mod drop;
 mod drop_duplicates;
 mod drop_nulls;
@@ -22,6 +23,7 @@ mod last;
 mod len;
 mod lit;
 mod pivot;
+mod qcut;
 mod query_df;
 mod rename;
 mod reverse;
@@ -75,6 +77,7 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
     vec![
         Box::new(AppendDF),
         Box::new(CastDF),
+        Box::new(cut::CutSeries),
         Box::new(DropDF),
         Box::new(concat::ConcatDF),
         Box::new(DropDuplicates),
@@ -108,6 +111,7 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazySortBy),
         Box::new(LazyFilter),
         Box::new(Shift),
+        Box::new(qcut::QCutSeries),
         Box::new(Unique),
         Box::new(unnest::UnnestDF),
     ]
