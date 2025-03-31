@@ -98,7 +98,7 @@ fn complete_rec(
                 }
 
                 // For https://github.com/nushell/nushell/issues/13204
-                if options.match_algorithm == MatchAlgorithm::Prefix {
+                if isdir && options.match_algorithm == MatchAlgorithm::Prefix {
                     let exact_match = if options.case_sensitive {
                         entry_name.eq(base)
                     } else {
