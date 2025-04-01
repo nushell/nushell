@@ -24,7 +24,7 @@ itertools = { workspace = true }
 shadow-rs = { version = "1", default-features = false }
 
 [build-dependencies]
-shadow-rs = { version = "1", features = ["build"] }
+shadow-rs = { version = "1", default-features = false, features = ["build"] }
 
 [dev-dependencies]
 quickcheck = { workspace = true }
