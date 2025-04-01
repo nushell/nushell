@@ -150,7 +150,7 @@ impl OriginalCwd {
     }
 }
 
-fn surround_remove(partial: &str) -> String {
+pub fn surround_remove(partial: &str) -> String {
     for c in ['`', '"', '\''] {
         if partial.starts_with(c) {
             let ret = partial.strip_prefix(c).unwrap_or(partial);
