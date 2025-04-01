@@ -7,8 +7,9 @@ use nu_test_support::{
     playground::{Dirs, Playground},
 };
 use rand::{
-    distributions::{Alphanumeric, DistString, Standard},
+    distr::{Alphanumeric, SampleString, StandardUniform},
     prelude::Distribution,
+    random_range,
     rngs::StdRng,
     Rng, SeedableRng,
 };
@@ -382,7 +383,7 @@ struct TestRow(
 
 impl TestRow {
     pub fn random() -> Self {
-        StdRng::from_entropy().sample(Standard)
+        StdRng::from_os_rng().sample(StandardUniform)
     }
 }
 
@@ -433,12 +434,12 @@ impl TryFrom<&rusqlite::Row<'_>> for TestRow {
     }
 }
 
-impl Distribution<TestRow> for Standard {
+impl Distribution<TestRow> for StandardUniform {
     fn sample<R>(&self, rng: &mut R) -> TestRow
     where
         R: rand::Rng + ?Sized,
     {
-        let dt = DateTime::from_timestamp_millis(rng.gen_range(0..2324252554000))
+        let dt = DateTime::from_timestamp_millis(random_range(0..2324252554000))
             .unwrap()
             .fixed_offset();
 
@@ -446,18 +447,18 @@ impl Distribution<TestRow> for Standard {
 
         // limit the size of the numbers to work around
         // https://github.com/nushell/nushell/issues/10612
-        let filesize = rng.gen_range(-1024..=1024);
-        let duration = rng.gen_range(-1024..=1024);
+        let filesize = random_range(-1024..=1024);
+        let duration = random_range(-1024..=1024);
 
         TestRow(
-            rng.gen(),
-            rng.gen(),
-            rng.gen(),
+            rng.random(),
+            rng.random(),
+            rng.random(),
             filesize,
             duration,
             dt,
             rand_string,
-            rng.gen::<u64>().to_be_bytes().to_vec(),
+            rng.random::<u64>().to_be_bytes().to_vec(),
             rusqlite::types::Value::Null,
         )
     }

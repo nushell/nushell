@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{FloatRange, Range};
-use rand::prelude::{thread_rng, Rng};
+use rand::random_range;
 use std::ops::Bound;
 
 #[derive(Clone)]
@@ -71,8 +71,6 @@ fn float(
     let span = call.head;
     let range: Option<Spanned<Range>> = call.opt(engine_state, stack, 0)?;
 
-    let mut thread_rng = thread_rng();
-
     match range {
         Some(range) => {
             let range_span = range.span;
@@ -90,15 +88,15 @@ fn float(
             }
 
             let value = match range.end() {
-                Bound::Included(end) => thread_rng.gen_range(range.start()..=end),
-                Bound::Excluded(end) => thread_rng.gen_range(range.start()..end),
-                Bound::Unbounded => thread_rng.gen_range(range.start()..f64::INFINITY),
+                Bound::Included(end) => random_range(range.start()..=end),
+                Bound::Excluded(end) => random_range(range.start()..end),
+                Bound::Unbounded => random_range(range.start()..f64::INFINITY),
             };
 
             Ok(PipelineData::Value(Value::float(value, span), None))
         }
         None => Ok(PipelineData::Value(
-            Value::float(thread_rng.gen_range(0.0..1.0), span),
+            Value::float(random_range(0.0..1.0), span),
             None,
         )),
     }
