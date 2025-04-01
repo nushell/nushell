@@ -169,6 +169,67 @@ pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
             let time_unit = str_to_time_unit(next, span)?;
             Ok(DataType::Duration(time_unit))
         }
+        _ if dtype.starts_with("decimal") => {
+            let dtype = dtype
+                .trim_start_matches("decimal")
+                .trim_start_matches('<')
+                .trim_end_matches('>');
+            let mut split = dtype.split(',');
+            let next = split
+                .next()
+                .ok_or_else(|| ShellError::GenericError {
+                    error: "Invalid polars data type".into(),
+                    msg: "Missing decimal precision".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                })?
+                .trim();
+            let precision = match next {
+                "*" => None, // infer
+                _ => Some(
+                    next.parse::<usize>()
+                        .map_err(|e| ShellError::GenericError {
+                            error: "Invalid polars data type".into(),
+                            msg: format!("Error in parsing decimal precision: {e}"),
+                            span: Some(span),
+                            help: None,
+                            inner: vec![],
+                        })?,
+                ),
+            };
+
+            let next = split
+                .next()
+                .ok_or_else(|| ShellError::GenericError {
+                    error: "Invalid polars data type".into(),
+                    msg: "Missing decimal scale".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                })?
+                .trim();
+            let scale = match next {
+                "*" => Err(ShellError::GenericError {
+                    error: "Invalid polars data type".into(),
+                    msg: "`*` is not a permitted value for scale".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                }),
+                _ => next
+                    .parse::<usize>()
+                    .map(Some)
+                    .map_err(|e| ShellError::GenericError {
+                        error: "Invalid polars data type".into(),
+                        msg: format!("Error in parsing decimal precision: {e}"),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    }),
+            }?;
+            Ok(DataType::Decimal(precision, scale))
+        }
         _ => Err(ShellError::GenericError {
             error: "Invalid polars data type".into(),
             msg: format!("Unknown type: {dtype}"),
@@ -368,6 +429,24 @@ mod test {
     }
 
     #[test]
+    fn test_dtype_str_schema_decimal() {
+        let dtype = "decimal<7,2>";
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
+        let expected = DataType::Decimal(Some(7usize), Some(2usize));
+        assert_eq!(schema, expected);
+
+        // "*" is not a permitted value for scale
+        let dtype = "decimal<7,*>";
+        let schema = str_to_dtype(dtype, Span::unknown());
+        assert!(matches!(schema, Err(ShellError::GenericError { .. })));
+
+        let dtype = "decimal<*,2>";
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
+        let expected = DataType::Decimal(None, Some(2usize));
+        assert_eq!(schema, expected);
+    }
+
+    #[test]
     fn test_dtype_str_to_schema_list_types() {
         let dtype = "list<i32>";
         let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
@@ -383,5 +462,19 @@ mod test {
         let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
         let expected = DataType::List(Box::new(DataType::Datetime(TimeUnit::Milliseconds, None)));
         assert_eq!(schema, expected);
+
+        let dtype = "list<decimal<7,2>>";
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
+        let expected = DataType::List(Box::new(DataType::Decimal(Some(7usize), Some(2usize))));
+        assert_eq!(schema, expected);
+
+        let dtype = "list<decimal<*,2>>";
+        let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
+        let expected = DataType::List(Box::new(DataType::Decimal(None, Some(2usize))));
+        assert_eq!(schema, expected);
+
+        let dtype = "list<decimal<7,*>>";
+        let schema = str_to_dtype(dtype, Span::unknown());
+        assert!(matches!(schema, Err(ShellError::GenericError { .. })));
     }
 }
