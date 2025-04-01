@@ -204,7 +204,7 @@ fn value_to_string(
         },
         Value::Record { val, .. } => {
             let mut collection = vec![];
-            for (col, val) in &**val {
+            for (col, val) in val {
                 let col = if needs_quoting(col) {
                     &escape_quote_string(col)
                 } else {
