@@ -31,6 +31,11 @@ impl Command for All {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
+                description: "Check if a list contains only true values",
+                example: "[false true true false] | all {}",
+                result: Some(Value::test_bool(false)),
+            },
+            Example {
                 description: "Check if each row's status is the string 'UP'",
                 example: "[[status]; [UP] [UP]] | all {|el| $el.status == UP }",
                 result: Some(Value::test_bool(true)),
