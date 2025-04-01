@@ -52,18 +52,9 @@ fn err_from_value(rest: &Value, name: Span) -> ShellError {
     match rest {
         Value::Error { error, .. } => *error.clone(),
         _ => {
-            let wrong_type = if rest.is_nothing() {
-                dbg!("nothing".to_string());
-                dbg!(rest.get_type().to_string());
-                "nothing".to_string()
-            } else {
-                dbg!("nothing".to_string());
-                dbg!(rest.get_type().to_string());
-                rest.get_type().to_string()
-            };
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string, record or list".into(),
-                wrong_type,
+                wrong_type: rest.get_type().to_string(),
                 dst_span: name,
                 src_span: rest.span(),
             }
