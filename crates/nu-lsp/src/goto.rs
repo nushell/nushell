@@ -77,13 +77,12 @@ impl LanguageServer {
         &mut self,
         params: &GotoDefinitionParams,
     ) -> Option<GotoDefinitionResponse> {
-        let mut engine_state = self.new_engine_state();
-
         let path_uri = params
             .text_document_position_params
             .text_document
             .uri
             .to_owned();
+        let mut engine_state = self.new_engine_state(Some(&path_uri));
         let (working_set, id, _, _) = self
             .parse_and_find(
                 &mut engine_state,

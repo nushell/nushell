@@ -66,12 +66,12 @@ impl LanguageServer {
         &mut self,
         params: &DocumentHighlightParams,
     ) -> Option<Vec<DocumentHighlight>> {
-        let mut engine_state = self.new_engine_state();
         let path_uri = params
             .text_document_position_params
             .text_document
             .uri
             .to_owned();
+        let mut engine_state = self.new_engine_state(Some(&path_uri));
         let (block, file_span, working_set) =
             self.parse_file(&mut engine_state, &path_uri, false)?;
         let docs = &self.docs.lock().ok()?;
@@ -137,8 +137,8 @@ impl LanguageServer {
         timeout: u128,
     ) -> Option<Vec<Location>> {
         self.occurrences = BTreeMap::new();
-        let mut engine_state = self.new_engine_state();
         let path_uri = params.text_document_position.text_document.uri.to_owned();
+        let mut engine_state = self.new_engine_state(None);
         let (_, id, span, _) = self
             .parse_and_find(
                 &mut engine_state,
@@ -146,8 +146,6 @@ impl LanguageServer {
                 params.text_document_position.position,
             )
             .ok()?;
-        // have to clone it again in order to move to another thread
-        let engine_state = self.new_engine_state();
         let current_workspace_folder = self.get_workspace_folder_by_uri(&path_uri)?;
         let token = params
             .work_done_progress_params
@@ -200,8 +198,8 @@ impl LanguageServer {
             serde_json::from_value(request.params).into_diagnostic()?;
         self.occurrences = BTreeMap::new();
 
-        let mut engine_state = self.new_engine_state();
         let path_uri = params.text_document.uri.to_owned();
+        let mut engine_state = self.new_engine_state(None);
 
         let (working_set, id, span, file_offset) =
             self.parse_and_find(&mut engine_state, &path_uri, params.position)?;
@@ -233,8 +231,6 @@ impl LanguageServer {
             }))
             .into_diagnostic()?;
 
-        // have to clone it again in order to move to another thread
-        let engine_state = self.new_engine_state();
         let current_workspace_folder = self
             .get_workspace_folder_by_uri(&path_uri)
             .ok_or_else(|| miette!("\nCurrent file is not in any workspace"))?;

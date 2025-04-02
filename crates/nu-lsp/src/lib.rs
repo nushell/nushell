@@ -13,7 +13,7 @@ use miette::{miette, IntoDiagnostic, Result};
 use nu_protocol::{
     ast::{Block, PathMember},
     engine::{EngineState, StateDelta, StateWorkingSet},
-    DeclId, ModuleId, Span, Type, VarId,
+    DeclId, ModuleId, Span, Type, Value, VarId,
 };
 use std::{
     collections::BTreeMap,
@@ -315,13 +315,26 @@ impl LanguageServer {
         Ok(reset)
     }
 
-    pub(crate) fn new_engine_state(&self) -> EngineState {
+    /// Create a clone of the initial_engine_state with:
+    ///
+    /// * PWD set to the parent directory of given uri. Fallback to `$env.PWD` if None.
+    /// * `StateDelta` cache merged
+    pub(crate) fn new_engine_state(&self, uri: Option<&Uri>) -> EngineState {
         let mut engine_state = self.initial_engine_state.clone();
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        engine_state.add_env_var(
-            "PWD".into(),
-            nu_protocol::Value::test_string(cwd.to_string_lossy()),
-        );
+        match uri {
+            Some(uri) => {
+                let path = uri_to_path(uri);
+                if let Some(path) = path.parent() {
+                    engine_state
+                        .add_env_var("PWD".into(), Value::test_string(path.to_string_lossy()))
+                };
+            }
+            None => {
+                let cwd =
+                    std::env::current_dir().expect("Could not get current working directory.");
+                engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+            }
+        }
         // merge the cached `StateDelta` if text not changed
         if !self.need_parse {
             engine_state
@@ -458,10 +471,7 @@ mod tests {
         engine_state.generate_nu_constant();
         assert!(load_standard_library(&mut engine_state).is_ok());
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        engine_state.add_env_var(
-            "PWD".into(),
-            nu_protocol::Value::test_string(cwd.to_string_lossy()),
-        );
+        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
         if let Some(code) = nu_config_code {
             assert!(merge_input(code.as_bytes(), &mut engine_state, &mut Stack::new()).is_ok());
         }
