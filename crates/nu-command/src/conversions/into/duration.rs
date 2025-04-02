@@ -242,16 +242,25 @@ fn action(input: &Value, unit: &str, span: Span) -> Value {
     let value_span = input.span();
     match input {
         Value::Duration { .. } => input.clone(),
-        Value::String { val, .. } => match compound_to_duration(val, value_span) {
-            Ok(val) => Value::duration(val, span),
-            Err(error) => Value::error(error, span),
-        },
+        Value::String { val, .. } => {
+            if let Ok(num) = val.parse::<f64>() {
+                let ns = unit_to_ns_factor(unit);
+                return Value::duration((num * (ns as f64)) as i64, span);
+            } else if let Ok(num) = val.parse::<i64>() {
+                let ns = unit_to_ns_factor(unit);
+                return Value::duration(num * ns, span);
+            }
+            match compound_to_duration(val, value_span) {
+                Ok(val) => Value::duration(val, span),
+                Err(error) => Value::error(error, span),
+            }
+        }
         Value::Float { val, .. } => {
-            let ns: i64 = unit_to_ns_factor(unit);
+            let ns = unit_to_ns_factor(unit);
             Value::duration((*val * (ns as f64)) as i64, span)
         }
         Value::Int { val, .. } => {
-            let ns: i64 = unit_to_ns_factor(unit);
+            let ns = unit_to_ns_factor(unit);
             Value::duration(*val * ns, span)
         }
         // Propagate errors by explicitly matching them before the final case.
@@ -268,7 +277,7 @@ fn action(input: &Value, unit: &str, span: Span) -> Value {
     }
 }
 
-fn unit_to_ns_factor(unit: &str ) -> i64 {
+fn unit_to_ns_factor(unit: &str) -> i64 {
     match unit {
         "ns" => 1,
         "us" | "µs" => 1_000,
