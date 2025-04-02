@@ -43,7 +43,10 @@ While where supports closure literals, they can not be read from a variable. To 
             ])
             .required(
                 "condition",
-                SyntaxShape::OneOf(vec![SyntaxShape::RowCondition, SyntaxShape::Closure(None)]),
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::RowCondition,
+                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                ]),
                 "Filter row condition or closure.",
             )
             .allow_variants_without_examples(true)
