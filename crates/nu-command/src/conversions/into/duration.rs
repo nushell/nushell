@@ -247,11 +247,18 @@ fn action(input: &Value, unit: &str, span: Span) -> Value {
             Err(error) => Value::error(error, span),
         },
         Value::Float { val, .. } => {
-            let val_str = format!("{}{}", val, unit);
-            match compound_to_duration(&val_str, value_span) {
-                Ok(val) => Value::duration(val, span),
-                Err(error) => Value::error(error, span),
-            }
+            let ns = match unit {
+                "ns" => 1,
+                "us" | "µs" => 1_000,
+                "ms" => 1_000_000,
+                "sec" => NS_PER_SEC,
+                "min" => NS_PER_SEC * 60,
+                "hr" => NS_PER_SEC * 60 * 60,
+                "day" => NS_PER_SEC * 60 * 60 * 24,
+                "wk" => NS_PER_SEC * 60 * 60 * 24 * 7,
+                _ => 0,
+            };
+            Value::duration((*val * (ns as f64)) as i64, span)
         }
         Value::Int { val, .. } => {
             let ns = match unit {
