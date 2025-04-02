@@ -24,7 +24,7 @@ For example, where type == dir is equivalent to where $it.type == dir. This expa
 
 When using a closure, the element is passed as an argument and as pipeline input to the closure.
 
-While where supports closure literals, they can not be read from a variable. To filter using a closure stored in a variable, use the filter command."#
+`where` supports closure literals, but not closures stored in a variable. To filter using a closure stored in a variable, use the `filter` command."#
     }
 
     fn command_type(&self) -> CommandType {
