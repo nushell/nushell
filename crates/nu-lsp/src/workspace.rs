@@ -658,7 +658,7 @@ mod tests {
 
         let message_num = 5;
         let messages =
-            send_reference_request(&client_connection, script.clone(), 6, 11, message_num);
+            send_reference_request(&client_connection, script.clone(), 6, 12, message_num);
         assert_eq!(messages.len(), message_num);
         for message in messages {
             match message {
@@ -676,7 +676,7 @@ mod tests {
                     assert!(array.contains(&serde_json::json!(
                             {
                                 "uri": script.to_string(),
-                                "range": { "start": { "line": 6, "character": 12 }, "end": { "line": 6, "character": 19 } }
+                                "range": { "start": { "line": 6, "character": 13 }, "end": { "line": 6, "character": 20 } }
                             }
                         )
                     ));
@@ -712,7 +712,7 @@ mod tests {
             &client_connection,
             script.clone(),
             6,
-            11,
+            12,
             message_num,
             false,
         );
@@ -723,8 +723,8 @@ mod tests {
                 Message::Response(r) => assert_json_eq!(
                     r.result,
                     serde_json::json!({
-                        "start": { "line": 6, "character": 12 },
-                        "end": { "line": 6, "character": 19 }
+                        "start": { "line": 6, "character": 13 },
+                        "end": { "line": 6, "character": 20 }
                     }),
                 ),
                 _ => panic!("unexpected message type"),
@@ -738,7 +738,7 @@ mod tests {
                 changes[script.to_string()],
                 serde_json::json!([
                     {
-                        "range": { "start": { "line": 6, "character": 12 }, "end": { "line": 6, "character": 19 } },
+                        "range": { "start": { "line": 6, "character": 13 }, "end": { "line": 6, "character": 20 } },
                         "newText": "new"
                     }
                 ])
@@ -860,7 +860,7 @@ mod tests {
             &client_connection,
             script.clone(),
             6,
-            11,
+            12,
             message_num,
             true,
         );

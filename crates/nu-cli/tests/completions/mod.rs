@@ -586,7 +586,8 @@ fn dotnu_stdlib_completions() {
     assert!(load_standard_library(&mut engine).is_ok());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let completion_str = "export use std/ass";
+    // `export  use` should be recognized as command `export use`
+    let completion_str = "export  use std/ass";
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["assert"], &suggestions);
 

@@ -4,4 +4,4 @@ export def foooo [
   $param
 }
 
-export def "foo str" [] { "foo" }
+export  def "foo str" [] { "foo" }
