@@ -16,7 +16,7 @@ impl Command for Where {
     fn extra_description(&self) -> &str {
         r#"A condition is evaluated for each element of the input, and only elements which meet the condition are included in the output.
 
-A condition can be either a "row condition", or a closure. A row condition is a special short-hand syntax to makes accessing fields easier.
+A condition can be either a "row condition" or a closure. A row condition is a special short-hand syntax to simplify field access.
 Each element of the input can be accessed through the $it variable.
 
 On the left hand side of a row condition, any field name is automatically expanded to use $it.
