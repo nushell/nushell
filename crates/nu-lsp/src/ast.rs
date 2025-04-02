@@ -25,14 +25,14 @@ fn try_find_id_in_misc(
     location: Option<&usize>,
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
-    let call_name = working_set.get_span_contents(call.head);
+    let call_name = working_set.get_decl(call.decl_id).name();
     match call_name {
-        b"def" | b"export def" => try_find_id_in_def(call, working_set, location, id_ref),
-        b"module" | b"export module" => try_find_id_in_mod(call, working_set, location, id_ref),
-        b"use" | b"export use" | b"hide" => {
+        "def" | "export def" => try_find_id_in_def(call, working_set, location, id_ref),
+        "module" | "export module" => try_find_id_in_mod(call, working_set, location, id_ref),
+        "use" | "export use" | "hide" => {
             try_find_id_in_use(call, working_set, location, id_ref, call_name)
         }
-        b"overlay use" | b"overlay hide" => {
+        "overlay use" | "overlay hide" => {
             try_find_id_in_overlay(call, working_set, location, id_ref)
         }
         _ => None,
@@ -141,7 +141,7 @@ fn try_find_id_in_use(
     working_set: &StateWorkingSet,
     location: Option<&usize>,
     id: Option<&Id>,
-    call_name: &[u8],
+    call_name: &str,
 ) -> Option<(Id, Span)> {
     // TODO: for keyword `hide`, the decl/var is already hidden in working_set,
     // this function will always return None.
@@ -176,7 +176,7 @@ fn try_find_id_in_use(
     if let Some(pos) = location {
         // first argument of `use` should always be module name
         // while it is optional in `hide`
-        if span.contains(*pos) && call_name != b"hide" {
+        if span.contains(*pos) && call_name != "hide" {
             return get_matched_module_id(working_set, span, id);
         }
     }
@@ -196,7 +196,7 @@ fn try_find_id_in_use(
         })
     };
 
-    let arguments = if call_name != b"hide" {
+    let arguments = if call_name != "hide" {
         call.arguments.get(1..)?
     } else {
         call.arguments.as_slice()

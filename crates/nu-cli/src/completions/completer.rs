@@ -134,7 +134,7 @@ struct Context<'a> {
 /// For argument completion
 struct PositionalArguments<'a> {
     /// command name
-    command_head: &'a [u8],
+    command_head: &'a str,
     /// indices of positional arguments
     positional_arg_indices: Vec<usize>,
     /// argument list
@@ -395,7 +395,7 @@ impl NuCompleter {
                             Argument::Positional(_) if prefix == b"-" => flag_completion_helper(),
                             // complete according to expression type and command head
                             Argument::Positional(expr) => {
-                                let command_head = working_set.get_span_contents(call.head);
+                                let command_head = working_set.get_decl(call.decl_id).name();
                                 positional_arg_indices.push(arg_idx);
                                 self.argument_completion_helper(
                                     PositionalArguments {
@@ -537,19 +537,19 @@ impl NuCompleter {
         // special commands
         match command_head {
             // complete module file/directory
-            b"use" | b"export use" | b"overlay use" | b"source-env"
+            "use" | "export use" | "overlay use" | "source-env"
                 if positional_arg_indices.len() == 1 =>
             {
                 return self.process_completion(
                     &mut DotNuCompletion {
-                        std_virtual_path: command_head != b"source-env",
+                        std_virtual_path: command_head != "source-env",
                     },
                     ctx,
                 );
             }
             // NOTE: if module file already specified,
             // should parse it to get modules/commands/consts to complete
-            b"use" | b"export use" => {
+            "use" | "export use" => {
                 let Some(Argument::Positional(Expression {
                     expr: Expr::String(module_name),
                     span,
@@ -613,7 +613,7 @@ impl NuCompleter {
                     _ => return vec![],
                 }
             }
-            b"which" => {
+            "which" => {
                 let mut completer = CommandCompletion {
                     internals: true,
                     externals: true,
