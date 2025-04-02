@@ -35,7 +35,7 @@ impl PluginCommand for ToDataFrame {
             .named(
                 "schema",
                 SyntaxShape::Record(vec![]),
-                r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
+                r#"Polars Schema in format [{name: str}]."#,
                 Some('s'),
             )
             .switch(
@@ -189,6 +189,16 @@ impl PluginCommand for ToDataFrame {
                         Series::new("a".into(), [1u8, 2]),
                         Series::new("b".into(), ["foo", "bar"]),
                         Series::new("c".into(), [3i64, 3]),
+                    ], Span::test_data())
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "If a provided schema specifies a subset of columns, only those columns are selected",
+                example: r#"[[a b]; [1 "foo"] [2 "bar"]] | polars into-df -s {a: str}"#,
+                result: Some(NuDataFrame::try_from_series_vec(vec![
+                        Series::new("a".into(), ["1", "2"]),
                     ], Span::test_data())
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
