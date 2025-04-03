@@ -15,6 +15,7 @@ impl Command for IntoDuration {
         Signature::build("into duration")
             .input_output_types(vec![
                 (Type::Int, Type::Duration),
+                (Type::Float, Type::Duration),
                 (Type::String, Type::Duration),
                 (Type::Duration, Type::Duration),
                 (Type::table(), Type::table()),
@@ -107,6 +108,11 @@ impl Command for IntoDuration {
             Example {
                 description: "Convert a number of an arbitrary unit to duration",
                 example: "1_234 | into duration --unit ms",
+                result: Some(Value::test_duration(1_234 * 1_000_000)),
+            },
+            Example {
+                description: "Convert a floating point number of an arbitrary unit to duration",
+                example: "1.234 | into duration --unit sec",
                 result: Some(Value::test_duration(1_234 * 1_000_000)),
             },
         ]
@@ -236,22 +242,22 @@ fn action(input: &Value, unit: &str, span: Span) -> Value {
     let value_span = input.span();
     match input {
         Value::Duration { .. } => input.clone(),
-        Value::String { val, .. } => match compound_to_duration(val, value_span) {
-            Ok(val) => Value::duration(val, span),
-            Err(error) => Value::error(error, span),
-        },
+        Value::String { val, .. } => {
+            if let Ok(num) = val.parse::<f64>() {
+                let ns = unit_to_ns_factor(unit);
+                return Value::duration((num * (ns as f64)) as i64, span);
+            }
+            match compound_to_duration(val, value_span) {
+                Ok(val) => Value::duration(val, span),
+                Err(error) => Value::error(error, span),
+            }
+        }
+        Value::Float { val, .. } => {
+            let ns = unit_to_ns_factor(unit);
+            Value::duration((*val * (ns as f64)) as i64, span)
+        }
         Value::Int { val, .. } => {
-            let ns = match unit {
-                "ns" => 1,
-                "us" | "µs" => 1_000,
-                "ms" => 1_000_000,
-                "sec" => NS_PER_SEC,
-                "min" => NS_PER_SEC * 60,
-                "hr" => NS_PER_SEC * 60 * 60,
-                "day" => NS_PER_SEC * 60 * 60 * 24,
-                "wk" => NS_PER_SEC * 60 * 60 * 24 * 7,
-                _ => 0,
-            };
+            let ns = unit_to_ns_factor(unit);
             Value::duration(*val * ns, span)
         }
         // Propagate errors by explicitly matching them before the final case.
@@ -265,6 +271,20 @@ fn action(input: &Value, unit: &str, span: Span) -> Value {
             },
             span,
         ),
+    }
+}
+
+fn unit_to_ns_factor(unit: &str) -> i64 {
+    match unit {
+        "ns" => 1,
+        "us" | "µs" => 1_000,
+        "ms" => 1_000_000,
+        "sec" => NS_PER_SEC,
+        "min" => NS_PER_SEC * 60,
+        "hr" => NS_PER_SEC * 60 * 60,
+        "day" => NS_PER_SEC * 60 * 60 * 24,
+        "wk" => NS_PER_SEC * 60 * 60 * 24 * 7,
+        _ => 0,
     }
 }
 
