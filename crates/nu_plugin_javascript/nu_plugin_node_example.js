@@ -9,7 +9,7 @@
  */
 
 // Configuration constants
-const NUSHELL_VERSION = '0.103.0';
+const NUSHELL_VERSION = '0.103.1';
 const PLUGIN_VERSION = '0.1.1';
 
 // Core protocol functions
