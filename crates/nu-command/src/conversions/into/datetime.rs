@@ -523,54 +523,6 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
         );
     };
 
-    let nanosecond = match parse_value_from_record_as_u32("nanosecond", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let microsecond = match parse_value_from_record_as_u32("microsecond", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let millisecond = match parse_value_from_record_as_u32("millisecond", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let second = match parse_value_from_record_as_u32("second", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let minute = match parse_value_from_record_as_u32("minute", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let hour = match parse_value_from_record_as_u32("hour", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let day = match parse_value_from_record_as_u32("day", 1, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let month = match parse_value_from_record_as_u32("month", 1, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
     let year: i32 = match record.get("year") {
         Some(val) => match val {
             Value::Int { val, .. } => *val as i32,
@@ -588,7 +540,54 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
         },
         None => 0,
     };
-
+    let month = match parse_value_from_record_as_u32("month", 1, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let day = match parse_value_from_record_as_u32("day", 1, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let hour = match parse_value_from_record_as_u32("hour", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let minute = match parse_value_from_record_as_u32("minute", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let second = match parse_value_from_record_as_u32("second", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let millisecond = match parse_value_from_record_as_u32("millisecond", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let microsecond = match parse_value_from_record_as_u32("microsecond", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
+    let nanosecond = match parse_value_from_record_as_u32("nanosecond", 0, record, &head, &span) {
+        Ok(value) => value,
+        Err(err) => {
+            return err;
+        }
+    };
     let offset = match parse_timezone_from_record(record, &head, &span) {
         Ok(value) => value,
         Err(err) => {
