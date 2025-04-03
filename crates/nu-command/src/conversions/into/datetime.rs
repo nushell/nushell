@@ -1,5 +1,10 @@
 use crate::{generate_strftime_list, parse_date_from_string};
-use chrono::{DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
+use chrono::{
+    DateTime, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone,
+    Timelike, Utc,
+};
+use human_date_parser::{from_human_time, ParseResult};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
 const HOUR: i32 = 60 * 60;
@@ -505,6 +510,11 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     }
 }
 
+// enum RecordColumnDefault {
+//     Now(u32),
+//     Zero(u8),  // 1 for month and day, 0 otherwise
+// };
+
 fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     if let Some(invalid_col) = record
         .columns()
@@ -523,6 +533,139 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
         );
     };
 
+    // Empty fields are filled in a specific way: the time units bigger than the biggest provided fields are assumed to be current and smaller ones are zeroed.
+    // And local timezone is used if not provided.
+    #[derive(Debug)]
+    enum RecordColumnDefault {
+        Now,
+        Zero,
+    }
+    let mut record_column_default = RecordColumnDefault::Zero;
+
+    let now = Local::now();
+    let mut now_nanosecond = now.nanosecond();
+    let now_millisecond = now_nanosecond / 1_000_000;
+    now_nanosecond %= 1_000_000;
+    let now_microsecond = now_nanosecond / 1_000;
+    now_nanosecond %= 1_000;
+
+    let nanosecond = match record.get("nanosecond") {
+        Some(col_val) => {
+            record_column_default = RecordColumnDefault::Now;
+            match parse_value_from_record_as_u32_bis("nanosecond", col_val, &head, &span) {
+                Ok(value) => value,
+                Err(err) => {
+                    return err;
+                }
+            }
+        }
+        None => match record_column_default {
+            RecordColumnDefault::Now => now_nanosecond,
+            RecordColumnDefault::Zero => 0,
+        },
+    };
+    let microsecond = match record.get("microsecond") {
+        Some(col_val) => {
+            record_column_default = RecordColumnDefault::Now;
+            match parse_value_from_record_as_u32_bis("microsecond", col_val, &head, &span) {
+                Ok(value) => value,
+                Err(err) => {
+                    return err;
+                }
+            }
+        }
+        None => match record_column_default {
+            RecordColumnDefault::Now => now_microsecond,
+            RecordColumnDefault::Zero => 0,
+        },
+    };
+    let millisecond = match record.get("millisecond") {
+        Some(col_val) => {
+            record_column_default = RecordColumnDefault::Now;
+            match parse_value_from_record_as_u32_bis("millisecond", col_val, &head, &span) {
+                Ok(value) => value,
+                Err(err) => {
+                    return err;
+                }
+            }
+        }
+        None => match record_column_default {
+            RecordColumnDefault::Now => now_millisecond,
+            RecordColumnDefault::Zero => 0,
+        },
+    };
+    let second = match record.get("second") {
+        Some(col_val) => {
+            record_column_default = RecordColumnDefault::Now;
+            match parse_value_from_record_as_u32_bis("second", col_val, &head, &span) {
+                Ok(value) => value,
+                Err(err) => {
+                    return err;
+                }
+            }
+        }
+        None => match record_column_default {
+            RecordColumnDefault::Now => now.second(),
+            RecordColumnDefault::Zero => 0,
+        },
+    };
+    let minute = match record.get("minute") {
+        Some(col_val) => {
+            record_column_default = RecordColumnDefault::Now;
+            match parse_value_from_record_as_u32_bis("minute", col_val, &head, &span) {
+                Ok(value) => value,
+                Err(err) => {
+                    return err;
+                }
+            }
+        }
+        None => match record_column_default {
+            RecordColumnDefault::Now => now.minute(),
+            RecordColumnDefault::Zero => 0,
+        },
+    };
+    let hour = match record.get("hour") {
+        Some(col_val) => {
+            record_column_default = RecordColumnDefault::Now;
+            match parse_value_from_record_as_u32_bis("hour", col_val, &head, &span) {
+                Ok(value) => value,
+                Err(err) => {
+                    return err;
+                }
+            }
+        }
+        None => match record_column_default {
+            RecordColumnDefault::Now => now.hour(),
+            RecordColumnDefault::Zero => 0,
+        },
+    };
+    let day = match record.get("day") {
+        Some(col_val) => {
+            record_column_default = RecordColumnDefault::Now;
+            match parse_value_from_record_as_u32_bis("day", col_val, &head, &span) {
+                Ok(value) => value,
+                Err(err) => {
+                    return err;
+                }
+            }
+        }
+        None => match record_column_default {
+            RecordColumnDefault::Now => now.day(),
+            RecordColumnDefault::Zero => 1,
+        },
+    };
+    let month = match record.get("month") {
+        Some(col_val) => match parse_value_from_record_as_u32_bis("month", col_val, &head, &span) {
+            Ok(value) => value,
+            Err(err) => {
+                return err;
+            }
+        },
+        None => match record_column_default {
+            RecordColumnDefault::Now => now.month(),
+            RecordColumnDefault::Zero => 1,
+        },
+    };
     let year: i32 = match record.get("year") {
         Some(val) => match val {
             Value::Int { val, .. } => *val as i32,
@@ -538,62 +681,25 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
                 );
             }
         },
-        None => 0,
+        None => now.year(),
     };
-    let month = match parse_value_from_record_as_u32("month", 1, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let day = match parse_value_from_record_as_u32("day", 1, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let hour = match parse_value_from_record_as_u32("hour", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let minute = match parse_value_from_record_as_u32("minute", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let second = match parse_value_from_record_as_u32("second", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let millisecond = match parse_value_from_record_as_u32("millisecond", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let microsecond = match parse_value_from_record_as_u32("microsecond", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
-    let nanosecond = match parse_value_from_record_as_u32("nanosecond", 0, record, &head, &span) {
-        Ok(value) => value,
-        Err(err) => {
-            return err;
-        }
-    };
+
     let offset = match parse_timezone_from_record(record, &head, &span) {
         Ok(value) => value,
         Err(err) => {
             return err;
         }
     };
+
+    dbg!(&year);
+    dbg!(&month);
+    dbg!(&day);
+    dbg!(&hour);
+    dbg!(&minute);
+    dbg!(&second);
+    dbg!(&millisecond);
+    dbg!(&microsecond);
+    dbg!(&nanosecond);
 
     let total_nanoseconds = nanosecond + microsecond * 1_000 + millisecond * 1_000_000;
 
@@ -644,41 +750,38 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     Value::date(date_time_fixed, span)
 }
 
-fn parse_value_from_record_as_u32(
+fn parse_value_from_record_as_u32_bis(
     col: &str,
-    default: u32,
-    record: &Record,
+    col_val: &Value,
     head: &Span,
     span: &Span,
 ) -> Result<u32, Value> {
-    let value: u32 = match record.get(col) {
-        Some(val) => match val {
-            Value::Int { val, .. } => {
-                if *val < 0 || *val > u32::MAX as i64 {
-                    return Err(Value::error(
-                        ShellError::IncorrectValue {
-                            msg: format!("incorrect value for {}", col),
-                            val_span: *head,
-                            call_span: *span,
-                        },
-                        *span,
-                    ));
-                }
-                *val as u32
-            }
-            other => {
+    dbg!(col);
+    let value: u32 = match col_val {
+        Value::Int { val, .. } => {
+            if *val < 0 || *val > u32::MAX as i64 {
                 return Err(Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "int".to_string(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: *head,
-                        src_span: other.span(),
+                    ShellError::IncorrectValue {
+                        msg: format!("incorrect value for {}", col),
+                        val_span: *head,
+                        call_span: *span,
                     },
                     *span,
                 ));
             }
-        },
-        None => default,
+            *val as u32
+        }
+        other => {
+            return Err(Value::error(
+                ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "int".to_string(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: *head,
+                    src_span: other.span(),
+                },
+                *span,
+            ));
+        }
     };
     Ok(value)
 }
