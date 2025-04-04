@@ -159,7 +159,7 @@ strum = "0.26"
 strum_macros = "0.26"
 syn = "2.0"
 sysinfo = "0.33"
-tabled = { version = "0.17.0", default-features = false }
+tabled = { git = "https://github.com/zhiburt/tabled", rev = "2c2a2c02e3a37ac5087b93a576d6c87a67ea0b62", default-features = false }
 tempfile = "3.15"
 titlecase = "3.4"
 toml = "0.8"
