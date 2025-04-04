@@ -6,7 +6,9 @@ use base64::{
 };
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
-use nu_protocol::{shell_error::io::IoError, ByteStream, LabeledError, Signals};
+use nu_protocol::{
+    shell_error::io::IoError, ByteStream, DataSource, LabeledError, PipelineMetadata, Signals,
+};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
@@ -711,7 +713,7 @@ fn transform_response_using_content_type(
         .or_else(|_| mime::Mime::from_str("text/plain"))
         .expect("Failed to parse content type, and failed to default to text/plain");
 
-    let ext = match (content_type.type_(), content_type.subtype()) {
+    let (ext, known_mime) = match (content_type.type_(), content_type.subtype()) {
         (mime::TEXT, mime::PLAIN) => {
             let path_extension = url::Url::parse(requested_url)
                 .map_err(|err| {
@@ -730,26 +732,30 @@ fn transform_response_using_content_type(
                         .extension()
                         .map(|name| name.to_string_lossy().to_string())
                 });
-            path_extension
+            (path_extension, false)
         }
-        _ => Some(content_type.subtype().to_string()),
+        _ => (Some(content_type.subtype().to_string()), true),
     };
 
     let output = response_to_buffer(resp, engine_state, span);
+    let metadata = PipelineMetadata {
+        data_source: DataSource::FilePath(requested_url.into()),
+        content_type: known_mime.then(|| content_type.essence_str().into()),
+    };
     if flags.raw {
-        Ok(output)
+        Ok(output.set_metadata(Some(metadata)))
     } else if let Some(ext) = ext {
         match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
             Some(converter_id) => engine_state.get_decl(converter_id).run(
                 engine_state,
                 stack,
                 &Call::new(span),
-                output,
+                output.set_metadata(Some(metadata.with_content_type(None))),
             ),
-            None => Ok(output),
+            None => Ok(output.set_metadata(Some(metadata))),
         }
     } else {
-        Ok(output)
+        Ok(output.set_metadata(Some(metadata)))
     }
 }
 
