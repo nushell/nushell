@@ -11,6 +11,7 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::expand_tilde;
 use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, Config, PipelineData};
+use nu_std::load_standard_library;
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
 use support::{
@@ -513,7 +514,7 @@ fn dotnu_completions() {
 
     match_suggestions(&vec!["sub.nu`"], &suggestions);
 
-    let expected = vec![
+    let mut expected = vec![
         "asdf.nu",
         "bar.nu",
         "bat.nu",
@@ -546,6 +547,8 @@ fn dotnu_completions() {
     match_suggestions(&expected, &suggestions);
 
     // Test use completion
+    expected.push("std");
+    expected.push("std-rfc");
     let completion_str = "use ";
     let suggestions = completer.complete(completion_str, completion_str.len());
 
@@ -575,6 +578,66 @@ fn dotnu_completions() {
     let dir_content = read_dir(expand_tilde("~")).unwrap();
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_dir_content_for_dotnu(dir_content, &suggestions);
+}
+
+#[test]
+fn dotnu_stdlib_completions() {
+    let (_, _, mut engine, stack) = new_dotnu_engine();
+    assert!(load_standard_library(&mut engine).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // `export  use` should be recognized as command `export use`
+    let completion_str = "export  use std/ass";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["assert"], &suggestions);
+
+    let completion_str = "use `std-rfc/cli";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["clip"], &suggestions);
+
+    let completion_str = "use \"std";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["\"std", "\"std-rfc"], &suggestions);
+
+    let completion_str = "overlay use \'std-rfc/cli";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["clip"], &suggestions);
+}
+
+#[test]
+fn exportable_completions() {
+    let (_, _, mut engine, mut stack) = new_dotnu_engine();
+    let code = r#"export module "🤔🐘" {
+        export const foo = "🤔🐘";
+    }"#;
+    assert!(support::merge_input(code.as_bytes(), &mut engine, &mut stack).is_ok());
+    assert!(load_standard_library(&mut engine).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let completion_str = "use std null";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["null-device", "null_device"], &suggestions);
+
+    let completion_str = "export use std/assert eq";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["equal"], &suggestions);
+
+    let completion_str = "use std/assert \"not eq";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["'not equal'"], &suggestions);
+
+    let completion_str = "use std-rfc/clip ['prefi";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["prefix"], &suggestions);
+
+    let completion_str = "use std/math [E, `TAU";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["TAU"], &suggestions);
+
+    let completion_str = "use 🤔🐘 'foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["foo"], &suggestions);
 }
 
 #[test]
@@ -951,10 +1014,11 @@ fn partial_completions() {
     // Create the expected values
     let expected_paths = [
         file(dir.join("partial").join("hello.txt")),
+        folder(dir.join("partial").join("hol")),
         file(dir.join("partial-a").join("have_ext.exe")),
         file(dir.join("partial-a").join("have_ext.txt")),
         file(dir.join("partial-a").join("hello")),
-        file(dir.join("partial-a").join("hola")),
+        folder(dir.join("partial-a").join("hola")),
         file(dir.join("partial-b").join("hello_b")),
         file(dir.join("partial-b").join("hi_b")),
         file(dir.join("partial-c").join("hello_c")),
@@ -971,11 +1035,12 @@ fn partial_completions() {
     // Create the expected values
     let expected_paths = [
         file(dir.join("partial").join("hello.txt")),
+        folder(dir.join("partial").join("hol")),
         file(dir.join("partial-a").join("anotherfile")),
         file(dir.join("partial-a").join("have_ext.exe")),
         file(dir.join("partial-a").join("have_ext.txt")),
         file(dir.join("partial-a").join("hello")),
-        file(dir.join("partial-a").join("hola")),
+        folder(dir.join("partial-a").join("hola")),
         file(dir.join("partial-b").join("hello_b")),
         file(dir.join("partial-b").join("hi_b")),
         file(dir.join("partial-c").join("hello_c")),
@@ -2215,15 +2280,43 @@ fn exact_match() {
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
+    // Troll case to test if exact match logic works case insensitively
     let target_dir = format!("open {}", folder(dir.join("pArTiAL")));
     let suggestions = completer.complete(&target_dir, target_dir.len());
-
-    // Since it's an exact match, only 'partial' should be suggested, not
-    // 'partial-a' and stuff. Implemented in #13302
     match_suggestions(
-        &vec![file(dir.join("partial").join("hello.txt")).as_str()],
+        &vec![
+            file(dir.join("partial").join("hello.txt")).as_str(),
+            folder(dir.join("partial").join("hol")).as_str(),
+        ],
         &suggestions,
     );
+
+    let target_dir = format!("open {}", file(dir.join("partial").join("h")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+    match_suggestions(
+        &vec![
+            file(dir.join("partial").join("hello.txt")).as_str(),
+            folder(dir.join("partial").join("hol")).as_str(),
+        ],
+        &suggestions,
+    );
+
+    // Even though "hol" is an exact match, the first component ("part") wasn't an
+    // exact match, so we include partial-a/hola
+    let target_dir = format!("open {}", file(dir.join("part").join("hol")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+    match_suggestions(
+        &vec![
+            folder(dir.join("partial").join("hol")).as_str(),
+            folder(dir.join("partial-a").join("hola")).as_str(),
+        ],
+        &suggestions,
+    );
+
+    // Exact match behavior shouldn't be enabled if the path has no slashes
+    let target_dir = format!("open {}", file(dir.join("partial")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+    assert!(suggestions.len() > 1);
 }
 
 #[ignore = "was reverted, still needs fixing"]

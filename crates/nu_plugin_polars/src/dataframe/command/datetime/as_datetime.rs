@@ -1,6 +1,7 @@
 use crate::{values::CustomValueSupport, PolarsPlugin};
+use std::sync::Arc;
 
-use super::super::super::values::{Column, NuDataFrame};
+use super::super::super::values::{Column, NuDataFrame, NuSchema};
 
 use chrono::DateTime;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -8,7 +9,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
-use polars::prelude::{IntoSeries, StringMethods, TimeUnit};
+use polars::prelude::{DataType, Field, IntoSeries, Schema, StringMethods, TimeUnit};
 
 #[derive(Clone)]
 pub struct AsDateTime;
@@ -43,6 +44,7 @@ impl PluginCommand for AsDateTime {
         Signature::build(self.name())
             .required("format", SyntaxShape::String, "formatting date time string")
             .switch("not-exact", "the format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01)", Some('n'))
+            .switch("naive", "the input datetimes should be parsed as naive (i.e., not timezone-aware)", None)
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -54,7 +56,7 @@ impl PluginCommand for AsDateTime {
         vec![
             Example {
                 description: "Converts string to datetime",
-                example: r#"["2021-12-30 00:00:00" "2021-12-31 00:00:00"] | polars into-df | polars as-datetime "%Y-%m-%d %H:%M:%S""#,
+                example: r#"["2021-12-30 00:00:00 -0400" "2021-12-31 00:00:00 -0400"] | polars into-df | polars as-datetime "%Y-%m-%d %H:%M:%S %z""#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
@@ -62,7 +64,7 @@ impl PluginCommand for AsDateTime {
                             vec![
                                 Value::date(
                                     DateTime::parse_from_str(
-                                        "2021-12-30 00:00:00 +0000",
+                                        "2021-12-30 00:00:00 -0400",
                                         "%Y-%m-%d %H:%M:%S %z",
                                     )
                                     .expect("date calculation should not fail in test"),
@@ -70,7 +72,7 @@ impl PluginCommand for AsDateTime {
                                 ),
                                 Value::date(
                                     DateTime::parse_from_str(
-                                        "2021-12-31 00:00:00 +0000",
+                                        "2021-12-31 00:00:00 -0400",
                                         "%Y-%m-%d %H:%M:%S %z",
                                     )
                                     .expect("date calculation should not fail in test"),
@@ -86,7 +88,7 @@ impl PluginCommand for AsDateTime {
             },
             Example {
                 description: "Converts string to datetime with high resolutions",
-                example: r#"["2021-12-30 00:00:00.123456789" "2021-12-31 00:00:00.123456789"] | polars into-df | polars as-datetime "%Y-%m-%d %H:%M:%S.%9f""#,
+                example: r#"["2021-12-30 00:00:00.123456789" "2021-12-31 00:00:00.123456789"] | polars into-df | polars as-datetime "%Y-%m-%d %H:%M:%S.%9f" --naive"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
@@ -110,7 +112,15 @@ impl PluginCommand for AsDateTime {
                                 ),
                             ],
                         )],
-                        None,
+                        Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
+                            Field::new(
+                                "datetime".into(),
+                                DataType::Datetime(
+                                    TimeUnit::Nanoseconds,
+                                    None
+                                ),
+                            ),
+                        ])))),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -118,7 +128,7 @@ impl PluginCommand for AsDateTime {
             },
             Example {
                 description: "Converts string to datetime using the `--not-exact` flag even with excessive symbols",
-                example: r#"["2021-12-30 00:00:00 GMT+4"] | polars into-df | polars as-datetime "%Y-%m-%d %H:%M:%S" --not-exact"#,
+                example: r#"["2021-12-30 00:00:00 GMT+4"] | polars into-df | polars as-datetime "%Y-%m-%d %H:%M:%S" --not-exact --naive"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
@@ -134,7 +144,15 @@ impl PluginCommand for AsDateTime {
                                 ),
                             ],
                         )],
-                        None,
+                        Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
+                            Field::new(
+                                "datetime".into(),
+                                DataType::Datetime(
+                                    TimeUnit::Nanoseconds,
+                                    None
+                                ),
+                            ),
+                        ])))),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -162,6 +180,7 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let format: String = call.req(0)?;
     let not_exact = call.has_flag("not-exact")?;
+    let tz_aware = !call.has_flag("naive")?;
 
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
     let series = df.as_series(call.head)?;
@@ -177,7 +196,7 @@ fn command(
         casted.as_datetime_not_exact(
             Some(format.as_str()),
             TimeUnit::Nanoseconds,
-            false,
+            tz_aware,
             None,
             &Default::default(),
         )
@@ -186,7 +205,7 @@ fn command(
             Some(format.as_str()),
             TimeUnit::Nanoseconds,
             false,
-            false,
+            tz_aware,
             None,
             &Default::default(),
         )

@@ -71,7 +71,7 @@ impl Default for DataFrameValue {
 
 impl PartialEq for DataFrameValue {
     fn eq(&self, other: &Self) -> bool {
-        self.0.partial_cmp(&other.0).map_or(false, Ordering::is_eq)
+        self.0.partial_cmp(&other.0).is_some_and(Ordering::is_eq)
     }
 }
 impl Eq for DataFrameValue {}

@@ -295,7 +295,8 @@ $env.config.display_errors.termination_signal = true
 $env.config.footer_mode = 25
 
 # table.*
-# table_mode (string):
+# mode (string):
+# Specifies the visual display style of a table
 # One of: "default", "basic", "compact", "compact_double", "heavy", "light", "none", "reinforced",
 # "rounded", "thin", "with_love", "psql", "markdown", "dots", "restructured", "ascii_rounded",
 # or "basic_compact"

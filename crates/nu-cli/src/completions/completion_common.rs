@@ -22,18 +22,22 @@ pub struct PathBuiltFromString {
 /// Recursively goes through paths that match a given `partial`.
 /// built: State struct for a valid matching path built so far.
 ///
+/// `want_directory`: Whether we want only directories as completion matches.
+/// Some commands like `cd` can only be run on directories whereas others
+/// like `ls` can be run on regular files as well.
+///
 /// `isdir`: whether the current partial path has a trailing slash.
 /// Parsing a path string into a pathbuf loses that bit of information.
 ///
-/// want_directory: Whether we want only directories as completion matches.
-/// Some commands like `cd` can only be run on directories whereas others
-/// like `ls` can be run on regular files as well.
+/// `enable_exact_match`: Whether match algorithm is Prefix and all previous components
+/// of the path matched a directory exactly.
 fn complete_rec(
     partial: &[&str],
     built_paths: &[PathBuiltFromString],
     options: &CompletionOptions,
     want_directory: bool,
     isdir: bool,
+    enable_exact_match: bool,
 ) -> Vec<PathBuiltFromString> {
     if let Some((&base, rest)) = partial.split_first() {
         if base.chars().all(|c| c == '.') && (isdir || !rest.is_empty()) {
@@ -46,7 +50,14 @@ fn complete_rec(
                     built
                 })
                 .collect();
-            return complete_rec(rest, &built_paths, options, want_directory, isdir);
+            return complete_rec(
+                rest,
+                &built_paths,
+                options,
+                want_directory,
+                isdir,
+                enable_exact_match,
+            );
         }
     }
 
@@ -86,27 +97,26 @@ fn complete_rec(
                 // Serves as confirmation to ignore longer completions for
                 // components in between.
                 if !rest.is_empty() || isdir {
+                    // Don't show longer completions if we have an exact match (#13204, #14794)
+                    let exact_match = enable_exact_match
+                        && (if options.case_sensitive {
+                            entry_name.eq(base)
+                        } else {
+                            entry_name.eq_ignore_case(base)
+                        });
                     completions.extend(complete_rec(
                         rest,
                         &[built],
                         options,
                         want_directory,
                         isdir,
+                        exact_match,
                     ));
-                } else {
-                    completions.push(built);
-                }
-
-                // For https://github.com/nushell/nushell/issues/13204
-                if isdir && options.match_algorithm == MatchAlgorithm::Prefix {
-                    let exact_match = if options.case_sensitive {
-                        entry_name.eq(base)
-                    } else {
-                        entry_name.to_folded_case().eq(&base.to_folded_case())
-                    };
                     if exact_match {
                         break;
                     }
+                } else {
+                    completions.push(built);
                 }
             }
             None => {
@@ -140,7 +150,7 @@ impl OriginalCwd {
     }
 }
 
-fn surround_remove(partial: &str) -> String {
+pub fn surround_remove(partial: &str) -> String {
     for c in ['`', '"', '\''] {
         if partial.starts_with(c) {
             let ret = partial.strip_prefix(c).unwrap_or(partial);
@@ -255,6 +265,7 @@ pub fn complete_item(
         options,
         want_directory,
         isdir,
+        options.match_algorithm == MatchAlgorithm::Prefix,
     )
     .into_iter()
     .map(|mut p| {

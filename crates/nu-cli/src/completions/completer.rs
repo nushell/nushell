@@ -1,21 +1,20 @@
 use crate::completions::{
+    base::{SemanticSuggestion, SuggestionKind},
     AttributableCompletion, AttributeCompletion, CellPathCompletion, CommandCompletion, Completer,
-    CompletionOptions, CustomCompletion, DirectoryCompletion, DotNuCompletion, FileCompletion,
-    FlagCompletion, OperatorCompletion, VariableCompletion,
+    CompletionOptions, CustomCompletion, DirectoryCompletion, DotNuCompletion,
+    ExportableCompletion, FileCompletion, FlagCompletion, OperatorCompletion, VariableCompletion,
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
-use nu_parser::{flatten_expression, parse};
+use nu_parser::{flatten_expression, parse, parse_module_file_or_dir};
 use nu_protocol::{
-    ast::{Argument, Block, Expr, Expression, FindMapResult, Traverse},
+    ast::{Argument, Block, Expr, Expression, FindMapResult, ListItem, Traverse},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
     PipelineData, Span, Type, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
-use std::{str, sync::Arc};
-
-use super::base::{SemanticSuggestion, SuggestionKind};
+use std::sync::Arc;
 
 /// Used as the function `f` in find_map Traverse
 ///
@@ -57,8 +56,13 @@ fn find_pipeline_element_by_position<'a>(
         Expr::FullCellPath(fcp) => fcp
             .head
             .find_map(working_set, &closure)
-            .or(Some(expr))
             .map(FindMapResult::Found)
+            // e.g. use std/util [<tab>
+            .or_else(|| {
+                (fcp.head.span.contains(pos) && matches!(fcp.head.expr, Expr::List(_)))
+                    .then_some(FindMapResult::Continue)
+            })
+            .or(Some(FindMapResult::Found(expr)))
             .unwrap_or_default(),
         Expr::Var(_) => FindMapResult::Found(expr),
         Expr::AttributeBlock(ab) => ab
@@ -125,6 +129,18 @@ struct Context<'a> {
     span: Span,
     prefix: &'a [u8],
     offset: usize,
+}
+
+/// For argument completion
+struct PositionalArguments<'a> {
+    /// command name
+    command_head: &'a str,
+    /// indices of positional arguments
+    positional_arg_indices: Vec<usize>,
+    /// argument list
+    arguments: &'a [Argument],
+    /// expression of current argument
+    expr: &'a Expression,
 }
 
 impl Context<'_> {
@@ -328,7 +344,8 @@ impl NuCompleter {
                 // NOTE: the argument to complete is not necessarily the last one
                 // for lsp completion, we don't trim the text,
                 // so that `def`s after pos can be completed
-                for arg in call.arguments.iter() {
+                let mut positional_arg_indices = Vec::new();
+                for (arg_idx, arg) in call.arguments.iter().enumerate() {
                     let span = arg.span();
                     if span.contains(pos) {
                         // if customized completion specified, it has highest priority
@@ -378,10 +395,16 @@ impl NuCompleter {
                             Argument::Positional(_) if prefix == b"-" => flag_completion_helper(),
                             // complete according to expression type and command head
                             Argument::Positional(expr) => {
-                                let command_head = working_set.get_span_contents(call.head);
+                                let command_head = working_set.get_decl(call.decl_id).name();
+                                positional_arg_indices.push(arg_idx);
                                 self.argument_completion_helper(
-                                    command_head,
-                                    expr,
+                                    PositionalArguments {
+                                        command_head,
+                                        positional_arg_indices,
+                                        arguments: &call.arguments,
+                                        expr,
+                                    },
+                                    pos,
                                     &ctx,
                                     suggestions.is_empty(),
                                 )
@@ -389,6 +412,8 @@ impl NuCompleter {
                             _ => vec![],
                         });
                         break;
+                    } else if !matches!(arg, Argument::Named(_)) {
+                        positional_arg_indices.push(arg_idx);
                     }
                 }
             }
@@ -498,20 +523,97 @@ impl NuCompleter {
 
     fn argument_completion_helper(
         &self,
-        command_head: &[u8],
-        expr: &Expression,
+        argument_info: PositionalArguments,
+        pos: usize,
         ctx: &Context,
         need_fallback: bool,
     ) -> Vec<SemanticSuggestion> {
+        let PositionalArguments {
+            command_head,
+            positional_arg_indices,
+            arguments,
+            expr,
+        } = argument_info;
         // special commands
         match command_head {
             // complete module file/directory
-            // TODO: if module file already specified,
-            // should parse it to get modules/commands/consts to complete
-            b"use" | b"export use" | b"overlay use" | b"source-env" => {
-                return self.process_completion(&mut DotNuCompletion, ctx);
+            "use" | "export use" | "overlay use" | "source-env"
+                if positional_arg_indices.len() == 1 =>
+            {
+                return self.process_completion(
+                    &mut DotNuCompletion {
+                        std_virtual_path: command_head != "source-env",
+                    },
+                    ctx,
+                );
             }
-            b"which" => {
+            // NOTE: if module file already specified,
+            // should parse it to get modules/commands/consts to complete
+            "use" | "export use" => {
+                let Some(Argument::Positional(Expression {
+                    expr: Expr::String(module_name),
+                    span,
+                    ..
+                })) = positional_arg_indices
+                    .first()
+                    .and_then(|i| arguments.get(*i))
+                else {
+                    return vec![];
+                };
+                let module_name = module_name.as_bytes();
+                let (module_id, temp_working_set) = match ctx.working_set.find_module(module_name) {
+                    Some(module_id) => (module_id, None),
+                    None => {
+                        let mut temp_working_set =
+                            StateWorkingSet::new(ctx.working_set.permanent_state);
+                        let Some(module_id) = parse_module_file_or_dir(
+                            &mut temp_working_set,
+                            module_name,
+                            *span,
+                            None,
+                        ) else {
+                            return vec![];
+                        };
+                        (module_id, Some(temp_working_set))
+                    }
+                };
+                let mut exportable_completion = ExportableCompletion {
+                    module_id,
+                    temp_working_set,
+                };
+                let mut complete_on_list_items = |items: &[ListItem]| -> Vec<SemanticSuggestion> {
+                    for item in items {
+                        let span = item.expr().span;
+                        if span.contains(pos) {
+                            let offset = span.start.saturating_sub(ctx.span.start);
+                            let end_offset =
+                                ctx.prefix.len().min(pos.min(span.end) - ctx.span.start + 1);
+                            let new_ctx = Context::new(
+                                ctx.working_set,
+                                Span::new(span.start, ctx.span.end.min(span.end)),
+                                ctx.prefix.get(offset..end_offset).unwrap_or_default(),
+                                ctx.offset,
+                            );
+                            return self.process_completion(&mut exportable_completion, &new_ctx);
+                        }
+                    }
+                    vec![]
+                };
+
+                match &expr.expr {
+                    Expr::String(_) => {
+                        return self.process_completion(&mut exportable_completion, ctx);
+                    }
+                    Expr::FullCellPath(fcp) => match &fcp.head.expr {
+                        Expr::List(items) => {
+                            return complete_on_list_items(items);
+                        }
+                        _ => return vec![],
+                    },
+                    _ => return vec![],
+                }
+            }
+            "which" => {
                 let mut completer = CommandCompletion {
                     internals: true,
                     externals: true,

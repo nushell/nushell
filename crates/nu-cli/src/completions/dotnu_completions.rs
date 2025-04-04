@@ -1,18 +1,23 @@
-use crate::completions::{file_path_completion, Completer, CompletionOptions};
+use crate::completions::{
+    completion_common::{surround_remove, FileSuggestion},
+    completion_options::NuMatcher,
+    file_path_completion, Completer, CompletionOptions, SemanticSuggestion, SuggestionKind,
+};
 use nu_path::expand_tilde;
 use nu_protocol::{
-    engine::{Stack, StateWorkingSet},
+    engine::{Stack, StateWorkingSet, VirtualPath},
     Span,
 };
 use reedline::Suggestion;
 use std::{
     collections::HashSet,
-    path::{is_separator, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR},
+    path::{is_separator, PathBuf, MAIN_SEPARATOR_STR},
 };
 
-use super::{SemanticSuggestion, SuggestionKind};
-
-pub struct DotNuCompletion;
+pub struct DotNuCompletion {
+    /// e.g. use std/a<tab>
+    pub std_virtual_path: bool,
+}
 
 impl Completer for DotNuCompletion {
     fn fetch(
@@ -102,7 +107,7 @@ impl Completer for DotNuCompletion {
 
         // Fetch the files filtering the ones that ends with .nu
         // and transform them into suggestions
-        let completions = file_path_completion(
+        let mut completions = file_path_completion(
             span,
             partial,
             &search_dirs
@@ -113,17 +118,60 @@ impl Completer for DotNuCompletion {
             working_set.permanent_state,
             stack,
         );
+
+        if self.std_virtual_path {
+            let mut matcher = NuMatcher::new(partial, options);
+            let base_dir = surround_remove(&base_dir);
+            if base_dir == "." {
+                let surround_prefix = partial
+                    .chars()
+                    .take_while(|c| "`'\"".contains(*c))
+                    .collect::<String>();
+                for path in ["std", "std-rfc"] {
+                    let path = format!("{}{}", surround_prefix, path);
+                    matcher.add(
+                        path.clone(),
+                        FileSuggestion {
+                            span,
+                            path,
+                            style: None,
+                            is_dir: true,
+                        },
+                    );
+                }
+            } else if let Some(VirtualPath::Dir(sub_paths)) =
+                working_set.find_virtual_path(&base_dir)
+            {
+                for sub_vp_id in sub_paths {
+                    let (path, sub_vp) = working_set.get_virtual_path(*sub_vp_id);
+                    let path = path
+                        .strip_prefix(&format!("{}/", base_dir))
+                        .unwrap_or(path)
+                        .to_string();
+                    matcher.add(
+                        path.clone(),
+                        FileSuggestion {
+                            path,
+                            span,
+                            style: None,
+                            is_dir: matches!(sub_vp, VirtualPath::Dir(_)),
+                        },
+                    );
+                }
+            }
+            completions.extend(matcher.results());
+        }
+
         completions
             .into_iter()
             // Different base dir, so we list the .nu files or folders
             .filter(|it| {
                 // for paths with spaces in them
                 let path = it.path.trim_end_matches('`');
-                path.ends_with(".nu") || path.ends_with(SEP)
+                path.ends_with(".nu") || it.is_dir
             })
             .map(|x| {
-                let append_whitespace =
-                    x.path.ends_with(".nu") && (!start_with_backquote || end_with_backquote);
+                let append_whitespace = !x.is_dir && (!start_with_backquote || end_with_backquote);
                 // Re-calculate the span to replace
                 let mut span_offset = 0;
                 let mut value = x.path.to_string();
