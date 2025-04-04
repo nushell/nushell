@@ -71,7 +71,7 @@ impl Default for DataFrameValue {
 
 impl PartialEq for DataFrameValue {
     fn eq(&self, other: &Self) -> bool {
-        self.0.partial_cmp(&other.0).map_or(false, Ordering::is_eq)
+        self.0.partial_cmp(&other.0).is_some_and(Ordering::is_eq)
     }
 }
 impl Eq for DataFrameValue {}
@@ -317,7 +317,7 @@ impl NuDataFrame {
         let series = self.as_series(span)?;
         let column = conversion::create_column_from_series(&series, row, row + 1, span)?;
 
-        if column.len() == 0 {
+        if column.is_empty() {
             Err(ShellError::AccessEmptyContent { span })
         } else {
             let value = column
