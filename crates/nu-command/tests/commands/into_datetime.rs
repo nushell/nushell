@@ -16,9 +16,9 @@ fn into_datetime_from_record() {
 
 #[test]
 fn into_datetime_from_record_defaults() {
-    let actual = nu!(r#"{year: 2025} | into datetime | into record"#);
+    let actual = nu!(r#"{year: 2025, timezone: '+02:00'} | into datetime | into record"#);
     let expected = nu!(
-        r#"{year: 2025, month: 1, day: 1, hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0, nanosecond: 0, timezone: '+00:00'}"#
+        r#"{year: 2025, month: 1, day: 1, hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0, nanosecond: 0, timezone: '+02:00'}"#
     );
 
     assert_eq!(expected.out, actual.out);
