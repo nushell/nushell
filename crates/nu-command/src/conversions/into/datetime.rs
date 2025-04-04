@@ -692,13 +692,13 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
 
     let offset: FixedOffset = match record.get("timezone") {
         Some(timezone) => {
-            let offset = match parse_timezone_from_record(timezone, &head, &span) {
+            
+            match parse_timezone_from_record(timezone, &head, &span) {
                 Ok(value) => value,
                 Err(err) => {
                     return err;
                 }
-            };
-            offset
+            }
         }
         None => now.offset().to_owned(),
     };
