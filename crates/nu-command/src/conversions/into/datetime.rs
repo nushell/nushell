@@ -572,7 +572,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let month = match record.get("month") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            match parse_value_from_record_as_u32_bis("month", col_val, &head, &span) {
+            match parse_value_from_record_as_u32("month", col_val, &head, &span) {
                 Ok(value) => value,
                 Err(err) => {
                     return err;
@@ -587,7 +587,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let day = match record.get("day") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            match parse_value_from_record_as_u32_bis("day", col_val, &head, &span) {
+            match parse_value_from_record_as_u32("day", col_val, &head, &span) {
                 Ok(value) => value,
                 Err(err) => {
                     return err;
@@ -602,7 +602,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let hour = match record.get("hour") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            match parse_value_from_record_as_u32_bis("hour", col_val, &head, &span) {
+            match parse_value_from_record_as_u32("hour", col_val, &head, &span) {
                 Ok(value) => value,
                 Err(err) => {
                     return err;
@@ -617,7 +617,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let minute = match record.get("minute") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            match parse_value_from_record_as_u32_bis("minute", col_val, &head, &span) {
+            match parse_value_from_record_as_u32("minute", col_val, &head, &span) {
                 Ok(value) => value,
                 Err(err) => {
                     return err;
@@ -632,7 +632,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let second = match record.get("second") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            match parse_value_from_record_as_u32_bis("second", col_val, &head, &span) {
+            match parse_value_from_record_as_u32("second", col_val, &head, &span) {
                 Ok(value) => value,
                 Err(err) => {
                     return err;
@@ -647,7 +647,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let millisecond = match record.get("millisecond") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            match parse_value_from_record_as_u32_bis("millisecond", col_val, &head, &span) {
+            match parse_value_from_record_as_u32("millisecond", col_val, &head, &span) {
                 Ok(value) => value,
                 Err(err) => {
                     return err;
@@ -662,7 +662,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let microsecond = match record.get("microsecond") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            match parse_value_from_record_as_u32_bis("microsecond", col_val, &head, &span) {
+            match parse_value_from_record_as_u32("microsecond", col_val, &head, &span) {
                 Ok(value) => value,
                 Err(err) => {
                     return err;
@@ -677,7 +677,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
 
     let nanosecond = match record.get("nanosecond") {
         Some(col_val) => {
-            match parse_value_from_record_as_u32_bis("nanosecond", col_val, &head, &span) {
+            match parse_value_from_record_as_u32("nanosecond", col_val, &head, &span) {
                 Ok(value) => value,
                 Err(err) => {
                     return err;
@@ -756,7 +756,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     Value::date(date_time_fixed, span)
 }
 
-fn parse_value_from_record_as_u32_bis(
+fn parse_value_from_record_as_u32(
     col: &str,
     col_val: &Value,
     head: &Span,
