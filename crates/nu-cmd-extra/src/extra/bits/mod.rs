@@ -135,7 +135,7 @@ where
                 (min, max) => (rhs, lhs, max, min),
             };
 
-            let pad = iter::repeat(0).take(max_len - min_len);
+            let pad = iter::repeat_n(0, max_len - min_len);
 
             let mut a;
             let mut b;
