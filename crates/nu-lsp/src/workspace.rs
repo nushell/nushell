@@ -55,7 +55,10 @@ fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Result<nu_glob::Paths> {
 /// FIXME: cross-file shadowing can still cause false-positive/false-negative cases
 fn pseudo_path() -> Result<PathBuf> {
     let mut path = std::env::current_dir().into_diagnostic()?;
-    path.push("non-existing-dir");
+    path = path
+        .parent()
+        .ok_or_else(|| miette!("Failed to create pseudo path."))?
+        .to_path_buf();
     path.push("non-existing-file");
     Ok(path)
 }
