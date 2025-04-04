@@ -510,11 +510,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     }
 }
 
-// enum RecordColumnDefault {
-//     Now(u32),
-//     Zero(u8),  // 1 for month and day, 0 otherwise
-// };
-
 fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     if let Some(invalid_col) = record
         .columns()
@@ -691,15 +686,12 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     };
 
     let offset: FixedOffset = match record.get("timezone") {
-        Some(timezone) => {
-            
-            match parse_timezone_from_record(timezone, &head, &span) {
-                Ok(value) => value,
-                Err(err) => {
-                    return err;
-                }
+        Some(timezone) => match parse_timezone_from_record(timezone, &head, &span) {
+            Ok(value) => value,
+            Err(err) => {
+                return err;
             }
-        }
+        },
         None => now.offset().to_owned(),
     };
 
@@ -735,7 +727,6 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     };
     let date_time = NaiveDateTime::new(date, time);
 
-    // let datetime_with_timezone = DateTime::from_naive_utc_and_offset(date_time, offset);
     let date_time_fixed = match offset.from_local_datetime(&date_time).single() {
         Some(d) => d,
         None => {
