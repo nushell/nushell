@@ -46,6 +46,20 @@ fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Result<nu_glob::Paths> {
     nu_glob::glob(&pattern, Uninterruptible).into_diagnostic()
 }
 
+/// HACK: when current file is imported (use keyword) by others in the workspace,
+/// it will get parsed a second time via `parse_module_block`, so that its definitions'
+/// ids are renewed, making it harder to track the references.
+/// The fake path stops that with `ParseError::ModuleNotFound`,
+/// which seems benign for tasks like references/renaming.
+///
+/// FIXME: cross-file shadowing can still cause false-positive/false-negative cases
+fn pseudo_path() -> Result<PathBuf> {
+    let mut path = std::env::current_dir().into_diagnostic()?;
+    path.push("non-existing-dir");
+    path.push("non-existing-file");
+    Ok(path)
+}
+
 impl LanguageServer {
     /// Get initial workspace folders from initialization response
     pub(crate) fn initialize_workspace_folders(
@@ -138,7 +152,8 @@ impl LanguageServer {
     ) -> Option<Vec<Location>> {
         self.occurrences = BTreeMap::new();
         let path_uri = params.text_document_position.text_document.uri.to_owned();
-        let mut engine_state = self.new_engine_state(None);
+        let mut engine_state = self.new_engine_state(Some(&path_to_uri(pseudo_path().ok()?)));
+
         let (_, id, span, _) = self
             .parse_and_find(
                 &mut engine_state,
@@ -199,7 +214,7 @@ impl LanguageServer {
         self.occurrences = BTreeMap::new();
 
         let path_uri = params.text_document.uri.to_owned();
-        let mut engine_state = self.new_engine_state(None);
+        let mut engine_state = self.new_engine_state(Some(&path_to_uri(pseudo_path()?)));
 
         let (working_set, id, span, file_offset) =
             self.parse_and_find(&mut engine_state, &path_uri, params.position)?;
