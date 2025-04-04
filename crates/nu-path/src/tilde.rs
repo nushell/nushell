@@ -29,7 +29,7 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
         };
     }
 
-    let path_last_char = path.as_os_str().to_string_lossy().chars().last();
+    let path_last_char = path.as_os_str().to_string_lossy().chars().next_back();
     let need_trailing_slash = path_last_char == Some('/') || path_last_char == Some('\\');
 
     match home {
@@ -94,7 +94,7 @@ fn user_home_dir(username: &str) -> PathBuf {
             if !cfg!(target_os = "android")
                 && expected_path
                     .components()
-                    .last()
+                    .next_back()
                     .map(|last| last != Component::Normal(username.as_ref()))
                     .unwrap_or(false)
             {

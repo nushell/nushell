@@ -323,9 +323,7 @@ fn repeat_vertical(
     c: char,
     style: TextStyle,
 ) {
-    let text = std::iter::repeat(c)
-        .take(width as usize)
-        .collect::<String>();
+    let text = std::iter::repeat_n(c, width as usize).collect::<String>();
     let style = text_style_to_tui_style(style);
     let span = Span::styled(text, style);
 

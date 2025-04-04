@@ -175,7 +175,7 @@ fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineDat
             handle_value(stream.into_value(), args, head),
             metadata,
         )),
-        PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: head }),
+        PipelineData::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),
         _ => Err(ShellError::UnsupportedInput {
             msg: "Input value cannot be joined".to_string(),
             input: "value originates from here".into(),

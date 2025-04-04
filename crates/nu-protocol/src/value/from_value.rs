@@ -133,7 +133,7 @@ pub trait FromValue: Sized {
         Type::Custom(
             any::type_name::<Self>()
                 .split(':')
-                .last()
+                .next_back()
                 .expect("str::split returns an iterator with at least one element")
                 .to_string()
                 .into_boxed_str(),

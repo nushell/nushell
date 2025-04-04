@@ -378,10 +378,7 @@ fn ls_for_one_pattern(
                 .par_bridge()
                 .filter_map(move |x| match x {
                     Ok(path) => {
-                        let metadata = match std::fs::symlink_metadata(&path) {
-                            Ok(metadata) => Some(metadata),
-                            Err(_) => None,
-                        };
+                        let metadata = std::fs::symlink_metadata(&path).ok();
                         let hidden_dir_clone = Arc::clone(&hidden_dirs);
                         let mut hidden_dir_mutex = hidden_dir_clone
                             .lock()

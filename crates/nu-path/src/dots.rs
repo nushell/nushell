@@ -46,7 +46,7 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
 pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
     // Check if the last component of the path is a normal component.
     fn last_component_is_normal(path: &Path) -> bool {
-        matches!(path.components().last(), Some(Component::Normal(_)))
+        matches!(path.components().next_back(), Some(Component::Normal(_)))
     }
 
     let path = path.as_ref();
@@ -61,7 +61,7 @@ pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
                 // no-op
             }
             _ => {
-                let prev_component = result.components().last();
+                let prev_component = result.components().next_back();
                 if prev_component == Some(Component::RootDir) && component == Component::ParentDir {
                     continue;
                 }

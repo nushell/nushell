@@ -249,7 +249,7 @@ fn shift_bytes_and_bits_left(data: &[u8], byte_shift: usize, bit_shift: usize) -
             Last | Only => lhs << bit_shift,
             _ => (lhs << bit_shift) | (rhs >> (8 - bit_shift)),
         })
-        .chain(iter::repeat(0).take(byte_shift))
+        .chain(iter::repeat_n(0, byte_shift))
         .collect::<Vec<u8>>()
 }
 

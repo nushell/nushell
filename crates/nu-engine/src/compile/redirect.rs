@@ -98,7 +98,7 @@ pub(crate) fn finish_redirection(
         if !matches!(
             modes.err,
             Some(Spanned {
-                item: RedirectMode::Pipe { .. },
+                item: RedirectMode::Pipe,
                 ..
             })
         ) {

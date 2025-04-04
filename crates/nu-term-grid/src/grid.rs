@@ -39,15 +39,15 @@
 //! that dictate how the grid is formatted:
 //!
 //! - `filling`: what to put in between two columns — either a number of
-//!    spaces, or a text string;
+//!   spaces, or a text string;
 //! - `direction`, which specifies whether the cells should go along
-//!    rows, or columns:
+//!   rows, or columns:
 //!     - `Direction::LeftToRight` starts them in the top left and
-//!        moves *rightwards*, going to the start of a new row after reaching the
-//!        final column;
+//!       moves *rightwards*, going to the start of a new row after reaching the
+//!       final column;
 //!     - `Direction::TopToBottom` starts them in the top left and moves
-//!        *downwards*, going to the top of a new column after reaching the final
-//!        row.
+//!       *downwards*, going to the top of a new column after reaching the final
+//!       row.
 //!
 //!
 //! ## Displaying a grid
@@ -93,7 +93,7 @@
 
 use std::cmp::max;
 use std::fmt;
-use std::iter::repeat;
+use std::iter::repeat_n;
 use unicode_width::UnicodeWidthStr;
 
 fn unicode_width_strip_ansi(astring: &str) -> usize {
@@ -290,7 +290,7 @@ impl Grid {
     }
 
     fn column_widths(&self, num_lines: usize, num_columns: usize) -> Dimensions {
-        let mut widths: Vec<Width> = repeat(0).take(num_columns).collect();
+        let mut widths: Vec<Width> = repeat_n(0, num_columns).collect();
         for (index, cell) in self.cells.iter().enumerate() {
             let index = match self.options.direction {
                 Direction::LeftToRight => index % num_columns,
