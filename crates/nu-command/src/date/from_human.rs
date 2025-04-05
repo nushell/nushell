@@ -144,7 +144,7 @@ fn helper(value: Value, head: Span) -> Value {
                 let dt_fixed = TimeZone::from_local_datetime(&local_offset, &combined)
                     .single()
                     .unwrap_or_default();
-                return Value::date(dt_fixed, span);
+                Value::date(dt_fixed, span)
             }
             ParseResult::DateTime(date) => {
                 let local_offset = *Local::now().offset();
@@ -169,7 +169,7 @@ fn helper(value: Value, head: Span) -> Value {
                         );
                     }
                 };
-                return Value::date(dt_fixed, span);
+                Value::date(dt_fixed, span)
             }
             ParseResult::Time(time) => {
                 let date = Local::now().date_naive();
@@ -178,7 +178,7 @@ fn helper(value: Value, head: Span) -> Value {
                 let dt_fixed = TimeZone::from_local_datetime(&local_offset, &combined)
                     .single()
                     .unwrap_or_default();
-                return Value::date(dt_fixed, span);
+                Value::date(dt_fixed, span)
             }
         },
         Err(_) => Value::error(
