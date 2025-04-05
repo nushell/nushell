@@ -26,7 +26,7 @@ impl Command for DateFromHuman {
     }
 
     fn description(&self) -> &str {
-        "Convert a date formatted as a 'humanized' string to a datetime."
+        "Convert a human readable datetime string to a datetime."
     }
 
     fn search_terms(&self) -> Vec<&str> {
