@@ -16,7 +16,7 @@ impl Command for DateFromHuman {
                 (Type::String, Type::Date),
                 (Type::Nothing, Type::table()),
             ])
-            .allow_variants_without_examples(false)
+            .allow_variants_without_examples(true)
             .switch(
                 "list-human",
                 "Show human-readable datetime parsing examples",
@@ -64,17 +64,22 @@ impl Command for DateFromHuman {
         vec![
             Example {
                 description: "Parsing human readable datetime",
-                example: "'Today at 18:30' | into datetime",
+                example: "'Today at 18:30' | date from-human",
                 result: None,
             },
             Example {
                 description: "Parsing human readable datetime",
-                example: "'Last Friday at 19:45' | into datetime",
+                example: "'Last Friday at 19:45' | date from-human",
                 result: None,
             },
             Example {
                 description: "Parsing human readable datetime",
-                example: "'In 5 minutes and 30 seconds' | into datetime",
+                example: "'In 5 minutes and 30 seconds' | date from-human",
+                result: None,
+            },
+            Example {
+                description: "PShow human-readable datetime parsing examples",
+                example: "date from-human --list-human",
                 result: None,
             },
         ]
