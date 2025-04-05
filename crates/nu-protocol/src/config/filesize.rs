@@ -1,6 +1,5 @@
 use super::prelude::*;
-use crate::{Filesize, FilesizeFormatter, FilesizeUnitFormat, FormattedFilesize};
-use nu_utils::get_system_locale;
+use crate::{Filesize, FilesizeFormatter, FilesizeUnitFormat, FormattedFilesize, Locale};
 
 impl IntoValue for FilesizeUnitFormat {
     fn into_value(self, span: Span) -> Value {
@@ -21,7 +20,7 @@ impl FilesizeConfig {
             .unit(self.unit)
             .show_unit(self.show_unit)
             .precision(self.precision)
-            .locale(get_system_locale()) // TODO: cache this somewhere or pass in as argument
+            .locale(Locale::system_number().unwrap_or_default()) // TODO: cache this somewhere or pass in as argument
     }
 
     pub fn format(&self, filesize: Filesize) -> FormattedFilesize {
