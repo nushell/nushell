@@ -12,8 +12,16 @@ impl Command for DateFromHuman {
 
     fn signature(&self) -> Signature {
         Signature::build("date from-human")
-            .input_output_types(vec![(Type::String, Type::Date)])
+            .input_output_types(vec![
+                (Type::String, Type::Date),
+                (Type::Nothing, Type::table()),
+            ])
             .allow_variants_without_examples(false)
+            .switch(
+                "list-human",
+                "Show human-readable datetime parsing examples",
+                Some('n'),
+            )
             .category(Category::Date)
     }
 
@@ -37,10 +45,13 @@ impl Command for DateFromHuman {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        if call.has_flag(engine_state, stack, "list-human")? {
+            return Ok(list_human_readable_examples(call.head).into_pipeline_data());
+        }
         let head = call.head;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -190,6 +201,44 @@ fn helper(value: Value, head: Span) -> Value {
             span,
         ),
     }
+}
+
+fn list_human_readable_examples(span: Span) -> Value {
+    let examples: Vec<String> = vec![
+        "Today 18:30".into(),
+        "2022-11-07 13:25:30".into(),
+        "15:20 Friday".into(),
+        "This Friday 17:00".into(),
+        "13:25, Next Tuesday".into(),
+        "Last Friday at 19:45".into(),
+        "In 3 days".into(),
+        "In 2 hours".into(),
+        "10 hours and 5 minutes ago".into(),
+        "1 years ago".into(),
+        "A year ago".into(),
+        "A month ago".into(),
+        "A week ago".into(),
+        "A day ago".into(),
+        "An hour ago".into(),
+        "A minute ago".into(),
+        "A second ago".into(),
+        "Now".into(),
+    ];
+
+    let records = examples
+        .iter()
+        .map(|s| {
+            Value::record(
+                record! {
+                    "parseable human datetime examples" => Value::test_string(s.to_string()),
+                    "result" => helper(Value::test_string(s.to_string()), span),
+                },
+                span,
+            )
+        })
+        .collect::<Vec<Value>>();
+
+    Value::list(records, span)
 }
 
 #[cfg(test)]
