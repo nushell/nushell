@@ -301,7 +301,11 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
         .map(|s| s.to_string())
         .collect();
     let align = t.alignments.header;
-    let color = is_color_empty(&t.styles.header).then(|| t.styles.header.clone());
+    let color = if is_color_empty(&t.styles.header) {
+        None
+    } else {
+        Some(t.styles.header.clone())
+    };
 
     // move settings by one row down
     t.alignments.cells = t
@@ -311,6 +315,7 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
         .filter(|(k, _)| k.0 != 0)
         .map(|(k, v)| ((k.0 - 1, k.1), v))
         .collect();
+    t.alignments.header = AlignmentHorizontal::Center;
 
     // move settings by one row down
     t.styles.cells = t
@@ -320,6 +325,7 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
         .filter(|(k, _)| k.0 != 0)
         .map(|(k, v)| ((k.0 - 1, k.1), v))
         .collect();
+    t.styles.header = Color::empty();
 
     HeadInfo {
         values: head,
