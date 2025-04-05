@@ -1,7 +1,6 @@
 [files]
 extend-exclude = [
     ".git/",
-    "crates/nu-command/tests/commands/table.rs",
     "crates/nu-cmd-extra/assets/228_themes.json",
     "tests/fixtures/formats/",
 ]
