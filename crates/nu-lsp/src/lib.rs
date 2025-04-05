@@ -363,7 +363,7 @@ impl LanguageServer {
         engine_state: &'a mut EngineState,
         uri: &Uri,
         pos: Position,
-    ) -> Result<(StateWorkingSet<'a>, Id, Span, usize)> {
+    ) -> Result<(StateWorkingSet<'a>, Id, Span, Span)> {
         let (block, file_span, working_set) = self
             .parse_file(engine_state, uri, false)
             .ok_or_else(|| miette!("\nFailed to parse current file"))?;
@@ -378,7 +378,7 @@ impl LanguageServer {
         let location = file.offset_at(pos) as usize + file_span.start;
         let (id, span) = ast::find_id(&block, &working_set, &location)
             .ok_or_else(|| miette!("\nFailed to find current name"))?;
-        Ok((working_set, id, span, file_span.start))
+        Ok((working_set, id, span, file_span))
     }
 
     pub(crate) fn parse_file<'a>(

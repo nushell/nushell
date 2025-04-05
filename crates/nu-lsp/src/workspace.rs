@@ -1,5 +1,5 @@
 use crate::{
-    ast::{find_id, find_reference_by_id},
+    ast::{self, find_id, find_reference_by_id},
     path_to_uri, span_to_range, uri_to_path, Id, LanguageServer,
 };
 use lsp_textdocument::FullTextDocument;
@@ -49,18 +49,21 @@ fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Result<nu_glob::Paths> {
 /// HACK: when current file is imported (use keyword) by others in the workspace,
 /// it will get parsed a second time via `parse_module_block`, so that its definitions'
 /// ids are renewed, making it harder to track the references.
-/// The fake path stops that with `ParseError::ModuleNotFound`,
-/// which seems benign for tasks like references/renaming.
 ///
 /// FIXME: cross-file shadowing can still cause false-positive/false-negative cases
-fn pseudo_path() -> Result<PathBuf> {
-    let mut path = std::env::current_dir().into_diagnostic()?;
-    path = path
-        .parent()
-        .ok_or_else(|| miette!("Failed to create pseudo path."))?
-        .to_path_buf();
-    path.push("non-existing-file");
-    Ok(path)
+///
+/// This is a workaround to track the new id
+struct IDTracker {
+    /// ID to search, renewed on `parse_module_block`
+    pub id: Id,
+    /// Span of the original instance under the cursor
+    pub span: Span,
+    /// Name of the definition
+    pub name: String,
+    /// Span of the original file where the request comes from
+    pub file_span: Span,
+    /// The redundant parsing should only happen once
+    pub renewed: bool,
 }
 
 impl LanguageServer {
@@ -155,9 +158,9 @@ impl LanguageServer {
     ) -> Option<Vec<Location>> {
         self.occurrences = BTreeMap::new();
         let path_uri = params.text_document_position.text_document.uri.to_owned();
-        let mut engine_state = self.new_engine_state(Some(&path_to_uri(pseudo_path().ok()?)));
+        let mut engine_state = self.new_engine_state(Some(&path_uri));
 
-        let (_, id, span, _) = self
+        let (working_set, id, span, file_span) = self
             .parse_and_find(
                 &mut engine_state,
                 &path_uri,
@@ -170,14 +173,22 @@ impl LanguageServer {
             .work_done_token
             .to_owned()
             .unwrap_or(ProgressToken::Number(1));
+
+        let id_tracker = IDTracker {
+            id,
+            span,
+            file_span,
+            name: String::from_utf8_lossy(working_set.get_span_contents(span)).to_string(),
+            renewed: false,
+        };
+
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,
                 current_workspace_folder,
-                id,
-                span,
                 token.clone(),
                 "Finding references ...".to_string(),
+                id_tracker,
             )
             .ok();
         // TODO: WorkDoneProgress -> PartialResults for quicker response
@@ -217,9 +228,9 @@ impl LanguageServer {
         self.occurrences = BTreeMap::new();
 
         let path_uri = params.text_document.uri.to_owned();
-        let mut engine_state = self.new_engine_state(Some(&path_to_uri(pseudo_path()?)));
+        let mut engine_state = self.new_engine_state(Some(&path_uri));
 
-        let (working_set, id, span, file_offset) =
+        let (working_set, id, span, file_span) =
             self.parse_and_find(&mut engine_state, &path_uri, params.position)?;
 
         if let Id::Value(_) = id {
@@ -238,7 +249,7 @@ impl LanguageServer {
         let file = docs
             .get_document(&path_uri)
             .ok_or_else(|| miette!("\nFailed to get document"))?;
-        let range = span_to_range(&span, file, file_offset);
+        let range = span_to_range(&span, file, file_span.start);
         let response = PrepareRenameResponse::Range(range);
         self.connection
             .sender
@@ -253,14 +264,20 @@ impl LanguageServer {
             .get_workspace_folder_by_uri(&path_uri)
             .ok_or_else(|| miette!("\nCurrent file is not in any workspace"))?;
         // now continue parsing on other files in the workspace
+        let id_tracker = IDTracker {
+            id,
+            span,
+            file_span,
+            name: String::from_utf8_lossy(working_set.get_span_contents(span)).to_string(),
+            renewed: false,
+        };
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,
                 current_workspace_folder,
-                id,
-                span,
                 ProgressToken::Number(0),
                 "Preparing rename ...".to_string(),
+                id_tracker,
             )
             .ok();
         Ok(())
@@ -270,7 +287,7 @@ impl LanguageServer {
         working_set: &mut StateWorkingSet,
         file: &FullTextDocument,
         fp: &Path,
-        id: &Id,
+        id_tracker: &mut IDTracker,
     ) -> Option<Vec<Span>> {
         let block = nu_parser::parse(
             working_set,
@@ -278,7 +295,23 @@ impl LanguageServer {
             file.get_content(None).as_bytes(),
             false,
         );
-        let references: Vec<Span> = find_reference_by_id(&block, working_set, id);
+        // renew the id if there's a module with the same span as the original file
+        if (!id_tracker.renewed)
+            && working_set
+                .find_module_by_span(id_tracker.file_span)
+                .is_some()
+        {
+            let new_block = working_set.find_block_by_span(id_tracker.file_span);
+            if let Some(new_block) = new_block {
+                if let Some((new_id, _)) =
+                    ast::find_id(&new_block, working_set, &id_tracker.span.start)
+                {
+                    id_tracker.id = new_id;
+                }
+            }
+            id_tracker.renewed = true;
+        }
+        let references: Vec<Span> = find_reference_by_id(&block, working_set, &id_tracker.id);
 
         // add_block to avoid repeated parsing
         working_set.add_block(block);
@@ -318,10 +351,9 @@ impl LanguageServer {
         &self,
         engine_state: EngineState,
         current_workspace_folder: WorkspaceFolder,
-        id: Id,
-        span: Span,
         token: ProgressToken,
         message: String,
+        mut id_tracker: IDTracker,
     ) -> Result<(
         crossbeam_channel::Sender<bool>,
         Arc<crossbeam_channel::Receiver<InternalMessage>>,
@@ -347,7 +379,7 @@ impl LanguageServer {
                 .filter_map(|p| p.ok())
                 .collect();
             let len = scripts.len();
-            let definition_span = Self::find_definition_span_by_id(&working_set, &id);
+            let definition_span = Self::find_definition_span_by_id(&working_set, &id_tracker.id);
 
             for (i, fp) in scripts.iter().enumerate() {
                 #[cfg(test)]
@@ -377,9 +409,7 @@ impl LanguageServer {
                     };
                     // skip if the file does not contain what we're looking for
                     let content_string = String::from_utf8_lossy(&bytes);
-                    let text_to_search =
-                        String::from_utf8_lossy(working_set.get_span_contents(span));
-                    if !content_string.contains(text_to_search.as_ref()) {
+                    if !content_string.contains(&id_tracker.name) {
                         // progress without any data
                         data_sender
                             .send(InternalMessage::OnGoing(token.clone(), percentage))
@@ -388,17 +418,17 @@ impl LanguageServer {
                     }
                     &FullTextDocument::new("nu".to_string(), 0, content_string.into())
                 };
-                let _ = Self::find_reference_in_file(&mut working_set, file, fp, &id).map(
-                    |mut refs| {
+                let _ = Self::find_reference_in_file(&mut working_set, file, fp, &mut id_tracker)
+                    .map(|mut refs| {
                         let file_span = working_set
                             .get_span_for_filename(fp.to_string_lossy().as_ref())
                             .unwrap_or(Span::unknown());
                         if let Some(extra_span) = Self::reference_not_in_ast(
-                            &id,
+                            &id_tracker.id,
                             &working_set,
                             definition_span,
                             file_span,
-                            span,
+                            id_tracker.span,
                         ) {
                             if !refs.contains(&extra_span) {
                                 refs.push(extra_span)
@@ -414,8 +444,7 @@ impl LanguageServer {
                         data_sender
                             .send(InternalMessage::OnGoing(token.clone(), percentage))
                             .ok();
-                    },
-                );
+                    });
             }
             data_sender
                 .send(InternalMessage::Finished(token.clone()))
