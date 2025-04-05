@@ -54,7 +54,7 @@ impl LanguageServer {
                     let mut snippet_text = r.suggestion.value.clone();
                     let mut doc_string = r.suggestion.extra.map(|ex| ex.join("\n"));
                     let mut insert_text_format = None;
-                    let mut idx = 1;
+                    let mut idx = 0;
                     // use snippet as `insert_text_format` for command argument completion
                     if let Some(decl_id) = decl_id {
                         let cmd = engine_state.get_decl(decl_id);
@@ -62,45 +62,58 @@ impl LanguageServer {
                         insert_text_format = Some(InsertTextFormat::SNIPPET);
                         let signature = cmd.signature();
                         // add curly brackets around block arguments
-                        let block_wrapper = |arg: &PositionalArg, text: String| -> String {
-                            match &arg.shape {
-                                SyntaxShape::Block | SyntaxShape::MatchBlock => {
-                                    format!("{{ {text} }}")
+                        // and keywords, e.g. `=` in `alias foo = bar`
+                        let mut arg_wrapper =
+                            |arg: &PositionalArg, text: String, optional: bool| -> String {
+                                idx += 1;
+                                match &arg.shape {
+                                    SyntaxShape::Block | SyntaxShape::MatchBlock => {
+                                        format!("{{ ${{{}:{}}} }}", idx, text)
+                                    }
+                                    SyntaxShape::Keyword(kwd, _) => {
+                                        if optional {
+                                            idx += 1;
+                                            format!(
+                                                "${{{}:{} ${{{}:{}}}}}",
+                                                idx - 1,
+                                                String::from_utf8_lossy(kwd),
+                                                idx,
+                                                text
+                                            )
+                                        } else {
+                                            format!(
+                                                "{} ${{{}:{}}}",
+                                                String::from_utf8_lossy(kwd),
+                                                idx,
+                                                text
+                                            )
+                                        }
+                                    }
+                                    _ => format!("${{{}:{}}}", idx, text),
                                 }
-                                SyntaxShape::Keyword(kwd, _) => {
-                                    format!("{} {text}", String::from_utf8_lossy(kwd))
-                                }
-                                _ => text,
-                            }
-                        };
+                            };
 
                         for required in signature.required_positional {
                             snippet_text.push(' ');
                             snippet_text.push_str(
-                                block_wrapper(&required, format!("${{{}:{}}}", idx, required.name))
-                                    .as_str(),
+                                arg_wrapper(&required, required.name.clone(), false).as_str(),
                             );
-                            idx += 1;
                         }
                         for optional in signature.optional_positional {
                             snippet_text.push(' ');
                             snippet_text.push_str(
-                                block_wrapper(
-                                    &optional,
-                                    format!("${{{}:{}?}}", idx, optional.name),
-                                )
-                                .as_str(),
+                                arg_wrapper(&optional, format!("{}?", optional.name), true)
+                                    .as_str(),
                             );
-                            idx += 1;
                         }
                         if let Some(rest) = signature.rest_positional {
+                            idx += 1;
                             snippet_text
                                 .push_str(format!(" ${{{}:...{}}}", idx, rest.name).as_str());
-                            idx += 1;
                         }
                     }
                     // no extra space for a command with args expanded in the snippet
-                    if idx == 1 && r.suggestion.append_whitespace {
+                    if idx == 0 && r.suggestion.append_whitespace {
                         snippet_text.push(' ');
                     }
 
