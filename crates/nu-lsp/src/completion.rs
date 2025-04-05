@@ -4,11 +4,11 @@ use crate::{span_to_range, uri_to_path, LanguageServer};
 use lsp_types::{
     CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionParams,
     CompletionResponse, CompletionTextEdit, Documentation, InsertTextFormat, MarkupContent,
-    MarkupKind, TextEdit,
+    MarkupKind, Range, TextEdit,
 };
-use nu_cli::{NuCompleter, SuggestionKind};
+use nu_cli::{NuCompleter, SemanticSuggestion, SuggestionKind};
 use nu_protocol::{
-    engine::{CommandType, Stack},
+    engine::{CommandType, EngineState, Stack},
     PositionalArg, Span, SyntaxShape,
 };
 
@@ -46,99 +46,121 @@ impl LanguageServer {
             results
                 .into_iter()
                 .map(|r| {
-                    let decl_id = r.kind.as_ref().and_then(|kind| {
-                        matches!(kind, SuggestionKind::Command(_))
-                            .then_some(engine_state.find_decl(r.suggestion.value.as_bytes(), &[])?)
-                    });
-
-                    let mut snippet_text = r.suggestion.value.clone();
-                    let mut doc_string = r.suggestion.extra.map(|ex| ex.join("\n"));
-                    let mut insert_text_format = None;
-                    let mut idx = 1;
-                    // use snippet as `insert_text_format` for command argument completion
-                    if let Some(decl_id) = decl_id {
-                        let cmd = engine_state.get_decl(decl_id);
-                        doc_string = Some(Self::get_decl_description(cmd, true));
-                        insert_text_format = Some(InsertTextFormat::SNIPPET);
-                        let signature = cmd.signature();
-                        // add curly brackets around block arguments
-                        let block_wrapper = |arg: &PositionalArg, text: String| -> String {
-                            if matches!(arg.shape, SyntaxShape::Block | SyntaxShape::MatchBlock) {
-                                format!("{{ {text} }}")
-                            } else {
-                                text
-                            }
-                        };
-
-                        for required in signature.required_positional {
-                            snippet_text.push(' ');
-                            snippet_text.push_str(
-                                block_wrapper(&required, format!("${{{}:{}}}", idx, required.name))
-                                    .as_str(),
-                            );
-                            idx += 1;
-                        }
-                        for optional in signature.optional_positional {
-                            snippet_text.push(' ');
-                            snippet_text.push_str(
-                                block_wrapper(
-                                    &optional,
-                                    format!("${{{}:{}?}}", idx, optional.name),
-                                )
-                                .as_str(),
-                            );
-                            idx += 1;
-                        }
-                        if let Some(rest) = signature.rest_positional {
-                            snippet_text
-                                .push_str(format!(" ${{{}:...{}}}", idx, rest.name).as_str());
-                            idx += 1;
-                        }
-                    }
-                    // no extra space for a command with args expanded in the snippet
-                    if idx == 1 && r.suggestion.append_whitespace {
-                        snippet_text.push(' ');
-                    }
-
-                    let span = r.suggestion.span;
-                    let text_edit = Some(CompletionTextEdit::Edit(TextEdit {
-                        range: span_to_range(&Span::new(span.start, span.end), file, 0),
-                        new_text: snippet_text,
-                    }));
-
-                    CompletionItem {
-                        label: r.suggestion.value,
-                        label_details: r
-                            .kind
-                            .as_ref()
-                            .map(|kind| match kind {
-                                SuggestionKind::Value(t) => t.to_string(),
-                                SuggestionKind::Command(cmd) => cmd.to_string(),
-                                SuggestionKind::Module => "module".to_string(),
-                                SuggestionKind::Operator => "operator".to_string(),
-                                SuggestionKind::Variable => "variable".to_string(),
-                                SuggestionKind::Flag => "flag".to_string(),
-                                _ => String::new(),
-                            })
-                            .map(|s| CompletionItemLabelDetails {
-                                detail: None,
-                                description: Some(s),
-                            }),
-                        detail: r.suggestion.description,
-                        documentation: doc_string.map(|value| {
-                            Documentation::MarkupContent(MarkupContent {
-                                kind: MarkupKind::Markdown,
-                                value,
-                            })
-                        }),
-                        kind: Self::lsp_completion_item_kind(r.kind),
-                        text_edit,
-                        insert_text_format,
-                        ..Default::default()
-                    }
+                    let reedline_span = r.suggestion.span;
+                    Self::completion_item_from_suggestion(
+                        &engine_state,
+                        r,
+                        span_to_range(&Span::new(reedline_span.start, reedline_span.end), file, 0),
+                    )
                 })
                 .collect(),
         ))
+    }
+
+    fn completion_item_from_suggestion(
+        engine_state: &EngineState,
+        suggestion: SemanticSuggestion,
+        range: Range,
+    ) -> CompletionItem {
+        let decl_id = suggestion.kind.as_ref().and_then(|kind| {
+            matches!(kind, SuggestionKind::Command(_))
+                .then_some(engine_state.find_decl(suggestion.suggestion.value.as_bytes(), &[])?)
+        });
+
+        let mut snippet_text = suggestion.suggestion.value.clone();
+        let mut doc_string = suggestion.suggestion.extra.map(|ex| ex.join("\n"));
+        let mut insert_text_format = None;
+        let mut idx = 0;
+        // use snippet as `insert_text_format` for command argument completion
+        if let Some(decl_id) = decl_id {
+            let cmd = engine_state.get_decl(decl_id);
+            doc_string = Some(Self::get_decl_description(cmd, true));
+            insert_text_format = Some(InsertTextFormat::SNIPPET);
+            let signature = cmd.signature();
+            // add curly brackets around block arguments
+            // and keywords, e.g. `=` in `alias foo = bar`
+            let mut arg_wrapper = |arg: &PositionalArg, text: String, optional: bool| -> String {
+                idx += 1;
+                match &arg.shape {
+                    SyntaxShape::Block | SyntaxShape::MatchBlock => {
+                        format!("{{ ${{{}:{}}} }}", idx, text)
+                    }
+                    SyntaxShape::Keyword(kwd, _) => {
+                        // NOTE: If optional, the keyword should also be in a placeholder so that it can be removed easily.
+                        // Here we choose to use nested placeholders. Note that some editors don't fully support this format,
+                        // but usually they will simply ignore the inner ones, so it should be fine.
+                        if optional {
+                            idx += 1;
+                            format!(
+                                "${{{}:{} ${{{}:{}}}}}",
+                                idx - 1,
+                                String::from_utf8_lossy(kwd),
+                                idx,
+                                text
+                            )
+                        } else {
+                            format!("{} ${{{}:{}}}", String::from_utf8_lossy(kwd), idx, text)
+                        }
+                    }
+                    _ => format!("${{{}:{}}}", idx, text),
+                }
+            };
+
+            for required in signature.required_positional {
+                snippet_text.push(' ');
+                snippet_text
+                    .push_str(arg_wrapper(&required, required.name.clone(), false).as_str());
+            }
+            for optional in signature.optional_positional {
+                snippet_text.push(' ');
+                snippet_text
+                    .push_str(arg_wrapper(&optional, format!("{}?", optional.name), true).as_str());
+            }
+            if let Some(rest) = signature.rest_positional {
+                idx += 1;
+                snippet_text.push_str(format!(" ${{{}:...{}}}", idx, rest.name).as_str());
+            }
+        }
+        // no extra space for a command with args expanded in the snippet
+        if idx == 0 && suggestion.suggestion.append_whitespace {
+            snippet_text.push(' ');
+        }
+
+        let text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+            range,
+            new_text: snippet_text,
+        }));
+
+        CompletionItem {
+            label: suggestion.suggestion.value,
+            label_details: suggestion
+                .kind
+                .as_ref()
+                .map(|kind| match kind {
+                    SuggestionKind::Value(t) => t.to_string(),
+                    SuggestionKind::Command(cmd) => cmd.to_string(),
+                    SuggestionKind::Module => "module".to_string(),
+                    SuggestionKind::Operator => "operator".to_string(),
+                    SuggestionKind::Variable => "variable".to_string(),
+                    SuggestionKind::Flag => "flag".to_string(),
+                    _ => String::new(),
+                })
+                .map(|s| CompletionItemLabelDetails {
+                    detail: None,
+                    description: Some(s),
+                }),
+            detail: suggestion.suggestion.description,
+            documentation: doc_string.map(|value| {
+                Documentation::MarkupContent(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value,
+                })
+            }),
+            kind: Self::lsp_completion_item_kind(suggestion.kind),
+            text_edit,
+            insert_text_format,
+            ..Default::default()
+        }
     }
 
     fn lsp_completion_item_kind(
@@ -349,7 +371,7 @@ mod tests {
                     "detail": "Alias a command (with optional flags) to a new name.",
                     "textEdit": {
                         "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 0 }, },
-                        "newText": "alias ${1:name} ${2:initial_value}"
+                        "newText": "alias ${1:name} = ${2:initial_value}"
                     },
                     "insertTextFormat": 2,
                     "kind": 14
@@ -367,7 +389,7 @@ mod tests {
                     "detail": "Alias a command (with optional flags) to a new name.",
                     "textEdit": {
                         "range": { "start": { "line": 3, "character": 2 }, "end": { "line": 3, "character": 2 }, },
-                        "newText": "alias ${1:name} ${2:initial_value}"
+                        "newText": "alias ${1:name} = ${2:initial_value}"
                     },
                     "insertTextFormat": 2,
                     "kind": 14
@@ -530,7 +552,7 @@ mod tests {
                     "detail": "Alias a command (with optional flags) to a new name.",
                     "textEdit": {
                         "range": { "start": { "line": 0, "character": 5 }, "end": { "line": 0, "character": 5 }, },
-                        "newText": "alias ${1:name} ${2:initial_value}"
+                        "newText": "alias ${1:name} = ${2:initial_value}"
                     },
                     "kind": 14
                 },
