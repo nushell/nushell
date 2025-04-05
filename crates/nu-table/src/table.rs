@@ -340,8 +340,6 @@ fn draw_table(
         structure.with_header = false;
     }
 
-    // println!("====> {:?}", widths);
-
     let data: Vec<Vec<_>> = t.data.into();
     let mut table = Builder::from_vec(data).build();
 
@@ -445,8 +443,6 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
         dim: &mut CompleteDimensionVecRecords<'_>,
     ) {
         let total_width = get_total_width2(&self.width, cfg);
-
-        // println!("{:?}", total_width);
 
         let need_truncation = total_width > self.width_max;
         if need_truncation {
@@ -914,7 +910,7 @@ fn truncate_columns_by_head(
         //       Therefore we must try to expand the column to head text width as much as possible.
         //
         //       The kicker is that we will truncate the header if we can't fit it totally.
-        //       Therefore it's not guaranted that the column will be expanded to excatly head width.
+        //       Therefore it's not guaranteed that the column will be expanded to exactly head width.
         widths[i] = head_width + pad;
         let col_width = widths[i];
 
@@ -931,31 +927,14 @@ fn truncate_columns_by_head(
                 width += available;
                 widths[i] = available;
                 truncate_pos += 1;
-
-                // let col_width = available;
-                // for row in data.iter_mut() {
-                //     let cell = &row[i];
-                //     let text = cell.as_ref();
-                //     let text = string_expand(text, col_width - pad);
-                //     row[i] = NuRecordsValue::new(text);
-                // }
             }
 
             break;
         }
 
-        // for row in data.iter_mut() {
-        //     let cell = &row[i];
-        //     let text = cell.as_ref();
-        //     let text = string_expand(text, col_width - pad);
-        //     row[i] = NuRecordsValue::new(text);
-        // }
-
         width += move_width;
         truncate_pos += 1;
     }
-
-    // println!("{:?}", (truncate_pos, head.values.len()));
 
     // we don't need any truncation then (is it possible?)
     if truncate_pos == head.values.len() {
