@@ -237,14 +237,16 @@ fn run(
     input.map(
         move |v| {
             let value_span = v.span();
+            let type_ = v.get_type();
             match v.coerce_into_string() {
                 Ok(s) => {
                     let contents = if is_path { s.replace('\\', "\\\\") } else { s };
                     str_expand(&contents, span, value_span)
                 }
                 Err(_) => Value::error(
-                    ShellError::PipelineMismatch {
+                    ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string".into(),
+                        wrong_type: type_.to_string(),
                         dst_span: span,
                         src_span: value_span,
                     },

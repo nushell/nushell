@@ -51,21 +51,11 @@ fn handle_invalid_values(rest: Value, name: Span) -> Value {
 fn err_from_value(rest: &Value, name: Span) -> ShellError {
     match rest {
         Value::Error { error, .. } => *error.clone(),
-        _ => {
-            if rest.is_nothing() {
-                ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "string, record or list".into(),
-                    wrong_type: "nothing".into(),
-                    dst_span: name,
-                    src_span: rest.span(),
-                }
-            } else {
-                ShellError::PipelineMismatch {
-                    exp_input_type: "string, row or list".into(),
-                    dst_span: name,
-                    src_span: rest.span(),
-                }
-            }
-        }
+        _ => ShellError::OnlySupportsThisInputType {
+            exp_input_type: "string, record or list".into(),
+            wrong_type: rest.get_type().to_string(),
+            dst_span: name,
+            src_span: rest.span(),
+        },
     }
 }

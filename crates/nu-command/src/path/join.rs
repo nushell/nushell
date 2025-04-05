@@ -221,11 +221,18 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
 
                     Value::list(vals, span)
                 }
-                Err(_) => Value::error(
-                    ShellError::PipelineMismatch {
+                Err(ShellError::CantConvert { from_type, .. }) => Value::error(
+                    ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string or record".into(),
+                        wrong_type: from_type,
                         dst_span: head,
                         src_span: span,
+                    },
+                    span,
+                ),
+                Err(_) => Value::error(
+                    ShellError::NushellFailed {
+                        msg: "failed to join path".into(),
                     },
                     span,
                 ),
