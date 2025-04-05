@@ -205,6 +205,13 @@ pub fn insert_value(
     column_values: &mut ColumnMap,
     maybe_schema: &Option<NuSchema>,
 ) -> Result<(), ShellError> {
+    // If we have a schema but a key is not provided, do not create that column
+    if let Some(schema) = maybe_schema {
+        if !schema.schema.contains(&key) {
+            return Ok(());
+        }
+    }
+
     let col_val = match column_values.entry(key.clone()) {
         Entry::Vacant(entry) => entry.insert(TypedColumn::new_empty(key.clone())),
         Entry::Occupied(entry) => entry.into_mut(),
@@ -215,28 +222,22 @@ pub fn insert_value(
         if let Some(field) = schema.schema.get_field(&key) {
             col_val.column_type = Some(field.dtype().clone());
             col_val.values.push(value);
-            Ok(())
-        } else {
-            Err(ShellError::GenericError {
-                error: format!("Schema does not contain column: {key}"),
-                msg: "".into(),
-                span: Some(value.span()),
-                help: None,
-                inner: vec![],
-            })
+            return Ok(());
         }
-    } else {
-        let current_data_type = value_to_data_type(&value);
-        if col_val.column_type.is_none() {
-            col_val.column_type = value_to_data_type(&value);
-        } else if let Some(current_data_type) = current_data_type {
-            if col_val.column_type.as_ref() != Some(&current_data_type) {
-                col_val.column_type = Some(DataType::Object("Value", None));
-            }
-        }
-        col_val.values.push(value);
-        Ok(())
     }
+
+    // If we do not have a schema, use defaults specified in `value_to_data_type`
+    let current_data_type = value_to_data_type(&value);
+    if col_val.column_type.is_none() {
+        col_val.column_type = value_to_data_type(&value);
+    } else if let Some(current_data_type) = current_data_type {
+        if col_val.column_type.as_ref() != Some(&current_data_type) {
+            col_val.column_type = Some(DataType::Object("Value", None));
+        }
+    }
+    col_val.values.push(value);
+
+    Ok(())
 }
 
 fn value_to_data_type(value: &Value) -> Option<DataType> {
