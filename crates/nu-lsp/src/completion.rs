@@ -29,7 +29,7 @@ impl LanguageServer {
                 .is_some_and(|c| c.is_whitespace() || "|(){}[]<>,:;".contains(c));
 
         self.need_parse |= need_fallback;
-        let engine_state = Arc::new(self.new_engine_state());
+        let engine_state = Arc::new(self.new_engine_state(Some(&path_uri)));
         let completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
         let results = if need_fallback {
             completer.fetch_completions_at(&file_text[..location], location)
@@ -264,10 +264,10 @@ mod tests {
         let resp = send_complete_request(&client_connection, script.clone(), 2, 18);
         assert!(result_from_message(resp).as_array().unwrap().contains(
             &serde_json::json!({
-                "label": "LICENSE",
+                "label": "command.nu",
                 "labelDetails": { "description": "" },
                 "textEdit": { "range": { "start": { "line": 2, "character": 17 }, "end": { "line": 2, "character": 18 }, },
-                    "newText": "LICENSE"
+                    "newText": "command.nu"
                 },
                 "kind": 17
             })
@@ -337,10 +337,10 @@ mod tests {
         let resp = send_complete_request(&client_connection, script, 5, 4);
         assert!(result_from_message(resp).as_array().unwrap().contains(
             &serde_json::json!({
-                "label": "LICENSE",
+                "label": "cell_path.nu",
                 "labelDetails": { "description": "" },
                 "textEdit": { "range": { "start": { "line": 5, "character": 3 }, "end": { "line": 5, "character": 4 }, },
-                    "newText": "LICENSE"
+                    "newText": "cell_path.nu"
                 },
                 "kind": 17
             })

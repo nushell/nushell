@@ -129,13 +129,12 @@ impl LanguageServer {
     }
 
     pub(crate) fn hover(&mut self, params: &HoverParams) -> Option<Hover> {
-        let mut engine_state = self.new_engine_state();
-
         let path_uri = params
             .text_document_position_params
             .text_document
             .uri
             .to_owned();
+        let mut engine_state = self.new_engine_state(Some(&path_uri));
         let (working_set, id, _, _) = self
             .parse_and_find(
                 &mut engine_state,

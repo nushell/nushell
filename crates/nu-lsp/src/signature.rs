@@ -78,7 +78,7 @@ impl LanguageServer {
         let file_text = file.get_content(None).to_owned();
         drop(docs);
 
-        let engine_state = self.new_engine_state();
+        let engine_state = self.new_engine_state(Some(&path_uri));
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         // NOTE: in case the cursor is at the end of the call expression
