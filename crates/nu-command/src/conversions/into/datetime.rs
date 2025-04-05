@@ -1,6 +1,5 @@
 use crate::{generate_strftime_list, parse_date_from_string};
 use chrono::{DateTime, FixedOffset, Local, NaiveDateTime, TimeZone, Utc};
-use human_date_parser::{from_human_time, ParseResult};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
@@ -98,11 +97,6 @@ impl Command for IntoDatetime {
                 "Show all possible variables for use in --format flag",
                 Some('l'),
                 )
-            .switch(
-                "list-human",
-                "Show human-readable datetime parsing examples",
-                Some('n'),
-                )
             .rest(
             "rest",
                 SyntaxShape::CellPath,
@@ -120,8 +114,6 @@ impl Command for IntoDatetime {
     ) -> Result<PipelineData, ShellError> {
         if call.has_flag(engine_state, stack, "list")? {
             Ok(generate_strftime_list(call.head, true).into_pipeline_data())
-        } else if call.has_flag(engine_state, stack, "list-human")? {
-            Ok(list_human_readable_examples(call.head).into_pipeline_data())
         } else {
             let cell_paths = call.rest(engine_state, stack, 0)?;
             let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
@@ -256,21 +248,6 @@ impl Command for IntoDatetime {
                     Span::test_data(),
                 )),
             },
-            Example {
-                description: "Parsing human readable datetimes",
-                example: "'Today at 18:30' | into datetime",
-                result: None,
-            },
-            Example {
-                description: "Parsing human readable datetimes",
-                example: "'Last Friday at 19:45' | into datetime",
-                result: None,
-            },
-            Example {
-                description: "Parsing human readable datetimes",
-                example: "'In 5 minutes and 30 seconds' | into datetime",
-                result: None,
-            },
         ]
     }
 }
@@ -291,60 +268,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     if matches!(input, Value::String { .. }) && dateformat.is_none() {
         let span = input.span();
         if let Ok(input_val) = input.coerce_str() {
-            match parse_date_from_string(&input_val, span) {
-                Ok(date) => return Value::date(date, span),
-                Err(_) => {
-                    if let Ok(date) = from_human_time(&input_val, Local::now().naive_local()) {
-                        match date {
-                            ParseResult::Date(date) => {
-                                let time = Local::now().time();
-                                let combined = date.and_time(time);
-                                let local_offset = *Local::now().offset();
-                                let dt_fixed =
-                                    TimeZone::from_local_datetime(&local_offset, &combined)
-                                        .single()
-                                        .unwrap_or_default();
-                                return Value::date(dt_fixed, span);
-                            }
-                            ParseResult::DateTime(date) => {
-                                let local_offset = *Local::now().offset();
-                                let dt_fixed = match local_offset.from_local_datetime(&date) {
-                                    chrono::LocalResult::Single(dt) => dt,
-                                    chrono::LocalResult::Ambiguous(_, _) => {
-                                        return Value::error(
-                                            ShellError::DatetimeParseError {
-                                                msg: "Ambiguous datetime".to_string(),
-                                                span,
-                                            },
-                                            span,
-                                        );
-                                    }
-                                    chrono::LocalResult::None => {
-                                        return Value::error(
-                                            ShellError::DatetimeParseError {
-                                                msg: "Invalid datetime".to_string(),
-                                                span,
-                                            },
-                                            span,
-                                        );
-                                    }
-                                };
-                                return Value::date(dt_fixed, span);
-                            }
-                            ParseResult::Time(time) => {
-                                let date = Local::now().date_naive();
-                                let combined = date.and_time(time);
-                                let local_offset = *Local::now().offset();
-                                let dt_fixed =
-                                    TimeZone::from_local_datetime(&local_offset, &combined)
-                                        .single()
-                                        .unwrap_or_default();
-                                return Value::date(dt_fixed, span);
-                            }
-                        }
-                    }
-                }
-            };
+            if let Ok(date) = parse_date_from_string(&input_val, span) {
+                return Value::date(date, span);
+            }
         }
     }
 
@@ -524,44 +450,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     }
 }
 
-fn list_human_readable_examples(span: Span) -> Value {
-    let examples: Vec<String> = vec![
-        "Today 18:30".into(),
-        "2022-11-07 13:25:30".into(),
-        "15:20 Friday".into(),
-        "This Friday 17:00".into(),
-        "13:25, Next Tuesday".into(),
-        "Last Friday at 19:45".into(),
-        "In 3 days".into(),
-        "In 2 hours".into(),
-        "10 hours and 5 minutes ago".into(),
-        "1 years ago".into(),
-        "A year ago".into(),
-        "A month ago".into(),
-        "A week ago".into(),
-        "A day ago".into(),
-        "An hour ago".into(),
-        "A minute ago".into(),
-        "A second ago".into(),
-        "Now".into(),
-    ];
-
-    let records = examples
-        .iter()
-        .map(|s| {
-            Value::record(
-                record! {
-                    "parseable human datetime examples" => Value::test_string(s.to_string()),
-                    "result" => action(&Value::test_string(s.to_string()), &Arguments { zone_options: None, format_options: None, cell_paths: None }, span)
-                },
-                span,
-            )
-        })
-        .collect::<Vec<Value>>();
-
-    Value::list(records, span)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -593,14 +481,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn takes_a_date_format_without_timezone() {
-        // Ignoring this test for now because we changed the human-date-parser to use
-        // the users timezone instead of UTC. We may continue to tweak this behavior.
-        // Another hacky solution is to set the timezone to UTC in the test, which works
-        // on MacOS and Linux but hasn't been tested on Windows. Plus it kind of defeats
-        // the purpose of a "without_timezone" test.
-        // std::env::set_var("TZ", "UTC");
         let date_str = Value::test_string("16.11.1984 8:00 am");
         let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P".to_string()));
         let args = Arguments {
