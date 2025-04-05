@@ -81,8 +81,11 @@ impl LanguageServer {
                         for optional in signature.optional_positional {
                             snippet_text.push(' ');
                             snippet_text.push_str(
-                                block_wrapper(&optional, format!("${{{}:{}}}", idx, optional.name))
-                                    .as_str(),
+                                block_wrapper(
+                                    &optional,
+                                    format!("${{{}:{}?}}", idx, optional.name),
+                                )
+                                .as_str(),
                             );
                             idx += 1;
                         }
