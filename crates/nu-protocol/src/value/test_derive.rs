@@ -1,4 +1,4 @@
-use crate::{record, FromValue, IntoValue, Record, Span, Value};
+use crate::{list, record, FromValue, IntoValue, List, Record, Span, Value};
 use bytes::Bytes;
 use std::collections::HashMap;
 
@@ -86,7 +86,7 @@ impl NamedFieldsStruct<u32> {
 
     fn value() -> Value {
         Value::test_record(record! {
-            "array" => Value::test_list(vec![
+            "array" => Value::test_list(list![
                 Value::test_int(1),
                 Value::test_int(2),
                 Value::test_int(3),
@@ -104,13 +104,13 @@ impl NamedFieldsStruct<u32> {
             "u16" => Value::test_int(65535),
             "u32" => Value::test_int(4294967295),
             "unit" => Value::test_nothing(),
-            "tuple" => Value::test_list(vec![
+            "tuple" => Value::test_list(list![
                 Value::test_int(1),
                 Value::test_bool(true)
             ]),
             "some" => Value::test_int(123),
             "none" => Value::test_nothing(),
-            "vec" => Value::test_list(vec![
+            "vec" => Value::test_list(list![
                 Value::test_int(10),
                 Value::test_int(20),
                 Value::test_int(30)
@@ -239,7 +239,7 @@ impl UnnamedFieldsStruct<f64> {
     }
 
     fn value() -> Value {
-        Value::test_list(vec![
+        Value::test_list(list![
             Value::test_int(420),
             Value::test_string("Hello, tuple!"),
             Value::test_float(33.33),
@@ -278,7 +278,7 @@ fn unnamed_fields_struct_roundtrip() {
 
 #[test]
 fn unnamed_fields_struct_missing_value() {
-    let value = Value::test_list(vec![]);
+    let value = Value::test_list(List::new());
     let res: Result<UnnamedFieldsStruct<f64>, _> = UnnamedFieldsStruct::from_value(value);
     assert!(res.is_err());
 }
@@ -334,7 +334,7 @@ impl Enum {
     }
 
     fn value() -> Value {
-        Value::test_list(vec![
+        Value::test_list(list![
             Value::test_string("alpha_one"),
             Value::test_string("beta_two"),
             Value::test_string("charlie_three"),
@@ -406,7 +406,7 @@ mod enum_rename_all {
                     }
 
                     fn value() -> Value {
-                        Value::test_list(vec![
+                        Value::test_list(list![
                             Value::test_string($a1),
                             Value::test_string($b2),
                             Value::test_string($c3),
@@ -529,7 +529,7 @@ impl ByteContainer {
 
     fn value() -> Value {
         Value::test_record(record! {
-            "vec" => Value::test_list(vec![
+            "vec" => Value::test_list(list![
                 Value::test_int(1),
                 Value::test_int(2),
                 Value::test_int(3),

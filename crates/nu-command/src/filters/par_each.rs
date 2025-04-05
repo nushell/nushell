@@ -56,7 +56,7 @@ impl Command for ParEach {
             Example {
                 example: r#"[1 2 3] | par-each --keep-order {|e| $e * 2 }"#,
                 description: "Multiplies each number, keeping an original order",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(2),
                     Value::test_int(4),
                     Value::test_int(6),
@@ -65,7 +65,7 @@ impl Command for ParEach {
             Example {
                 example: r#"1..3 | enumerate | par-each {|p| update item ($p.item * 2)} | sort-by item | get item"#,
                 description: "Enumerate and sort-by can be used to reconstruct the original order",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(2),
                     Value::test_int(4),
                     Value::test_int(6),
@@ -74,7 +74,7 @@ impl Command for ParEach {
             Example {
                 example: r#"[foo bar baz] | par-each {|e| $e + '!' } | sort"#,
                 description: "Output can still be sorted afterward",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("bar!"),
                     Value::test_string("baz!"),
                     Value::test_string("foo!"),
@@ -84,7 +84,7 @@ impl Command for ParEach {
                 example: r#"[1 2 3] | enumerate | par-each { |e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
-                result: Some(Value::test_list(vec![Value::test_string("found 2 at 1!")])),
+                result: Some(Value::test_list(list![Value::test_string("found 2 at 1!")])),
             },
         ]
     }
@@ -137,7 +137,7 @@ impl Command for ParEach {
                 let span = value.span();
                 match value {
                     Value::List { vals, .. } => Ok(create_pool(max_threads)?.install(|| {
-                        let vec = vals
+                        let vec = Vec::from(vals)
                             .into_par_iter()
                             .enumerate()
                             .map(move |(index, value)| {

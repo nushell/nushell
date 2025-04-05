@@ -73,21 +73,18 @@ string. This way content of every tag is always a table and is easier to parse"#
 </note>' | from xml"#,
             description: "Converts xml formatted string to record",
             result: Some(Value::test_record(record! {
-                COLUMN_TAG_NAME =>     Value::test_string("note"),
-                COLUMN_ATTRS_NAME =>   Value::test_record(Record::new()),
-                COLUMN_CONTENT_NAME => Value::test_list(vec![
-                Value::test_record(record! {
-                    COLUMN_TAG_NAME =>     Value::test_string("remember"),
-                    COLUMN_ATTRS_NAME =>   Value::test_record(Record::new()),
-                    COLUMN_CONTENT_NAME => Value::test_list(vec![
-                    Value::test_record(record! {
-                        COLUMN_TAG_NAME =>     Value::test_nothing(),
-                        COLUMN_ATTRS_NAME =>   Value::test_nothing(),
+                COLUMN_TAG_NAME => Value::test_string("note"),
+                COLUMN_ATTRS_NAME => Value::test_record(Record::new()),
+                COLUMN_CONTENT_NAME => Value::test_list(list![Value::test_record(record! {
+                    COLUMN_TAG_NAME => Value::test_string("remember"),
+                    COLUMN_ATTRS_NAME => Value::test_record(Record::new()),
+                    COLUMN_CONTENT_NAME => Value::test_list(list![Value::test_record(record! {
+                        COLUMN_TAG_NAME => Value::test_nothing(),
+                        COLUMN_ATTRS_NAME => Value::test_nothing(),
                         COLUMN_CONTENT_NAME => Value::test_string("Event"),
                         })],
                     ),
-                    })],
-                ),
+                })]),
             })),
         }]
     }
@@ -115,7 +112,7 @@ fn element_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Value {
     let tag = n.tag_name().name().trim().to_string();
     let tag = Value::string(tag, span);
 
-    let content: Vec<Value> = n
+    let content = n
         .children()
         .filter_map(|node| from_node_to_value(&node, info))
         .collect();
@@ -379,7 +376,7 @@ mod tests {
     }
 
     fn table(list: &[Value]) -> Value {
-        Value::list(list.to_vec(), Span::test_data())
+        Value::test_list(list.into())
     }
 
     fn content_tag(

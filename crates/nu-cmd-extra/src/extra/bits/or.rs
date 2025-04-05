@@ -94,7 +94,7 @@ impl Command for BitsOr {
             Example {
                 description: "Apply bitwise or to a list of numbers",
                 example: "[8 3 2] | bits or 2",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(10),
                     Value::test_int(3),
                     Value::test_int(2),

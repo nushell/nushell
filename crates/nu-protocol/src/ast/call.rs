@@ -314,7 +314,7 @@ impl Call {
             let result = eval(expr)?;
             if spread {
                 match result {
-                    Value::List { mut vals, .. } => output.append(&mut vals),
+                    Value::List { vals, .. } => output.extend(vals),
                     _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
                 }
             } else {

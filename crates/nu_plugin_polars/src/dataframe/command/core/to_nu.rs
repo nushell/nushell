@@ -1,16 +1,12 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{
-    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
-};
-
 use crate::{
-    dataframe::values::NuExpression,
-    values::{CustomValueSupport, NuLazyFrame},
+    values::{CustomValueSupport, NuDataFrame, NuExpression, NuLazyFrame},
     PolarsPlugin,
 };
-
-use crate::values::NuDataFrame;
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::{
+    list, record, Category, Example, LabeledError, PipelineData, ShellError, Signature,
+    SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct ToNu;
@@ -44,33 +40,32 @@ impl PluginCommand for ToNu {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let rec_1 = Value::test_record(record! {
-            "index" => Value::test_int(0),
-            "a" =>     Value::test_int(1),
-            "b" =>     Value::test_int(2),
-        });
-        let rec_2 = Value::test_record(record! {
-            "index" => Value::test_int(1),
-            "a" =>     Value::test_int(3),
-            "b" =>     Value::test_int(4),
-        });
-        let rec_3 = Value::test_record(record! {
-            "index" => Value::test_int(2),
-            "a" =>     Value::test_int(3),
-            "b" =>     Value::test_int(4),
-        });
-
         vec![
             Example {
                 description: "Shows head rows from dataframe",
                 example: "[[a b]; [1 2] [3 4]] | polars into-df | polars into-nu --index",
-                result: Some(Value::list(vec![rec_1, rec_2], Span::test_data())),
+                result: Some(Value::test_list(list![
+                    Value::test_record(record! {
+                        "index" => Value::test_int(0),
+                        "a" => Value::test_int(1),
+                        "b" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "index" => Value::test_int(1),
+                        "a" => Value::test_int(3),
+                        "b" => Value::test_int(4),
+                    }),
+                ])),
             },
             Example {
                 description: "Shows tail rows from dataframe",
                 example:
                     "[[a b]; [1 2] [5 6] [3 4]] | polars into-df | polars into-nu --tail --rows 1 --index",
-                result: Some(Value::list(vec![rec_3], Span::test_data())),
+                result: Some(Value::test_list(list![Value::test_record(record! {
+                    "index" => Value::test_int(2),
+                    "a" => Value::test_int(3),
+                    "b" => Value::test_int(4),
+                })])),
             },
             Example {
                 description: "Convert a col expression into a nushell value",

@@ -24,7 +24,7 @@ impl Command for Headers {
             Example {
                 description: "Sets the column names for a table created by `split column`",
                 example: r#""a b c|1 2 3" | split row "|" | split column " " | headers"#,
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "a" => Value::test_string("1"),
                     "b" => Value::test_string("2"),
                     "c" => Value::test_string("3"),
@@ -33,7 +33,7 @@ impl Command for Headers {
             Example {
                 description: "Columns which don't have data in their first row are removed",
                 example: r#""a b c|1 2 3|1 2 3 4" | split row "|" | split column " " | headers"#,
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "a" => Value::test_string("1"),
                         "b" => Value::test_string("2"),
@@ -130,7 +130,7 @@ fn is_valid_header(value: &Value) -> bool {
 }
 
 fn replace_headers(
-    rows: Vec<Value>,
+    rows: List,
     span: Span,
     old_headers: &[String],
     new_headers: &[String],

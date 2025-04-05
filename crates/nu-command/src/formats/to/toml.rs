@@ -237,6 +237,7 @@ fn to_toml_datetime(datetime: &DateTime<FixedOffset>) -> toml::value::Datetime {
 mod tests {
     use super::*;
     use chrono::TimeZone;
+    use nu_protocol::list;
 
     #[test]
     fn test_examples() {
@@ -292,10 +293,10 @@ mod tests {
         m.insert("is".to_owned(), Value::nothing(Span::test_data()));
         m.insert(
             "features".to_owned(),
-            Value::list(
-                vec![Value::test_string("hello"), Value::test_string("array")],
-                Span::test_data(),
-            ),
+            Value::test_list(list![
+                Value::test_string("hello"),
+                Value::test_string("array"),
+            ]),
         );
         let tv = value_to_toml_value(
             &engine_state,
@@ -323,7 +324,7 @@ mod tests {
         .expect_err("Expected non-valid toml (String) to cause error!");
         value_to_toml_value(
             &engine_state,
-            &Value::list(vec![Value::test_string("1")], Span::test_data()),
+            &Value::test_list(list![Value::test_string("1")]),
             Span::test_data(),
             serialize_types,
         )

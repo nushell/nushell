@@ -3,7 +3,7 @@ use super::definitions::{
     db_index::DbIndex, db_table::DbTable,
 };
 use nu_protocol::{
-    shell_error::io::IoError, CustomValue, PipelineData, Record, ShellError, Signals, Span,
+    shell_error::io::IoError, CustomValue, List, PipelineData, Record, ShellError, Signals, Span,
     Spanned, Value,
 };
 use rusqlite::{
@@ -571,7 +571,7 @@ fn prepared_statement_to_nu_list(
             })?;
 
             // we collect all rows before returning them. Not ideal but it's hard/impossible to return a stream from a CustomValue
-            let mut row_values = vec![];
+            let mut row_values = List::new();
 
             for row_result in row_results {
                 signals.check(call_span)?;
@@ -597,7 +597,7 @@ fn prepared_statement_to_nu_list(
             })?;
 
             // we collect all rows before returning them. Not ideal but it's hard/impossible to return a stream from a CustomValue
-            let mut row_values = vec![];
+            let mut row_values = List::new();
 
             for row_result in row_results {
                 signals.check(call_span)?;
@@ -691,7 +691,7 @@ pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_protocol::record;
+    use nu_protocol::{list, record};
 
     #[test]
     fn can_read_empty_db() {
@@ -719,7 +719,7 @@ mod test {
         let converted_db = read_entire_sqlite_db(db, Span::test_data(), &Signals::empty()).unwrap();
 
         let expected = Value::test_record(record! {
-            "person" => Value::test_list(vec![]),
+            "person" => Value::test_list(List::new()),
         });
 
         assert_eq!(converted_db, expected);
@@ -748,18 +748,16 @@ mod test {
         let converted_db = read_entire_sqlite_db(db, span, &Signals::empty()).unwrap();
 
         let expected = Value::test_record(record! {
-            "item" => Value::test_list(
-                vec![
-                    Value::test_record(record! {
-                        "id" =>   Value::test_int(123),
-                        "name" => Value::nothing(span),
-                    }),
-                    Value::test_record(record! {
-                        "id" =>   Value::test_int(456),
-                        "name" => Value::test_string("foo bar"),
-                    }),
-                ]
-            ),
+            "item" => Value::test_list(list![
+                Value::test_record(record! {
+                    "id" => Value::test_int(123),
+                    "name" => Value::nothing(span),
+                }),
+                Value::test_record(record! {
+                    "id" => Value::test_int(456),
+                    "name" => Value::test_string("foo bar"),
+                }),
+            ]),
         });
 
         assert_eq!(converted_db, expected);

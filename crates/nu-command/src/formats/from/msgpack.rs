@@ -53,7 +53,7 @@ MessagePack: https://msgpack.org/
             Example {
                 description: "Read a list of values from MessagePack",
                 example: "0x[93A3666F6F2AC2] | from msgpack",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("foo"),
                     Value::test_int(42),
                     Value::test_bool(false),
@@ -62,7 +62,7 @@ MessagePack: https://msgpack.org/
             Example {
                 description: "Read a stream of multiple values from MessagePack",
                 example: "0x[81A76E757368656C6CA5726F636B73A9736572696F75736C79] | from msgpack --objects",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "nushell" => Value::test_string("rocks"),
                     }),
@@ -72,7 +72,7 @@ MessagePack: https://msgpack.org/
             Example {
                 description: "Read a table from MessagePack",
                 example: "0x[9282AA6576656E745F6E616D65B141706F6C6C6F203131204C616E64696E67A474696D65C70CFF00000000FFFFFFFFFF2CAB5B82AA6576656E745F6E616D65B44E757368656C6C20666972737420636F6D6D6974A474696D65D6FF5CD5ADE0] | from msgpack",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "event_name" => Value::test_string("Apollo 11 Landing"),
                         "time" => Value::test_date(Utc.with_ymd_and_hms(
@@ -409,7 +409,7 @@ fn read_array(
 ) -> Result<Value, ReadError> {
     let vec = (0..len)
         .map(|_| read_value(input, span, depth + 1))
-        .collect::<Result<Vec<Value>, ReadError>>()?;
+        .collect::<Result<_, _>>()?;
     Ok(Value::list(vec, span))
 }
 

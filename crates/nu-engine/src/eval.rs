@@ -7,8 +7,8 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
-    BlockId, Config, DataSource, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
-    Span, Value, VarId, ENV_VARIABLE_ID,
+    BlockId, Config, DataSource, IntoPipelineData, List, PipelineData, PipelineMetadata,
+    ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 use std::sync::Arc;
@@ -82,15 +82,14 @@ pub fn eval_call<D: DebugContext>(
         }
 
         if let Some(rest_positional) = decl.signature().rest_positional {
-            let mut rest_items = vec![];
-
-            for result in call.rest_iter_flattened(
-                decl.signature().required_positional.len()
-                    + decl.signature().optional_positional.len(),
-                |expr| eval_expression::<D>(engine_state, caller_stack, expr),
-            )? {
-                rest_items.push(result);
-            }
+            let rest_items = call
+                .rest_iter_flattened(
+                    decl.signature().required_positional.len()
+                        + decl.signature().optional_positional.len(),
+                    |expr| eval_expression::<D>(engine_state, caller_stack, expr),
+                )?
+                .into_iter()
+                .collect::<List>();
 
             let span = if let Some(rest_item) = rest_items.first() {
                 rest_item.span()

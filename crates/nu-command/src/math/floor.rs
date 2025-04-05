@@ -91,10 +91,11 @@ impl Command for MathFloor {
         vec![Example {
             description: "Apply the floor function to a list of numbers",
             example: "[1.5 2.3 -3.1] | math floor",
-            result: Some(Value::list(
-                vec![Value::test_int(1), Value::test_int(2), Value::test_int(-4)],
-                Span::test_data(),
-            )),
+            result: Some(Value::test_list(list![
+                Value::test_int(1),
+                Value::test_int(2),
+                Value::test_int(-4),
+            ])),
         }]
     }
 }

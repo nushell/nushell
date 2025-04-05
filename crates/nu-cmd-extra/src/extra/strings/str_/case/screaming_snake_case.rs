@@ -74,9 +74,9 @@ impl Command for StrScreamingSnakeCase {
             Example {
                 description: "convert a column from a table to SCREAMING_SNAKE_CASE",
                 example: r#"[[lang, gems]; [nu_test, 100]] | str screaming-snake-case lang"#,
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "lang" =>  Value::test_string("NU_TEST"),
-                    "gems" =>  Value::test_int(100),
+                result: Some(Value::test_list(list![Value::test_record(record! {
+                    "lang" => Value::test_string("NU_TEST"),
+                    "gems" => Value::test_int(100),
                 })])),
             },
         ]

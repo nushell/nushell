@@ -4,7 +4,7 @@ use nu_path::{AbsolutePathBuf, PathBuf};
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, ShellError, Span, Value,
+    list, PipelineData, ShellError, Span, Value,
 };
 use nu_test_support::fs;
 use reedline::Suggestion;
@@ -36,21 +36,18 @@ pub fn new_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Add pwd as env var
     stack.add_env_var(
         "PWD".to_string(),
-        Value::string(dir_str.clone(), nu_protocol::Span::new(0, dir_str.len())),
+        Value::string(dir_str.clone(), Span::new(0, dir_str.len())),
     );
     stack.add_env_var(
         "TEST".to_string(),
-        Value::string(
-            "NUSHELL".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
-        ),
+        Value::string("NUSHELL".to_string(), Span::new(0, dir_str.len())),
     );
     #[cfg(windows)]
     stack.add_env_var(
         "Path".to_string(),
         Value::string(
             "c:\\some\\path;c:\\some\\other\\path".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
+            Span::new(0, dir_str.len()),
         ),
     );
     #[cfg(not(windows))]
@@ -58,7 +55,7 @@ pub fn new_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
         "PATH".to_string(),
         Value::string(
             "/some/path:/some/other/path".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
+            Span::new(0, dir_str.len()),
         ),
     );
 
@@ -74,16 +71,10 @@ pub fn new_external_engine() -> EngineState {
     let mut engine = create_default_context();
     let dir = fs::fixtures().join("external_completions").join("path");
     let dir_str = dir.to_string_lossy().to_string();
-    let internal_span = nu_protocol::Span::new(0, dir_str.len());
+    let internal_span = Span::new(0, dir_str.len());
     engine.add_env_var(
         "PATH".to_string(),
-        Value::List {
-            vals: vec![Value::String {
-                val: dir_str,
-                internal_span,
-            }],
-            internal_span,
-        },
+        Value::list(list![Value::string(dir_str, internal_span,)], internal_span),
     );
     engine
 }
@@ -97,7 +88,7 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
         .into_os_string()
         .into_string()
         .unwrap_or_default();
-    let dir_span = nu_protocol::Span::new(0, dir_str.len());
+    let dir_span = Span::new(0, dir_str.len());
 
     // Create a new engine with default context
     let mut engine_state = create_default_context();
@@ -115,7 +106,7 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     );
     working_set.set_variable_const_val(
         var_id,
-        Value::test_list(vec![
+        Value::test_list(list![
             Value::string(file(dir.join("lib-dir1")), dir_span),
             Value::string(file(dir.join("lib-dir3")), dir_span),
         ]),
@@ -133,7 +124,7 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     );
     stack.add_env_var(
         "NU_LIB_DIRS".into(),
-        Value::test_list(vec![
+        Value::test_list(list![
             Value::string(file(dir.join("lib-dir2")), dir_span),
             Value::string(file(dir.join("lib-dir3")), dir_span),
         ]),
@@ -164,14 +155,11 @@ pub fn new_quote_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Add pwd as env var
     stack.add_env_var(
         "PWD".to_string(),
-        Value::string(dir_str.clone(), nu_protocol::Span::new(0, dir_str.len())),
+        Value::string(dir_str.clone(), Span::new(0, dir_str.len())),
     );
     stack.add_env_var(
         "TEST".to_string(),
-        Value::string(
-            "NUSHELL".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
-        ),
+        Value::string("NUSHELL".to_string(), Span::new(0, dir_str.len())),
     );
 
     // Merge environment into the permanent state
@@ -199,14 +187,11 @@ pub fn new_partial_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Add pwd as env var
     stack.add_env_var(
         "PWD".to_string(),
-        Value::string(dir_str.clone(), nu_protocol::Span::new(0, dir_str.len())),
+        Value::string(dir_str.clone(), Span::new(0, dir_str.len())),
     );
     stack.add_env_var(
         "TEST".to_string(),
-        Value::string(
-            "NUSHELL".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
-        ),
+        Value::string("NUSHELL".to_string(), Span::new(0, dir_str.len())),
     );
 
     // Merge environment into the permanent state

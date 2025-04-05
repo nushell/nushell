@@ -90,40 +90,31 @@ impl Command for BitsNot {
             Example {
                 description: "Apply logical negation to a list of numbers",
                 example: "[4 3 2] | bits not",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(251),
-                        Value::test_int(252),
-                        Value::test_int(253),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(251),
+                    Value::test_int(252),
+                    Value::test_int(253),
+                ])),
             },
             Example {
                 description:
                     "Apply logical negation to a list of numbers, treat input as 2 bytes number",
                 example: "[4 3 2] | bits not --number-bytes 2",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(65531),
-                        Value::test_int(65532),
-                        Value::test_int(65533),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(65531),
+                    Value::test_int(65532),
+                    Value::test_int(65533),
+                ])),
             },
             Example {
                 description:
                     "Apply logical negation to a list of numbers, treat input as signed number",
                 example: "[4 3 2] | bits not --signed",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(-5),
-                        Value::test_int(-4),
-                        Value::test_int(-3),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(-5),
+                    Value::test_int(-4),
+                    Value::test_int(-3),
+                ])),
             },
             Example {
                 description: "Apply logical negation to binary data",

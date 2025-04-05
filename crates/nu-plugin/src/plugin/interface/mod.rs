@@ -917,7 +917,7 @@ impl EngineInterface {
     /// # Example
     ///
     /// ```rust,no_run
-    /// # use nu_protocol::{Value, ShellError, PipelineData};
+    /// # use nu_protocol::{List, Value, ShellError, PipelineData};
     /// # use nu_plugin::{EngineInterface, EvaluatedCall};
     /// # fn example(engine: &EngineInterface, call: &EvaluatedCall) -> Result<Value, ShellError> {
     /// if let Some(decl_id) = engine.find_decl("scope commands")? {
@@ -930,7 +930,7 @@ impl EngineInterface {
     ///     )?;
     ///     commands.into_value(call.head)
     /// } else {
-    ///     Ok(Value::list(vec![], call.head))
+    ///     Ok(Value::list(List::new(), call.head))
     /// }
     /// # }
     /// ```

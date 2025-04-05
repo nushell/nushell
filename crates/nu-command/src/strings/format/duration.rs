@@ -122,7 +122,7 @@ impl Command for FormatDuration {
             Example {
                 description: "Convert durations to µs duration as strings",
                 example: "[1sec 2sec] | format duration µs",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("1000000 µs"),
                     Value::test_string("2000000 µs"),
                 ])),

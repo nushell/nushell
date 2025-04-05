@@ -106,8 +106,10 @@ impl Command for Join {
         vec![Example {
             description: "Join two tables",
             example: "[{a: 1 b: 2}] | join [{a: 1 c: 3}] a",
-            result: Some(Value::test_list(vec![Value::test_record(record! {
-                "a" => Value::test_int(1), "b" => Value::test_int(2), "c" => Value::test_int(3),
+            result: Some(Value::test_list(list![Value::test_record(record! {
+                "a" => Value::test_int(1),
+                "b" => Value::test_int(2),
+                "c" => Value::test_int(3),
             })])),
         }]
     }
@@ -181,7 +183,7 @@ fn join(
 
     // For the "other" table, create a map from value in `on` column to a list of the
     // rows having that value.
-    let mut result: Vec<Value> = Vec::new();
+    let mut result = List::new();
     let is_outer = matches!(join_type, JoinType::Outer);
     let (this, this_join_key, other, other_keys, join_type) = match join_type {
         JoinType::Left | JoinType::Outer => (
@@ -243,7 +245,7 @@ fn join(
 // containing rows of a nushell table).
 #[allow(clippy::too_many_arguments)]
 fn join_rows(
-    result: &mut Vec<Value>,
+    result: &mut List,
     this: &[Value],
     this_join_key: &str,
     other: HashMap<String, Vec<&Record>>,

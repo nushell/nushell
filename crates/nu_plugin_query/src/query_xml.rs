@@ -1,7 +1,7 @@
 use crate::Query;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value,
+    record, Category, IntoValue, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value,
 };
 use sxd_document::parser;
 use sxd_xpath::{Context, Factory};
@@ -84,7 +84,6 @@ pub fn execute_xpath_query(
     match res {
         Ok(r) => {
             let mut record = Record::new();
-            let mut records: Vec<Value> = vec![];
 
             match r {
                 sxd_xpath::Value::Nodeset(ns) => {
@@ -105,9 +104,10 @@ pub fn execute_xpath_query(
 
             // convert the cols and vecs to a table by creating individual records
             // for each item so we can then use a list to make a table
-            for (k, v) in record {
-                records.push(Value::record(record! { k => v }, call.head))
-            }
+            let records = record
+                .into_iter()
+                .map(|(k, v)| record! { k => v }.into_value(call.head))
+                .collect();
 
             Ok(Value::list(records, call.head))
         }
@@ -132,7 +132,7 @@ fn build_xpath(xpath_str: &str, span: Span) -> Result<sxd_xpath::XPath, LabeledE
 mod tests {
     use super::execute_xpath_query as query;
     use nu_plugin::EvaluatedCall;
-    use nu_protocol::{record, Span, Spanned, Value};
+    use nu_protocol::{list, record, Span, Spanned, Value};
 
     #[test]
     fn position_function_in_predicate() {
@@ -154,7 +154,7 @@ mod tests {
 
         let actual = query(&call, &text, Some(spanned_str)).expect("test should not fail");
         let expected = Value::list(
-            vec![Value::test_record(record! {
+            list![Value::test_record(record! {
                 "count(//a/*[posit..." => Value::test_float(1.0),
             })],
             Span::test_data(),
@@ -183,7 +183,7 @@ mod tests {
 
         let actual = query(&call, &text, Some(spanned_str)).expect("test should not fail");
         let expected = Value::list(
-            vec![Value::test_record(record! {
+            list![Value::test_record(record! {
                 "count(//*[contain..." => Value::test_float(1.0),
             })],
             Span::test_data(),

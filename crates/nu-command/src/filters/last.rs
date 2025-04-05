@@ -39,10 +39,10 @@ impl Command for Last {
             Example {
                 example: "[1,2,3] | last 2",
                 description: "Return the last 2 items of a list/table",
-                result: Some(Value::list(
-                    vec![Value::test_int(2), Value::test_int(3)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(2),
+                    Value::test_int(3),
+                ])),
             },
             Example {
                 example: "[1,2,3] | last",
@@ -52,7 +52,7 @@ impl Command for Last {
             Example {
                 example: "0x[01 23 45] | last 2",
                 description: "Return the last 2 bytes of a binary value",
-                result: Some(Value::binary(vec![0x23, 0x45], Span::test_data())),
+                result: Some(Value::test_binary(vec![0x23, 0x45])),
             },
             Example {
                 example: "1..3 | last",
@@ -89,7 +89,7 @@ impl Command for Last {
 
         // early exit for `last 0`
         if rows == 0 {
-            return Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata));
+            return Ok(Value::list(List::new(), head).into_pipeline_data_with_metadata(metadata));
         }
 
         match input {
@@ -129,8 +129,8 @@ impl Command for Last {
                             }
                         } else {
                             let i = vals.len().saturating_sub(rows);
-                            vals.drain(..i);
-                            Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
+                            let list = vals.get(i..).expect("i < vals.len()").into();
+                            Ok(Value::list(list, span).into_pipeline_data_with_metadata(metadata))
                         }
                     }
                     Value::Binary { mut val, .. } => {

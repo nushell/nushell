@@ -27,116 +27,107 @@ impl Command for HelpEscapes {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let escape_info = generate_escape_info();
-        let mut recs = vec![];
-
-        for escape in escape_info {
-            recs.push(Value::record(
-                record! {
-                    "sequence" => Value::string(escape.sequence, head),
-                    "output" => Value::string(escape.output, head),
-                },
-                head,
-            ));
-        }
-
-        Ok(Value::list(recs, call.head).into_pipeline_data())
+        Ok(ESCAPE_INFO
+            .iter()
+            .map(|&info| info.into_value(head))
+            .collect::<List>()
+            .into_value(head)
+            .into_pipeline_data())
     }
 }
 
+#[derive(Clone, Copy, IntoValue)]
 struct EscapeInfo {
-    sequence: String,
-    output: String,
+    sequence: &'static str,
+    output: &'static str,
 }
 
-fn generate_escape_info() -> Vec<EscapeInfo> {
-    vec![
-        EscapeInfo {
-            sequence: "\\\"".into(),
-            output: "\"".into(),
-        },
-        EscapeInfo {
-            sequence: "\\\'".into(),
-            output: "\'".into(),
-        },
-        EscapeInfo {
-            sequence: "\\\\".into(),
-            output: "\\".into(),
-        },
-        EscapeInfo {
-            sequence: "\\/".into(),
-            output: "/".into(),
-        },
-        EscapeInfo {
-            sequence: "\\(".into(),
-            output: "(".into(),
-        },
-        EscapeInfo {
-            sequence: "\\)".into(),
-            output: ")".into(),
-        },
-        EscapeInfo {
-            sequence: "\\{".into(),
-            output: "{".into(),
-        },
-        EscapeInfo {
-            sequence: "\\}".into(),
-            output: "}".into(),
-        },
-        EscapeInfo {
-            sequence: "\\$".into(),
-            output: "$".into(),
-        },
-        EscapeInfo {
-            sequence: "\\^".into(),
-            output: "^".into(),
-        },
-        EscapeInfo {
-            sequence: "\\#".into(),
-            output: "#".into(),
-        },
-        EscapeInfo {
-            sequence: "\\|".into(),
-            output: "|".into(),
-        },
-        EscapeInfo {
-            sequence: "\\~".into(),
-            output: "~".into(),
-        },
-        EscapeInfo {
-            sequence: "\\a".into(),
-            output: "alert bell".into(),
-        },
-        EscapeInfo {
-            sequence: "\\b".into(),
-            output: "backspace".into(),
-        },
-        EscapeInfo {
-            sequence: "\\e".into(),
-            output: "escape".into(),
-        },
-        EscapeInfo {
-            sequence: "\\f".into(),
-            output: "form feed".into(),
-        },
-        EscapeInfo {
-            sequence: "\\n".into(),
-            output: "newline (line feed)".into(),
-        },
-        EscapeInfo {
-            sequence: "\\r".into(),
-            output: "carriage return".into(),
-        },
-        EscapeInfo {
-            sequence: "\\t".into(),
-            output: "tab".into(),
-        },
-        EscapeInfo {
-            sequence: "\\u{X...}".into(),
-            output: "a single unicode character, where X... is 1-6 digits (0-9, A-F)".into(),
-        },
-    ]
-}
+const ESCAPE_INFO: &[EscapeInfo] = &[
+    EscapeInfo {
+        sequence: "\\\"",
+        output: "\"",
+    },
+    EscapeInfo {
+        sequence: "\\\'",
+        output: "\'",
+    },
+    EscapeInfo {
+        sequence: "\\\\",
+        output: "\\",
+    },
+    EscapeInfo {
+        sequence: "\\/",
+        output: "/",
+    },
+    EscapeInfo {
+        sequence: "\\(",
+        output: "(",
+    },
+    EscapeInfo {
+        sequence: "\\)",
+        output: ")",
+    },
+    EscapeInfo {
+        sequence: "\\{",
+        output: "{",
+    },
+    EscapeInfo {
+        sequence: "\\}",
+        output: "}",
+    },
+    EscapeInfo {
+        sequence: "\\$",
+        output: "$",
+    },
+    EscapeInfo {
+        sequence: "\\^",
+        output: "^",
+    },
+    EscapeInfo {
+        sequence: "\\#",
+        output: "#",
+    },
+    EscapeInfo {
+        sequence: "\\|",
+        output: "|",
+    },
+    EscapeInfo {
+        sequence: "\\~",
+        output: "~",
+    },
+    EscapeInfo {
+        sequence: "\\a",
+        output: "alert bell",
+    },
+    EscapeInfo {
+        sequence: "\\b",
+        output: "backspace",
+    },
+    EscapeInfo {
+        sequence: "\\e",
+        output: "escape",
+    },
+    EscapeInfo {
+        sequence: "\\f",
+        output: "form feed",
+    },
+    EscapeInfo {
+        sequence: "\\n",
+        output: "newline (line feed)",
+    },
+    EscapeInfo {
+        sequence: "\\r",
+        output: "carriage return",
+    },
+    EscapeInfo {
+        sequence: "\\t",
+        output: "tab",
+    },
+    EscapeInfo {
+        sequence: "\\u{X...}",
+        output: "a single unicode character, where X... is 1-6 digits (0-9, A-F)",
+    },
+];
 
 #[cfg(test)]
 mod test {

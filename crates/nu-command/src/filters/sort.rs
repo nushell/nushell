@@ -48,7 +48,7 @@ impl Command for Sort {
             Example {
                 example: "[2 0 1] | sort",
                 description: "Sort the list by increasing value",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(0),
                     Value::test_int(1),
                     Value::test_int(2),
@@ -57,7 +57,7 @@ impl Command for Sort {
             Example {
                 example: "[2 0 1] | sort --reverse",
                 description: "Sort the list by decreasing value",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(2),
                     Value::test_int(1),
                     Value::test_int(0),
@@ -66,7 +66,7 @@ impl Command for Sort {
             Example {
                 example: "[betty amy sarah] | sort",
                 description: "Sort a list of strings",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("amy"),
                     Value::test_string("betty"),
                     Value::test_string("sarah"),
@@ -75,7 +75,7 @@ impl Command for Sort {
             Example {
                 example: "[betty amy sarah] | sort --reverse",
                 description: "Sort a list of strings in reverse",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("sarah"),
                     Value::test_string("betty"),
                     Value::test_string("amy"),
@@ -84,7 +84,7 @@ impl Command for Sort {
             Example {
                 description: "Sort strings (case-insensitive)",
                 example: "[airplane Truck Car] | sort -i",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("airplane"),
                     Value::test_string("Car"),
                     Value::test_string("Truck"),
@@ -93,7 +93,7 @@ impl Command for Sort {
             Example {
                 description: "Sort strings (reversed case-insensitive)",
                 example: "[airplane Truck Car] | sort -i -r",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("Truck"),
                     Value::test_string("Car"),
                     Value::test_string("airplane"),
@@ -102,7 +102,7 @@ impl Command for Sort {
             Example {
                 description: "Sort alphanumeric strings in natural order",
                 example: "[foo1 foo10 foo9] | sort -n",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("foo1"),
                     Value::test_string("foo9"),
                     Value::test_string("foo10"),
@@ -168,13 +168,13 @@ impl Command for Sort {
                         .map(|members| CellPath { members })
                         .map(Comparator::CellPath)
                         .collect();
-                    crate::sort_by(&mut vec, columns, span, insensitive, natural)?;
+                    crate::sort_by(vec.make_mut(), columns, span, insensitive, natural)?;
                 } else {
-                    crate::sort(&mut vec, insensitive, natural)?;
+                    crate::sort(vec.make_mut(), insensitive, natural)?;
                 }
 
                 if reverse {
-                    vec.reverse()
+                    vec.make_mut().reverse()
                 }
 
                 Value::list(vec, span)

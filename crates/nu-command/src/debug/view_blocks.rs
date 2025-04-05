@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::BlockId;
 
 #[derive(Clone)]
 pub struct ViewBlocks;
@@ -40,23 +41,24 @@ impl Command for ViewBlocks {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let mut records = vec![];
-
-        for block_id in 0..engine_state.num_blocks() {
-            let block = engine_state.get_block(nu_protocol::BlockId::new(block_id));
-
-            if let Some(span) = block.span {
-                let contents_bytes = engine_state.get_span_contents(span);
-                let contents_string = String::from_utf8_lossy(contents_bytes);
-                let cur_rec = record! {
-                    "block_id" => Value::int(block_id as i64, span),
-                    "content" => Value::string(contents_string.trim().to_string(), span),
-                    "start" => Value::int(span.start as i64, span),
-                    "end" => Value::int(span.end as i64, span),
-                };
-                records.push(Value::record(cur_rec, span));
-            }
-        }
+        let records = (0..engine_state.num_blocks())
+            .filter_map(|block_id| {
+                engine_state
+                    .get_block(BlockId::new(block_id))
+                    .span
+                    .map(|span| {
+                        let contents_bytes = engine_state.get_span_contents(span);
+                        let contents_string = String::from_utf8_lossy(contents_bytes);
+                        let record = record! {
+                            "block_id" => Value::int(block_id as i64, span),
+                            "content" => Value::string(contents_string.trim(), span),
+                            "start" => Value::int(span.start as i64, span),
+                            "end" => Value::int(span.end as i64, span),
+                        };
+                        Value::record(record, span)
+                    })
+            })
+            .collect();
 
         Ok(Value::list(records, call.head).into_pipeline_data())
     }

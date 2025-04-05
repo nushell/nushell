@@ -1,5 +1,6 @@
-use std::{borrow::Cow, fs::File, sync::Arc};
-
+use crate::{
+    convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return, ENV_CONVERSIONS,
+};
 use nu_path::{expand_path_with, AbsolutePathBuf};
 use nu_protocol::{
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
@@ -9,15 +10,12 @@ use nu_protocol::{
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     shell_error::io::IoError,
-    DataSource, DeclId, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData,
-    PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals, Signature, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    DataSource, DeclId, Flag, IntoPipelineData, IntoSpanned, List, ListStream, OutDest,
+    PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
+    Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
-
-use crate::{
-    convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return, ENV_CONVERSIONS,
-};
+use std::{borrow::Cow, fs::File, sync::Arc};
 
 /// Evaluate the compiled representation of a [`Block`].
 pub fn eval_ir_block<D: DebugContext>(
@@ -879,7 +877,7 @@ fn literal_value(
             let range = Range::new(start, step, end, *inclusion, span)?;
             Value::range(range, span)
         }
-        Literal::List { capacity } => Value::list(Vec::with_capacity(*capacity), span),
+        Literal::List { capacity } => Value::list(List::with_capacity(*capacity), span),
         Literal::Record { capacity } => Value::record(Record::with_capacity(*capacity), span),
         Literal::Filepath {
             val: path,
@@ -1167,7 +1165,7 @@ fn gather_arguments(
         );
 
     // Arguments that didn't get consumed by required/optional
-    let mut rest = vec![];
+    let mut rest = List::new();
 
     // If we encounter a spread, all further positionals should go to rest
     let mut always_spread = false;

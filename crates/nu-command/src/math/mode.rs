@@ -90,7 +90,7 @@ impl Command for MathMode {
             Example {
                 description: "Compute the mode(s) of a list of numbers",
                 example: "[3 3 9 12 12 15] | math mode",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(3),
                     Value::test_int(12),
                 ])),
@@ -99,11 +99,12 @@ impl Command for MathMode {
                 description: "Compute the mode(s) of the columns of a table",
                 example: "[{a: 1 b: 3} {a: 2 b: -1} {a: 1 b: 5}] | math mode",
                 result: Some(Value::test_record(record! {
-                        "a" => Value::list(vec![Value::test_int(1)], Span::test_data()),
-                        "b" => Value::list(
-                            vec![Value::test_int(-1), Value::test_int(3), Value::test_int(5)],
-                            Span::test_data(),
-                        ),
+                    "a" => Value::test_list(list![Value::test_int(1)]),
+                    "b" => Value::test_list(list![
+                        Value::test_int(-1),
+                        Value::test_int(3),
+                        Value::test_int(5),
+                    ]),
                 })),
             },
         ]
@@ -146,7 +147,7 @@ pub fn mode(values: &[Value], span: Span, head: Span) -> Result<Value, ShellErro
     }
 
     let mut max_freq = -1;
-    let mut modes = Vec::<Value>::new();
+    let mut modes = List::new();
     for (value, frequency) in &frequency_map {
         match max_freq.cmp(frequency) {
             Ordering::Less => {
@@ -161,7 +162,9 @@ pub fn mode(values: &[Value], span: Span, head: Span) -> Result<Value, ShellErro
         }
     }
 
-    modes.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+    modes
+        .make_mut()
+        .sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
     Ok(Value::list(modes, head))
 }
 

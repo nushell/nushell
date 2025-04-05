@@ -8,7 +8,7 @@ use crate::{
     debugger::Debugger,
     engine::EngineState,
     ir::IrBlock,
-    record, PipelineData, ShellError, Span, Value,
+    list, record, List, PipelineData, ShellError, Span, Value,
 };
 use std::{borrow::Borrow, io::BufRead};
 use web_time::Instant;
@@ -408,7 +408,7 @@ fn collect_data(
     element_id: ElementId,
     parent_id: ElementId,
     profiler_span: Span,
-) -> Result<Vec<Value>, ShellError> {
+) -> Result<List, ShellError> {
     let element = &profiler.elements[element_id.0];
 
     let mut row = record! {
@@ -495,7 +495,7 @@ fn collect_data(
         }
     };
 
-    let mut rows = vec![Value::record(row, profiler_span)];
+    let mut rows = list![Value::record(row, profiler_span)];
 
     for child in &element.children {
         let child_rows = collect_data(engine_state, profiler, *child, element_id, profiler_span)?;

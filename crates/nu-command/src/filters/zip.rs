@@ -33,54 +33,32 @@ impl Command for Zip {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let test_row_1 = Value::list(
-            vec![Value::test_int(1), Value::test_int(4)],
-            Span::test_data(),
-        );
-
-        let test_row_2 = Value::list(
-            vec![Value::test_int(2), Value::test_int(5)],
-            Span::test_data(),
-        );
-
-        let test_row_3 = Value::list(
-            vec![Value::test_int(3), Value::test_int(6)],
-            Span::test_data(),
-        );
+        let test_row_1 = Value::test_list(list![Value::test_int(1), Value::test_int(4)]);
+        let test_row_2 = Value::test_list(list![Value::test_int(2), Value::test_int(5)]);
+        let test_row_3 = Value::test_list(list![Value::test_int(3), Value::test_int(6)]);
 
         vec![
             Example {
                 example: "[1 2] | zip [3 4]",
                 description: "Zip two lists",
-                result: Some(Value::list(
-                    vec![
-                        Value::list(
-                            vec![Value::test_int(1), Value::test_int(3)],
-                            Span::test_data(),
-                        ),
-                        Value::list(
-                            vec![Value::test_int(2), Value::test_int(4)],
-                            Span::test_data(),
-                        ),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_list(list![Value::test_int(1), Value::test_int(3)]),
+                    Value::test_list(list![Value::test_int(2), Value::test_int(4)]),
+                ])),
             },
             Example {
                 example: "1..3 | zip 4..6",
                 description: "Zip two ranges",
-                result: Some(Value::list(
-                    vec![test_row_1.clone(), test_row_2.clone(), test_row_3.clone()],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    test_row_1.clone(),
+                    test_row_2.clone(),
+                    test_row_3.clone(),
+                ])),
             },
             Example {
                 example: "seq 1 3 | zip { seq 4 600000000 }",
                 description: "Zip two streams",
-                result: Some(Value::list(
-                    vec![test_row_1, test_row_2, test_row_3],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![test_row_1, test_row_2, test_row_3])),
             },
             Example {
                 example: "glob *.ogg | zip ['bang.ogg', 'fanfare.ogg', 'laser.ogg'] | each {|| mv $in.0 $in.1 }",
@@ -111,7 +89,7 @@ impl Command for Zip {
         Ok(input
             .into_iter()
             .zip(other)
-            .map(move |(x, y)| Value::list(vec![x, y], head))
+            .map(move |(x, y)| Value::list(list![x, y], head))
             .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }

@@ -97,7 +97,7 @@ impl Command for PathBasename {
             Example {
                 description: "Get basename of a list of paths",
                 example: r"[ C:\Users\joe, C:\Users\doe ] | path basename",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("joe"),
                     Value::test_string("doe"),
                 ])),
@@ -121,7 +121,7 @@ impl Command for PathBasename {
             Example {
                 description: "Get basename of a list of paths",
                 example: "[ /home/joe, /home/doe ] | path basename",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("joe"),
                     Value::test_string("doe"),
                 ])),
