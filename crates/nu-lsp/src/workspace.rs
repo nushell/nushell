@@ -295,14 +295,16 @@ impl LanguageServer {
             file.get_content(None).as_bytes(),
             false,
         );
-        // renew the id if there's a module with the same span as the original file
+        // NOTE: Renew the id if there's a module with the same span as the original file.
+        // This requires that the initial parsing results get merged in the engine_state,
+        // typically they're cached with diagnostics before the prepare_rename/references requests,
+        // so that we don't need to clone and merge delta again.
         if (!id_tracker.renewed)
             && working_set
                 .find_module_by_span(id_tracker.file_span)
                 .is_some()
         {
-            let new_block = working_set.find_block_by_span(id_tracker.file_span);
-            if let Some(new_block) = new_block {
+            if let Some(new_block) = working_set.find_block_by_span(id_tracker.file_span) {
                 if let Some((new_id, _)) =
                     ast::find_id(&new_block, working_set, &id_tracker.span.start)
                 {
