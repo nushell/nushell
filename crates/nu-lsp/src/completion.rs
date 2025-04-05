@@ -63,10 +63,14 @@ impl LanguageServer {
                         let signature = cmd.signature();
                         // add curly brackets around block arguments
                         let block_wrapper = |arg: &PositionalArg, text: String| -> String {
-                            if matches!(arg.shape, SyntaxShape::Block | SyntaxShape::MatchBlock) {
-                                format!("{{ {text} }}")
-                            } else {
-                                text
+                            match &arg.shape {
+                                SyntaxShape::Block | SyntaxShape::MatchBlock => {
+                                    format!("{{ {text} }}")
+                                }
+                                SyntaxShape::Keyword(kwd, _) => {
+                                    format!("{} {text}", String::from_utf8_lossy(kwd))
+                                }
+                                _ => text,
                             }
                         };
 
@@ -349,7 +353,7 @@ mod tests {
                     "detail": "Alias a command (with optional flags) to a new name.",
                     "textEdit": {
                         "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 0 }, },
-                        "newText": "alias ${1:name} ${2:initial_value}"
+                        "newText": "alias ${1:name} = ${2:initial_value}"
                     },
                     "insertTextFormat": 2,
                     "kind": 14
@@ -367,7 +371,7 @@ mod tests {
                     "detail": "Alias a command (with optional flags) to a new name.",
                     "textEdit": {
                         "range": { "start": { "line": 3, "character": 2 }, "end": { "line": 3, "character": 2 }, },
-                        "newText": "alias ${1:name} ${2:initial_value}"
+                        "newText": "alias ${1:name} = ${2:initial_value}"
                     },
                     "insertTextFormat": 2,
                     "kind": 14
@@ -530,7 +534,7 @@ mod tests {
                     "detail": "Alias a command (with optional flags) to a new name.",
                     "textEdit": {
                         "range": { "start": { "line": 0, "character": 5 }, "end": { "line": 0, "character": 5 }, },
-                        "newText": "alias ${1:name} ${2:initial_value}"
+                        "newText": "alias ${1:name} = ${2:initial_value}"
                     },
                     "kind": 14
                 },
