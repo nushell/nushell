@@ -2712,6 +2712,7 @@ fn table_theme_on_border_with_love() {
 fn table_theme_on_border_thin() {
     assert_eq!(
         create_theme_output("thin"),
+        // ["┌─#─┬a_looooooong_name┬─b─┬─c─┐│ 0 │               1 │ 2 │ 3 │└─#─┴a_looooooong_name┴─b─┴─c─┘"]
         [
             "┌─#─┬─a─┬─b─┬───────c────────┐│ 0 │ 1 │ 2 │              3 │├───┼───┼───┼────────────────┤│ 1 │ 4 │ 5 │ [list 3 items] │└───┴───┴───┴────────────────┘",
             "┌─#─┬─a─┬─b─┬───────c────────┐│ 0 │ 1 │ 2 │              3 │├───┼───┼───┼────────────────┤│ 1 │ 4 │ 5 │ [list 3 items] │└─#─┴─a─┴─b─┴───────c────────┘",
