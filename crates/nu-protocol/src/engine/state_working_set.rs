@@ -884,7 +884,7 @@ impl<'a> StateWorkingSet<'a> {
                 .active_overlay_names(&mut removed_overlays)
                 .iter()
                 .rev()
-                .last()
+                .next_back()
             {
                 return last_name;
             }
@@ -900,7 +900,7 @@ impl<'a> StateWorkingSet<'a> {
             if let Some(last_overlay) = scope_frame
                 .active_overlays(&mut removed_overlays)
                 .rev()
-                .last()
+                .next_back()
             {
                 return last_overlay;
             }
