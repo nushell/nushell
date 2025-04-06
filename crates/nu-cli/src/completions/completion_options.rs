@@ -124,11 +124,7 @@ impl<T> NuMatcher<'_, T> {
                 } else {
                     Cow::Owned(haystack.to_folded_case())
                 };
-                let matches = if self.options.positional {
-                    haystack_folded.starts_with(self.needle.as_str())
-                } else {
-                    haystack_folded.contains(self.needle.as_str())
-                };
+                let matches = haystack_folded.starts_with(self.needle.as_str());
                 if matches {
                     if let Some(item) = item {
                         items.push((haystack.to_string(), item));
@@ -282,7 +278,6 @@ impl std::error::Error for InvalidMatchAlgorithm {}
 #[derive(Clone)]
 pub struct CompletionOptions {
     pub case_sensitive: bool,
-    pub positional: bool,
     pub match_algorithm: MatchAlgorithm,
     pub sort: CompletionSort,
 }
@@ -291,7 +286,6 @@ impl Default for CompletionOptions {
     fn default() -> Self {
         Self {
             case_sensitive: true,
-            positional: true,
             match_algorithm: MatchAlgorithm::Prefix,
             sort: Default::default(),
         }
