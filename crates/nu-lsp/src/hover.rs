@@ -22,7 +22,7 @@ impl LanguageServer {
         // Usage
         description.push_str("---\n### Usage \n```nu\n");
         let signature = decl.signature();
-        description.push_str(&get_signature_label(&signature));
+        description.push_str(&get_signature_label(&signature, true));
         description.push_str("\n```\n");
 
         // Flags
