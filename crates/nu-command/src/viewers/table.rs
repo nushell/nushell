@@ -139,28 +139,28 @@ impl Command for Table {
             Example {
                 description: "Render data in table view",
                 example: r#"[[a b]; [1 2] [3 4]] | table"#,
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
-                        "a" =>  Value::test_int(1),
-                        "b" =>  Value::test_int(2),
+                        "a" => Value::test_int(1),
+                        "b" => Value::test_int(2),
                     }),
                     Value::test_record(record! {
-                        "a" =>  Value::test_int(3),
-                        "b" =>  Value::test_int(4),
+                        "a" => Value::test_int(3),
+                        "b" => Value::test_int(4),
                     }),
                 ])),
             },
             Example {
                 description: "Render data in table view (expanded)",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --expand"#,
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
-                        "a" =>  Value::test_int(1),
-                        "b" =>  Value::test_int(2),
+                        "a" => Value::test_int(1),
+                        "b" => Value::test_int(2),
                     }),
                     Value::test_record(record! {
-                        "a" =>  Value::test_int(3),
-                        "b" =>  Value::test_list(vec![
+                        "a" => Value::test_int(3),
+                        "b" => Value::test_list(list![
                             Value::test_int(4),
                             Value::test_int(4),
                         ])
@@ -170,14 +170,14 @@ impl Command for Table {
             Example {
                 description: "Render data in table view (collapsed)",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
-                        "a" =>  Value::test_int(1),
-                        "b" =>  Value::test_int(2),
+                        "a" => Value::test_int(1),
+                        "b" => Value::test_int(2),
                     }),
                     Value::test_record(record! {
-                        "a" =>  Value::test_int(3),
-                        "b" =>  Value::test_list(vec![
+                        "a" => Value::test_int(3),
+                        "b" => Value::test_list(list![
                             Value::test_int(4),
                             Value::test_int(4),
                         ])
@@ -626,14 +626,14 @@ fn build_table_kv(
 }
 
 fn build_table_batch(
-    mut vals: Vec<Value>,
+    mut vals: List,
     view: TableView,
     opts: TableOpts<'_>,
     span: Span,
 ) -> StringResult {
     // convert each custom value to its base value so it can be properly
     // displayed in a table
-    for val in &mut vals {
+    for val in vals.make_mut() {
         let span = val.span();
 
         if let Value::Custom { val: custom, .. } = val {
@@ -837,7 +837,7 @@ impl PagingTableCreator {
         }
     }
 
-    fn build_table(&mut self, batch: Vec<Value>) -> ShellResult<Option<String>> {
+    fn build_table(&mut self, batch: List) -> ShellResult<Option<String>> {
         if batch.is_empty() {
             return Ok(None);
         }
@@ -927,11 +927,11 @@ fn stream_collect(
     stream: impl Iterator<Item = Value>,
     size: usize,
     signals: &Signals,
-) -> (Vec<Value>, bool) {
+) -> (List, bool) {
     let start_time = Instant::now();
     let mut end = true;
 
-    let mut batch = Vec::with_capacity(size);
+    let mut batch = List::with_capacity(size);
     for (i, item) in stream.enumerate() {
         batch.push(item);
 
@@ -958,14 +958,14 @@ fn stream_collect_abbriviated(
     stream: impl Iterator<Item = Value>,
     size: usize,
     signals: &Signals,
-) -> (Vec<Value>, usize, bool) {
+) -> (List, usize, bool) {
     let mut end = true;
     let mut read = 0;
-    let mut head = Vec::with_capacity(size);
+    let mut head = List::with_capacity(size);
     let mut tail = VecDeque::with_capacity(size);
 
     if size == 0 {
-        return (vec![], 0, false);
+        return (List::new(), 0, false);
     }
 
     for item in stream {
@@ -986,10 +986,9 @@ fn stream_collect_abbriviated(
         }
     }
 
-    let have_filled_list = head.len() == size && tail.len() == size;
-    if have_filled_list {
+    if head.len() == size && tail.len() == size {
         let dummy = get_abbriviated_dummy(&head, &tail);
-        head.insert(size, dummy)
+        head.insert(size, dummy).expect("head.len() == size");
     }
 
     head.extend(tail);
@@ -1134,8 +1133,8 @@ fn convert_table_to_output(
     }
 }
 
-fn supported_table_modes() -> Vec<Value> {
-    vec![
+fn supported_table_modes() -> List {
+    list![
         Value::test_string("basic"),
         Value::test_string("compact"),
         Value::test_string("compact_double"),

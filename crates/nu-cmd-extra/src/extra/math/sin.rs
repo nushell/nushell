@@ -58,16 +58,13 @@ impl Command for MathSin {
             Example {
                 description: "Apply the sine to a list of angles in degrees",
                 example: "[0 90 180 270 360] | math sin -d | math round --precision 4",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_float(0f64),
-                        Value::test_float(1f64),
-                        Value::test_float(0f64),
-                        Value::test_float(-1f64),
-                        Value::test_float(0f64),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_float(0f64),
+                    Value::test_float(1f64),
+                    Value::test_float(0f64),
+                    Value::test_float(-1f64),
+                    Value::test_float(0f64),
+                ])),
             },
         ]
     }

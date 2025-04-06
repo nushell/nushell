@@ -1,7 +1,9 @@
 use crate::test_util::{expected_test_custom_value, test_plugin_custom_value, TestCustomValue};
 
 use super::PluginCustomValue;
-use nu_protocol::{engine::Closure, record, BlockId, CustomValue, ShellError, Span, Value, VarId};
+use nu_protocol::{
+    engine::Closure, list, record, BlockId, CustomValue, ShellError, Span, Value, VarId,
+};
 
 fn check_record_custom_values(
     val: &Value,
@@ -135,7 +137,7 @@ fn serialize_in_record() -> Result<(), ShellError> {
 #[test]
 fn serialize_in_list() -> Result<(), ShellError> {
     let orig_custom_val = Value::test_custom_value(Box::new(TestCustomValue(24)));
-    let mut val = Value::test_list(vec![orig_custom_val.clone(), orig_custom_val.clone()]);
+    let mut val = Value::test_list(list![orig_custom_val.clone(), orig_custom_val.clone()]);
     PluginCustomValue::serialize_custom_values_in(&mut val)?;
 
     check_list_custom_values(&val, 0..=1, |index, custom_value| {
@@ -221,7 +223,7 @@ fn deserialize_in_record() -> Result<(), ShellError> {
 #[test]
 fn deserialize_in_list() -> Result<(), ShellError> {
     let orig_custom_val = Value::test_custom_value(Box::new(test_plugin_custom_value()));
-    let mut val = Value::test_list(vec![orig_custom_val.clone(), orig_custom_val.clone()]);
+    let mut val = Value::test_list(list![orig_custom_val.clone(), orig_custom_val.clone()]);
     PluginCustomValue::deserialize_custom_values_in(&mut val)?;
 
     check_list_custom_values(&val, 0..=1, |index, custom_value| {

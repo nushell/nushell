@@ -48,19 +48,18 @@ impl Command for JobList {
                             job.collect_pids()
                                 .into_iter()
                                 .map(|it| Value::int(it as i64, head))
-                                .collect::<Vec<Value>>(),
+                                .collect(),
                             head,
                         ),
-
                         Job::Frozen(FrozenJob { unfreeze }) => {
-                            Value::list(vec![ Value::int(unfreeze.pid() as i64, head) ], head)
+                            Value::list(list![Value::int(unfreeze.pid() as i64, head)], head)
                         }
                     }
                 };
 
                 Value::record(record, head)
             })
-            .collect::<Vec<Value>>();
+            .collect();
 
         Ok(Value::list(values, head).into_pipeline_data())
     }

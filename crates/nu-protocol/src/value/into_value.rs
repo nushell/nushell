@@ -1,4 +1,4 @@
-use crate::{ast::CellPath, engine::Closure, Range, Record, ShellError, Span, Value};
+use crate::{ast::CellPath, engine::Closure, list, Range, Record, ShellError, Span, Value};
 use chrono::{DateTime, FixedOffset};
 use std::{borrow::Borrow, collections::HashMap};
 
@@ -146,7 +146,7 @@ macro_rules! tuple_into_value {
     ($($t:ident:$n:tt),+) => {
         impl<$($t),+> IntoValue for ($($t,)+) where $($t: IntoValue,)+ {
             fn into_value(self, span: Span) -> Value {
-                let vals = vec![$(self.$n.into_value(span)),+];
+                let vals = list![$(self.$n.into_value(span)),+];
                 Value::list(vals, span)
             }
         }

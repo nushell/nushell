@@ -61,8 +61,8 @@ impl PluginCommand for LazySelect {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let vals: Vec<Value> = call.rest(0)?;
-        let expr_value = Value::list(vals, call.head);
+        let vals = call.rest(0)?;
+        let expr_value = Value::list(vals.into(), call.head);
         let expressions = NuExpression::extract_exprs(plugin, expr_value)?;
 
         let pipeline_value = input.into_value(call.head)?;

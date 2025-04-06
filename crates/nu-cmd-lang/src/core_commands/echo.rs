@@ -57,10 +57,11 @@ little reason to use this over just writing the values as-is."#
             Example {
                 description: "Put a list of numbers in the pipeline. This is the same as [1 2 3].",
                 example: "echo 1 2 3",
-                result: Some(Value::list(
-                    vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                ])),
             },
             Example {
                 description:
@@ -76,7 +77,7 @@ fn echo_impl(mut args: Vec<Value>, head: Span) -> Result<PipelineData, ShellErro
     let value = match args.len() {
         0 => Value::string("", head),
         1 => args.pop().expect("one element"),
-        _ => Value::list(args, head),
+        _ => Value::list(args.into(), head),
     };
     Ok(value.into_pipeline_data())
 }

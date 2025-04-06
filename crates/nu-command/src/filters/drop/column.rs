@@ -60,7 +60,7 @@ impl Command for DropColumn {
             Example {
                 description: "Remove the last column of a table",
                 example: "[[lib, extension]; [nu-lib, rs] [nu-core, rb]] | drop column",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! { "lib" => Value::test_string("nu-lib") }),
                     Value::test_record(record! { "lib" => Value::test_string("nu-core") }),
                 ])),
@@ -115,7 +115,7 @@ fn drop_cols(
             let span = v.span();
             match v {
                 Value::List { mut vals, .. } => {
-                    if let Some((first, rest)) = vals.split_first_mut() {
+                    if let Some((first, rest)) = vals.make_mut().split_first_mut() {
                         let drop_cols = drop_cols_set(first, head, columns)?;
                         for val in rest {
                             drop_record_cols(val, head, &drop_cols)?

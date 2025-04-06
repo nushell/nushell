@@ -58,14 +58,11 @@ impl Command for MathTan {
             Example {
                 description: "Apply the tangent to a list of angles in degrees",
                 example: "[-45 0 45] | math tan --degrees",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_float(-1f64),
-                        Value::test_float(0f64),
-                        Value::test_float(1f64),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_float(-1f64),
+                    Value::test_float(0f64),
+                    Value::test_float(1f64),
+                ])),
             },
         ]
     }

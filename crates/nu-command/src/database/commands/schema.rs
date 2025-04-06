@@ -98,8 +98,8 @@ fn get_table_columns(
     conn: &Connection,
     table: &DbTable,
     span: Span,
-) -> Result<Vec<Value>, ShellError> {
-    let columns = db
+) -> Result<List, ShellError> {
+    Ok(db
         .get_columns(conn, table)
         .map_err(|e| ShellError::GenericError {
             error: "Error getting database columns".into(),
@@ -107,22 +107,18 @@ fn get_table_columns(
             span: Some(span),
             help: None,
             inner: vec![],
-        })?;
-
-    // a record of column name = column value
-    let mut column_info = vec![];
-    for t in columns {
-        column_info.push(Value::record(
-            t.fields()
+        })?
+        .into_iter()
+        .map(|column| {
+            column
+                .fields()
                 .into_iter()
-                .zip(t.columns())
+                .zip(column.values())
                 .map(|(k, v)| (k, Value::string(v, span)))
-                .collect(),
-            span,
-        ));
-    }
-
-    Ok(column_info)
+                .collect::<Record>()
+                .into_value(span)
+        })
+        .collect())
 }
 
 fn get_table_constraints(
@@ -130,8 +126,8 @@ fn get_table_constraints(
     conn: &Connection,
     table: &DbTable,
     span: Span,
-) -> Result<Vec<Value>, ShellError> {
-    let constraints = db
+) -> Result<List, ShellError> {
+    Ok(db
         .get_constraints(conn, table)
         .map_err(|e| ShellError::GenericError {
             error: "Error getting DB constraints".into(),
@@ -139,21 +135,18 @@ fn get_table_constraints(
             span: Some(span),
             help: None,
             inner: vec![],
-        })?;
-    let mut constraint_info = vec![];
-    for constraint in constraints {
-        constraint_info.push(Value::record(
+        })?
+        .into_iter()
+        .map(|constraint| {
             constraint
                 .fields()
                 .into_iter()
-                .zip(constraint.columns())
+                .zip(constraint.values())
                 .map(|(k, v)| (k, Value::string(v, span)))
-                .collect(),
-            span,
-        ));
-    }
-
-    Ok(constraint_info)
+                .collect::<Record>()
+                .into_value(span)
+        })
+        .collect())
 }
 
 fn get_table_foreign_keys(
@@ -161,8 +154,8 @@ fn get_table_foreign_keys(
     conn: &Connection,
     table: &DbTable,
     span: Span,
-) -> Result<Vec<Value>, ShellError> {
-    let foreign_keys = db
+) -> Result<List, ShellError> {
+    Ok(db
         .get_foreign_keys(conn, table)
         .map_err(|e| ShellError::GenericError {
             error: "Error getting DB Foreign Keys".into(),
@@ -170,20 +163,17 @@ fn get_table_foreign_keys(
             span: Some(span),
             help: None,
             inner: vec![],
-        })?;
-    let mut foreign_key_info = vec![];
-    for fk in foreign_keys {
-        foreign_key_info.push(Value::record(
+        })?
+        .into_iter()
+        .map(|fk| {
             fk.fields()
                 .into_iter()
-                .zip(fk.columns())
+                .zip(fk.values())
                 .map(|(k, v)| (k, Value::string(v, span)))
-                .collect(),
-            span,
-        ));
-    }
-
-    Ok(foreign_key_info)
+                .collect::<Record>()
+                .into_value(span)
+        })
+        .collect())
 }
 
 fn get_table_indexes(
@@ -191,8 +181,8 @@ fn get_table_indexes(
     conn: &Connection,
     table: &DbTable,
     span: Span,
-) -> Result<Vec<Value>, ShellError> {
-    let indexes = db
+) -> Result<List, ShellError> {
+    Ok(db
         .get_indexes(conn, table)
         .map_err(|e| ShellError::GenericError {
             error: "Error getting DB Indexes".into(),
@@ -200,19 +190,16 @@ fn get_table_indexes(
             span: Some(span),
             help: None,
             inner: vec![],
-        })?;
-    let mut index_info = vec![];
-    for index in indexes {
-        index_info.push(Value::record(
+        })?
+        .into_iter()
+        .map(|index| {
             index
                 .fields()
                 .into_iter()
-                .zip(index.columns())
+                .zip(index.values())
                 .map(|(k, v)| (k, Value::string(v, span)))
-                .collect(),
-            span,
-        ));
-    }
-
-    Ok(index_info)
+                .collect::<Record>()
+                .into_value(span)
+        })
+        .collect())
 }

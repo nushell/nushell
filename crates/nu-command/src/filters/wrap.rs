@@ -58,7 +58,7 @@ impl Command for Wrap {
             Example {
                 description: "Wrap a list into a table with a given column name",
                 example: "[ Pachisi Mahjong Catan Carcassonne ] | wrap game",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "game" => Value::test_string("Pachisi"),
                     }),
@@ -76,7 +76,7 @@ impl Command for Wrap {
             Example {
                 description: "Wrap a range into a table with a given column name",
                 example: "4..6 | wrap num",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "num" => Value::test_int(4),
                     }),

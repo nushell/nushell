@@ -113,15 +113,16 @@ impl Command for BitsShl {
             Example {
                 description: "Shift left a list of numbers",
                 example: "[5 3 2] | bits shl 2",
-                result: Some(Value::list(
-                    vec![Value::test_int(20), Value::test_int(12), Value::test_int(8)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(20),
+                    Value::test_int(12),
+                    Value::test_int(8),
+                ])),
             },
             Example {
                 description: "Shift left a binary value",
                 example: "0x[4f f4] | bits shl 4",
-                result: Some(Value::binary(vec![0xff, 0x40], Span::test_data())),
+                result: Some(Value::test_binary(vec![0xff, 0x40])),
             },
         ]
     }

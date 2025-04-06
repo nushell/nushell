@@ -39,7 +39,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             Example {
                 example: "0 | prepend [1 2 3]",
                 description: "prepend a list to an item",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(1),
                     Value::test_int(2),
                     Value::test_int(3),
@@ -49,7 +49,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             Example {
                 example: r#""a" | prepend ["b"] "#,
                 description: "Prepend a list of strings to a string",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("b"),
                     Value::test_string("a"),
                 ])),
@@ -57,7 +57,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             Example {
                 example: "[1 2 3 4] | prepend 0",
                 description: "Prepend one int item",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(0),
                     Value::test_int(1),
                     Value::test_int(2),
@@ -68,7 +68,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             Example {
                 example: "[2 3 4] | prepend [0 1]",
                 description: "Prepend two int items",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(0),
                     Value::test_int(1),
                     Value::test_int(2),
@@ -79,7 +79,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             Example {
                 example: "[2 nu 4 shell] | prepend [0 1 rocks]",
                 description: "Prepend ints and strings",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(0),
                     Value::test_int(1),
                     Value::test_string("rocks"),
@@ -92,7 +92,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             Example {
                 example: "[3 4] | prepend 0..2",
                 description: "Prepend a range",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(0),
                     Value::test_int(1),
                     Value::test_int(2),

@@ -3,7 +3,7 @@ use nu_plugin_core::{Encoder, EncodingType};
 use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    PipelineData, Signals, Span, Spanned, Value,
+    list, PipelineData, Signals, Span, Spanned, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::{get_default_config, get_default_env};
@@ -64,7 +64,7 @@ fn encoding_test_data(row_cnt: usize, col_cnt: usize) -> Value {
             .collect(),
     );
 
-    Value::list(vec![record; row_cnt], Span::test_data())
+    Value::test_list(list![record; row_cnt])
 }
 
 fn bench_command(

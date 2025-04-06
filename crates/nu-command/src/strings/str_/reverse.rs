@@ -80,14 +80,11 @@ impl Command for StrReverse {
             Example {
                 description: "Reverse multiple strings in a list",
                 example: "['Nushell' 'is' 'cool'] | str reverse",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("llehsuN"),
-                        Value::test_string("si"),
-                        Value::test_string("looc"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_string("llehsuN"),
+                    Value::test_string("si"),
+                    Value::test_string("looc"),
+                ])),
             },
         ]
     }

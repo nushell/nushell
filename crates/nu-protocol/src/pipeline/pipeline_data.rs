@@ -600,8 +600,7 @@ impl PipelineData {
                                 }
                             }
                         }
-                        let range_values: Vec<Value> =
-                            val.into_range_iter(span, Signals::empty()).collect();
+                        let range_values = val.into_range_iter(span, Signals::empty()).collect();
                         Ok(PipelineData::Value(Value::list(range_values, span), None))
                     }
                     x => Ok(PipelineData::Value(x, metadata)),

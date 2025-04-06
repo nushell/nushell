@@ -4,14 +4,7 @@ use crate::{
     NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
 };
 use chrono::{DateTime, FixedOffset};
-use std::{
-    any,
-    cmp::Ordering,
-    collections::{HashMap, VecDeque},
-    fmt,
-    path::PathBuf,
-    str::FromStr,
-};
+use std::{any, cmp::Ordering, collections::HashMap, fmt, path::PathBuf, str::FromStr};
 
 /// A trait for loading a value from a [`Value`].
 ///
@@ -375,11 +368,11 @@ macro_rules! tuple_from_value {
                 let span = v.span();
                 match v {
                     Value::List { vals, .. } => {
-                        let mut deque = VecDeque::from(vals);
+                        let mut iter = vals.into_iter();
 
                         Ok(($(
                             {
-                                let v = deque.pop_front().ok_or_else(|| ShellError::CantFindColumn {
+                                let v = iter.next().ok_or_else(|| ShellError::CantFindColumn {
                                     col_name: $n.to_string(),
                                     span: None,
                                     src_span: span

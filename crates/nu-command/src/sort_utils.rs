@@ -1,5 +1,5 @@
 use nu_engine::ClosureEval;
-use nu_protocol::{ast::CellPath, PipelineData, Record, ShellError, Span, Value};
+use nu_protocol::{ast::CellPath, list, PipelineData, Record, ShellError, Span, Value};
 use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
 
@@ -271,7 +271,7 @@ pub fn compare_custom_closure(
         .add_arg(left.clone())
         .add_arg(right.clone())
         .run_with_input(PipelineData::Value(
-            Value::list(vec![left.clone(), right.clone()], span),
+            Value::list(list![left.clone(), right.clone()], span),
             None,
         ))
         .and_then(|data| data.into_value(span))

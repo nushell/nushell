@@ -94,7 +94,7 @@ impl Command for BitsXor {
             Example {
                 description: "Apply bitwise xor to a list of numbers",
                 example: "[8 3 2] | bits xor 2",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(10),
                     Value::test_int(1),
                     Value::test_int(0),

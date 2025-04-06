@@ -109,21 +109,17 @@ impl Command for Reject {
             Example {
                 description: "Reject a column in a table",
                 example: "[[a, b]; [1, 2]] | reject a",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "b" => Value::test_int(2),
-                    })],
-                )),
+                result: Some(Value::test_list(list![Value::test_record(record! {
+                    "b" => Value::test_int(2),
+                })])),
             },
             Example {
                 description: "Reject a row in a table",
                 example: "[[a, b]; [1, 2] [3, 4]] | reject 1",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "a" =>  Value::test_int(1),
-                        "b" =>  Value::test_int(2),
-                    })],
-                )),
+                result: Some(Value::test_list(list![Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(2),
+                })])),
             },
             Example {
                 description: "Reject the specified field in a record",
@@ -149,7 +145,7 @@ impl Command for Reject {
             Example {
                 description: "Reject multiple columns",
                 example: "[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject type size",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! { "name" => Value::test_string("Cargo.toml") }),
                     Value::test_record(record! { "name" => Value::test_string("Cargo.lock") }),
                 ])),
@@ -157,7 +153,7 @@ impl Command for Reject {
             Example {
                 description: "Reject multiple columns by spreading a list",
                 example: "let cols = [type size]; [[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject ...$cols",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! { "name" => Value::test_string("Cargo.toml") }),
                     Value::test_record(record! { "name" => Value::test_string("Cargo.lock") }),
                 ])),
@@ -165,7 +161,7 @@ impl Command for Reject {
             Example {
                 description: "Reject item in list",
                 example: "[1 2 3] | reject 1",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(1),
                     Value::test_int(3),
                 ])),

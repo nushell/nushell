@@ -81,41 +81,33 @@ impl Command for BytesRemove {
             Example {
                 description: "Remove contents",
                 example: "0x[10 AA FF AA FF] | bytes remove 0x[10 AA]",
-                result: Some(Value::test_binary (
-                    vec![0xFF, 0xAA, 0xFF],
-                )),
+                result: Some(Value::test_binary(vec![0xFF, 0xAA, 0xFF])),
             },
             Example {
                 description: "Remove all occurrences of find binary in record field",
                 example: "{ data: 0x[10 AA 10 BB 10] } | bytes remove --all 0x[10] data",
                 result: Some(Value::test_record(record! {
-                    "data" => Value::test_binary(vec![0xAA, 0xBB])
+                    "data" => Value::test_binary(vec![0xAA, 0xBB]),
                 })),
             },
             Example {
                 description: "Remove occurrences of find binary from end",
                 example: "0x[10 AA 10 BB CC AA 10] | bytes remove --end 0x[10]",
-                result: Some(Value::test_binary (
-                    vec![0x10, 0xAA, 0x10, 0xBB, 0xCC, 0xAA],
-                )),
+                result: Some(Value::test_binary(vec![0x10, 0xAA, 0x10, 0xBB, 0xCC, 0xAA])),
             },
             Example {
                 description: "Remove find binary from end not found",
                 example: "0x[10 AA 10 BB CC AA 10] | bytes remove --end 0x[11]",
-                result: Some(Value::test_binary (
-                    vec![0x10, 0xAA, 0x10, 0xBB, 0xCC, 0xAA, 0x10],
-                )),
+                result: Some(Value::test_binary(vec![0x10, 0xAA, 0x10, 0xBB, 0xCC, 0xAA, 0x10])),
             },
             Example {
                 description: "Remove all occurrences of find binary in table",
                 example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes remove 0x[11] ColA ColC",
-                result: Some(Value::test_list (
-                    vec![Value::test_record(record! {
-                        "ColA" => Value::test_binary ( vec![0x12, 0x13],),
-                        "ColB" => Value::test_binary ( vec![0x14, 0x15, 0x16],),
-                        "ColC" => Value::test_binary ( vec![0x17, 0x18, 0x19],),
-                    })],
-                )),
+                result: Some(Value::test_list(list![Value::test_record(record! {
+                    "ColA" => Value::test_binary(vec![0x12, 0x13]),
+                    "ColB" => Value::test_binary(vec![0x14, 0x15, 0x16]),
+                    "ColC" => Value::test_binary(vec![0x17, 0x18, 0x19]),
+                })])),
             },
         ]
     }

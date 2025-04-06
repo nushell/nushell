@@ -218,21 +218,15 @@ impl PluginCommand for ToDataFrame {
         } else {
             match &input {
                 PipelineData::Value(Value::Record { val, .. }, _) => {
-                    let items: Result<Vec<(String, Vec<Value>)>, &str> = val
+                    let columns = val
                         .iter()
                         .map(|(k, v)| match v.to_owned().into_list() {
-                            Ok(v) => Ok((k.to_owned(), v)),
+                            Ok(v) => Ok(Column::new(k, v.into())),
                             _ => Err("error"),
                         })
-                        .collect();
-                    match items {
-                        Ok(items) => {
-                            let columns = items
-                                .iter()
-                                .map(|(k, v)| Column::new(k.to_owned(), v.to_owned()))
-                                .collect::<Vec<Column>>();
-                            NuDataFrame::try_from_columns(columns, maybe_schema)?
-                        }
+                        .collect::<Result<_, _>>();
+                    match columns {
+                        Ok(columns) => NuDataFrame::try_from_columns(columns, maybe_schema)?,
                         Err(e) => {
                             debug!(
                                 "Failed to build with multiple columns, attempting as series. failure:{e}"

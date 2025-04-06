@@ -61,7 +61,7 @@ impl Command for IntoBool {
             Example {
                 description: "Convert value to boolean in table",
                 example: "[[value]; ['false'] ['1'] [0] [1.0] [true]] | into bool value",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "value" => Value::test_bool(false),
                     }),

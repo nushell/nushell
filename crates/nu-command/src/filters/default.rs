@@ -62,20 +62,17 @@ impl Command for Default {
             Example {
                 description: "Replace the `null` value in a list",
                 example: "[1, 2, null, 4] | each { default 3 }",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(3),
-                        Value::test_int(4),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ])),
             },
             Example {
                 description: r#"Replace the missing value in the "a" column of a list"#,
                 example: "[{a:1 b:2} {b:1}] | default 'N/A' a",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "a" => Value::test_int(1),
                         "b" => Value::test_int(2),
@@ -89,7 +86,7 @@ impl Command for Default {
             Example {
                 description: r#"Replace the empty string in the "a" column of a list"#,
                 example: "[{a:1 b:2} {a:'' b:1}] | default -e 'N/A' a",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "a" => Value::test_int(1),
                         "b" => Value::test_int(2),

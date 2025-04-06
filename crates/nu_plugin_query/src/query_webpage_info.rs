@@ -1,5 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{Category, Example, LabeledError, Record, Signature, Span, Type, Value};
+use nu_protocol::{Category, Example, LabeledError, List, Record, Signature, Span, Type, Value};
 
 use crate::Query;
 
@@ -372,14 +372,14 @@ impl serde::ser::SerializeStructVariant for MapSerializer<'_> {
 //
 // sequences
 struct SeqSerializer<'a> {
-    seq: Vec<Value>,
+    seq: List,
     serializer: &'a ValueSerializer,
 }
 
 impl<'a> SeqSerializer<'a> {
     fn new(serializer: &'a ValueSerializer) -> Self {
         Self {
-            seq: Vec::new(),
+            seq: List::new(),
             serializer,
         }
     }

@@ -116,11 +116,11 @@ pub(crate) fn do_merge(
 /// rhs = [{a: 56, c: 78}]
 /// output = [{a: 56, b: 34, c: 78}]
 fn merge_tables(
-    lhs: Vec<Value>,
-    rhs: Vec<Value>,
+    lhs: List,
+    rhs: List,
     strategy: MergeStrategy,
     span: Span,
-) -> Result<Vec<Value>, ShellError> {
+) -> Result<List, ShellError> {
     let mut table_iter = rhs.into_iter();
 
     lhs.into_iter()

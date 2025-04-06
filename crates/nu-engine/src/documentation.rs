@@ -2,10 +2,9 @@ use crate::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
-    engine::CommandType,
-    engine::{Command, EngineState, Stack, UNKNOWN_SPAN_ID},
-    record, Category, Config, Example, IntoPipelineData, PipelineData, PositionalArg, Signature,
-    Span, SpanId, Spanned, SyntaxShape, Type, Value,
+    engine::{Command, CommandType, EngineState, Stack, UNKNOWN_SPAN_ID},
+    record, Category, Config, Example, IntoPipelineData, IntoValue, PipelineData, PositionalArg,
+    Signature, Span, SpanId, Spanned, SyntaxShape, Type, Value,
 };
 use nu_utils::terminal_size;
 use std::{collections::HashMap, fmt::Write};
@@ -205,16 +204,17 @@ fn get_documentation(
         if let Some(decl_id) = engine_state.find_decl(b"table", &[]) {
             // FIXME: we may want to make this the span of the help command in the future
             let span = Span::unknown();
-            let mut vals = vec![];
-            for (input, output) in &sig.input_output_types {
-                vals.push(Value::record(
+            let vals = sig
+                .input_output_types
+                .iter()
+                .map(|(input, output)| {
                     record! {
                         "input" => Value::string(input.to_string(), span),
                         "output" => Value::string(output.to_string(), span),
-                    },
-                    span,
-                ));
-            }
+                    }
+                    .into_value(span)
+                })
+                .collect();
 
             let caller_stack = &mut Stack::new().collect_value();
             if let Ok(result) = eval_call::<WithoutDebug>(

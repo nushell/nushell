@@ -62,21 +62,21 @@ pub fn help_commands(
         style_computer.compute("search_result", &Value::string("search result", head));
 
     if let Some(f) = find {
-        let all_cmds_vec = build_help_commands(engine_state, head);
-        let found_cmds_vec = highlight_search_in_table(
-            all_cmds_vec,
+        let all_cmds = build_help_commands(engine_state, head);
+        let found_cmds = highlight_search_in_table(
+            all_cmds,
             &f.item,
             &["name", "description", "search_terms"],
             &string_style,
             &highlight_style,
         )?;
 
-        return Ok(Value::list(found_cmds_vec, head).into_pipeline_data());
+        return Ok(Value::list(found_cmds, head).into_pipeline_data());
     }
 
     if rest.is_empty() {
-        let found_cmds_vec = build_help_commands(engine_state, head);
-        Ok(Value::list(found_cmds_vec, head).into_pipeline_data())
+        let found_cmds = build_help_commands(engine_state, head);
+        Ok(Value::list(found_cmds, head).into_pipeline_data())
     } else {
         let mut name = String::new();
 
@@ -99,9 +99,9 @@ pub fn help_commands(
     }
 }
 
-fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
+fn build_help_commands(engine_state: &EngineState, span: Span) -> List {
     let commands = engine_state.get_decls_sorted(false);
-    let mut found_cmds_vec = Vec::new();
+    let mut found_cmds = List::new();
 
     for (_, decl_id) in commands {
         let decl = engine_state.get_decl(decl_id);
@@ -115,7 +115,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
 
         // Build table of parameters
         let param_table = {
-            let mut vals = vec![];
+            let mut vals = List::new();
 
             for required_param in &sig.required_positional {
                 vals.push(Value::record(
@@ -185,21 +185,18 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
         };
 
         // Build the signature input/output table
-        let input_output_table = {
-            let mut vals = vec![];
-
-            for (input_type, output_type) in sig.input_output_types {
-                vals.push(Value::record(
-                    record! {
-                        "input" => Value::string(input_type.to_string(), span),
-                        "output" => Value::string(output_type.to_string(), span),
-                    },
-                    span,
-                ));
-            }
-
-            Value::list(vals, span)
-        };
+        let input_output_table = sig
+            .input_output_types
+            .iter()
+            .map(|(input, output)| {
+                record! {
+                    "input" => Value::string(input.to_string(), span),
+                    "output" => Value::string(output.to_string(), span),
+                }
+                .into_value(span)
+            })
+            .collect::<List>()
+            .into_value(span);
 
         let record = record! {
             "name" => Value::string(key, span),
@@ -212,10 +209,10 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
             "is_const" => Value::bool(decl.is_const(), span),
         };
 
-        found_cmds_vec.push(Value::record(record, span));
+        found_cmds.push(Value::record(record, span));
     }
 
-    found_cmds_vec
+    found_cmds
 }
 
 #[cfg(test)]

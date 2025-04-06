@@ -88,7 +88,7 @@ See also: `plugin use`
             Example {
                 example: "plugin list",
                 description: "List installed plugins.",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "name" => Value::test_string("inc"),
                     "version" => Value::test_string(env!("CARGO_PKG_VERSION")),
                     "status" => Value::test_string("running"),
@@ -99,7 +99,7 @@ See also: `plugin use`
                         Value::test_string("/opt/nu/plugins/nu_plugin_inc")
                     },
                     "shell" => Value::test_nothing(),
-                    "commands" => Value::test_list(vec![Value::test_string("inc")]),
+                    "commands" => Value::test_list(list![Value::test_string("inc")]),
                 })])),
             },
             Example {

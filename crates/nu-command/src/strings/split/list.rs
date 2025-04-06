@@ -42,127 +42,91 @@ impl Command for SubCommand {
             Example {
                 description: "Split a list of chars into two lists",
                 example: "[a, b, c, d, e, f, g] | split list d",
-                result: Some(Value::list(
-                    vec![
-                        Value::list(
-                            vec![
-                                Value::test_string("a"),
-                                Value::test_string("b"),
-                                Value::test_string("c"),
-                            ],
-                            Span::test_data(),
-                        ),
-                        Value::list(
-                            vec![
-                                Value::test_string("e"),
-                                Value::test_string("f"),
-                                Value::test_string("g"),
-                            ],
-                            Span::test_data(),
-                        ),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_list(list![
+                        Value::test_string("a"),
+                        Value::test_string("b"),
+                        Value::test_string("c"),
+                    ]),
+                    Value::test_list(list![
+                        Value::test_string("e"),
+                        Value::test_string("f"),
+                        Value::test_string("g"),
+                    ]),
+                ])),
             },
             Example {
                 description: "Split a list of lists into two lists of lists",
                 example: "[[1,2], [2,3], [3,4]] | split list [2,3]",
-                result: Some(Value::list(
-                    vec![
-                        Value::list(
-                            vec![Value::list(
-                                vec![Value::test_int(1), Value::test_int(2)],
-                                Span::test_data(),
-                            )],
-                            Span::test_data(),
-                        ),
-                        Value::list(
-                            vec![Value::list(
-                                vec![Value::test_int(3), Value::test_int(4)],
-                                Span::test_data(),
-                            )],
-                            Span::test_data(),
-                        ),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_list(list![Value::test_list(list![
+                        Value::test_int(1),
+                        Value::test_int(2),
+                    ],)],),
+                    Value::test_list(list![Value::test_list(list![
+                        Value::test_int(3),
+                        Value::test_int(4),
+                    ],)],),
+                ])),
             },
             Example {
                 description: "Split a list of chars into two lists",
                 example: "[a, b, c, d, a, e, f, g] | split list a",
-                result: Some(Value::list(
-                    vec![
-                        Value::list(vec![], Span::test_data()),
-                        Value::list(
-                            vec![
-                                Value::test_string("b"),
-                                Value::test_string("c"),
-                                Value::test_string("d"),
-                            ],
-                            Span::test_data(),
-                        ),
-                        Value::list(
-                            vec![
-                                Value::test_string("e"),
-                                Value::test_string("f"),
-                                Value::test_string("g"),
-                            ],
-                            Span::test_data(),
-                        ),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_list(List::new()),
+                    Value::test_list(list![
+                        Value::test_string("b"),
+                        Value::test_string("c"),
+                        Value::test_string("d"),
+                    ]),
+                    Value::test_list(list![
+                        Value::test_string("e"),
+                        Value::test_string("f"),
+                        Value::test_string("g"),
+                    ]),
+                ])),
             },
             Example {
                 description: "Split a list of chars into lists based on multiple characters",
                 example: r"[a, b, c, d, a, e, f, g] | split list --regex '(b|e)'",
-                result: Some(Value::list(
-                    vec![
-                        Value::list(vec![Value::test_string("a")], Span::test_data()),
-                        Value::list(
-                            vec![
-                                Value::test_string("c"),
-                                Value::test_string("d"),
-                                Value::test_string("a"),
-                            ],
-                            Span::test_data(),
-                        ),
-                        Value::list(
-                            vec![Value::test_string("f"), Value::test_string("g")],
-                            Span::test_data(),
-                        ),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_list(list![Value::test_string("a")]),
+                    Value::test_list(list![
+                        Value::test_string("c"),
+                        Value::test_string("d"),
+                        Value::test_string("a"),
+                    ]),
+                    Value::test_list(list![Value::test_string("f"), Value::test_string("g")]),
+                ])),
             },
             Example {
                 description: "Split a list of numbers on multiples of 3",
                 example: r"[1 2 3 4 5 6 7 8 9 10] | split list {|e| $e mod 3 == 0 }",
-                result: Some(Value::test_list(vec![
-                    Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
-                    Value::test_list(vec![Value::test_int(4), Value::test_int(5)]),
-                    Value::test_list(vec![Value::test_int(7), Value::test_int(8)]),
-                    Value::test_list(vec![Value::test_int(10)]),
+                result: Some(Value::test_list(list![
+                    Value::test_list(list![Value::test_int(1), Value::test_int(2)]),
+                    Value::test_list(list![Value::test_int(4), Value::test_int(5)]),
+                    Value::test_list(list![Value::test_int(7), Value::test_int(8)]),
+                    Value::test_list(list![Value::test_int(10)]),
                 ])),
             },
             Example {
                 description: "Split a list of numbers into lists ending with 0",
                 example: r"[1 2 0 3 4 5 0 6 0 0 7] | split list --split after 0",
-                result: Some(Value::test_list(vec![
-                    Value::test_list(vec![
+                result: Some(Value::test_list(list![
+                    Value::test_list(list![
                         Value::test_int(1),
                         Value::test_int(2),
                         Value::test_int(0),
                     ]),
-                    Value::test_list(vec![
+                    Value::test_list(list![
                         Value::test_int(3),
                         Value::test_int(4),
                         Value::test_int(5),
                         Value::test_int(0),
                     ]),
-                    Value::test_list(vec![Value::test_int(6), Value::test_int(0)]),
-                    Value::test_list(vec![Value::test_int(0)]),
-                    Value::test_list(vec![Value::test_int(7)]),
+                    Value::test_list(list![Value::test_int(6), Value::test_int(0)]),
+                    Value::test_list(list![Value::test_int(0)]),
+                    Value::test_list(list![Value::test_int(7)]),
                 ])),
             },
         ]
@@ -297,19 +261,19 @@ fn split_list(
     .into_pipeline_data(head, engine_state.signals().clone()))
 }
 
-struct SplitList<I, T, F> {
+struct SplitList<I, F> {
     iterator: I,
     closure: F,
     done: bool,
     signals: Signals,
     split: Split,
-    last_item: Option<T>,
+    last_item: Option<Value>,
 }
 
-impl<I, T, F> SplitList<I, T, F>
+impl<I, F> SplitList<I, F>
 where
-    I: Iterator<Item = T>,
-    F: FnMut(&I::Item) -> bool,
+    I: Iterator<Item = Value>,
+    F: FnMut(&Value) -> bool,
 {
     fn new(iterator: I, signals: Signals, split: Split, closure: F) -> Self {
         Self {
@@ -322,7 +286,7 @@ where
         }
     }
 
-    fn inner_iterator_next(&mut self) -> Option<I::Item> {
+    fn inner_iterator_next(&mut self) -> Option<Value> {
         if self.signals.interrupted() {
             self.done = true;
             return None;
@@ -331,19 +295,19 @@ where
     }
 }
 
-impl<I, T, F> Iterator for SplitList<I, T, F>
+impl<I, F> Iterator for SplitList<I, F>
 where
-    I: Iterator<Item = T>,
-    F: FnMut(&I::Item) -> bool,
+    I: Iterator<Item = Value>,
+    F: FnMut(&Value) -> bool,
 {
-    type Item = Vec<I::Item>;
+    type Item = List;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.done {
             return None;
         }
 
-        let mut items = vec![];
+        let mut items = List::new();
         if let Some(item) = self.last_item.take() {
             items.push(item);
         }

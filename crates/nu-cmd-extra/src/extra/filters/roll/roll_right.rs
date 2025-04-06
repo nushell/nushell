@@ -51,7 +51,7 @@ impl Command for RollRight {
             Example {
                 description: "Rolls columns to the right",
                 example: "[[a b c]; [1 2 3] [4 5 6]] | roll right",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "c" => Value::test_int(3),
                         "a" => Value::test_int(1),
@@ -67,7 +67,7 @@ impl Command for RollRight {
             Example {
                 description: "Rolls columns to the right with fixed headers",
                 example: "[[a b c]; [1 2 3] [4 5 6]] | roll right --cells-only",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "a" => Value::test_int(3),
                         "b" => Value::test_int(1),

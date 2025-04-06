@@ -103,34 +103,29 @@ impl Command for MathRound {
             Example {
                 description: "Apply the round function to a list of numbers",
                 example: "[1.5 2.3 -3.1] | math round",
-                result: Some(Value::list(
-                    vec![Value::test_int(2), Value::test_int(2), Value::test_int(-3)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(2),
+                    Value::test_int(2),
+                    Value::test_int(-3),
+                ])),
             },
             Example {
                 description: "Apply the round function with precision specified",
                 example: "[1.555 2.333 -3.111] | math round --precision 2",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_float(1.56),
-                        Value::test_float(2.33),
-                        Value::test_float(-3.11),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_float(1.56),
+                    Value::test_float(2.33),
+                    Value::test_float(-3.11),
+                ])),
             },
             Example {
                 description: "Apply negative precision to a list of numbers",
                 example: "[123, 123.3, -123.4] | math round --precision -1",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(120),
-                        Value::test_int(120),
-                        Value::test_int(-120),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(120),
+                    Value::test_int(120),
+                    Value::test_int(-120),
+                ])),
             },
         ]
     }

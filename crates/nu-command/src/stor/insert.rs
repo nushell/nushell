@@ -122,9 +122,9 @@ fn handle(
                 span,
             })
         }
-        PipelineData::ListStream(stream, ..) => stream.into_iter().collect::<Vec<_>>(),
+        PipelineData::ListStream(stream, ..) => stream.into_iter().collect(),
         PipelineData::Value(Value::List { vals, .. }, ..) => vals,
-        PipelineData::Value(val, ..) => vec![val],
+        PipelineData::Value(val, ..) => list![val],
         _ => {
             return Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list or record".into(),

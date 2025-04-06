@@ -27,13 +27,13 @@ where
 #[test]
 fn find_custom_values() {
     use nu_plugin_protocol::test_util::test_plugin_custom_value;
-    use nu_protocol::{engine::Closure, record};
+    use nu_protocol::{engine::Closure, list, record};
 
     let mut cv = Value::test_custom_value(Box::new(test_plugin_custom_value()));
 
     let mut value = Value::test_record(record! {
         "bare" => cv.clone(),
-        "list" => Value::test_list(vec![
+        "list" => Value::test_list(list![
             cv.clone(),
             Value::test_int(4),
         ]),

@@ -43,10 +43,10 @@ impl Command for WithEnv {
         vec![Example {
             description: "Set by key-value record",
             example: r#"with-env {X: "Y", W: "Z"} { [$env.X $env.W] }"#,
-            result: Some(Value::list(
-                vec![Value::test_string("Y"), Value::test_string("Z")],
-                Span::test_data(),
-            )),
+            result: Some(Value::test_list(list![
+                Value::test_string("Y"),
+                Value::test_string("Z"),
+            ])),
         }]
     }
 }

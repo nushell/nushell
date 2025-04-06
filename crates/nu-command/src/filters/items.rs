@@ -98,13 +98,10 @@ impl Command for Items {
             example:
                 "{ new: york, san: francisco } | items {|key, value| echo $'($key) ($value)' }",
             description: "Iterate over each key-value pair of a record",
-            result: Some(Value::list(
-                vec![
-                    Value::test_string("new york"),
-                    Value::test_string("san francisco"),
-                ],
-                Span::test_data(),
-            )),
+            result: Some(Value::test_list(list![
+                Value::test_string("new york"),
+                Value::test_string("san francisco"),
+            ])),
         }]
     }
 }

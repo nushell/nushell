@@ -227,21 +227,21 @@ pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineD
         {
             lists
                 .entry(record.columns().map(|c| c.as_str()).collect::<String>())
-                .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))
-                .or_insert_with(|| vec![val.clone()]);
+                .and_modify(|v: &mut List| v.push(val.clone()))
+                .or_insert_with(|| list![val.clone()]);
         } else {
             lists
                 .entry(val.to_expanded_string(",", config))
-                .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))
-                .or_insert_with(|| vec![val.clone()]);
+                .and_modify(|v: &mut List| v.push(val.clone()))
+                .or_insert_with(|| list![val.clone()]);
         }
     }
-    let mut output = vec![];
+    let mut output = List::new();
     for (_, mut value) in lists {
         if value.len() == 1 {
             output.push(value.pop().unwrap_or_else(|| Value::nothing(head)))
         } else {
-            output.push(Value::list(value.to_vec(), head))
+            output.push(Value::list(value, head))
         }
     }
     if output.len() == 1 {
@@ -339,7 +339,7 @@ mod tests {
 
     use super::*;
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
-    use nu_protocol::{record, Config, IntoPipelineData, Value};
+    use nu_protocol::{list, record, Config, IntoPipelineData, Value};
 
     fn one(string: &str) -> String {
         string
@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn render_table() {
-        let value = Value::test_list(vec![
+        let value = Value::test_list(list![
             Value::test_record(record! {
                 "country" => Value::test_string("Ecuador"),
             }),
@@ -438,7 +438,7 @@ mod tests {
 
     #[test]
     fn test_empty_column_header() {
-        let value = Value::test_list(vec![
+        let value = Value::test_list(list![
             Value::test_record(record! {
                 "" => Value::test_string("1"),
                 "foo" => Value::test_string("2"),

@@ -60,43 +60,43 @@ When updating a specific index, the closure will instead be run once. The first 
                 description: "Update a column value",
                 example: "{'name': 'nu', 'stars': 5} | update name 'Nushell'",
                 result: Some(Value::test_record(record! {
-                    "name" =>  Value::test_string("Nushell"),
+                    "name" => Value::test_string("Nushell"),
                     "stars" => Value::test_int(5),
                 })),
             },
             Example {
                 description: "Use a closure to alter each value in the 'authors' column to a single string",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ',' }",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "project" => Value::test_string("nu"),
-                        "authors" => Value::test_string("Andrés,JT,Yehuda"),
-                    })],
-                )),
+                result: Some(Value::test_list(list![Value::test_record(record! {
+                    "project" => Value::test_string("nu"),
+                    "authors" => Value::test_string("Andrés,JT,Yehuda"),
+                })])),
             },
             Example {
                 description: "Implicitly use the `$in` value in a closure to update 'authors'",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors { str join ',' }",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "project" => Value::test_string("nu"),
-                        "authors" => Value::test_string("Andrés,JT,Yehuda"),
-                    })],
-                )),
+                result: Some(Value::test_list(list![Value::test_record(record! {
+                    "project" => Value::test_string("nu"),
+                    "authors" => Value::test_string("Andrés,JT,Yehuda"),
+                })])),
             },
             Example {
                 description: "Update a value at an index in a list",
                 example: "[1 2 3] | update 1 4",
-                result: Some(Value::test_list(
-                    vec![Value::test_int(1), Value::test_int(4), Value::test_int(3)]
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(1),
+                    Value::test_int(4),
+                    Value::test_int(3)
+                ])),
             },
             Example {
                 description: "Use a closure to compute a new value at an index",
                 example: "[1 2 3] | update 1 {|i| $i + 2 }",
-                result: Some(Value::test_list(
-                    vec![Value::test_int(1), Value::test_int(4), Value::test_int(3)]
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(1),
+                    Value::test_int(4),
+                    Value::test_int(3)
+                ])),
             },
         ]
     }
@@ -118,7 +118,7 @@ fn update(
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
                         let mut closure = ClosureEval::new(engine_state, stack, *val);
-                        for val in vals {
+                        for val in vals.make_mut() {
                             update_value_by_closure(
                                 val,
                                 &mut closure,

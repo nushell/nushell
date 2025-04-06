@@ -63,7 +63,7 @@ Note that the order of rows with 'a' columns and rows with 'b' columns is arbitr
             Example {
                 example: "seq 1 3 | interleave { seq 4 6 } | sort",
                 description: "Read two sequences of numbers, one from input. Sort for consistency.",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(1),
                     Value::test_int(2),
                     Value::test_int(3),
@@ -75,7 +75,7 @@ Note that the order of rows with 'a' columns and rows with 'b' columns is arbitr
             Example {
                 example: r#"interleave { "foo\nbar\n" | lines } { "baz\nquux\n" | lines } | sort"#,
                 description: "Read two sequences, but without any input. Sort for consistency.",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("bar"),
                     Value::test_string("baz"),
                     Value::test_string("foo"),

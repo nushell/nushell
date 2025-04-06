@@ -74,9 +74,9 @@ impl Command for StrKebabCase {
             Example {
                 description: "convert a column from a table to kebab-case",
                 example: r#"[[lang, gems]; [nuTest, 100]] | str kebab-case lang"#,
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "lang" =>  Value::test_string("nu-test"),
-                    "gems" =>  Value::test_int(100),
+                result: Some(Value::test_list(list![Value::test_record(record! {
+                    "lang" => Value::test_string("nu-test"),
+                    "gems" => Value::test_int(100),
                 })])),
             },
         ]

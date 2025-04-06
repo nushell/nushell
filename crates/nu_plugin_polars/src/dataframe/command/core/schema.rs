@@ -2,7 +2,8 @@ use crate::{values::PolarsPluginObject, PolarsPlugin};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, IntoValue, LabeledError, List, PipelineData, ShellError, Signature,
+    Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -86,7 +87,7 @@ fn command(
 }
 
 fn datatype_list(span: Span) -> Value {
-    let types: Vec<Value> = [
+    [
         ("null", ""),
         ("bool", ""),
         ("u8", ""),
@@ -109,16 +110,14 @@ fn datatype_list(span: Span) -> Value {
         ("unknown", ""),
         ("list<dtype>", ""),
     ]
-    .iter()
+    .into_iter()
     .map(|(dtype, note)| {
-        Value::record(record! {
-            "dtype" => Value::string(*dtype, span),
-            "note" => Value::string(*note, span),
-        },
-        span)
+        record! {
+            "dtype" => Value::string(dtype, span),
+            "note" => Value::string(note, span),
+        }.into_value(span)
     })
-    .collect();
-    Value::list(types, span)
+    .collect::<List>().into_value(span)
 }
 
 #[cfg(test)]

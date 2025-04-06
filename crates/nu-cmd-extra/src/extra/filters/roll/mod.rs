@@ -26,14 +26,13 @@ fn vertical_rotate_value(
     match value {
         Value::List { mut vals, .. } => {
             let rotations = by.map(|n| n % vals.len()).unwrap_or(1);
-            let values = vals.as_mut_slice();
 
             match direction {
-                VerticalDirection::Up => values.rotate_left(rotations),
-                VerticalDirection::Down => values.rotate_right(rotations),
+                VerticalDirection::Up => vals.make_mut().rotate_left(rotations),
+                VerticalDirection::Down => vals.make_mut().rotate_right(rotations),
             }
 
-            Ok(Value::list(values.to_owned(), span))
+            Ok(Value::list(vals, span))
         }
         _ => Err(ShellError::TypeMismatch {
             err_message: "list".to_string(),
@@ -78,7 +77,7 @@ fn horizontal_rotate_value(
             let values = vals
                 .into_iter()
                 .map(|value| horizontal_rotate_value(value, by, cells_only, direction))
-                .collect::<Result<Vec<Value>, ShellError>>()?;
+                .collect::<Result<_, _>>()?;
 
             Ok(Value::list(values, span))
         }

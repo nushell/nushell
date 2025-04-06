@@ -128,26 +128,26 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
             Example {
                 description: "Filter items of a list according to a condition",
                 example: "[1 2] | filter {|x| $x > 1}",
-                result: Some(Value::test_list(vec![Value::test_int(2)])),
+                result: Some(Value::test_list(list![Value::test_int(2)])),
             },
             Example {
                 description: "Filter rows of a table according to a condition",
                 example: "[{a: 1} {a: 2}] | filter {|x| $x.a > 1}",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "a" => Value::test_int(2),
                 })])),
             },
             Example {
                 description: "Filter rows of a table according to a stored condition",
                 example: "let cond = {|x| $x.a > 1}; [{a: 1} {a: 2}] | filter $cond",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "a" => Value::test_int(2),
                 })])),
             },
             Example {
                 description: "Filter items of a range according to a condition",
                 example: "9..13 | filter {|el| $el mod 2 != 0}",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_int(9),
                     Value::test_int(11),
                     Value::test_int(13),

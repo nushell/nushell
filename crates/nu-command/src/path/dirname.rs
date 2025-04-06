@@ -106,7 +106,7 @@ impl Command for PathDirname {
             Example {
                 description: "Get dirname of a list of paths",
                 example: r"[ C:\Users\joe\test.txt, C:\Users\doe\test.txt ] | path dirname",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string(r"C:\Users\joe"),
                     Value::test_string(r"C:\Users\doe"),
                 ])),
@@ -136,7 +136,7 @@ impl Command for PathDirname {
             Example {
                 description: "Get dirname of a list of paths",
                 example: "[ /home/joe/test.txt, /home/doe/test.txt ] | path dirname",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_string("/home/joe"),
                     Value::test_string("/home/doe"),
                 ])),

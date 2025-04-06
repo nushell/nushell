@@ -76,7 +76,7 @@ impl Command for StrCapitalize {
             Example {
                 description: "Capitalize a column in a table",
                 example: "[[lang, gems]; [nu_test, 100]] | str capitalize lang",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                result: Some(Value::test_list(list![Value::test_record(record! {
                     "lang" => Value::test_string("Nu_test"),
                     "gems" => Value::test_int(100),
                 })])),

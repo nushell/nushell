@@ -55,15 +55,15 @@ impl Command for First {
             Example {
                 description: "Return the first 2 items of a list/table",
                 example: "[1 2 3] | first 2",
-                result: Some(Value::list(
-                    vec![Value::test_int(1), Value::test_int(2)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                ])),
             },
             Example {
                 description: "Return the first 2 bytes of a binary value",
                 example: "0x[01 23 45] | first 2",
-                result: Some(Value::binary(vec![0x01, 0x23], Span::test_data())),
+                result: Some(Value::test_binary(vec![0x01, 0x23])),
             },
             Example {
                 description: "Return the first item of a range",
@@ -102,7 +102,7 @@ fn first_helper(
 
     // early exit for `first 0`
     if rows == 0 {
-        return Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata));
+        return Ok(Value::list(List::new(), head).into_pipeline_data_with_metadata(metadata));
     }
 
     match input {
@@ -111,8 +111,8 @@ fn first_helper(
             match val {
                 Value::List { mut vals, .. } => {
                     if return_single_element {
-                        if let Some(val) = vals.first_mut() {
-                            Ok(std::mem::take(val).into_pipeline_data())
+                        if let Some(val) = vals.first() {
+                            Ok(val.clone().into_pipeline_data())
                         } else {
                             Err(ShellError::AccessEmptyContent { span: head })
                         }

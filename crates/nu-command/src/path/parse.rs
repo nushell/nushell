@@ -95,10 +95,10 @@ On Windows, an extra 'prefix' column is added."#
                 description: "Parse a single path",
                 example: r"'C:\Users\viking\spam.txt' | path parse",
                 result: Some(Value::test_record(record! {
-                        "prefix" =>    Value::test_string("C:"),
-                        "parent" =>    Value::test_string(r"C:\Users\viking"),
-                        "stem" =>      Value::test_string("spam"),
-                        "extension" => Value::test_string("txt"),
+                    "prefix" => Value::test_string("C:"),
+                    "parent" => Value::test_string(r"C:\Users\viking"),
+                    "stem" => Value::test_string("spam"),
+                    "extension" => Value::test_string("txt"),
                 })),
             },
             Example {
@@ -110,27 +110,27 @@ On Windows, an extra 'prefix' column is added."#
                 description: "Ignore the extension",
                 example: r"'C:\Users\viking.d' | path parse --extension ''",
                 result: Some(Value::test_record(record! {
-                        "prefix" =>    Value::test_string("C:"),
-                        "parent" =>    Value::test_string(r"C:\Users"),
-                        "stem" =>      Value::test_string("viking.d"),
-                        "extension" => Value::test_string(""),
+                    "prefix" => Value::test_string("C:"),
+                    "parent" => Value::test_string(r"C:\Users"),
+                    "stem" => Value::test_string("viking.d"),
+                    "extension" => Value::test_string(""),
                 })),
             },
             Example {
                 description: "Parse all paths in a list",
                 example: r"[ C:\Users\viking.d C:\Users\spam.txt ] | path parse",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
-                            "prefix" =>    Value::test_string("C:"),
-                            "parent" =>    Value::test_string(r"C:\Users"),
-                            "stem" =>      Value::test_string("viking"),
-                            "extension" => Value::test_string("d"),
+                        "prefix" => Value::test_string("C:"),
+                        "parent" => Value::test_string(r"C:\Users"),
+                        "stem" => Value::test_string("viking"),
+                        "extension" => Value::test_string("d"),
                     }),
                     Value::test_record(record! {
-                            "prefix" =>    Value::test_string("C:"),
-                            "parent" =>    Value::test_string(r"C:\Users"),
-                            "stem" =>      Value::test_string("spam"),
-                            "extension" => Value::test_string("txt"),
+                        "prefix" => Value::test_string("C:"),
+                        "parent" => Value::test_string(r"C:\Users"),
+                        "stem" => Value::test_string("spam"),
+                        "extension" => Value::test_string("txt"),
                     }),
                 ])),
             },
@@ -144,9 +144,9 @@ On Windows, an extra 'prefix' column is added."#
                 description: "Parse a path",
                 example: r"'/home/viking/spam.txt' | path parse",
                 result: Some(Value::test_record(record! {
-                        "parent" =>    Value::test_string("/home/viking"),
-                        "stem" =>      Value::test_string("spam"),
-                        "extension" => Value::test_string("txt"),
+                    "parent" => Value::test_string("/home/viking"),
+                    "stem" => Value::test_string("spam"),
+                    "extension" => Value::test_string("txt"),
                 })),
             },
             Example {
@@ -158,23 +158,23 @@ On Windows, an extra 'prefix' column is added."#
                 description: "Ignore the extension",
                 example: r"'/etc/conf.d' | path parse --extension ''",
                 result: Some(Value::test_record(record! {
-                        "parent" =>    Value::test_string("/etc"),
-                        "stem" =>      Value::test_string("conf.d"),
-                        "extension" => Value::test_string(""),
+                    "parent" => Value::test_string("/etc"),
+                    "stem" => Value::test_string("conf.d"),
+                    "extension" => Value::test_string(""),
                 })),
             },
             Example {
                 description: "Parse all paths in a list",
                 example: r"[ /home/viking.d /home/spam.txt ] | path parse",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
-                        "parent" =>    Value::test_string("/home"),
-                        "stem" =>      Value::test_string("viking"),
+                        "parent" => Value::test_string("/home"),
+                        "stem" => Value::test_string("viking"),
                         "extension" => Value::test_string("d"),
                     }),
                     Value::test_record(record! {
-                        "parent" =>    Value::test_string("/home"),
-                        "stem" =>      Value::test_string("spam"),
+                        "parent" => Value::test_string("/home"),
+                        "stem" => Value::test_string("spam"),
                         "extension" => Value::test_string("txt"),
                     }),
                 ])),

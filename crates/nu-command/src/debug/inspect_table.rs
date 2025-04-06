@@ -200,7 +200,7 @@ mod util {
     use crate::debug::explain::debug_string_without_formatting;
     use nu_engine::get_columns;
     use nu_protocol::engine::EngineState;
-    use nu_protocol::Value;
+    use nu_protocol::{List, Value};
 
     /// Try to build column names and a table grid.
     pub fn collect_input(
@@ -256,7 +256,7 @@ mod util {
     fn convert_records_to_dataset(
         engine_state: &EngineState,
         cols: &[String],
-        records: Vec<Value>,
+        records: List,
     ) -> Vec<Vec<String>> {
         if !cols.is_empty() {
             create_table_for_record(engine_state, cols, &records)

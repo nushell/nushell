@@ -47,16 +47,15 @@ impl Command for Flatten {
             Example {
                 description: "flatten a table",
                 example: "[[N, u, s, h, e, l, l]] | flatten ",
-                result: Some(Value::test_list(
-                    vec![
-                        Value::test_string("N"),
-                        Value::test_string("u"),
-                        Value::test_string("s"),
-                        Value::test_string("h"),
-                        Value::test_string("e"),
-                        Value::test_string("l"),
-                        Value::test_string("l")],
-                ))
+                result: Some(Value::test_list(list![
+                    Value::test_string("N"),
+                    Value::test_string("u"),
+                    Value::test_string("s"),
+                    Value::test_string("h"),
+                    Value::test_string("e"),
+                    Value::test_string("l"),
+                    Value::test_string("l"),
+                ]))
             },
             Example {
                 description: "flatten a table, get the first item",
@@ -76,39 +75,40 @@ impl Command for Flatten {
             Example {
                 description: "Flatten inner table",
                 example: "{ a: b, d: [ 1 2 3 4 ], e: [ 4 3 ] } | flatten d --all",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(record! {
-                                "a" => Value::test_string("b"),
-                                "d" => Value::test_int(1),
-                                "e" => Value::test_list(
-                                    vec![Value::test_int(4), Value::test_int(3)],
-                                ),
-                        }),
-                        Value::test_record(record! {
-                                "a" => Value::test_string("b"),
-                                "d" => Value::test_int(2),
-                                "e" => Value::test_list(
-                                    vec![Value::test_int(4), Value::test_int(3)],
-                                ),
-                        }),
-                        Value::test_record(record! {
-                                "a" => Value::test_string("b"),
-                                "d" => Value::test_int(3),
-                                "e" => Value::test_list(
-                                    vec![Value::test_int(4), Value::test_int(3)],
-                                ),
-                        }),
-                        Value::test_record(record! {
-                                "a" => Value::test_string("b"),
-                                "d" => Value::test_int(4),
-                                "e" => Value::test_list(
-                                    vec![Value::test_int(4), Value::test_int(3)],
-                                )
-                        }),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![
+                    Value::test_record(record! {
+                        "a" => Value::test_string("b"),
+                        "d" => Value::test_int(1),
+                        "e" => Value::test_list(list![
+                            Value::test_int(4),
+                            Value::test_int(3),
+                        ]),
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_string("b"),
+                        "d" => Value::test_int(2),
+                        "e" => Value::test_list(list![
+                            Value::test_int(4),
+                            Value::test_int(3),
+                        ]),
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_string("b"),
+                        "d" => Value::test_int(3),
+                        "e" => Value::test_list(list![
+                            Value::test_int(4),
+                            Value::test_int(3),
+                        ]),
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_string("b"),
+                        "d" => Value::test_int(4),
+                        "e" => Value::test_list(list![
+                            Value::test_int(4),
+                            Value::test_int(3),
+                        ])
+                    }),
+                ])),
             }
         ]
     }
@@ -135,7 +135,7 @@ fn flatten(
 enum TableInside {
     // handle for a column which contains a single list(but not list of records)
     // it contains (column, span, values in the column, column index).
-    Entries(String, Vec<Value>, usize),
+    Entries(String, List, usize),
     // handle for a column which contains a table, we can flatten the inner column to outer level
     // `records` is the nested/inner table to flatten to the outer level
     // `parent_column_name` is handled for conflicting column name, the nested table may contains columns which has the same name
@@ -148,7 +148,7 @@ enum TableInside {
     },
 }
 
-fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
+fn flat_value(columns: &[CellPath], item: Value, all: bool) -> List {
     let tag = item.span();
 
     match item {
@@ -179,7 +179,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                     }
                     Value::List { vals, .. } => {
                         if need_flatten && inner_table.is_some() {
-                            return vec![Value::error(
+                            return list![Value::error(
                                 ShellError::UnsupportedInput {
                                     msg: "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".into(),
                                     input: "value originates from here".into(),
@@ -231,7 +231,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                 }
             }
 
-            let mut expanded = vec![];
+            let mut expanded = List::new();
             match inner_table {
                 Some(TableInside::Entries(column, entries, parent_column_index)) => {
                     for entry in entries {
@@ -304,7 +304,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
             expanded
         }
         Value::List { vals, .. } => vals,
-        item => vec![item],
+        item => list![item],
     }
 }
 

@@ -116,17 +116,15 @@ produce a table, a list will produce a list, and a record will produce a record.
             Example {
                 description: "Select a column in a table",
                 example: "[{a: a b: b}] | select a",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "a" => Value::test_string("a")
-                    })],
-                )),
+                result: Some(Value::test_list(list![Value::test_record(record! {
+                    "a" => Value::test_string("a"),
+                })])),
             },
             Example {
                 description: "Select a field in a record",
                 example: "{a: a b: b} | select a",
                 result: Some(Value::test_record(record! {
-                    "a" => Value::test_string("a")
+                    "a" => Value::test_string("a"),
                 })),
             },
             Example {
@@ -142,28 +140,28 @@ produce a table, a list will produce a list, and a record will produce a record.
             Example {
                 description: "Select multiple columns",
                 example: "[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select name type",
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "name" => Value::test_string("Cargo.toml"),
                         "type" => Value::test_string("toml"),
                     }),
                     Value::test_record(record! {
                         "name" => Value::test_string("Cargo.lock"),
-                        "type" => Value::test_string("toml")
+                        "type" => Value::test_string("toml"),
                     }),
                 ]))
             },
             Example {
                 description: "Select multiple columns by spreading a list",
                 example: r#"let cols = [name type]; [[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select ...$cols"#,
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record! {
                         "name" => Value::test_string("Cargo.toml"),
-                        "type" => Value::test_string("toml")
+                        "type" => Value::test_string("toml"),
                     }),
                     Value::test_record(record! {
                         "name" => Value::test_string("Cargo.lock"),
-                        "type" => Value::test_string("toml")
+                        "type" => Value::test_string("toml"),
                     }),
                 ]))
             },

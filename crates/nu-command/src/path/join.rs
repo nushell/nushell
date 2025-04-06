@@ -110,10 +110,9 @@ the output of 'path parse' and 'path split' subcommands."#
             Example {
                 description: "Join a table of structured paths into a list of paths",
                 example: r"[ [parent stem extension]; ['C:\Users\viking' 'spam' 'txt']] | path join",
-                result: Some(Value::list(
-                    vec![Value::test_string(r"C:\Users\viking\spam.txt")],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![Value::test_string(
+                    r"C:\Users\viking\spam.txt"
+                )])),
             },
         ]
     }
@@ -155,10 +154,9 @@ the output of 'path parse' and 'path split' subcommands."#
             Example {
                 description: "Join a table of structured paths into a list of paths",
                 example: r"[[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join",
-                result: Some(Value::list(
-                    vec![Value::test_string(r"/home/viking/spam.txt")],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(list![Value::test_string(
+                    r"/home/viking/spam.txt"
+                )])),
             },
         ]
     }

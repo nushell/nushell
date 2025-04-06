@@ -32,7 +32,7 @@ impl Command for UrlSplitQuery {
             Example {
                 description: "Outputs a table representing the contents of this query string",
                 example: r#""mode=normal&userid=31415" | url split-query"#,
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record!{
                         "key" => Value::test_string("mode"),
                         "value" => Value::test_string("normal"),
@@ -40,13 +40,13 @@ impl Command for UrlSplitQuery {
                     Value::test_record(record!{
                         "key" => Value::test_string("userid"),
                         "value" => Value::test_string("31415"),
-                    })
+                    }),
                 ])),
             },
             Example {
                 description: "Outputs a table representing the contents of this query string, url-decoding the values",
                 example: r#""a=AT%26T&b=AT+T" | url split-query"#,
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record!{
                         "key" => Value::test_string("a"),
                         "value" => Value::test_string("AT&T"),
@@ -60,7 +60,7 @@ impl Command for UrlSplitQuery {
             Example {
                 description: "Outputs a table representing the contents of this query string",
                 example: r#""a=one&a=two&b=three" | url split-query"#,
-                result: Some(Value::test_list(vec![
+                result: Some(Value::test_list(list![
                     Value::test_record(record!{
                         "key" => Value::test_string("a"),
                         "value" => Value::test_string("one"),
