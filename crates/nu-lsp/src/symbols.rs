@@ -270,8 +270,8 @@ impl LanguageServer {
         &mut self,
         params: &DocumentSymbolParams,
     ) -> Option<DocumentSymbolResponse> {
-        let engine_state = self.new_engine_state();
         let uri = params.text_document.uri.to_owned();
+        let engine_state = self.new_engine_state(Some(&uri));
         let docs = self.docs.lock().ok()?;
         self.symbol_cache.update(&uri, &engine_state, &docs);
         self.symbol_cache
@@ -284,7 +284,7 @@ impl LanguageServer {
         params: &WorkspaceSymbolParams,
     ) -> Option<WorkspaceSymbolResponse> {
         if self.symbol_cache.any_dirty() {
-            let engine_state = self.new_engine_state();
+            let engine_state = self.new_engine_state(None);
             let docs = self.docs.lock().ok()?;
             self.symbol_cache.update_all(&engine_state, &docs);
         }

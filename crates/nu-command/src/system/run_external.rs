@@ -78,6 +78,8 @@ impl Command for External {
             _ => Path::new(&*name_str).to_owned(),
         };
 
+        let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
+
         // On Windows, the user could have run the cmd.exe built-in "assoc" command
         // Example: "assoc .nu=nuscript" and then run the cmd.exe built-in "ftype" command
         // Example: "ftype nuscript=C:\path\to\nu.exe '%1' %*" and then added the nushell
@@ -88,7 +90,7 @@ impl Command for External {
         // easy way to do this is to run cmd.exe with the script as an argument.
         let potential_nuscript_in_windows = if cfg!(windows) {
             // let's make sure it's a .nu script
-            if let Some(executable) = which(&expanded_name, "", cwd.as_ref()) {
+            if let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) {
                 let ext = executable
                     .extension()
                     .unwrap_or_default()
@@ -133,7 +135,6 @@ impl Command for External {
         } else {
             // Determine the PATH to be used and then use `which` to find it - though this has no
             // effect if it's an absolute path already
-            let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
             let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) else {
                 return Err(command_not_found(
                     &name_str,

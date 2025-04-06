@@ -2678,7 +2678,7 @@ pub fn parse_unit_value<'res>(
 
     if let Some((unit, name, convert)) = unit_groups.iter().find(|x| value.ends_with(x.1)) {
         let lhs_len = value.len() - name.len();
-        let lhs = strip_underscores(value[..lhs_len].as_bytes());
+        let lhs = strip_underscores(&value.as_bytes()[..lhs_len]);
         let lhs_span = Span::new(span.start, span.start + lhs_len);
         let unit_span = Span::new(span.start + lhs_len, span.end);
         if lhs.ends_with('$') {

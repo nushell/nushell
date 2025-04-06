@@ -118,7 +118,7 @@ fn increase_string_width(text: &mut String, total: usize) {
     let rest = total - width;
 
     if rest > 0 {
-        text.extend(std::iter::repeat(' ').take(rest));
+        text.extend(std::iter::repeat_n(' ', rest));
     }
 }
 

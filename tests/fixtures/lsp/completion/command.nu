@@ -1,6 +1,6 @@
 config n
 config n foo bar -
-config n foo bar l --l
+config n foo bar c --l
 
 # detail
 def "config n foo bar" [
