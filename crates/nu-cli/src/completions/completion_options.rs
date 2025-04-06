@@ -23,6 +23,12 @@ pub enum MatchAlgorithm {
     /// Example:
     /// "git checkout" is matched by "gco"
     Fuzzy,
+    
+    /// Only show suggestions which have a substring matching with the given input
+    /// 
+    /// Example:
+    /// "git checkout" is matched by "checkout"
+    Substring,
 }
 
 pub struct NuMatcher<'a, T> {
@@ -41,6 +47,10 @@ enum State<T> {
         atom: Atom,
         /// Holds (haystack, item, score)
         items: Vec<(String, T, u16)>,
+    },
+    Substring {
+        /// Holds (haystack, item)
+        items: Vec<(String, T)>,
     },
 }
 
@@ -86,6 +96,18 @@ impl<T> NuMatcher<'_, T> {
                     },
                 }
             }
+            MatchAlgorithm::Substring => {
+                let lowercase_needle = if options.case_sensitive {
+                    needle.to_owned()
+                } else {
+                    needle.to_folded_case()
+                };
+                NuMatcher {
+                    options,
+                    needle: lowercase_needle,
+                    state: State::Substring { items: Vec::new() },
+                }
+            }
         }
     }
 
@@ -129,6 +151,20 @@ impl<T> NuMatcher<'_, T> {
                     items.push((haystack.to_string(), item, score));
                 }
                 true
+            }
+            State::Substring { items } => {
+                let haystack_folded = if self.options.case_sensitive {
+                    Cow::Borrowed(haystack)
+                } else {
+                    Cow::Owned(haystack.to_folded_case())
+                };
+                let matches = haystack_folded.contains(self.needle.as_str());
+                if matches {
+                    if let Some(item) = item {
+                        items.push((haystack.to_string(), item));
+                    }
+                }
+                matches
             }
         }
     }
@@ -180,6 +216,20 @@ impl<T> NuMatcher<'_, T> {
                     .map(|(_, item, _)| item)
                     .collect::<Vec<_>>()
             }
+            State::Substring { mut items, .. } => {
+                items.sort_by(|(haystack1, _), (haystack2, _)| {
+                    let cmp_sensitive = haystack1.cmp(haystack2);
+                    if self.options.case_sensitive {
+                        cmp_sensitive
+                    } else {
+                        haystack1
+                            .to_folded_case()
+                            .cmp(&haystack2.to_folded_case())
+                            .then(cmp_sensitive)
+                    }
+                });
+                items.into_iter().map(|(_, item)| item).collect::<Vec<_>>()
+            }
         }
     }
 }
@@ -196,6 +246,7 @@ impl From<CompletionAlgorithm> for MatchAlgorithm {
         match value {
             CompletionAlgorithm::Prefix => MatchAlgorithm::Prefix,
             CompletionAlgorithm::Fuzzy => MatchAlgorithm::Fuzzy,
+            CompletionAlgorithm::Substring => MatchAlgorithm::Substring,
         }
     }
 }
@@ -207,6 +258,7 @@ impl TryFrom<String> for MatchAlgorithm {
         match value.as_str() {
             "prefix" => Ok(Self::Prefix),
             "fuzzy" => Ok(Self::Fuzzy),
+            "substring" => Ok(Self::Substring),
             _ => Err(InvalidMatchAlgorithm::Unknown),
         }
     }

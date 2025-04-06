@@ -7,6 +7,7 @@ pub enum CompletionAlgorithm {
     #[default]
     Prefix,
     Fuzzy,
+    Substring,
 }
 
 impl FromStr for CompletionAlgorithm {
@@ -16,7 +17,8 @@ impl FromStr for CompletionAlgorithm {
         match s.to_ascii_lowercase().as_str() {
             "prefix" => Ok(Self::Prefix),
             "fuzzy" => Ok(Self::Fuzzy),
-            _ => Err("'prefix' or 'fuzzy'"),
+            "substring" => Ok(Self::Substring),
+            _ => Err("'prefix' or 'fuzzy' or 'substring'"),
         }
     }
 }
