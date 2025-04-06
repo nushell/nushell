@@ -23,9 +23,9 @@ pub enum MatchAlgorithm {
     /// Example:
     /// "git checkout" is matched by "gco"
     Fuzzy,
-    
+
     /// Only show suggestions which have a substring matching with the given input
-    /// 
+    ///
     /// Example:
     /// "git checkout" is matched by "checkout"
     Substring,
