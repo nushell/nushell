@@ -1,7 +1,10 @@
 use lsp_types::{Hover, HoverContents, HoverParams, MarkupContent, MarkupKind};
-use nu_protocol::engine::Command;
+use nu_protocol::{engine::Command, PositionalArg};
 
-use crate::{Id, LanguageServer};
+use crate::{
+    signature::{display_flag, doc_for_arg, get_signature_label},
+    Id, LanguageServer,
+};
 
 impl LanguageServer {
     pub(crate) fn get_decl_description(decl: &dyn Command, skip_description: bool) -> String {
@@ -19,35 +22,27 @@ impl LanguageServer {
         // Usage
         description.push_str("---\n### Usage \n```nu\n");
         let signature = decl.signature();
-        description.push_str(&Self::get_signature_label(&signature));
+        description.push_str(&get_signature_label(&signature));
         description.push_str("\n```\n");
 
         // Flags
         if !signature.named.is_empty() {
             description.push_str("\n### Flags\n\n");
             let mut first = true;
-            for named in &signature.named {
+            for named in signature.named {
                 if first {
                     first = false;
                 } else {
                     description.push('\n');
                 }
                 description.push_str("  ");
-                if let Some(short_flag) = &named.short {
-                    description.push_str(&format!("`-{short_flag}`"));
-                }
-                if !named.long.is_empty() {
-                    if named.short.is_some() {
-                        description.push_str(", ");
-                    }
-                    description.push_str(&format!("`--{}`", named.long));
-                }
-                if let Some(arg) = &named.arg {
-                    description.push_str(&format!(" `<{}>`", arg.to_type()));
-                }
-                if !named.desc.is_empty() {
-                    description.push_str(&format!(" - {}", named.desc));
-                }
+                description.push_str(&display_flag(&named, true));
+                description.push_str(&doc_for_arg(
+                    named.arg,
+                    named.desc,
+                    named.default_value,
+                    false,
+                ));
                 description.push('\n');
             }
             description.push('\n');
@@ -60,46 +55,38 @@ impl LanguageServer {
         {
             description.push_str("\n### Parameters\n\n");
             let mut first = true;
-            for required_arg in &signature.required_positional {
+            let mut write_arg = |arg: PositionalArg, optional: bool| {
                 if first {
                     first = false;
                 } else {
                     description.push('\n');
                 }
-                description.push_str(&format!(
-                    "  `{}: {}`",
-                    required_arg.name,
-                    required_arg.shape.to_type()
+                description.push_str(&format!("  `{}`", arg.name));
+                description.push_str(&doc_for_arg(
+                    Some(arg.shape),
+                    arg.desc,
+                    arg.default_value,
+                    optional,
                 ));
-                if !required_arg.desc.is_empty() {
-                    description.push_str(&format!(" - {}", required_arg.desc));
-                }
                 description.push('\n');
+            };
+            for required_arg in signature.required_positional {
+                write_arg(required_arg, false);
             }
-            for optional_arg in &signature.optional_positional {
-                if first {
-                    first = false;
-                } else {
-                    description.push('\n');
-                }
-                description.push_str(&format!(
-                    "  `{}: {}`",
-                    optional_arg.name,
-                    optional_arg.shape.to_type()
-                ));
-                if !optional_arg.desc.is_empty() {
-                    description.push_str(&format!(" - {}", optional_arg.desc));
-                }
-                description.push('\n');
+            for optional_arg in signature.optional_positional {
+                write_arg(optional_arg, true);
             }
-            if let Some(arg) = &signature.rest_positional {
+            if let Some(arg) = signature.rest_positional {
                 if !first {
                     description.push('\n');
                 }
-                description.push_str(&format!(" `...{}: {}`", arg.name, arg.shape.to_type()));
-                if !arg.desc.is_empty() {
-                    description.push_str(&format!(" - {}", arg.desc));
-                }
+                description.push_str(&format!(" `...{}`", arg.name));
+                description.push_str(&doc_for_arg(
+                    Some(arg.shape),
+                    arg.desc,
+                    arg.default_value,
+                    false,
+                ));
                 description.push('\n');
             }
             description.push('\n');
@@ -378,7 +365,7 @@ mod hover_tests {
             serde_json::json!({
                     "contents": {
                     "kind": "markdown",
-                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n---\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
+                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n---\n### Usage \n```nu\n  str join {flags} (separator)\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator`: `<string>` - Optional separator to use when creating string. (optional)\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
                 }
             })
         );

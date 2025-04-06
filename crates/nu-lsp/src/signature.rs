@@ -5,7 +5,7 @@ use lsp_types::{
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, FindMapResult, Traverse},
     engine::StateWorkingSet,
-    PositionalArg, Signature,
+    Flag, PositionalArg, Signature, SyntaxShape, Value,
 };
 
 use crate::{uri_to_path, LanguageServer};
@@ -35,34 +35,81 @@ fn find_active_internal_call<'a>(
     }
 }
 
-impl LanguageServer {
-    pub(crate) fn get_signature_label(signature: &Signature) -> String {
-        let mut label = String::new();
-        label.push_str(&format!("  {}", signature.name));
-        if !signature.named.is_empty() {
-            label.push_str(" {flags}");
-        }
-        for required_arg in &signature.required_positional {
-            label.push_str(&format!(" <{}>", required_arg.name));
-        }
-        for optional_arg in &signature.optional_positional {
-            let value_info = if let Some(value) = optional_arg
-                .default_value
-                .as_ref()
-                .and_then(|v| v.coerce_str().ok())
-            {
-                format!("={}", value)
-            } else {
-                String::new()
-            };
-            label.push_str(&format!(" <{}?{}>", optional_arg.name, value_info));
-        }
-        if let Some(arg) = &signature.rest_positional {
-            label.push_str(&format!(" <...{}>", arg.name));
-        }
-        label
+pub(crate) fn display_flag(flag: &Flag, verbitam: bool) -> String {
+    let md_backtick = if verbitam { "`" } else { "" };
+    let mut text = String::new();
+    if let Some(short_flag) = flag.short {
+        text.push_str(&format!("{md_backtick}-{short_flag}{md_backtick}"));
     }
+    if !flag.long.is_empty() {
+        if flag.short.is_some() {
+            text.push_str(", ");
+        }
+        text.push_str(&format!("{md_backtick}--{}{md_backtick}", flag.long));
+    }
+    text
+}
 
+pub(crate) fn doc_for_arg(
+    syntax_shape: Option<SyntaxShape>,
+    desc: String,
+    default_value: Option<Value>,
+    optional: bool,
+) -> String {
+    let mut text = String::new();
+    if let Some(mut shape) = syntax_shape {
+        if let SyntaxShape::Keyword(_, inner_shape) = shape {
+            shape = *inner_shape;
+        }
+        text.push_str(&format!(": `<{}>`", shape));
+    }
+    if !(desc.is_empty() && default_value.is_none()) || optional {
+        text.push_str(" -")
+    };
+    if !desc.is_empty() {
+        text.push_str(&format!(" {}", desc));
+    };
+    if let Some(value) = default_value.as_ref().and_then(|v| v.coerce_str().ok()) {
+        text.push_str(&format!(
+            " ({}default: `{value}`)",
+            if optional { "optional, " } else { "" }
+        ));
+    } else if optional {
+        text.push_str(" (optional)");
+    }
+    text
+}
+
+pub(crate) fn get_signature_label(signature: &Signature) -> String {
+    let expand_keyword = |arg: &PositionalArg, optional: bool| match &arg.shape {
+        SyntaxShape::Keyword(kwd, _) => {
+            format!("{} <{}>", String::from_utf8_lossy(kwd), arg.name)
+        }
+        _ => {
+            if optional {
+                arg.name.clone()
+            } else {
+                format!("<{}>", arg.name)
+            }
+        }
+    };
+    let mut label = format!("  {}", signature.name);
+    if !signature.named.is_empty() {
+        label.push_str(" {flags}");
+    }
+    for required_arg in &signature.required_positional {
+        label.push_str(&format!(" {}", expand_keyword(required_arg, false)));
+    }
+    for optional_arg in &signature.optional_positional {
+        label.push_str(&format!(" ({})", expand_keyword(optional_arg, true)));
+    }
+    if let Some(arg) = &signature.rest_positional {
+        label.push_str(&format!(" ...({})", arg.name));
+    }
+    label
+}
+
+impl LanguageServer {
     pub(crate) fn get_signature_help(
         &mut self,
         params: &SignatureHelpParams,
@@ -120,6 +167,7 @@ impl LanguageServer {
             find_active_internal_call(expr, &working_set, pos_to_search)
         })?;
         let active_signature = working_set.get_decl(active_call.decl_id).signature();
+        let label = get_signature_label(&active_signature);
 
         let mut param_num_before_pos = 0;
         for arg in active_call.arguments.iter() {
@@ -133,39 +181,51 @@ impl LanguageServer {
                 break;
             }
         }
+
         let str_to_doc = |s: String| {
             Some(Documentation::MarkupContent(MarkupContent {
                 kind: MarkupKind::Markdown,
                 value: s,
             }))
         };
-        let arg_to_param_info = |arg: &PositionalArg| ParameterInformation {
-            label: lsp_types::ParameterLabel::Simple(arg.name.to_owned()),
-            documentation: str_to_doc(format!(
-                ": `<{}>` - {}",
-                arg.shape.to_type(),
-                arg.desc.to_owned()
+        let arg_to_param_info = |arg: PositionalArg, optional: bool| ParameterInformation {
+            label: lsp_types::ParameterLabel::Simple(arg.name),
+            documentation: str_to_doc(doc_for_arg(
+                Some(arg.shape),
+                arg.desc,
+                arg.default_value,
+                optional,
             )),
         };
+        let flag_to_param_info = |flag: Flag| ParameterInformation {
+            label: lsp_types::ParameterLabel::Simple(display_flag(&flag, false)),
+            documentation: str_to_doc(doc_for_arg(flag.arg, flag.desc, flag.default_value, false)),
+        };
+
+        // positional args
         let mut parameters: Vec<ParameterInformation> = active_signature
             .required_positional
-            .iter()
-            .map(arg_to_param_info)
+            .into_iter()
+            .map(|arg| arg_to_param_info(arg, false))
             .chain(
                 active_signature
                     .optional_positional
-                    .iter()
-                    .map(arg_to_param_info),
+                    .into_iter()
+                    .map(|arg| arg_to_param_info(arg, true)),
             )
             .collect();
-        if let Some(rest_arg) = &active_signature.rest_positional {
-            parameters.push(arg_to_param_info(rest_arg));
+        if let Some(rest_arg) = active_signature.rest_positional {
+            parameters.push(arg_to_param_info(rest_arg, false));
         }
+
         let max_idx = parameters.len().saturating_sub(1) as u32;
         let active_parameter = Some(param_num_before_pos.min(max_idx));
+        // also include flags in the end, just for documentation
+        parameters.extend(active_signature.named.into_iter().map(flag_to_param_info));
+
         Some(SignatureHelp {
             signatures: vec![SignatureInformation {
-                label: Self::get_signature_label(&active_signature),
+                label,
                 documentation: str_to_doc(active_signature.description),
                 parameters: Some(parameters),
                 active_parameter,
@@ -233,7 +293,7 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!({
                 "signatures": [{
-                    "label": "  str substring {flags} <range> <...rest>",
+                    "label": "  str substring {flags} <range> ...(rest)",
                     "parameters": [ ],
                     "activeParameter": 0
                 }],
@@ -263,7 +323,7 @@ mod tests {
         assert_json_include!(
             actual: result_from_message(resp),
             expected: serde_json::json!({ "signatures": [{
-                "label": "  str substring {flags} <range> <...rest>",
+                "label": "  str substring {flags} <range> ...(rest)",
                 "activeParameter": 1
             }]})
         );
@@ -272,7 +332,7 @@ mod tests {
         assert_json_include!(
             actual: result_from_message(resp),
             expected: serde_json::json!({ "signatures": [{
-                "label": "  str substring {flags} <range> <...rest>",
+                "label": "  str substring {flags} <range> ...(rest)",
                 "activeParameter": 0
             }]})
         );
@@ -281,7 +341,7 @@ mod tests {
         assert_json_include!(
             actual: result_from_message(resp),
             expected: serde_json::json!({ "signatures": [{
-                "label": "  echo {flags} <...rest>",
+                "label": "  echo {flags} ...(rest)",
                 "activeParameter": 0
             }]})
         );
@@ -291,8 +351,8 @@ mod tests {
     fn signature_help_on_custom_commands() {
         let config_str = r#"export def "foo bar" [
     p1: int
-    p2: string,
-    p3?: int = 1 # doc
+    p2: string, # doc
+    p3?: int = 1
 ] {}"#;
         let (client_connection, _recv) = initialize_language_server(Some(config_str), None);
 
@@ -308,11 +368,11 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!({
                 "signatures": [{
-                    "label": "  foo bar {flags} <p1> <p2> <p3?=1>",
+                    "label": "  foo bar {flags} <p1> <p2> (p3)",
                     "parameters": [
-                        {"label": "p1", "documentation": {"value": ": `<int>` - "}},
-                        {"label": "p2", "documentation": {"value": ": `<string>` - "}},
-                        {"label": "p3", "documentation": {"value": ": `<int>` - doc"}},
+                        {"label": "p1", "documentation": {"value": ": `<int>`"}},
+                        {"label": "p2", "documentation": {"value": ": `<string>` - doc"}},
+                        {"label": "p3", "documentation": {"value": ": `<int>` - (optional, default: `1`)"}},
                     ],
                     "activeParameter": 1
                 }],
@@ -326,11 +386,12 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!({
                 "signatures": [{
-                    "label": "  foo baz {flags} <p1> <p2> <p3?=1>",
+                    "label": "  foo baz {flags} <p1> <p2> (p3)",
                     "parameters": [
-                        {"label": "p1", "documentation": {"value": ": `<int>` - "}},
-                        {"label": "p2", "documentation": {"value": ": `<string>` - "}},
-                        {"label": "p3", "documentation": {"value": ": `<int>` - doc"}},
+                        {"label": "p1", "documentation": {"value": ": `<int>`"}},
+                        {"label": "p2", "documentation": {"value": ": `<string>` - doc"}},
+                        {"label": "p3", "documentation": {"value": ": `<int>` - (optional, default: `1`)"}},
+                        {"label": "-h, --help", "documentation": {"value": " - Display the help message for this command"}},
                     ],
                     "activeParameter": 2
                 }],
