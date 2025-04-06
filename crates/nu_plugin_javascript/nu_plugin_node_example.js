@@ -4,7 +4,8 @@
  * Node.js Nushell Plugin Example
  * Communicates with Nushell via JSON-encoded messages over stdin/stdout
  * 
- * Register command: `plugin add <path-to-js-file>`
+ * Register command: `plugin add -s 'C:\Program Files\nodejs\node.exe' ./nu_plugin_node_example.js`
+ * `plugin use ./nu_plugin_node_example.js`
  * Usage: node_example 2 "3"
  */
 
@@ -19,7 +20,7 @@ const PLUGIN_VERSION = '0.1.1';
  * @param {number} id - Call identifier
  * @param {object} response - Response payload
  */
-function writeResponse(id, response) {
+function writeResponse (id, response) {
 	const message = JSON.stringify({ CallResponse: [id, response] });
 	process.stdout.write(`${message}\n`);
 }
@@ -30,7 +31,7 @@ function writeResponse(id, response) {
  * @param {string} text - Error description
  * @param {object|null} span - Error location metadata
  */
-function writeError(id, text, span = null) {
+function writeError (id, text, span = null) {
 	const error = span ? {
 		Error: {
 			msg: 'Plugin execution error',
@@ -51,7 +52,7 @@ function writeError(id, text, span = null) {
  * Generates plugin signature metadata
  * @returns {object} Structured plugin capabilities
  */
-function getPluginSignature() {
+function getPluginSignature () {
 	return {
 		Signature: [{
 			sig: {
@@ -121,7 +122,7 @@ function getPluginSignature() {
  * @param {number} id - Call identifier
  * @param {object} callData - Execution context metadata
  */
-function processExecutionCall(id, callData) {
+function processExecutionCall (id, callData) {
 	const span = callData.call.head;
 
 	// Generate sample tabular data
@@ -154,7 +155,7 @@ function processExecutionCall(id, callData) {
  * Handles different types of input messages
  * @param {object} input - Parsed JSON message from Nushell
  */
-function handleInputMessage(input) {
+function handleInputMessage (input) {
 	if (input.Hello) {
 		handleHelloMessage(input.Hello);
 	} else if (input === 'Goodbye') {
@@ -166,14 +167,14 @@ function handleInputMessage(input) {
 	}
 }
 
-function handleHelloMessage({ version }) {
+function handleHelloMessage ({ version }) {
 	if (version !== NUSHELL_VERSION) {
 		process.stderr.write(`Version mismatch: Expected ${NUSHELL_VERSION}, got ${version}\n`);
 		process.exit(1);
 	}
 }
 
-function handleCallMessage(id, call) {
+function handleCallMessage (id, call) {
 	try {
 		if (call === 'Metadata') {
 			writeResponse(id, { Metadata: { version: PLUGIN_VERSION } });
@@ -189,7 +190,7 @@ function handleCallMessage(id, call) {
 	}
 }
 
-function handleSignal(signal) {
+function handleSignal (signal) {
 	if (signal !== 'Reset') {
 		process.stderr.write(`Unhandled signal: ${signal}\n`);
 	}
@@ -200,7 +201,7 @@ function handleSignal(signal) {
 /**
  * Initializes plugin communication protocol
  */
-function initializePlugin() {
+function initializePlugin () {
 	// Set up JSON encoding
 	process.stdout.write('\x04json\n');
 
