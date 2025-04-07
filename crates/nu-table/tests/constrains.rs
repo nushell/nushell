@@ -74,7 +74,7 @@ fn termwidth_too_small() {
 
 #[test]
 fn wrap_test() {
-    for test in 0 .. 15 {
+    for test in 0..15 {
         test_trim(&[(test, None)], TrimStrategy::wrap(false));
     }
 
@@ -90,7 +90,7 @@ fn wrap_test() {
 
 #[test]
 fn wrap_keep_words_test() {
-    for test in 0 .. 15 {
+    for test in 0..15 {
         test_trim(&[(test, None)], TrimStrategy::wrap(true));
     }
 
@@ -106,10 +106,10 @@ fn wrap_keep_words_test() {
 
 #[test]
 fn truncate_test() {
-    for test in 0 .. 15 {
+    for test in 0..15 {
         test_trim(&[(test, None)], TrimStrategy::wrap(true));
     }
-    
+
     let tests = [
         (15, Some("┏━━━━━━━┳━━━━━┓\n┃ 123 4 ┃ ... ┃\n┣━━━━━━━╋━━━━━┫\n┃ 0     ┃ ... ┃\n┃ 0     ┃ ... ┃\n┗━━━━━━━┻━━━━━┛")),
         (21, Some("┏━━━━━━━━━━━┳━━━━━┓\n┃ 123 45678 ┃ ... ┃\n┣━━━━━━━━━━━╋━━━━━┫\n┃ 0         ┃ ... ┃\n┃ 0         ┃ ... ┃\n┗━━━━━━━━━━━┻━━━━━┛")),
@@ -122,7 +122,7 @@ fn truncate_test() {
 
 #[test]
 fn truncate_with_suffix_test() {
-    for test in 0 .. 15 {
+    for test in 0..15 {
         test_trim(&[(test, None)], TrimStrategy::wrap(true));
     }
 
