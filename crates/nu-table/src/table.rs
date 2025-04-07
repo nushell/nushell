@@ -1,3 +1,8 @@
+// TODO: Stop building `tabled -e` when it's clear we are out of terminal
+// TODO: Stop building `tabled` when it's clear we are out of terminal
+// NOTE: TODO the above we could expose something like [`WidthCtrl`] in which case we could also laverage the width list build right away.
+//       currently it seems like we do recacalculate it for `table -e`?
+
 use std::{cmp::min, collections::HashMap};
 
 use nu_ansi_term::Style;
@@ -362,26 +367,20 @@ fn draw_table(
     align_table(&mut table, t.alignments, &structure);
     colorize_table(&mut table, t.styles, &structure);
     truncate_table(&mut table, &t.config, width, termwidth);
-    table_set_border_header(
-        &mut table,
-        head,
-        &t.config.theme,
-        t.config.structure.with_footer,
-    );
+    table_set_border_header(&mut table, head, &t.config);
 
     table_to_string(table, termwidth)
 }
 
-fn table_set_border_header(
-    table: &mut Table,
-    head: Option<HeadInfo>,
-    theme: &TableTheme,
-    with_footer: bool,
-) {
+fn table_set_border_header(table: &mut Table, head: Option<HeadInfo>, cfg: &TableConfig) {
     let head = match head {
         Some(head) => head,
         None => return,
     };
+
+    let theme = &cfg.theme;
+    let with_footer = cfg.structure.with_footer;
+    let pad = cfg.indent.left + cfg.indent.right;
 
     if !theme.as_base().borders_has_top() {
         let line = theme.as_base().get_horizontal_line(1);
@@ -398,10 +397,10 @@ fn table_set_border_header(
 
     if with_footer {
         let last_row = table.count_rows();
-        table.with(SetLineHeaders::new(last_row, head.clone()));
+        table.with(SetLineHeaders::new(head.clone(), last_row, pad));
     }
 
-    table.with(SetLineHeaders::new(0, head));
+    table.with(SetLineHeaders::new(head, 0, pad));
 }
 
 fn truncate_table(table: &mut Table, cfg: &TableConfig, width: WidthEstimation, termwidth: usize) {
@@ -702,9 +701,27 @@ fn truncate_columns_by_content(
         return WidthEstimation::new(widths_original, widths, width, true);
     }
 
+    // special case where the last column is smaller then a trailing column
+    let is_almost_last_column = truncate_pos + 2 == count_columns;
+    if is_almost_last_column {
+        let next_column_width = widths_original[truncate_pos + 1];
+        let has_space_for_two_columns =
+            available >= min_column_width + vertical + next_column_width + vertical;
+
+        if !is_last_column && has_space_for_two_columns {
+            let rest = available - vertical - next_column_width - vertical;
+            widths.push(rest);
+            width += rest + vertical;
+
+            widths.push(next_column_width);
+            width += next_column_width + vertical;
+
+            return WidthEstimation::new(widths_original, widths, width, true);
+        }
+    }
+
     let has_space_for_two_columns =
         available >= min_column_width + vertical + trailing_column_width + vertical;
-
     if !is_last_column && has_space_for_two_columns {
         truncate_rows(data, truncate_pos + 1);
 
@@ -768,7 +785,7 @@ fn truncate_columns_by_content(
 // VERSION where we are showing AS MANY COLUMNS AS POSSIBLE but as a side affect they MIGHT CONTAIN AS LITTLE CONTENT AS POSSIBLE
 //
 // TODO: Currently there's no prioritization of anything meaning all columns are equal
-//       But I'd sugggest to try to give a little more space for left most columns
+//       But I'd suggest to try to give a little more space for left most columns
 //
 //       So for example for instead of columns [10, 10, 10]
 //       We would get [15, 10, 5]
@@ -798,8 +815,8 @@ fn truncate_columns_by_columns(
     let mut width = borders.has_left() as usize + borders.has_right() as usize;
     let mut truncate_pos = 0;
 
-    for i in 0..count_columns {
-        let use_width = min(min_column_width, widths_original[i]);
+    for (i, &width_orig) in widths_original.iter().enumerate() {
+        let use_width = min(min_column_width, width_orig);
         let mut next_move = use_width;
         if i > 0 {
             next_move += vertical;
@@ -851,31 +868,6 @@ fn truncate_columns_by_columns(
         width += trailing_column_width + vertical;
 
         return WidthEstimation::new(widths_original, widths, width, true);
-    }
-
-    let last_width = widths.last().cloned().expect("ok");
-    let can_truncate_last = last_width > min_column_width;
-
-    if can_truncate_last {
-        let rest = last_width - min_column_width;
-        let maybe_available = available + rest;
-
-        if maybe_available >= trailing_column_width + vertical {
-            truncate_rows(data, truncate_pos);
-
-            let left = maybe_available - trailing_column_width - vertical;
-            let new_last_width = min_column_width + left;
-
-            widths[truncate_pos - 1] = new_last_width;
-            width -= last_width;
-            width += new_last_width;
-
-            push_empty_column(data);
-            widths.push(trailing_column_width);
-            width += trailing_column_width + vertical;
-
-            return WidthEstimation::new(widths_original, widths, width, true);
-        }
     }
 
     truncate_rows(data, truncate_pos - 1);
@@ -957,8 +949,11 @@ impl<R> TableOption<R, ColoredConfig, CompleteDimensionVecRecords<'_>> for SetDi
 fn build_width(records: &NuRecords, pad: usize) -> Vec<usize> {
     // TODO: Expose not spaned version (could be optimized).
     let mut cfg = SpannedConfig::default();
-    let mut padding = Sides::default();
-    padding.left = Indent::spaced(pad);
+    let padding = Sides {
+        left: Indent::spaced(pad),
+        ..Default::default()
+    };
+
     cfg.set_padding(Entity::Global, padding);
 
     SpannedGridDimension::width(records, &cfg)
@@ -968,12 +963,13 @@ fn build_width(records: &NuRecords, pad: usize) -> Vec<usize> {
 // to speed up things a bit.
 struct SetLineHeaders {
     line: usize,
+    pad: usize,
     head: HeadInfo,
 }
 
 impl SetLineHeaders {
-    fn new(line: usize, head: HeadInfo) -> Self {
-        Self { line, head }
+    fn new(head: HeadInfo, line: usize, pad: usize) -> Self {
+        Self { line, head, pad }
     }
 }
 
@@ -1001,7 +997,7 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
             .values
             .into_iter()
             .zip(widths.iter().cloned()) // it must be always safe to do
-            .map(|(s, width)| Truncate::truncate(&s, width).into_owned())
+            .map(|(s, width)| Truncate::truncate(&s, width - self.pad).into_owned())
             .collect();
 
         let mut names = ColumnNames::new(columns)
