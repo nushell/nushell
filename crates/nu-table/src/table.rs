@@ -8,20 +8,21 @@ use tabled::{
     builder::Builder,
     grid::{
         ansi::ANSIBuf,
-        config::{AlignmentHorizontal, ColoredConfig, Entity, Position},
-        dimension::CompleteDimensionVecRecords,
+        config::{
+            AlignmentHorizontal, ColoredConfig, Entity, Indent, Position, Sides, SpannedConfig,
+        },
+        dimension::{CompleteDimensionVecRecords, SpannedGridDimension},
         records::{
-            vec_records::{Cell, Text, VecRecords},
+            vec_records::{Text, VecRecords},
             ExactRecords, Records,
         },
     },
     settings::{
         formatting::AlignmentStrategy,
         object::{Columns, Rows},
-        peaker::Priority,
         themes::ColumnNames,
         width::Truncate,
-        Alignment, Color, Padding, TableOption, Width,
+        Alignment, CellOption, Color, Padding, TableOption, Width,
     },
     Table,
 };
@@ -297,9 +298,9 @@ fn table_insert_footer_if(t: &mut NuTable) {
     }
 }
 
-fn table_truncate(t: &mut NuTable, termwidth: usize) -> Option<Vec<usize>> {
+fn table_truncate(t: &mut NuTable, termwidth: usize) -> Option<WidthEstimation> {
     let widths = maybe_truncate_columns(&mut t.data, &t.config, termwidth);
-    if widths.is_empty() {
+    if widths.needed.is_empty() {
         return None;
     }
 
@@ -345,7 +346,7 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
 
 fn draw_table(
     t: NuTable,
-    widths: Vec<usize>,
+    width: WidthEstimation,
     head: Option<HeadInfo>,
     termwidth: usize,
 ) -> Option<String> {
@@ -360,7 +361,7 @@ fn draw_table(
     load_theme(&mut table, &t.config.theme, &structure, sep_color);
     align_table(&mut table, t.alignments, &structure);
     colorize_table(&mut table, t.styles, &structure);
-    truncate_table(&mut table, &t.config, widths, termwidth);
+    truncate_table(&mut table, &t.config, width, termwidth);
     table_set_border_header(
         &mut table,
         head,
@@ -403,9 +404,10 @@ fn table_set_border_header(
     table.with(SetLineHeaders::new(0, head));
 }
 
-fn truncate_table(table: &mut Table, cfg: &TableConfig, widths: Vec<usize>, termwidth: usize) {
+fn truncate_table(table: &mut Table, cfg: &TableConfig, width: WidthEstimation, termwidth: usize) {
     let trim = cfg.trim.clone();
-    let ctrl = WidthCtrl::new(termwidth, widths, trim, cfg.expand);
+    let pad = cfg.indent.left + cfg.indent.right;
+    let ctrl = WidthCtrl::new(termwidth, width, trim, cfg.expand, pad);
     table.with(ctrl);
 }
 
@@ -429,24 +431,47 @@ fn table_to_string(table: Table, termwidth: usize) -> Option<String> {
 }
 
 struct WidthCtrl {
-    widths: Vec<usize>,
+    width: WidthEstimation,
     trim_strategy: TrimStrategy,
     max_width: usize,
     expand: bool,
+    pad: usize,
 }
 
 impl WidthCtrl {
     fn new(
         max_width: usize,
-        widths: Vec<usize>,
+        width: WidthEstimation,
         trim_strategy: TrimStrategy,
         expand: bool,
+        pad: usize,
     ) -> Self {
         Self {
-            widths,
+            width,
             trim_strategy,
             max_width,
             expand,
+            pad,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct WidthEstimation {
+    original: Vec<usize>,
+    needed: Vec<usize>,
+    #[allow(dead_code)]
+    total: usize,
+    truncate: bool,
+}
+
+impl WidthEstimation {
+    fn new(original: Vec<usize>, needed: Vec<usize>, total: usize, truncate: bool) -> Self {
+        Self {
+            original,
+            needed,
+            total,
+            truncate,
         }
     }
 }
@@ -458,20 +483,18 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
         cfg: &mut ColoredConfig,
         dims: &mut CompleteDimensionVecRecords<'_>,
     ) {
-        let total_width = get_total_width2(&self.widths, cfg);
-        let need_truncation = total_width > self.max_width;
-        if need_truncation {
+        if self.width.truncate {
             width_ctrl_truncate(self, recs, cfg, dims);
             return;
         }
 
-        let need_expansion = self.expand;
-        if need_expansion {
+        if self.expand {
             width_ctrl_expand(self, recs, cfg, dims);
             return;
         }
 
-        SetDimensions(self.widths).change(recs, cfg, dims);
+        // NOTE: just an optimization; to not recalculate it internally
+        SetDimensions(self.width.needed).change(recs, cfg, dims);
     }
 }
 
@@ -481,7 +504,7 @@ fn width_ctrl_expand(
     cfg: &mut ColoredConfig,
     dims: &mut CompleteDimensionVecRecords,
 ) {
-    let opt = (SetDimensions(ctrl.widths), Width::increase(ctrl.max_width));
+    let opt = Width::increase(ctrl.max_width);
     TableOption::<VecRecords<_>, _, _>::change(opt, recs, cfg, dims);
 }
 
@@ -491,25 +514,37 @@ fn width_ctrl_truncate(
     cfg: &mut ColoredConfig,
     dims: &mut CompleteDimensionVecRecords,
 ) {
-    match ctrl.trim_strategy {
-        TrimStrategy::Wrap { try_to_keep_words } => {
-            let wrap = Width::wrap(ctrl.max_width)
-                .keep_words(try_to_keep_words)
-                .priority(Priority::max(false));
-
-            let opt = (SetDimensions(ctrl.widths), wrap);
-            TableOption::<NuRecords, _, _>::change(opt, recs, cfg, dims);
+    for (col, (&width, width_original)) in ctrl
+        .width
+        .needed
+        .iter()
+        .zip(ctrl.width.original)
+        .enumerate()
+    {
+        if width == width_original {
+            continue;
         }
-        TrimStrategy::Truncate { suffix } => {
-            let mut truncate = Width::truncate(ctrl.max_width).priority(Priority::max(false));
-            if let Some(suffix) = suffix {
-                truncate = truncate.suffix(suffix).suffix_try_color(true);
-            }
 
-            let opt = (SetDimensions(ctrl.widths), truncate);
-            TableOption::<NuRecords, _, _>::change(opt, recs, cfg, dims);
+        let width = width - ctrl.pad;
+
+        match &ctrl.trim_strategy {
+            TrimStrategy::Wrap { try_to_keep_words } => {
+                let wrap = Width::wrap(width).keep_words(*try_to_keep_words);
+
+                CellOption::<NuRecords, _>::change(wrap, recs, cfg, Entity::Column(col));
+            }
+            TrimStrategy::Truncate { suffix } => {
+                let mut truncate = Width::truncate(width);
+                if let Some(suffix) = suffix {
+                    truncate = truncate.suffix(suffix).suffix_try_color(true);
+                }
+
+                CellOption::<NuRecords, _>::change(truncate, recs, cfg, Entity::Column(col));
+            }
         }
     }
+
+    dims.set_widths(ctrl.width.needed);
 }
 
 fn align_table(table: &mut Table, alignments: Alignments, structure: &TableStructure) {
@@ -592,7 +627,11 @@ fn load_theme(
     }
 }
 
-fn maybe_truncate_columns(data: &mut NuRecords, cfg: &TableConfig, termwidth: usize) -> Vec<usize> {
+fn maybe_truncate_columns(
+    data: &mut NuRecords,
+    cfg: &TableConfig,
+    termwidth: usize,
+) -> WidthEstimation {
     const TERMWIDTH_THRESHOLD: usize = 120;
 
     let pad = cfg.indent.left + cfg.indent.right;
@@ -611,150 +650,243 @@ fn truncate_columns_by_content(
     theme: &TableTheme,
     pad: usize,
     termwidth: usize,
-) -> Vec<usize> {
-    const MIN_ACCEPTABLE_WIDTH: usize = 3;
-    const TRAILING_COLUMN_WIDTH: usize = 5;
+) -> WidthEstimation {
+    const MIN_ACCEPTABLE_WIDTH: usize = 5;
+    const TRAILING_COLUMN_WIDTH: usize = EMPTY_COLUMN_TEXT_WIDTH;
+
+    let trailing_column_width = TRAILING_COLUMN_WIDTH + pad;
+    let min_column_width = MIN_ACCEPTABLE_WIDTH + pad;
 
     let config = create_config(theme, false, None);
-    let mut widths = build_width(&*data, pad);
-    let total_width = get_total_width2(&widths, &config);
-    if total_width <= termwidth {
-        return widths;
-    }
+    let widths_original = build_width(data, pad);
+    let mut widths = vec![];
 
     let borders = config.get_borders();
-    let vertical_border_i = borders.has_vertical() as usize;
+    let vertical = borders.has_vertical() as usize;
+    let count_columns = data.count_columns();
 
     let mut width = borders.has_left() as usize + borders.has_right() as usize;
     let mut truncate_pos = 0;
-    for column_width in &widths {
-        width += column_width;
-        width += vertical_border_i;
 
-        if width >= termwidth {
-            // check whether we CAN limit the column width
-            width -= column_width;
-            width += MIN_ACCEPTABLE_WIDTH;
+    for (i, &column_width) in widths_original.iter().enumerate() {
+        let mut next_move = column_width;
+        if i > 0 {
+            next_move += vertical;
+        }
 
-            if width <= termwidth {
-                truncate_pos += 1;
-            }
-
+        if width + next_move > termwidth {
             break;
         }
 
+        widths.push(column_width);
+        width += next_move;
         truncate_pos += 1;
     }
 
-    // we don't need any truncation then (is it possible?)
-    if truncate_pos == data.count_columns() {
-        return widths;
+    if truncate_pos == count_columns {
+        return WidthEstimation::new(widths_original, widths, width, false);
     }
 
     if truncate_pos == 0 {
-        return vec![];
+        return WidthEstimation::new(widths_original, widths, width, false);
     }
 
-    truncate_columns(data, truncate_pos);
-    widths.truncate(truncate_pos);
+    let available = termwidth - width;
 
-    // Append columns with a trailing column
+    let is_last_column = truncate_pos + 1 == count_columns;
+    if is_last_column && available >= min_column_width + vertical {
+        let w = available - vertical;
+        widths.push(w);
+        width += w + vertical;
 
-    let min_width = borders.has_left() as usize
-        + borders.has_right() as usize
-        + data.count_columns() * MIN_ACCEPTABLE_WIDTH
-        + (data.count_columns() - 1) * vertical_border_i;
+        return WidthEstimation::new(widths_original, widths, width, true);
+    }
 
-    let diff = termwidth - min_width;
-    let can_be_squeezed = diff > TRAILING_COLUMN_WIDTH + vertical_border_i;
+    let has_space_for_two_columns =
+        available >= min_column_width + vertical + trailing_column_width + vertical;
 
-    if can_be_squeezed {
+    if !is_last_column && has_space_for_two_columns {
+        truncate_rows(data, truncate_pos + 1);
+
+        let rest = available - vertical - trailing_column_width - vertical;
+        widths.push(rest);
+        width += rest + vertical;
+
         push_empty_column(data);
-        widths.push(EMPTY_COLUMN_TEXT_WIDTH + pad);
-    } else {
-        if data.count_columns() == 1 {
-            return vec![];
+        widths.push(trailing_column_width);
+        width += trailing_column_width + vertical;
+
+        return WidthEstimation::new(widths_original, widths, width, true);
+    }
+
+    if available >= trailing_column_width + vertical {
+        truncate_rows(data, truncate_pos);
+
+        push_empty_column(data);
+        widths.push(trailing_column_width);
+        width += trailing_column_width + vertical;
+
+        return WidthEstimation::new(widths_original, widths, width, false);
+    }
+
+    let last_width = widths.last().cloned().expect("ok");
+    let can_truncate_last = last_width > min_column_width;
+
+    if can_truncate_last {
+        let rest = last_width - min_column_width;
+        let maybe_available = available + rest;
+
+        if maybe_available >= trailing_column_width + vertical {
+            truncate_rows(data, truncate_pos);
+
+            let left = maybe_available - trailing_column_width - vertical;
+            let new_last_width = min_column_width + left;
+
+            widths[truncate_pos - 1] = new_last_width;
+            width -= last_width;
+            width += new_last_width;
+
+            push_empty_column(data);
+            widths.push(trailing_column_width);
+            width += trailing_column_width + vertical;
+
+            return WidthEstimation::new(widths_original, widths, width, true);
         }
-
-        truncate_columns(data, data.count_columns() - 1);
-        push_empty_column(data);
-        widths.pop();
-        widths.push(EMPTY_COLUMN_TEXT_WIDTH + pad);
     }
 
-    widths
+    truncate_rows(data, truncate_pos - 1);
+    let w = widths.pop().expect("ok");
+    width -= w;
+
+    push_empty_column(data);
+    widths.push(trailing_column_width);
+    width += trailing_column_width;
+
+    WidthEstimation::new(widths_original, widths, width, false)
 }
 
 // VERSION where we are showing AS MANY COLUMNS AS POSSIBLE but as a side affect they MIGHT CONTAIN AS LITTLE CONTENT AS POSSIBLE
+//
+// TODO: Currently there's no prioritization of anything meaning all columns are equal
+//       But I'd sugggest to try to give a little more space for left most columns
+//
+//       So for example for instead of columns [10, 10, 10]
+//       We would get [15, 10, 5]
+//
+//       Point being of the column needs more space we do can give it a little more based on it's distance from the start.
+//       Percentage wise.
 fn truncate_columns_by_columns(
     data: &mut NuRecords,
     theme: &TableTheme,
     pad: usize,
     termwidth: usize,
-) -> Vec<usize> {
-    let acceptable_width = 10 + pad;
-    let trailing_column_width = 3 + pad;
+) -> WidthEstimation {
+    const MIN_ACCEPTABLE_WIDTH: usize = 10;
+    const TRAILING_COLUMN_WIDTH: usize = EMPTY_COLUMN_TEXT_WIDTH;
+
+    let trailing_column_width = TRAILING_COLUMN_WIDTH + pad;
+    let min_column_width = MIN_ACCEPTABLE_WIDTH + pad;
 
     let config = create_config(theme, false, None);
-    let mut widths = build_width(&*data, pad);
-    let total_width = get_total_width2(&widths, &config);
-    if total_width <= termwidth {
-        return widths;
-    }
+    let widths_original = build_width(data, pad);
+    let mut widths = vec![];
 
-    let widths_total = widths.iter().sum::<usize>();
-    let min_widths = widths
-        .iter()
-        .map(|w| min(*w, acceptable_width))
-        .sum::<usize>();
-    let mut min_total = total_width - widths_total + min_widths;
+    let borders = config.get_borders();
+    let vertical = borders.has_vertical() as usize;
+    let count_columns = data.count_columns();
 
-    if min_total <= termwidth {
-        return widths;
-    }
+    let mut width = borders.has_left() as usize + borders.has_right() as usize;
+    let mut truncate_pos = 0;
 
-    // todo: simplify the loop
-    let mut i = 0;
-    while data.count_columns() > 0 {
-        i += 1;
-
-        let column = data.count_columns() - 1 - i;
-        let width = min(widths[column], acceptable_width);
-        min_total -= width;
-
-        if config.get_borders().has_vertical() {
-            min_total -= 1;
+    for i in 0..count_columns {
+        let use_width = min(min_column_width, widths_original[i]);
+        let mut next_move = use_width;
+        if i > 0 {
+            next_move += vertical;
         }
 
-        if min_total <= termwidth {
+        if width + next_move > termwidth {
             break;
         }
+
+        widths.push(use_width);
+        width += next_move;
+        truncate_pos += 1;
     }
 
-    if i + 1 == data.count_columns() {
-        return vec![];
+    if truncate_pos == 0 {
+        return WidthEstimation::new(widths_original, widths, width, false);
     }
 
-    truncate_columns(data, data.count_columns() - i);
-    widths.pop();
+    let mut available = termwidth - width;
 
-    // Append columns with a trailing column
-    let diff = termwidth - min_total;
-    if diff > trailing_column_width {
-        push_empty_column(data);
-        widths.push(EMPTY_COLUMN_TEXT_WIDTH + pad);
-    } else {
-        if data.count_columns() == 1 {
-            return vec![];
+    if available > 0 {
+        for i in 0..truncate_pos {
+            let used_width = widths[i];
+            let col_width = widths_original[i];
+            if used_width < col_width {
+                let need = col_width - used_width;
+                let take = min(available, need);
+                available -= take;
+
+                widths[i] += take;
+                width += take;
+
+                if available == 0 {
+                    break;
+                }
+            }
         }
-
-        truncate_columns(data, data.count_columns() - 1);
-        push_empty_column(data);
-        widths.pop();
-        widths.push(EMPTY_COLUMN_TEXT_WIDTH + pad);
     }
 
-    widths
+    if truncate_pos == count_columns {
+        return WidthEstimation::new(widths_original, widths, width, true);
+    }
+
+    if available >= trailing_column_width + vertical {
+        truncate_rows(data, truncate_pos);
+
+        push_empty_column(data);
+        widths.push(trailing_column_width);
+        width += trailing_column_width + vertical;
+
+        return WidthEstimation::new(widths_original, widths, width, true);
+    }
+
+    let last_width = widths.last().cloned().expect("ok");
+    let can_truncate_last = last_width > min_column_width;
+
+    if can_truncate_last {
+        let rest = last_width - min_column_width;
+        let maybe_available = available + rest;
+
+        if maybe_available >= trailing_column_width + vertical {
+            truncate_rows(data, truncate_pos);
+
+            let left = maybe_available - trailing_column_width - vertical;
+            let new_last_width = min_column_width + left;
+
+            widths[truncate_pos - 1] = new_last_width;
+            width -= last_width;
+            width += new_last_width;
+
+            push_empty_column(data);
+            widths.push(trailing_column_width);
+            width += trailing_column_width + vertical;
+
+            return WidthEstimation::new(widths_original, widths, width, true);
+        }
+    }
+
+    truncate_rows(data, truncate_pos - 1);
+    let w = widths.pop().expect("ok");
+    width -= w;
+
+    push_empty_column(data);
+    widths.push(trailing_column_width);
+    width += trailing_column_width;
+
+    WidthEstimation::new(widths_original, widths, width, true)
 }
 
 fn get_total_width2(widths: &[usize], cfg: &ColoredConfig) -> usize {
@@ -794,7 +926,7 @@ fn duplicate_row(data: &mut NuRecords, row: usize) {
     *data = VecRecords::new(inner);
 }
 
-fn truncate_columns(data: &mut NuRecords, count: usize) {
+fn truncate_rows(data: &mut NuRecords, count: usize) {
     let records = std::mem::take(data);
     let mut inner: Vec<Vec<_>> = records.into();
 
@@ -813,6 +945,7 @@ fn convert_alignment(alignment: nu_color_config::Alignment) -> AlignmentHorizont
     }
 }
 
+// TODO: expose it get_dims_mut()
 struct SetDimensions(Vec<usize>);
 
 impl<R> TableOption<R, ColoredConfig, CompleteDimensionVecRecords<'_>> for SetDimensions {
@@ -821,19 +954,14 @@ impl<R> TableOption<R, ColoredConfig, CompleteDimensionVecRecords<'_>> for SetDi
     }
 }
 
-// it assumes no spans is used.
-// todo: Could be replaced by Dimension impl usage
 fn build_width(records: &NuRecords, pad: usize) -> Vec<usize> {
-    let count_columns = records.count_columns();
-    let mut widths = vec![0; count_columns];
-    for columns in records.iter_rows() {
-        for (col, cell) in columns.iter().enumerate() {
-            let width = Cell::width(cell) + pad;
-            widths[col] = std::cmp::max(widths[col], width);
-        }
-    }
+    // TODO: Expose not spaned version (could be optimized).
+    let mut cfg = SpannedConfig::default();
+    let mut padding = Sides::default();
+    padding.left = Indent::spaced(pad);
+    cfg.set_padding(Entity::Global, padding);
 
-    widths
+    SpannedGridDimension::width(records, &cfg)
 }
 
 // It's laverages a use of guuaranted cached widths before hand
@@ -897,15 +1025,12 @@ fn theme_copy_horizontal_line(theme: &mut tabled::settings::Theme, from: usize, 
     }
 }
 
+// todo: create a method
+#[derive(Debug, Default)]
 struct GetDims(Vec<usize>);
 
-impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for &mut GetDims {
-    fn change(
-        self,
-        _: &mut NuRecords,
-        _: &mut ColoredConfig,
-        dims: &mut CompleteDimensionVecRecords<'_>,
-    ) {
+impl<R, C> TableOption<R, C, CompleteDimensionVecRecords<'_>> for &mut GetDims {
+    fn change(self, _: &mut R, _: &mut C, dims: &mut CompleteDimensionVecRecords<'_>) {
         self.0 = dims.get_widths().expect("expected to get it").to_vec();
     }
 
