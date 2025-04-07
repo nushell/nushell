@@ -25,7 +25,7 @@ use crate::{
     engine::{Closure, EngineState},
     BlockId, Config, ShellError, Signals, Span, Type,
 };
-use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
+use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone};
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
 use nu_utils::{
@@ -953,7 +953,7 @@ impl Value {
                         } else {
                             val.to_rfc3339()
                         },
-                        HumanTime::from(*val),
+                        human_time_from_now(val),
                     )
                 }
             },
@@ -999,7 +999,7 @@ impl Value {
         match self {
             Value::Date { val, .. } => match &config.datetime_format.table {
                 Some(format) => self.format_datetime(val, format),
-                None => HumanTime::from(*val).to_string(),
+                None => human_time_from_now(val).to_string(),
             },
             Value::List { ref vals, .. } => {
                 if !vals.is_empty() && vals.iter().all(|x| matches!(x, Value::Record { .. })) {
@@ -4015,6 +4015,15 @@ fn operator_type_error(
             help: None,
         },
     }
+}
+
+fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
+    let now = Local::now().with_timezone(val.offset());
+    let delta = *val - now;
+    let delta_seconds = delta.num_nanoseconds().unwrap_or(0) as f64 / 1_000_000_000.0;
+    let delta_seconds_rounded = delta_seconds.round() as i64;
+
+    HumanTime::from(Duration::seconds(delta_seconds_rounded))
 }
 
 #[cfg(test)]

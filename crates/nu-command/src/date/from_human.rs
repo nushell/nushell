@@ -103,19 +103,21 @@ fn helper(value: Value, head: Span) -> Value {
         }
     };
 
-    if let Ok(date) = from_human_time(&input_val, Local::now().naive_local()) {
+    let now = Local::now();
+
+    if let Ok(date) = from_human_time(&input_val, now.naive_local()) {
         match date {
             ParseResult::Date(date) => {
-                let time = Local::now().time();
+                let time = now.time();
                 let combined = date.and_time(time);
-                let local_offset = *Local::now().offset();
+                let local_offset = *now.offset();
                 let dt_fixed = TimeZone::from_local_datetime(&local_offset, &combined)
                     .single()
                     .unwrap_or_default();
                 return Value::date(dt_fixed, span);
             }
             ParseResult::DateTime(date) => {
-                let local_offset = *Local::now().offset();
+                let local_offset = *now.offset();
                 let dt_fixed = match local_offset.from_local_datetime(&date) {
                     chrono::LocalResult::Single(dt) => dt,
                     chrono::LocalResult::Ambiguous(_, _) => {
@@ -140,9 +142,9 @@ fn helper(value: Value, head: Span) -> Value {
                 return Value::date(dt_fixed, span);
             }
             ParseResult::Time(time) => {
-                let date = Local::now().date_naive();
+                let date = now.date_naive();
                 let combined = date.and_time(time);
-                let local_offset = *Local::now().offset();
+                let local_offset = *now.offset();
                 let dt_fixed = TimeZone::from_local_datetime(&local_offset, &combined)
                     .single()
                     .unwrap_or_default();
@@ -151,19 +153,19 @@ fn helper(value: Value, head: Span) -> Value {
         }
     }
 
-    match from_human_time(&input_val, Local::now().naive_local()) {
+    match from_human_time(&input_val, now.naive_local()) {
         Ok(date) => match date {
             ParseResult::Date(date) => {
-                let time = Local::now().time();
+                let time = now.time();
                 let combined = date.and_time(time);
-                let local_offset = *Local::now().offset();
+                let local_offset = *now.offset();
                 let dt_fixed = TimeZone::from_local_datetime(&local_offset, &combined)
                     .single()
                     .unwrap_or_default();
                 Value::date(dt_fixed, span)
             }
             ParseResult::DateTime(date) => {
-                let local_offset = *Local::now().offset();
+                let local_offset = *now.offset();
                 let dt_fixed = match local_offset.from_local_datetime(&date) {
                     chrono::LocalResult::Single(dt) => dt,
                     chrono::LocalResult::Ambiguous(_, _) => {
@@ -188,9 +190,9 @@ fn helper(value: Value, head: Span) -> Value {
                 Value::date(dt_fixed, span)
             }
             ParseResult::Time(time) => {
-                let date = Local::now().date_naive();
+                let date = now.date_naive();
                 let combined = date.and_time(time);
-                let local_offset = *Local::now().offset();
+                let local_offset = *now.offset();
                 let dt_fixed = TimeZone::from_local_datetime(&local_offset, &combined)
                     .single()
                     .unwrap_or_default();
