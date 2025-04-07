@@ -180,7 +180,7 @@ impl<T> NuMatcher<'_, T> {
     /// Get all the items that matched (sorted)
     pub fn results(self) -> Vec<T> {
         match self.state {
-            State::Prefix { mut items, .. } | State::Substring { mut items , ..} => {
+            State::Prefix { mut items, .. } | State::Substring { mut items, .. } => {
                 items.sort_by(|(haystack1, _), (haystack2, _)| {
                     let cmp_sensitive = haystack1.cmp(haystack2);
                     if self.options.case_sensitive {
