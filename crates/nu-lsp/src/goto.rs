@@ -184,18 +184,18 @@ mod tests {
         let mut script = fixtures();
         script.push("lsp");
         script.push("hover");
-        script.push("cell_path.nu");
+        script.push("use.nu");
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 7);
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 7);
         assert_json_eq!(
             result_from_message(resp).pointer("/range/start").unwrap(),
             serde_json::json!({ "line": 1, "character": 10 })
         );
 
-        let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 9);
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 9);
         assert_json_eq!(
             result_from_message(resp).pointer("/range/start").unwrap(),
             serde_json::json!({ "line": 1, "character": 17 })

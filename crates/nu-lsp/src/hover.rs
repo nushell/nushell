@@ -246,26 +246,26 @@ mod hover_tests {
         let mut script = fixtures();
         script.push("lsp");
         script.push("hover");
-        script.push("cell_path.nu");
+        script.push("use.nu");
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = send_hover_request(&client_connection, script.clone(), 4, 3);
+        let resp = send_hover_request(&client_connection, script.clone(), 2, 3);
         let result = result_from_message(resp);
         assert_json_eq!(
             result.pointer("/contents/value").unwrap(),
             serde_json::json!("```\nlist<any>\n```")
         );
 
-        let resp = send_hover_request(&client_connection, script.clone(), 4, 7);
+        let resp = send_hover_request(&client_connection, script.clone(), 2, 7);
         let result = result_from_message(resp);
         assert_json_eq!(
             result.pointer("/contents/value").unwrap(),
             serde_json::json!("```\nrecord<bar: int>\n```")
         );
 
-        let resp = send_hover_request(&client_connection, script.clone(), 4, 11);
+        let resp = send_hover_request(&client_connection, script.clone(), 2, 11);
         let result = result_from_message(resp);
         assert_json_eq!(
             result.pointer("/contents/value").unwrap(),
@@ -393,5 +393,40 @@ mod hover_tests {
                 .replace("\\r", ""),
             "\"# module doc\""
         );
+    }
+
+    #[test]
+    fn hover_on_use_command() {
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hover");
+        script.push("use.nu");
+        let script_uri = path_to_uri(&script);
+
+        let config = format!("use {}", script.to_str().unwrap());
+        let (client_connection, _recv) = initialize_language_server(Some(&config), None);
+
+        open_unchecked(&client_connection, script_uri.clone());
+        let resp = send_hover_request(&client_connection, script_uri.clone(), 0, 19);
+        let result = result_from_message(resp);
+
+        assert_eq!(
+            result
+                .pointer("/contents/value")
+                .unwrap()
+                .to_string()
+                .replace("\\r", ""),
+            "\"```\\nrecord<foo: list<any>>\\n``` \\n---\\nimmutable\""
+        );
+
+        let resp = send_hover_request(&client_connection, script_uri.clone(), 0, 22);
+        let result = result_from_message(resp);
+
+        assert!(result
+            .pointer("/contents/value")
+            .unwrap()
+            .to_string()
+            .replace("\\r", "")
+            .starts_with("\"\\n---\\n### Usage \\n```nu\\n  foo {flags}\\n```\\n\\n### Flags"));
     }
 }
