@@ -112,10 +112,10 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                             if let Some(positional) =
                                 options.get("positional").and_then(|val| val.as_bool().ok())
                             {
+                                log::warn!("Use of the positional option is deprecated. Use the substring match algorithm instead.");
                                 if !positional
                                     && completion_options.match_algorithm == MatchAlgorithm::Prefix
                                 {
-                                    log::warn!("Use of the positional option is deprecated. Use the substring match algorithm instead.");
                                     completion_options.match_algorithm = MatchAlgorithm::Substring
                                 }
                             }
