@@ -115,12 +115,13 @@ $env.config.cursor_shape.vi_normal = "underscore"  # Cursor shape in normal vi m
 # $env.config.completions.*
 # Apply to the Nushell completion system
 
-# algorithm (string): Either "prefix" or "fuzzy"
+# algorithm (string): "prefix", "substring" or "fuzzy"
 $env.config.completions.algorithm = "prefix"
 
 # sort (string): One of "smart" or "alphabetical"
 # In "smart" mode sort order is based on the "algorithm" setting.
 # When using the "prefix" algorithm, results are alphabetically sorted.
+# When using the "substring" algorithm, results are alphabetically sorted.
 # When using the "fuzzy" algorithm, results are sorted based on their fuzzy score.
 $env.config.completions.sort = "smart"
 
