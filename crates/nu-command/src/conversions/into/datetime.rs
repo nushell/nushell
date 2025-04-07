@@ -3,7 +3,6 @@ use chrono::{
     DateTime, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone,
     Timelike, Utc,
 };
-use human_date_parser::{from_human_time, ParseResult};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
@@ -811,44 +810,6 @@ fn parse_timezone_from_record(
             *span,
         )),
     }
-}
-
-fn list_human_readable_examples(span: Span) -> Value {
-    let examples: Vec<String> = vec![
-        "Today 18:30".into(),
-        "2022-11-07 13:25:30".into(),
-        "15:20 Friday".into(),
-        "This Friday 17:00".into(),
-        "13:25, Next Tuesday".into(),
-        "Last Friday at 19:45".into(),
-        "In 3 days".into(),
-        "In 2 hours".into(),
-        "10 hours and 5 minutes ago".into(),
-        "1 years ago".into(),
-        "A year ago".into(),
-        "A month ago".into(),
-        "A week ago".into(),
-        "A day ago".into(),
-        "An hour ago".into(),
-        "A minute ago".into(),
-        "A second ago".into(),
-        "Now".into(),
-    ];
-
-    let records = examples
-        .iter()
-        .map(|s| {
-            Value::record(
-                record! {
-                    "parseable human datetime examples" => Value::test_string(s.to_string()),
-                    "result" => action(&Value::test_string(s.to_string()), &Arguments { zone_options: None, format_options: None, cell_paths: None }, span)
-                },
-                span,
-            )
-        })
-        .collect::<Vec<Value>>();
-
-    Value::list(records, span)
 }
 
 #[cfg(test)]
