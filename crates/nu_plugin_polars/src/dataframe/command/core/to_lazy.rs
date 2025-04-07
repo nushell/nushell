@@ -3,7 +3,9 @@ use crate::{dataframe::values::NuSchema, values::CustomValueSupport, Cacheable, 
 use crate::values::{NuDataFrame, NuLazyFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, Type};
+use nu_protocol::{
+    record, Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct ToLazyFrame;
@@ -24,7 +26,7 @@ impl PluginCommand for ToLazyFrame {
             .named(
                 "schema",
                 SyntaxShape::Record(vec![]),
-                r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
+                r#"Polars Schema in format [{name: str}]."#,
                 Some('s'),
             )
             .input_output_type(Type::Any, Type::Custom("dataframe".into()))
@@ -40,7 +42,7 @@ impl PluginCommand for ToLazyFrame {
         Example {
             description: "Takes a table, creates a lazyframe, assigns column 'b' type str, displays the schema",
             example: "[[a b];[1 2] [3 4]] | polars into-lazy --schema {b: str} | polars schema",
-            result: None
+            result: Some(Value::test_record(record! {"b" => Value::test_string("str")})),
         },
         ]
     }
@@ -70,6 +72,7 @@ impl PluginCommand for ToLazyFrame {
 
 #[cfg(test)]
 mod tests {
+    use crate::test::test_polars_plugin_command;
     use std::sync::Arc;
 
     use nu_plugin_test_support::PluginTest;
@@ -86,5 +89,10 @@ mod tests {
         let df = NuLazyFrame::try_from_value(&plugin, &value)?;
         assert!(!df.from_eager);
         Ok(())
+    }
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&ToLazyFrame)
     }
 }
