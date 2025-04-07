@@ -596,7 +596,7 @@ fn colorize_table(table: &mut Table, styles: Styles, structure: &TableStructure)
         table.modify(Rows::first(), styles.header.clone());
     }
 
-    if structure.with_footer && !is_color_empty(&styles.header) {
+    if structure.with_header && structure.with_footer && !is_color_empty(&styles.header) {
         table.modify(Rows::last(), styles.header);
     }
 }
@@ -607,13 +607,15 @@ fn load_theme(
     structure: &TableStructure,
     sep_color: Option<Style>,
 ) {
+    let with_header = table.count_rows() > 1 && structure.with_header;
+    let with_footer = with_header && structure.with_footer;
     let mut theme = theme.as_base().clone();
 
-    if !structure.with_header {
+    if !with_header {
         let borders = *theme.get_borders();
         theme.remove_horizontal_lines();
         theme.set_borders(borders);
-    } else if structure.with_footer {
+    } else if with_footer {
         theme_copy_horizontal_line(&mut theme, 1, table.count_rows() - 1);
     }
 
@@ -687,13 +689,31 @@ fn truncate_columns_by_content(
     }
 
     if truncate_pos == 0 {
+        if termwidth > width {
+            let available = termwidth - width;
+            if available >= min_column_width + vertical + trailing_column_width {
+                truncate_rows(data, 1);
+
+                let first_col_width = available - (vertical + trailing_column_width);
+                widths.push(first_col_width);
+                width += first_col_width;
+
+                push_empty_column(data);
+                widths.push(trailing_column_width);
+                width += trailing_column_width + vertical;
+
+                return WidthEstimation::new(widths_original, widths, width, true);
+            }
+        }
+
         return WidthEstimation::new(widths_original, widths, width, false);
     }
 
     let available = termwidth - width;
 
     let is_last_column = truncate_pos + 1 == count_columns;
-    if is_last_column && available >= min_column_width + vertical {
+    let can_fit_last_column = available >= min_column_width + vertical;
+    if is_last_column && can_fit_last_column {
         let w = available - vertical;
         widths.push(w);
         width += w + vertical;
@@ -778,6 +798,11 @@ fn truncate_columns_by_content(
     push_empty_column(data);
     widths.push(trailing_column_width);
     width += trailing_column_width;
+
+    if widths.len() == 1 {
+        // nothing to show anyhow
+        return WidthEstimation::new(widths_original, vec![], width, false);
+    }
 
     WidthEstimation::new(widths_original, widths, width, false)
 }
