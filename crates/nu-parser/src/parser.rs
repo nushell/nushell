@@ -2784,7 +2784,7 @@ pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
     (
         Unit::Filesize(FilesizeUnit::EiB),
         "EIB",
-        Some((Unit::Filesize(FilesizeUnit::EiB), 1024)),
+        Some((Unit::Filesize(FilesizeUnit::PiB), 1024)),
     ),
     (Unit::Filesize(FilesizeUnit::B), "B", None),
 ];
