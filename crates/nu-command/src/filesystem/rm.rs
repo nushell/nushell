@@ -12,7 +12,7 @@ use nu_protocol::{
 use std::os::unix::prelude::FileTypeExt;
 use std::{
     collections::HashMap,
-    io::{Error, ErrorKind},
+    io::Error,
     path::PathBuf,
 };
 
@@ -379,7 +379,7 @@ fn rm(
                 );
 
                 let result = if let Err(e) = interaction {
-                    Err(Error::new(ErrorKind::Other, &*e.to_string()))
+                    Err(Error::other(&*e.to_string()))
                 } else if interactive && !confirmed {
                     Ok(())
                 } else if TRASH_SUPPORTED && (trash || (rm_always_trash && !permanent)) {
@@ -389,7 +389,7 @@ fn rm(
                     ))]
                     {
                         trash::delete(&f).map_err(|e: trash::Error| {
-                            Error::new(ErrorKind::Other, format!("{e:?}\nTry '--permanent' flag"))
+                            Error::other(format!("{e:?}\nTry '--permanent' flag"))
                         })
                     }
 
