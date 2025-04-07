@@ -1,4 +1,5 @@
 mod date_;
+mod from_human;
 mod humanize;
 mod list_timezone;
 mod now;
@@ -7,6 +8,7 @@ mod to_timezone;
 mod utils;
 
 pub use date_::Date;
+pub use from_human::DateFromHuman;
 pub use humanize::DateHumanize;
 pub use list_timezone::DateListTimezones;
 pub use now::DateNow;
