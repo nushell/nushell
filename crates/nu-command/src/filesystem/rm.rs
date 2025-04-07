@@ -10,11 +10,7 @@ use nu_protocol::{
 };
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
-use std::{
-    collections::HashMap,
-    io::Error,
-    path::PathBuf,
-};
+use std::{collections::HashMap, io::Error, path::PathBuf};
 
 const TRASH_SUPPORTED: bool = cfg!(all(
     feature = "trash-support",
