@@ -174,8 +174,9 @@ impl Command for Move {
             PipelineData::Value(Value::Record { val, .. }, ..) => {
                 Ok(move_record_columns(&val, &columns, &location, head)?.into_pipeline_data())
             }
-            _ => Err(ShellError::PipelineMismatch {
+            other => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record or table".to_string(),
+                wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: Span::new(head.start, head.start),
             }),
