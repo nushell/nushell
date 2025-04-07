@@ -7,7 +7,7 @@ use miette::{miette, IntoDiagnostic, Result};
 
 impl LanguageServer {
     pub(crate) fn publish_diagnostics_for_file(&mut self, uri: Uri) -> Result<()> {
-        let mut engine_state = self.new_engine_state();
+        let mut engine_state = self.new_engine_state(Some(&uri));
         engine_state.generate_nu_constant();
 
         let Some((_, span, working_set)) = self.parse_file(&mut engine_state, &uri, true) else {

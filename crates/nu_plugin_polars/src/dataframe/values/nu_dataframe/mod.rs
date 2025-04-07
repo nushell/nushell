@@ -317,7 +317,7 @@ impl NuDataFrame {
         let series = self.as_series(span)?;
         let column = conversion::create_column_from_series(&series, row, row + 1, span)?;
 
-        if column.len() == 0 {
+        if column.is_empty() {
             Err(ShellError::AccessEmptyContent { span })
         } else {
             let value = column

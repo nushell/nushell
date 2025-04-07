@@ -184,9 +184,10 @@ impl Command for Sort {
                     dst_span: value.span(),
                 })
             }
-            _ => {
-                return Err(ShellError::PipelineMismatch {
+            ref other => {
+                return Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "record or list".to_string(),
+                    wrong_type: other.get_type().to_string(),
                     dst_span: call.head,
                     src_span: value.span(),
                 })
