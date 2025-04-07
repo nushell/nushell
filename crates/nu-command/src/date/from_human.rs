@@ -18,9 +18,9 @@ impl Command for DateFromHuman {
             ])
             .allow_variants_without_examples(true)
             .switch(
-                "list-human",
+                "list",
                 "Show human-readable datetime parsing examples",
-                Some('n'),
+                Some('l'),
             )
             .category(Category::Date)
     }
@@ -49,7 +49,7 @@ impl Command for DateFromHuman {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        if call.has_flag(engine_state, stack, "list-human")? {
+        if call.has_flag(engine_state, stack, "list")? {
             return Ok(list_human_readable_examples(call.head).into_pipeline_data());
         }
         let head = call.head;
@@ -79,7 +79,7 @@ impl Command for DateFromHuman {
             },
             Example {
                 description: "PShow human-readable datetime parsing examples",
-                example: "date from-human --list-human",
+                example: "date from-human --list",
                 result: None,
             },
         ]
