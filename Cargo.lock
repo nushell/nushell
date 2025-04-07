@@ -4571,13 +4571,12 @@ checksum = "fb37767f6569cd834a413442455e0f066d0d522de8630436e2a1761d9726ba56"
 [[package]]
 name = "papergrid"
 version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b915f831b85d984193fdc3d3611505871dc139b2534530fa01c1a6a6707b6723"
+source = "git+https://github.com/zhiburt/tabled?rev=05e03aeb2d8ab32f30b1f0f47c0f2bbf43c780f0#05e03aeb2d8ab32f30b1f0f47c0f2bbf43c780f0"
 dependencies = [
+ "ahash",
  "ansi-str 0.9.0",
  "ansitok 0.3.0",
  "bytecount",
- "fnv",
  "unicode-width 0.2.0",
 ]
 
@@ -6969,11 +6968,12 @@ dependencies = [
 [[package]]
 name = "tabled"
 version = "0.18.0"
-source = "git+https://github.com/zhiburt/tabled?rev=2c2a2c02e3a37ac5087b93a576d6c87a67ea0b62#2c2a2c02e3a37ac5087b93a576d6c87a67ea0b62"
+source = "git+https://github.com/zhiburt/tabled?rev=05e03aeb2d8ab32f30b1f0f47c0f2bbf43c780f0#05e03aeb2d8ab32f30b1f0f47c0f2bbf43c780f0"
 dependencies = [
  "ansi-str 0.9.0",
  "ansitok 0.3.0",
  "papergrid",
+ "testing_table",
 ]
 
 [[package]]
@@ -7046,6 +7046,15 @@ name = "termtree"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
+
+[[package]]
+name = "testing_table"
+version = "0.2.0"
+source = "git+https://github.com/zhiburt/tabled?rev=05e03aeb2d8ab32f30b1f0f47c0f2bbf43c780f0#05e03aeb2d8ab32f30b1f0f47c0f2bbf43c780f0"
+dependencies = [
+ "ansitok 0.3.0",
+ "unicode-width 0.2.0",
+]
 
 [[package]]
 name = "textwrap"
