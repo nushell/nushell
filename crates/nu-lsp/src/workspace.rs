@@ -353,13 +353,12 @@ impl LanguageServer {
                     .take_while(|c| *c == &b'-')
                     .count();
                 let start = decl_span.start + leading_dashes;
-                return content
-                    .get(leading_dashes..)
-                    .is_some_and(|name| name.starts_with(name_ref.as_bytes()))
-                    .then_some(Span {
+                return content.get(leading_dashes..).and_then(|name| {
+                    name.starts_with(name_ref.as_bytes()).then_some(Span {
                         start,
                         end: start + sample_span.end - sample_span.start,
-                    });
+                    })
+                });
             }
         }
         None
