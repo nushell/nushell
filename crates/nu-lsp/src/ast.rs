@@ -161,8 +161,10 @@ fn try_find_id_in_use(
                 .get(name)
                 .cloned()
                 .or_else(|| {
-                    // NOTE: for module record variable: https://www.nushell.sh/book/modules/using_modules.html#importing-constants
-                    // the definition span is located at the head of the use command
+                    // TODO: This is for the module record variable:
+                    // https://www.nushell.sh/book/modules/using_modules.html#importing-constants
+                    // The definition span is located at the head of the `use` command.
+                    // This method won't work if the variable is later shadowed by a new definition.
                     let var_id = working_set.find_variable(name)?;
                     call.span()
                         .contains_span(working_set.get_variable(var_id).declaration_span)
