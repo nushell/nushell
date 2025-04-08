@@ -25,7 +25,7 @@ impl CustomValue for NuDataTypeCustomValue {
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
         Ok(Value::string(
-            "NuDataFrameValue: custom_value_to_base_value should've been called",
+            "NuDataType: custom_value_to_base_value should've been called",
             span,
         ))
     }
