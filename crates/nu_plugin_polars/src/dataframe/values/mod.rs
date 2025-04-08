@@ -19,11 +19,11 @@ use uuid::Uuid;
 pub use file_type::PolarsFileType;
 pub use nu_dataframe::{Axis, Column, NuDataFrame, NuDataFrameCustomValue};
 pub use nu_dtype::NuDataType;
+pub use nu_dtype::{datatype_list, str_to_dtype};
 pub use nu_expression::{NuExpression, NuExpressionCustomValue};
 pub use nu_lazyframe::{NuLazyFrame, NuLazyFrameCustomValue};
 pub use nu_lazygroupby::{NuLazyGroupBy, NuLazyGroupByCustomValue};
 pub use nu_schema::NuSchema;
-pub use nu_dtype::str_to_dtype;
 pub use nu_when::{NuWhen, NuWhenCustomValue, NuWhenType};
 
 #[derive(Debug, Clone)]
@@ -35,6 +35,7 @@ pub enum PolarsPluginType {
     NuWhen,
     NuPolarsTestData,
     NuDataType,
+    NuSchema,
 }
 
 impl fmt::Display for PolarsPluginType {
@@ -47,6 +48,7 @@ impl fmt::Display for PolarsPluginType {
             Self::NuWhen => write!(f, "NuWhen"),
             Self::NuPolarsTestData => write!(f, "NuPolarsTestData"),
             Self::NuDataType => write!(f, "NuDataType"),
+            Self::NuSchema => write!(f, "NuSchema"),
         }
     }
 }
@@ -60,6 +62,7 @@ pub enum PolarsPluginObject {
     NuWhen(NuWhen),
     NuPolarsTestData(Uuid, String),
     NuDataType(NuDataType),
+    NuSchema(NuSchema),
 }
 
 impl PolarsPluginObject {
@@ -77,6 +80,10 @@ impl PolarsPluginObject {
             NuLazyGroupBy::try_from_value(plugin, value).map(PolarsPluginObject::NuLazyGroupBy)
         } else if NuWhen::can_downcast(value) {
             NuWhen::try_from_value(plugin, value).map(PolarsPluginObject::NuWhen)
+        } else if NuSchema::can_downcast(value) {
+            NuSchema::try_from_value(plugin, value).map(PolarsPluginObject::NuSchema)
+        } else if NuDataType::can_downcast(value) {
+            NuDataType::try_from_value(plugin, value).map(PolarsPluginObject::NuDataType)
         } else {
             Err(cant_convert_err(
                 value,
@@ -86,6 +93,8 @@ impl PolarsPluginObject {
                     PolarsPluginType::NuExpression,
                     PolarsPluginType::NuLazyGroupBy,
                     PolarsPluginType::NuWhen,
+                    PolarsPluginType::NuDataType,
+                    PolarsPluginType::NuSchema,
                 ],
             ))
         }
@@ -109,6 +118,7 @@ impl PolarsPluginObject {
             Self::NuWhen(_) => PolarsPluginType::NuWhen,
             Self::NuPolarsTestData(_, _) => PolarsPluginType::NuPolarsTestData,
             Self::NuDataType(_) => PolarsPluginType::NuDataType,
+            Self::NuSchema(_) => PolarsPluginType::NuSchema,
         }
     }
 
@@ -121,6 +131,7 @@ impl PolarsPluginObject {
             PolarsPluginObject::NuWhen(w) => w.id,
             PolarsPluginObject::NuPolarsTestData(id, _) => *id,
             PolarsPluginObject::NuDataType(dt) => dt.id,
+            PolarsPluginObject::NuSchema(schema) => schema.id,
         }
     }
 
@@ -135,6 +146,7 @@ impl PolarsPluginObject {
                 Value::string(format!("{id}:{s}"), Span::test_data())
             }
             PolarsPluginObject::NuDataType(dt) => dt.into_value(span),
+            PolarsPluginObject::NuSchema(schema) => schema.into_value(span),
         }
     }
 
@@ -390,7 +402,6 @@ pub trait CustomValueSupport: Cacheable {
         ))
     }
 }
-
 
 #[cfg(test)]
 mod test {

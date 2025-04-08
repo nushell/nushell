@@ -1,18 +1,28 @@
+mod custom_value;
+
 use std::sync::Arc;
 
+use custom_value::NuSchemaCustomValue;
 use nu_protocol::{ShellError, Span, Value};
 use polars::prelude::{DataType, Field, Schema, SchemaExt, SchemaRef};
+use uuid::Uuid;
 
-use super::str_to_dtype;
+use crate::Cacheable;
+
+use super::{str_to_dtype, CustomValueSupport, PolarsPluginObject, PolarsPluginType};
 
 #[derive(Debug, Clone)]
 pub struct NuSchema {
+    pub id: Uuid,
     pub schema: SchemaRef,
 }
 
 impl NuSchema {
     pub fn new(schema: SchemaRef) -> Self {
-        Self { schema }
+        Self {
+            id: Uuid::new_v4(),
+            schema,
+        }
     }
 }
 
@@ -24,12 +34,6 @@ impl TryFrom<&Value> for NuSchema {
     }
 }
 
-impl From<NuSchema> for Value {
-    fn from(schema: NuSchema) -> Self {
-        fields_to_value(schema.schema.iter_fields(), Span::unknown())
-    }
-}
-
 impl From<NuSchema> for SchemaRef {
     fn from(val: NuSchema) -> Self {
         Arc::clone(&val.schema)
@@ -38,7 +42,49 @@ impl From<NuSchema> for SchemaRef {
 
 impl From<SchemaRef> for NuSchema {
     fn from(val: SchemaRef) -> Self {
-        Self { schema: val }
+        Self::new(val)
+    }
+}
+
+impl Cacheable for NuSchema {
+    fn cache_id(&self) -> &Uuid {
+        &self.id
+    }
+
+    fn to_cache_value(&self) -> Result<super::PolarsPluginObject, ShellError> {
+        Ok(PolarsPluginObject::NuSchema(self.clone()))
+    }
+
+    fn from_cache_value(cv: super::PolarsPluginObject) -> Result<Self, ShellError> {
+        match cv {
+            PolarsPluginObject::NuSchema(dt) => Ok(dt),
+            _ => Err(ShellError::GenericError {
+                error: "Cache value is not a dataframe".into(),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            }),
+        }
+    }
+}
+
+impl CustomValueSupport for NuSchema {
+    type CV = NuSchemaCustomValue;
+
+    fn get_type_static() -> super::PolarsPluginType {
+        PolarsPluginType::NuSchema
+    }
+
+    fn custom_value(self) -> Self::CV {
+        NuSchemaCustomValue {
+            id: self.id,
+            datatype: Some(self),
+        }
+    }
+
+    fn base_value(self, span: Span) -> Result<Value, ShellError> {
+        Ok(fields_to_value(self.schema.iter_fields(), span))
     }
 }
 

@@ -1,16 +1,13 @@
 mod custom_value;
 
 use custom_value::NuDataTypeCustomValue;
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{record, ShellError, Span, Value};
 use polars::prelude::{DataType, PlSmallStr, TimeUnit, UnknownKind};
 use uuid::Uuid;
 
 use crate::Cacheable;
 
-use super::{
-    nu_schema::dtype_to_value, CustomValueSupport, PolarsPluginObject,
-    PolarsPluginType,
-};
+use super::{nu_schema::dtype_to_value, CustomValueSupport, PolarsPluginObject, PolarsPluginType};
 
 #[derive(Debug, Clone)]
 pub struct NuDataType {
@@ -105,6 +102,42 @@ impl CustomValueSupport for NuDataType {
     fn base_value(self, span: Span) -> Result<Value, ShellError> {
         Ok(dtype_to_value(&self.dtype, span))
     }
+}
+
+pub fn datatype_list(span: Span) -> Value {
+    let types: Vec<Value> = [
+        ("null", ""),
+        ("bool", ""),
+        ("u8", ""),
+        ("u16", ""),
+        ("u32", ""),
+        ("u64", ""),
+        ("i8", ""),
+        ("i16", ""),
+        ("i32", ""),
+        ("i64", ""),
+        ("f32", ""),
+        ("f64", ""),
+        ("str", ""),
+        ("binary", ""),
+        ("date", ""),
+        ("datetime<time_unit: (ms, us, ns) timezone (optional)>", "Time Unit can be: milliseconds: ms, microseconds: us, nanoseconds: ns. Timezone wildcard is *. Other Timezone examples: UTC, America/Los_Angeles."),
+        ("duration<time_unit: (ms, us, ns)>", "Time Unit can be: milliseconds: ms, microseconds: us, nanoseconds: ns."),
+        ("time", ""),
+        ("object", ""),
+        ("unknown", ""),
+        ("list<dtype>", ""),
+    ]
+    .iter()
+    .map(|(dtype, note)| {
+        Value::record(record! {
+            "dtype" => Value::string(*dtype, span),
+            "note" => Value::string(*note, span),
+        },
+        span)
+    })
+    .collect();
+    Value::list(types, span)
 }
 
 pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
@@ -274,4 +307,3 @@ fn str_to_time_unit(ts_string: &str, span: Span) -> Result<TimeUnit, ShellError>
         }),
     }
 }
-
