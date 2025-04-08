@@ -55,7 +55,7 @@ fn fields_to_value(fields: impl Iterator<Item = Field>, span: Span) -> Value {
     Value::record(record, Span::unknown())
 }
 
-fn dtype_to_value(dtype: &DataType, span: Span) -> Value {
+pub fn dtype_to_value(dtype: &DataType, span: Span) -> Value {
     match dtype {
         DataType::Struct(fields) => fields_to_value(fields.iter().cloned(), span),
         _ => Value::string(dtype.to_string().replace('[', "<").replace(']', ">"), span),

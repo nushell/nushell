@@ -1,12 +1,12 @@
 mod file_type;
 mod nu_dataframe;
+mod nu_dtype;
 mod nu_expression;
 mod nu_lazyframe;
 mod nu_lazygroupby;
 mod nu_schema;
 mod nu_when;
 pub mod utils;
-mod nu_dtype;
 
 use crate::{Cacheable, PolarsPlugin};
 use nu_plugin::EngineInterface;
@@ -18,11 +18,11 @@ use uuid::Uuid;
 
 pub use file_type::PolarsFileType;
 pub use nu_dataframe::{Axis, Column, NuDataFrame, NuDataFrameCustomValue};
+pub use nu_dtype::NuDataType;
 pub use nu_expression::{NuExpression, NuExpressionCustomValue};
 pub use nu_lazyframe::{NuLazyFrame, NuLazyFrameCustomValue};
 pub use nu_lazygroupby::{NuLazyGroupBy, NuLazyGroupByCustomValue};
 pub use nu_schema::{str_to_dtype, NuSchema};
-pub use nu_dtype::NuDataType;
 pub use nu_when::{NuWhen, NuWhenCustomValue, NuWhenType};
 
 #[derive(Debug, Clone)]
@@ -33,6 +33,7 @@ pub enum PolarsPluginType {
     NuLazyGroupBy,
     NuWhen,
     NuPolarsTestData,
+    NuDataType,
 }
 
 impl fmt::Display for PolarsPluginType {
@@ -44,6 +45,7 @@ impl fmt::Display for PolarsPluginType {
             Self::NuLazyGroupBy => write!(f, "NuLazyGroupBy"),
             Self::NuWhen => write!(f, "NuWhen"),
             Self::NuPolarsTestData => write!(f, "NuPolarsTestData"),
+            Self::NuDataType => write!(f, "NuDataType"),
         }
     }
 }
@@ -56,6 +58,7 @@ pub enum PolarsPluginObject {
     NuLazyGroupBy(NuLazyGroupBy),
     NuWhen(NuWhen),
     NuPolarsTestData(Uuid, String),
+    NuDataType(NuDataType),
 }
 
 impl PolarsPluginObject {
@@ -104,6 +107,7 @@ impl PolarsPluginObject {
             Self::NuLazyGroupBy(_) => PolarsPluginType::NuLazyGroupBy,
             Self::NuWhen(_) => PolarsPluginType::NuWhen,
             Self::NuPolarsTestData(_, _) => PolarsPluginType::NuPolarsTestData,
+            Self::NuDataType(_) => PolarsPluginType::NuDataType,
         }
     }
 
@@ -115,6 +119,7 @@ impl PolarsPluginObject {
             PolarsPluginObject::NuLazyGroupBy(lg) => lg.id,
             PolarsPluginObject::NuWhen(w) => w.id,
             PolarsPluginObject::NuPolarsTestData(id, _) => *id,
+            PolarsPluginObject::NuDataType(dt) => dt.id,
         }
     }
 
@@ -128,6 +133,7 @@ impl PolarsPluginObject {
             PolarsPluginObject::NuPolarsTestData(id, s) => {
                 Value::string(format!("{id}:{s}"), Span::test_data())
             }
+            PolarsPluginObject::NuDataType(dt) => dt.into_value(span),
         }
     }
 
