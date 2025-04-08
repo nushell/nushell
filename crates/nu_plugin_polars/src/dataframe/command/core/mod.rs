@@ -9,6 +9,7 @@ mod schema;
 mod shape;
 mod summary;
 mod to_df;
+mod to_dtype;
 mod to_lazy;
 mod to_nu;
 mod to_repr;
@@ -40,5 +41,6 @@ pub(crate) fn core_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(save::SaveDF),
         Box::new(ToLazyFrame),
         Box::new(ToRepr),
+        Box::new(to_dtype::ToDataType),
     ]
 }

@@ -1,11 +1,11 @@
-mod custom_value;
+pub mod custom_value;
 
 use custom_value::NuDataTypeCustomValue;
 use nu_protocol::{record, ShellError, Span, Value};
 use polars::prelude::{DataType, PlSmallStr, TimeUnit, UnknownKind};
 use uuid::Uuid;
 
-use crate::Cacheable;
+use crate::{Cacheable, PolarsPlugin};
 
 use super::{nu_schema::dtype_to_value, CustomValueSupport, PolarsPluginObject, PolarsPluginType};
 
@@ -33,23 +33,6 @@ impl NuDataType {
 
     pub fn to_polars(&self) -> DataType {
         self.dtype.clone()
-    }
-}
-
-impl TryFrom<&Value> for NuDataType {
-    type Error = ShellError;
-
-    fn try_from(value: &Value) -> Result<Self, Self::Error> {
-        match value {
-            Value::String { val, internal_span } => NuDataType::new_with_str(val, *internal_span),
-            _ => Err(ShellError::GenericError {
-                error: format!("Unsupported value: {:?}", value),
-                msg: "".into(),
-                span: Some(value.span()),
-                help: None,
-                inner: vec![],
-            }),
-        }
     }
 }
 
@@ -101,6 +84,30 @@ impl CustomValueSupport for NuDataType {
 
     fn base_value(self, span: Span) -> Result<Value, ShellError> {
         Ok(dtype_to_value(&self.dtype, span))
+    }
+
+    fn try_from_value(plugin: &PolarsPlugin, value: &Value) -> Result<Self, ShellError> {
+        match value {
+            Value::Custom { val, .. } => {
+                if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
+                    Self::try_from_custom_value(plugin, cv)
+                } else {
+                    Err(ShellError::CantConvert {
+                        to_type: Self::get_type_static().to_string(),
+                        from_type: value.get_type().to_string(),
+                        span: value.span(),
+                        help: None,
+                    })
+                }
+            }
+            Value::String { val, internal_span } => NuDataType::new_with_str(val, *internal_span),
+            _ => Err(ShellError::CantConvert {
+                to_type: Self::get_type_static().to_string(),
+                from_type: value.get_type().to_string(),
+                span: value.span(),
+                help: None,
+            }),
+        }
     }
 }
 

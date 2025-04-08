@@ -9,10 +9,12 @@ mod nu_when;
 pub mod utils;
 
 use crate::{Cacheable, PolarsPlugin};
+use nu_dtype::custom_value::NuDataTypeCustomValue;
 use nu_plugin::EngineInterface;
 use nu_protocol::{
     ast::Operator, CustomValue, PipelineData, ShellError, Span, Spanned, Type, Value,
 };
+use nu_schema::custom_value::NuSchemaCustomValue;
 use std::{cmp::Ordering, fmt};
 use uuid::Uuid;
 
@@ -172,6 +174,8 @@ pub enum CustomValueType {
     NuExpression(NuExpressionCustomValue),
     NuLazyGroupBy(NuLazyGroupByCustomValue),
     NuWhen(NuWhenCustomValue),
+    NuDataType(NuDataTypeCustomValue),
+    NuSchema(NuSchemaCustomValue),
 }
 
 impl CustomValueType {
@@ -182,6 +186,8 @@ impl CustomValueType {
             CustomValueType::NuExpression(e_cv) => e_cv.id,
             CustomValueType::NuLazyGroupBy(lg_cv) => lg_cv.id,
             CustomValueType::NuWhen(w_cv) => w_cv.id,
+            CustomValueType::NuDataType(dt_cv) => dt_cv.id,
+            CustomValueType::NuSchema(schema_cv) => schema_cv.id,
         }
     }
 
@@ -196,6 +202,10 @@ impl CustomValueType {
             Ok(CustomValueType::NuLazyGroupBy(lg_cv.clone()))
         } else if let Some(w_cv) = val.as_any().downcast_ref::<NuWhenCustomValue>() {
             Ok(CustomValueType::NuWhen(w_cv.clone()))
+        } else if let Some(w_cv) = val.as_any().downcast_ref::<NuDataTypeCustomValue>() {
+            Ok(CustomValueType::NuDataType(w_cv.clone()))
+        } else if let Some(w_cv) = val.as_any().downcast_ref::<NuSchemaCustomValue>() {
+            Ok(CustomValueType::NuSchema(w_cv.clone()))
         } else {
             Err(ShellError::CantConvert {
                 to_type: "physical type".into(),

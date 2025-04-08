@@ -1,4 +1,4 @@
-mod custom_value;
+pub mod custom_value;
 
 use std::sync::Arc;
 
