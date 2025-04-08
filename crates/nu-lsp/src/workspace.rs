@@ -1099,22 +1099,34 @@ mod tests {
     fn document_highlight_module_alias() {
         let mut script = fixtures();
         script.push("lsp");
-        script.push("workspace");
-        script.push("baz.nu");
+        script.push("goto");
+        script.push("use_module.nu");
         let script = path_to_uri(&script);
 
         let (client_connection, _recv) = initialize_language_server(None, None);
         open_unchecked(&client_connection, script.clone());
 
-        let message = send_document_highlight_request(&client_connection, script, 4, 17);
+        let message = send_document_highlight_request(&client_connection, script.clone(), 1, 26);
         let Message::Response(r) = message else {
             panic!("unexpected message type");
         };
         assert_json_eq!(
             r.result,
             serde_json::json!([
-                { "range": { "start": { "line": 0, "character": 24 }, "end": { "line": 0, "character": 30 } }, "kind": 1 },
-                { "range": { "start": { "line": 4, "character": 13 }, "end": { "line": 4, "character": 19 } }, "kind": 1 }
+                { "range": { "start": { "line": 1, "character": 25 }, "end": { "line": 1, "character": 33 } }, "kind": 1 },
+                { "range": { "start": { "line": 2, "character": 30 }, "end": { "line": 2, "character": 38 } }, "kind": 1 }
+            ]),
+        );
+
+        let message = send_document_highlight_request(&client_connection, script, 0, 10);
+        let Message::Response(r) = message else {
+            panic!("unexpected message type");
+        };
+        assert_json_eq!(
+            r.result,
+            serde_json::json!([
+                { "range": { "start": { "line": 0, "character": 4 }, "end": { "line": 0, "character": 13 } }, "kind": 1 },
+                { "range": { "start": { "line": 1, "character": 12 }, "end": { "line": 1, "character": 21 } }, "kind": 1 }
             ]),
         );
     }
