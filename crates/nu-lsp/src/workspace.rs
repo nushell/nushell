@@ -1130,7 +1130,6 @@ mod tests {
         );
     }
 
-    /// TODO: associate the module record with the submodule name in `use`?
     #[test]
     fn document_highlight_module_record() {
         let mut script = fixtures();
@@ -1149,6 +1148,7 @@ mod tests {
         assert_json_eq!(
             r.result,
             serde_json::json!([
+                { "range": { "start": { "line": 6, "character": 26 }, "end": { "line": 6, "character": 33 } }, "kind": 1 },
                 { "range": { "start": { "line": 8, "character": 1 }, "end": { "line": 8, "character": 8 } }, "kind": 1 },
             ]),
         );

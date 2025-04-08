@@ -159,7 +159,16 @@ fn try_find_id_in_use(
             Some(Id::Variable(var_id_ref)) => module
                 .constants
                 .get(name)
-                .and_then(|var_id| (*var_id == *var_id_ref).then_some(Id::Variable(*var_id))),
+                .cloned()
+                .or_else(|| {
+                    // NOTE: for module record variable: https://www.nushell.sh/book/modules/using_modules.html#importing-constants
+                    // the definition span is located at the head of the use command
+                    let var_id = working_set.find_variable(name)?;
+                    call.span()
+                        .contains_span(working_set.get_variable(var_id).declaration_span)
+                        .then_some(var_id)
+                })
+                .and_then(|var_id| (var_id == *var_id_ref).then_some(Id::Variable(var_id))),
             Some(Id::Declaration(decl_id_ref)) => module.decls.get(name).and_then(|decl_id| {
                 (*decl_id == *decl_id_ref).then_some(Id::Declaration(*decl_id))
             }),
