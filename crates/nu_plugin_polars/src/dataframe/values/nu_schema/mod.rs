@@ -7,7 +7,7 @@ use nu_protocol::{ShellError, Span, Value};
 use polars::prelude::{DataType, Field, Schema, SchemaExt, SchemaRef};
 use uuid::Uuid;
 
-use crate::Cacheable;
+use crate::{Cacheable, PolarsPlugin};
 
 use super::{str_to_dtype, CustomValueSupport, PolarsPluginObject, PolarsPluginType};
 
@@ -23,14 +23,6 @@ impl NuSchema {
             id: Uuid::new_v4(),
             schema,
         }
-    }
-}
-
-impl TryFrom<&Value> for NuSchema {
-    type Error = ShellError;
-    fn try_from(value: &Value) -> Result<Self, Self::Error> {
-        let schema = value_to_schema(value, Span::unknown())?;
-        Ok(Self::new(Arc::new(schema)))
     }
 }
 
@@ -85,6 +77,24 @@ impl CustomValueSupport for NuSchema {
 
     fn base_value(self, span: Span) -> Result<Value, ShellError> {
         Ok(fields_to_value(self.schema.iter_fields(), span))
+    }
+
+    fn try_from_value(plugin: &PolarsPlugin, value: &Value) -> Result<Self, ShellError> {
+        if let Value::Custom { val, .. } = value {
+            if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
+                Self::try_from_custom_value(plugin, cv)
+            } else {
+                Err(ShellError::CantConvert {
+                    to_type: Self::get_type_static().to_string(),
+                    from_type: value.get_type().to_string(),
+                    span: value.span(),
+                    help: None,
+                })
+            }
+        } else {
+            let schema = value_to_schema(value, Span::unknown())?;
+            Ok(Self::new(Arc::new(schema)))
+        }
     }
 }
 

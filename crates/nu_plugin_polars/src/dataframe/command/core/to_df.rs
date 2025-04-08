@@ -206,7 +206,7 @@ impl PluginCommand for ToDataFrame {
     ) -> Result<PipelineData, LabeledError> {
         let maybe_schema = call
             .get_flag("schema")?
-            .map(|schema| NuSchema::try_from(&schema))
+            .map(|schema| NuSchema::try_from_value(plugin, &schema))
             .transpose()?;
 
         debug!("schema: {:?}", maybe_schema);
