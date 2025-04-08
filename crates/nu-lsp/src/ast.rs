@@ -29,9 +29,7 @@ fn try_find_id_in_misc(
     match call_name {
         "def" | "export def" => try_find_id_in_def(call, working_set, location, id_ref),
         "module" | "export module" => try_find_id_in_mod(call, working_set, location, id_ref),
-        "use" | "export use" | "hide" => {
-            try_find_id_in_use(call, working_set, location, id_ref, call_name)
-        }
+        "use" | "export use" | "hide" => try_find_id_in_use(call, working_set, location, id_ref),
         "overlay use" | "overlay hide" => {
             try_find_id_in_overlay(call, working_set, location, id_ref)
         }
@@ -129,9 +127,6 @@ fn try_find_id_in_mod(
 
 /// Find id in use/hide command
 /// `hide foo.nu bar` or `use foo.nu [bar baz]`
-/// NOTE: `call.parser_info` contains a 'import_pattern' field for `use` commands,
-/// but sometimes it is missing, so fall back to `call_name == "use"` here.
-/// One drawback is that the `module_id` is harder to get
 ///
 /// # Arguments
 /// - `location`: None if no `contains` check required
@@ -141,43 +136,58 @@ fn try_find_id_in_use(
     working_set: &StateWorkingSet,
     location: Option<&usize>,
     id: Option<&Id>,
-    call_name: &str,
 ) -> Option<(Id, Span)> {
-    // TODO: for keyword `hide`, the decl/var is already hidden in working_set,
-    // this function will always return None.
-    let find_by_name = |name: &[u8]| match id {
-        Some(Id::Variable(var_id_ref)) => working_set
-            .find_variable(name)
-            .and_then(|var_id| (var_id == *var_id_ref).then_some(Id::Variable(var_id))),
-        Some(Id::Declaration(decl_id_ref)) => working_set
-            .find_decl(name)
-            .and_then(|decl_id| (decl_id == *decl_id_ref).then_some(Id::Declaration(decl_id))),
-        Some(Id::Module(module_id_ref)) => working_set
-            .find_module(name)
-            .and_then(|module_id| (module_id == *module_id_ref).then_some(Id::Module(module_id))),
-        None => working_set
-            .find_module(name)
-            .map(Id::Module)
-            .or(working_set.find_decl(name).map(Id::Declaration))
-            .or(working_set.find_variable(name).map(Id::Variable)),
-        _ => None,
+    // NOTE: `call.parser_info` contains a 'import_pattern' field for `use`/`hide` commands,
+    // If it's missing, usually it means the PWD env is not correctly set,
+    // checkout `new_engine_state` in lib.rs
+    let Expression {
+        expr: Expr::ImportPattern(import_pattern),
+        ..
+    } = call.get_parser_info("import_pattern")?
+    else {
+        return None;
+    };
+    let module_id = import_pattern.head.id?;
+
+    let find_by_name = |name: &[u8]| {
+        let module = working_set.get_module(module_id);
+        match id {
+            Some(Id::Variable(var_id_ref)) => module
+                .constants
+                .get(name)
+                .and_then(|var_id| (*var_id == *var_id_ref).then_some(Id::Variable(*var_id))),
+            Some(Id::Declaration(decl_id_ref)) => module.decls.get(name).and_then(|decl_id| {
+                (*decl_id == *decl_id_ref).then_some(Id::Declaration(*decl_id))
+            }),
+            // this is only for argument `members`
+            Some(Id::Module(module_id_ref)) => module.submodules.get(name).and_then(|module_id| {
+                (*module_id == *module_id_ref).then_some(Id::Module(*module_id))
+            }),
+            None => module
+                .submodules
+                .get(name)
+                .cloned()
+                .map(Id::Module)
+                .or(module.decls.get(name).cloned().map(Id::Declaration))
+                .or(module.constants.get(name).cloned().map(Id::Variable)),
+            _ => None,
+        }
     };
     let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
 
     // Get module id if required
     let module_name = call.arguments.first()?;
     let span = module_name.span();
-    if let Some(Id::Module(_)) = id {
+    if let Some(Id::Module(id_ref)) = id {
         // still need to check the rest, if id not matched
-        if let Some(res) = get_matched_module_id(working_set, span, id) {
-            return Some(res);
+        if module_id == *id_ref {
+            return Some((Id::Module(module_id), strip_quotes(span, working_set)));
         }
     }
     if let Some(pos) = location {
-        // first argument of `use` should always be module name
-        // while it is optional in `hide`
-        if span.contains(*pos) && call_name != "hide" {
-            return get_matched_module_id(working_set, span, id);
+        // first argument of `use`/`hide` should always be module name
+        if span.contains(*pos) {
+            return Some((Id::Module(module_id), strip_quotes(span, working_set)));
         }
     }
 
@@ -196,12 +206,7 @@ fn try_find_id_in_use(
         })
     };
 
-    let arguments = if call_name != "hide" {
-        call.arguments.get(1..)?
-    } else {
-        call.arguments.as_slice()
-    };
-
+    let arguments = call.arguments.get(1..)?;
     for arg in arguments {
         let Argument::Positional(expr) = arg else {
             continue;
@@ -243,11 +248,25 @@ fn try_find_id_in_overlay(
     id: Option<&Id>,
 ) -> Option<(Id, Span)> {
     let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
+    let module_from_parser_info = |span: Span| {
+        let Expression {
+            expr: Expr::Overlay(Some(module_id)),
+            ..
+        } = call.get_parser_info("overlay_expr")?
+        else {
+            return None;
+        };
+        let found_id = Id::Module(*module_id);
+        id.is_none_or(|id_r| found_id == *id_r)
+            .then_some((found_id, strip_quotes(span, working_set)))
+    };
+    // NOTE: `overlay_expr` doesn't work for `overlay hide`
     let module_from_overlay_name = |name: &str, span: Span| {
         let found_id = Id::Module(working_set.find_overlay(name.as_bytes())?.origin);
         id.is_none_or(|id_r| found_id == *id_r)
             .then_some((found_id, strip_quotes(span, working_set)))
     };
+
     for arg in call.arguments.iter() {
         let Argument::Positional(expr) = arg else {
             continue;
@@ -256,11 +275,12 @@ fn try_find_id_in_overlay(
             continue;
         };
         let matched = match &expr.expr {
-            Expr::String(name) => get_matched_module_id(working_set, expr.span, id)
-                .or(module_from_overlay_name(name, expr.span)),
+            Expr::String(name) => module_from_parser_info(expr.span)
+                .or_else(|| module_from_overlay_name(name, expr.span)),
             // keyword 'as'
             Expr::Keyword(kwd) => match &kwd.expr.expr {
-                Expr::String(name) => module_from_overlay_name(name, kwd.expr.span),
+                Expr::String(name) => module_from_parser_info(kwd.expr.span)
+                    .or_else(|| module_from_overlay_name(name, kwd.expr.span)),
                 _ => None,
             },
             _ => None,
@@ -270,20 +290,6 @@ fn try_find_id_in_overlay(
         }
     }
     None
-}
-
-fn get_matched_module_id(
-    working_set: &StateWorkingSet,
-    span: Span,
-    id: Option<&Id>,
-) -> Option<(Id, Span)> {
-    let span = strip_quotes(span, working_set);
-    let name = String::from_utf8_lossy(working_set.get_span_contents(span));
-    let path = std::path::PathBuf::from(name.as_ref());
-    let stem = path.file_stem().and_then(|fs| fs.to_str()).unwrap_or(&name);
-    let found_id = Id::Module(working_set.find_module(stem.as_bytes())?);
-    id.is_none_or(|id_r| found_id == *id_r)
-        .then_some((found_id, span))
 }
 
 fn find_id_in_expr(
