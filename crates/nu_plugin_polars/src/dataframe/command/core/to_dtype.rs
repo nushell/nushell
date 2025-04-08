@@ -12,7 +12,7 @@ impl PluginCommand for ToDataType {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars to-dtype"
+        "polars into-dtype"
     }
 
     fn description(&self) -> &str {
@@ -28,7 +28,7 @@ impl PluginCommand for ToDataType {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Convert a string to a specific datatype",
-            example: r#""i64" | polars to-dtype"#,
+            example: r#""i64" | polars into-dtype"#,
             result: Some(Value::string("i64", Span::test_data())),
         }]
     }
