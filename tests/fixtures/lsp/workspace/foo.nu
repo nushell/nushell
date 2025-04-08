@@ -5,3 +5,15 @@ export def foooo [
 }
 
 export  def "foo str" [] { "foo" }
+
+export module "mod name" {
+  export module "sub module" {
+    export def "cmd name" [] { }
+  }
+}
+
+export module cst_mod {
+  export module "sub module" {
+    export const var_name = "const value"
+  }
+}

@@ -124,7 +124,7 @@ impl SymbolCache {
                     range,
                 })
             }
-            Id::Module(module_id) => {
+            Id::Module(module_id, _) => {
                 let module = working_set.get_module(module_id);
                 let span = module.span?;
                 if !doc_span.contains(span.start) {
@@ -165,7 +165,7 @@ impl SymbolCache {
             .chain((0..working_set.num_modules()).filter_map(|id| {
                 Self::get_symbol_by_id(
                     working_set,
-                    Id::Module(ModuleId::new(id)),
+                    Id::Module(ModuleId::new(id), vec![]),
                     doc,
                     &cached_file.covered_span,
                 )

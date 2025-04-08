@@ -7,15 +7,20 @@ use nu_protocol::{
 use std::sync::Arc;
 
 /// Adjust span if quoted
-fn strip_quotes(span: Span, working_set: &StateWorkingSet) -> Span {
-    let text = String::from_utf8_lossy(working_set.get_span_contents(span));
+fn strip_quotes(span: Span, working_set: &StateWorkingSet) -> (Vec<u8>, Span) {
+    let text = working_set.get_span_contents(span);
     if text.len() > 1
-        && ((text.starts_with('"') && text.ends_with('"'))
-            || (text.starts_with('\'') && text.ends_with('\'')))
+        && ((text.starts_with(b"\"") && text.ends_with(b"\""))
+            || (text.starts_with(b"'") && text.ends_with(b"'")))
     {
-        Span::new(span.start.saturating_add(1), span.end.saturating_sub(1))
+        (
+            text.get(1..text.len() - 1)
+                .expect("Invalid quoted span!")
+                .to_vec(),
+            Span::new(span.start.saturating_add(1), span.end.saturating_sub(1)),
+        )
     } else {
-        span
+        (text.to_vec(), span)
     }
 }
 
@@ -70,9 +75,8 @@ fn try_find_id_in_def(
             }
         }
     }
-    let span = strip_quotes(span?, working_set);
-    let name = working_set.get_span_contents(span);
-    let decl_id = Id::Declaration(working_set.find_decl(name).or_else(|| {
+    let (name, span) = strip_quotes(span?, working_set);
+    let decl_id = Id::Declaration(working_set.find_decl(&name).or_else(|| {
         // for defs inside def
         // TODO: get scope by position
         // https://github.com/nushell/nushell/issues/15291
@@ -114,8 +118,8 @@ fn try_find_id_in_mod(
             Argument::Positional(expr) => {
                 let name = expr.as_string()?;
                 let module_id = working_set.find_module(name.as_bytes())?;
-                let found_id = Id::Module(module_id);
-                let found_span = strip_quotes(arg.span(), working_set);
+                let found_id = Id::Module(module_id, name.as_bytes().to_vec());
+                let found_span = strip_quotes(arg.span(), working_set).1;
                 id_ref
                     .is_none_or(|id_r| found_id == *id_r)
                     .then_some((found_id, found_span))
@@ -160,14 +164,16 @@ fn try_find_id_in_use(
                 (*decl_id == *decl_id_ref).then_some(Id::Declaration(*decl_id))
             }),
             // this is only for argument `members`
-            Some(Id::Module(module_id_ref)) => module.submodules.get(name).and_then(|module_id| {
-                (*module_id == *module_id_ref).then_some(Id::Module(*module_id))
-            }),
+            Some(Id::Module(module_id_ref, name_ref)) => {
+                module.submodules.get(name).and_then(|module_id| {
+                    (*module_id == *module_id_ref && name_ref == name)
+                        .then_some(Id::Module(*module_id, name.to_vec()))
+                })
+            }
             None => module
                 .submodules
                 .get(name)
-                .cloned()
-                .map(Id::Module)
+                .map(|id| Id::Module(*id, name.to_vec()))
                 .or(module.decls.get(name).cloned().map(Id::Declaration))
                 .or(module.constants.get(name).cloned().map(Id::Variable)),
             _ => None,
@@ -178,16 +184,17 @@ fn try_find_id_in_use(
     // Get module id if required
     let module_name = call.arguments.first()?;
     let span = module_name.span();
-    if let Some(Id::Module(id_ref)) = id {
+    let (span_content, clean_span) = strip_quotes(span, working_set);
+    if let Some(Id::Module(id_ref, name_ref)) = id {
         // still need to check the rest, if id not matched
-        if module_id == *id_ref {
-            return Some((Id::Module(module_id), strip_quotes(span, working_set)));
+        if module_id == *id_ref && *name_ref == span_content {
+            return Some((Id::Module(module_id, span_content.to_vec()), clean_span));
         }
     }
     if let Some(pos) = location {
         // first argument of `use`/`hide` should always be module name
         if span.contains(*pos) {
-            return Some((Id::Module(module_id), strip_quotes(span, working_set)));
+            return Some((Id::Module(module_id, span_content.to_vec()), clean_span));
         }
     }
 
@@ -200,14 +207,13 @@ fn try_find_id_in_use(
                     let name = e.as_string()?;
                     Some((
                         find_by_name(name.as_bytes())?,
-                        strip_quotes(item_expr.span, working_set),
+                        strip_quotes(item_expr.span, working_set).1,
                     ))
                 })
         })
     };
 
-    let arguments = call.arguments.get(1..)?;
-    for arg in arguments {
+    for arg in call.arguments.get(1..)?.iter().rev() {
         let Argument::Positional(expr) = arg else {
             continue;
         };
@@ -216,7 +222,7 @@ fn try_find_id_in_use(
         }
         let matched = match &expr.expr {
             Expr::String(name) => {
-                find_by_name(name.as_bytes()).map(|id| (id, strip_quotes(expr.span, working_set)))
+                find_by_name(name.as_bytes()).map(|id| (id, strip_quotes(expr.span, working_set).1))
             }
             Expr::List(items) => search_in_list_items(items),
             Expr::FullCellPath(fcp) => {
@@ -248,7 +254,7 @@ fn try_find_id_in_overlay(
     id: Option<&Id>,
 ) -> Option<(Id, Span)> {
     let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
-    let module_from_parser_info = |span: Span| {
+    let module_from_parser_info = |span: Span, name: &str| {
         let Expression {
             expr: Expr::Overlay(Some(module_id)),
             ..
@@ -256,18 +262,22 @@ fn try_find_id_in_overlay(
         else {
             return None;
         };
-        let found_id = Id::Module(*module_id);
+        let found_id = Id::Module(*module_id, name.as_bytes().to_vec());
         id.is_none_or(|id_r| found_id == *id_r)
-            .then_some((found_id, strip_quotes(span, working_set)))
+            .then_some((found_id, strip_quotes(span, working_set).1))
     };
-    // NOTE: `overlay_expr` doesn't work for `overlay hide`
+    // NOTE: `overlay_expr` doesn't exist for `overlay hide`
     let module_from_overlay_name = |name: &str, span: Span| {
-        let found_id = Id::Module(working_set.find_overlay(name.as_bytes())?.origin);
+        let found_id = Id::Module(
+            working_set.find_overlay(name.as_bytes())?.origin,
+            name.as_bytes().to_vec(),
+        );
         id.is_none_or(|id_r| found_id == *id_r)
-            .then_some((found_id, strip_quotes(span, working_set)))
+            .then_some((found_id, strip_quotes(span, working_set).1))
     };
 
-    for arg in call.arguments.iter() {
+    // check `as alias` first
+    for arg in call.arguments.iter().rev() {
         let Argument::Positional(expr) = arg else {
             continue;
         };
@@ -275,11 +285,11 @@ fn try_find_id_in_overlay(
             continue;
         };
         let matched = match &expr.expr {
-            Expr::String(name) => module_from_parser_info(expr.span)
+            Expr::String(name) => module_from_parser_info(expr.span, name)
                 .or_else(|| module_from_overlay_name(name, expr.span)),
             // keyword 'as'
             Expr::Keyword(kwd) => match &kwd.expr.expr {
-                Expr::String(name) => module_from_parser_info(kwd.expr.span)
+                Expr::String(name) => module_from_parser_info(kwd.expr.span, name)
                     .or_else(|| module_from_overlay_name(name, kwd.expr.span)),
                 _ => None,
             },
@@ -349,7 +359,9 @@ fn find_id_in_expr(
                 FindMapResult::Found((Id::CellPath(var_id, tail), span))
             }
         }
-        Expr::Overlay(Some(module_id)) => FindMapResult::Found((Id::Module(*module_id), span)),
+        Expr::Overlay(Some(module_id)) => {
+            FindMapResult::Found((Id::Module(*module_id, vec![]), span))
+        }
         // terminal value expressions
         Expr::Bool(_)
         | Expr::Binary(_)

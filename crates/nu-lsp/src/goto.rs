@@ -55,7 +55,7 @@ impl LanguageServer {
                 let var = working_set.get_variable(*var_id);
                 Some(var.declaration_span)
             }
-            Id::Module(module_id) => {
+            Id::Module(module_id, _) => {
                 let module = working_set.get_module(*module_id);
                 module.span
             }

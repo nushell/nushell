@@ -178,7 +178,7 @@ impl LanguageServer {
                 working_set.get_decl(decl_id),
                 false,
             )),
-            Id::Module(module_id) => {
+            Id::Module(module_id, _) => {
                 let description = working_set
                     .get_module_comments(module_id)?
                     .iter()

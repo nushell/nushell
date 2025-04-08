@@ -43,7 +43,7 @@ pub(crate) enum Id {
     Variable(VarId),
     Declaration(DeclId),
     Value(Type),
-    Module(ModuleId),
+    Module(ModuleId, Vec<u8>),
     CellPath(VarId, Vec<PathMember>),
     External(String),
 }
