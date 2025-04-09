@@ -7,6 +7,7 @@ export def foooo [
 export  def "foo str" [] { "foo" }
 
 export module "mod name" {
+  # cmt
   export module "sub module" {
     export def "cmd name" [] { }
   }

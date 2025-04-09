@@ -2,7 +2,7 @@ use crate::Id;
 use nu_protocol::{
     ast::{Argument, Block, Call, Expr, Expression, FindMapResult, ListItem, PathMember, Traverse},
     engine::StateWorkingSet,
-    Span,
+    ModuleId, Span,
 };
 use std::sync::Arc;
 
@@ -58,6 +58,12 @@ fn try_find_id_in_def(
     location: Option<&usize>,
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
+    // skip if the id to search is not a declaration id
+    if let Some(id_ref) = id_ref {
+        if !matches!(id_ref, Id::Declaration(_)) {
+            return None;
+        }
+    }
     let mut span = None;
     for arg in call.arguments.iter() {
         if location.is_none_or(|pos| arg.span().contains(*pos)) {
@@ -108,6 +114,12 @@ fn try_find_id_in_mod(
     location: Option<&usize>,
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
+    // skip if the id to search is not a module id
+    if let Some(id_ref) = id_ref {
+        if !matches!(id_ref, Id::Module(_, _)) {
+            return None;
+        }
+    }
     let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
 
     call.arguments.first().and_then(|arg| {
@@ -117,7 +129,24 @@ fn try_find_id_in_mod(
         match arg {
             Argument::Positional(expr) => {
                 let name = expr.as_string()?;
-                let module_id = working_set.find_module(name.as_bytes())?;
+                let module_id = working_set.find_module(name.as_bytes()).or_else(|| {
+                    // in case the module is hidden
+                    let mut any_id = true;
+                    let mut id_num_ref = 0;
+                    if let Some(Id::Module(id_ref, _)) = id_ref {
+                        any_id = false;
+                        id_num_ref = id_ref.get();
+                    }
+                    (0..working_set.num_modules())
+                        .find(|id| {
+                            (any_id || id_num_ref == *id)
+                                && working_set
+                                    .get_module(ModuleId::new(*id))
+                                    .span
+                                    .is_some_and(|mod_span| call.span().contains_span(mod_span))
+                        })
+                        .map(ModuleId::new)
+                })?;
                 let found_id = Id::Module(module_id, name.as_bytes().to_vec());
                 let found_span = strip_quotes(arg.span(), working_set).1;
                 id_ref
@@ -139,7 +168,7 @@ fn try_find_id_in_use(
     call: &Call,
     working_set: &StateWorkingSet,
     location: Option<&usize>,
-    id: Option<&Id>,
+    id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
     // NOTE: `call.parser_info` contains a 'import_pattern' field for `use`/`hide` commands,
     // If it's missing, usually it means the PWD env is not correctly set,
@@ -155,7 +184,7 @@ fn try_find_id_in_use(
 
     let find_by_name = |name: &[u8]| {
         let module = working_set.get_module(module_id);
-        match id {
+        match id_ref {
             Some(Id::Variable(var_id_ref)) => module
                 .constants
                 .get(name)
@@ -196,7 +225,7 @@ fn try_find_id_in_use(
     let module_name = call.arguments.first()?;
     let span = module_name.span();
     let (span_content, clean_span) = strip_quotes(span, working_set);
-    if let Some(Id::Module(id_ref, name_ref)) = id {
+    if let Some(Id::Module(id_ref, name_ref)) = id_ref {
         // still need to check the rest, if id not matched
         if module_id == *id_ref && *name_ref == span_content {
             return Some((Id::Module(module_id, span_content.to_vec()), clean_span));
@@ -262,8 +291,14 @@ fn try_find_id_in_overlay(
     call: &Call,
     working_set: &StateWorkingSet,
     location: Option<&usize>,
-    id: Option<&Id>,
+    id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
+    // skip if the id to search is not a module id
+    if let Some(id_ref) = id_ref {
+        if !matches!(id_ref, Id::Module(_, _)) {
+            return None;
+        }
+    }
     let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
     let module_from_parser_info = |span: Span, name: &str| {
         let Expression {
@@ -274,7 +309,8 @@ fn try_find_id_in_overlay(
             return None;
         };
         let found_id = Id::Module(*module_id, name.as_bytes().to_vec());
-        id.is_none_or(|id_r| found_id == *id_r)
+        id_ref
+            .is_none_or(|id_r| found_id == *id_r)
             .then_some((found_id, strip_quotes(span, working_set).1))
     };
     // NOTE: `overlay_expr` doesn't exist for `overlay hide`
@@ -283,7 +319,8 @@ fn try_find_id_in_overlay(
             working_set.find_overlay(name.as_bytes())?.origin,
             name.as_bytes().to_vec(),
         );
-        id.is_none_or(|id_r| found_id == *id_r)
+        id_ref
+            .is_none_or(|id_r| found_id == *id_r)
             .then_some((found_id, strip_quotes(span, working_set).1))
     };
 
