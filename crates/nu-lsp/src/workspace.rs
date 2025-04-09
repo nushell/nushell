@@ -8,7 +8,6 @@ use lsp_types::{
     PrepareRenameResponse, ProgressToken, Range, ReferenceParams, RenameParams,
     TextDocumentPositionParams, TextEdit, Uri, WorkspaceEdit, WorkspaceFolder,
 };
-use memchr::memmem;
 use miette::{miette, IntoDiagnostic, Result};
 use nu_glob::Uninterruptible;
 use nu_protocol::{
@@ -391,6 +390,8 @@ impl LanguageServer {
                 .collect();
             let len = scripts.len();
             let definition_span = Self::find_definition_span_by_id(&working_set, &id_tracker.id);
+            let bytes_to_search = id_tracker.name.to_owned();
+            let finder = memchr::memmem::Finder::new(&bytes_to_search);
 
             for (i, fp) in scripts.iter().enumerate() {
                 #[cfg(test)]
@@ -411,7 +412,7 @@ impl LanguageServer {
                 let file = if let Some(file) = docs.get_document(&uri) {
                     file
                 } else {
-                    let file_content_byte = match fs::read(fp) {
+                    let file_bytes = match fs::read(fp) {
                         Ok(it) => it,
                         Err(_) => {
                             // continue on fs error
@@ -419,7 +420,7 @@ impl LanguageServer {
                         }
                     };
                     // skip if the file does not contain what we're looking for
-                    if memmem::find(&file_content_byte, id_tracker.name.as_ref()).is_none() {
+                    if finder.find(&file_bytes).is_none() {
                         // progress without any data
                         data_sender
                             .send(InternalMessage::OnGoing(token.clone(), percentage))
@@ -429,7 +430,7 @@ impl LanguageServer {
                     &FullTextDocument::new(
                         "nu".to_string(),
                         0,
-                        String::from_utf8_lossy(&file_content_byte).into(),
+                        String::from_utf8_lossy(&file_bytes).into(),
                     )
                 };
                 let _ = Self::find_reference_in_file(&mut working_set, file, fp, &mut id_tracker)
