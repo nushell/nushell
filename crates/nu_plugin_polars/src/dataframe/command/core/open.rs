@@ -86,7 +86,7 @@ impl PluginCommand for OpenDataFrame {
             )
             .named(
                 "schema",
-                SyntaxShape::Record(vec![]),
+                SyntaxShape::Any,
                 r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
                 Some('s')
             )
@@ -103,7 +103,7 @@ impl PluginCommand for OpenDataFrame {
             )
             .named(
                 "hive-schema",
-                SyntaxShape::Record(vec![]),
+                SyntaxShape::Any,
                 r#"Hive schema in format [{name: str}]. Parquet and Arrow files"#,
                 None,
             )
