@@ -7238,9 +7238,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "titlecase"
-version = "3.4.0"
+version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef6b5cbe1316986025d8f662ff6945a0c85f2ca8ca13f04b5e0829ddb0d047f2"
+checksum = "a1fad07d425f7245932d6deb5009e2c83d9642617b47750ffc3363815e269435"
 dependencies = [
  "regex",
 ]

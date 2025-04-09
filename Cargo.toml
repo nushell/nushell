@@ -161,7 +161,7 @@ syn = "2.0"
 sysinfo = "0.33"
 tabled = { version = "0.17.0", default-features = false }
 tempfile = "3.15"
-titlecase = "3.4"
+titlecase = "3.5"
 toml = "0.8"
 trash = "5.2"
 update-informer = { version = "1.2.0", default-features = false, features = ["github", "native-tls", "ureq"] }
