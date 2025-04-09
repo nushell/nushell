@@ -682,7 +682,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     };
 
     let offset: FixedOffset = match record.get("timezone") {
-        Some(timezone) => match parse_timezone_from_record(timezone, &head, &span) {
+        Some(timezone) => match parse_timezone_from_record(timezone, &head, &timezone.span()) {
             Ok(value) => value,
             Err(err) => {
                 return err;
@@ -780,14 +780,14 @@ fn parse_timezone_from_record(
     span: &Span,
 ) -> Result<FixedOffset, Value> {
     match timezone {
-        Value::String { val, internal_span } => {
+        Value::String { val, .. } => {
             let offset: FixedOffset = match val.parse() {
                 Ok(offset) => offset,
                 Err(_) => {
                     return Err(Value::error(
                         ShellError::IncorrectValue {
                             msg: "invalid timezone".to_string(),
-                            val_span: *internal_span,
+                            val_span: *span,
                             call_span: *head,
                         },
                         *span,
