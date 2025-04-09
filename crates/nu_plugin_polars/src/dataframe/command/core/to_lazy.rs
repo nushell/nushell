@@ -56,7 +56,7 @@ impl PluginCommand for ToLazyFrame {
     ) -> Result<PipelineData, LabeledError> {
         let maybe_schema = call
             .get_flag("schema")?
-            .map(|schema| NuSchema::try_from(&schema))
+            .map(|schema| NuSchema::try_from_value(plugin, &schema))
             .transpose()?;
 
         let df = NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema)?;
