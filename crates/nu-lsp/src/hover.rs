@@ -279,7 +279,7 @@ mod hover_tests {
         open_unchecked(&client_connection, script.clone());
 
         // For module record
-        let resp = send_hover_request(&client_connection, script, 8, 22);
+        let resp = send_hover_request(&client_connection, script, 8, 42);
         let result = result_from_message(resp);
         assert_json_eq!(
             result.pointer("/contents/value").unwrap(),
@@ -398,7 +398,6 @@ mod hover_tests {
         open_unchecked(&client_connection, script.clone());
         let resp = send_hover_request(&client_connection, script.clone(), 15, 15);
         let result = result_from_message(resp);
-
         assert_eq!(
             result
                 .pointer("/contents/value")
@@ -408,9 +407,8 @@ mod hover_tests {
             "\"# cmt\""
         );
 
-        let resp = send_hover_request(&client_connection, script, 17, 27);
+        let resp = send_hover_request(&client_connection, script.clone(), 17, 27);
         let result = result_from_message(resp);
-
         assert_eq!(
             result
                 .pointer("/contents/value")
@@ -418,6 +416,17 @@ mod hover_tests {
                 .to_string()
                 .replace("\\r", ""),
             "\"# sub cmt\""
+        );
+
+        let resp = send_hover_request(&client_connection, script, 19, 33);
+        let result = result_from_message(resp);
+        assert_eq!(
+            result
+                .pointer("/contents/value")
+                .unwrap()
+                .to_string()
+                .replace("\\r", ""),
+            "\"# sub sub cmt\""
         );
     }
 

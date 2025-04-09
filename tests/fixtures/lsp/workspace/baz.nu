@@ -6,7 +6,7 @@ overlay hide prefix
 
 use ./foo.nu [ "mod name" cst_mod ]
 
-$cst_mod."sub module".var_name
+$cst_mod."sub module"."sub sub module".var_name
 mod name sub module cmd name
 let $cst_mod = 1
 $cst_mod

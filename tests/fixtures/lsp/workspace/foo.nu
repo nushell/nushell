@@ -16,6 +16,9 @@ export module "mod name" {
 export module cst_mod {
   # sub cmt
   export module "sub module" {
-    export const var_name = "const value"
+    # sub sub cmt
+    export module "sub sub module" {
+      export const var_name = "const value"
+    }
   }
 }

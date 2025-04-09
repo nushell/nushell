@@ -137,13 +137,18 @@ fn try_find_id_in_mod(
                         any_id = false;
                         id_num_ref = id_ref.get();
                     }
+                    let block_span = call.arguments.last()?.span();
                     (0..working_set.num_modules())
                         .find(|id| {
                             (any_id || id_num_ref == *id)
-                                && working_set
-                                    .get_module(ModuleId::new(*id))
-                                    .span
-                                    .is_some_and(|mod_span| call.span().contains_span(mod_span))
+                                && working_set.get_module(ModuleId::new(*id)).span.is_some_and(
+                                    |mod_span| {
+                                        mod_span.start <= block_span.start + 1
+                                            && block_span.start <= mod_span.start
+                                            && block_span.end >= mod_span.end
+                                            && block_span.end <= mod_span.end + 1
+                                    },
+                                )
                         })
                         .map(ModuleId::new)
                 })?;
