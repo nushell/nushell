@@ -113,7 +113,7 @@ pub fn value_to_yaml_value(
         }
         Value::Record { val, .. } => {
             let mut m = serde_yaml::Mapping::new();
-            for (k, v) in &**val {
+            for (k, v) in val {
                 m.insert(
                     serde_yaml::Value::String(k.clone()),
                     value_to_yaml_value(engine_state, v, serialize_types)?,
