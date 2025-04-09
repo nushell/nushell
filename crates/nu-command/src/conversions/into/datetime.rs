@@ -292,11 +292,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         return input.clone();
     }
 
-    if let Value::Record {
-        val: record,
-        internal_span,
-    } = input
-    {
+    if let Value::Record { val: record, .. } = input {
         if let Some(tz) = timezone {
             return Value::error(
                 ShellError::IncompatibleParameters {
@@ -321,7 +317,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             );
         }
 
-        return merge_record(record, head, *internal_span);
+        return merge_record(record, head, input.span());
     }
 
     // Let's try dtparse first
