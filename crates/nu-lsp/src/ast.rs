@@ -200,7 +200,7 @@ fn try_find_id_in_use(
                     // The definition span is located at the head of the `use` command.
                     (name_ref.as_ref() == name
                         && call
-                            .span()
+                            .head
                             .contains_span(working_set.get_variable(*var_id_ref).declaration_span))
                     .then_some(*var_id_ref)
                 })
