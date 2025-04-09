@@ -352,7 +352,7 @@ impl LanguageServer {
         if self.need_parse {
             // TODO: incremental parsing
             // add block to working_set for later references
-            working_set.add_block(block.clone());
+            working_set.add_block(block);
             self.cached_state_delta = Some(working_set.delta.clone());
             self.need_parse = false;
         }
@@ -615,7 +615,7 @@ mod tests {
                     method: DidChangeTextDocument::METHOD.to_string(),
                     params: serde_json::to_value(DidChangeTextDocumentParams {
                         text_document: lsp_types::VersionedTextDocumentIdentifier {
-                            uri: uri.clone(),
+                            uri,
                             version: 2,
                         },
                         content_changes: vec![TextDocumentContentChangeEvent {

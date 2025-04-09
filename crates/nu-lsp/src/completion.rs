@@ -588,7 +588,7 @@ mod tests {
             ])
         );
 
-        let resp = send_complete_request(&client_connection, script.clone(), 7, 15);
+        let resp = send_complete_request(&client_connection, script, 7, 15);
         assert_json_include!(
             actual: result_from_message(resp),
             expected: serde_json::json!([

@@ -236,7 +236,7 @@ impl SymbolCache {
             self.cache
                 .get(uri)?
                 .iter()
-                .map(|s| s.clone().to_symbol_information(uri))
+                .map(|s| s.to_symbol_information(uri))
                 .collect(),
         )
     }
@@ -250,7 +250,7 @@ impl SymbolCache {
         );
         self.cache
             .iter()
-            .flat_map(|(uri, symbols)| symbols.iter().map(|s| s.clone().to_symbol_information(uri)))
+            .flat_map(|(uri, symbols)| symbols.iter().map(|s| s.to_symbol_information(uri)))
             .filter_map(|s| {
                 let mut buf = Vec::new();
                 let name = Utf32Str::new(&s.name, &mut buf);
@@ -470,7 +470,7 @@ mod tests {
         script.push("bar.nu");
         let script_bar = path_to_uri(&script);
 
-        open_unchecked(&client_connection, script_foo.clone());
+        open_unchecked(&client_connection, script_foo);
         open_unchecked(&client_connection, script_bar.clone());
         let resp = send_workspace_symbol_request(&client_connection, "br".to_string());
 
@@ -531,7 +531,7 @@ mod tests {
         let script_bar = path_to_uri(&script);
 
         open_unchecked(&client_connection, script_foo.clone());
-        open_unchecked(&client_connection, script_bar.clone());
+        open_unchecked(&client_connection, script_bar);
         let resp = send_workspace_symbol_request(&client_connection, "foo".to_string());
 
         assert_json_eq!(

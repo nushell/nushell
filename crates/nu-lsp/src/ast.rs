@@ -355,7 +355,7 @@ fn try_find_id_in_overlay(
     None
 }
 
-/// For variable references `$foo`
+/// Trim leading `$` sign For variable references `$foo`
 fn strip_dollar_sign(span: Span, working_set: &StateWorkingSet<'_>) -> (Box<[u8]>, Span) {
     let content = working_set.get_span_contents(span);
     if content.starts_with(b"$") {
@@ -379,7 +379,6 @@ fn find_id_in_expr(
     }
     let span = expr.span;
     match &expr.expr {
-        // trim leading `$` sign
         Expr::VarDecl(var_id) | Expr::Var(var_id) => {
             let (name, clean_span) = strip_dollar_sign(span, working_set);
             FindMapResult::Found((Id::Variable(*var_id, name), clean_span))

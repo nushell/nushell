@@ -213,7 +213,7 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_inlay_hint_request(&client_connection, script.clone());
+        let resp = send_inlay_hint_request(&client_connection, script);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -240,7 +240,7 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_inlay_hint_request(&client_connection, script.clone());
+        let resp = send_inlay_hint_request(&client_connection, script);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -268,7 +268,7 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_inlay_hint_request(&client_connection, script.clone());
+        let resp = send_inlay_hint_request(&client_connection, script);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -333,7 +333,7 @@ mod tests {
         let (client_connection, _recv) = initialize_language_server(Some(&config), None);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_inlay_hint_request(&client_connection, script.clone());
+        let resp = send_inlay_hint_request(&client_connection, script);
 
         assert_json_eq!(
             result_from_message(resp),

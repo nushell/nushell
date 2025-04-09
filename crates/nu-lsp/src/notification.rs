@@ -19,20 +19,19 @@ impl LanguageServer {
         docs.listen(notification.method.as_str(), &notification.params);
         match notification.method.as_str() {
             DidOpenTextDocument::METHOD => {
-                let params: DidOpenTextDocumentParams =
-                    serde_json::from_value(notification.params.clone())
-                        .expect("Expect receive DidOpenTextDocumentParams");
+                let params: DidOpenTextDocumentParams = serde_json::from_value(notification.params)
+                    .expect("Expect receive DidOpenTextDocumentParams");
                 Some(params.text_document.uri)
             }
             DidChangeTextDocument::METHOD => {
                 let params: DidChangeTextDocumentParams =
-                    serde_json::from_value(notification.params.clone())
+                    serde_json::from_value(notification.params)
                         .expect("Expect receive DidChangeTextDocumentParams");
                 Some(params.text_document.uri)
             }
             DidCloseTextDocument::METHOD => {
                 let params: DidCloseTextDocumentParams =
-                    serde_json::from_value(notification.params.clone())
+                    serde_json::from_value(notification.params)
                         .expect("Expect receive DidCloseTextDocumentParams");
                 let uri = params.text_document.uri;
                 self.symbol_cache.drop(&uri);
@@ -41,7 +40,7 @@ impl LanguageServer {
             }
             DidChangeWorkspaceFolders::METHOD => {
                 let params: DidChangeWorkspaceFoldersParams =
-                    serde_json::from_value(notification.params.clone())
+                    serde_json::from_value(notification.params)
                         .expect("Expect receive DidChangeWorkspaceFoldersParams");
                 for added in params.event.added {
                     self.workspace_folders.insert(added.name.clone(), added);
@@ -155,7 +154,7 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script.clone(), 0, 0);
+        let resp = send_hover_request(&client_connection, script, 0, 0);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -190,7 +189,7 @@ hello"#,
             ),
             None,
         );
-        let resp = send_hover_request(&client_connection, script.clone(), 3, 0);
+        let resp = send_hover_request(&client_connection, script, 3, 0);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -229,7 +228,7 @@ hello"#,
                 },
             }),
         );
-        let resp = send_hover_request(&client_connection, script.clone(), 3, 0);
+        let resp = send_hover_request(&client_connection, script, 3, 0);
 
         assert_json_eq!(
             result_from_message(resp),

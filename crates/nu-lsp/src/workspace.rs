@@ -138,7 +138,6 @@ impl LanguageServer {
     /// The rename request only happens after the client received a `PrepareRenameResponse`,
     /// and a new name typed in, could happen before ranges ready for all files in the workspace folder
     pub(crate) fn rename(&mut self, params: &RenameParams) -> Option<WorkspaceEdit> {
-        let new_name = params.new_name.to_owned();
         // changes in WorkspaceEdit have mutable key
         #[allow(clippy::mutable_key_type)]
         let changes: HashMap<Uri, Vec<TextEdit>> = self
@@ -151,7 +150,7 @@ impl LanguageServer {
                         .iter()
                         .map(|range| TextEdit {
                             range: *range,
-                            new_text: new_name.clone(),
+                            new_text: params.new_name.to_owned(),
                         })
                         .collect(),
                 )
@@ -462,7 +461,7 @@ impl LanguageServer {
                     });
             }
             data_sender
-                .send(InternalMessage::Finished(token.clone()))
+                .send(InternalMessage::Finished(token))
                 .into_diagnostic()?;
             Ok(())
         });
@@ -555,7 +554,7 @@ mod tests {
 
         // use a hover request to interrupt
         if immediate_cancellation {
-            send_hover_request(client_connection, uri.clone(), line, character);
+            send_hover_request(client_connection, uri, line, character);
         }
 
         (0..num)
@@ -684,7 +683,7 @@ mod tests {
                     ));
                     assert!(array.contains(&serde_json::json!(
                             {
-                                "uri": script.to_string(),
+                                "uri": script,
                                 "range": { "start": { "line": 0, "character": 11 }, "end": { "line": 0, "character": 16 } }
                             }
                         )
@@ -745,7 +744,7 @@ mod tests {
                     ));
                     assert!(array.contains(&serde_json::json!(
                             {
-                                "uri": script.to_string().replace("bar", "foo"),
+                                "uri": script,
                                 "range": { "start": { "line": 6, "character": 13 }, "end": { "line": 6, "character": 20 } }
                             }
                         )
@@ -799,7 +798,7 @@ mod tests {
                     ));
                     assert!(array.contains(&serde_json::json!(
                             {
-                                "uri": script.to_string(),
+                                "uri": script,
                                 "range": { "start": { "line": 6, "character": 4 }, "end": { "line": 6, "character": 12 } }
                             }
                         )
