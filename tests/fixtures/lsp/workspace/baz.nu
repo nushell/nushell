@@ -8,3 +8,5 @@ use ./foo.nu [ "mod name" cst_mod ]
 
 $cst_mod."sub module".var_name
 mod name sub module cmd name
+let $cst_mod = 1
+$cst_mod

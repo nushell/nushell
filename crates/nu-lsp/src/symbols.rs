@@ -110,7 +110,7 @@ impl SymbolCache {
                     range: span_to_range(&span, doc, doc_span.start),
                 })
             }
-            Id::Variable(var_id) => {
+            Id::Variable(var_id, _) => {
                 let var = working_set.get_variable(var_id);
                 let span = var.declaration_span;
                 if !doc_span.contains(span.start) || span.end == span.start {
@@ -157,7 +157,7 @@ impl SymbolCache {
             .chain((0..working_set.num_vars()).filter_map(|id| {
                 Self::get_symbol_by_id(
                     working_set,
-                    Id::Variable(VarId::new(id)),
+                    Id::Variable(VarId::new(id), [].into()),
                     doc,
                     &cached_file.covered_span,
                 )
@@ -165,7 +165,7 @@ impl SymbolCache {
             .chain((0..working_set.num_modules()).filter_map(|id| {
                 Self::get_symbol_by_id(
                     working_set,
-                    Id::Module(ModuleId::new(id), vec![]),
+                    Id::Module(ModuleId::new(id), [].into()),
                     doc,
                     &cached_file.covered_span,
                 )
@@ -361,7 +361,7 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_document_symbol_request(&client_connection, script.clone());
+        let resp = send_document_symbol_request(&client_connection, script);
 
         assert_json_eq!(result_from_message(resp), serde_json::json!([]));
     }

@@ -8,6 +8,7 @@ use lsp_types::{
     PrepareRenameResponse, ProgressToken, Range, ReferenceParams, RenameParams,
     TextDocumentPositionParams, TextEdit, Uri, WorkspaceEdit, WorkspaceFolder,
 };
+use memchr::memmem;
 use miette::{miette, IntoDiagnostic, Result};
 use nu_glob::Uninterruptible;
 use nu_protocol::{
@@ -59,11 +60,27 @@ struct IDTracker {
     /// Span of the original instance under the cursor
     pub span: Span,
     /// Name of the definition
-    pub name: String,
+    pub name: Box<[u8]>,
     /// Span of the original file where the request comes from
     pub file_span: Span,
     /// The redundant parsing should only happen once
     pub renewed: bool,
+}
+
+impl IDTracker {
+    fn new(id: Id, span: Span, file_span: Span, working_set: &StateWorkingSet) -> Self {
+        let name = match &id {
+            Id::Variable(_, name) | Id::Module(_, name) => name.clone(),
+            _ => working_set.get_span_contents(span).into(),
+        };
+        Self {
+            id,
+            span,
+            name,
+            file_span,
+            renewed: false,
+        }
+    }
 }
 
 impl LanguageServer {
@@ -101,14 +118,9 @@ impl LanguageServer {
         let (id, cursor_span) = find_id(&block, &working_set, &location)?;
         let mut refs = find_reference_by_id(&block, &working_set, &id);
         let definition_span = Self::find_definition_span_by_id(&working_set, &id);
-        if let Some(extra_span) = Self::reference_not_in_ast(
-            &id,
-            &String::from_utf8_lossy(working_set.get_span_contents(cursor_span)),
-            &working_set,
-            definition_span,
-            file_span,
-            cursor_span,
-        ) {
+        if let Some(extra_span) =
+            Self::reference_not_in_ast(&id, &working_set, definition_span, file_span, cursor_span)
+        {
             if !refs.contains(&extra_span) {
                 refs.push(extra_span);
             }
@@ -181,16 +193,7 @@ impl LanguageServer {
             .to_owned()
             .unwrap_or(ProgressToken::Number(1));
 
-        let id_tracker = IDTracker {
-            id,
-            span,
-            file_span,
-            name: String::from_utf8_lossy(working_set.get_span_contents(span)).to_string(),
-            renewed: false,
-        };
-        // make sure the parsing result of current file is merged in the state
-        let engine_state = self.new_engine_state(Some(&path_uri));
-
+        let id_tracker = IDTracker::new(id, span, file_span, &working_set);
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,
@@ -275,16 +278,7 @@ impl LanguageServer {
             .get_workspace_folder_by_uri(&path_uri)
             .ok_or_else(|| miette!("\nCurrent file is not in any workspace"))?;
         // now continue parsing on other files in the workspace
-        let id_tracker = IDTracker {
-            id,
-            span,
-            file_span,
-            name: String::from_utf8_lossy(working_set.get_span_contents(span)).to_string(),
-            renewed: false,
-        };
-        // make sure the parsing result of current file is merged in the state
-        let engine_state = self.new_engine_state(Some(&path_uri));
-
+        let id_tracker = IDTracker::new(id, span, file_span, &working_set);
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,
@@ -338,13 +332,12 @@ impl LanguageServer {
     /// which is not covered in the AST
     fn reference_not_in_ast(
         id: &Id,
-        name_ref: &str,
         working_set: &StateWorkingSet,
         definition_span: Option<Span>,
         file_span: Span,
         sample_span: Span,
     ) -> Option<Span> {
-        if let (Id::Variable(_), Some(decl_span)) = (&id, definition_span) {
+        if let (Id::Variable(_, name_ref), Some(decl_span)) = (&id, definition_span) {
             if file_span.contains_span(decl_span) && decl_span.end > decl_span.start {
                 let content = working_set.get_span_contents(decl_span);
                 let leading_dashes = content
@@ -354,7 +347,7 @@ impl LanguageServer {
                     .count();
                 let start = decl_span.start + leading_dashes;
                 return content.get(leading_dashes..).and_then(|name| {
-                    name.starts_with(name_ref.as_bytes()).then_some(Span {
+                    name.starts_with(name_ref).then_some(Span {
                         start,
                         end: start + sample_span.end - sample_span.start,
                     })
@@ -419,7 +412,7 @@ impl LanguageServer {
                 let file = if let Some(file) = docs.get_document(&uri) {
                     file
                 } else {
-                    let bytes = match fs::read(fp) {
+                    let file_content_byte = match fs::read(fp) {
                         Ok(it) => it,
                         Err(_) => {
                             // continue on fs error
@@ -427,15 +420,18 @@ impl LanguageServer {
                         }
                     };
                     // skip if the file does not contain what we're looking for
-                    let content_string = String::from_utf8_lossy(&bytes);
-                    if !content_string.contains(&id_tracker.name) {
+                    if memmem::find(&file_content_byte, id_tracker.name.as_ref()).is_none() {
                         // progress without any data
                         data_sender
                             .send(InternalMessage::OnGoing(token.clone(), percentage))
                             .into_diagnostic()?;
                         continue;
                     }
-                    &FullTextDocument::new("nu".to_string(), 0, content_string.into())
+                    &FullTextDocument::new(
+                        "nu".to_string(),
+                        0,
+                        String::from_utf8_lossy(&file_content_byte).into(),
+                    )
                 };
                 let _ = Self::find_reference_in_file(&mut working_set, file, fp, &mut id_tracker)
                     .map(|mut refs| {
@@ -444,7 +440,6 @@ impl LanguageServer {
                             .unwrap_or(Span::unknown());
                         if let Some(extra_span) = Self::reference_not_in_ast(
                             &id_tracker.id,
-                            &id_tracker.name,
                             &working_set,
                             definition_span,
                             file_span,
@@ -1141,7 +1136,7 @@ mod tests {
         let (client_connection, _recv) = initialize_language_server(None, None);
         open_unchecked(&client_connection, script.clone());
 
-        let message = send_document_highlight_request(&client_connection, script, 8, 0);
+        let message = send_document_highlight_request(&client_connection, script.clone(), 8, 0);
         let Message::Response(r) = message else {
             panic!("unexpected message type");
         };
@@ -1150,6 +1145,18 @@ mod tests {
             serde_json::json!([
                 { "range": { "start": { "line": 6, "character": 26 }, "end": { "line": 6, "character": 33 } }, "kind": 1 },
                 { "range": { "start": { "line": 8, "character": 1 }, "end": { "line": 8, "character": 8 } }, "kind": 1 },
+            ]),
+        );
+
+        let message = send_document_highlight_request(&client_connection, script, 10, 7);
+        let Message::Response(r) = message else {
+            panic!("unexpected message type");
+        };
+        assert_json_eq!(
+            r.result,
+            serde_json::json!([
+                { "range": { "start": { "line": 10, "character": 4 }, "end": { "line": 10, "character": 12 } }, "kind": 1 },
+                { "range": { "start": { "line": 11, "character": 1 }, "end": { "line": 11, "character": 8 } }, "kind": 1 },
             ]),
         );
     }

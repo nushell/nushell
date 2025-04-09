@@ -40,10 +40,10 @@ mod workspace;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Id {
-    Variable(VarId),
+    Variable(VarId, Box<[u8]>),
     Declaration(DeclId),
     Value(Type),
-    Module(ModuleId, Vec<u8>),
+    Module(ModuleId, Box<[u8]>),
     CellPath(VarId, Vec<PathMember>),
     External(String),
 }

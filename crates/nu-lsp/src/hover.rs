@@ -142,7 +142,7 @@ impl LanguageServer {
         };
 
         match id {
-            Id::Variable(var_id) => {
+            Id::Variable(var_id, _) => {
                 let var = working_set.get_variable(var_id);
                 let value = var
                     .const_val
