@@ -9,7 +9,11 @@ pub(crate) fn parse_date_from_string(
         Ok((native_dt, fixed_offset)) => {
             let offset = match fixed_offset {
                 Some(offset) => offset,
-                None => *(Local::now().offset()),
+                None => *Local
+                    .from_local_datetime(&native_dt)
+                    .single()
+                    .unwrap_or_default()
+                    .offset(),
             };
             match offset.from_local_datetime(&native_dt) {
                 LocalResult::Single(d) => Ok(d),
