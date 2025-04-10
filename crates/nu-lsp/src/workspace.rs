@@ -157,6 +157,8 @@ impl LanguageServer {
         timeout: u128,
     ) -> Option<Vec<Location>> {
         self.occurrences = BTreeMap::new();
+        // start with a clean engine state
+        self.need_parse = true;
         let path_uri = params.text_document_position.text_document.uri.to_owned();
         let mut engine_state = self.new_engine_state(Some(&path_uri));
 
@@ -181,6 +183,8 @@ impl LanguageServer {
             name: String::from_utf8_lossy(working_set.get_span_contents(span)).to_string(),
             renewed: false,
         };
+        // make sure the parsing result of current file is merged in the state
+        let engine_state = self.new_engine_state(Some(&path_uri));
 
         self.channels = self
             .find_reference_in_workspace(
@@ -226,6 +230,8 @@ impl LanguageServer {
         let params: TextDocumentPositionParams =
             serde_json::from_value(request.params).into_diagnostic()?;
         self.occurrences = BTreeMap::new();
+        // start with a clean engine state
+        self.need_parse = true;
 
         let path_uri = params.text_document.uri.to_owned();
         let mut engine_state = self.new_engine_state(Some(&path_uri));
@@ -271,6 +277,9 @@ impl LanguageServer {
             name: String::from_utf8_lossy(working_set.get_span_contents(span)).to_string(),
             renewed: false,
         };
+        // make sure the parsing result of current file is merged in the state
+        let engine_state = self.new_engine_state(Some(&path_uri));
+
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,
@@ -296,9 +305,9 @@ impl LanguageServer {
             false,
         );
         // NOTE: Renew the id if there's a module with the same span as the original file.
-        // This requires that the initial parsing results get merged in the engine_state,
-        // typically they're cached with diagnostics before the prepare_rename/references requests,
-        // so that we don't need to clone and merge delta again.
+        // This requires that the initial parsing results get merged in the engine_state.
+        // Pay attention to the `self.need_parse = true` and `merge_delta` assignments
+        // in function `prepare_rename`/`references`
         if (!id_tracker.renewed)
             && working_set
                 .find_module_by_span(id_tracker.file_span)
@@ -682,28 +691,35 @@ mod tests {
 
     #[test]
     fn quoted_command_reference_in_workspace() {
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("workspace");
+        let mut script_path = fixtures();
+        script_path.push("lsp");
+        script_path.push("workspace");
         let (client_connection, _recv) = initialize_language_server(
             None,
             serde_json::to_value(InitializeParams {
                 workspace_folders: Some(vec![WorkspaceFolder {
-                    uri: path_to_uri(&script),
+                    uri: path_to_uri(&script_path),
                     name: "random name".to_string(),
                 }]),
                 ..Default::default()
             })
             .ok(),
         );
-        script.push("foo.nu");
-        let script = path_to_uri(&script);
+        script_path.push("bar.nu");
+        let script = path_to_uri(&script_path);
+        script_path.pop();
+        script_path.push("foo.nu");
+        let script_foo = path_to_uri(&script_path);
 
         open_unchecked(&client_connection, script.clone());
+        // to mimic switching back and forth in editors,
+        // note this action will trigger parsing for diagnostics,
+        // thus changing the cached `StateDelta`
+        open_unchecked(&client_connection, script_foo);
 
         let message_num = 5;
         let messages =
-            send_reference_request(&client_connection, script.clone(), 6, 12, message_num);
+            send_reference_request(&client_connection, script.clone(), 0, 23, message_num);
         assert_eq!(messages.len(), message_num);
         for message in messages {
             match message {
@@ -713,14 +729,14 @@ mod tests {
                     let array = result.as_array().unwrap();
                     assert!(array.contains(&serde_json::json!(
                             {
-                                "uri": script.to_string().replace("foo", "bar"),
+                                "uri": script.to_string(),
                                 "range": { "start": { "line": 5, "character": 4 }, "end": { "line": 5, "character": 11 } }
                             }
                         )
                     ));
                     assert!(array.contains(&serde_json::json!(
                             {
-                                "uri": script.to_string(),
+                                "uri": script.to_string().replace("bar", "foo"),
                                 "range": { "start": { "line": 6, "character": 13 }, "end": { "line": 6, "character": 20 } }
                             }
                         )
