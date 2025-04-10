@@ -192,6 +192,8 @@ impl LanguageServer {
             .unwrap_or(ProgressToken::Number(1));
 
         let id_tracker = IDTracker::new(id, span, file_span, &working_set);
+        // make sure the parsing result of current file is merged in the state
+        let engine_state = self.new_engine_state(Some(&path_uri));
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,
@@ -277,6 +279,8 @@ impl LanguageServer {
             .ok_or_else(|| miette!("\nCurrent file is not in any workspace"))?;
         // now continue parsing on other files in the workspace
         let id_tracker = IDTracker::new(id, span, file_span, &working_set);
+        // make sure the parsing result of current file is merged in the state
+        let engine_state = self.new_engine_state(Some(&path_uri));
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,
@@ -738,14 +742,14 @@ mod tests {
                     let array = result.as_array().unwrap();
                     assert!(array.contains(&serde_json::json!(
                             {
-                                "uri": script.to_string(),
+                                "uri": script,
                                 "range": { "start": { "line": 5, "character": 4 }, "end": { "line": 5, "character": 11 } }
                             }
                         )
                     ));
                     assert!(array.contains(&serde_json::json!(
                             {
-                                "uri": script,
+                                "uri": script.to_string().replace("bar", "foo"),
                                 "range": { "start": { "line": 6, "character": 13 }, "end": { "line": 6, "character": 20 } }
                             }
                         )
