@@ -103,19 +103,19 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                         {
                             completion_options.case_sensitive = case_sensitive;
                         }
+                        let positional =
+                            options.get("positional").and_then(|val| val.as_bool().ok());
+                        if let Some(_positional) = positional {
+                            log::warn!("Use of the positional option is deprecated. Use the substring match algorithm instead.");
+                        }
                         if let Some(algorithm) = options
                             .get("completion_algorithm")
                             .and_then(|option| option.coerce_string().ok())
                             .and_then(|option| option.try_into().ok())
                         {
                             completion_options.match_algorithm = algorithm;
-                            if let Some(positional) =
-                                options.get("positional").and_then(|val| val.as_bool().ok())
-                            {
-                                log::warn!("Use of the positional option is deprecated. Use the substring match algorithm instead.");
-                                if !positional
-                                    && completion_options.match_algorithm == MatchAlgorithm::Prefix
-                                {
+                            if let Some(false) = positional {
+                                if completion_options.match_algorithm == MatchAlgorithm::Prefix {
                                     completion_options.match_algorithm = MatchAlgorithm::Substring
                                 }
                             }

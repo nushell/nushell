@@ -234,7 +234,6 @@ fn customcompletions_override_options() {
         &["Foo Abcdef", "Abcdef", "Acd Bar"],
     );
 
-    // positional: false should make it do substring matching
     // sort: true should force sorting
     let expected: Vec<_> = vec!["Abcdef", "Foo Abcdef"];
     let suggestions = completer.complete("my-command Abcd", 15);
