@@ -79,7 +79,7 @@ def borrow-minute [from: record, current: record] {
 
 def borrow-second [from: record, current: record] {
     mut current = $current
-    $current.nanosecond = $current.nanosecond + 1_000_000_000
+    $current.millisecond = $current.millisecond + 1_000
     $current.second = $current.second - 1
     if $current.second < 0 {
         $current = (borrow-minute $from $current)
@@ -88,19 +88,41 @@ def borrow-second [from: record, current: record] {
     $current
 }
 
+def borrow-millisecond [from: record, current: record] {
+    mut current = $current
+    $current.microsecond = $current.microsecond + 1_000
+    $current.millisecond = $current.millisecond - 1
+    if $current.millisecond < 0 {
+        $current = (borrow-second $from $current)
+    }
+
+    $current
+}
+
+def borrow-microsecond [from: record, current: record] {
+    mut current = $current
+    $current.nanosecond = $current.nanosecond + 1_000
+    $current.microsecond = $current.microsecond - 1
+    if $current.microsecond < 0 {
+        $current = (borrow-borrow-millisecond $from $current)
+    }
+
+    $current
+}
+
 # Subtract later from earlier datetime and return the unit differences as a record
 @example "Get the difference between two dates" {
-    dt datetime-diff 2023-05-07T04:08:45+12:00 2019-05-10T09:59:12-07:00
+    dt datetime-diff 2023-05-07T04:08:45.582926123+12:00 2019-05-10T09:59:12.967486456-07:00
 } --result {
     year: 3,
     month: 11,
     day: 26,
     hour: 23,
     minute: 9,
-    second: 33,
-    millisecond: 0,
-    microsecond: 0,
-    nanosecond: 0,
+    second: 32,
+    millisecond: 615,
+    microsecond: 439,
+    nanosecond: 667,
 }
 export def datetime-diff [
     later: datetime, # a later datetime
@@ -149,14 +171,20 @@ export def datetime-diff [
         $result = (borrow-minute $from_expanded $result)
     }
 
-    $result.nanosecond = $from_expanded.nanosecond - $to_expanded.nanosecond
-    if $result.nanosecond < 0 {
+    $result.millisecond = $from_expanded.millisecond - $to_expanded.millisecond
+    if $result.millisecond < 0 {
         $result = (borrow-second $from_expanded $result)
     }
 
-    $result.millisecond = ($result.nanosecond / 1_000_000 | into int) # don't want a float
-    $result.microsecond = (($result.nanosecond mod 1_000_000) / 1_000 | into int)
-    $result.nanosecond = ($result.nanosecond mod 1_000 | into int)
+    $result.microsecond = $from_expanded.microsecond - $to_expanded.microsecond
+    if $result.microsecond < 0 {
+        $result = (borrow-millisecond $from_expanded $result)
+    }
+
+    $result.nanosecond = $from_expanded.nanosecond - $to_expanded.nanosecond
+    if $result.nanosecond < 0 {
+        $result = (borrow-microsecond $from_expanded $result)
+    }
 
     $result
 }
