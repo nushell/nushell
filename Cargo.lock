@@ -3821,6 +3821,7 @@ dependencies = [
  "lsp-server",
  "lsp-textdocument",
  "lsp-types",
+ "memchr",
  "miette",
  "nu-cli",
  "nu-cmd-lang",

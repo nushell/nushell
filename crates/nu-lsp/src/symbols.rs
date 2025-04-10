@@ -110,7 +110,7 @@ impl SymbolCache {
                     range: span_to_range(&span, doc, doc_span.start),
                 })
             }
-            Id::Variable(var_id) => {
+            Id::Variable(var_id, _) => {
                 let var = working_set.get_variable(var_id);
                 let span = var.declaration_span;
                 if !doc_span.contains(span.start) || span.end == span.start {
@@ -124,7 +124,7 @@ impl SymbolCache {
                     range,
                 })
             }
-            Id::Module(module_id) => {
+            Id::Module(module_id, _) => {
                 let module = working_set.get_module(module_id);
                 let span = module.span?;
                 if !doc_span.contains(span.start) {
@@ -157,7 +157,7 @@ impl SymbolCache {
             .chain((0..working_set.num_vars()).filter_map(|id| {
                 Self::get_symbol_by_id(
                     working_set,
-                    Id::Variable(VarId::new(id)),
+                    Id::Variable(VarId::new(id), [].into()),
                     doc,
                     &cached_file.covered_span,
                 )
@@ -165,7 +165,7 @@ impl SymbolCache {
             .chain((0..working_set.num_modules()).filter_map(|id| {
                 Self::get_symbol_by_id(
                     working_set,
-                    Id::Module(ModuleId::new(id)),
+                    Id::Module(ModuleId::new(id), [].into()),
                     doc,
                     &cached_file.covered_span,
                 )
@@ -236,7 +236,7 @@ impl SymbolCache {
             self.cache
                 .get(uri)?
                 .iter()
-                .map(|s| s.clone().to_symbol_information(uri))
+                .map(|s| s.to_symbol_information(uri))
                 .collect(),
         )
     }
@@ -250,7 +250,7 @@ impl SymbolCache {
         );
         self.cache
             .iter()
-            .flat_map(|(uri, symbols)| symbols.iter().map(|s| s.clone().to_symbol_information(uri)))
+            .flat_map(|(uri, symbols)| symbols.iter().map(|s| s.to_symbol_information(uri)))
             .filter_map(|s| {
                 let mut buf = Vec::new();
                 let name = Utf32Str::new(&s.name, &mut buf);
@@ -361,7 +361,7 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_document_symbol_request(&client_connection, script.clone());
+        let resp = send_document_symbol_request(&client_connection, script);
 
         assert_json_eq!(result_from_message(resp), serde_json::json!([]));
     }
@@ -470,7 +470,7 @@ mod tests {
         script.push("bar.nu");
         let script_bar = path_to_uri(&script);
 
-        open_unchecked(&client_connection, script_foo.clone());
+        open_unchecked(&client_connection, script_foo);
         open_unchecked(&client_connection, script_bar.clone());
         let resp = send_workspace_symbol_request(&client_connection, "br".to_string());
 
@@ -531,7 +531,7 @@ mod tests {
         let script_bar = path_to_uri(&script);
 
         open_unchecked(&client_connection, script_foo.clone());
-        open_unchecked(&client_connection, script_bar.clone());
+        open_unchecked(&client_connection, script_bar);
         let resp = send_workspace_symbol_request(&client_connection, "foo".to_string());
 
         assert_json_eq!(

@@ -18,6 +18,7 @@ crossbeam-channel = { workspace = true }
 lsp-server = { workspace = true }
 lsp-textdocument = { workspace = true }
 lsp-types = { workspace = true }
+memchr = { workspace = true }
 miette = { workspace = true }
 nucleo-matcher = { workspace = true }
 serde = { workspace = true }

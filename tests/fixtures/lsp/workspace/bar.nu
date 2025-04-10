@@ -1,4 +1,4 @@
-use foo.nu [ foooo "foo str" ]
+use ./foo.nu [ foooo "foo str" ]
 
 export def "bar str" [
 ] {
