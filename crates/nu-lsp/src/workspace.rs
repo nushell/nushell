@@ -70,6 +70,8 @@ impl IDTracker {
     fn new(id: Id, span: Span, file_span: Span, working_set: &StateWorkingSet) -> Self {
         let name = match &id {
             Id::Variable(_, name) | Id::Module(_, name) => name.clone(),
+            // NOTE: search by the canonical command name, some weird aliasing will be missing
+            Id::Declaration(decl_id) => working_set.get_decl(*decl_id).name().as_bytes().into(),
             _ => working_set.get_span_contents(span).into(),
         };
         Self {
@@ -891,6 +893,95 @@ mod tests {
                 changs_bar.contains(
                 &serde_json::json!({
                     "range": { "start": { "line": 0, "character": 22 }, "end": { "line": 0, "character": 29 } },
+                    "newText": "new"
+                })
+            ));
+        } else {
+            panic!()
+        }
+    }
+
+    #[test]
+    fn rename_module_command() {
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("workspace");
+        let (client_connection, _recv) = initialize_language_server(
+            None,
+            serde_json::to_value(InitializeParams {
+                workspace_folders: Some(vec![WorkspaceFolder {
+                    uri: path_to_uri(&script),
+                    name: "random name".to_string(),
+                }]),
+                ..Default::default()
+            })
+            .ok(),
+        );
+        script.push("baz.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let message_num = 6;
+        let messages = send_rename_prepare_request(
+            &client_connection,
+            script.clone(),
+            1,
+            47,
+            message_num,
+            false,
+        );
+        assert_eq!(messages.len(), message_num);
+        let mut has_response = false;
+        for message in messages {
+            match message {
+                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
+                Message::Response(r) => {
+                    has_response = true;
+                    assert_json_eq!(
+                        r.result,
+                        serde_json::json!({
+                            "start": { "line": 1, "character": 41 },
+                            "end": { "line": 1, "character": 56 }
+                        }),
+                    )
+                }
+                _ => panic!("unexpected message type"),
+            }
+        }
+        assert!(has_response);
+
+        if let Message::Response(r) = send_rename_request(&client_connection, script.clone(), 6, 11)
+        {
+            let changes = r.result.unwrap()["changes"].clone();
+            assert_json_eq!(
+                changes[script.to_string().replace("baz", "foo")],
+                serde_json::json!([
+                    {
+                        "range": { "start": { "line": 10, "character": 16 }, "end": { "line": 10, "character": 29 } },
+                        "newText": "new"
+                    }
+                ])
+            );
+            let changs_baz = changes[script.to_string()].as_array().unwrap();
+            assert!(
+                changs_baz.contains(
+                &serde_json::json!({
+                    "range": { "start": { "line": 1, "character": 41 }, "end": { "line": 1, "character": 56 } },
+                    "newText": "new"
+                })
+            ));
+            assert!(
+                changs_baz.contains(
+                &serde_json::json!({
+                    "range": { "start": { "line": 2, "character": 0 }, "end": { "line": 2, "character": 5 } },
+                    "newText": "new"
+                })
+            ));
+            assert!(
+                changs_baz.contains(
+                &serde_json::json!({
+                    "range": { "start": { "line": 9, "character": 20 }, "end": { "line": 9, "character": 33 } },
                     "newText": "new"
                 })
             ));

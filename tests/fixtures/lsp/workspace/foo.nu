@@ -8,7 +8,7 @@ export  def "foo str" [] { "foo" }
 
 export module "mod name" {
   export module "sub module" {
-    export def "cmd name" [] { }
+    export def "cmd name long" [] { }
   }
 }
 
