@@ -49,14 +49,15 @@ fn command_name_span_from_call_head(
     let head_content = working_set.get_span_contents(head_span);
     let mut head_words = head_content.split(|c| *c == b' ').collect::<Vec<_>>();
     let mut name_words = name.split(' ').collect::<Vec<_>>();
-    let mut matched_len = 0;
-    while let Some(word) = name_words.pop() {
+    let mut matched_len = name_words.len() - 1;
+    while let Some(name_word) = name_words.pop() {
         while let Some(head_word) = head_words.pop() {
-            if head_word.is_empty() && !word.is_empty() {
+            // for extra spaces, like those in the `command    name` example
+            if head_word.is_empty() && !name_word.is_empty() {
                 matched_len += 1;
                 continue;
             }
-            if word.as_bytes() == head_word {
+            if name_word.as_bytes() == head_word {
                 matched_len += head_word.len();
                 break;
             } else {
@@ -67,9 +68,6 @@ fn command_name_span_from_call_head(
         }
         if name_words.len() > head_words.len() {
             return head_span;
-        }
-        if !name_words.is_empty() {
-            matched_len += 1;
         }
     }
     Span::new(head_span.end.saturating_sub(matched_len), head_span.end)
