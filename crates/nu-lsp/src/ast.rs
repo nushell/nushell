@@ -2,7 +2,7 @@ use crate::Id;
 use nu_protocol::{
     ast::{Argument, Block, Call, Expr, Expression, FindMapResult, ListItem, PathMember, Traverse},
     engine::StateWorkingSet,
-    ModuleId, Span,
+    DeclId, ModuleId, Span,
 };
 use std::sync::Arc;
 
@@ -22,6 +22,55 @@ fn strip_quotes(span: Span, working_set: &StateWorkingSet) -> (Box<[u8]>, Span) 
     } else {
         (text.into(), span)
     }
+}
+
+/// Trim leading `$` sign For variable references `$foo`
+fn strip_dollar_sign(span: Span, working_set: &StateWorkingSet<'_>) -> (Box<[u8]>, Span) {
+    let content = working_set.get_span_contents(span);
+    if content.starts_with(b"$") {
+        (
+            content[1..].into(),
+            Span::new(span.start.saturating_add(1), span.end),
+        )
+    } else {
+        (content.into(), span)
+    }
+}
+
+/// For a command call with head span content of `module name command    name`,
+/// return the span of `command    name`,
+/// while the actual command name is simply `command name`
+fn command_name_span_from_call_head(
+    working_set: &StateWorkingSet,
+    decl_id: DeclId,
+    head_span: Span,
+) -> Span {
+    let name = working_set.get_decl(decl_id).name();
+    let head_content = working_set.get_span_contents(head_span);
+    let mut head_words = head_content.split(|c| *c == b' ').collect::<Vec<_>>();
+    let mut name_words = name.split(' ').collect::<Vec<_>>();
+    let mut matched_len = name_words.len() - 1;
+    while let Some(name_word) = name_words.pop() {
+        while let Some(head_word) = head_words.pop() {
+            // for extra spaces, like those in the `command    name` example
+            if head_word.is_empty() && !name_word.is_empty() {
+                matched_len += 1;
+                continue;
+            }
+            if name_word.as_bytes() == head_word {
+                matched_len += head_word.len();
+                break;
+            } else {
+                // no such command name substring in head span
+                // probably an alias command, returning the whole head span
+                return head_span;
+            }
+        }
+        if name_words.len() > head_words.len() {
+            return head_span;
+        }
+    }
+    Span::new(head_span.end.saturating_sub(matched_len), head_span.end)
 }
 
 fn try_find_id_in_misc(
@@ -86,8 +135,8 @@ fn try_find_id_in_def(
         // for defs inside def
         // TODO: get scope by position
         // https://github.com/nushell/nushell/issues/15291
-        (0..working_set.num_decls()).find_map(|id| {
-            let decl_id = nu_protocol::DeclId::new(id);
+        (0..working_set.num_decls()).rev().find_map(|id| {
+            let decl_id = DeclId::new(id);
             let decl = working_set.get_decl(decl_id);
             let span = working_set.get_block(decl.block_id()?).span?;
             call.span().contains_span(span).then_some(decl_id)
@@ -139,7 +188,7 @@ fn try_find_id_in_mod(
                     }
                     let block_span = call.arguments.last()?.span();
                     (0..working_set.num_modules())
-                        .find(|id| {
+                        .rfind(|id| {
                             (any_id || id_num_ref == *id)
                                 && working_set.get_module(ModuleId::new(*id)).span.is_some_and(
                                     |mod_span| {
@@ -360,19 +409,6 @@ fn try_find_id_in_overlay(
     None
 }
 
-/// Trim leading `$` sign For variable references `$foo`
-fn strip_dollar_sign(span: Span, working_set: &StateWorkingSet<'_>) -> (Box<[u8]>, Span) {
-    let content = working_set.get_span_contents(span);
-    if content.starts_with(b"$") {
-        (
-            content[1..].into(),
-            Span::new(span.start.saturating_add(1), span.end),
-        )
-    } else {
-        (content.into(), span)
-    }
-}
-
 fn find_id_in_expr(
     expr: &Expression,
     working_set: &StateWorkingSet,
@@ -390,7 +426,8 @@ fn find_id_in_expr(
         }
         Expr::Call(call) => {
             if call.head.contains(*location) {
-                FindMapResult::Found((Id::Declaration(call.decl_id), call.head))
+                let span = command_name_span_from_call_head(working_set, call.decl_id, call.head);
+                FindMapResult::Found((Id::Declaration(call.decl_id), span))
             } else {
                 try_find_id_in_misc(call, working_set, Some(location), None)
                     .map(FindMapResult::Found)
@@ -482,7 +519,11 @@ fn find_reference_by_id_in_expr(
                 .flat_map(|e| e.flat_map(working_set, &closure))
                 .collect();
             if matches!(id, Id::Declaration(decl_id) if call.decl_id == *decl_id) {
-                occurs.push(call.head);
+                occurs.push(command_name_span_from_call_head(
+                    working_set,
+                    call.decl_id,
+                    call.head,
+                ));
                 return Some(occurs);
             }
             if let Some((_, span_found)) = try_find_id_in_misc(call, working_set, None, Some(id)) {
