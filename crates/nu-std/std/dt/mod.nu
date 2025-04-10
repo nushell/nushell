@@ -104,7 +104,7 @@ def borrow-microsecond [from: record, current: record] {
     $current.nanosecond = $current.nanosecond + 1_000
     $current.microsecond = $current.microsecond - 1
     if $current.microsecond < 0 {
-        $current = (borrow-borrow-millisecond $from $current)
+        $current = (borrow-millisecond $from $current)
     }
 
     $current
