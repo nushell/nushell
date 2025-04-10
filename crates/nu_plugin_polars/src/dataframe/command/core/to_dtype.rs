@@ -27,8 +27,8 @@ impl PluginCommand for ToDataType {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Convert a string to a specific datatype",
-            example: r#""i64" | polars into-dtype"#,
+            description: "Convert a string to a specific datatype and back to a nu object",
+            example: r#"'i64' | polars into-dtype | polars into-nu"#,
             result: Some(Value::string("i64", Span::test_data())),
         }]
     }
@@ -52,4 +52,17 @@ fn command(
 ) -> Result<nu_protocol::PipelineData, ShellError> {
     NuDataType::try_from_pipeline(plugin, input, call.head)?
         .to_pipeline_data(plugin, engine, call.head)
+}
+
+#[cfg(test)]
+mod test {
+    use crate::test::test_polars_plugin_command;
+
+    use super::*;
+    use nu_protocol::ShellError;
+
+    #[test]
+    fn test_into_dtype() -> Result<(), ShellError> {
+        test_polars_plugin_command(&ToDataType)
+    }
 }

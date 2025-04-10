@@ -27,8 +27,8 @@ impl PluginCommand for ToSchema {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Convert a record into a schema",
-            example: r#"{a: str, b: u8} | polars into-schema"#,
+            description: "Convert a record into a schema and back to a nu object",
+            example: r#"{a: str, b: u8} | polars into-schema | polars into-nu"#,
             result: Some(Value::record(
                 record! {
                     "a" => Value::string("str", Span::test_data()),
@@ -58,4 +58,17 @@ fn command(
 ) -> Result<nu_protocol::PipelineData, ShellError> {
     NuSchema::try_from_pipeline(plugin, input, call.head)?
         .to_pipeline_data(plugin, engine, call.head)
+}
+
+#[cfg(test)]
+mod test {
+    use crate::test::test_polars_plugin_command;
+
+    use super::*;
+    use nu_protocol::ShellError;
+
+    #[test]
+    fn test_into_schema() -> Result<(), ShellError> {
+        test_polars_plugin_command(&ToSchema)
+    }
 }
