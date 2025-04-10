@@ -50,7 +50,7 @@ impl PluginCommand for ToLazyFrame {
             },
             Example {
                 description: "Use a predefined schama",
-                example: r#"let schema = {a: str, b: str}; [[a b]; [1 "foo"] [2 "bar"]] | polars into-lazy -s {a: str, b: str}"#,
+                example: r#"let schema = {a: str, b: str}; [[a b]; [1 "foo"] [2 "bar"]] | polars into-lazy -s $schema"#,
                 result: Some(NuDataFrame::try_from_series_vec(vec![
                         Series::new("a".into(), ["1", "2"]),
                         Series::new("b".into(), ["foo", "bar"]),
