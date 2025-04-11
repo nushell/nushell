@@ -1,5 +1,5 @@
 use crate::{generate_strftime_list, parse_date_from_string};
-use chrono::{DateTime, Locale, TimeZone};
+use chrono::{DateTime, Datelike, Locale, TimeZone};
 use nu_engine::command_prelude::*;
 
 use nu_utils::locale::{get_system_locale_string, LOCALE_OVERRIDE_ENV_VAR};
@@ -228,11 +228,29 @@ fn format_helper(
 fn format_helper_rfc2822(value: Value, span: Span) -> Value {
     let val_span = value.span();
     match value {
-        Value::Date { val, .. } => Value::string(val.to_rfc2822(), span),
+        Value::Date { val, .. } => Value::string(
+            {
+                if val.year() >= 0 {
+                    val.to_rfc2822()
+                } else {
+                    val.to_rfc3339()
+                }
+            },
+            span,
+        ),
         Value::String { val, .. } => {
             let dt = parse_date_from_string(&val, val_span);
             match dt {
-                Ok(x) => Value::string(x.to_rfc2822(), span),
+                Ok(x) => Value::string(
+                    {
+                        if x.year() >= 0 {
+                            x.to_rfc2822()
+                        } else {
+                            x.to_rfc3339()
+                        }
+                    },
+                    span,
+                ),
                 Err(e) => e,
             }
         }
