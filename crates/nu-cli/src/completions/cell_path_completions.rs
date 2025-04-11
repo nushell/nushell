@@ -24,7 +24,10 @@ fn prefix_from_path_member(member: &PathMember, pos: usize) -> (String, Span) {
         .get(..pos + 1 - start)
         .map(str::to_string)
         .unwrap_or(prefix_str);
-    (prefix_str, Span::new(start, pos + 1))
+    // strip wrapping quotes
+    let quotations = ['"', '\'', '`'];
+    let prefix_str = prefix_str.strip_prefix(quotations).unwrap_or(&prefix_str);
+    (prefix_str.to_string(), Span::new(start, pos + 1))
 }
 
 impl Completer for CellPathCompletion<'_> {
@@ -108,14 +111,23 @@ fn get_suggestions_by_value(
     value: &Value,
     current_span: reedline::Span,
 ) -> Vec<SemanticSuggestion> {
-    let to_suggestion = |s: String, v: Option<&Value>| SemanticSuggestion {
-        suggestion: Suggestion {
-            value: s,
-            span: current_span,
-            description: v.map(|v| v.get_type().to_string()),
-            ..Suggestion::default()
-        },
-        kind: Some(SuggestionKind::CellPath),
+    let to_suggestion = |s: String, v: Option<&Value>| {
+        // Check if the string needs quoting (has spaces or punctuation)
+        let value = if s.contains(|c: char| c.is_whitespace() || c.is_ascii_punctuation()) {
+            format!("{:?}", s)
+        } else {
+            s
+        };
+
+        SemanticSuggestion {
+            suggestion: Suggestion {
+                value,
+                span: current_span,
+                description: v.map(|v| v.get_type().to_string()),
+                ..Suggestion::default()
+            },
+            kind: Some(SuggestionKind::CellPath),
+        }
     };
     match value {
         Value::Record { val, .. } => val
