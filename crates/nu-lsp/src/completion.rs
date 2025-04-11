@@ -486,10 +486,10 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
-                    "label": "1",
+                    "label": "\"1\"",
                     "detail": "string",
                     "textEdit": {
-                        "newText": "1",
+                        "newText": "\"1\"",
                         "range": { "start": { "line": 1, "character": 5 }, "end": { "line": 1, "character": 5 } }
                     },
                     "kind": 10

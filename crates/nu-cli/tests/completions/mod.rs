@@ -2010,12 +2010,14 @@ fn table_cell_path_completions() {
 #[test]
 fn quoted_cell_path_completions() {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"let foo = {'foo bar':1 'foo\\"bar"': 1 '.': 1 '|': 1}"#;
+    let command = r#"let foo = {'foo bar':1 'foo\\"bar"': 1 '.': 1 '|': 1 1: 1 "": 1}"#;
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
     let expected: Vec<_> = vec![
+        "\"\"",
         "\".\"",
+        "\"1\"",
         "\"foo bar\"",
         "\"foo\\\\\\\\\\\"bar\\\"\"",
         "\"|\"",

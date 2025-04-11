@@ -17,16 +17,13 @@ pub struct CellPathCompletion<'a> {
 
 fn prefix_from_path_member(member: &PathMember, pos: usize) -> (String, Span) {
     let (prefix_str, start) = match member {
-        PathMember::String { val, span, .. } => (val.clone(), span.start),
-        PathMember::Int { val, span, .. } => (val.to_string(), span.start),
+        PathMember::String { val, span, .. } => (val, span.start),
+        PathMember::Int { val, span, .. } => (&val.to_string(), span.start),
     };
-    let prefix_str = prefix_str
-        .get(..pos + 1 - start)
-        .map(str::to_string)
-        .unwrap_or(prefix_str);
+    let prefix_str = prefix_str.get(..pos + 1 - start).unwrap_or(prefix_str);
     // strip wrapping quotes
     let quotations = ['"', '\'', '`'];
-    let prefix_str = prefix_str.strip_prefix(quotations).unwrap_or(&prefix_str);
+    let prefix_str = prefix_str.strip_prefix(quotations).unwrap_or(prefix_str);
     (prefix_str.to_string(), Span::new(start, pos + 1))
 }
 
@@ -113,9 +110,10 @@ fn get_suggestions_by_value(
 ) -> Vec<SemanticSuggestion> {
     let to_suggestion = |s: String, v: Option<&Value>| {
         // Check if the string needs quoting (has spaces or punctuation)
-        let value = if s.contains(|c: char| {
-            c.is_whitespace() || (c.is_ascii_punctuation() && !(['_', '-'].contains(&c)))
-        }) {
+        let value = if s.is_empty()
+            || s.chars()
+                .any(|c: char| !(c.is_ascii_alphabetic() || ['_', '-'].contains(&c)))
+        {
             format!("{:?}", s)
         } else {
             s
