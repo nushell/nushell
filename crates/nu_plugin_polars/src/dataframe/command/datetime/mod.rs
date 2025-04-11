@@ -1,5 +1,6 @@
 mod as_date;
 mod as_datetime;
+mod convert_time_zone;
 mod datepart;
 mod get_day;
 mod get_hour;
@@ -19,6 +20,7 @@ use nu_plugin::PluginCommand;
 
 pub use as_date::AsDate;
 pub use as_datetime::AsDateTime;
+pub use convert_time_zone::ConvertTimeZone;
 pub use datepart::ExprDatePart;
 pub use get_day::GetDay;
 pub use get_hour::GetHour;
@@ -50,5 +52,6 @@ pub(crate) fn datetime_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPl
         Box::new(GetYear),
         Box::new(StrFTime),
         Box::new(ReplaceTimeZone),
+        Box::new(ConvertTimeZone),
     ]
 }
