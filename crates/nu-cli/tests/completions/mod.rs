@@ -228,14 +228,12 @@ fn customcompletions_override_options() {
     let mut completer = custom_completer_with_options(
         r#"$env.config.completions.algorithm = "fuzzy"
            $env.config.completions.case_sensitive = false"#,
-        r#"completion_algorithm: "prefix",
-           positional: false,
+        r#"completion_algorithm: "substring",
            case_sensitive: true,
            sort: true"#,
         &["Foo Abcdef", "Abcdef", "Acd Bar"],
     );
 
-    // positional: false should make it do substring matching
     // sort: true should force sorting
     let expected: Vec<_> = vec!["Abcdef", "Foo Abcdef"];
     let suggestions = completer.complete("my-command Abcd", 15);
