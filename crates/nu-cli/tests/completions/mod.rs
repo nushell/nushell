@@ -2006,6 +2006,35 @@ fn table_cell_path_completions() {
 }
 
 #[test]
+fn quoted_cell_path_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"let foo = {'foo bar':1 'foo\\"bar"': 1 '.': 1 '|': 1 1: 1 "": 1}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let expected: Vec<_> = vec![
+        "\"\"",
+        "\".\"",
+        "\"1\"",
+        "\"foo bar\"",
+        "\"foo\\\\\\\\\\\"bar\\\"\"",
+        "\"|\"",
+    ];
+    let completion_str = "$foo.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let expected: Vec<_> = vec!["\"foo bar\"", "\"foo\\\\\\\\\\\"bar\\\"\""];
+    let completion_str = "$foo.`foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "$foo.foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
 fn alias_of_command_and_flags() {
     let (_, _, mut engine, mut stack) = new_engine();
 
