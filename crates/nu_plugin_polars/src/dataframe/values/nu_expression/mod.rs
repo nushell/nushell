@@ -126,6 +126,16 @@ impl ExtractedExpr {
             Value::Custom { .. } => NuExpression::try_from_value(plugin, &value)
                 .map(NuExpression::into_polars)
                 .map(ExtractedExpr::Single),
+            Value::Record { val, .. } => val
+                .iter()
+                .map(|(key, value)| {
+                    NuExpression::try_from_value(plugin, value)
+                        .map(NuExpression::into_polars)
+                        .map(|expr| expr.alias(key))
+                        .map(ExtractedExpr::Single)
+                })
+                .collect::<Result<Vec<ExtractedExpr>, ShellError>>()
+                .map(ExtractedExpr::List),
             Value::List { vals, .. } => vals
                 .into_iter()
                 .map(|x| Self::extract_exprs(plugin, x))
