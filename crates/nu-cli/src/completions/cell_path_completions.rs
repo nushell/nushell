@@ -109,7 +109,7 @@ fn get_suggestions_by_value(
     current_span: reedline::Span,
 ) -> Vec<SemanticSuggestion> {
     let to_suggestion = |s: String, v: Option<&Value>| {
-        // Check if the string needs quoting (has spaces or punctuation)
+        // Check if the string needs quoting
         let value = if s.is_empty()
             || s.chars()
                 .any(|c: char| !(c.is_ascii_alphabetic() || ['_', '-'].contains(&c)))
