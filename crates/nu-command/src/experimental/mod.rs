@@ -3,6 +3,7 @@ mod job;
 mod job_kill;
 mod job_list;
 mod job_spawn;
+mod job_tag;
 
 #[cfg(all(unix, feature = "os"))]
 mod job_unfreeze;
