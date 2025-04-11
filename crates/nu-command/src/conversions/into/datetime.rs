@@ -458,13 +458,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     }
                 },
                 Err(reason) => {
-                    match NaiveDateTime::parse_from_str(val, &dt_format.item.0) {
-                        Ok(d) => {
-                            let dt_fixed =
-                                Local.from_local_datetime(&d).single().unwrap_or_default();
-
-                            Value::date(dt_fixed.into(),head)
-                        }
+                    match parse_with_format(val, &dt_format.item.0, head) {
+                        Ok(parsed) => parsed,
                         Err(_) => {
                             Value::error (
                                 ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt_format.item.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
@@ -806,6 +801,34 @@ fn parse_timezone_from_record(
             *span,
         )),
     }
+}
+
+fn parse_with_format(val: &str, fmt: &str, head: Span) -> Result<Value, ()> {
+    // try parsing at date + time
+    if let Ok(dt) = NaiveDateTime::parse_from_str(val, fmt) {
+        let dt_native = Local.from_local_datetime(&dt).single().unwrap_or_default();
+        return Ok(Value::date(dt_native.into(), head));
+    }
+
+    // try parsing at date only
+    if let Ok(date) = NaiveDate::parse_from_str(val, fmt) {
+        if let Some(dt) = date.and_hms_opt(0, 0, 0) {
+            let dt_native = Local.from_local_datetime(&dt).single().unwrap_or_default();
+            return Ok(Value::date(dt_native.into(), head));
+        }
+    }
+
+    // try parsing at time only
+    if let Ok(time) = NaiveTime::parse_from_str(val, fmt) {
+        let now = Local::now().naive_local().date();
+        let dt_native = Local
+            .from_local_datetime(&now.and_time(time))
+            .single()
+            .unwrap_or_default();
+        return Ok(Value::date(dt_native.into(), head));
+    }
+
+    Err(())
 }
 
 #[cfg(test)]
