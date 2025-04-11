@@ -62,17 +62,12 @@ impl LanguageServer {
         suggestion: SemanticSuggestion,
         range: Range,
     ) -> CompletionItem {
-        let decl_id = suggestion.kind.as_ref().and_then(|kind| {
-            matches!(kind, SuggestionKind::Command(_))
-                .then_some(engine_state.find_decl(suggestion.suggestion.value.as_bytes(), &[])?)
-        });
-
         let mut snippet_text = suggestion.suggestion.value.clone();
         let mut doc_string = suggestion.suggestion.extra.map(|ex| ex.join("\n"));
         let mut insert_text_format = None;
         let mut idx = 0;
         // use snippet as `insert_text_format` for command argument completion
-        if let Some(decl_id) = decl_id {
+        if let Some(SuggestionKind::Command(_, Some(decl_id))) = suggestion.kind {
             let cmd = engine_state.get_decl(decl_id);
             doc_string = Some(Self::get_decl_description(cmd, true));
             insert_text_format = Some(InsertTextFormat::SNIPPET);
@@ -138,7 +133,7 @@ impl LanguageServer {
                 .as_ref()
                 .map(|kind| match kind {
                     SuggestionKind::Value(t) => t.to_string(),
-                    SuggestionKind::Command(cmd) => cmd.to_string(),
+                    SuggestionKind::Command(cmd, _) => cmd.to_string(),
                     SuggestionKind::Module => "module".to_string(),
                     SuggestionKind::Operator => "operator".to_string(),
                     SuggestionKind::Variable => "variable".to_string(),
@@ -172,7 +167,7 @@ impl LanguageServer {
                 _ => None,
             },
             SuggestionKind::CellPath => Some(CompletionItemKind::PROPERTY),
-            SuggestionKind::Command(c) => match c {
+            SuggestionKind::Command(c, _) => match c {
                 CommandType::Keyword => Some(CompletionItemKind::KEYWORD),
                 CommandType::Builtin => Some(CompletionItemKind::FUNCTION),
                 CommandType::Alias => Some(CompletionItemKind::REFERENCE),

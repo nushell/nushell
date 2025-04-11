@@ -1,7 +1,7 @@
 use crate::completions::CompletionOptions;
 use nu_protocol::{
     engine::{Stack, StateWorkingSet},
-    Span,
+    DeclId, Span,
 };
 use reedline::Suggestion;
 
@@ -28,7 +28,7 @@ pub struct SemanticSuggestion {
 // TODO: think about name: maybe suggestion context?
 #[derive(Clone, Debug, PartialEq)]
 pub enum SuggestionKind {
-    Command(nu_protocol::engine::CommandType),
+    Command(nu_protocol::engine::CommandType, Option<DeclId>),
     Value(nu_protocol::Type),
     CellPath,
     Directory,

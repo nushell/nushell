@@ -75,7 +75,10 @@ impl CommandCompletion {
                                             append_whitespace: true,
                                             ..Default::default()
                                         },
-                                        kind: Some(SuggestionKind::Command(CommandType::External)),
+                                        kind: Some(SuggestionKind::Command(
+                                            CommandType::External,
+                                            None,
+                                        )),
                                     },
                                 );
                             }
@@ -112,7 +115,7 @@ impl Completer for CommandCompletion {
                 },
                 true,
             );
-            for (name, description, typ) in filtered_commands {
+            for (decl_id, name, description, typ) in filtered_commands {
                 let name = String::from_utf8_lossy(&name);
                 internal_suggs.insert(
                     name.to_string(),
@@ -124,7 +127,7 @@ impl Completer for CommandCompletion {
                             append_whitespace: true,
                             ..Suggestion::default()
                         },
-                        kind: Some(SuggestionKind::Command(typ)),
+                        kind: Some(SuggestionKind::Command(typ, Some(decl_id))),
                     },
                 );
             }
