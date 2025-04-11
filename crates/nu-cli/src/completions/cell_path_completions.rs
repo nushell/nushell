@@ -113,7 +113,9 @@ fn get_suggestions_by_value(
 ) -> Vec<SemanticSuggestion> {
     let to_suggestion = |s: String, v: Option<&Value>| {
         // Check if the string needs quoting (has spaces or punctuation)
-        let value = if s.contains(|c: char| c.is_whitespace() || c.is_ascii_punctuation()) {
+        let value = if s.contains(|c: char| {
+            c.is_whitespace() || (c.is_ascii_punctuation() && !(['_', '-'].contains(&c)))
+        }) {
             format!("{:?}", s)
         } else {
             s
