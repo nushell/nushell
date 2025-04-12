@@ -10,7 +10,7 @@ impl Command for Try {
     }
 
     fn description(&self) -> &str {
-        "Try to run a block, if it fails optionally run a catch closure."
+        "Try to run a block, if it fails optionally run a catch closure. TODO?"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -27,6 +27,14 @@ impl Command for Try {
                     ])),
                 ),
                 "Closure to run if try block fails.",
+            )
+            .optional(
+                "finally_closure",
+                SyntaxShape::Keyword(
+                    b"finally".to_vec(),
+                    Box::new(SyntaxShape::Closure(None)),
+                ),
+                "Optional closure to run always regardless if there was an error in the try block or not",
             )
             .category(Category::Core)
     }
@@ -47,6 +55,7 @@ impl Command for Try {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        dbg!("run");
         let head = call.head;
         // This is compiled specially by the IR compiler. The code here is never used when
         // running in IR mode.
@@ -105,10 +114,20 @@ fn run_catch(
 ) -> Result<PipelineData, ShellError> {
     let error = intercept_block_control(error)?;
 
+    dbg!("running catch");
+
     if let Some(catch) = catch {
+        dbg!("running catch inside ");
         stack.set_last_error(&error);
         let error = error.into_value(&StateWorkingSet::new(engine_state), span);
         let block = engine_state.get_block(catch.block_id);
+
+        // Catch's closure takes at most one argument
+        dbg!(block.signature.required_positional.len());
+        if block.signature.required_positional.len() > 1 {
+            return Err(ShellError::IncompatibleParametersSingle { msg: "catch closure takes at most 1 parameter".to_string(), span });
+        }
+
         // Put the error value in the positional closure var
         if let Some(var) = block.signature.get_positional(0) {
             if let Some(var_id) = &var.var_id {
