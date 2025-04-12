@@ -125,7 +125,10 @@ fn run_catch(
         // Catch's closure takes at most one argument
         dbg!(block.signature.required_positional.len());
         if block.signature.required_positional.len() > 1 {
-            return Err(ShellError::IncompatibleParametersSingle { msg: "catch closure takes at most 1 parameter".to_string(), span });
+            return Err(ShellError::IncompatibleParametersSingle {
+                msg: "catch closure takes at most 1 parameter".to_string(),
+                span,
+            });
         }
 
         // Put the error value in the positional closure var
