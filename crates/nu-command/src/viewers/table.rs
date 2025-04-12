@@ -13,8 +13,8 @@ use nu_engine::{command_prelude::*, env_to_string};
 use nu_path::form::Absolute;
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    shell_error::io::IoError, ByteStream, Config, DataSource, ListStream, PipelineMetadata,
-    Signals, TableMode, ValueIterator,
+    shell_error::io::IoError, ByteStream, Config, DataSource, ListStream, PeekableValueIterator,
+    PipelineMetadata, Signals, TableMode,
 };
 use nu_table::{
     common::configure_table, CollapsedTable, ExpandedTable, JustTable, NuRecordsValue, NuTable,
@@ -805,7 +805,7 @@ fn make_clickable_link(
 
 struct PagingTableCreator {
     head: Span,
-    stream: ValueIterator,
+    stream: PeekableValueIterator,
     engine_state: EngineState,
     stack: Stack,
     elements_displayed: usize,

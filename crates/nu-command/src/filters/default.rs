@@ -143,7 +143,8 @@ fn default(
             .map(|x| x.set_metadata(metadata))
     } else if input.is_nothing()
         || (default_when_empty
-            && matches!(input, PipelineData::Value(ref value, _) if value.is_empty()))
+            && (matches!(input, PipelineData::Value(ref value, _) if value.is_empty()))
+            || matches!(input, PipelineData::ListStream(ref ls, _) if ls.is_empty()))
     {
         Ok(value.into_pipeline_data())
     } else {
