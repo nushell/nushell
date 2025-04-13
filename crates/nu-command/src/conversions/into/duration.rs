@@ -217,7 +217,7 @@ fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     Ok(duration_ns)
 }
 
-fn string_to_duration(s: &str, span: Span, flag: bool) -> Result<i64, ShellError> {
+fn string_to_duration(s: &str, span: Span, has_space: bool) -> Result<i64, ShellError> {
     if let Some(Ok(expression)) = parse_unit_value(
         s.as_bytes(),
         span,
@@ -249,7 +249,7 @@ fn string_to_duration(s: &str, span: Span, flag: bool) -> Result<i64, ShellError
         details: s.to_string(),
         dst_span: span,
         src_span: span,
-        help: Some(if flag {
+        help: Some(if has_space {
             format!("{}\n{}", whitespace_msg, units_msg)
         } else {
             units_msg
