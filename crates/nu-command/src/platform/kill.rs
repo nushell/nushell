@@ -89,7 +89,7 @@ impl Command for Kill {
 
         let mut cmd = build_kill_command(
             force,
-            pids.iter().map(|&pid| pid),
+            pids.iter().copied(),
             signal.map(|spanned| spanned.item as u32),
         );
 
