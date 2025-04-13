@@ -1,6 +1,4 @@
-use nu_engine::{
-    command_prelude::*, get_eval_block, get_eval_expression, get_eval_expression_with_input,
-};
+use nu_engine::command_prelude::*;
 use nu_protocol::{
     engine::{CommandType, StateWorkingSet},
     eval_const::{eval_const_subexpression, eval_constant, eval_constant_with_input},
@@ -60,8 +58,6 @@ impl Command for If {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // This is compiled specially by the IR compiler. The code here is never used when
-        // running in IR mode.
         let call = call.assert_ast_call()?;
         let cond = call.positional_nth(0).expect("checked through parser");
         let then_block = call
@@ -97,43 +93,14 @@ impl Command for If {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        _call: &Call,
+        _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         // This is compiled specially by the IR compiler. The code here is never used when
         // running in IR mode.
-        let call = call.assert_ast_call()?;
-        let cond = call.positional_nth(0).expect("checked through parser");
-        let then_block = call
-            .positional_nth(1)
-            .expect("checked through parser")
-            .as_block()
-            .expect("internal error: missing block");
-        let else_case = call.positional_nth(2);
-
-        let eval_expression = get_eval_expression(engine_state);
-        let eval_expression_with_input = get_eval_expression_with_input(engine_state);
-        let eval_block = get_eval_block(engine_state);
-
-        if eval_expression(engine_state, stack, cond)?.as_bool()? {
-            let block = engine_state.get_block(then_block);
-            eval_block(engine_state, stack, block, input)
-        } else if let Some(else_case) = else_case {
-            if let Some(else_expr) = else_case.as_keyword() {
-                if let Some(block_id) = else_expr.as_block() {
-                    let block = engine_state.get_block(block_id);
-                    eval_block(engine_state, stack, block, input)
-                } else {
-                    eval_expression_with_input(engine_state, stack, else_expr, input)
-                }
-            } else {
-                eval_expression_with_input(engine_state, stack, else_case, input)
-            }
-        } else {
-            Ok(PipelineData::empty())
-        }
+        unreachable!()
     }
 
     fn search_terms(&self) -> Vec<&str> {
