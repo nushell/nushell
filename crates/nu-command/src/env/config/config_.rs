@@ -1,7 +1,10 @@
 use nu_cmd_base::util::get_editor;
 use nu_engine::{command_prelude::*, env_to_strings, get_full_help};
-use nu_protocol::{process::PostWaitCallback, shell_error::io::IoError};
+use nu_protocol::shell_error::io::IoError;
 use nu_system::ForegroundChild;
+
+#[cfg(feature = "os")]
+use nu_protocol::process::PostWaitCallback;
 
 #[derive(Clone)]
 pub struct ConfigMeta;
