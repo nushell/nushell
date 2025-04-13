@@ -1,5 +1,6 @@
 use nu_cmd_base::util::get_editor;
 use nu_engine::{command_prelude::*, env_to_strings, get_full_help};
+use nu_protocol::{process::PostWaitCallback, shell_error::io::IoError};
 use nu_system::ForegroundChild;
 
 #[derive(Clone)]
@@ -61,7 +62,6 @@ pub(super) fn start_editor(
 ) -> Result<PipelineData, ShellError> {
     // Find the editor executable.
 
-    use nu_protocol::shell_error::io::IoError;
     let (editor_name, editor_args) = get_editor(engine_state, stack, call.head)?;
     let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
     let cwd = engine_state.cwd(Some(stack))?;
@@ -119,8 +119,17 @@ pub(super) fn start_editor(
         )
     })?;
 
+    let post_wait_callback = PostWaitCallback::for_job_control(engine_state, None);
+
     // Wrap the output into a `PipelineData::ByteStream`.
-    let child = nu_protocol::process::ChildProcess::new(child, None, false, call.head, None)?;
+    let child = nu_protocol::process::ChildProcess::new(
+        child,
+        None,
+        false,
+        call.head,
+        Some(post_wait_callback),
+    )?;
+
     Ok(PipelineData::ByteStream(
         ByteStream::child(child, call.head),
         None,
