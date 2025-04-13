@@ -50,7 +50,6 @@ impl Command for Kill {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // let pids: Vec<i64> = call.req(engine_state, stack, 0)?;
         let pids: Vec<i64> = call.rest(engine_state, stack, 0)?;
         let force: bool = call.has_flag(engine_state, stack, "force")?;
         let signal: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "signal")?;
