@@ -1,13 +1,19 @@
-use crate::{values::CustomValueSupport, PolarsPlugin};
-
-use super::super::super::values::NuDataFrame;
+use crate::{
+    values::{
+        cant_convert_err, Column, CustomValueSupport, NuDataFrame, NuExpression, NuLazyFrame,
+        NuSchema, PolarsPluginObject, PolarsPluginType,
+    },
+    PolarsPlugin,
+};
+use chrono::DateTime;
+use std::sync::Arc;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
-use polars::prelude::{IntoSeries, StringMethods};
+use polars::prelude::{col, DataType, Field, IntoSeries, Schema, StringMethods, StrptimeOptions};
 
 #[derive(Clone)]
 pub struct AsDate;
@@ -34,10 +40,16 @@ impl PluginCommand for AsDate {
         Signature::build(self.name())
             .required("format", SyntaxShape::String, "formatting date string")
             .switch("not-exact", "the format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01)", Some('n'))
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("dataframe".into()),
+                    Type::Custom("dataframe".into()),
+                ),
+                (
+                    Type::Custom("expression".into()),
+                    Type::Custom("expression".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -46,12 +58,110 @@ impl PluginCommand for AsDate {
             Example {
                 description: "Converts string to date",
                 example: r#"["2021-12-30" "2021-12-31"] | polars into-df | polars as-date "%Y-%m-%d""#,
-                result: None, // help is needed on how to provide results
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "date".to_string(),
+                            vec![
+                                // Nushell's Value::date only maps to DataType::Datetime and not DataType::Date
+                                // We therefore force the type to be DataType::Date in the schema
+                                Value::date(
+                                    DateTime::parse_from_str(
+                                        "2021-12-30 00:00:00 +0000",
+                                        "%Y-%m-%d %H:%M:%S %z",
+                                    )
+                                    .expect("date calculation should not fail in test"),
+                                    Span::test_data(),
+                                ),
+                                Value::date(
+                                    DateTime::parse_from_str(
+                                        "2021-12-31 00:00:00 +0000",
+                                        "%Y-%m-%d %H:%M:%S %z",
+                                    )
+                                    .expect("date calculation should not fail in test"),
+                                    Span::test_data(),
+                                ),
+                            ],
+                        )],
+                        Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
+                            Field::new("date".into(), DataType::Date),
+                        ])))),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
             },
             Example {
                 description: "Converts string to date",
                 example: r#"["2021-12-30" "2021-12-31 21:00:00"] | polars into-df | polars as-date "%Y-%m-%d" --not-exact"#,
-                result: None,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "date".to_string(),
+                            vec![
+                                // Nushell's Value::date only maps to DataType::Datetime and not DataType::Date
+                                // We therefore force the type to be DataType::Date in the schema
+                                Value::date(
+                                    DateTime::parse_from_str(
+                                        "2021-12-30 00:00:00 +0000",
+                                        "%Y-%m-%d %H:%M:%S %z",
+                                    )
+                                    .expect("date calculation should not fail in test"),
+                                    Span::test_data(),
+                                ),
+                                Value::date(
+                                    DateTime::parse_from_str(
+                                        "2021-12-31 00:00:00 +0000",
+                                        "%Y-%m-%d %H:%M:%S %z",
+                                    )
+                                    .expect("date calculation should not fail in test"),
+                                    Span::test_data(),
+                                ),
+                            ],
+                        )],
+                        Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
+                            Field::new("date".into(), DataType::Date),
+                        ])))),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Converts string to date in an expression",
+                example: r#"["2021-12-30" "2021-12-31 21:00:00"] | polars into-lazy | polars select (polars col 0 | polars as-date "%Y-%m-%d" --not-exact)"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "date".to_string(),
+                            vec![
+                                // Nushell's Value::date only maps to DataType::Datetime and not DataType::Date
+                                // We therefore force the type to be DataType::Date in the schema
+                                Value::date(
+                                    DateTime::parse_from_str(
+                                        "2021-12-30 00:00:00 +0000",
+                                        "%Y-%m-%d %H:%M:%S %z",
+                                    )
+                                    .expect("date calculation should not fail in test"),
+                                    Span::test_data(),
+                                ),
+                                Value::date(
+                                    DateTime::parse_from_str(
+                                        "2021-12-31 00:00:00 +0000",
+                                        "%Y-%m-%d %H:%M:%S %z",
+                                    )
+                                    .expect("date calculation should not fail in test"),
+                                    Span::test_data(),
+                                ),
+                            ],
+                        )],
+                        Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
+                            Field::new("date".into(), DataType::Date),
+                        ])))),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
             },
             Example {
                 description: "Output is of date type",
@@ -85,8 +195,61 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let format: String = call.req(0)?;
     let not_exact = call.has_flag("not-exact")?;
+    let value = input.into_value(call.head)?;
 
-    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+    let options = StrptimeOptions {
+        format: Some(format.into()),
+        strict: true,
+        exact: !not_exact,
+        cache: Default::default(),
+    };
+
+    match PolarsPluginObject::try_from_value(plugin, &value)? {
+        PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(plugin, engine, call, lazy, options),
+        PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df, options),
+        PolarsPluginObject::NuExpression(expr) => {
+            let res: NuExpression = expr.into_polars().str().to_date(options).into();
+            res.to_pipeline_data(plugin, engine, call.head)
+        }
+        _ => Err(cant_convert_err(
+            &value,
+            &[
+                PolarsPluginType::NuDataFrame,
+                PolarsPluginType::NuLazyFrame,
+                PolarsPluginType::NuExpression,
+            ],
+        )),
+    }
+}
+
+fn command_lazy(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    lazy: NuLazyFrame,
+    options: StrptimeOptions,
+) -> Result<PipelineData, ShellError> {
+    NuLazyFrame::new(
+        false,
+        lazy.to_polars().select([col("*").str().to_date(options)]),
+    )
+    .to_pipeline_data(plugin, engine, call.head)
+}
+
+fn command_eager(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    df: NuDataFrame,
+    options: StrptimeOptions,
+) -> Result<PipelineData, ShellError> {
+    let format = if let Some(format) = options.format {
+        format.to_string()
+    } else {
+        unreachable!("`format` will never be None")
+    };
+    let not_exact = !options.exact;
+
     let series = df.as_series(call.head)?;
     let casted = series.str().map_err(|e| ShellError::GenericError {
         error: "Error casting to string".into(),
