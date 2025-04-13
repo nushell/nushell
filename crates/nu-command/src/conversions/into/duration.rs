@@ -244,7 +244,7 @@ fn string_to_duration(s: &str, span: Span, flag: bool) -> Result<i64, ShellError
 
     let units_msg = "supported units are ns, us/µs, ms, sec, min, hr, day, and wk".to_string();
     let whitespace_msg =
-        "a number after white space should be followed by a valid unit.".to_string();
+        "a number after whitespace should be followed by a valid unit.".to_string();
     Err(ShellError::CantConvertToDuration {
         details: s.to_string(),
         dst_span: span,
