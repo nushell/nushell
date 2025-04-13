@@ -196,16 +196,28 @@ fn split_whitespace_indices(s: &str, span: Span) -> impl Iterator<Item = (&str, 
 
 fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     let mut duration_ns: i64 = 0;
-
+    let mut prev: Option<(&str, Span)> = None;
     for (substring, substring_span) in split_whitespace_indices(s, span) {
-        let sub_ns = string_to_duration(substring, substring_span)?;
-        duration_ns += sub_ns;
+        if let Some((num_substring, num_substring_span)) = prev {
+            let combined_span = Span::new(num_substring_span.start, substring_span.end);
+            prev = None;
+            let full = format!("{}{}", num_substring, substring);
+            let sub_ns = string_to_duration(&full, combined_span, true)?;
+            duration_ns += sub_ns;
+        } else if substring.chars().all(|c| c.is_numeric())
+            && substring.chars().filter(|&c| c == '.').count() <= 1
+        {
+            prev = Some((substring, substring_span));
+        } else {
+            let sub_ns = string_to_duration(substring, substring_span, false)?;
+            duration_ns += sub_ns;
+        }
     }
 
     Ok(duration_ns)
 }
 
-fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
+fn string_to_duration(s: &str, span: Span, flag: bool) -> Result<i64, ShellError> {
     if let Some(Ok(expression)) = parse_unit_value(
         s.as_bytes(),
         span,
@@ -230,11 +242,18 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
         }
     }
 
+    let units_msg = "supported units are ns, us/µs, ms, sec, min, hr, day, and wk".to_string();
+    let whitespace_msg =
+        "a number after white space should be followed by a valid unit.".to_string();
     Err(ShellError::CantConvertToDuration {
         details: s.to_string(),
         dst_span: span,
         src_span: span,
-        help: Some("supported units are ns, us/µs, ms, sec, min, hr, day, and wk".to_string()),
+        help: Some(if flag {
+            format!("{}\n{}", whitespace_msg, units_msg)
+        } else {
+            units_msg
+        }),
     })
 }
 
