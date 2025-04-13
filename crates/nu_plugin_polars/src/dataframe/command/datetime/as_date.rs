@@ -4,7 +4,8 @@ use super::super::super::values::NuDataFrame;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Type, Value,
 };
 use polars::prelude::{IntoSeries, StringMethods};
 
@@ -51,6 +52,16 @@ impl PluginCommand for AsDate {
                 description: "Converts string to date",
                 example: r#"["2021-12-30" "2021-12-31 21:00:00"] | polars into-df | polars as-date "%Y-%m-%d" --not-exact"#,
                 result: None,
+            },
+            Example {
+                description: "Output is of date type",
+                example: r#"["2021-12-30" "2021-12-31 21:00:00"] | polars into-df | polars as-date "%Y-%m-%d" --not-exact | polars schema"#,
+                result: Some(Value::record(
+                    record! {
+                        "date" => Value::string("date", Span::test_data()),
+                    },
+                    Span::test_data(),
+                )),
             },
         ]
     }
