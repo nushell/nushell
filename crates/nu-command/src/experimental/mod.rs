@@ -12,8 +12,8 @@ pub use is_admin::IsAdmin;
 pub use job::Job;
 pub use job_kill::JobKill;
 pub use job_list::JobList;
-
 pub use job_spawn::JobSpawn;
+pub use job_tag::JobTag;
 
 #[cfg(all(unix, feature = "os"))]
 pub use job_unfreeze::JobUnfreeze;

@@ -210,6 +210,13 @@ impl Job {
             Job::Frozen(frozen_job) => frozen_job.tag.as_ref(),
         }
     }
+
+    pub fn assign_tag(&mut self, tag: Option<String>) {
+        match self {
+            Job::Thread(thread_job) => thread_job.tag = tag,
+            Job::Frozen(frozen_job) => frozen_job.tag = tag,
+        }
+    }
 }
 
 pub struct FrozenJob {
