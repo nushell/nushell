@@ -523,6 +523,32 @@ impl CustomValueSupport for NuExpression {
             Value::Int { val, .. } => Ok(val.to_owned().lit().into()),
             Value::Bool { val, .. } => Ok(val.to_owned().lit().into()),
             Value::Float { val, .. } => Ok(val.to_owned().lit().into()),
+            Value::Date { val, .. } => val
+                .to_owned()
+                .timestamp_nanos_opt()
+                .ok_or_else(|| ShellError::GenericError {
+                    error: "Integer overflow".into(),
+                    msg: "Provided datetime in nanoseconds is too large for i64".into(),
+                    span: Some(value.span()),
+                    help: None,
+                    inner: vec![],
+                })
+                .map(|nanos| -> NuExpression {
+                    nanos
+                        .lit()
+                        .strict_cast(polars::prelude::DataType::Datetime(
+                            polars::prelude::TimeUnit::Nanoseconds,
+                            None,
+                        ))
+                        .into()
+                }),
+            Value::Duration { val, .. } => Ok(val
+                .to_owned()
+                .lit()
+                .strict_cast(polars::prelude::DataType::Duration(
+                    polars::prelude::TimeUnit::Nanoseconds,
+                ))
+                .into()),
             x => Err(ShellError::CantConvert {
                 to_type: "lazy expression".into(),
                 from_type: x.get_type().to_string(),
