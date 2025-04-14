@@ -16,9 +16,9 @@ use crate::{span_to_range, LanguageServer};
 ///
 /// Currently supported types:
 /// 1. internal command names with space
-fn extract_semantic_tokens_from_expression<'a>(
-    expr: &'a Expression,
-    working_set: &'a StateWorkingSet,
+fn extract_semantic_tokens_from_expression(
+    expr: &Expression,
+    working_set: &StateWorkingSet,
 ) -> Vec<Span> {
     match &expr.expr {
         Expr::Call(call) => {
