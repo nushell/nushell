@@ -1,4 +1,3 @@
-use nix::NixPath;
 use nu_test_support::fs::Stub::{EmptyFile, FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
