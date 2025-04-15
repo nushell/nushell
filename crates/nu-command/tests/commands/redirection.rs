@@ -476,8 +476,11 @@ fn pipe_redirection_in_let_and_mut(
 
 #[test]
 fn redirect_file_with_subexpression() {
-    let actual = nu!(format!(
-        "$env.BAZ = 'foo'; (nu --testbin echo_env BAZ) o> out_file; open -r out_file"
-    ));
-    assert_eq!(actual.out, "foo");
+    Playground::setup("redirection_file_with_subexpression", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "$env.BAZ = 'foo'; (nu --testbin echo_env BAZ) o> out_file; open -r out_file"
+        );
+        assert_eq!(actual.out, "foo");
+    })
 }
