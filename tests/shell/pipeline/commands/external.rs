@@ -1,3 +1,4 @@
+use nix::NixPath;
 use nu_test_support::fs::Stub::{EmptyFile, FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
@@ -212,9 +213,9 @@ fn run_glob_if_pass_variable_to_external() {
 }
 
 #[test]
-fn subexpression_does_not_implicitly_capture() {
+fn subexpression_does_should_capture() {
     let actual = nu!("(nu --testbin cococo); null");
-    assert_eq!(actual.out, "cococo");
+    assert!(actual.out.is_empty());
 }
 
 mod it_evaluation {
