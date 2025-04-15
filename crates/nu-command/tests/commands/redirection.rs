@@ -473,3 +473,11 @@ fn pipe_redirection_in_let_and_mut(
     );
     assert_eq!(actual.out, output);
 }
+
+#[test]
+fn redirect_file_with_subexpression() {
+    let actual = nu!(format!(
+        "$env.BAZ = 'foo'; (nu --testbin echo_env BAZ) o> out_file; open -r out_file"
+    ));
+    assert_eq!(actual.out, "foo");
+}
