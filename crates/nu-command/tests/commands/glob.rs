@@ -41,42 +41,6 @@ fn nonempty_glob_lists_matching_paths() {
 }
 
 #[test]
-fn empty_glob_list_matches_default() {
-    Playground::setup("glob_empty_list", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("yehuda.txt"),
-            EmptyFile("jttxt"),
-            EmptyFile("andres.txt"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(),
-            "glob ? | default -e void",
-        );
-
-        assert_eq!(actual.out, "void");
-    })
-}
-
-#[test]
-fn non_empty_glob_list_not_matches_default() {
-    Playground::setup("glob_non_empty_list", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("yehuda.txt"),
-            EmptyFile("jt.rs"),
-            EmptyFile("andres.txt"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(),
-            "glob '*.txt' | default -e void | length",
-        );
-
-        assert_eq!(actual.out, "2");
-    })
-}
-
-#[test]
 fn glob_subdirs() {
     Playground::setup("glob_subdirs", |dirs, sandbox| {
         sandbox.with_files(&[

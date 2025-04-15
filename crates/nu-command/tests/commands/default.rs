@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{nu, pipeline, playground::Playground, fs::Stub::EmptyFile};
 
 #[test]
 fn adds_row_data_if_column_missing() {
@@ -111,4 +111,40 @@ fn replace_empty_record() {
 fn do_not_replace_empty_record() {
     let actual = nu!(r#"{} | default {a:5} | columns | length"#);
     assert_eq!(actual.out, "0");
+}
+
+#[test]
+fn replace_empty_list_stream() {
+    Playground::setup("glob_empty_list", |dirs, sandbox| {
+        sandbox.with_files(&[
+            EmptyFile("yehuda.txt"),
+            EmptyFile("jttxt"),
+            EmptyFile("andres.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "glob ? | default -e void",
+        );
+
+        assert_eq!(actual.out, "void");
+    })
+}
+
+#[test]
+fn do_not_replace_non_empty_list_stream() {
+    Playground::setup("glob_non_empty_list", |dirs, sandbox| {
+        sandbox.with_files(&[
+            EmptyFile("yehuda.txt"),
+            EmptyFile("jt.rs"),
+            EmptyFile("andres.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "glob '*.txt' | default -e void | length",
+        );
+
+        assert_eq!(actual.out, "2");
+    })
 }

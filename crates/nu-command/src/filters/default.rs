@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::{ListStream, Signals};
 
 #[derive(Clone)]
 pub struct Default;
@@ -143,10 +144,20 @@ fn default(
             .map(|x| x.set_metadata(metadata))
     } else if input.is_nothing()
         || (default_when_empty
-            && (matches!(input, PipelineData::Value(ref value, _) if value.is_empty()))
-            || matches!(input, PipelineData::ListStream(ref ls, _) if ls.is_empty()))
+            && matches!(input, PipelineData::Value(ref value, _) if value.is_empty()))
     {
         Ok(value.into_pipeline_data())
+    } else if let PipelineData::ListStream(ls, metadata) = input {
+        let span = ls.span();
+        let mut stream = ls.into_inner().peekable();
+        if stream.peek().is_none() {
+            return Ok(value.into_pipeline_data());
+        }
+
+        // stream's internal state already preserves the original signals config, so if this
+        // Signals::empty list stream gets interrupted it will be catched by the underlying iterator
+        let ls = ListStream::new(stream, span, Signals::empty());
+        Ok(PipelineData::ListStream(ls, metadata))
     } else {
         Ok(input)
     }

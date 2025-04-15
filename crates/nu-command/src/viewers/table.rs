@@ -13,7 +13,7 @@ use nu_engine::{command_prelude::*, env_to_string};
 use nu_path::form::Absolute;
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    shell_error::io::IoError, ByteStream, Config, DataSource, ListStream, PeekableValueIterator,
+    shell_error::io::IoError, ByteStream, Config, DataSource, ListStream, ValueIterator,
     PipelineMetadata, Signals, TableMode,
 };
 use nu_table::{
@@ -805,7 +805,7 @@ fn make_clickable_link(
 
 struct PagingTableCreator {
     head: Span,
-    stream: PeekableValueIterator,
+    stream: ValueIterator,
     engine_state: EngineState,
     stack: Stack,
     elements_displayed: usize,

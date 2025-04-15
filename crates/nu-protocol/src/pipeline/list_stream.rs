@@ -3,10 +3,9 @@
 //!
 //! For more general infos regarding our pipelining model refer to [`PipelineData`]
 use crate::{Config, PipelineData, ShellError, Signals, Span, Value};
-use std::{cell::RefCell, fmt::Debug, iter::Peekable};
+use std::fmt::Debug;
 
 pub type ValueIterator = Box<dyn Iterator<Item = Value> + Send + 'static>;
-pub type PeekableValueIterator = Peekable<ValueIterator>;
 
 /// A potentially infinite, interruptible stream of [`Value`]s.
 ///
@@ -14,7 +13,7 @@ pub type PeekableValueIterator = Peekable<ValueIterator>;
 /// Like other iterators in Rust, observing values from this stream will drain the items
 /// as you view them and the stream cannot be replayed.
 pub struct ListStream {
-    stream: RefCell<PeekableValueIterator>,
+    stream: ValueIterator,
     span: Span,
     caller_spans: Vec<Span>,
 }
@@ -26,16 +25,11 @@ impl ListStream {
         span: Span,
         signals: Signals,
     ) -> Self {
-        let boxed_iter: ValueIterator = Box::new(InterruptIter::new(iter, signals));
         Self {
-            stream: RefCell::new(boxed_iter.peekable()),
+            stream: Box::new(InterruptIter::new(iter, signals)),
             span,
             caller_spans: vec![],
         }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.stream.borrow_mut().peek().is_none()
     }
 
     /// Returns the [`Span`] associated with this [`ListStream`].
@@ -62,13 +56,13 @@ impl ListStream {
     }
 
     /// Convert a [`ListStream`] into its inner [`Value`] `Iterator`.
-    pub fn into_inner(self) -> PeekableValueIterator {
-        self.stream.into_inner()
+    pub fn into_inner(self) -> ValueIterator {
+        self.stream
     }
 
     /// Take a single value from the inner `Iterator`, modifying the stream.
     pub fn next_value(&mut self) -> Option<Value> {
-        self.stream.borrow_mut().next()
+        self.stream.next()
     }
 
     /// Converts each value in a [`ListStream`] into a string and then joins the strings together
@@ -82,7 +76,7 @@ impl ListStream {
 
     /// Collect the values of a [`ListStream`] into a list [`Value`].
     pub fn into_value(self) -> Value {
-        Value::list(self.stream.into_inner().collect(), self.span)
+        Value::list(self.stream.collect(), self.span)
     }
 
     /// Consume all values in the stream, returning an error if any of the values is a `Value::Error`.
@@ -107,14 +101,12 @@ impl ListStream {
     /// let stream = ListStream::new(std::iter::repeat(Value::int(0, span)), span, Signals::empty());
     /// let new_stream = stream.modify(|iter| iter.take(100));
     /// ```
-    pub fn modify<I>(self, f: impl FnOnce(PeekableValueIterator) -> I) -> Self
+    pub fn modify<I>(self, f: impl FnOnce(ValueIterator) -> I) -> Self
     where
         I: Iterator<Item = Value> + Send + 'static,
     {
-        let stream = f(self.stream.into_inner());
-        let boxed_stream: ValueIterator = Box::new(stream);
         Self {
-            stream: RefCell::new(boxed_stream.peekable()),
+            stream: Box::new(f(self.stream)),
             span: self.span,
             caller_spans: self.caller_spans,
         }
@@ -140,7 +132,7 @@ impl IntoIterator for ListStream {
 
     fn into_iter(self) -> Self::IntoIter {
         IntoIter {
-            stream: Box::new(self.into_inner()),
+            stream: self.into_inner(),
         }
     }
 }
