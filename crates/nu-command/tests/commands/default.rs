@@ -115,6 +115,7 @@ fn do_not_replace_empty_record() {
 
 #[test]
 fn replace_empty_list_stream() {
+    // This is specific for testing ListStreams when empty behave like other empty values
     Playground::setup("glob_empty_list", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
@@ -133,6 +134,7 @@ fn replace_empty_list_stream() {
 
 #[test]
 fn do_not_replace_non_empty_list_stream() {
+    // This is specific for testing ListStreams when empty behave like other empty values
     Playground::setup("glob_non_empty_list", |dirs, sandbox| {
         sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
