@@ -32,7 +32,7 @@ pub fn string_wrap(text: &str, width: usize, keep_words: bool) -> String {
 }
 
 pub fn string_expand(text: &str, width: usize) -> String {
-    use std::{borrow::Cow, iter::repeat};
+    use std::{borrow::Cow, iter::repeat_n};
     use tabled::grid::util::string::{get_line_width, get_lines};
 
     get_lines(text)
@@ -42,7 +42,7 @@ pub fn string_expand(text: &str, width: usize) -> String {
             if length < width {
                 let mut line = line.into_owned();
                 let remain = width - length;
-                line.extend(repeat(' ').take(remain));
+                line.extend(repeat_n(' ', remain));
                 Cow::Owned(line)
             } else {
                 line
