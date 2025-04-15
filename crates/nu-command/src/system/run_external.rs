@@ -3,12 +3,11 @@ use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{dots::expand_ndots_safe, expand_tilde, AbsolutePath};
 use nu_protocol::{
     did_you_mean,
-    engine::{FrozenJob, Job},
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
     ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
 };
-use nu_system::{kill_by_pid, ForegroundChild, ForegroundWaitStatus};
+use nu_system::{kill_by_pid, ForegroundChild};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -312,9 +311,6 @@ impl Command for External {
                 })?;
         }
 
-        let jobs = engine_state.jobs.clone();
-        let this_job = engine_state.current_thread_job.clone();
-        let is_interactive = engine_state.is_interactive;
         let child_pid = child.pid();
 
         // Wrap the output into a `PipelineData::ByteStream`.
@@ -323,21 +319,10 @@ impl Command for External {
             merged_stream,
             matches!(stderr, OutDest::Pipe),
             call.head,
-            // handle wait statuses for job control
-            Some(PostWaitCallback(Box::new(move |status| {
-                if let Some(this_job) = this_job {
-                    this_job.remove_pid(child_pid);
-                }
-
-                if let ForegroundWaitStatus::Frozen(unfreeze) = status {
-                    let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
-
-                    let job_id = jobs.add_job(Job::Frozen(FrozenJob { unfreeze }));
-                    if is_interactive {
-                        println!("\nJob {} is frozen", job_id.get());
-                    }
-                }
-            }))),
+            Some(PostWaitCallback::for_job_control(
+                engine_state,
+                Some(child_pid),
+            )),
         )?;
 
         if matches!(stdout, OutDest::Pipe | OutDest::PipeSeparate)
