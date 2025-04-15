@@ -69,7 +69,7 @@ impl Completer for ExportableCompletion<'_> {
                     wrapped_name(name),
                     Some(cmd.description().to_string()),
                     None,
-                    SuggestionKind::Command(cmd.command_type()),
+                    SuggestionKind::Command(cmd.command_type(), Some(*decl_id)),
                 );
             }
         }

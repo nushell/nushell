@@ -731,18 +731,19 @@ impl EngineState {
         &self,
         mut predicate: impl FnMut(&[u8]) -> bool,
         ignore_deprecated: bool,
-    ) -> Vec<(Vec<u8>, Option<String>, CommandType)> {
+    ) -> Vec<(DeclId, Vec<u8>, Option<String>, CommandType)> {
         let mut output = vec![];
 
         for overlay_frame in self.active_overlays(&[]).rev() {
-            for decl in &overlay_frame.decls {
-                if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(decl.0) {
-                    let command = self.get_decl(*decl.1);
+            for (name, decl_id) in &overlay_frame.decls {
+                if overlay_frame.visibility.is_decl_id_visible(decl_id) && predicate(name) {
+                    let command = self.get_decl(*decl_id);
                     if ignore_deprecated && command.signature().category == Category::Removed {
                         continue;
                     }
                     output.push((
-                        decl.0.clone(),
+                        *decl_id,
+                        name.clone(),
                         Some(command.description().to_string()),
                         command.command_type(),
                     ));
