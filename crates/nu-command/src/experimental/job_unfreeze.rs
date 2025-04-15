@@ -112,7 +112,10 @@ fn unfreeze_job(
             span,
         }),
 
-        Job::Frozen(FrozenJob { unfreeze: handle }) => {
+        Job::Frozen(FrozenJob {
+            unfreeze: handle,
+            tag,
+        }) => {
             let pid = handle.pid();
 
             if let Some(thread_job) = &state.current_thread_job {
@@ -141,8 +144,14 @@ fn unfreeze_job(
                 Ok(ForegroundWaitStatus::Frozen(handle)) => {
                     let mut jobs = state.jobs.lock().expect("jobs lock is poisoned!");
 
-                    jobs.add_job_with_id(old_id, Job::Frozen(FrozenJob { unfreeze: handle }))
-                        .expect("job was supposed to be removed");
+                    jobs.add_job_with_id(
+                        old_id,
+                        Job::Frozen(FrozenJob {
+                            unfreeze: handle,
+                            tag,
+                        }),
+                    )
+                    .expect("job was supposed to be removed");
 
                     if state.is_interactive {
                         println!("\nJob {} is re-frozen", old_id.get());

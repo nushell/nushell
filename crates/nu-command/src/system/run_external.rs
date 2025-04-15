@@ -332,7 +332,12 @@ impl Command for External {
                 if let ForegroundWaitStatus::Frozen(unfreeze) = status {
                     let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
 
-                    let job_id = jobs.add_job(Job::Frozen(FrozenJob { unfreeze }));
+                    // TODO: use name of process as a tag
+                    let job_id = jobs.add_job(Job::Frozen(FrozenJob {
+                        unfreeze,
+                        tag: None,
+                    }));
+
                     if is_interactive {
                         println!("\nJob {} is frozen", job_id.get());
                     }
