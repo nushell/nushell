@@ -12,8 +12,8 @@ use polars::datatypes::{AnyValue, PlSmallStr};
 use polars::prelude::{
     ChunkAnyValue, Column as PolarsColumn, DataFrame, DataType, DatetimeChunked, Float32Type,
     Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, IntoSeries, ListBooleanChunkedBuilder,
-    ListBuilderTrait, ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, NamedFrom,
-    NewChunkedArray, ObjectType, PolarsError, Schema, SchemaExt, Series, StructChunked,
+    ListBuilderTrait, ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, LogicalType,
+    NamedFrom, NewChunkedArray, ObjectType, PolarsError, Schema, SchemaExt, Series, StructChunked,
     TemporalMethods, TimeUnit, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
 };
 
@@ -441,10 +441,16 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 }
             });
 
-            let res: DatetimeChunked = ChunkedArray::<Int64Type>::from_iter_options(name, it)
-                .into_datetime(TimeUnit::Nanoseconds, None);
-
-            Ok(res.into_series())
+            ChunkedArray::<Int64Type>::from_iter_options(name, it)
+                .into_datetime(TimeUnit::Nanoseconds, None)
+                .cast_with_options(&DataType::Date, Default::default())
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error parsing date".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(e.to_string()),
+                    inner: vec![],
+                })
         }
         DataType::Datetime(tu, maybe_tz) => {
             let dates = column
