@@ -147,7 +147,7 @@ roxmltree = "0.20"
 rstest = { version = "0.23", default-features = false }
 rstest_reuse = "0.7"
 rusqlite = "0.31"
-rust-embed = "8.6.0"
+rust-embed = "8.7.0"
 scopeguard = { version = "1.2.0" }
 serde = { version = "1.0" }
 serde_json = "1.0.97"
