@@ -14,6 +14,7 @@ mod get_weekday;
 mod get_year;
 mod replace_time_zone;
 mod strftime;
+mod truncate;
 
 use crate::PolarsPlugin;
 use nu_plugin::PluginCommand;
@@ -34,12 +35,14 @@ pub use get_weekday::GetWeekDay;
 pub use get_year::GetYear;
 pub use replace_time_zone::ReplaceTimeZone;
 pub use strftime::StrFTime;
+pub use truncate::Truncate;
 
 pub(crate) fn datetime_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
     vec![
-        Box::new(ExprDatePart),
         Box::new(AsDate),
         Box::new(AsDateTime),
+        Box::new(ConvertTimeZone),
+        Box::new(ExprDatePart),
         Box::new(GetDay),
         Box::new(GetHour),
         Box::new(GetMinute),
@@ -50,8 +53,8 @@ pub(crate) fn datetime_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPl
         Box::new(GetWeek),
         Box::new(GetWeekDay),
         Box::new(GetYear),
-        Box::new(StrFTime),
         Box::new(ReplaceTimeZone),
-        Box::new(ConvertTimeZone),
+        Box::new(StrFTime),
+        Box::new(Truncate),
     ]
 }
