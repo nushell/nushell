@@ -68,52 +68,60 @@ impl LanguageServer {
         let mut idx = 0;
         // use snippet as `insert_text_format` for command argument completion
         if let Some(SuggestionKind::Command(_, Some(decl_id))) = suggestion.kind {
-            let cmd = engine_state.get_decl(decl_id);
-            doc_string = Some(Self::get_decl_description(cmd, true));
-            insert_text_format = Some(InsertTextFormat::SNIPPET);
-            let signature = cmd.signature();
-            // add curly brackets around block arguments
-            // and keywords, e.g. `=` in `alias foo = bar`
-            let mut arg_wrapper = |arg: &PositionalArg, text: String, optional: bool| -> String {
-                idx += 1;
-                match &arg.shape {
-                    SyntaxShape::Block | SyntaxShape::MatchBlock => {
-                        format!("{{ ${{{}:{}}} }}", idx, text)
-                    }
-                    SyntaxShape::Keyword(kwd, _) => {
-                        // NOTE: If optional, the keyword should also be in a placeholder so that it can be removed easily.
-                        // Here we choose to use nested placeholders. Note that some editors don't fully support this format,
-                        // but usually they will simply ignore the inner ones, so it should be fine.
-                        if optional {
-                            idx += 1;
-                            format!(
-                                "${{{}:{} ${{{}:{}}}}}",
-                                idx - 1,
-                                String::from_utf8_lossy(kwd),
-                                idx,
-                                text
-                            )
-                        } else {
-                            format!("{} ${{{}:{}}}", String::from_utf8_lossy(kwd), idx, text)
+            // NOTE: for new commands defined in current context,
+            // which are not present in the engine state, skip the documentation and snippet.
+            if engine_state.num_decls() > decl_id.get() {
+                let cmd = engine_state.get_decl(decl_id);
+                doc_string = Some(Self::get_decl_description(cmd, true));
+                insert_text_format = Some(InsertTextFormat::SNIPPET);
+                let signature = cmd.signature();
+                // add curly brackets around block arguments
+                // and keywords, e.g. `=` in `alias foo = bar`
+                let mut arg_wrapper = |arg: &PositionalArg,
+                                       text: String,
+                                       optional: bool|
+                 -> String {
+                    idx += 1;
+                    match &arg.shape {
+                        SyntaxShape::Block | SyntaxShape::MatchBlock => {
+                            format!("{{ ${{{}:{}}} }}", idx, text)
                         }
+                        SyntaxShape::Keyword(kwd, _) => {
+                            // NOTE: If optional, the keyword should also be in a placeholder so that it can be removed easily.
+                            // Here we choose to use nested placeholders. Note that some editors don't fully support this format,
+                            // but usually they will simply ignore the inner ones, so it should be fine.
+                            if optional {
+                                idx += 1;
+                                format!(
+                                    "${{{}:{} ${{{}:{}}}}}",
+                                    idx - 1,
+                                    String::from_utf8_lossy(kwd),
+                                    idx,
+                                    text
+                                )
+                            } else {
+                                format!("{} ${{{}:{}}}", String::from_utf8_lossy(kwd), idx, text)
+                            }
+                        }
+                        _ => format!("${{{}:{}}}", idx, text),
                     }
-                    _ => format!("${{{}:{}}}", idx, text),
-                }
-            };
+                };
 
-            for required in signature.required_positional {
-                snippet_text.push(' ');
-                snippet_text
-                    .push_str(arg_wrapper(&required, required.name.clone(), false).as_str());
-            }
-            for optional in signature.optional_positional {
-                snippet_text.push(' ');
-                snippet_text
-                    .push_str(arg_wrapper(&optional, format!("{}?", optional.name), true).as_str());
-            }
-            if let Some(rest) = signature.rest_positional {
-                idx += 1;
-                snippet_text.push_str(format!(" ${{{}:...{}}}", idx, rest.name).as_str());
+                for required in signature.required_positional {
+                    snippet_text.push(' ');
+                    snippet_text
+                        .push_str(arg_wrapper(&required, required.name.clone(), false).as_str());
+                }
+                for optional in signature.optional_positional {
+                    snippet_text.push(' ');
+                    snippet_text.push_str(
+                        arg_wrapper(&optional, format!("{}?", optional.name), true).as_str(),
+                    );
+                }
+                if let Some(rest) = signature.rest_positional {
+                    idx += 1;
+                    snippet_text.push_str(format!(" ${{{}:...{}}}", idx, rest.name).as_str());
+                }
             }
         }
         // no extra space for a command with args expanded in the snippet
@@ -328,6 +336,17 @@ mod tests {
                 "kind": 17
             })
         ));
+
+        // fallback completion on a newly defined command,
+        // the decl_id is missing in the engine state, this shouldn't cause any panic.
+        let resp = send_complete_request(&client_connection, script.clone(), 13, 9);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                // defined before the cursor
+                { "label": "config n foo bar", "detail": detail_str, "kind": 2 },
+            ])
+        );
 
         // inside parenthesis
         let resp = send_complete_request(&client_connection, script, 10, 34);
