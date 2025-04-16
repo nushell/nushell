@@ -92,7 +92,7 @@ impl Command for Debug {
             Example {
                 description: "Debug print an ansi escape encoded string and get the raw value",
                 example: "$'(ansi red)nushell(ansi reset)' | debug -v",
-                result: Some(Value::test_string("\\u{1b}[31mnushell\\u{1b}[0m")),
+                result: Some(Value::test_string("\"\\u{1b}[31mnushell\\u{1b}[0m\"")),
             },
         ]
     }
