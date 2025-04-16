@@ -23,6 +23,11 @@ impl Command for Debug {
             ])
             .category(Category::Debug)
             .switch("raw", "Prints the raw value representation", Some('r'))
+            .switch(
+                "raw-value",
+                "Prints the raw value representation but not the nushell value part",
+                Some('v'),
+            )
     }
 
     fn run(
@@ -35,6 +40,7 @@ impl Command for Debug {
         let head = call.head;
         let config = stack.get_config(engine_state);
         let raw = call.has_flag(engine_state, stack, "raw")?;
+        let raw_value = call.has_flag(engine_state, stack, "raw-value")?;
 
         // Should PipelineData::Empty result in an error here?
 
@@ -42,6 +48,8 @@ impl Command for Debug {
             move |x| {
                 if raw {
                     Value::string(x.to_debug_string(), head)
+                } else if raw_value {
+                    Value::string(format!("{:#?}", x.to_expanded_string(", ", &config)), head)
                 } else {
                     Value::string(x.to_expanded_string(", ", &config), head)
                 }
@@ -77,6 +85,11 @@ impl Command for Debug {
                     ],
                     Span::test_data(),
                 )),
+            },
+            Example {
+                description: "Debug print an ansi escape encoded string and get the raw value",
+                example: "$'(ansi red)nushell(ansi reset)' | debug -v",
+                result: Some(Value::test_string("\\u{1b}[31mnushell\\u{1b}[0m")),
             },
         ]
     }
