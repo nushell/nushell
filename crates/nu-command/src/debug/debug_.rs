@@ -49,7 +49,10 @@ impl Command for Debug {
                 if raw {
                     Value::string(x.to_debug_string(), head)
                 } else if raw_value {
-                    Value::string(format!("{:#?}", x.to_expanded_string(", ", &config)), head)
+                    match x.coerce_into_string() {
+                        Ok(s) => Value::string(format!("{s:#?}"), head),
+                        Err(e) => Value::error(e, head),
+                    }
                 } else {
                     Value::string(x.to_expanded_string(", ", &config), head)
                 }
