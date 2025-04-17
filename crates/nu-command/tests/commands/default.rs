@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline, playground::Playground, fs::Stub::EmptyFile};
+use nu_test_support::{fs::Stub::EmptyFile, nu, pipeline, playground::Playground};
 
 #[test]
 fn adds_row_data_if_column_missing() {
