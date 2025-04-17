@@ -158,7 +158,7 @@ fn default(
         }
 
         // stream's internal state already preserves the original signals config, so if this
-        // Signals::empty list stream gets interrupted it will be catched by the underlying iterator
+        // Signals::empty list stream gets interrupted it will be caught by the underlying iterator
         let ls = ListStream::new(stream, span, Signals::empty());
         Ok(PipelineData::ListStream(ls, metadata))
     } else {
