@@ -147,7 +147,10 @@ fn default(
             && matches!(input, PipelineData::Value(ref value, _) if value.is_empty()))
     {
         Ok(value.into_pipeline_data())
-    } else if let PipelineData::ListStream(ls, metadata) = input {
+    } else if default_when_empty && matches!(input, PipelineData::ListStream(..)) {
+        let PipelineData::ListStream(ls, metadata) = input else {
+            unreachable!()
+        };
         let span = ls.span();
         let mut stream = ls.into_inner().peekable();
         if stream.peek().is_none() {
