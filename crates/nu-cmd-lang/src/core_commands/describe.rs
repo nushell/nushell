@@ -304,14 +304,12 @@ impl Description {
 }
 
 fn describe_value(value: Value, head: Span, engine_state: Option<&EngineState>) -> Value {
-    let record = match describe_value_inner(value, head, engine_state) {
-        Description::Record(record) => record,
-    };
+    let Description::Record(record) = describe_value_inner(value, head, engine_state);
     Value::record(record, head)
 }
 
 fn type_of<T>(_: &T) -> String {
-    format!("{}", type_name::<T>())
+    type_name::<T>().to_string()
 }
 
 fn describe_value_inner(
