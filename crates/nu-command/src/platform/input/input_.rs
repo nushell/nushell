@@ -95,6 +95,7 @@ impl Command for Input {
             .map(|l| if l < 0 { 0 } else { l as usize })
             .unwrap_or(HISTORY_SIZE);
         let max_history_span = call.get_flag_span(stack, "max-history");
+        let history_file_span = call.get_flag_span(stack, "history-file");
 
         let default_str = match (&prompt_str, &default_val) {
             (Some(_prompt), Some(val)) => format!("(default: {val}) "),
@@ -116,13 +117,29 @@ impl Command for Input {
                 };
                 let mut history = match file_history {
                     Ok(h) => h,
-                    Err(_e) => {
-                        return Err(ShellError::IncorrectValue {
-                            msg: "invalid max_history size".to_string(),
-                            val_span: max_history_span.expect("max-history should be set"),
-                            call_span: call.head,
-                        });
-                    }
+                    Err(e) => match e.0 {
+                        reedline::ReedlineErrorVariants::IOError(err) => {
+                            return Err(ShellError::IncorrectValue {
+                                msg: err.to_string(),
+                                val_span: history_file_span.expect("history-file should be set"),
+                                call_span: call.head,
+                            });
+                        }
+                        reedline::ReedlineErrorVariants::OtherHistoryError(msg) => {
+                            return Err(ShellError::IncorrectValue {
+                                msg: msg.to_string(),
+                                val_span: max_history_span.expect("max-history should be set"),
+                                call_span: call.head,
+                            });
+                        }
+                        _ => {
+                            return Err(ShellError::IncorrectValue {
+                                msg: "unable to create history".to_string(),
+                                val_span: call.head,
+                                call_span: call.head,
+                            });
+                        }
+                    },
                 };
 
                 if let Some(vals) = history_entries {
