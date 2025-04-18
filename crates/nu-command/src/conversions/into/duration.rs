@@ -101,7 +101,9 @@ impl Command for IntoDuration {
         };
         let unit = match call.get_flag::<Spanned<String>>(engine_state, stack, "unit")? {
             Some(spanned_unit) => {
-                if ["ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk"].contains(&spanned_unit.item.as_str()) {
+                if ["ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk"]
+                    .contains(&spanned_unit.item.as_str())
+                {
                     Some(spanned_unit)
                 } else {
                     return Err(ShellError::CantConvertToDuration {
@@ -180,8 +182,11 @@ impl Command for IntoDuration {
             Example {
                 description: "Convert a record to a duration",
                 example: "{day: 10, hour: 2, minute: 6, second: 50, sign: '+'} | into duration",
-                result: Some(Value::duration(10 * NS_PER_DAY + 2 * NS_PER_HOUR + 6 * NS_PER_MINUTE + 50 * NS_PER_SEC, Span::test_data())),
-            }
+                result: Some(Value::duration(
+                    10 * NS_PER_DAY + 2 * NS_PER_HOUR + 6 * NS_PER_MINUTE + 50 * NS_PER_SEC,
+                    Span::test_data(),
+                )),
+            },
         ]
     }
 }
@@ -457,7 +462,10 @@ mod test {
 
     fn turns_string_to_duration(#[case] phrase: &str, #[case] expected_duration_val: i64) {
         let args = Arguments {
-            unit: Some(Spanned { item: "ns".to_string(), span: Span::test_data()}),
+            unit: Some(Spanned {
+                item: "ns".to_string(),
+                span: Span::test_data(),
+            }),
             cell_paths: None,
         };
         let actual = action(&Value::test_string(phrase), &args, Span::test_data());
