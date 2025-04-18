@@ -26,7 +26,7 @@ const ALLOWED_SIGNS: [&str; 2] = ["+", "-"];
 
 #[derive(Clone, Debug)]
 struct Arguments {
-    unit: Option<String>,
+    unit: Option<Spanned<String>>,
     cell_paths: Option<Vec<CellPath>>,
 }
 
@@ -99,16 +99,13 @@ impl Command for IntoDuration {
             Some(t) => t,
             None => call.head,
         };
-        let unit = match call.get_flag::<String>(engine_state, stack, "unit")? {
-            Some(sep) => {
-                if ["ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk"]
-                    .iter()
-                    .any(|d| d == &sep)
-                {
-                    Some(sep)
+        let unit = match call.get_flag::<Spanned<String>>(engine_state, stack, "unit")? {
+            Some(spanned_unit) => {
+                if ["ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk"].contains(&spanned_unit.item.as_str()) {
+                    Some(spanned_unit)
                 } else {
                     return Err(ShellError::CantConvertToDuration {
-                        details: sep,
+                        details: spanned_unit.item,
                         dst_span: span,
                         src_span: span,
                         help: Some(
@@ -180,6 +177,11 @@ impl Command for IntoDuration {
                 example: "1.234 | into duration --unit sec",
                 result: Some(Value::test_duration(1_234 * 1_000_000)),
             },
+            Example {
+                description: "Convert a record to a duration",
+                example: "{day: 10, hour: 2, minute: 6, second: 50, sign: '+'} | into duration",
+                result: Some(Value::duration(10 * NS_PER_DAY + 2 * NS_PER_HOUR + 6 * NS_PER_MINUTE + 50 * NS_PER_SEC, Span::test_data())),
+            }
         ]
     }
 }
@@ -248,15 +250,16 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
 
 fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let value_span = input.span();
+    let unit_option = &args.unit;
 
     if let Value::Record { val: record, .. } = input {
-        if args.unit.is_some() {
+        if let Some(unit) = unit_option {
             return Value::error(
                 ShellError::IncompatibleParameters {
                     left_message: "got a record as input".into(),
                     left_span: head,
                     right_message: "the units should be included in the record".into(),
-                    right_span: value_span,
+                    right_span: unit.span,
                 },
                 head,
             );
@@ -265,8 +268,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             .unwrap_or_else(|err| Value::error(err, value_span));
     }
 
-    let unit: &str = match &args.unit {
-        Some(unit) => unit,
+    let unit: &str = match unit_option {
+        Some(unit) => &unit.item,
         None => "ns",
     };
 
@@ -324,35 +327,35 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
     let mut duration: i64 = 0;
 
     if let Some(col_val) = record.get("week") {
-        let week = parse_number_from_record(col_val, &head, &span)?;
+        let week = parse_number_from_record(col_val, &head)?;
         duration += week * NS_PER_WEEK;
     };
     if let Some(col_val) = record.get("day") {
-        let day = parse_number_from_record(col_val, &head, &span)?;
+        let day = parse_number_from_record(col_val, &head)?;
         duration += day * NS_PER_DAY;
     };
     if let Some(col_val) = record.get("hour") {
-        let hour = parse_number_from_record(col_val, &head, &span)?;
+        let hour = parse_number_from_record(col_val, &head)?;
         duration += hour * NS_PER_HOUR;
     };
     if let Some(col_val) = record.get("minute") {
-        let minute = parse_number_from_record(col_val, &head, &span)?;
+        let minute = parse_number_from_record(col_val, &head)?;
         duration += minute * NS_PER_MINUTE;
     };
     if let Some(col_val) = record.get("second") {
-        let second = parse_number_from_record(col_val, &head, &span)?;
+        let second = parse_number_from_record(col_val, &head)?;
         duration += second * NS_PER_SEC;
     };
     if let Some(col_val) = record.get("millisecond") {
-        let millisecond = parse_number_from_record(col_val, &head, &span)?;
+        let millisecond = parse_number_from_record(col_val, &head)?;
         duration += millisecond * NS_PER_MS;
     };
     if let Some(col_val) = record.get("microsecond") {
-        let microsecond = parse_number_from_record(col_val, &head, &span)?;
+        let microsecond = parse_number_from_record(col_val, &head)?;
         duration += microsecond * NS_PER_US;
     };
     if let Some(col_val) = record.get("nanosecond") {
-        let nanosecond = parse_number_from_record(col_val, &head, &span)?;
+        let nanosecond = parse_number_from_record(col_val, &head)?;
         duration += nanosecond;
     };
 
@@ -362,10 +365,10 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
                 if !ALLOWED_SIGNS.contains(&val.as_str()) {
                     let allowed_signs = ALLOWED_SIGNS.join(", ");
                     return Err(ShellError::IncorrectValue {
-                        msg: format!("Invalid sign! Allowed signs are {}", allowed_signs)
+                        msg: format!("Invalid sign. Allowed signs are {}", allowed_signs)
                             .to_string(),
-                        val_span: head,
-                        call_span: span,
+                        val_span: sign.span(),
+                        call_span: head,
                     });
                 }
                 if val == "-" {
@@ -386,14 +389,14 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
     Ok(Value::duration(duration, span))
 }
 
-fn parse_number_from_record(col_val: &Value, head: &Span, span: &Span) -> Result<i64, ShellError> {
+fn parse_number_from_record(col_val: &Value, head: &Span) -> Result<i64, ShellError> {
     let value = match col_val {
         Value::Int { val, .. } => {
             if *val < 0 {
                 return Err(ShellError::IncorrectValue {
                     msg: "number should be positive".to_string(),
-                    val_span: *head,
-                    call_span: *span,
+                    val_span: col_val.span(),
+                    call_span: *head,
                 });
             }
             *val
@@ -440,21 +443,21 @@ mod test {
 
     #[rstest]
     #[case("3ns", 3)]
-    #[case("4us", 4*1000)]
-    #[case("4\u{00B5}s", 4*1000)] // micro sign
-    #[case("4\u{03BC}s", 4*1000)] // mu symbol
-    #[case("5ms", 5 * 1000 * 1000)]
+    #[case("4us", 4 * NS_PER_US)]
+    #[case("4\u{00B5}s", 4 * NS_PER_US)] // micro sign
+    #[case("4\u{03BC}s", 4 * NS_PER_US)] // mu symbol
+    #[case("5ms", 5 * NS_PER_MS)]
     #[case("1sec", NS_PER_SEC)]
-    #[case("7min", 7 * 60 * NS_PER_SEC)]
-    #[case("42hr", 42 * 60 * 60 * NS_PER_SEC)]
-    #[case("123day", 123 * 24 * 60 * 60 * NS_PER_SEC)]
-    #[case("3wk", 3 * 7 * 24 * 60 * 60 * NS_PER_SEC)]
+    #[case("7min", 7 * NS_PER_MINUTE)]
+    #[case("42hr", 42 * NS_PER_HOUR)]
+    #[case("123day", 123 * NS_PER_DAY)]
+    #[case("3wk", 3 * NS_PER_WEEK)]
     #[case("86hr 26ns", 86 * 3600 * NS_PER_SEC + 26)] // compound duration string
-    #[case("14ns 3hr 17sec", 14 + 3 * 3600 * NS_PER_SEC + 17 * NS_PER_SEC)] // compound string with units in random order
+    #[case("14ns 3hr 17sec", 14 + 3 * NS_PER_HOUR + 17 * NS_PER_SEC)] // compound string with units in random order
 
     fn turns_string_to_duration(#[case] phrase: &str, #[case] expected_duration_val: i64) {
         let args = Arguments {
-            unit: "ns".to_string(),
+            unit: Some(Spanned { item: "ns".to_string(), span: Span::test_data()}),
             cell_paths: None,
         };
         let actual = action(&Value::test_string(phrase), &args, Span::test_data());
