@@ -18,11 +18,10 @@ impl Command for IntoDuration {
                 (Type::Float, Type::Duration),
                 (Type::String, Type::Duration),
                 (Type::Duration, Type::Duration),
+                (Type::record(), Type::Duration),
                 (Type::table(), Type::table()),
-                //todo: record<hour,minute,sign> | into duration -> Duration
-                //(Type::record(), Type::record()),
             ])
-            //.allow_variants_without_examples(true)
+            .allow_variants_without_examples(true)
             .named(
                 "unit",
                 SyntaxShape::String,
