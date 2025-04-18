@@ -3056,7 +3056,7 @@ impl Value {
                 }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
+                lhs.operation(self.span(), Operator::Math(Math::FloorDivide), op, rhs)
             }
             _ => Err(operator_type_error(
                 Operator::Math(Math::FloorDivide),
