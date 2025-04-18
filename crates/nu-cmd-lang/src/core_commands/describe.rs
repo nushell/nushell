@@ -255,7 +255,9 @@ fn run(
 
                 Value::record(
                     record! {
-                        "type" => Value::string(type_, head),
+                        "type" => Value::string("bytestream", head),
+                        "detailed_type" => Value::string(type_, head),
+                        "rust_type" => Value::string(type_of(&stream), head),
                         "origin" => Value::string(origin, head),
                         "metadata" => metadata_to_value(metadata, head),
                     },
@@ -272,6 +274,7 @@ fn run(
             description
         }
         PipelineData::ListStream(stream, ..) => {
+            let type_ = type_of(&stream);
             if options.detailed {
                 let subtype = if options.no_collect {
                     Value::string("any", head)
@@ -281,6 +284,8 @@ fn run(
                 Value::record(
                     record! {
                         "type" => Value::string("stream", head),
+                        "detailed_type" => Value::string("list stream", head),
+                        "rust_type" => Value::string(type_, head),
                         "origin" => Value::string("nushell", head),
                         "subtype" => subtype,
                         "metadata" => metadata_to_value(metadata, head),
