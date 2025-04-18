@@ -10,7 +10,7 @@ head1 arg1 arg2 | head2
 
 ## Lexing
 
-The first job of the parser is to perform a lexical analysis to find where the tokens start and end in the input. This turns the above into:
+The first job of the parser is to a lexical analysis to find where the tokens start and end in the input. This turns the above into:
 
 ```text
 <item: "head1">, <item: "arg1">, <item: "arg2">, <pipe>, <item: "head2">
