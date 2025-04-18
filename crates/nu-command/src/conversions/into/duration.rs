@@ -1,8 +1,22 @@
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
 use nu_protocol::{ast::Expr, Unit};
 
 const NS_PER_SEC: i64 = 1_000_000_000;
+
+#[derive(Clone, Debug)]
+struct Arguments {
+    unit: String,
+    cell_paths: Option<Vec<CellPath>>,
+}
+
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
+    }
+}
+
 #[derive(Clone)]
 pub struct IntoDuration;
 
@@ -18,7 +32,7 @@ impl Command for IntoDuration {
                 (Type::Float, Type::Duration),
                 (Type::String, Type::Duration),
                 (Type::Duration, Type::Duration),
-                (Type::record(), Type::Duration),
+                (Type::record(), Type:record()),
                 (Type::table(), Type::table()),
             ])
             .allow_variants_without_examples(true)
@@ -55,7 +69,36 @@ impl Command for IntoDuration {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        into_duration(engine_state, stack, call, input)
+        let cell_paths = call.rest(engine_state, stack, 0)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+
+        let span = match input.span() {
+            Some(t) => t,
+            None => call.head,
+        };
+        let unit = match call.get_flag::<String>(engine_state, stack, "unit")? {
+            Some(sep) => {
+                if ["ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk"]
+                    .iter()
+                    .any(|d| d == &sep)
+                {
+                    sep
+                } else {
+                    return Err(ShellError::CantConvertToDuration {
+                        details: sep,
+                        dst_span: span,
+                        src_span: span,
+                        help: Some(
+                            "supported units are ns, us/µs, ms, sec, min, hr, day, and wk"
+                                .to_string(),
+                        ),
+                    });
+                }
+            }
+            None => "ns".to_string(),
+        };
+        let args = Arguments { unit, cell_paths };
+        operate(action, args, input, call.head, engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -116,63 +159,6 @@ impl Command for IntoDuration {
             },
         ]
     }
-}
-
-fn into_duration(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let span = match input.span() {
-        Some(t) => t,
-        None => call.head,
-    };
-    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-
-    let unit = match call.get_flag::<String>(engine_state, stack, "unit")? {
-        Some(sep) => {
-            if ["ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk"]
-                .iter()
-                .any(|d| d == &sep)
-            {
-                sep
-            } else {
-                return Err(ShellError::CantConvertToDuration {
-                    details: sep,
-                    dst_span: span,
-                    src_span: span,
-                    help: Some(
-                        "supported units are ns, us/µs, ms, sec, min, hr, day, and wk".to_string(),
-                    ),
-                });
-            }
-        }
-        None => "ns".to_string(),
-    };
-
-    input.map(
-        move |v| {
-            if column_paths.is_empty() {
-                action(&v, &unit.clone(), span)
-            } else {
-                let unitclone = &unit.clone();
-                let mut ret = v;
-                for path in &column_paths {
-                    let r = ret.update_cell_path(
-                        &path.members,
-                        Box::new(move |old| action(old, unitclone, span)),
-                    );
-                    if let Err(error) = r {
-                        return Value::error(error, span);
-                    }
-                }
-
-                ret
-            }
-        },
-        engine_state.signals(),
-    )
 }
 
 fn split_whitespace_indices(s: &str, span: Span) -> impl Iterator<Item = (&str, Span)> {
@@ -237,27 +223,27 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     })
 }
 
-fn action(input: &Value, unit: &str, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let value_span = input.span();
     match input {
         Value::Duration { .. } => input.clone(),
         Value::String { val, .. } => {
             if let Ok(num) = val.parse::<f64>() {
-                let ns = unit_to_ns_factor(unit);
-                return Value::duration((num * (ns as f64)) as i64, span);
+                let ns = unit_to_ns_factor(&args.unit);
+                return Value::duration((num * (ns as f64)) as i64, head);
             }
             match compound_to_duration(val, value_span) {
-                Ok(val) => Value::duration(val, span),
-                Err(error) => Value::error(error, span),
+                Ok(val) => Value::duration(val, head),
+                Err(error) => Value::error(error, head),
             }
         }
         Value::Float { val, .. } => {
-            let ns = unit_to_ns_factor(unit);
-            Value::duration((*val * (ns as f64)) as i64, span)
+            let ns = unit_to_ns_factor(&args.unit);
+            Value::duration((*val * (ns as f64)) as i64, head)
         }
         Value::Int { val, .. } => {
-            let ns = unit_to_ns_factor(unit);
-            Value::duration(*val * ns, span)
+            let ns = unit_to_ns_factor(&args.unit);
+            Value::duration(*val * ns, head)
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
@@ -265,10 +251,10 @@ fn action(input: &Value, unit: &str, span: Span) -> Value {
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string or duration".into(),
                 wrong_type: other.get_type().to_string(),
-                dst_span: span,
+                dst_span: head,
                 src_span: other.span(),
             },
-            span,
+            head,
         ),
     }
 }
@@ -316,11 +302,11 @@ mod test {
     #[case("14ns 3hr 17sec", 14 + 3 * 3600 * NS_PER_SEC + 17 * NS_PER_SEC)] // compound string with units in random order
 
     fn turns_string_to_duration(#[case] phrase: &str, #[case] expected_duration_val: i64) {
-        let actual = action(
-            &Value::test_string(phrase),
-            "ns",
-            Span::new(0, phrase.len()),
-        );
+        let args = Arguments {
+            unit: "ns".to_string(),
+            cell_paths: None,
+        };
+        let actual = action(&Value::test_string(phrase), &args, Span::test_data());
         match actual {
             Value::Duration {
                 val: observed_val, ..
