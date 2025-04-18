@@ -3,6 +3,14 @@ use nu_test_support::nu;
 // Tests happy paths
 
 #[test]
+fn into_duration_from_record_cell_path() {
+    let actual = nu!(r#"{d: '1hr'} | into duration d"#);
+    let expected = nu!(r#"{d: 1hr}"#);
+
+    assert_eq!(expected.out, actual.out);
+}
+
+#[test]
 fn into_duration_from_record() {
     let actual = nu!(
         r#"{week: 10, day: 1, hour: 2, minute: 3, second: 4, millisecond: 5, microsecond: 6, nanosecond: 7, sign: '+'} | into duration | into record"#
