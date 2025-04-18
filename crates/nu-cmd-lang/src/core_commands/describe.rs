@@ -75,33 +75,40 @@ impl Command for Describe {
                 example:
                     "{shell:'true', uwu:true, features: {bugs:false, multiplatform:true, speed: 10}, fib: [1 1 2 3 5 8], on_save: {|x| $'Saving ($x)'}, first_commit: 2019-05-10, my_duration: (4min + 20sec)} | describe -d",
                 result: Some(Value::test_record(record!(
-                    "type" => Value::test_string("record<shell: string, uwu: bool, features: record<bugs: bool, multiplatform: bool, speed: int>, fib: list<int>, on_save: closure, first_commit: datetime, my_duration: duration>"),
+                    "type" => Value::test_string("record"),
+                    "detailed_type" => Value::test_string("record<shell: string, uwu: bool, features: record<bugs: bool, multiplatform: bool, speed: int>, fib: list<int>, on_save: closure, first_commit: datetime, my_duration: duration>"),
                     "columns" => Value::test_record(record!(
                         "shell" => Value::test_record(record!(
                             "type" => Value::test_string("string"),
+                            "detailed_type" => Value::test_string("string"),
                             "rust_type" => Value::test_string("&alloc::string::String"),
                             "value" => Value::test_string("true"),
                         )),
                         "uwu" => Value::test_record(record!(
                             "type" => Value::test_string("bool"),
+                            "detailed_type" => Value::test_string("bool"),
                             "rust_type" => Value::test_string("bool"),
                             "value" => Value::test_bool(true),
                         )),
                         "features" => Value::test_record(record!(
-                            "type" => Value::test_string("record<bugs: bool, multiplatform: bool, speed: int>"),
+                            "type" => Value::test_string("record"),
+                            "detailed_type" => Value::test_string("record<bugs: bool, multiplatform: bool, speed: int>"),
                             "columns" => Value::test_record(record!(
                                 "bugs" => Value::test_record(record!(
                                     "type" => Value::test_string("bool"),
+                                    "detailed_type" => Value::test_string("bool"),
                                     "rust_type" => Value::test_string("bool"),
                                     "value" => Value::test_bool(false),
                                 )),
                                 "multiplatform" => Value::test_record(record!(
                                     "type" => Value::test_string("bool"),
+                                    "detailed_type" => Value::test_string("bool"),
                                     "rust_type" => Value::test_string("bool"),
                                     "value" => Value::test_bool(true),
                                 )),
                                 "speed" => Value::test_record(record!(
                                     "type" => Value::test_string("int"),
+                                    "detailed_type" => Value::test_string("int"),
                                     "rust_type" => Value::test_string("i64"),
                                     "value" => Value::test_int(10),
                                 )),
@@ -109,37 +116,44 @@ impl Command for Describe {
                             "rust_type" => Value::test_string("&nu_utils::shared_cow::SharedCow<nu_protocol::value::record::Record>"),
                         )),
                         "fib" => Value::test_record(record!(
-                            "type" => Value::test_string("list<int>"),
+                            "type" => Value::test_string("list"),
+                            "detailed_type" => Value::test_string("list<int>"),
                             "length" => Value::test_int(6),
                             "rust_type" => Value::test_string("&mut alloc::vec::Vec<nu_protocol::value::Value>"),
                             "value" => Value::test_list(vec![
                                 Value::test_record(record!(
                                     "type" => Value::test_string("int"),
+                                    "detailed_type" => Value::test_string("int"),
                                     "rust_type" => Value::test_string("i64"),
                                     "value" => Value::test_int(1),
                                 )),
                                 Value::test_record(record!(
                                     "type" => Value::test_string("int"),
+                                    "detailed_type" => Value::test_string("int"),
                                     "rust_type" => Value::test_string("i64"),
                                     "value" => Value::test_int(1),
                                 )),
                                 Value::test_record(record!(
                                     "type" => Value::test_string("int"),
+                                    "detailed_type" => Value::test_string("int"),
                                     "rust_type" => Value::test_string("i64"),
                                     "value" => Value::test_int(2),
                                 )),
                                 Value::test_record(record!(
                                     "type" => Value::test_string("int"),
+                                    "detailed_type" => Value::test_string("int"),
                                     "rust_type" => Value::test_string("i64"),
                                     "value" => Value::test_int(3),
                                 )),
                                 Value::test_record(record!(
                                     "type" => Value::test_string("int"),
+                                    "detailed_type" => Value::test_string("int"),
                                     "rust_type" => Value::test_string("i64"),
                                     "value" => Value::test_int(5),
                                 )),
                                 Value::test_record(record!(
                                     "type" => Value::test_string("int"),
+                                    "detailed_type" => Value::test_string("int"),
                                     "rust_type" => Value::test_string("i64"),
                                     "value" => Value::test_int(8),
                                 ))]
@@ -147,6 +161,7 @@ impl Command for Describe {
                         )),
                         "on_save" => Value::test_record(record!(
                             "type" => Value::test_string("closure"),
+                            "detailed_type" => Value::test_string("closure"),
                             "rust_type" => Value::test_string("&alloc::boxed::Box<nu_protocol::engine::closure::Closure>"),
                             "value" => Value::test_closure(Closure {
                                 block_id: BlockId::new(1),
@@ -159,11 +174,13 @@ impl Command for Describe {
                         )),
                         "first_commit" => Value::test_record(record!(
                             "type" => Value::test_string("datetime"),
+                            "detailed_type" => Value::test_string("datetime"),
                             "rust_type" => Value::test_string("chrono::datetime::DateTime<chrono::offset::fixed::FixedOffset>"),
                             "value" => Value::test_date("2019-05-10 00:00:00Z".parse().unwrap_or_default()),
                         )),
                         "my_duration" => Value::test_record(record!(
                             "type" => Value::test_string("duration"),
+                            "detailed_type" => Value::test_string("duration"),
                             "rust_type" => Value::test_string("i64"),
                             "value" => Value::test_duration(260_000_000_000),
                         ))
@@ -320,52 +337,62 @@ fn describe_value_inner(
     let value_type = value.get_type().to_string();
     match value {
         Value::Bool { val, .. } => Description::Record(record! {
-            "type" => Value::string(value_type, head),
+            "type" => Value::string("bool", head),
+            "detailed_type" => Value::string(value_type, head),
             "rust_type" => Value::string(type_of(&val), head),
             "value" => value,
         }),
         Value::Int { val, .. } => Description::Record(record! {
-            "type" => Value::string(value_type, head),
+            "type" => Value::string("int", head),
+            "detailed_type" => Value::string(value_type, head),
             "rust_type" => Value::string(type_of(&val), head),
             "value" => value,
         }),
         Value::Float { val, .. } => Description::Record(record! {
-            "type" => Value::string(value_type, head),
+            "type" => Value::string("float", head),
+            "detailed_type" => Value::string(value_type, head),
             "rust_type" => Value::string(type_of(&val), head),
             "value" => value,
         }),
         Value::Filesize { val, .. } => Description::Record(record! {
-            "type" => Value::string(value_type, head),
+            "type" => Value::string("filesize", head),
+            "detailed_type" => Value::string(value_type, head),
             "rust_type" => Value::string(type_of(&val), head),
             "value" => value,
         }),
         Value::Duration { val, .. } => Description::Record(record! {
-            "type" => Value::string(value_type, head),
+            "type" => Value::string("duration", head),
+            "detailed_type" => Value::string(value_type, head),
             "rust_type" => Value::string(type_of(&val), head),
             "value" => value,
         }),
         Value::Date { val, .. } => Description::Record(record! {
-            "type" => Value::string(value_type, head),
+            "type" => Value::string("datetime", head),
+            "detailed_type" => Value::string(value_type, head),
             "rust_type" => Value::string(type_of(&val), head),
             "value" => value,
         }),
         Value::Range { ref val, .. } => Description::Record(record! {
-            "type" => Value::string(value_type, head),
+            "type" => Value::string("range", head),
+            "detailed_type" => Value::string(value_type, head),
             "rust_type" => Value::string(type_of(&val), head),
             "value" => value,
         }),
         Value::String { ref val, .. } => Description::Record(record! {
-            "type" => Value::string(value_type, head),
+            "type" => Value::string("string", head),
+            "detailed_type" => Value::string(value_type, head),
             "rust_type" => Value::string(type_of(&val), head),
             "value" => value,
         }),
         Value::Glob { ref val, .. } => Description::Record(record! {
-            "type" => Value::string(value_type, head),
+            "type" => Value::string("glob", head),
+            "detailed_type" => Value::string(value_type, head),
             "rust_type" => Value::string(type_of(&val), head),
             "value" => value,
         }),
         Value::Nothing { .. } => Description::Record(record! {
-            "type" => Value::string(value_type, head),
+            "type" => Value::string("nothing", head),
+            "detailed_type" => Value::string(value_type, head),
             "rust_type" => Value::string("", head),
             "value" => value,
         }),
@@ -377,7 +404,8 @@ fn describe_value_inner(
             }
 
             Description::Record(record! {
-                "type" => Value::string(value_type, head),
+                "type" => Value::string("record", head),
+                "detailed_type" => Value::string(value_type, head),
                 "columns" => Value::record(columns.clone(), head),
                 "rust_type" => Value::string(type_of(&val), head),
             })
@@ -389,7 +417,8 @@ fn describe_value_inner(
             }
 
             Description::Record(record! {
-                "type" => Value::string(value_type, head),
+                "type" => Value::string("list", head),
+                "detailed_type" => Value::string(value_type, head),
                 "length" => Value::int(vals.len() as i64, head),
                 "rust_type" => Value::string(type_of(&vals), head),
                 "value" => value,
@@ -399,7 +428,8 @@ fn describe_value_inner(
             let block = engine_state.map(|engine_state| engine_state.get_block(val.block_id));
 
             let mut record = record! {
-                "type" => Value::string(value_type, head),
+                "type" => Value::string("closure", head),
+                "detailed_type" => Value::string(value_type, head),
                 "rust_type" => Value::string(type_of(&val), head),
                 "value" => value,
             };
@@ -418,25 +448,29 @@ fn describe_value_inner(
             Description::Record(record)
         }
         Value::Error { ref error, .. } => Description::Record(record! {
-            "type" => Value::string(value_type, head),
+            "type" => Value::string("error", head),
+            "detailed_type" => Value::string(value_type, head),
             "subtype" => Value::string(error.to_string(), head),
             "rust_type" => Value::string(type_of(&error), head),
             "value" => value,
         }),
         Value::Binary { ref val, .. } => Description::Record(record! {
-            "type" => Value::string(value_type, head),
+            "type" => Value::string("binary", head),
+            "detailed_type" => Value::string(value_type, head),
             "length" => Value::int(val.len() as i64, head),
             "rust_type" => Value::string(type_of(&val), head),
             "value" => value,
         }),
         Value::CellPath { ref val, .. } => Description::Record(record! {
-            "type" => Value::string(value_type, head),
+            "type" => Value::string("cell-path", head),
+            "detailed_type" => Value::string(value_type, head),
             "length" => Value::int(val.members.len() as i64, head),
             "rust_type" => Value::string(type_of(&val), head),
             "value" => value
         }),
         Value::Custom { ref val, .. } => Description::Record(record! {
-            "type" => Value::string(value_type, head),
+            "type" => Value::string("custom", head),
+            "detailed_type" => Value::string(value_type, head),
             "subtype" => Value::string(val.type_name(), head),
             "rust_type" => Value::string(type_of(&val), head),
             "value" =>
