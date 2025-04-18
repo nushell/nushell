@@ -4,10 +4,22 @@ use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
 use nu_protocol::{ast::Expr, Unit};
 
 const NS_PER_SEC: i64 = 1_000_000_000;
+const ALLOWED_COLUMNS: [&str; 9] = [
+    "week",
+    "day",
+    "hour",
+    "minute",
+    "second",
+    "millisecond",
+    "microsecond",
+    "nanosecond",
+    "sign"
+];
+const ALLOWED_SIGNS: [&str; 2] = ["+", "-"];
 
 #[derive(Clone, Debug)]
 struct Arguments {
-    unit: String,
+    unit: Option<String>,
     cell_paths: Option<Vec<CellPath>>,
 }
 
@@ -32,7 +44,11 @@ impl Command for IntoDuration {
                 (Type::Float, Type::Duration),
                 (Type::String, Type::Duration),
                 (Type::Duration, Type::Duration),
-                (Type::record(), Type:record()),
+                // FIXME: https://github.com/nushell/nushell/issues/15485
+            // 'record -> any' was added as a temporary workaround to avoid type inference issues. The Any arm needs to be appear first.
+                (Type::record(), Type::Any),
+                (Type::record(), Type::record()),
+                (Type::record(), Type::Duration),
                 (Type::table(), Type::table()),
             ])
             .allow_variants_without_examples(true)
@@ -82,7 +98,7 @@ impl Command for IntoDuration {
                     .iter()
                     .any(|d| d == &sep)
                 {
-                    sep
+                    Some(sep)
                 } else {
                     return Err(ShellError::CantConvertToDuration {
                         details: sep,
@@ -95,7 +111,7 @@ impl Command for IntoDuration {
                     });
                 }
             }
-            None => "ns".to_string(),
+            None => None,
         };
         let args = Arguments { unit, cell_paths };
         operate(action, args, input, call.head, engine_state.signals())
@@ -225,26 +241,47 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
 
 fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let value_span = input.span();
+
+    if let Value::Record { val: record, .. } = input {
+        if args.unit.is_some() {
+            return Value::error(
+                ShellError::IncompatibleParameters {
+                    left_message: "got a record as input".into(),
+                    left_span: head,
+                    right_message: "the units should be included in the record".into(),
+                    right_span: value_span,
+                },
+                head,
+            );
+        }
+        return merge_record(record, head, value_span).unwrap_or_else(|err| Value::error(err, value_span));
+    }
+
+    let unit: &str = match &args.unit {
+        Some(unit) => unit,
+        None => "ns",
+    };
+
     match input {
         Value::Duration { .. } => input.clone(),
         Value::String { val, .. } => {
             if let Ok(num) = val.parse::<f64>() {
-                let ns = unit_to_ns_factor(&args.unit);
+                let ns = unit_to_ns_factor(unit);
                 return Value::duration((num * (ns as f64)) as i64, head);
             }
             match compound_to_duration(val, value_span) {
                 Ok(val) => Value::duration(val, head),
                 Err(error) => Value::error(error, head),
             }
-        }
+        },
         Value::Float { val, .. } => {
-            let ns = unit_to_ns_factor(&args.unit);
+            let ns = unit_to_ns_factor(unit);
             Value::duration((*val * (ns as f64)) as i64, head)
-        }
+        },
         Value::Int { val, .. } => {
-            let ns = unit_to_ns_factor(&args.unit);
+            let ns = unit_to_ns_factor(unit);
             Value::duration(*val * ns, head)
-        }
+        },
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::error(
@@ -257,6 +294,54 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             head,
         ),
     }
+}
+
+fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellError> {
+    if let Some(invalid_col) = record
+        .columns()
+        .find(|key| !ALLOWED_COLUMNS.contains(&key.as_str()))
+    {
+        let allowed_cols = ALLOWED_COLUMNS.join(", ");
+        return Err(ShellError::UnsupportedInput {
+            msg: format!(
+                "Column '{invalid_col}' is not valid for a structured duration. Allowed columns are: {allowed_cols}"
+            ),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span
+            }
+        );
+    };
+
+    let mut duration: i64 = 0;
+
+    if let Some(sign) = record.get("sign") {
+        match sign {
+            Value::String { val, .. } => {
+                if !ALLOWED_SIGNS.contains(&val.as_str()) {
+                    let allowed_signs = ALLOWED_SIGNS.join(", ");
+                    return Err(ShellError::IncorrectValue {
+                        msg: format!("Invalid sign! Allowed signs are {}", allowed_signs).to_string(),
+                        val_span: head,
+                        call_span: span,
+                    });
+                }
+                if val == "-" {
+                    duration = -duration;
+                }
+            },
+            other => {
+                return Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "int".to_string(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
+                });
+            }
+        }
+    };
+    
+    Ok(Value::duration(duration, span))
 }
 
 fn unit_to_ns_factor(unit: &str) -> i64 {
