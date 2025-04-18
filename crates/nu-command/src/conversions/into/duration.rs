@@ -323,96 +323,37 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
 
     let mut duration: i64 = 0;
 
-    if let Some(value) = record.get("nanosecond") {
-        match value {
-            Value::Int { val, internal_span } => {
-                if *val < 0 {
-                    return Err(ShellError::IncorrectValue {
-                        msg: "Should be positive!".to_string(),
-                        val_span: *internal_span,
-                        call_span: head,
-                    });
-                }
-                duration += *val;
-            }
-            other => {
-                return Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "int".to_string(),
-                    wrong_type: other.get_type().to_string(),
-                    dst_span: head,
-                    src_span: other.span(),
-                });
-            }
-        }
+    if let Some(col_val) = record.get("week") {
+        let week = parse_number_from_record(col_val, &head, &span)?;
+        duration += week * NS_PER_WEEK;
     };
-
-    if let Some(value) = record.get("microsecond") {
-        match value {
-            Value::Int { val, internal_span } => {
-                if *val < 0 {
-                    return Err(ShellError::IncorrectValue {
-                        msg: "Should be positive!".to_string(),
-                        val_span: *internal_span,
-                        call_span: head,
-                    });
-                }
-                duration += *val * NS_PER_US;
-            }
-            other => {
-                return Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "int".to_string(),
-                    wrong_type: other.get_type().to_string(),
-                    dst_span: head,
-                    src_span: other.span(),
-                });
-            }
-        }
+    if let Some(col_val) = record.get("day") {
+        let day = parse_number_from_record(col_val, &head, &span)?;
+        duration += day * NS_PER_DAY;
     };
-
-    if let Some(value) = record.get("millisecond") {
-        match value {
-            Value::Int { val, internal_span } => {
-                if *val < 0 {
-                    return Err(ShellError::IncorrectValue {
-                        msg: "Should be positive!".to_string(),
-                        val_span: *internal_span,
-                        call_span: head,
-                    });
-                }
-                duration += *val * NS_PER_MS;
-            }
-            other => {
-                return Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "int".to_string(),
-                    wrong_type: other.get_type().to_string(),
-                    dst_span: head,
-                    src_span: other.span(),
-                });
-            }
-        }
+    if let Some(col_val) = record.get("hour") {
+        let hour = parse_number_from_record(col_val, &head, &span)?;
+        duration += hour * NS_PER_HOUR;
     };
-
-    if let Some(value) = record.get("second") {
-        match value {
-            Value::Int { val, internal_span } => {
-                if *val < 0 {
-                    return Err(ShellError::IncorrectValue {
-                        msg: "Should be positive!".to_string(),
-                        val_span: *internal_span,
-                        call_span: head,
-                    });
-                }
-                duration += *val * NS_PER_SEC;
-            }
-            other => {
-                return Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "int".to_string(),
-                    wrong_type: other.get_type().to_string(),
-                    dst_span: head,
-                    src_span: other.span(),
-                });
-            }
-        }
+    if let Some(col_val) = record.get("minute") {
+        let minute = parse_number_from_record(col_val, &head, &span)?;
+        duration += minute * NS_PER_MINUTE;
+    };
+    if let Some(col_val) = record.get("second") {
+        let second = parse_number_from_record(col_val, &head, &span)?;
+        duration += second * NS_PER_SEC;
+    };
+    if let Some(col_val) = record.get("millisecond") {
+        let millisecond = parse_number_from_record(col_val, &head, &span)?;
+        duration += millisecond * NS_PER_MS;
+    };
+    if let Some(col_val) = record.get("microsecond") {
+        let microsecond = parse_number_from_record(col_val, &head, &span)?;
+        duration += microsecond * NS_PER_US;
+    };
+    if let Some(col_val) = record.get("nanosecond") {
+        let nanosecond = parse_number_from_record(col_val, &head, &span)?;
+        duration += nanosecond;
     };
 
     if let Some(sign) = record.get("sign") {
@@ -445,16 +386,40 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
     Ok(Value::duration(duration, span))
 }
 
+fn parse_number_from_record(col_val: &Value, head: &Span, span: &Span) -> Result<i64, ShellError> {
+    let value = match col_val {
+        Value::Int { val, .. } => {
+            if *val < 0 {
+                return Err(ShellError::IncorrectValue {
+                    msg: "number should be positive".to_string(),
+                    val_span: *head,
+                    call_span: *span,
+                });
+            }
+            *val
+        }
+        other => {
+            return Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "int".to_string(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: *head,
+                src_span: other.span(),
+            });
+        }
+    };
+    Ok(value)
+}
+
 fn unit_to_ns_factor(unit: &str) -> i64 {
     match unit {
         "ns" => 1,
-        "us" | "µs" => 1_000,
-        "ms" => 1_000_000,
+        "us" | "µs" => NS_PER_US,
+        "ms" => NS_PER_MS,
         "sec" => NS_PER_SEC,
-        "min" => NS_PER_SEC * 60,
-        "hr" => NS_PER_SEC * 60 * 60,
-        "day" => NS_PER_SEC * 60 * 60 * 24,
-        "wk" => NS_PER_SEC * 60 * 60 * 24 * 7,
+        "min" => NS_PER_MINUTE,
+        "hr" => NS_PER_HOUR,
+        "day" => NS_PER_DAY,
+        "wk" => NS_PER_WEEK,
         _ => 0,
     }
 }
