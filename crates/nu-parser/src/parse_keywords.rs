@@ -3339,7 +3339,8 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     }
 
                     let rvalue_span = Span::concat(&spans[(span.0 + 1)..]);
-                    let rvalue_block = parse_block(working_set, &tokens, rvalue_span, false, true);
+                    let rvalue_block =
+                        parse_block(working_set, &tokens, rvalue_span, false, true, false);
 
                     let output_type = rvalue_block.output_type();
 
@@ -3459,7 +3460,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
 
                     trace!("parsing: const right-hand side subexpression");
                     let rvalue_block =
-                        parse_block(working_set, &rvalue_tokens, rvalue_span, false, true);
+                        parse_block(working_set, &rvalue_tokens, rvalue_span, false, true, false);
                     let rvalue_ty = rvalue_block.output_type();
                     let rvalue_block_id = working_set.add_block(Arc::new(rvalue_block));
                     let rvalue = Expression::new(
@@ -3621,7 +3622,8 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     }
 
                     let rvalue_span = Span::concat(&spans[(span.0 + 1)..]);
-                    let rvalue_block = parse_block(working_set, &tokens, rvalue_span, false, true);
+                    let rvalue_block =
+                        parse_block(working_set, &tokens, rvalue_span, false, true, false);
 
                     let output_type = rvalue_block.output_type();
 
