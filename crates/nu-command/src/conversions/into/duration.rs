@@ -3,7 +3,14 @@ use nu_engine::command_prelude::*;
 use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
 use nu_protocol::{ast::Expr, Unit};
 
+const NS_PER_US: i64 = 1_000;
+const NS_PER_MS: i64 = 1_000_000;
 const NS_PER_SEC: i64 = 1_000_000_000;
+const NS_PER_MINUTE: i64 = 60 * NS_PER_SEC;
+const NS_PER_HOUR: i64 = 60 * NS_PER_MINUTE;
+const NS_PER_DAY: i64 = 24 * NS_PER_HOUR;
+const NS_PER_WEEK: i64 = 7 * NS_PER_DAY;
+
 const ALLOWED_COLUMNS: [&str; 9] = [
     "week",
     "day",
@@ -13,7 +20,7 @@ const ALLOWED_COLUMNS: [&str; 9] = [
     "millisecond",
     "microsecond",
     "nanosecond",
-    "sign"
+    "sign",
 ];
 const ALLOWED_SIGNS: [&str; 2] = ["+", "-"];
 
@@ -45,7 +52,7 @@ impl Command for IntoDuration {
                 (Type::String, Type::Duration),
                 (Type::Duration, Type::Duration),
                 // FIXME: https://github.com/nushell/nushell/issues/15485
-            // 'record -> any' was added as a temporary workaround to avoid type inference issues. The Any arm needs to be appear first.
+                // 'record -> any' was added as a temporary workaround to avoid type inference issues. The Any arm needs to be appear first.
                 (Type::record(), Type::Any),
                 (Type::record(), Type::record()),
                 (Type::record(), Type::Duration),
@@ -254,7 +261,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 head,
             );
         }
-        return merge_record(record, head, value_span).unwrap_or_else(|err| Value::error(err, value_span));
+        return merge_record(record, head, value_span)
+            .unwrap_or_else(|err| Value::error(err, value_span));
     }
 
     let unit: &str = match &args.unit {
@@ -273,15 +281,15 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 Ok(val) => Value::duration(val, head),
                 Err(error) => Value::error(error, head),
             }
-        },
+        }
         Value::Float { val, .. } => {
             let ns = unit_to_ns_factor(unit);
             Value::duration((*val * (ns as f64)) as i64, head)
-        },
+        }
         Value::Int { val, .. } => {
             let ns = unit_to_ns_factor(unit);
             Value::duration(*val * ns, head)
-        },
+        }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::error(
@@ -315,21 +323,18 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
 
     let mut duration: i64 = 0;
 
-    if let Some(sign) = record.get("sign") {
-        match sign {
-            Value::String { val, .. } => {
-                if !ALLOWED_SIGNS.contains(&val.as_str()) {
-                    let allowed_signs = ALLOWED_SIGNS.join(", ");
+    if let Some(value) = record.get("nanosecond") {
+        match value {
+            Value::Int { val, internal_span } => {
+                if *val < 0 {
                     return Err(ShellError::IncorrectValue {
-                        msg: format!("Invalid sign! Allowed signs are {}", allowed_signs).to_string(),
-                        val_span: head,
-                        call_span: span,
+                        msg: "Should be positive!".to_string(),
+                        val_span: *internal_span,
+                        call_span: head,
                     });
                 }
-                if val == "-" {
-                    duration = -duration;
-                }
-            },
+                duration += *val;
+            }
             other => {
                 return Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "int".to_string(),
@@ -340,7 +345,103 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
             }
         }
     };
-    
+
+    if let Some(value) = record.get("microsecond") {
+        match value {
+            Value::Int { val, internal_span } => {
+                if *val < 0 {
+                    return Err(ShellError::IncorrectValue {
+                        msg: "Should be positive!".to_string(),
+                        val_span: *internal_span,
+                        call_span: head,
+                    });
+                }
+                duration += *val * NS_PER_US;
+            }
+            other => {
+                return Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "int".to_string(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
+                });
+            }
+        }
+    };
+
+    if let Some(value) = record.get("millisecond") {
+        match value {
+            Value::Int { val, internal_span } => {
+                if *val < 0 {
+                    return Err(ShellError::IncorrectValue {
+                        msg: "Should be positive!".to_string(),
+                        val_span: *internal_span,
+                        call_span: head,
+                    });
+                }
+                duration += *val * NS_PER_MS;
+            }
+            other => {
+                return Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "int".to_string(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
+                });
+            }
+        }
+    };
+
+    if let Some(value) = record.get("second") {
+        match value {
+            Value::Int { val, internal_span } => {
+                if *val < 0 {
+                    return Err(ShellError::IncorrectValue {
+                        msg: "Should be positive!".to_string(),
+                        val_span: *internal_span,
+                        call_span: head,
+                    });
+                }
+                duration += *val * NS_PER_SEC;
+            }
+            other => {
+                return Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "int".to_string(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
+                });
+            }
+        }
+    };
+
+    if let Some(sign) = record.get("sign") {
+        match sign {
+            Value::String { val, .. } => {
+                if !ALLOWED_SIGNS.contains(&val.as_str()) {
+                    let allowed_signs = ALLOWED_SIGNS.join(", ");
+                    return Err(ShellError::IncorrectValue {
+                        msg: format!("Invalid sign! Allowed signs are {}", allowed_signs)
+                            .to_string(),
+                        val_span: head,
+                        call_span: span,
+                    });
+                }
+                if val == "-" {
+                    duration = -duration;
+                }
+            }
+            other => {
+                return Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "int".to_string(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
+                });
+            }
+        }
+    };
+
     Ok(Value::duration(duration, span))
 }
 
