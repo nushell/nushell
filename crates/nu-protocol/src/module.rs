@@ -128,7 +128,6 @@ impl Module {
         } else {
             // Import pattern was just name without any members
             let mut decls = vec![];
-            let mut const_vids = vec![];
             let mut const_rows = vec![];
             let mut errors = vec![];
 
@@ -154,7 +153,6 @@ impl Module {
                     decls.push((new_name, sub_decl_id));
                 }
 
-                const_vids.extend(sub_results.constants);
                 const_rows.extend(sub_results.constant_values);
             }
 
@@ -162,10 +160,7 @@ impl Module {
 
             for (name, var_id) in self.consts() {
                 match working_set.get_constant(var_id) {
-                    Ok(const_val) => {
-                        const_vids.push((name.clone(), var_id));
-                        const_rows.push((name, const_val.clone()))
-                    }
+                    Ok(const_val) => const_rows.push((name, const_val.clone())),
                     Err(err) => errors.push(err),
                 }
             }
@@ -192,7 +187,7 @@ impl Module {
                 ResolvedImportPattern::new(
                     decls,
                     vec![(final_name.clone(), self_id)],
-                    const_vids,
+                    vec![],
                     constant_values,
                 ),
                 errors,
