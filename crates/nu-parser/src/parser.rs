@@ -2716,8 +2716,14 @@ pub fn parse_unit_value<'res>(
         // Convert all durations to nanoseconds to not lose precision
         let num = match unit_to_ns_factor(&unit) {
             Some(factor) => {
-                unit = Unit::Nanosecond;
-                (num_float * factor) as i64
+                let num_ns = num_float * factor;
+                if i64::MIN as f64 <= num_ns && num_ns <= i64::MAX as f64 {
+                    unit = Unit::Nanosecond;
+                    num_ns as i64
+                } else {
+                    // not safe to convert, because of the overflow
+                    num_float as i64
+                }
             }
             None => num_float as i64,
         };
