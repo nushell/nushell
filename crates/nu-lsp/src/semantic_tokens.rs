@@ -22,11 +22,12 @@ fn extract_semantic_tokens_from_expression(
 ) -> Vec<Span> {
     match &expr.expr {
         Expr::Call(call) => {
-            let command_name = working_set.get_decl(call.decl_id).name();
-            if command_name.contains(' ')
-                // Some keywords that are already highlighted properly, e.g. by tree-sitter-nu
-                && !command_name.starts_with("export")
-                && !command_name.starts_with("overlay")
+            let command_name = working_set.get_span_contents(call.head);
+            // Exclude some keywords that are supposed to be already highlighted properly,
+            // e.g. by tree-sitter-nu
+            if command_name.contains(&b' ')
+                && !command_name.starts_with(b"export")
+                && !command_name.starts_with(b"overlay")
             {
                 vec![call.head]
             } else {
@@ -144,7 +145,8 @@ mod tests {
                 1, 2, 10, 0, 0,
                 7, 15, 13, 0, 0,
                 0, 20, 10, 0, 0,
-                4, 0, 7, 0, 0
+                4, 0, 7, 0, 0,
+                5, 0, 12, 0, 0
             ]})
         );
     }
