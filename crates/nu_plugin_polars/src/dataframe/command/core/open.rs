@@ -9,8 +9,8 @@ use nu_utils::perf;
 
 use nu_plugin::{EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    shell_error::io::IoError, Category, Example, LabeledError, PipelineData, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type, Value,
+    shell_error::io::IoError, Category, DataSource, Example, LabeledError, PipelineData,
+    PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 use std::{fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, sync::Arc};
@@ -164,6 +164,8 @@ fn command(
     }
 
     let hive_options = build_hive_options(plugin, call)?;
+    let metadata = PipelineMetadata::default()
+        .with_data_source(DataSource::FilePath(spanned_file.item.clone().into()));
 
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
@@ -199,7 +201,7 @@ fn command(
             "File without extension",
         ))),
     }
-    .map(|value| PipelineData::Value(value, None))
+    .map(|value| PipelineData::Value(value, Some(metadata)))
 }
 
 fn from_parquet(
