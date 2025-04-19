@@ -257,7 +257,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let value_span = input.span();
     let unit_option = &args.unit;
 
-    if let Value::Record { val: record, .. } = input {
+    if let Value::Record { .. } | Value::Duration { .. } = input {
         if let Some(unit) = unit_option {
             return Value::error(
                 ShellError::IncompatibleParameters {
@@ -269,8 +269,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 head,
             );
         }
-        return merge_record(record, head, value_span)
-            .unwrap_or_else(|err| Value::error(err, value_span));
     }
 
     let unit: &str = match unit_option {
@@ -280,6 +278,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
     match input {
         Value::Duration { .. } => input.clone(),
+        Value::Record { val, .. } => {
+            merge_record(val, head, value_span).unwrap_or_else(|err| Value::error(err, value_span))
+        }
         Value::String { val, .. } => {
             if let Ok(num) = val.parse::<f64>() {
                 let ns = unit_to_ns_factor(unit);
