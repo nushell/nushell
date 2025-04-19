@@ -3313,6 +3313,30 @@ fn table_colors() {
 }
 
 #[test]
+fn empty_table_colors() {
+    let actual = nu!(concat!("$env.config.use_ansi_coloring = true;", "{}",));
+    assert_eq!(
+        actual.out,
+        "\u{1b}[37m╭──────────────╮\u{1b}[0m\u{1b}[37m│\u{1b}[0m \u{1b}[2mempty record\u{1b}[0m \u{1b}[37m│\u{1b}[0m\u{1b}[37m╰──────────────╯\u{1b}[0m"
+    );
+
+    let actual = nu!(concat!("$env.config.use_ansi_coloring = true;", "[]",));
+    assert_eq!(
+        actual.out,
+        "\u{1b}[37m╭────────────╮\u{1b}[0m\u{1b}[37m│\u{1b}[0m \u{1b}[2mempty list\u{1b}[0m \u{1b}[37m│\u{1b}[0m\u{1b}[37m╰────────────╯\u{1b}[0m"
+    );
+
+    let actual = nu!(concat!("$env.config.use_ansi_coloring = false;", "{}",));
+    assert_eq!(
+        actual.out,
+        "╭──────────────╮│ empty record │╰──────────────╯"
+    );
+
+    let actual = nu!(concat!("$env.config.use_ansi_coloring = false;", "[]",));
+    assert_eq!(actual.out, "╭────────────╮│ empty list │╰────────────╯");
+}
+
+#[test]
 fn table_index() {
     let actual = nu!("[[ index     var ]; [ abc         1 ] [ def         2 ] [ ghi         3 ]] | table --width=80");
     assert_eq!(
