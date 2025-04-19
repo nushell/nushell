@@ -112,11 +112,20 @@ impl PluginCommand for SaveDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let spanned_file: Spanned<String> = call.req(0)?;
+        debug!("file: {}", spanned_file.item);
+
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
+
+        check_writing_into_source_file(
+            metadata.as_ref(),
+            &spanned_file.as_ref().map(PathBuf::from),
+        )?;
 
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             po @ PolarsPluginObject::NuDataFrame(_) | po @ PolarsPluginObject::NuLazyFrame(_) => {
-                command(plugin, engine, call, po)
+                command(plugin, engine, call, po, spanned_file)
             }
             _ => Err(cant_convert_err(
                 &value,
@@ -132,10 +141,8 @@ fn command(
     engine: &EngineInterface,
     call: &EvaluatedCall,
     polars_object: PolarsPluginObject,
+    spanned_file: Spanned<String>,
 ) -> Result<PipelineData, ShellError> {
-    let spanned_file: Spanned<String> = call.req(0)?;
-    debug!("file: {}", spanned_file.item);
-
     let resource = Resource::new(plugin, engine, &spanned_file)?;
     let type_option: Option<(String, Span)> = call
         .get_flag("type")?
@@ -223,6 +230,28 @@ fn command(
     Ok(PipelineData::empty())
 }
 
+fn check_writing_into_source_file(
+    metadata: Option<&PipelineMetadata>,
+    dest: &Spanned<PathBuf>,
+) -> Result<(), ShellError> {
+    let Some(DataSource::FilePath(source)) = metadata.map(|meta| &meta.data_source) else {
+        return Ok(());
+    };
+
+    if &dest.item == source {
+        return Err(write_into_source_error(dest.span));
+    }
+
+    Ok(())
+}
+
+fn write_into_source_error(span: Span) -> ShellError {
+    polars_file_save_error(
+        PolarsError::InvalidOperation("attempted to save into source".into()),
+        span,
+    )
+}
+
 pub(crate) fn polars_file_save_error(e: PolarsError, span: Span) -> ShellError {
     ShellError::GenericError {
         error: format!("Error saving file: {e}"),
@@ -247,17 +276,13 @@ pub fn unknown_file_save_error(span: Span) -> ShellError {
 pub(crate) mod test {
     use nu_plugin_test_support::PluginTest;
     use nu_protocol::{Span, Value};
+    use tempfile::TempDir;
     use uuid::Uuid;
 
     use crate::PolarsPlugin;
 
-    fn test_save(cmd: &'static str, extension: &str) -> Result<(), Box<dyn std::error::Error>> {
+    fn tmp_dir_sandbox() -> Result<(TempDir, PluginTest), Box<dyn std::error::Error>> {
         let tmp_dir = tempfile::tempdir()?;
-        let mut tmp_file = tmp_dir.path().to_owned();
-        tmp_file.push(format!("{}.{}", Uuid::new_v4(), extension));
-        let tmp_file_str = tmp_file.to_str().expect("should be able to get file path");
-
-        let cmd = format!("{cmd} {tmp_file_str}");
         let mut plugin_test = PluginTest::new("polars", PolarsPlugin::new()?.into())?;
         plugin_test.engine_state_mut().add_env_var(
             "PWD".to_string(),
@@ -270,6 +295,17 @@ pub(crate) mod test {
                 Span::test_data(),
             ),
         );
+
+        Ok((tmp_dir, plugin_test))
+    }
+
+    fn test_save(cmd: &'static str, extension: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let (tmp_dir, mut plugin_test) = tmp_dir_sandbox()?;
+        let mut tmp_file = tmp_dir.path().to_owned();
+        tmp_file.push(format!("{}.{}", Uuid::new_v4(), extension));
+        let tmp_file_str = tmp_file.to_str().expect("should be able to get file path");
+
+        let cmd = format!("{cmd} {tmp_file_str}");
         let _pipeline_data = plugin_test.eval(&cmd)?;
 
         assert!(tmp_file.exists());
@@ -289,5 +325,29 @@ pub(crate) mod test {
             "[[a b]; [1 2] [3 4]] | polars into-df | polars save",
             extension,
         )
+    }
+
+    #[test]
+    fn test_write_to_source_guard() -> Result<(), Box<dyn std::error::Error>> {
+        let (tmp_dir, mut plugin_test) = tmp_dir_sandbox()?;
+        let mut tmp_file = tmp_dir.path().to_owned();
+        dbg!(&tmp_dir);
+        tmp_file.push(format!("{}.{}", Uuid::new_v4(), "parquet"));
+        let tmp_file_str = tmp_file.to_str().expect("Should be able to get file path");
+
+        let _setup = plugin_test.eval(&format!(
+            "[1 2 3] | polars into-df | polars save {tmp_file_str}",
+        ))?;
+
+        let output = plugin_test.eval(&format!(
+            "polars open {tmp_file_str} | polars save {tmp_file_str}"
+        ));
+
+        assert!(output.is_err_and(|e| {
+            e.to_string()
+                .contains("Error saving file: attempted to save into source")
+        }));
+
+        Ok(())
     }
 }

@@ -165,6 +165,8 @@ fn command(
     }
 
     let hive_options = build_hive_options(plugin, call)?;
+    let metadata = PipelineMetadata::default()
+        .with_data_source(DataSource::FilePath(spanned_file.item.clone().into()));
 
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
@@ -200,7 +202,7 @@ fn command(
             "File without extension",
         ))),
     }
-    .map(|value| PipelineData::Value(value, None))
+    .map(|value| PipelineData::Value(value, Some(metadata)))
 }
 
 fn from_parquet(
