@@ -62,63 +62,66 @@ impl LanguageServer {
         suggestion: SemanticSuggestion,
         range: Range,
     ) -> CompletionItem {
-        let decl_id = suggestion.kind.as_ref().and_then(|kind| {
-            matches!(kind, SuggestionKind::Command(_))
-                .then_some(engine_state.find_decl(suggestion.suggestion.value.as_bytes(), &[])?)
-        });
-
         let mut snippet_text = suggestion.suggestion.value.clone();
         let mut doc_string = suggestion.suggestion.extra.map(|ex| ex.join("\n"));
         let mut insert_text_format = None;
         let mut idx = 0;
         // use snippet as `insert_text_format` for command argument completion
-        if let Some(decl_id) = decl_id {
-            let cmd = engine_state.get_decl(decl_id);
-            doc_string = Some(Self::get_decl_description(cmd, true));
-            insert_text_format = Some(InsertTextFormat::SNIPPET);
-            let signature = cmd.signature();
-            // add curly brackets around block arguments
-            // and keywords, e.g. `=` in `alias foo = bar`
-            let mut arg_wrapper = |arg: &PositionalArg, text: String, optional: bool| -> String {
-                idx += 1;
-                match &arg.shape {
-                    SyntaxShape::Block | SyntaxShape::MatchBlock => {
-                        format!("{{ ${{{}:{}}} }}", idx, text)
-                    }
-                    SyntaxShape::Keyword(kwd, _) => {
-                        // NOTE: If optional, the keyword should also be in a placeholder so that it can be removed easily.
-                        // Here we choose to use nested placeholders. Note that some editors don't fully support this format,
-                        // but usually they will simply ignore the inner ones, so it should be fine.
-                        if optional {
-                            idx += 1;
-                            format!(
-                                "${{{}:{} ${{{}:{}}}}}",
-                                idx - 1,
-                                String::from_utf8_lossy(kwd),
-                                idx,
-                                text
-                            )
-                        } else {
-                            format!("{} ${{{}:{}}}", String::from_utf8_lossy(kwd), idx, text)
+        if let Some(SuggestionKind::Command(_, Some(decl_id))) = suggestion.kind {
+            // NOTE: for new commands defined in current context,
+            // which are not present in the engine state, skip the documentation and snippet.
+            if engine_state.num_decls() > decl_id.get() {
+                let cmd = engine_state.get_decl(decl_id);
+                doc_string = Some(Self::get_decl_description(cmd, true));
+                insert_text_format = Some(InsertTextFormat::SNIPPET);
+                let signature = cmd.signature();
+                // add curly brackets around block arguments
+                // and keywords, e.g. `=` in `alias foo = bar`
+                let mut arg_wrapper = |arg: &PositionalArg,
+                                       text: String,
+                                       optional: bool|
+                 -> String {
+                    idx += 1;
+                    match &arg.shape {
+                        SyntaxShape::Block | SyntaxShape::MatchBlock => {
+                            format!("{{ ${{{}:{}}} }}", idx, text)
                         }
+                        SyntaxShape::Keyword(kwd, _) => {
+                            // NOTE: If optional, the keyword should also be in a placeholder so that it can be removed easily.
+                            // Here we choose to use nested placeholders. Note that some editors don't fully support this format,
+                            // but usually they will simply ignore the inner ones, so it should be fine.
+                            if optional {
+                                idx += 1;
+                                format!(
+                                    "${{{}:{} ${{{}:{}}}}}",
+                                    idx - 1,
+                                    String::from_utf8_lossy(kwd),
+                                    idx,
+                                    text
+                                )
+                            } else {
+                                format!("{} ${{{}:{}}}", String::from_utf8_lossy(kwd), idx, text)
+                            }
+                        }
+                        _ => format!("${{{}:{}}}", idx, text),
                     }
-                    _ => format!("${{{}:{}}}", idx, text),
-                }
-            };
+                };
 
-            for required in signature.required_positional {
-                snippet_text.push(' ');
-                snippet_text
-                    .push_str(arg_wrapper(&required, required.name.clone(), false).as_str());
-            }
-            for optional in signature.optional_positional {
-                snippet_text.push(' ');
-                snippet_text
-                    .push_str(arg_wrapper(&optional, format!("{}?", optional.name), true).as_str());
-            }
-            if let Some(rest) = signature.rest_positional {
-                idx += 1;
-                snippet_text.push_str(format!(" ${{{}:...{}}}", idx, rest.name).as_str());
+                for required in signature.required_positional {
+                    snippet_text.push(' ');
+                    snippet_text
+                        .push_str(arg_wrapper(&required, required.name.clone(), false).as_str());
+                }
+                for optional in signature.optional_positional {
+                    snippet_text.push(' ');
+                    snippet_text.push_str(
+                        arg_wrapper(&optional, format!("{}?", optional.name), true).as_str(),
+                    );
+                }
+                if let Some(rest) = signature.rest_positional {
+                    idx += 1;
+                    snippet_text.push_str(format!(" ${{{}:...{}}}", idx, rest.name).as_str());
+                }
             }
         }
         // no extra space for a command with args expanded in the snippet
@@ -138,7 +141,7 @@ impl LanguageServer {
                 .as_ref()
                 .map(|kind| match kind {
                     SuggestionKind::Value(t) => t.to_string(),
-                    SuggestionKind::Command(cmd) => cmd.to_string(),
+                    SuggestionKind::Command(cmd, _) => cmd.to_string(),
                     SuggestionKind::Module => "module".to_string(),
                     SuggestionKind::Operator => "operator".to_string(),
                     SuggestionKind::Variable => "variable".to_string(),
@@ -172,7 +175,7 @@ impl LanguageServer {
                 _ => None,
             },
             SuggestionKind::CellPath => Some(CompletionItemKind::PROPERTY),
-            SuggestionKind::Command(c) => match c {
+            SuggestionKind::Command(c, _) => match c {
                 CommandType::Keyword => Some(CompletionItemKind::KEYWORD),
                 CommandType::Builtin => Some(CompletionItemKind::FUNCTION),
                 CommandType::Alias => Some(CompletionItemKind::REFERENCE),
@@ -334,6 +337,17 @@ mod tests {
             })
         ));
 
+        // fallback completion on a newly defined command,
+        // the decl_id is missing in the engine state, this shouldn't cause any panic.
+        let resp = send_complete_request(&client_connection, script.clone(), 13, 9);
+        assert_json_include!(
+            actual: result_from_message(resp),
+            expected: serde_json::json!([
+                // defined before the cursor
+                { "label": "config n foo bar", "detail": detail_str, "kind": 2 },
+            ])
+        );
+
         // inside parenthesis
         let resp = send_complete_request(&client_connection, script, 10, 34);
         assert!(result_from_message(resp).as_array().unwrap().contains(
@@ -486,10 +500,10 @@ mod tests {
             actual: result_from_message(resp),
             expected: serde_json::json!([
                 {
-                    "label": "1",
+                    "label": "\"1\"",
                     "detail": "string",
                     "textEdit": {
-                        "newText": "1",
+                        "newText": "\"1\"",
                         "range": { "start": { "line": 1, "character": 5 }, "end": { "line": 1, "character": 5 } }
                     },
                     "kind": 10

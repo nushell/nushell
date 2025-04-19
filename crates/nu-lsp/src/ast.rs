@@ -46,6 +46,10 @@ fn command_name_span_from_call_head(
     head_span: Span,
 ) -> Span {
     let name = working_set.get_decl(decl_id).name();
+    // shortcut for most cases
+    if name.len() == head_span.end.saturating_sub(head_span.start) {
+        return head_span;
+    }
     let head_content = working_set.get_span_contents(head_span);
     let mut head_words = head_content.split(|c| *c == b' ').collect::<Vec<_>>();
     let mut name_words = name.split(' ').collect::<Vec<_>>();
@@ -500,38 +504,34 @@ fn find_reference_by_id_in_expr(
     expr: &Expression,
     working_set: &StateWorkingSet,
     id: &Id,
-) -> Option<Vec<Span>> {
-    let closure = |e| find_reference_by_id_in_expr(e, working_set, id);
+) -> Vec<Span> {
     match (&expr.expr, id) {
-        (Expr::Var(vid1), Id::Variable(vid2, _)) if *vid1 == *vid2 => Some(vec![Span::new(
+        (Expr::Var(vid1), Id::Variable(vid2, _)) if *vid1 == *vid2 => vec![Span::new(
             // we want to exclude the `$` sign for renaming
             expr.span.start.saturating_add(1),
             expr.span.end,
-        )]),
-        (Expr::VarDecl(vid1), Id::Variable(vid2, _)) if *vid1 == *vid2 => Some(vec![expr.span]),
+        )],
+        (Expr::VarDecl(vid1), Id::Variable(vid2, _)) if *vid1 == *vid2 => vec![expr.span],
         // also interested in `var_id` in call.arguments of `use` command
         // and `module_id` in `module` command
         (Expr::Call(call), _) => {
-            let mut occurs: Vec<Span> = call
-                .arguments
-                .iter()
-                .filter_map(|arg| arg.expr())
-                .flat_map(|e| e.flat_map(working_set, &closure))
-                .collect();
             if matches!(id, Id::Declaration(decl_id) if call.decl_id == *decl_id) {
-                occurs.push(command_name_span_from_call_head(
+                vec![command_name_span_from_call_head(
                     working_set,
                     call.decl_id,
                     call.head,
-                ));
-                return Some(occurs);
+                )]
             }
-            if let Some((_, span_found)) = try_find_id_in_misc(call, working_set, None, Some(id)) {
-                occurs.push(span_found);
+            // Check for misc matches (use, module, etc.)
+            else if let Some((_, span_found)) =
+                try_find_id_in_misc(call, working_set, None, Some(id))
+            {
+                vec![span_found]
+            } else {
+                vec![]
             }
-            Some(occurs)
         }
-        _ => None,
+        _ => vec![],
     }
 }
 
@@ -540,7 +540,8 @@ pub(crate) fn find_reference_by_id(
     working_set: &StateWorkingSet,
     id: &Id,
 ) -> Vec<Span> {
-    ast.flat_map(working_set, &|e| {
-        find_reference_by_id_in_expr(e, working_set, id)
-    })
+    let mut results = Vec::new();
+    let closure = |e| find_reference_by_id_in_expr(e, working_set, id);
+    ast.flat_map(working_set, &closure, &mut results);
+    results
 }

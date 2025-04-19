@@ -10,6 +10,7 @@ mod median;
 mod min;
 mod n_null;
 mod n_unique;
+mod over;
 mod quantile;
 mod rolling;
 mod std;
@@ -30,6 +31,7 @@ use mean::ExprMean;
 use min::ExprMin;
 pub use n_null::NNull;
 pub use n_unique::NUnique;
+pub use over::Over;
 pub use rolling::Rolling;
 use std::ExprStd;
 pub use sum::ExprSum;
@@ -52,6 +54,7 @@ pub(crate) fn aggregation_commands() -> Vec<Box<dyn PluginCommand<Plugin = Polar
         Box::new(median::LazyMedian),
         Box::new(quantile::LazyQuantile),
         Box::new(groupby::ToLazyGroupBy),
+        Box::new(Over),
         Box::new(Rolling),
         Box::new(ValueCount),
         Box::new(NNull),

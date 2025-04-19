@@ -10,7 +10,7 @@ impl Command for Job {
 
     fn signature(&self) -> Signature {
         Signature::build("job")
-            .category(Category::Strings)
+            .category(Category::Experimental)
             .input_output_types(vec![(Type::Nothing, Type::String)])
     }
 
