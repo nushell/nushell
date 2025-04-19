@@ -2701,12 +2701,25 @@ pub fn parse_unit_value<'res>(
             }
         });
 
-        let (num, unit) = match convert {
-            Some(convert_to) => (
-                ((number_part * convert_to.1 as f64) + (decimal_part * convert_to.1 as f64)) as i64,
-                convert_to.0,
-            ),
-            None => (number_part as i64, *unit),
+        let mut unit = match convert {
+            Some(convert_to) => convert_to.0,
+            None => *unit,
+        };
+
+        let num_float = match convert {
+            Some(convert_to) => {
+                (number_part * convert_to.1 as f64) + (decimal_part * convert_to.1 as f64)
+            }
+            None => number_part,
+        };
+
+        // Convert all durations to nanoseconds to not lose precision
+        let num = match unit_to_ns_factor(&unit) {
+            Some(factor) => {
+                unit = Unit::Nanosecond;
+                (num_float * factor) as i64
+            }
+            None => num_float as i64,
         };
 
         trace!("-- found {} {:?}", num, unit);
@@ -2812,6 +2825,20 @@ pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
     (Unit::Day, "day", Some((Unit::Minute, 1440))),
     (Unit::Week, "wk", Some((Unit::Day, 7))),
 ];
+
+fn unit_to_ns_factor(unit: &Unit) -> Option<f64> {
+    match unit {
+        Unit::Nanosecond => Some(1.0),
+        Unit::Microsecond => Some(1_000.0),
+        Unit::Millisecond => Some(1_000_000.0),
+        Unit::Second => Some(1_000_000_000.0),
+        Unit::Minute => Some(60.0 * 1_000_000_000.0),
+        Unit::Hour => Some(60.0 * 60.0 * 1_000_000_000.0),
+        Unit::Day => Some(24.0 * 60.0 * 60.0 * 1_000_000_000.0),
+        Unit::Week => Some(7.0 * 24.0 * 60.0 * 60.0 * 1_000_000_000.0),
+        _ => None,
+    }
+}
 
 // Borrowed from libm at https://github.com/rust-lang/libm/blob/master/src/math/modf.rs
 fn modf(x: f64) -> (f64, f64) {
@@ -6878,13 +6905,9 @@ pub fn parse(
 
     let mut output = {
         if let Some(block) = previously_parsed_block {
-            // dbg!("previous block");
             return block;
         } else {
-            // dbg!("starting lex");
             let (output, err) = lex(contents, new_span.start, &[], &[], false);
-            // dbg!("finished lex");
-            // dbg!(&output);
             if let Some(err) = err {
                 working_set.error(err)
             }
