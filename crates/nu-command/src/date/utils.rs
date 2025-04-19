@@ -1,13 +1,23 @@
 use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone};
 use nu_protocol::{record, ShellError, Span, Value};
+use std::collections::HashMap;
 
 pub(crate) fn parse_date_from_string(
     input: &str,
     span: Span,
 ) -> Result<DateTime<FixedOffset>, Value> {
-    match dtparse::parse(input) {
-        Ok((native_dt, fixed_offset)) => {
-            let offset = match fixed_offset {
+    match dtparse::Parser::default().parse(
+        input,
+        Some(true),
+        Some(true),
+        false,
+        false,
+        None,
+        false,
+        &HashMap::new(),
+    ) {
+        Ok(result) => {
+            let offset = match result.1 {
                 Some(offset) => offset,
                 None => *Local
                     .from_local_datetime(&native_dt)
@@ -15,7 +25,7 @@ pub(crate) fn parse_date_from_string(
                     .unwrap_or_default()
                     .offset(),
             };
-            match offset.from_local_datetime(&native_dt) {
+            match offset.from_local_datetime(&result.0) {
                 LocalResult::Single(d) => Ok(d),
                 LocalResult::Ambiguous(d, _) => Ok(d),
                 LocalResult::None => Err(Value::error(
