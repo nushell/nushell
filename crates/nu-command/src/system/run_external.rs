@@ -88,25 +88,19 @@ impl Command for External {
         // found the script and we believe the user wants to use the windows association
         // to run the script. The only easy way to do this is to run cmd.exe with the
         // script as an argument. File extensions of .COM, .EXE, .BAT, and .CMD
-        // are ignored because Windows can run those files directly.
+        // are ignored because Windows can run those files directly. PS1
+        // extensions are handled in a different block below.
         let pathext_script_in_windows = if cfg!(windows) {
             if let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) {
-                let ext = ".".to_owned()
-                    + &executable
-                        .extension()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_uppercase();
+                let ext = executable
+                    .extension()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_uppercase();
 
-                let mut pathext = stack
-                    .get_env_var_insensitive(engine_state, "PATHEXT")
-                    .unwrap()
-                    .1
-                    .as_str()?
-                    .split(";");
-
-                pathext.any(|c| *c == ext)
-                    && ![".COM", ".EXE", ".BAT", ".CMD"].iter().any(|c| *c.to_uppercase() == ext)
+                !["COM", "EXE", "BAT", "CMD", "PS1"]
+                    .iter()
+                    .any(|c| *c == ext)
             } else {
                 false
             }
