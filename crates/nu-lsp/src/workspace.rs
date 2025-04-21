@@ -59,11 +59,29 @@ struct IDTracker {
     /// Span of the original instance under the cursor
     pub span: Span,
     /// Name of the definition
-    pub name: String,
+    pub name: Box<[u8]>,
     /// Span of the original file where the request comes from
     pub file_span: Span,
     /// The redundant parsing should only happen once
     pub renewed: bool,
+}
+
+impl IDTracker {
+    fn new(id: Id, span: Span, file_span: Span, working_set: &StateWorkingSet) -> Self {
+        let name = match &id {
+            Id::Variable(_, name) | Id::Module(_, name) => name.clone(),
+            // NOTE: search by the canonical command name, some weird aliasing will be missing
+            Id::Declaration(decl_id) => working_set.get_decl(*decl_id).name().as_bytes().into(),
+            _ => working_set.get_span_contents(span).into(),
+        };
+        Self {
+            id,
+            span,
+            name,
+            file_span,
+            renewed: false,
+        }
+    }
 }
 
 impl LanguageServer {
@@ -121,7 +139,6 @@ impl LanguageServer {
     /// The rename request only happens after the client received a `PrepareRenameResponse`,
     /// and a new name typed in, could happen before ranges ready for all files in the workspace folder
     pub(crate) fn rename(&mut self, params: &RenameParams) -> Option<WorkspaceEdit> {
-        let new_name = params.new_name.to_owned();
         // changes in WorkspaceEdit have mutable key
         #[allow(clippy::mutable_key_type)]
         let changes: HashMap<Uri, Vec<TextEdit>> = self
@@ -134,7 +151,7 @@ impl LanguageServer {
                         .iter()
                         .map(|range| TextEdit {
                             range: *range,
-                            new_text: new_name.clone(),
+                            new_text: params.new_name.to_owned(),
                         })
                         .collect(),
                 )
@@ -157,6 +174,8 @@ impl LanguageServer {
         timeout: u128,
     ) -> Option<Vec<Location>> {
         self.occurrences = BTreeMap::new();
+        // start with a clean engine state
+        self.need_parse = true;
         let path_uri = params.text_document_position.text_document.uri.to_owned();
         let mut engine_state = self.new_engine_state(Some(&path_uri));
 
@@ -174,14 +193,9 @@ impl LanguageServer {
             .to_owned()
             .unwrap_or(ProgressToken::Number(1));
 
-        let id_tracker = IDTracker {
-            id,
-            span,
-            file_span,
-            name: String::from_utf8_lossy(working_set.get_span_contents(span)).to_string(),
-            renewed: false,
-        };
-
+        let id_tracker = IDTracker::new(id, span, file_span, &working_set);
+        // make sure the parsing result of current file is merged in the state
+        let engine_state = self.new_engine_state(Some(&path_uri));
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,
@@ -226,6 +240,8 @@ impl LanguageServer {
         let params: TextDocumentPositionParams =
             serde_json::from_value(request.params).into_diagnostic()?;
         self.occurrences = BTreeMap::new();
+        // start with a clean engine state
+        self.need_parse = true;
 
         let path_uri = params.text_document.uri.to_owned();
         let mut engine_state = self.new_engine_state(Some(&path_uri));
@@ -264,13 +280,9 @@ impl LanguageServer {
             .get_workspace_folder_by_uri(&path_uri)
             .ok_or_else(|| miette!("\nCurrent file is not in any workspace"))?;
         // now continue parsing on other files in the workspace
-        let id_tracker = IDTracker {
-            id,
-            span,
-            file_span,
-            name: String::from_utf8_lossy(working_set.get_span_contents(span)).to_string(),
-            renewed: false,
-        };
+        let id_tracker = IDTracker::new(id, span, file_span, &working_set);
+        // make sure the parsing result of current file is merged in the state
+        let engine_state = self.new_engine_state(Some(&path_uri));
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,
@@ -296,9 +308,9 @@ impl LanguageServer {
             false,
         );
         // NOTE: Renew the id if there's a module with the same span as the original file.
-        // This requires that the initial parsing results get merged in the engine_state,
-        // typically they're cached with diagnostics before the prepare_rename/references requests,
-        // so that we don't need to clone and merge delta again.
+        // This requires that the initial parsing results get merged in the engine_state.
+        // Pay attention to the `self.need_parse = true` and `merge_delta` assignments
+        // in function `prepare_rename`/`references`
         if (!id_tracker.renewed)
             && working_set
                 .find_module_by_span(id_tracker.file_span)
@@ -329,18 +341,20 @@ impl LanguageServer {
         file_span: Span,
         sample_span: Span,
     ) -> Option<Span> {
-        if let (Id::Variable(_), Some(decl_span)) = (&id, definition_span) {
+        if let (Id::Variable(_, name_ref), Some(decl_span)) = (&id, definition_span) {
             if file_span.contains_span(decl_span) && decl_span.end > decl_span.start {
-                let leading_dashes = working_set
-                    .get_span_contents(decl_span)
+                let content = working_set.get_span_contents(decl_span);
+                let leading_dashes = content
                     .iter()
                     // remove leading dashes for flags
                     .take_while(|c| *c == &b'-')
                     .count();
                 let start = decl_span.start + leading_dashes;
-                return Some(Span {
-                    start,
-                    end: start + sample_span.end - sample_span.start,
+                return content.get(leading_dashes..).and_then(|name| {
+                    name.starts_with(name_ref).then_some(Span {
+                        start,
+                        end: start + sample_span.end - sample_span.start,
+                    })
                 });
             }
         }
@@ -382,6 +396,8 @@ impl LanguageServer {
                 .collect();
             let len = scripts.len();
             let definition_span = Self::find_definition_span_by_id(&working_set, &id_tracker.id);
+            let bytes_to_search = id_tracker.name.to_owned();
+            let finder = memchr::memmem::Finder::new(&bytes_to_search);
 
             for (i, fp) in scripts.iter().enumerate() {
                 #[cfg(test)]
@@ -402,7 +418,7 @@ impl LanguageServer {
                 let file = if let Some(file) = docs.get_document(&uri) {
                     file
                 } else {
-                    let bytes = match fs::read(fp) {
+                    let file_bytes = match fs::read(fp) {
                         Ok(it) => it,
                         Err(_) => {
                             // continue on fs error
@@ -410,15 +426,18 @@ impl LanguageServer {
                         }
                     };
                     // skip if the file does not contain what we're looking for
-                    let content_string = String::from_utf8_lossy(&bytes);
-                    if !content_string.contains(&id_tracker.name) {
+                    if finder.find(&file_bytes).is_none() {
                         // progress without any data
                         data_sender
                             .send(InternalMessage::OnGoing(token.clone(), percentage))
                             .into_diagnostic()?;
                         continue;
                     }
-                    &FullTextDocument::new("nu".to_string(), 0, content_string.into())
+                    &FullTextDocument::new(
+                        "nu".to_string(),
+                        0,
+                        String::from_utf8_lossy(&file_bytes).into(),
+                    )
                 };
                 let _ = Self::find_reference_in_file(&mut working_set, file, fp, &mut id_tracker)
                     .map(|mut refs| {
@@ -449,7 +468,7 @@ impl LanguageServer {
                     });
             }
             data_sender
-                .send(InternalMessage::Finished(token.clone()))
+                .send(InternalMessage::Finished(token))
                 .into_diagnostic()?;
             Ok(())
         });
@@ -542,7 +561,7 @@ mod tests {
 
         // use a hover request to interrupt
         if immediate_cancellation {
-            send_hover_request(client_connection, uri.clone(), line, character);
+            send_hover_request(client_connection, uri, line, character);
         }
 
         (0..num)
@@ -626,7 +645,7 @@ mod tests {
         script.push("foo.nu");
         let script = path_to_uri(&script);
 
-        open_unchecked(&client_connection, script.clone());
+        open_unchecked(&client_connection, script);
     }
 
     #[test]
@@ -650,14 +669,16 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let message_num = 5;
+        let message_num = 6;
         let messages =
             send_reference_request(&client_connection, script.clone(), 0, 12, message_num);
         assert_eq!(messages.len(), message_num);
+        let mut has_response = false;
         for message in messages {
             match message {
                 Message::Notification(n) => assert_eq!(n.method, "$/progress"),
                 Message::Response(r) => {
+                    has_response = true;
                     let result = r.result.unwrap();
                     let array = result.as_array().unwrap();
                     assert!(array.contains(&serde_json::json!(
@@ -669,7 +690,7 @@ mod tests {
                     ));
                     assert!(array.contains(&serde_json::json!(
                             {
-                                "uri": script.to_string(),
+                                "uri": script,
                                 "range": { "start": { "line": 0, "character": 11 }, "end": { "line": 0, "character": 16 } }
                             }
                         )
@@ -678,10 +699,72 @@ mod tests {
                 _ => panic!("unexpected message type"),
             }
         }
+        assert!(has_response);
     }
 
     #[test]
     fn quoted_command_reference_in_workspace() {
+        let mut script_path = fixtures();
+        script_path.push("lsp");
+        script_path.push("workspace");
+        let (client_connection, _recv) = initialize_language_server(
+            None,
+            serde_json::to_value(InitializeParams {
+                workspace_folders: Some(vec![WorkspaceFolder {
+                    uri: path_to_uri(&script_path),
+                    name: "random name".to_string(),
+                }]),
+                ..Default::default()
+            })
+            .ok(),
+        );
+        script_path.push("bar.nu");
+        let script = path_to_uri(&script_path);
+        script_path.pop();
+        script_path.push("foo.nu");
+        let script_foo = path_to_uri(&script_path);
+
+        open_unchecked(&client_connection, script.clone());
+        // to mimic switching back and forth in editors,
+        // note this action will trigger parsing for diagnostics,
+        // thus changing the cached `StateDelta`
+        open_unchecked(&client_connection, script_foo);
+
+        let message_num = 6;
+        let messages =
+            send_reference_request(&client_connection, script.clone(), 0, 23, message_num);
+        assert_eq!(messages.len(), message_num);
+        let mut has_response = false;
+        for message in messages {
+            match message {
+                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
+                Message::Response(r) => {
+                    has_response = true;
+                    let result = r.result.unwrap();
+                    let array = result.as_array().unwrap();
+                    assert!(array.contains(&serde_json::json!(
+                            {
+                                "uri": script,
+                                "range": { "start": { "line": 5, "character": 4 }, "end": { "line": 5, "character": 11 } }
+                            }
+                        )
+                    ));
+                    assert!(array.contains(&serde_json::json!(
+                            {
+                                "uri": script.to_string().replace("bar", "foo"),
+                                "range": { "start": { "line": 6, "character": 13 }, "end": { "line": 6, "character": 20 } }
+                            }
+                        )
+                    ));
+                }
+                _ => panic!("unexpected message type"),
+            }
+        }
+        assert!(has_response);
+    }
+
+    #[test]
+    fn module_path_reference_in_workspace() {
         let mut script = fixtures();
         script.push("lsp");
         script.push("workspace");
@@ -696,32 +779,34 @@ mod tests {
             })
             .ok(),
         );
-        script.push("foo.nu");
+        script.push("baz.nu");
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let message_num = 5;
+        let message_num = 6;
         let messages =
-            send_reference_request(&client_connection, script.clone(), 6, 12, message_num);
+            send_reference_request(&client_connection, script.clone(), 0, 12, message_num);
         assert_eq!(messages.len(), message_num);
+        let mut has_response = false;
         for message in messages {
             match message {
                 Message::Notification(n) => assert_eq!(n.method, "$/progress"),
                 Message::Response(r) => {
+                    has_response = true;
                     let result = r.result.unwrap();
                     let array = result.as_array().unwrap();
                     assert!(array.contains(&serde_json::json!(
                             {
-                                "uri": script.to_string().replace("foo", "bar"),
-                                "range": { "start": { "line": 5, "character": 4 }, "end": { "line": 5, "character": 11 } }
+                                "uri": script.to_string().replace("baz", "bar"),
+                                "range": { "start": { "line": 0, "character": 4 }, "end": { "line": 0, "character": 12 } }
                             }
                         )
                     ));
                     assert!(array.contains(&serde_json::json!(
                             {
-                                "uri": script.to_string(),
-                                "range": { "start": { "line": 6, "character": 13 }, "end": { "line": 6, "character": 20 } }
+                                "uri": script,
+                                "range": { "start": { "line": 6, "character": 4 }, "end": { "line": 6, "character": 12 } }
                             }
                         )
                     ));
@@ -729,6 +814,7 @@ mod tests {
                 _ => panic!("unexpected message type"),
             }
         }
+        assert!(has_response);
     }
 
     #[test]
@@ -752,7 +838,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let message_num = 5;
+        let message_num = 6;
         let messages = send_rename_prepare_request(
             &client_connection,
             script.clone(),
@@ -762,19 +848,24 @@ mod tests {
             false,
         );
         assert_eq!(messages.len(), message_num);
+        let mut has_response = false;
         for message in messages {
             match message {
                 Message::Notification(n) => assert_eq!(n.method, "$/progress"),
-                Message::Response(r) => assert_json_eq!(
-                    r.result,
-                    serde_json::json!({
-                        "start": { "line": 6, "character": 13 },
-                        "end": { "line": 6, "character": 20 }
-                    }),
-                ),
+                Message::Response(r) => {
+                    has_response = true;
+                    assert_json_eq!(
+                        r.result,
+                        serde_json::json!({
+                            "start": { "line": 6, "character": 13 },
+                            "end": { "line": 6, "character": 20 }
+                        }),
+                    )
+                }
                 _ => panic!("unexpected message type"),
             }
         }
+        assert!(has_response);
 
         if let Message::Response(r) = send_rename_request(&client_connection, script.clone(), 6, 11)
         {
@@ -801,7 +892,96 @@ mod tests {
             assert!(
                 changs_bar.contains(
                 &serde_json::json!({
-                    "range": { "start": { "line": 0, "character": 20 }, "end": { "line": 0, "character": 27 } },
+                    "range": { "start": { "line": 0, "character": 22 }, "end": { "line": 0, "character": 29 } },
+                    "newText": "new"
+                })
+            ));
+        } else {
+            panic!()
+        }
+    }
+
+    #[test]
+    fn rename_module_command() {
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("workspace");
+        let (client_connection, _recv) = initialize_language_server(
+            None,
+            serde_json::to_value(InitializeParams {
+                workspace_folders: Some(vec![WorkspaceFolder {
+                    uri: path_to_uri(&script),
+                    name: "random name".to_string(),
+                }]),
+                ..Default::default()
+            })
+            .ok(),
+        );
+        script.push("baz.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+
+        let message_num = 6;
+        let messages = send_rename_prepare_request(
+            &client_connection,
+            script.clone(),
+            1,
+            47,
+            message_num,
+            false,
+        );
+        assert_eq!(messages.len(), message_num);
+        let mut has_response = false;
+        for message in messages {
+            match message {
+                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
+                Message::Response(r) => {
+                    has_response = true;
+                    assert_json_eq!(
+                        r.result,
+                        serde_json::json!({
+                            "start": { "line": 1, "character": 41 },
+                            "end": { "line": 1, "character": 56 }
+                        }),
+                    )
+                }
+                _ => panic!("unexpected message type"),
+            }
+        }
+        assert!(has_response);
+
+        if let Message::Response(r) = send_rename_request(&client_connection, script.clone(), 6, 11)
+        {
+            let changes = r.result.unwrap()["changes"].clone();
+            assert_json_eq!(
+                changes[script.to_string().replace("baz", "foo")],
+                serde_json::json!([
+                    {
+                        "range": { "start": { "line": 10, "character": 16 }, "end": { "line": 10, "character": 29 } },
+                        "newText": "new"
+                    }
+                ])
+            );
+            let changs_baz = changes[script.to_string()].as_array().unwrap();
+            assert!(
+                changs_baz.contains(
+                &serde_json::json!({
+                    "range": { "start": { "line": 1, "character": 41 }, "end": { "line": 1, "character": 56 } },
+                    "newText": "new"
+                })
+            ));
+            assert!(
+                changs_baz.contains(
+                &serde_json::json!({
+                    "range": { "start": { "line": 2, "character": 0 }, "end": { "line": 2, "character": 5 } },
+                    "newText": "new"
+                })
+            ));
+            assert!(
+                changs_baz.contains(
+                &serde_json::json!({
+                    "range": { "start": { "line": 9, "character": 20 }, "end": { "line": 9, "character": 33 } },
                     "newText": "new"
                 })
             ));
@@ -831,7 +1011,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let message_num = 5;
+        let message_num = 6;
         let messages = send_rename_prepare_request(
             &client_connection,
             script.clone(),
@@ -841,19 +1021,24 @@ mod tests {
             false,
         );
         assert_eq!(messages.len(), message_num);
+        let mut has_response = false;
         for message in messages {
             match message {
                 Message::Notification(n) => assert_eq!(n.method, "$/progress"),
-                Message::Response(r) => assert_json_eq!(
-                    r.result,
-                    serde_json::json!({
-                        "start": { "line": 3, "character": 3 },
-                        "end": { "line": 3, "character": 8 }
-                    }),
-                ),
+                Message::Response(r) => {
+                    has_response = true;
+                    assert_json_eq!(
+                        r.result,
+                        serde_json::json!({
+                            "start": { "line": 3, "character": 3 },
+                            "end": { "line": 3, "character": 8 }
+                        }),
+                    )
+                }
                 _ => panic!("unexpected message type"),
             }
         }
+        assert!(has_response);
 
         if let Message::Response(r) = send_rename_request(&client_connection, script.clone(), 3, 5)
         {
@@ -918,25 +1103,29 @@ mod tests {
         } else {
             panic!("Progress not cancelled");
         };
+        let mut has_response = false;
         for message in messages {
             match message {
                 Message::Notification(n) => assert_eq!(n.method, "$/progress"),
                 // the response of the preempting hover request
-                Message::Response(r) => assert_json_eq!(
-                    r.result,
-                    serde_json::json!({
-                            "contents": {
-                            "kind": "markdown",
-                            "value": "\n---\n### Usage \n```nu\n  foo str {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
-                        }
-                    }),
-                ),
+                Message::Response(r) => {
+                    has_response = true;
+                    assert_json_eq!(
+                        r.result,
+                        serde_json::json!({
+                                "contents": {
+                                "kind": "markdown",
+                                "value": "\n---\n### Usage \n```nu\n  foo str {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                            }
+                        }),
+                    )
+                }
                 _ => panic!("unexpected message type"),
             }
         }
+        assert!(has_response);
 
-        if let Message::Response(r) = send_rename_request(&client_connection, script.clone(), 6, 11)
-        {
+        if let Message::Response(r) = send_rename_request(&client_connection, script, 6, 11) {
             // should not return any changes
             assert_json_eq!(r.result.unwrap()["changes"], serde_json::json!({}));
         } else {
@@ -982,7 +1171,7 @@ mod tests {
         let (client_connection, _recv) = initialize_language_server(None, None);
         open_unchecked(&client_connection, script.clone());
 
-        let message = send_document_highlight_request(&client_connection, script.clone(), 3, 5);
+        let message = send_document_highlight_request(&client_connection, script, 3, 5);
         let Message::Response(r) = message else {
             panic!("unexpected message type");
         };
@@ -991,6 +1180,78 @@ mod tests {
             serde_json::json!([
                 { "range": { "start": { "line": 3, "character": 3 }, "end": { "line": 3, "character": 8 } }, "kind": 1 },
                 { "range": { "start": { "line": 1, "character": 4 }, "end": { "line": 1, "character": 9 } }, "kind": 1 }
+            ]),
+        );
+    }
+
+    #[test]
+    fn document_highlight_module_alias() {
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("goto");
+        script.push("use_module.nu");
+        let script = path_to_uri(&script);
+
+        let (client_connection, _recv) = initialize_language_server(None, None);
+        open_unchecked(&client_connection, script.clone());
+
+        let message = send_document_highlight_request(&client_connection, script.clone(), 1, 26);
+        let Message::Response(r) = message else {
+            panic!("unexpected message type");
+        };
+        assert_json_eq!(
+            r.result,
+            serde_json::json!([
+                { "range": { "start": { "line": 1, "character": 25 }, "end": { "line": 1, "character": 33 } }, "kind": 1 },
+                { "range": { "start": { "line": 2, "character": 30 }, "end": { "line": 2, "character": 38 } }, "kind": 1 }
+            ]),
+        );
+
+        let message = send_document_highlight_request(&client_connection, script, 0, 10);
+        let Message::Response(r) = message else {
+            panic!("unexpected message type");
+        };
+        assert_json_eq!(
+            r.result,
+            serde_json::json!([
+                { "range": { "start": { "line": 0, "character": 4 }, "end": { "line": 0, "character": 13 } }, "kind": 1 },
+                { "range": { "start": { "line": 1, "character": 12 }, "end": { "line": 1, "character": 21 } }, "kind": 1 }
+            ]),
+        );
+    }
+
+    #[test]
+    fn document_highlight_module_record() {
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("workspace");
+        script.push("baz.nu");
+        let script = path_to_uri(&script);
+
+        let (client_connection, _recv) = initialize_language_server(None, None);
+        open_unchecked(&client_connection, script.clone());
+
+        let message = send_document_highlight_request(&client_connection, script.clone(), 8, 0);
+        let Message::Response(r) = message else {
+            panic!("unexpected message type");
+        };
+        assert_json_eq!(
+            r.result,
+            serde_json::json!([
+                { "range": { "start": { "line": 6, "character": 26 }, "end": { "line": 6, "character": 33 } }, "kind": 1 },
+                { "range": { "start": { "line": 8, "character": 1 }, "end": { "line": 8, "character": 8 } }, "kind": 1 },
+            ]),
+        );
+
+        let message = send_document_highlight_request(&client_connection, script, 10, 7);
+        let Message::Response(r) = message else {
+            panic!("unexpected message type");
+        };
+        assert_json_eq!(
+            r.result,
+            serde_json::json!([
+                { "range": { "start": { "line": 10, "character": 4 }, "end": { "line": 10, "character": 12 } }, "kind": 1 },
+                { "range": { "start": { "line": 11, "character": 1 }, "end": { "line": 11, "character": 8 } }, "kind": 1 },
             ]),
         );
     }

@@ -1,14 +1,29 @@
 use crate::{generate_strftime_list, parse_date_from_string};
-use chrono::{DateTime, FixedOffset, Local, NaiveDateTime, TimeZone, Utc};
+use chrono::{
+    DateTime, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone,
+    Timelike, Utc,
+};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
 const HOUR: i32 = 60 * 60;
+const ALLOWED_COLUMNS: [&str; 10] = [
+    "year",
+    "month",
+    "day",
+    "hour",
+    "minute",
+    "second",
+    "millisecond",
+    "microsecond",
+    "nanosecond",
+    "timezone",
+];
 
 #[derive(Clone, Debug)]
 struct Arguments {
     zone_options: Option<Spanned<Zone>>,
-    format_options: Option<DatetimeFormat>,
+    format_options: Option<Spanned<DatetimeFormat>>,
     cell_paths: Option<Vec<CellPath>>,
 }
 
@@ -66,8 +81,12 @@ impl Command for IntoDatetime {
             (Type::String, Type::Date),
             (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Date))),
             (Type::table(), Type::table()),
-            (Type::record(), Type::record()),
             (Type::Nothing, Type::table()),
+            // FIXME: https://github.com/nushell/nushell/issues/15485
+            // 'record -> any' was added as a temporary workaround to avoid type inference issues. The Any arm needs to be appear first.
+            (Type::record(), Type::Any),
+            (Type::record(), Type::record()),
+            (Type::record(), Type::Date),
             // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
             // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
             // only applicable for --list flag
@@ -133,13 +152,16 @@ impl Command for IntoDatetime {
                 };
 
             let format_options = call
-                .get_flag::<String>(engine_state, stack, "format")?
+                .get_flag::<Spanned<String>>(engine_state, stack, "format")?
                 .as_ref()
-                .map(|fmt| DatetimeFormat(fmt.to_string()));
+                .map(|fmt| Spanned {
+                    item: DatetimeFormat(fmt.item.to_string()),
+                    span: fmt.span,
+                });
 
             let args = Arguments {
-                format_options,
                 zone_options,
+                format_options,
                 cell_paths,
             };
             operate(action, args, input, call.head, engine_state.signals())
@@ -216,6 +238,12 @@ impl Command for IntoDatetime {
                 result: example_result_1(1614434140_000000000),
             },
             Example {
+                description: "Using a record as input",
+                example: "{year: 2025, month: 3, day: 30, hour: 12, minute: 15, second: 59, timezone: '+02:00'} | into datetime",
+                #[allow(clippy::inconsistent_digit_grouping)]
+                result: example_result_1(1743329759_000000000),
+            },
+            Example {
                 description: "Convert list of timestamps to datetimes",
                 example: r#"["2023-03-30 10:10:07 -05:00", "2023-05-05 13:43:49 -05:00", "2023-06-05 01:37:42 -05:00"] | into datetime"#,
                 result: Some(Value::list(
@@ -262,6 +290,35 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     // noop if the input is already a datetime
     if matches!(input, Value::Date { .. }) {
         return input.clone();
+    }
+
+    if let Value::Record { val: record, .. } = input {
+        if let Some(tz) = timezone {
+            return Value::error(
+                ShellError::IncompatibleParameters {
+                    left_message: "got a record as input".into(),
+                    left_span: head,
+                    right_message: "the timezone should be included in the record".into(),
+                    right_span: tz.span,
+                },
+                head,
+            );
+        }
+
+        if let Some(dt) = dateformat {
+            return Value::error(
+                ShellError::IncompatibleParameters {
+                    left_message: "got a record as input".into(),
+                    left_span: head,
+                    right_message: "cannot be used with records".into(),
+                    right_span: dt.span,
+                },
+                head,
+            );
+        }
+
+        let span = input.span();
+        return merge_record(record, head, span).unwrap_or_else(|err| Value::error(err, span));
     }
 
     // Let's try dtparse first
@@ -353,7 +410,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
     let parse_as_string = |val: &str| {
         match dateformat {
-            Some(dt_format) => match DateTime::parse_from_str(val, &dt_format.0) {
+            Some(dt_format) => match DateTime::parse_from_str(val, &dt_format.item.0) {
                 Ok(dt) => {
                     match timezone {
                         None => {
@@ -402,20 +459,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     }
                 },
                 Err(reason) => {
-                    match NaiveDateTime::parse_from_str(val, &dt_format.0) {
-                        Ok(d) => {
-                            let dt_fixed =
-                                Local.from_local_datetime(&d).single().unwrap_or_default();
-
-                            Value::date(dt_fixed.into(),head)
-                        }
-                        Err(_) => {
-                            Value::error (
-                                ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt_format.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
+                    parse_with_format(val, &dt_format.item.0, head).unwrap_or_else(|_| Value::error (
+                                ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt_format.item.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
                                 head,
-                            )
-                        }
-                    }
+                            ))
                 }
             },
 
@@ -450,6 +497,262 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     }
 }
 
+fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellError> {
+    if let Some(invalid_col) = record
+        .columns()
+        .find(|key| !ALLOWED_COLUMNS.contains(&key.as_str()))
+    {
+        let allowed_cols = ALLOWED_COLUMNS.join(", ");
+        return Err(ShellError::UnsupportedInput {
+            msg: format!(
+                "Column '{invalid_col}' is not valid for a structured datetime. Allowed columns are: {allowed_cols}"
+            ),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span
+            }
+        );
+    };
+
+    // Empty fields are filled in a specific way: the time units bigger than the biggest provided fields are assumed to be current and smaller ones are zeroed.
+    // And local timezone is used if not provided.
+    #[derive(Debug)]
+    enum RecordColumnDefault {
+        Now,
+        Zero,
+    }
+    let mut record_column_default = RecordColumnDefault::Now;
+
+    let now = Local::now();
+    let mut now_nanosecond = now.nanosecond();
+    let now_millisecond = now_nanosecond / 1_000_000;
+    now_nanosecond %= 1_000_000;
+    let now_microsecond = now_nanosecond / 1_000;
+    now_nanosecond %= 1_000;
+
+    let year: i32 = match record.get("year") {
+        Some(val) => {
+            record_column_default = RecordColumnDefault::Zero;
+            match val {
+                Value::Int { val, .. } => *val as i32,
+                other => {
+                    return Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "int".to_string(),
+                        wrong_type: other.get_type().to_string(),
+                        dst_span: head,
+                        src_span: other.span(),
+                    });
+                }
+            }
+        }
+        None => now.year(),
+    };
+    let month = match record.get("month") {
+        Some(col_val) => {
+            record_column_default = RecordColumnDefault::Zero;
+            parse_value_from_record_as_u32("month", col_val, &head, &span)?
+        }
+        None => match record_column_default {
+            RecordColumnDefault::Now => now.month(),
+            RecordColumnDefault::Zero => 1,
+        },
+    };
+    let day = match record.get("day") {
+        Some(col_val) => {
+            record_column_default = RecordColumnDefault::Zero;
+            parse_value_from_record_as_u32("day", col_val, &head, &span)?
+        }
+        None => match record_column_default {
+            RecordColumnDefault::Now => now.day(),
+            RecordColumnDefault::Zero => 1,
+        },
+    };
+    let hour = match record.get("hour") {
+        Some(col_val) => {
+            record_column_default = RecordColumnDefault::Zero;
+            parse_value_from_record_as_u32("hour", col_val, &head, &span)?
+        }
+        None => match record_column_default {
+            RecordColumnDefault::Now => now.hour(),
+            RecordColumnDefault::Zero => 0,
+        },
+    };
+    let minute = match record.get("minute") {
+        Some(col_val) => {
+            record_column_default = RecordColumnDefault::Zero;
+            parse_value_from_record_as_u32("minute", col_val, &head, &span)?
+        }
+        None => match record_column_default {
+            RecordColumnDefault::Now => now.minute(),
+            RecordColumnDefault::Zero => 0,
+        },
+    };
+    let second = match record.get("second") {
+        Some(col_val) => {
+            record_column_default = RecordColumnDefault::Zero;
+            parse_value_from_record_as_u32("second", col_val, &head, &span)?
+        }
+        None => match record_column_default {
+            RecordColumnDefault::Now => now.second(),
+            RecordColumnDefault::Zero => 0,
+        },
+    };
+    let millisecond = match record.get("millisecond") {
+        Some(col_val) => {
+            record_column_default = RecordColumnDefault::Zero;
+            parse_value_from_record_as_u32("millisecond", col_val, &head, &span)?
+        }
+        None => match record_column_default {
+            RecordColumnDefault::Now => now_millisecond,
+            RecordColumnDefault::Zero => 0,
+        },
+    };
+    let microsecond = match record.get("microsecond") {
+        Some(col_val) => {
+            record_column_default = RecordColumnDefault::Zero;
+            parse_value_from_record_as_u32("microsecond", col_val, &head, &span)?
+        }
+        None => match record_column_default {
+            RecordColumnDefault::Now => now_microsecond,
+            RecordColumnDefault::Zero => 0,
+        },
+    };
+
+    let nanosecond = match record.get("nanosecond") {
+        Some(col_val) => parse_value_from_record_as_u32("nanosecond", col_val, &head, &span)?,
+        None => match record_column_default {
+            RecordColumnDefault::Now => now_nanosecond,
+            RecordColumnDefault::Zero => 0,
+        },
+    };
+
+    let offset: FixedOffset = match record.get("timezone") {
+        Some(timezone) => parse_timezone_from_record(timezone, &head, &timezone.span())?,
+        None => now.offset().to_owned(),
+    };
+
+    let total_nanoseconds = nanosecond + microsecond * 1_000 + millisecond * 1_000_000;
+
+    let date = match NaiveDate::from_ymd_opt(year, month, day) {
+        Some(d) => d,
+        None => {
+            return Err(ShellError::IncorrectValue {
+                msg: "one of more values are incorrect and do not represent valid date".to_string(),
+                val_span: head,
+                call_span: span,
+            })
+        }
+    };
+    let time = match NaiveTime::from_hms_nano_opt(hour, minute, second, total_nanoseconds) {
+        Some(t) => t,
+        None => {
+            return Err(ShellError::IncorrectValue {
+                msg: "one of more values are incorrect and do not represent valid time".to_string(),
+                val_span: head,
+                call_span: span,
+            })
+        }
+    };
+    let date_time = NaiveDateTime::new(date, time);
+
+    let date_time_fixed = match offset.from_local_datetime(&date_time).single() {
+        Some(d) => d,
+        None => {
+            return Err(ShellError::IncorrectValue {
+                msg: "Ambiguous or invalid timezone conversion".to_string(),
+                val_span: head,
+                call_span: span,
+            })
+        }
+    };
+    Ok(Value::date(date_time_fixed, span))
+}
+
+fn parse_value_from_record_as_u32(
+    col: &str,
+    col_val: &Value,
+    head: &Span,
+    span: &Span,
+) -> Result<u32, ShellError> {
+    let value: u32 = match col_val {
+        Value::Int { val, .. } => {
+            if *val < 0 || *val > u32::MAX as i64 {
+                return Err(ShellError::IncorrectValue {
+                    msg: format!("incorrect value for {}", col),
+                    val_span: *head,
+                    call_span: *span,
+                });
+            }
+            *val as u32
+        }
+        other => {
+            return Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "int".to_string(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: *head,
+                src_span: other.span(),
+            });
+        }
+    };
+    Ok(value)
+}
+
+fn parse_timezone_from_record(
+    timezone: &Value,
+    head: &Span,
+    span: &Span,
+) -> Result<FixedOffset, ShellError> {
+    match timezone {
+        Value::String { val, .. } => {
+            let offset: FixedOffset = match val.parse() {
+                Ok(offset) => offset,
+                Err(_) => {
+                    return Err(ShellError::IncorrectValue {
+                        msg: "invalid timezone".to_string(),
+                        val_span: *span,
+                        call_span: *head,
+                    })
+                }
+            };
+            Ok(offset)
+        }
+        other => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "string".to_string(),
+            wrong_type: other.get_type().to_string(),
+            dst_span: *head,
+            src_span: other.span(),
+        }),
+    }
+}
+
+fn parse_with_format(val: &str, fmt: &str, head: Span) -> Result<Value, ()> {
+    // try parsing at date + time
+    if let Ok(dt) = NaiveDateTime::parse_from_str(val, fmt) {
+        let dt_native = Local.from_local_datetime(&dt).single().unwrap_or_default();
+        return Ok(Value::date(dt_native.into(), head));
+    }
+
+    // try parsing at date only
+    if let Ok(date) = NaiveDate::parse_from_str(val, fmt) {
+        if let Some(dt) = date.and_hms_opt(0, 0, 0) {
+            let dt_native = Local.from_local_datetime(&dt).single().unwrap_or_default();
+            return Ok(Value::date(dt_native.into(), head));
+        }
+    }
+
+    // try parsing at time only
+    if let Ok(time) = NaiveTime::parse_from_str(val, fmt) {
+        let now = Local::now().naive_local().date();
+        let dt_native = Local
+            .from_local_datetime(&now.and_time(time))
+            .single()
+            .unwrap_or_default();
+        return Ok(Value::date(dt_native.into(), head));
+    }
+
+    Err(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -466,7 +769,10 @@ mod tests {
     #[test]
     fn takes_a_date_format_with_timezone() {
         let date_str = Value::test_string("16.11.1984 8:00 am +0000");
-        let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()));
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()),
+            span: Span::test_data(),
+        });
         let args = Arguments {
             zone_options: None,
             format_options: fmt_options,
@@ -483,7 +789,10 @@ mod tests {
     #[test]
     fn takes_a_date_format_without_timezone() {
         let date_str = Value::test_string("16.11.1984 8:00 am");
-        let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P".to_string()));
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%d.%m.%Y %H:%M %P".to_string()),
+            span: Span::test_data(),
+        });
         let args = Arguments {
             zone_options: None,
             format_options: fmt_options,
@@ -565,7 +874,10 @@ mod tests {
     #[test]
     fn takes_int_with_formatstring() {
         let date_int = Value::test_int(1_614_434_140);
-        let fmt_options = Some(DatetimeFormat("%s".to_string()));
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%s".to_string()),
+            span: Span::test_data(),
+        });
         let args = Arguments {
             zone_options: None,
             format_options: fmt_options,
@@ -587,7 +899,10 @@ mod tests {
             item: Zone::East(8),
             span: Span::test_data(),
         });
-        let fmt_options = Some(DatetimeFormat("%s".to_string()));
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%s".to_string()),
+            span: Span::test_data(),
+        });
         let args = Arguments {
             zone_options: timezone_option,
             format_options: fmt_options,
@@ -609,7 +924,10 @@ mod tests {
             item: Zone::Local,
             span: Span::test_data(),
         });
-        let fmt_options = Some(DatetimeFormat("%s".to_string()));
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%s".to_string()),
+            span: Span::test_data(),
+        });
         let args = Arguments {
             zone_options: timezone_option,
             format_options: fmt_options,
@@ -685,7 +1003,10 @@ mod tests {
     #[test]
     fn communicates_parsing_error_given_an_invalid_datetimelike_string() {
         let date_str = Value::test_string("16.11.1984 8:00 am Oops0000");
-        let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()));
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()),
+            span: Span::test_data(),
+        });
         let args = Arguments {
             zone_options: None,
             format_options: fmt_options,

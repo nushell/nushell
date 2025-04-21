@@ -34,7 +34,7 @@ impl PluginCommand for ToDataFrame {
         Signature::build(self.name())
             .named(
                 "schema",
-                SyntaxShape::Record(vec![]),
+                SyntaxShape::Any,
                 r#"Polars Schema in format [{name: str}]."#,
                 Some('s'),
             )
@@ -203,7 +203,18 @@ impl PluginCommand for ToDataFrame {
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
-            }
+            },
+            Example {
+                description: "Use a predefined schama",
+                example: r#"let schema = {a: str, b: str}; [[a b]; [1 "foo"] [2 "bar"]] | polars into-df -s $schema"#,
+                result: Some(NuDataFrame::try_from_series_vec(vec![
+                        Series::new("a".into(), ["1", "2"]),
+                        Series::new("b".into(), ["foo", "bar"]),
+                    ], Span::test_data())
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
         ]
     }
 

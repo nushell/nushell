@@ -646,7 +646,6 @@ impl NuCompleter {
             case_sensitive: config.completions.case_sensitive,
             match_algorithm: config.completions.algorithm.into(),
             sort: config.completions.sort,
-            ..Default::default()
         };
 
         completer.fetch(

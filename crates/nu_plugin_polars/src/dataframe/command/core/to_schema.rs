@@ -1,35 +1,41 @@
 use nu_plugin::PluginCommand;
-use nu_protocol::{Category, Example, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{record, Category, Example, ShellError, Signature, Span, Type, Value};
 
 use crate::{
-    values::{CustomValueSupport, NuDataType},
+    values::{CustomValueSupport, NuSchema},
     PolarsPlugin,
 };
 
-pub struct ToDataType;
+pub struct ToSchema;
 
-impl PluginCommand for ToDataType {
+impl PluginCommand for ToSchema {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars into-dtype"
+        "polars into-schema"
     }
 
     fn description(&self) -> &str {
-        "Convert a string to a specific datatype."
+        "Convert a value to a polars schema object"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(Type::String, Type::Custom("datatype".into()))
+            .input_output_type(Type::Any, Type::Custom("schema".into()))
             .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Convert a string to a specific datatype and back to a nu object",
-            example: r#"'i64' | polars into-dtype | polars into-nu"#,
-            result: Some(Value::string("i64", Span::test_data())),
+            description: "Convert a record into a schema and back to a nu object",
+            example: r#"{a: str, b: u8} | polars into-schema | polars into-nu"#,
+            result: Some(Value::record(
+                record! {
+                    "a" => Value::string("str", Span::test_data()),
+                    "b" => Value::string("u8", Span::test_data()),
+                },
+                Span::test_data(),
+            )),
         }]
     }
 
@@ -50,7 +56,7 @@ fn command(
     call: &nu_plugin::EvaluatedCall,
     input: nu_protocol::PipelineData,
 ) -> Result<nu_protocol::PipelineData, ShellError> {
-    NuDataType::try_from_pipeline(plugin, input, call.head)?
+    NuSchema::try_from_pipeline(plugin, input, call.head)?
         .to_pipeline_data(plugin, engine, call.head)
 }
 
@@ -62,7 +68,7 @@ mod test {
     use nu_protocol::ShellError;
 
     #[test]
-    fn test_into_dtype() -> Result<(), ShellError> {
-        test_polars_plugin_command(&ToDataType)
+    fn test_into_schema() -> Result<(), ShellError> {
+        test_polars_plugin_command(&ToSchema)
     }
 }

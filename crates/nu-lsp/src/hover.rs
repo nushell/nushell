@@ -142,7 +142,7 @@ impl LanguageServer {
         };
 
         match id {
-            Id::Variable(var_id) => {
+            Id::Variable(var_id, _) => {
                 let var = working_set.get_variable(var_id);
                 let value = var
                     .const_val
@@ -178,7 +178,7 @@ impl LanguageServer {
                 working_set.get_decl(decl_id),
                 false,
             )),
-            Id::Module(module_id) => {
+            Id::Module(module_id, _) => {
                 let description = working_set
                     .get_module_comments(module_id)?
                     .iter()
@@ -231,7 +231,7 @@ mod hover_tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script.clone(), 2, 0);
+        let resp = send_hover_request(&client_connection, script, 2, 0);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -248,7 +248,6 @@ mod hover_tests {
         script.push("hover");
         script.push("use.nu");
         let script = path_to_uri(&script);
-
         open_unchecked(&client_connection, script.clone());
 
         let resp = send_hover_request(&client_connection, script.clone(), 2, 3);
@@ -265,11 +264,26 @@ mod hover_tests {
             serde_json::json!("```\nrecord<bar: int>\n```")
         );
 
-        let resp = send_hover_request(&client_connection, script.clone(), 2, 11);
+        let resp = send_hover_request(&client_connection, script, 2, 11);
         let result = result_from_message(resp);
         assert_json_eq!(
             result.pointer("/contents/value").unwrap(),
             serde_json::json!("```\nint\n```\n---\n2")
+        );
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("workspace");
+        script.push("baz.nu");
+        let script = path_to_uri(&script);
+        open_unchecked(&client_connection, script.clone());
+
+        // For module record
+        let resp = send_hover_request(&client_connection, script, 8, 42);
+        let result = result_from_message(resp);
+        assert_json_eq!(
+            result.pointer("/contents/value").unwrap(),
+            serde_json::json!("```\nstring\n```\n---\nconst value")
         );
     }
 
@@ -284,7 +298,7 @@ mod hover_tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script.clone(), 3, 0);
+        let resp = send_hover_request(&client_connection, script, 3, 0);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -308,7 +322,7 @@ mod hover_tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script.clone(), 9, 7);
+        let resp = send_hover_request(&client_connection, script, 9, 7);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -332,7 +346,7 @@ mod hover_tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script.clone(), 6, 2);
+        let resp = send_hover_request(&client_connection, script, 6, 2);
 
         let hover_text = result_from_message(resp)
             .pointer("/contents/value")
@@ -358,7 +372,7 @@ mod hover_tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script.clone(), 5, 8);
+        let resp = send_hover_request(&client_connection, script, 5, 8);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -377,21 +391,42 @@ mod hover_tests {
 
         let mut script = fixtures();
         script.push("lsp");
-        script.push("goto");
-        script.push("module.nu");
+        script.push("workspace");
+        script.push("foo.nu");
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script.clone(), 3, 12);
+        let resp = send_hover_request(&client_connection, script.clone(), 15, 15);
         let result = result_from_message(resp);
-
         assert_eq!(
             result
                 .pointer("/contents/value")
                 .unwrap()
                 .to_string()
                 .replace("\\r", ""),
-            "\"# module doc\""
+            "\"# cmt\""
+        );
+
+        let resp = send_hover_request(&client_connection, script.clone(), 17, 27);
+        let result = result_from_message(resp);
+        assert_eq!(
+            result
+                .pointer("/contents/value")
+                .unwrap()
+                .to_string()
+                .replace("\\r", ""),
+            "\"# sub cmt\""
+        );
+
+        let resp = send_hover_request(&client_connection, script, 19, 33);
+        let result = result_from_message(resp);
+        assert_eq!(
+            result
+                .pointer("/contents/value")
+                .unwrap()
+                .to_string()
+                .replace("\\r", ""),
+            "\"# sub sub cmt\""
         );
     }
 
@@ -419,7 +454,7 @@ mod hover_tests {
             "\"```\\nrecord<foo: list<any>>\\n``` \\n---\\nimmutable\""
         );
 
-        let resp = send_hover_request(&client_connection, script_uri.clone(), 0, 22);
+        let resp = send_hover_request(&client_connection, script_uri, 0, 22);
         let result = result_from_message(resp);
 
         assert!(result

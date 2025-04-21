@@ -13,6 +13,7 @@ mod to_dtype;
 mod to_lazy;
 mod to_nu;
 mod to_repr;
+mod to_schema;
 
 pub use self::open::OpenDataFrame;
 use crate::PolarsPlugin;
@@ -42,5 +43,6 @@ pub(crate) fn core_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(ToLazyFrame),
         Box::new(ToRepr),
         Box::new(to_dtype::ToDataType),
+        Box::new(to_schema::ToSchema),
     ]
 }

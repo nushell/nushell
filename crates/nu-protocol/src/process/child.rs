@@ -1,4 +1,9 @@
-use crate::{byte_stream::convert_file, shell_error::io::IoError, ShellError, Span};
+use crate::{
+    byte_stream::convert_file,
+    engine::{EngineState, FrozenJob, Job},
+    shell_error::io::IoError,
+    ShellError, Span,
+};
 use nu_system::{ExitStatus, ForegroundChild, ForegroundWaitStatus};
 
 use os_pipe::PipeReader;
@@ -166,7 +171,50 @@ pub struct ChildProcess {
     span: Span,
 }
 
+/// A wrapper for a closure that runs once the shell finishes waiting on the process.
 pub struct PostWaitCallback(pub Box<dyn FnOnce(ForegroundWaitStatus) + Send>);
+
+impl PostWaitCallback {
+    pub fn new<F>(f: F) -> Self
+    where
+        F: FnOnce(ForegroundWaitStatus) + Send + 'static,
+    {
+        PostWaitCallback(Box::new(f))
+    }
+
+    /// Creates a PostWaitCallback that creates a frozen job in the job table
+    /// if the incoming wait status indicates that the job was frozen.
+    ///
+    /// If `child_pid` is provided, the returned callback will also remove
+    /// it from the pid list of the current running job.
+    ///
+    /// The given `tag` argument will be used as the tag for the newly created job table entry.
+    pub fn for_job_control(
+        engine_state: &EngineState,
+        child_pid: Option<u32>,
+        tag: Option<String>,
+    ) -> Self {
+        let this_job = engine_state.current_thread_job.clone();
+        let jobs = engine_state.jobs.clone();
+        let is_interactive = engine_state.is_interactive;
+
+        PostWaitCallback::new(move |status| {
+            if let (Some(this_job), Some(child_pid)) = (this_job, child_pid) {
+                this_job.remove_pid(child_pid);
+            }
+
+            if let ForegroundWaitStatus::Frozen(unfreeze) = status {
+                let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
+
+                let job_id = jobs.add_job(Job::Frozen(FrozenJob { unfreeze, tag }));
+
+                if is_interactive {
+                    println!("\nJob {} is frozen", job_id.get());
+                }
+            }
+        })
+    }
+}
 
 impl Debug for PostWaitCallback {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

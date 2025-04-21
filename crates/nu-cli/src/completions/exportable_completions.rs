@@ -69,7 +69,8 @@ impl Completer for ExportableCompletion<'_> {
                     wrapped_name(name),
                     Some(cmd.description().to_string()),
                     None,
-                    SuggestionKind::Command(cmd.command_type()),
+                    // `None` here avoids arguments being expanded by snippet edit style for lsp
+                    SuggestionKind::Command(cmd.command_type(), None),
                 );
             }
         }

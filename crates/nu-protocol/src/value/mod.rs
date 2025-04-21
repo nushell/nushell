@@ -3056,7 +3056,7 @@ impl Value {
                 }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
+                lhs.operation(self.span(), Operator::Math(Math::FloorDivide), op, rhs)
             }
             _ => Err(operator_type_error(
                 Operator::Math(Math::FloorDivide),
@@ -4020,10 +4020,19 @@ fn operator_type_error(
 fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
     let now = Local::now().with_timezone(val.offset());
     let delta = *val - now;
-    let delta_seconds = delta.num_nanoseconds().unwrap_or(0) as f64 / 1_000_000_000.0;
-    let delta_seconds_rounded = delta_seconds.round() as i64;
-
-    HumanTime::from(Duration::seconds(delta_seconds_rounded))
+    match delta.num_nanoseconds() {
+        Some(num_nanoseconds) => {
+            let delta_seconds = num_nanoseconds as f64 / 1_000_000_000.0;
+            let delta_seconds_rounded = delta_seconds.round() as i64;
+            HumanTime::from(Duration::seconds(delta_seconds_rounded))
+        }
+        None => {
+            // Happens if the total number of nanoseconds exceeds what fits in an i64
+            // Note: not using delta.num_days() because it results is wrong for years before ~936: a extra year is added
+            let delta_years = val.year() - now.year();
+            HumanTime::from(Duration::days(delta_years as i64 * 365))
+        }
+    }
 }
 
 #[cfg(test)]
