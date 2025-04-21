@@ -133,3 +133,13 @@ export def light-theme [] {
         shape_raw_string: light_purple
     }
 }
+
+# Returns helper closures that can be used for ENV_CONVERSIONS and other purposes
+export def env-conversions [] {
+    {
+        "path": {
+            from_string: {|s| $s | split row (char esep) | path expand --no-symlink }
+            to_string: {|v| $v | path expand --no-symlink | str join (char esep) }
+        }
+    }
+}
