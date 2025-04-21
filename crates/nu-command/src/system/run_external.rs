@@ -80,16 +80,19 @@ impl Command for External {
 
         let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
 
-        // On Windows, ther user could have run the cmd.exe built-in commands "assoc"
+        // On Windows, the user could have run the cmd.exe built-in commands "assoc"
         // and "ftype" to create a file association for an arbitrary file extension.
-        // They then could have added that extenstion to the PATHEXT environment variable.
-        // In this case we use the which command, which will find the executable with
-        // or without the extension. If "which" returns true, that means that we've
-        // found the script and we believe the user wants to use the windows association
-        // to run the script. The only easy way to do this is to run cmd.exe with the
-        // script as an argument. File extensions of .COM, .EXE, .BAT, and .CMD
-        // are ignored because Windows can run those files directly. PS1
-        // extensions are handled in a different block below.
+        // They then could have added that extension to the PATHEXT environment variable.
+        // For example, a nushell script with extension ".nu" can be set up with
+        // "assoc .nu=nuscript" and "ftype nuscript=C:\path\to\nu.exe '%1' %*",
+        // and then by adding ".NU" to PATHEXT. In this case we use the which command,
+        // which will find the executable with or without the extension. If "which" 
+        // returns true, that means that we've found the script and we believe the 
+        // user wants to use the windows association to run the script. The only 
+        // easy way to do this is to run cmd.exe with the script as an argument. 
+        // File extensions of .COM, .EXE, .BAT, and .CMD are ignored because Windows 
+        // can run those files directly. PS1 files are also ignored and that 
+        // extension is handled in a separate block below.
         let pathext_script_in_windows = if cfg!(windows) {
             if let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) {
                 let ext = executable
