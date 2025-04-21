@@ -8,7 +8,7 @@ use std::{
 
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
 use nu_protocol::{
-    engine::{Closure, Job, Redirection, ThreadJob, WaitSignal},
+    engine::{completion_signal, Closure, Job, Redirection, ThreadJob},
     report_shell_error, OutDest, Signals,
 };
 
@@ -77,10 +77,10 @@ impl Command for JobSpawn {
         let jobs = job_state.jobs.clone();
         let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
 
-        let on_termination = Arc::new(WaitSignal::new());
+        let (complete, wait) = completion_signal();
 
         let id = {
-            let thread_job = ThreadJob::new(job_signals, tag, on_termination.clone());
+            let thread_job = ThreadJob::new(job_signals, tag, wait);
             job_state.current_thread_job = Some(thread_job.clone());
             jobs.add_job(Job::Thread(thread_job))
         };
@@ -104,7 +104,7 @@ impl Command for JobSpawn {
                         Value::error(err, head)
                     });
 
-                on_termination.signal(result_value);
+                complete.complete(result_value);
 
                 {
                     let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");

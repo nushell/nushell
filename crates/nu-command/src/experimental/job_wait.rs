@@ -60,12 +60,12 @@ impl Command for JobWait {
             }
 
             Some(Job::Thread(job)) => {
-                let on_termination = job.on_termination().clone();
+                let waiter = job.on_termination().clone();
 
-                // .join() blocks so we drop our mutex guard
+                // .wait() blocks so we drop our mutex guard
                 drop(jobs);
 
-                let result = on_termination.join().clone().with_span(head);
+                let result = waiter.wait().clone().with_span(head);
 
                 Ok(result.into_pipeline_data())
             }
