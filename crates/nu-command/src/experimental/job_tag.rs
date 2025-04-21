@@ -23,7 +23,6 @@ impl Command for JobTag {
                 "The tag to assign to the job.",
             )
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .allow_variants_without_examples(true)
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -66,10 +65,17 @@ impl Command for JobTag {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            example: "let id = job spawn { sleep 10sec }; job tag $id abc ",
-            description: "tag a newly spawned job",
-            result: None,
-        }]
+        vec![
+            Example {
+                example: "let id = job spawn { sleep 10sec }; job tag $id abc ",
+                description: "Tag a newly spawned job",
+                result: None,
+            },
+            Example {
+                example: "let id = job spawn { sleep 10sec }; job tag $id abc; job tag $id null",
+                description: "Remove the tag of a job",
+                result: None,
+            },
+        ]
     }
 }
