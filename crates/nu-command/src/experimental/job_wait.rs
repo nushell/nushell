@@ -10,7 +10,15 @@ impl Command for JobWait {
     }
 
     fn description(&self) -> &str {
-        "Wait for a job to complete and return its result value"
+        r#"Wait for a job to complete and return its result value.
+
+        Given the id of a running job currently in the job table, this command
+        waits for it to complete and returns the value returned
+        by the closure passed down to `job spawn`.
+
+        Note that this command fails if a job is currently not in the job table
+        (as seen by `job list`), so it is not possible to wait for jobs that have already finished.
+        "#
     }
 
     fn signature(&self) -> nu_protocol::Signature {
