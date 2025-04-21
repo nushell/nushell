@@ -265,3 +265,40 @@ fn job_tag_modifies_tagged_job_tag() {
     assert_eq!(actual.out, "beep");
     assert_eq!(actual.err, "");
 }
+
+#[test]
+fn job_wait_waits_for_completion() {
+    let actual = nu!(r#"
+        let id = job spawn { sleep 1sec; 'beep' }
+
+        job wait $id
+        "#);
+
+    assert_eq!(actual.err, "");
+    assert_eq!(actual.out, "beep");
+}
+
+#[test]
+fn multiple_jobs_can_wait_for_a_single_one() {
+    Playground::setup("job_wait_test_1", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let actual = nu!(
+        cwd: dirs.root(),
+
+        r#"
+        let id = job spawn { sleep 1sec; 'beep' }
+
+        let a = job spawn { job wait $id | save a.txt }
+        let b = job spawn { job wait $id | save b.txt }
+        let c = job spawn { job wait $id | save c.txt }
+
+        sleep 1.1sec
+
+        [(open a.txt), (open b.txt), (open c.txt)] | to nuon
+        "#);
+
+        assert_eq!(actual.err, "");
+        assert_eq!(actual.out, "[beep, beep, beep]");
+    })
+}
