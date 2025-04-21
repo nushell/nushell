@@ -1379,6 +1379,13 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Span,
     },
 
+    #[error("Job {id} is a job of type {kind}")]
+    #[diagnostic(
+        code(nu::shell::os_disabled),
+        help("This operation does not support the given job type")
+    )]
+    UnsupportedJobType { id: usize, span: Span, kind: String },
+
     #[error(transparent)]
     #[diagnostic(transparent)]
     ChainedError(ChainedError),

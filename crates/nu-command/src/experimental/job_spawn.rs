@@ -8,7 +8,7 @@ use std::{
 
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
 use nu_protocol::{
-    engine::{Closure, Job, Redirection, ThreadJob},
+    engine::{Closure, Job, Redirection, ThreadJob, WaitSignal},
     report_shell_error, OutDest, Signals,
 };
 
@@ -54,7 +54,9 @@ impl Command for JobSpawn {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let closure: Closure = call.req(engine_state, stack, 0)?;
+        let spanned_closure: Spanned<Closure> = call.req(engine_state, stack, 0)?;
+
+        let closure: Closure = spanned_closure.item;
 
         let tag: Option<String> = call.get_flag(engine_state, stack, "tag")?;
 
@@ -75,8 +77,10 @@ impl Command for JobSpawn {
         let jobs = job_state.jobs.clone();
         let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
 
+        let on_termination = Arc::new(WaitSignal::new());
+
         let id = {
-            let thread_job = ThreadJob::new(job_signals, tag);
+            let thread_job = ThreadJob::new(job_signals, tag, on_termination.clone());
             job_state.current_thread_job = Some(thread_job.clone());
             jobs.add_job(Job::Thread(thread_job))
         };
@@ -89,14 +93,18 @@ impl Command for JobSpawn {
                     Some(Redirection::Pipe(OutDest::Null)),
                     Some(Redirection::Pipe(OutDest::Null)),
                 );
-                ClosureEvalOnce::new_preserve_out_dest(&job_state, &stack, closure)
+                let result_value = ClosureEvalOnce::new(&job_state, &stack, closure)
                     .run_with_input(Value::nothing(head).into_pipeline_data())
-                    .and_then(|data| data.drain())
+                    .and_then(|data| data.into_value(spanned_closure.span))
                     .unwrap_or_else(|err| {
                         if !job_state.signals().interrupted() {
                             report_shell_error(&job_state, &err);
                         }
+
+                        Value::error(err, head)
                     });
+
+                on_termination.signal(result_value);
 
                 {
                     let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");
