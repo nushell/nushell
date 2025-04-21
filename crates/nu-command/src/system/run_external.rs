@@ -86,12 +86,12 @@ impl Command for External {
         // For example, a nushell script with extension ".nu" can be set up with
         // "assoc .nu=nuscript" and "ftype nuscript=C:\path\to\nu.exe '%1' %*",
         // and then by adding ".NU" to PATHEXT. In this case we use the which command,
-        // which will find the executable with or without the extension. If "which" 
-        // returns true, that means that we've found the script and we believe the 
-        // user wants to use the windows association to run the script. The only 
-        // easy way to do this is to run cmd.exe with the script as an argument. 
-        // File extensions of .COM, .EXE, .BAT, and .CMD are ignored because Windows 
-        // can run those files directly. PS1 files are also ignored and that 
+        // which will find the executable with or without the extension. If "which"
+        // returns true, that means that we've found the script and we believe the
+        // user wants to use the windows association to run the script. The only
+        // easy way to do this is to run cmd.exe with the script as an argument.
+        // File extensions of .COM, .EXE, .BAT, and .CMD are ignored because Windows
+        // can run those files directly. PS1 files are also ignored and that
         // extension is handled in a separate block below.
         let pathext_script_in_windows = if cfg!(windows) {
             if let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) {
