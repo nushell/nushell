@@ -1,39 +1,31 @@
 export const LOG_ANSI = {
-    
-        "CRITICAL": (ansi red_bold),
-        "ERROR": (ansi red),
-        "WARNING": (ansi yellow),
-        "INFO": (ansi default),
-        "DEBUG": (ansi default_dimmed)
-   
+    "CRITICAL": (ansi red_bold),
+    "ERROR": (ansi red),
+    "WARNING": (ansi yellow),
+    "INFO": (ansi default),
+    "DEBUG": (ansi default_dimmed)
 }
 
 export const LOG_LEVEL = {
-    
-        "CRITICAL": 50,
-        "ERROR": 40,
-        "WARNING": 30,
-        "INFO": 20,
-        "DEBUG": 10
-   
+    "CRITICAL": 50,
+    "ERROR": 40,
+    "WARNING": 30,
+    "INFO": 20,
+    "DEBUG": 10
 }
 export const LOG_PREFIX = {
-    
-        "CRITICAL": "CRT",
-        "ERROR": "ERR",
-        "WARNING": "WRN",
-        "INFO": "INF",
-        "DEBUG": "DBG"
-   
+    "CRITICAL": "CRT",
+    "ERROR": "ERR",
+    "WARNING": "WRN",
+    "INFO": "INF",
+    "DEBUG": "DBG"
 }
 export const LOG_SHORT_PREFIX = {
-    
-        "CRITICAL": "C",
-        "ERROR": "E",
-        "WARNING": "W",
-        "INFO": "I",
-        "DEBUG": "D"
-   
+    "CRITICAL": "C",
+    "ERROR": "E",
+    "WARNING": "W",
+    "INFO": "I",
+    "DEBUG": "D"
 }
 
 export-env {
@@ -42,40 +34,36 @@ export-env {
 }
 
 const LOG_TYPES = {
-    
-        
-            "CRITICAL": {
-                "ansi": $LOG_ANSI.CRITICAL,
-                "level": $LOG_LEVEL.CRITICAL,
-                "prefix": $LOG_PREFIX.CRITICAL,
-                "short_prefix": $LOG_SHORT_PREFIX.CRITICAL
-            },
-            "ERROR": {
-                "ansi": $LOG_ANSI.ERROR,
-                "level": $LOG_LEVEL.ERROR,
-                "prefix": $LOG_PREFIX.ERROR,
-                "short_prefix": $LOG_SHORT_PREFIX.ERROR
-            },
-            "WARNING": {
-                "ansi": $LOG_ANSI.WARNING,
-                "level": $LOG_LEVEL.WARNING,
-                "prefix": $LOG_PREFIX.WARNING,
-                "short_prefix": $LOG_SHORT_PREFIX.WARNING
-            },
-            "INFO": {
-                "ansi": $LOG_ANSI.INFO,
-                "level": $LOG_LEVEL.INFO,
-                "prefix": $LOG_PREFIX.INFO,
-                "short_prefix": $LOG_SHORT_PREFIX.INFO
-            },
-            "DEBUG": {
-                "ansi": $LOG_ANSI.DEBUG,
-                "level": $LOG_LEVEL.DEBUG,
-                "prefix": $LOG_PREFIX.DEBUG,
-                "short_prefix": $LOG_SHORT_PREFIX.DEBUG
-            }
-       
-   
+    "CRITICAL": {
+        "ansi": $LOG_ANSI.CRITICAL,
+        "level": $LOG_LEVEL.CRITICAL,
+        "prefix": $LOG_PREFIX.CRITICAL,
+        "short_prefix": $LOG_SHORT_PREFIX.CRITICAL
+    },
+    "ERROR": {
+        "ansi": $LOG_ANSI.ERROR,
+        "level": $LOG_LEVEL.ERROR,
+        "prefix": $LOG_PREFIX.ERROR,
+        "short_prefix": $LOG_SHORT_PREFIX.ERROR
+    },
+    "WARNING": {
+        "ansi": $LOG_ANSI.WARNING,
+        "level": $LOG_LEVEL.WARNING,
+        "prefix": $LOG_PREFIX.WARNING,
+        "short_prefix": $LOG_SHORT_PREFIX.WARNING
+    },
+    "INFO": {
+        "ansi": $LOG_ANSI.INFO,
+        "level": $LOG_LEVEL.INFO,
+        "prefix": $LOG_PREFIX.INFO,
+        "short_prefix": $LOG_SHORT_PREFIX.INFO
+    },
+    "DEBUG": {
+        "ansi": $LOG_ANSI.DEBUG,
+        "level": $LOG_LEVEL.DEBUG,
+        "prefix": $LOG_PREFIX.DEBUG,
+        "short_prefix": $LOG_SHORT_PREFIX.DEBUG
+    }
 }
 
 def parse-string-level [
