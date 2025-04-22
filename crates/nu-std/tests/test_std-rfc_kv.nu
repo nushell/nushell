@@ -83,6 +83,30 @@ def local-transpose_to_record [] {
 }
 
 @test
+def local-using_cellpaths [] {
+    if ('sqlite' not-in (version).features) { return }
+
+    let key = (random uuid)
+    let name_key = (random uuid)
+    let size_key = (random uuid)
+
+    ls
+    | kv set $name_key $in.name
+    | kv set $size_key $in.size
+
+    let expected = "list<string>"
+    let actual = (kv get $name_key | describe)
+    assert equal $actual $expected
+
+    let expected = "list<filesize>"
+    let actual = (kv get $size_key | describe)
+    assert equal $actual $expected
+
+    kv drop $name_key
+    kv drop $size_key
+}
+
+@test
 def local-using_closure [] {
     if ('sqlite' not-in (version).features) { return }
 
@@ -221,6 +245,33 @@ def universal-transpose_to_record [] {
     kv drop -u $key1
     kv drop -u $key2
     kv drop -u $key3
+    rm $env.NU_UNIVERSAL_KV_PATH
+}
+
+@test
+def universal-using_cellpaths [] {
+    if ('sqlite' not-in (version).features) { return }
+
+    let key = (random uuid)
+    $env.NU_UNIVERSAL_KV_PATH = (mktemp -t --suffix .sqlite3)
+
+    let name_key = (random uuid)
+    let size_key = (random uuid)
+
+    ls
+    | kv set -u $name_key $in.name
+    | kv set -u $size_key $in.size
+
+    let expected = "list<string>"
+    let actual = (kv get -u $name_key | describe)
+    assert equal $actual $expected
+
+    let expected = "list<filesize>"
+    let actual = (kv get -u $size_key | describe)
+    assert equal $actual $expected
+
+    kv drop -u $name_key
+    kv drop -u $size_key
     rm $env.NU_UNIVERSAL_KV_PATH
 }
 
