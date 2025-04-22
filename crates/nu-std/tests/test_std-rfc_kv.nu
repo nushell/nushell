@@ -87,23 +87,15 @@ def local-using_closure [] {
     if ('sqlite' not-in (version).features) { return }
 
     let key = (random uuid)
-    let name_key = (random uuid)
-    let size_key = (random uuid)
 
-    ls
-    | kv set $name_key { get name }
-    | kv set $size_key { get size }
+    kv set $key 5
+    kv set $key { $in + 1 }
 
-    let expected = "list<string>"
-    let actual = (kv get $name_key | describe)
+    let expected = 6
+    let actual = (kv get $key)
     assert equal $actual $expected
 
-    let expected = "list<filesize>"
-    let actual = (kv get $size_key | describe)
-    assert equal $actual $expected
-
-    kv drop $name_key
-    kv drop $size_key
+    kv drop $key
 }
 
 @test
@@ -239,23 +231,14 @@ def universal-using_closure [] {
     let key = (random uuid)
     $env.NU_UNIVERSAL_KV_PATH = (mktemp -t --suffix .sqlite3)
 
-    let name_key = (random uuid)
-    let size_key = (random uuid)
+    kv set -u $key 5
+    kv set -u $key { $in + 1 }
 
-    ls
-    | kv set -u $name_key { get name }
-    | kv set -u $size_key { get size }
-
-    let expected = "list<string>"
-    let actual = (kv get -u $name_key | describe)
+    let expected = 6
+    let actual = (kv get -u $key)
     assert equal $actual $expected
 
-    let expected = "list<filesize>"
-    let actual = (kv get -u $size_key | describe)
-    assert equal $actual $expected
-
-    kv drop -u $name_key
-    kv drop -u $size_key
+    kv drop -u $key
     rm $env.NU_UNIVERSAL_KV_PATH
 }
 
