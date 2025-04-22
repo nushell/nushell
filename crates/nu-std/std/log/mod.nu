@@ -282,7 +282,7 @@ export def custom [
         $level_prefix
     }
 
-    let use_color = ($env | get config? | get use_ansi_coloring? | $in != false)
+    let use_color = ($env.config?.use_ansi_coloring? | $in != false)
     let ansi = if not $use_color {
         ""
     } else if ($ansi | is-empty) {
