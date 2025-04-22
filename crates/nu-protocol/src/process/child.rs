@@ -182,12 +182,18 @@ impl PostWaitCallback {
         PostWaitCallback(Box::new(f))
     }
 
-    /// Creates a PostWaitCallback that checks creates a frozen job in the job table
+    /// Creates a PostWaitCallback that creates a frozen job in the job table
     /// if the incoming wait status indicates that the job was frozen.
     ///
     /// If `child_pid` is provided, the returned callback will also remove
     /// it from the pid list of the current running job.
-    pub fn for_job_control(engine_state: &EngineState, child_pid: Option<u32>) -> Self {
+    ///
+    /// The given `tag` argument will be used as the tag for the newly created job table entry.
+    pub fn for_job_control(
+        engine_state: &EngineState,
+        child_pid: Option<u32>,
+        tag: Option<String>,
+    ) -> Self {
         let this_job = engine_state.current_thread_job.clone();
         let jobs = engine_state.jobs.clone();
         let is_interactive = engine_state.is_interactive;
@@ -200,7 +206,7 @@ impl PostWaitCallback {
             if let ForegroundWaitStatus::Frozen(unfreeze) = status {
                 let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
 
-                let job_id = jobs.add_job(Job::Frozen(FrozenJob { unfreeze }));
+                let job_id = jobs.add_job(Job::Frozen(FrozenJob { unfreeze, tag }));
 
                 if is_interactive {
                     println!("\nJob {} is frozen", job_id.get());

@@ -122,7 +122,7 @@ pub(super) fn start_editor(
         )
     })?;
 
-    let post_wait_callback = PostWaitCallback::for_job_control(engine_state, None);
+    let post_wait_callback = PostWaitCallback::for_job_control(engine_state, None, None);
 
     // Wrap the output into a `PipelineData::ByteStream`.
     let child = nu_protocol::process::ChildProcess::new(

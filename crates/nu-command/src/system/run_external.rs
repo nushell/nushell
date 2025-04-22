@@ -147,7 +147,7 @@ impl Command for External {
         };
 
         // Create the command.
-        let mut command = std::process::Command::new(executable);
+        let mut command = std::process::Command::new(&executable);
 
         // Configure PWD.
         command.current_dir(cwd);
@@ -322,6 +322,11 @@ impl Command for External {
             Some(PostWaitCallback::for_job_control(
                 engine_state,
                 Some(child_pid),
+                executable
+                    .as_path()
+                    .file_name()
+                    .and_then(|it| it.to_str())
+                    .map(|it| it.to_string()),
             )),
         )?;
 

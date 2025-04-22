@@ -72,7 +72,7 @@ impl PluginCommand for LazySelect {
             },
             Example {
                 description: "Select a column from a dataframe using a mix of expressions and record of expressions",
-                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars select a b {c: ((polars col a) * 2)}",
+                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars select a b {c: ((polars col a) ** 2)}",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -84,7 +84,7 @@ impl PluginCommand for LazySelect {
                             vec![Value::test_int(2), Value::test_int(2), Value::test_int(2)]),
                             Column::new(
                             "c".to_string(),
-                            vec![Value::test_int(12), Value::test_int(8), Value::test_int(4)])
+                            vec![Value::test_int(36), Value::test_int(16), Value::test_int(4)])
                         ],
                         None,
                     )

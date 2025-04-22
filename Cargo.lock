@@ -6798,6 +6798,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "socks"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0c3dbbd9ae980613c6dd8e28a9407b50509d3803b57624d5dfe8315218cd58b"
+dependencies = [
+ "byteorder",
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "sqlparser"
 version = "0.53.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7627,6 +7638,7 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_json",
+ "socks",
  "url",
 ]
 

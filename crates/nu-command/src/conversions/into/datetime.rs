@@ -317,7 +317,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             );
         }
 
-        return merge_record(record, head, input.span());
+        let span = input.span();
+        return merge_record(record, head, span).unwrap_or_else(|err| Value::error(err, span));
     }
 
     // Let's try dtparse first
@@ -458,15 +459,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     }
                 },
                 Err(reason) => {
-                    match parse_with_format(val, &dt_format.item.0, head) {
-                        Ok(parsed) => parsed,
-                        Err(_) => {
-                            Value::error (
+                    parse_with_format(val, &dt_format.item.0, head).unwrap_or_else(|_| Value::error (
                                 ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt_format.item.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
                                 head,
-                            )
-                        }
-                    }
+                            ))
                 }
             },
 
@@ -501,21 +497,20 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     }
 }
 
-fn merge_record(record: &Record, head: Span, span: Span) -> Value {
+fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellError> {
     if let Some(invalid_col) = record
         .columns()
         .find(|key| !ALLOWED_COLUMNS.contains(&key.as_str()))
     {
         let allowed_cols = ALLOWED_COLUMNS.join(", ");
-        return Value::error(ShellError::UnsupportedInput {
+        return Err(ShellError::UnsupportedInput {
             msg: format!(
                 "Column '{invalid_col}' is not valid for a structured datetime. Allowed columns are: {allowed_cols}"
             ),
             input: "value originates from here".into(),
             msg_span: head,
             input_span: span
-            },
-            span,
+            }
         );
     };
 
@@ -541,15 +536,12 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
             match val {
                 Value::Int { val, .. } => *val as i32,
                 other => {
-                    return Value::error(
-                        ShellError::OnlySupportsThisInputType {
-                            exp_input_type: "int".to_string(),
-                            wrong_type: other.get_type().to_string(),
-                            dst_span: head,
-                            src_span: other.span(),
-                        },
-                        span,
-                    );
+                    return Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "int".to_string(),
+                        wrong_type: other.get_type().to_string(),
+                        dst_span: head,
+                        src_span: other.span(),
+                    });
                 }
             }
         }
@@ -558,12 +550,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let month = match record.get("month") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            match parse_value_from_record_as_u32("month", col_val, &head, &span) {
-                Ok(value) => value,
-                Err(err) => {
-                    return err;
-                }
-            }
+            parse_value_from_record_as_u32("month", col_val, &head, &span)?
         }
         None => match record_column_default {
             RecordColumnDefault::Now => now.month(),
@@ -573,12 +560,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let day = match record.get("day") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            match parse_value_from_record_as_u32("day", col_val, &head, &span) {
-                Ok(value) => value,
-                Err(err) => {
-                    return err;
-                }
-            }
+            parse_value_from_record_as_u32("day", col_val, &head, &span)?
         }
         None => match record_column_default {
             RecordColumnDefault::Now => now.day(),
@@ -588,12 +570,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let hour = match record.get("hour") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            match parse_value_from_record_as_u32("hour", col_val, &head, &span) {
-                Ok(value) => value,
-                Err(err) => {
-                    return err;
-                }
-            }
+            parse_value_from_record_as_u32("hour", col_val, &head, &span)?
         }
         None => match record_column_default {
             RecordColumnDefault::Now => now.hour(),
@@ -603,12 +580,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let minute = match record.get("minute") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            match parse_value_from_record_as_u32("minute", col_val, &head, &span) {
-                Ok(value) => value,
-                Err(err) => {
-                    return err;
-                }
-            }
+            parse_value_from_record_as_u32("minute", col_val, &head, &span)?
         }
         None => match record_column_default {
             RecordColumnDefault::Now => now.minute(),
@@ -618,12 +590,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let second = match record.get("second") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            match parse_value_from_record_as_u32("second", col_val, &head, &span) {
-                Ok(value) => value,
-                Err(err) => {
-                    return err;
-                }
-            }
+            parse_value_from_record_as_u32("second", col_val, &head, &span)?
         }
         None => match record_column_default {
             RecordColumnDefault::Now => now.second(),
@@ -633,12 +600,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let millisecond = match record.get("millisecond") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            match parse_value_from_record_as_u32("millisecond", col_val, &head, &span) {
-                Ok(value) => value,
-                Err(err) => {
-                    return err;
-                }
-            }
+            parse_value_from_record_as_u32("millisecond", col_val, &head, &span)?
         }
         None => match record_column_default {
             RecordColumnDefault::Now => now_millisecond,
@@ -648,12 +610,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let microsecond = match record.get("microsecond") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            match parse_value_from_record_as_u32("microsecond", col_val, &head, &span) {
-                Ok(value) => value,
-                Err(err) => {
-                    return err;
-                }
-            }
+            parse_value_from_record_as_u32("microsecond", col_val, &head, &span)?
         }
         None => match record_column_default {
             RecordColumnDefault::Now => now_microsecond,
@@ -662,14 +619,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     };
 
     let nanosecond = match record.get("nanosecond") {
-        Some(col_val) => {
-            match parse_value_from_record_as_u32("nanosecond", col_val, &head, &span) {
-                Ok(value) => value,
-                Err(err) => {
-                    return err;
-                }
-            }
-        }
+        Some(col_val) => parse_value_from_record_as_u32("nanosecond", col_val, &head, &span)?,
         None => match record_column_default {
             RecordColumnDefault::Now => now_nanosecond,
             RecordColumnDefault::Zero => 0,
@@ -677,12 +627,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     };
 
     let offset: FixedOffset = match record.get("timezone") {
-        Some(timezone) => match parse_timezone_from_record(timezone, &head, &timezone.span()) {
-            Ok(value) => value,
-            Err(err) => {
-                return err;
-            }
-        },
+        Some(timezone) => parse_timezone_from_record(timezone, &head, &timezone.span())?,
         None => now.offset().to_owned(),
     };
 
@@ -691,29 +636,21 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let date = match NaiveDate::from_ymd_opt(year, month, day) {
         Some(d) => d,
         None => {
-            return Value::error(
-                ShellError::IncorrectValue {
-                    msg: "one of more values are incorrect and do not represent valid date"
-                        .to_string(),
-                    val_span: head,
-                    call_span: span,
-                },
-                span,
-            )
+            return Err(ShellError::IncorrectValue {
+                msg: "one of more values are incorrect and do not represent valid date".to_string(),
+                val_span: head,
+                call_span: span,
+            })
         }
     };
     let time = match NaiveTime::from_hms_nano_opt(hour, minute, second, total_nanoseconds) {
         Some(t) => t,
         None => {
-            return Value::error(
-                ShellError::IncorrectValue {
-                    msg: "one of more values are incorrect and do not represent valid time"
-                        .to_string(),
-                    val_span: head,
-                    call_span: span,
-                },
-                span,
-            )
+            return Err(ShellError::IncorrectValue {
+                msg: "one of more values are incorrect and do not represent valid time".to_string(),
+                val_span: head,
+                call_span: span,
+            })
         }
     };
     let date_time = NaiveDateTime::new(date, time);
@@ -721,17 +658,14 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Value {
     let date_time_fixed = match offset.from_local_datetime(&date_time).single() {
         Some(d) => d,
         None => {
-            return Value::error(
-                ShellError::IncorrectValue {
-                    msg: "Ambiguous or invalid timezone conversion".to_string(),
-                    val_span: head,
-                    call_span: span,
-                },
-                span,
-            )
+            return Err(ShellError::IncorrectValue {
+                msg: "Ambiguous or invalid timezone conversion".to_string(),
+                val_span: head,
+                call_span: span,
+            })
         }
     };
-    Value::date(date_time_fixed, span)
+    Ok(Value::date(date_time_fixed, span))
 }
 
 fn parse_value_from_record_as_u32(
@@ -739,31 +673,25 @@ fn parse_value_from_record_as_u32(
     col_val: &Value,
     head: &Span,
     span: &Span,
-) -> Result<u32, Value> {
+) -> Result<u32, ShellError> {
     let value: u32 = match col_val {
         Value::Int { val, .. } => {
             if *val < 0 || *val > u32::MAX as i64 {
-                return Err(Value::error(
-                    ShellError::IncorrectValue {
-                        msg: format!("incorrect value for {}", col),
-                        val_span: *head,
-                        call_span: *span,
-                    },
-                    *span,
-                ));
+                return Err(ShellError::IncorrectValue {
+                    msg: format!("incorrect value for {}", col),
+                    val_span: *head,
+                    call_span: *span,
+                });
             }
             *val as u32
         }
         other => {
-            return Err(Value::error(
-                ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "int".to_string(),
-                    wrong_type: other.get_type().to_string(),
-                    dst_span: *head,
-                    src_span: other.span(),
-                },
-                *span,
-            ));
+            return Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "int".to_string(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: *head,
+                src_span: other.span(),
+            });
         }
     };
     Ok(value)
@@ -773,33 +701,27 @@ fn parse_timezone_from_record(
     timezone: &Value,
     head: &Span,
     span: &Span,
-) -> Result<FixedOffset, Value> {
+) -> Result<FixedOffset, ShellError> {
     match timezone {
         Value::String { val, .. } => {
             let offset: FixedOffset = match val.parse() {
                 Ok(offset) => offset,
                 Err(_) => {
-                    return Err(Value::error(
-                        ShellError::IncorrectValue {
-                            msg: "invalid timezone".to_string(),
-                            val_span: *span,
-                            call_span: *head,
-                        },
-                        *span,
-                    ))
+                    return Err(ShellError::IncorrectValue {
+                        msg: "invalid timezone".to_string(),
+                        val_span: *span,
+                        call_span: *head,
+                    })
                 }
             };
             Ok(offset)
         }
-        other => Err(Value::error(
-            ShellError::OnlySupportsThisInputType {
-                exp_input_type: "string".to_string(),
-                wrong_type: other.get_type().to_string(),
-                dst_span: *head,
-                src_span: other.span(),
-            },
-            *span,
-        )),
+        other => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "string".to_string(),
+            wrong_type: other.get_type().to_string(),
+            dst_span: *head,
+            src_span: other.span(),
+        }),
     }
 }
 
