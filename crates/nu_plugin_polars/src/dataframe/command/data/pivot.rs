@@ -4,6 +4,7 @@ use nu_protocol::{
     Value,
 };
 
+use chrono::DateTime;
 use polars_ops::pivot::{pivot, PivotAgg};
 
 use crate::{
@@ -54,6 +55,12 @@ impl PluginCommand for PivotDF {
                 "Aggregation to apply when pivoting. The following are supported: first, sum, min, max, mean, median, count, last",
                 Some('a'),
             )
+            .named(
+                "separator",
+                SyntaxShape::String,
+                "Delimiter in generated column names in case of multiple `values` columns (default '_')",
+                Some('p'),
+            )
             .switch(
                 "sort",
                 "Sort columns",
@@ -74,8 +81,8 @@ impl PluginCommand for PivotDF {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[[name subject test_1 test_2]; [Cady maths 98 100] [Cady physics 99 100] [Karen maths 61 60] [Karen physics 58 60]] | polars into-df |  polars pivot --on [subject] --index [name] --values [test_1]",
                 description: "Perform a pivot in order to show individuals test score by subject",
+                example: "[[name subject date test_1 test_2]; [Cady maths 2025-04-01 98 100] [Cady physics 2025-04-01 99 100] [Karen maths 2025-04-02 61 60] [Karen physics 2025-04-02 58 60]] | polars into-df |  polars pivot --on [subject] --index [name date] --values [test_1]",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -84,12 +91,66 @@ impl PluginCommand for PivotDF {
                                 vec![Value::string("Cady", Span::test_data()), Value::string("Karen", Span::test_data())],
                             ),
                             Column::new(
+                                "date".to_string(),
+                                vec![
+                                    Value::date(
+                                        DateTime::parse_from_str(
+                                            "2025-04-01 00:00:00 +0000",
+                                            "%Y-%m-%d %H:%M:%S %z",
+                                        )
+                                        .expect("date calculation should not fail in test"),
+                                        Span::test_data(),
+                                    ),
+                                    Value::date(
+                                        DateTime::parse_from_str(
+                                            "2025-04-02 00:00:00 +0000",
+                                            "%Y-%m-%d %H:%M:%S %z",
+                                        )
+                                        .expect("date calculation should not fail in test"),
+                                        Span::test_data(),
+                                    ),
+                                ],
+                            ),
+                            Column::new(
                                 "maths".to_string(),
                                 vec![Value::int(98, Span::test_data()), Value::int(61, Span::test_data())],
                             ),
                             Column::new(
                                 "physics".to_string(),
                                 vec![Value::int(99, Span::test_data()), Value::int(58, Span::test_data())],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::unknown())
+                )
+            },
+            Example {
+                description: "Perform a pivot with multiple `values` columns with a separator",
+                example: "[[name subject date test_1 test_2 grade_1 grade_2]; [Cady maths 2025-04-01 98 100 A A] [Cady physics 2025-04-01 99 100 A A] [Karen maths 2025-04-02 61 60 D D] [Karen physics 2025-04-02 58 60 D D]] | polars into-df |  polars pivot --on [subject] --index [name] --values [test_1 grade_1] --separator /",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "name".to_string(),
+                                vec![Value::string("Cady", Span::test_data()), Value::string("Karen", Span::test_data())],
+                            ),
+                            Column::new(
+                                "test_1/maths".to_string(),
+                                vec![Value::int(98, Span::test_data()), Value::int(61, Span::test_data())],
+                            ),
+                            Column::new(
+                                "test_1/physics".to_string(),
+                                vec![Value::int(99, Span::test_data()), Value::int(58, Span::test_data())],
+                            ),
+                            Column::new(
+                                "grade_1/maths".to_string(),
+                                vec![Value::string("A", Span::test_data()), Value::string("D", Span::test_data())],
+                            ),
+                            Column::new(
+                                "grade_1/physics".to_string(),
+                                vec![Value::string("A", Span::test_data()), Value::string("D", Span::test_data())],
                             ),
                         ],
                         None,
@@ -135,18 +196,16 @@ fn command_eager(
     let index_col: Vec<Value> = call.get_flag("index")?.expect("required value");
     let val_col: Vec<Value> = call.get_flag("values")?.expect("required value");
 
-    let (on_col_string, id_col_span) = convert_columns_string(on_col, call.head)?;
-    let (index_col_string, index_col_span) = convert_columns_string(index_col, call.head)?;
-    let (val_col_string, val_col_span) = convert_columns_string(val_col, call.head)?;
-
-    check_column_datatypes(df.as_ref(), &on_col_string, id_col_span)?;
-    check_column_datatypes(df.as_ref(), &index_col_string, index_col_span)?;
-    check_column_datatypes(df.as_ref(), &val_col_string, val_col_span)?;
+    let (on_col_string, ..) = convert_columns_string(on_col, call.head)?;
+    let (index_col_string, ..) = convert_columns_string(index_col, call.head)?;
+    let (val_col_string, ..) = convert_columns_string(val_col, call.head)?;
 
     let aggregate: Option<PivotAgg> = call
         .get_flag::<String>("aggregate")?
         .map(pivot_agg_for_str)
         .transpose()?;
+
+    let separator: Option<String> = call.get_flag::<String>("separator")?;
 
     let sort = call.has_flag("sort")?;
 
@@ -159,7 +218,7 @@ fn command_eager(
         Some(&val_col_string),
         sort,
         aggregate,
-        None,
+        separator.as_deref(),
     )
     .map_err(|e| ShellError::GenericError {
         error: format!("Pivot error: {e}"),
@@ -173,6 +232,7 @@ fn command_eager(
     res.to_pipeline_data(plugin, engine, call.head)
 }
 
+#[allow(dead_code)]
 fn check_column_datatypes<T: AsRef<str>>(
     df: &polars::prelude::DataFrame,
     cols: &[T],
