@@ -173,7 +173,7 @@ pub fn calculate_value_size(value: &Value) -> usize {
         Value::Record { val, .. } => {
             // Record is a wrapper around a HashMap
             // Get the size of the Record struct itself
-            let record_overhead = std::mem::size_of_val(&*val);
+            let record_overhead = std::mem::size_of_val(val);
 
             // Calculate the size of all entries (keys and values)
             let entries_size = val
@@ -238,10 +238,7 @@ pub fn calculate_value_size(value: &Value) -> usize {
                     error.len()
                         + msg.len()
                         + help.as_ref().map_or(0, |h| h.len())
-                        + inner
-                            .iter()
-                            .map(|e| std::mem::size_of_val(e))
-                            .sum::<usize>()
+                        + inner.iter().map(std::mem::size_of_val).sum::<usize>()
                 }
                 // Handle other ShellError variants similarly
                 _ => std::mem::size_of::<ShellError>(), // Minimum size for other variants
