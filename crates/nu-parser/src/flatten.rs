@@ -183,7 +183,6 @@ fn flatten_expression_into(
     expr: &Expression,
     output: &mut Vec<(Span, FlatShape)>,
 ) {
-
     match &expr.expr {
         Expr::AttributeBlock(ab) => {
             for attr in &ab.attributes {
