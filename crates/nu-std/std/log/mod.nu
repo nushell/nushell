@@ -36,7 +36,6 @@ export const LOG_SHORT_PREFIX = {
    
 }
 
-const ANSI_RESET = ansi reset
 export-env {
     $env.NU_LOG_FORMAT = $env.NU_LOG_FORMAT? | default "%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
     $env.NU_LOG_DATE_FORMAT = $env.NU_LOG_DATE_FORMAT? | default "%Y-%m-%dT%H:%M:%S%.3f"
@@ -244,7 +243,7 @@ def log-level-deduction-error [
             text: ([
                  "Invalid log level."
                 $"        Available log levels in log-level:"
-                 (log-level | to text | lines | each {|it| $"            ($it)" } | to text)
+                 ($LOG_LEVEL | to text | lines | each {|it| $"            ($it)" } | to text)
             ] | str join "\n")
             span: $span
         }
@@ -315,7 +314,7 @@ export def custom [
 }
 
 def "nu-complete log-level" [] {
-    log-level | transpose description value
+    $LOG_LEVEL | transpose description value
 }
 
 # Change logging level
