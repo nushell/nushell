@@ -548,6 +548,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         let spans_memory_size = self.engine_state.spans_memory_size();
         let env_vars_memory_size = self.engine_state.env_vars_memory_size();
         let config_memory_size = self.engine_state.config_memory_size();
+        #[cfg(feature = "plugin")]
         let plugins_memory_size = self.engine_state.plugins_memory_size();
 
         records.push(Value::record(
@@ -622,6 +623,8 @@ impl<'e, 's> ScopeData<'e, 's> {
             },
             span,
         ));
+
+        #[cfg(feature = "plugin")]
         records.push(Value::record(
             record! {
                 "name" => Value::string("plugins_memory_size", span),
