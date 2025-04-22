@@ -352,27 +352,38 @@ impl NuCompleter {
                         let custom_completion_decl_id = {
                             // Check PositionalArg or Flag from Signature
                             let signature = working_set.get_decl(call.decl_id).signature();
-                            
+
                             match arg {
                                 // For named arguments, check Flag
-                                Argument::Named((name, short, _)) => {
-                                    // Try to find matching flag (long or short)
-                                    let flag = signature.get_long_flag(&name.item)
-                                        .or_else(|| short.as_ref().and_then(|s| 
-                                            signature.get_short_flag(s.item.chars().next().unwrap_or('_'))));
-                                    flag.and_then(|f| f.custom_completion)
+                                Argument::Named((name, short, value)) => {
+                                    if value.as_ref().is_none_or(|e| !e.span.contains(pos)) {
+                                        None
+                                    } else {
+                                        // If we're completing the value of the flag,
+                                        // search for the matching custom completion decl_id (long or short)
+                                        let flag =
+                                            signature.get_long_flag(&name.item).or_else(|| {
+                                                short.as_ref().and_then(|s| {
+                                                    signature.get_short_flag(
+                                                        s.item.chars().next().unwrap_or('_'),
+                                                    )
+                                                })
+                                            });
+                                        flag.and_then(|f| f.custom_completion)
+                                    }
                                 }
                                 // For positional arguments, check PositionalArg
                                 Argument::Positional(_) => {
                                     // Find the right positional argument by index
                                     let arg_pos = positional_arg_indices.len();
-                                    signature.get_positional(arg_pos)
+                                    signature
+                                        .get_positional(arg_pos)
                                         .and_then(|pos_arg| pos_arg.custom_completion)
                                 }
-                                _ => None
+                                _ => None,
                             }
                         };
-                        
+
                         if let Some(decl_id) = custom_completion_decl_id {
                             // for `--foo <tab>` and `--foo=<tab>`, the arg span should be trimmed
                             let (new_span, prefix) = if matches!(arg, Argument::Named(_)) {
