@@ -1,4 +1,4 @@
-export const LOG_ANSI = {
+const LOG_ANSI = {
     "CRITICAL": (ansi red_bold),
     "ERROR": (ansi red),
     "WARNING": (ansi yellow),
@@ -6,27 +6,37 @@ export const LOG_ANSI = {
     "DEBUG": (ansi default_dimmed)
 }
 
-export const LOG_LEVEL = {
+export def log-ansi [] {$LOG_ANSI}
+
+const LOG_LEVEL = {
     "CRITICAL": 50,
     "ERROR": 40,
     "WARNING": 30,
     "INFO": 20,
     "DEBUG": 10
 }
-export const LOG_PREFIX = {
+
+export def log-level [] {$LOG_LEVEL}
+
+const LOG_PREFIX = {
     "CRITICAL": "CRT",
     "ERROR": "ERR",
     "WARNING": "WRN",
     "INFO": "INF",
     "DEBUG": "DBG"
 }
-export const LOG_SHORT_PREFIX = {
+
+export def log-prefix [] {$LOG_PREFIX}
+
+const LOG_SHORT_PREFIX = {
     "CRITICAL": "C",
     "ERROR": "E",
     "WARNING": "W",
     "INFO": "I",
     "DEBUG": "D"
 }
+
+export def log-short-prefix [] {$LOG_SHORT_PREFIX}
 
 export-env {
     $env.NU_LOG_FORMAT = $env.NU_LOG_FORMAT? | default "%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
