@@ -2289,6 +2289,30 @@ fn extern_custom_completion_short_flag(mut extern_completer: NuCompleter) {
     match_suggestions(&expected, &suggestions);
 }
 
+/// When we're completing the flag name itself, not its value,
+/// custom completions should not be used
+#[rstest]
+fn custom_completion_flag_name_not_value(mut extern_completer: NuCompleter) {
+    let suggestions = extern_completer.complete("spam --f", 8);
+    assert!(
+        suggestions.iter().any(|s| s.value == "--foo"),
+        "Should contain --foo flag"
+    );
+    let should_not_contain: Vec<_> = vec!["cat", "dog", "eel"];
+    for item in should_not_contain {
+        assert!(
+            !suggestions.iter().any(|s| s.value == item),
+            "Should not contain custom completion {}",
+            item
+        );
+    }
+
+    // Also test with partial short flag
+    let suggestions = extern_completer.complete("spam -f", 7);
+    assert_eq!(1, suggestions.len(), "Should only have one suggestion");
+    assert_eq!("-f", suggestions[0].value, "Should suggest -f flag");
+}
+
 #[rstest]
 fn extern_complete_flags(mut extern_completer: NuCompleter) {
     let suggestions = extern_completer.complete("spam -", 6);
