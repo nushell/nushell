@@ -301,15 +301,15 @@ export def custom [
         $ansi
     }
 
-    print --stderr ([
-        ["%MSG%" $message]
-        ["%DATE%" (now)]
-        ["%LEVEL%" $prefix]
-        ["%ANSI_START%" $ansi]
-        ["%ANSI_STOP%" (ansi reset)]
-    ] | reduce --fold $format {
-        |it, acc| $acc | str replace --all $it.0 $it.1
-    })
+    print --stderr (
+        $format
+            | str replace --all "%MSG%" $message
+            | str replace --all "%DATE%" (now)
+            | str replace --all "%LEVEL%" $prefix
+            | str replace --all "%ANSI_START%" $ansi
+            | str replace --all "%ANSI_STOP%" (ansi reset)
+
+    )
 }
 
 def "nu-complete log-level" [] {
